@@ -6,6 +6,7 @@ import { NavBar } from "./components/common/NavBar";
 import { LoginPage } from "./pages/LoginPage";
 import { EmittersListPage } from "./pages/EmittersListPage";
 import { EmitterEditorPage } from "./pages/EmitterEditorPage";
+import { EmitterVersionHistoryPage } from "./pages/EmitterVersionHistoryPage";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
@@ -32,6 +33,14 @@ export default function App() {
               element={
                 <RequireAuth>
                   <EmitterEditorPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/emitters/:emitterId/versions"
+              element={
+                <RequireAuth>
+                  <EmitterVersionHistoryPage />
                 </RequireAuth>
               }
             />

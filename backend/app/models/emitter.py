@@ -27,3 +27,6 @@ class Emitter(UUIDPkMixin, TimestampMixin, Base):
     sources: Mapped[list["Source"]] = relationship(
         back_populates="emitter", cascade="all, delete-orphan"
     )
+    versions: Mapped[list["EmitterVersion"]] = relationship(  # noqa: F821
+        back_populates="emitter", cascade="all, delete-orphan", order_by="EmitterVersion.version_number"
+    )

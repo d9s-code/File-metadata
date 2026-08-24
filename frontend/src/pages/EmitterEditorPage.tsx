@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useEmitter } from "../state/hooks/useEmitters";
 import { useEwGroups } from "../state/hooks/useEwGroups";
 import { useSources } from "../state/hooks/useSources";
@@ -7,6 +7,7 @@ import { EwGroupPanel } from "../components/ewGroups/EwGroupPanel";
 import { EwGroupForm } from "../components/ewGroups/EwGroupForm";
 import { SourceCard } from "../components/sources/SourceCard";
 import { SourceForm } from "../components/sources/SourceForm";
+import { StatusTransitionControls } from "../components/versioning/StatusTransitionControls";
 import { RequireRole } from "../auth/RequireAuth";
 
 type Tab = "ew-groups" | "sources";
@@ -25,7 +26,11 @@ export function EmitterEditorPage() {
       <h1>
         {emitter.name} {emitter.designation && <span className="muted">({emitter.designation})</span>}
       </h1>
-      <span className={`status-badge status-${emitter.status}`}>{emitter.status}</span>
+      <div className="status-row">
+        <span className={`status-badge status-${emitter.status}`}>{emitter.status}</span>
+        <StatusTransitionControls emitterId={emitter.id} status={emitter.status} />
+        <Link to={`/emitters/${emitter.id}/versions`}>Version history</Link>
+      </div>
       {emitter.description && <p className="muted">{emitter.description}</p>}
 
       <div className="tab-bar">
