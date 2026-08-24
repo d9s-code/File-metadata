@@ -31,6 +31,7 @@ def _mode(mode_id, pri_type, line):
         ew_group_id="g",
         ew_group_name="G",
         source_id="s",
+        source_name="S",
         emitter_id="e",
         emitter_name="E",
         platform_id=None,
@@ -111,8 +112,8 @@ def test_flatten_emitter_snapshot_skips_modes_without_a_line():
                 "id": "g1",
                 "name": "G1",
                 "modes": [
-                    {"id": "m1", "name": "M1", "pri_type": "fixed", "source_id": "s1", "line": _line(pri_min=1, pri_max=2)},
-                    {"id": "m2", "name": "M2", "pri_type": "xlet", "source_id": "s1", "line": None},
+                    {"id": "m1", "name": "M1", "pri_type": "fixed", "source_id": "s1", "source_name": "S1", "line": _line(pri_min=1, pri_max=2)},
+                    {"id": "m2", "name": "M2", "pri_type": "xlet", "source_id": "s1", "source_name": "S1", "line": None},
                 ],
             }
         ],
@@ -127,7 +128,13 @@ def test_flatten_platform_and_mdf_snapshots_carry_context_through():
         "id": "e1",
         "name": "Emitter1",
         "ew_groups": [
-            {"id": "g1", "name": "G1", "modes": [{"id": "m1", "name": "M1", "pri_type": "cw", "source_id": "s1", "line": _line()}]}
+            {
+                "id": "g1",
+                "name": "G1",
+                "modes": [
+                    {"id": "m1", "name": "M1", "pri_type": "cw", "source_id": "s1", "source_name": "S1", "line": _line()}
+                ],
+            }
         ],
     }
     platform_snapshot = {

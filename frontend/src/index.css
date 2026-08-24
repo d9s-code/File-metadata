@@ -175,6 +175,119 @@ button:disabled {
   filter: brightness(0.9);
 }
 
+.info-popover {
+  position: relative;
+  display: inline-block;
+}
+.info-popover-trigger {
+  cursor: default;
+  border-bottom: 1px dotted var(--muted);
+}
+.info-popover-content {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 60;
+  margin-top: 0.25rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  padding: 0.6rem 0.75rem;
+  min-width: 220px;
+  max-width: 320px;
+  font-size: 0.8rem;
+  font-weight: normal;
+  color: var(--text);
+  white-space: normal;
+  line-height: 1.4;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  pointer-events: none;
+}
+.info-popover:hover .info-popover-content {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+.info-popover-content dl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.info-popover-content dt {
+  color: var(--muted);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+}
+.info-popover-content dd {
+  margin: 0 0 0.3rem 0;
+}
+
+.stagger-box-trigger {
+  background: var(--hover-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.stagger-box-trigger:hover {
+  background: var(--active-bg);
+}
+.stagger-box {
+  position: relative;
+}
+.stagger-box-content {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 60;
+  margin-top: 0.25rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  padding: 0.6rem 0.75rem;
+  min-width: 200px;
+  font-size: 0.8rem;
+  white-space: normal;
+}
+
+.sortable-th {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.sortable-th:hover {
+  color: var(--text);
+}
+.sort-indicator {
+  color: var(--muted);
+  margin-left: 0.25rem;
+}
+
+.modes-toolbar-row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+.modes-toolbar-row input[type="text"],
+.modes-toolbar-row input[type="search"] {
+  min-width: 200px;
+}
+
+.jitter-subline {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -428,6 +541,17 @@ label {
 .matrix-cell.matrix-selected {
   outline: 2px solid var(--primary);
   outline-offset: -2px;
+}
+.matrix-cluster-row {
+  margin-bottom: 0.5rem;
+}
+th.matrix-group-boundary,
+td.matrix-group-boundary {
+  border-left: 2px solid var(--primary);
+}
+tr.matrix-group-boundary th,
+tr.matrix-group-boundary td {
+  border-top: 2px solid var(--primary);
 }
 
 .scatter-plot-group {

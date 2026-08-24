@@ -114,6 +114,18 @@ class ModeOut(BaseModel):
     pri_type: PriType
     notes: str | None = None
     sort_order: int
+    generation_batch_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
     line: ModeLineOut | None = None
+
+
+class ModeGenerationBatchOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    ew_group_id: UUID
+    source_id: UUID
+    name_prefix: str
+    created_at: datetime
+    mode_count: int

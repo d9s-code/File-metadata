@@ -1,10 +1,11 @@
 from uuid import UUID
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.enums import ElementType, PriType
 from app.dsl.renderer import render_mode_line
-from app.models.mode import Mode, ModeElement, ModeLine
+from app.models.mode import Mode, ModeElement, ModeGenerationBatch, ModeLine
 from app.models.source import Source
 from app.services.delta import apply_delta
 
@@ -38,6 +39,7 @@ def run_cartesian_product(
     pw_element_ids: list[UUID],
     pri_element_ids: list[UUID],
     name_prefix: str,
+    created_by: UUID | None = None,
 ) -> list[Mode]:
     rf_elements = _fetch_elements(db, source.id, rf_element_ids, ElementType.rf)
     pw_elements = _fetch_elements(db, source.id, pw_element_ids, ElementType.pw)
@@ -50,6 +52,16 @@ def run_cartesian_product(
             "or all Stagger sequences, not a mix"
         )
 
+    batch = ModeGenerationBatch(
+        ew_group_id=ew_group_id, source_id=source.id, name_prefix=name_prefix, created_by=created_by
+    )
+    db.add(batch)
+    db.flush()
+
+    # Continue sort_order from whatever's already in this EW Group instead of resetting to 1,
+    # so repeated cartesian-product runs (and manually-created modes) never collide.
+    base_sort_order = db.query(func.max(Mode.sort_order)).filter(Mode.ew_group_id == ew_group_id).scalar() or 0
+
     created: list[Mode] = []
     counter = 1
     for pri_el in pri_elements:
@@ -61,7 +73,8 @@ def run_cartesian_product(
                     source_id=source.id,
                     name=f"{name_prefix} {counter}",
                     pri_type=pri_type,
-                    sort_order=counter,
+                    sort_order=base_sort_order + counter,
+                    generation_batch_id=batch.id,
                 )
                 db.add(mode)
                 db.flush()

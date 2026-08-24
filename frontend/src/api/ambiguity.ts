@@ -42,6 +42,7 @@ export interface FindingModeSide {
   ew_group_id: string;
   ew_group_name: string;
   source_id: string;
+  source_name: string;
   emitter_id: string;
   emitter_name: string;
   platform_id: string | null;

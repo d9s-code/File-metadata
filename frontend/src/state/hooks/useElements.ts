@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { elementsApi, type CartesianProductInput, type ModeElementInput } from "../../api/elements";
 import { emitterModesKey, modesKey } from "./useModes";
+import { emitterBatchesKey } from "./useModeBatches";
 
 export function elementsKey(emitterId: string, sourceId: string) {
   return ["elements", emitterId, sourceId] as const;
@@ -37,6 +38,7 @@ export function useCartesianProduct(emitterId: string, sourceId: string) {
     onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey: modesKey(variables.ew_group_id) });
       qc.invalidateQueries({ queryKey: emitterModesKey(emitterId) });
+      qc.invalidateQueries({ queryKey: emitterBatchesKey(emitterId) });
     },
   });
 }

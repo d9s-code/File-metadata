@@ -179,7 +179,7 @@ def cartesian_product(
     source_id: UUID,
     payload: CartesianProductRequest,
     db: Session = Depends(get_db),
-    _=Depends(require_role(Role.editor)),
+    user=Depends(require_role(Role.editor)),
 ) -> CartesianProductResult:
     source = _get_source_or_404(db, emitter_id, source_id)
     ew_group = db.get(EwGroup, payload.ew_group_id)
@@ -198,6 +198,7 @@ def cartesian_product(
             pw_element_ids=payload.pw_element_ids,
             pri_element_ids=payload.pri_element_ids,
             name_prefix=payload.name_prefix,
+            created_by=user.id,
         )
     except CartesianProductError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc

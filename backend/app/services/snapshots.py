@@ -40,6 +40,7 @@ def _mode_dict(mode: Mode) -> dict:
         "notes": mode.notes,
         "sort_order": mode.sort_order,
         "source_id": str(mode.source_id),
+        "source_name": mode.source.name,
         "line": None
         if line is None
         else {

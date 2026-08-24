@@ -10,9 +10,9 @@ from app.deps import require_role
 from app.models.emitter import Emitter
 from app.models.emitter_version import EmitterVersion
 from app.models.ew_group import EwGroup
-from app.models.mode import Mode
+from app.models.mode import Mode, ModeGenerationBatch
 from app.schemas.emitter import EmitterCreate, EmitterOut, EmitterUpdate
-from app.schemas.mode import ModeOut
+from app.schemas.mode import ModeGenerationBatchOut, ModeOut
 from app.schemas.emitter_version import (
     CommitVersionRequest,
     DiffOut,
@@ -130,6 +130,51 @@ def list_emitter_modes(
         .order_by(EwGroup.sort_order, Mode.sort_order)
         .all()
     )
+
+
+@router.get("/{emitter_id}/generation-batches", response_model=list[ModeGenerationBatchOut])
+def list_generation_batches(
+    emitter_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
+) -> list[ModeGenerationBatchOut]:
+    """Every cartesian-product run for this Emitter, across all its EW Groups/Sources."""
+    _get_emitter_or_404(db, emitter_id)
+    batches = (
+        db.query(ModeGenerationBatch)
+        .join(EwGroup, ModeGenerationBatch.ew_group_id == EwGroup.id)
+        .filter(EwGroup.emitter_id == emitter_id)
+        .order_by(ModeGenerationBatch.created_at.desc())
+        .all()
+    )
+    return [
+        ModeGenerationBatchOut(
+            id=b.id,
+            ew_group_id=b.ew_group_id,
+            source_id=b.source_id,
+            name_prefix=b.name_prefix,
+            created_at=b.created_at,
+            mode_count=len(b.modes),
+        )
+        for b in batches
+    ]
+
+
+@router.delete(
+    "/{emitter_id}/generation-batches/{batch_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(verify_csrf)],
+)
+def delete_generation_batch(
+    emitter_id: UUID, batch_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.editor))
+) -> None:
+    """Deletes every Mode this batch generated (cascading their ModeLines), then the batch."""
+    _get_emitter_or_404(db, emitter_id)
+    batch = db.get(ModeGenerationBatch, batch_id)
+    if batch is None or batch.ew_group.emitter_id != emitter_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Generation batch not found")
+    for mode in list(batch.modes):
+        db.delete(mode)
+    db.delete(batch)
+    db.commit()
 
 
 @router.post(

@@ -23,6 +23,7 @@ class FlatModeLine:
     ew_group_id: str
     ew_group_name: str
     source_id: str
+    source_name: str
     emitter_id: str
     emitter_name: str
     platform_id: str | None
@@ -53,6 +54,7 @@ def flatten_emitter_snapshot(
                     ew_group_id=ew_group["id"],
                     ew_group_name=ew_group["name"],
                     source_id=mode["source_id"],
+                    source_name=mode["source_name"],
                     emitter_id=eid,
                     emitter_name=ename,
                     platform_id=platform_id,
@@ -186,6 +188,7 @@ def compute_pairwise_findings(mode_lines: list[FlatModeLine], tolerance: dict | 
                         "ew_group_id": a.ew_group_id,
                         "ew_group_name": a.ew_group_name,
                         "source_id": a.source_id,
+                        "source_name": a.source_name,
                         "emitter_id": a.emitter_id,
                         "emitter_name": a.emitter_name,
                         "platform_id": a.platform_id,
@@ -197,6 +200,7 @@ def compute_pairwise_findings(mode_lines: list[FlatModeLine], tolerance: dict | 
                         "ew_group_id": b.ew_group_id,
                         "ew_group_name": b.ew_group_name,
                         "source_id": b.source_id,
+                        "source_name": b.source_name,
                         "emitter_id": b.emitter_id,
                         "emitter_name": b.emitter_name,
                         "platform_id": b.platform_id,

@@ -84,9 +84,19 @@ export interface Mode {
   pri_type: PriType;
   notes: string | null;
   sort_order: number;
+  generation_batch_id: string | null;
   created_at: string;
   updated_at: string;
   line: ModeLine | null;
+}
+
+export interface ModeGenerationBatch {
+  id: string;
+  ew_group_id: string;
+  source_id: string;
+  name_prefix: string;
+  created_at: string;
+  mode_count: number;
 }
 
 export interface ModeElement {

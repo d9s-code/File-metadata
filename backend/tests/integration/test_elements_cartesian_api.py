@@ -216,6 +216,99 @@ def test_create_mode_from_dsl_rejects_invalid_syntax(editor_client, emitter_ctx)
     assert resp.status_code == 422
 
 
+def test_cartesian_product_creates_generation_batch(editor_client, emitter_ctx):
+    url = _elements_url(emitter_ctx)
+    rf1 = editor_client.post(url, json={"element_type": "rf", "value_min": 2900, "value_max": 3100}).json()
+    pw1 = editor_client.post(url, json={"element_type": "pw", "value_min": 0.5, "value_max": 1.2}).json()
+    pri1 = editor_client.post(
+        url, json={"element_type": "pri", "value_min": 800, "value_max": 1200, "jitter_min": 5, "jitter_max": 15}
+    ).json()
+
+    resp = editor_client.post(
+        f"{url}/cartesian-product",
+        json={
+            "ew_group_id": emitter_ctx["ew_group"]["id"],
+            "rf_element_ids": [rf1["id"]],
+            "pw_element_ids": [pw1["id"]],
+            "pri_element_ids": [pri1["id"]],
+            "name_prefix": "Batch1",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+    modes = editor_client.get(f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes").json()
+    assert len(modes) == 1
+    batch_id = modes[0]["generation_batch_id"]
+    assert batch_id is not None
+
+    batches = editor_client.get(f"/emitters/{emitter_ctx['emitter']['id']}/generation-batches").json()
+    assert len(batches) == 1
+    assert batches[0]["id"] == batch_id
+    assert batches[0]["name_prefix"] == "Batch1"
+    assert batches[0]["mode_count"] == 1
+
+
+def test_repeated_cartesian_product_runs_do_not_collide_on_sort_order(editor_client, emitter_ctx):
+    url = _elements_url(emitter_ctx)
+    rf1 = editor_client.post(url, json={"element_type": "rf", "value_min": 2900, "value_max": 3100}).json()
+    rf2 = editor_client.post(url, json={"element_type": "rf", "value_min": 4900, "value_max": 5100}).json()
+    pw1 = editor_client.post(url, json={"element_type": "pw", "value_min": 0.5, "value_max": 1.2}).json()
+    pri1 = editor_client.post(
+        url, json={"element_type": "pri", "value_min": 800, "value_max": 1200, "jitter_min": 5, "jitter_max": 15}
+    ).json()
+
+    for prefix in ("RunA", "RunB"):
+        resp = editor_client.post(
+            f"{url}/cartesian-product",
+            json={
+                "ew_group_id": emitter_ctx["ew_group"]["id"],
+                "rf_element_ids": [rf1["id"], rf2["id"]],
+                "pw_element_ids": [pw1["id"]],
+                "pri_element_ids": [pri1["id"]],
+                "name_prefix": prefix,
+            },
+        )
+        assert resp.status_code == 200, resp.text
+
+    modes = editor_client.get(f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes").json()
+    assert len(modes) == 4
+    sort_orders = [m["sort_order"] for m in modes]
+    assert len(sort_orders) == len(set(sort_orders))  # no collisions across the two runs
+
+    batches = editor_client.get(f"/emitters/{emitter_ctx['emitter']['id']}/generation-batches").json()
+    assert len(batches) == 2
+    assert {b["mode_count"] for b in batches} == {2}
+
+
+def test_delete_generation_batch_removes_its_modes(editor_client, emitter_ctx):
+    url = _elements_url(emitter_ctx)
+    rf1 = editor_client.post(url, json={"element_type": "rf", "value_min": 2900, "value_max": 3100}).json()
+    pw1 = editor_client.post(url, json={"element_type": "pw", "value_min": 0.5, "value_max": 1.2}).json()
+    pri1 = editor_client.post(
+        url, json={"element_type": "pri", "value_min": 800, "value_max": 1200, "jitter_min": 5, "jitter_max": 15}
+    ).json()
+
+    editor_client.post(
+        f"{url}/cartesian-product",
+        json={
+            "ew_group_id": emitter_ctx["ew_group"]["id"],
+            "rf_element_ids": [rf1["id"]],
+            "pw_element_ids": [pw1["id"]],
+            "pri_element_ids": [pri1["id"]],
+            "name_prefix": "ToDelete",
+        },
+    )
+    batch = editor_client.get(f"/emitters/{emitter_ctx['emitter']['id']}/generation-batches").json()[0]
+
+    resp = editor_client.delete(f"/emitters/{emitter_ctx['emitter']['id']}/generation-batches/{batch['id']}")
+    assert resp.status_code == 204
+
+    modes = editor_client.get(f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes").json()
+    assert modes == []
+    batches = editor_client.get(f"/emitters/{emitter_ctx['emitter']['id']}/generation-batches").json()
+    assert batches == []
+
+
 def test_dsl_parse_and_render_endpoints(viewer_client):
     resp = viewer_client.post("/dsl/parse", json={"text": "RF 2900-3100 PRI CW PW 0.5-1.2"})
     assert resp.status_code == 200

@@ -1,12 +1,22 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import type { AmbiguityScopeType, ToleranceConfig } from "../api/ambiguity";
+import type { AmbiguityFinding, AmbiguityScopeType, ToleranceConfig } from "../api/ambiguity";
 import { useAmbiguityFindings, useAmbiguityRun, useCreateAmbiguityRun } from "../state/hooks/useAmbiguity";
 import { ToleranceConfigForm } from "../components/ambiguity/ToleranceConfigForm";
 import { AmbiguityMatrix } from "../components/ambiguity/AmbiguityMatrix";
 import { FindingsTable } from "../components/ambiguity/FindingsTable";
 import { RfPriScatterPlot } from "../components/ambiguity/RfPriScatterPlot";
 import { ApiRequestError } from "../api/client";
+
+function matchesScope(finding: AmbiguityFinding, ewGroupId: string, sourceId: string): boolean {
+  const ewOk =
+    !ewGroupId ||
+    (finding.details.mode_a.ew_group_id === ewGroupId && finding.details.mode_b.ew_group_id === ewGroupId);
+  const sourceOk =
+    !sourceId ||
+    (finding.details.mode_a.source_id === sourceId && finding.details.mode_b.source_id === sourceId);
+  return ewOk && sourceOk;
+}
 
 export function AmbiguityDashboardPage() {
   const { scopeType, scopeId } = useParams<{ scopeType: AmbiguityScopeType; scopeId: string }>();
@@ -17,6 +27,32 @@ export function AmbiguityDashboardPage() {
   const createRun = useCreateAmbiguityRun();
   const { data: run } = useAmbiguityRun(runId);
   const { data: findings } = useAmbiguityFindings(run?.status === "complete" ? runId : null);
+
+  const [ewGroupScope, setEwGroupScope] = useState("");
+  const [sourceScope, setSourceScope] = useState("");
+
+  const ewGroupOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const f of findings ?? []) {
+      map.set(f.details.mode_a.ew_group_id, f.details.mode_a.ew_group_name);
+      map.set(f.details.mode_b.ew_group_id, f.details.mode_b.ew_group_name);
+    }
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [findings]);
+
+  const sourceOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const f of findings ?? []) {
+      map.set(f.details.mode_a.source_id, f.details.mode_a.source_name);
+      map.set(f.details.mode_b.source_id, f.details.mode_b.source_name);
+    }
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [findings]);
+
+  const scopedFindings = useMemo(
+    () => (findings ?? []).filter((f) => matchesScope(f, ewGroupScope, sourceScope)),
+    [findings, ewGroupScope, sourceScope],
+  );
 
   async function handleRun(tolerance: ToleranceConfig) {
     setError(null);
@@ -33,7 +69,7 @@ export function AmbiguityDashboardPage() {
     }
   }
 
-  const selectedFinding = findings?.find((f) => f.id === selectedFindingId) ?? null;
+  const selectedFinding = scopedFindings.find((f) => f.id === selectedFindingId) ?? null;
 
   return (
     <div className="page">
@@ -48,9 +84,43 @@ export function AmbiguityDashboardPage() {
       {run?.status === "complete" && findings && (
         <>
           <div className="card">
+            <h4>Scope</h4>
+            <p className="hint-text">
+              Narrows both the matrix and the findings below to pairs where both modes share the chosen EW
+              Group and/or Source — useful once a scope has enough modes that the full matrix gets unwieldy.
+            </p>
+            <div className="form-row">
+              <select value={ewGroupScope} onChange={(e) => setEwGroupScope(e.target.value)}>
+                <option value="">All EW Groups</option>
+                {ewGroupOptions.map(([id, name]) => (
+                  <option key={id} value={id}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+              <select value={sourceScope} onChange={(e) => setSourceScope(e.target.value)}>
+                <option value="">All Sources</option>
+                {sourceOptions.map(([id, name]) => (
+                  <option key={id} value={id}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="card">
             <h4>Ambiguity Matrix</h4>
             <p className="hint-text">Click a cell to see the pair's RF/PW/PRI comparison and review it below.</p>
-            <AmbiguityMatrix findings={findings} selectedId={selectedFindingId} onSelectFinding={setSelectedFindingId} />
+            {scopedFindings.length === 0 ? (
+              <p className="hint-text">No findings in this scope.</p>
+            ) : (
+              <AmbiguityMatrix
+                findings={scopedFindings}
+                selectedId={selectedFindingId}
+                onSelectFinding={setSelectedFindingId}
+              />
+            )}
           </div>
 
           {selectedFinding && (
@@ -66,7 +136,7 @@ export function AmbiguityDashboardPage() {
             <h4>Findings</h4>
             <FindingsTable
               runId={runId as string}
-              findings={findings}
+              findings={scopedFindings}
               selectedId={selectedFindingId}
               onSelect={setSelectedFindingId}
             />
