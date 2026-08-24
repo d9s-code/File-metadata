@@ -1,0 +1,26 @@
+// Mode-line DSL grammar. Units are fixed for v1: RF in MHz, PW/PRI/Jitter in
+// microseconds. Keywords are case-insensitive.
+//
+// Examples:
+//   RF 2900-3100 PRI FIXED 800-1200 JITTER 5-15 PW 0.5-1.2
+//   RF 2900-3100 PRI STAGGER [800, 850, 900, 780] PW 0.5-1.2
+//   RF 2900-3100 PRI CW PW 0.5-1.2
+//
+// Xlet has no line syntax yet (no fields are defined for it).
+
+start: "RF"i range "PRI"i pri_clause "PW"i range
+
+pri_clause: "FIXED"i range "JITTER"i range -> fixed_clause
+          | "STAGGER"i "[" number ("," number)* "]" -> stagger_clause
+          | "CW"i -> cw_clause
+
+// Bounds are unsigned: RF/PW/PRI/Jitter are physical quantities that never
+// go negative, and using unsigned numbers avoids ambiguity between a
+// negative number and a "-" range separator (e.g. "2900-3100").
+range: number "-" number
+
+number: NUMBER
+
+%import common.NUMBER
+%import common.WS
+%ignore WS

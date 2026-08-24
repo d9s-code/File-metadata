@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { modesApi, type ModeCreateInput } from "../../api/modes";
+import { dslApi, type ModeFromDslInput } from "../../api/dsl";
 
 export function modesKey(ewGroupId: string) {
   return ["modes", ewGroupId] as const;
@@ -13,6 +14,14 @@ export function useCreateMode(ewGroupId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: ModeCreateInput) => modesApi.create(ewGroupId, input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: modesKey(ewGroupId) }),
+  });
+}
+
+export function useCreateModeFromDsl(ewGroupId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ModeFromDslInput) => dslApi.createModeFromDsl(ewGroupId, input),
     onSuccess: () => qc.invalidateQueries({ queryKey: modesKey(ewGroupId) }),
   });
 }

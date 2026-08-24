@@ -8,8 +8,19 @@ from app.core.enums import Role
 from app.database import get_db
 from app.deps import require_role
 from app.models.emitter import Emitter
+from app.models.ew_group import EwGroup
+from app.models.mode import ModeElement
 from app.models.source import Source
+from app.schemas.mode_element import (
+    CartesianProductRequest,
+    CartesianProductResult,
+    FrametimeResponse,
+    ModeElementCreate,
+    ModeElementOut,
+)
 from app.schemas.source import SourceCreate, SourceOut, SourceUpdate
+from app.services.cartesian_service import CartesianProductError, run_cartesian_product
+from app.services.frametime_service import compute_frametime_us
 
 router = APIRouter(prefix="/emitters/{emitter_id}/sources", tags=["sources"])
 
@@ -78,3 +89,116 @@ def delete_source(
         raise HTTPException(status.HTTP_409_CONFLICT, "Cannot delete a Source that still has Modes")
     db.delete(source)
     db.commit()
+
+
+def _get_source_or_404(db: Session, emitter_id: UUID, source_id: UUID) -> Source:
+    source = db.get(Source, source_id)
+    if source is None or source.emitter_id != emitter_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Source not found")
+    return source
+
+
+@router.get("/{source_id}/elements", response_model=list[ModeElementOut])
+def list_elements(
+    emitter_id: UUID, source_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
+) -> list[ModeElement]:
+    _get_source_or_404(db, emitter_id, source_id)
+    return (
+        db.query(ModeElement)
+        .filter(ModeElement.source_id == source_id)
+        .order_by(ModeElement.element_type, ModeElement.sort_order)
+        .all()
+    )
+
+
+@router.post(
+    "/{source_id}/elements",
+    response_model=ModeElementOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(verify_csrf)],
+)
+def create_element(
+    emitter_id: UUID,
+    source_id: UUID,
+    payload: ModeElementCreate,
+    db: Session = Depends(get_db),
+    _=Depends(require_role(Role.editor)),
+) -> ModeElement:
+    _get_source_or_404(db, emitter_id, source_id)
+    element = ModeElement(source_id=source_id, **payload.model_dump())
+    db.add(element)
+    db.commit()
+    db.refresh(element)
+    return element
+
+
+@router.delete(
+    "/{source_id}/elements/{element_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(verify_csrf)],
+)
+def delete_element(
+    emitter_id: UUID,
+    source_id: UUID,
+    element_id: UUID,
+    db: Session = Depends(get_db),
+    _=Depends(require_role(Role.editor)),
+) -> None:
+    _get_source_or_404(db, emitter_id, source_id)
+    element = db.get(ModeElement, element_id)
+    if element is None or element.source_id != source_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Element not found")
+    db.delete(element)
+    db.commit()
+
+
+@router.get("/{source_id}/elements/{element_id}/frametime", response_model=FrametimeResponse)
+def get_frametime(
+    emitter_id: UUID,
+    source_id: UUID,
+    element_id: UUID,
+    db: Session = Depends(get_db),
+    _=Depends(require_role(Role.viewer)),
+) -> FrametimeResponse:
+    _get_source_or_404(db, emitter_id, source_id)
+    element = db.get(ModeElement, element_id)
+    if element is None or element.source_id != source_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Element not found")
+    if not element.stagger_values:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Frametime only applies to a Stagger PRI element")
+    return FrametimeResponse(
+        element_id=element.id,
+        frametime_us=compute_frametime_us(element.stagger_values),
+        values=element.stagger_values,
+    )
+
+
+@router.post("/{source_id}/elements/cartesian-product", response_model=CartesianProductResult)
+def cartesian_product(
+    emitter_id: UUID,
+    source_id: UUID,
+    payload: CartesianProductRequest,
+    db: Session = Depends(get_db),
+    _=Depends(require_role(Role.editor)),
+) -> CartesianProductResult:
+    source = _get_source_or_404(db, emitter_id, source_id)
+    ew_group = db.get(EwGroup, payload.ew_group_id)
+    if ew_group is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Target EW Group not found")
+    if ew_group.emitter_id != emitter_id:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "Target EW Group must belong to the same Emitter as the Source"
+        )
+    try:
+        created = run_cartesian_product(
+            db,
+            source=source,
+            ew_group_id=payload.ew_group_id,
+            rf_element_ids=payload.rf_element_ids,
+            pw_element_ids=payload.pw_element_ids,
+            pri_element_ids=payload.pri_element_ids,
+            name_prefix=payload.name_prefix,
+        )
+    except CartesianProductError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    return CartesianProductResult(created_mode_ids=[m.id for m in created], count=len(created))

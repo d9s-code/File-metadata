@@ -79,6 +79,14 @@ class ModeCreate(BaseModel):
         return self
 
 
+class ModeCreateFromDsl(BaseModel):
+    source_id: UUID
+    name: str
+    dsl_text: str
+    notes: str | None = None
+    sort_order: int = 0
+
+
 class ModeUpdate(BaseModel):
     name: str | None = None
     notes: str | None = None

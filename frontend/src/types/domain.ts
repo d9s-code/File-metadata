@@ -4,6 +4,8 @@ export type EmitterStatus = "draft" | "in_review" | "validated" | "deprecated";
 
 export type PriType = "fixed" | "stagger" | "cw" | "xlet";
 
+export type ElementType = "rf" | "pw" | "pri";
+
 export interface User {
   id: string;
   username: string;
@@ -77,6 +79,19 @@ export interface Mode {
   created_at: string;
   updated_at: string;
   line: ModeLine | null;
+}
+
+export interface ModeElement {
+  id: string;
+  source_id: string;
+  element_type: ElementType;
+  value_min: number | null;
+  value_max: number | null;
+  stagger_values: number[] | null;
+  jitter_min: number | null;
+  jitter_max: number | null;
+  label: string | null;
+  sort_order: number;
 }
 
 export interface ApiError {

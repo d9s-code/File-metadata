@@ -5,7 +5,7 @@ import { useEwGroups } from "../state/hooks/useEwGroups";
 import { useSources } from "../state/hooks/useSources";
 import { EwGroupPanel } from "../components/ewGroups/EwGroupPanel";
 import { EwGroupForm } from "../components/ewGroups/EwGroupForm";
-import { SourcePanel } from "../components/sources/SourcePanel";
+import { SourceCard } from "../components/sources/SourceCard";
 import { SourceForm } from "../components/sources/SourceForm";
 import { RequireRole } from "../auth/RequireAuth";
 
@@ -51,7 +51,9 @@ export function EmitterEditorPage() {
 
       {tab === "sources" && (
         <div>
-          <SourcePanel emitterId={emitter.id} sources={sources ?? []} />
+          {(sources ?? []).map((s) => (
+            <SourceCard key={s.id} emitterId={emitter.id} source={s} ewGroups={ewGroups ?? []} />
+          ))}
           <RequireRole minimum="editor">
             <h4>Add Source</h4>
             <SourceForm emitterId={emitter.id} />
