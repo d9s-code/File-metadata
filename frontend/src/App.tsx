@@ -14,6 +14,7 @@ import { MdfsListPage } from "./pages/MdfsListPage";
 import { MdfBuilderPage } from "./pages/MdfBuilderPage";
 import { MdfVersionHistoryPage } from "./pages/MdfVersionHistoryPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { AmbiguityDashboardPage } from "./pages/AmbiguityDashboardPage";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
@@ -104,6 +105,14 @@ export default function App() {
               element={
                 <RequireAuth>
                   <DashboardPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/ambiguity/:scopeType/:scopeId"
+              element={
+                <RequireAuth>
+                  <AmbiguityDashboardPage />
                 </RequireAuth>
               }
             />

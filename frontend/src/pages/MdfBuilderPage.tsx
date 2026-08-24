@@ -28,6 +28,7 @@ export function MdfBuilderPage() {
         <span className={`status-badge status-${mdf.status}`}>{mdf.status.replace("_", " ")}</span>
         <MdfStatusTransitionControls mdfId={mdf.id} status={mdf.status} />
         <Link to={`/mdfs/${mdf.id}/versions`}>Version history</Link>
+        <Link to={`/ambiguity/mdf/${mdf.id}`}>Ambiguity check</Link>
       </div>
       {mdf.description && <p className="muted">{mdf.description}</p>}
 

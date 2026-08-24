@@ -204,6 +204,89 @@ label {
   font-size: 0.9rem;
 }
 
+.severity-badge {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  text-transform: capitalize;
+}
+.severity-none { background: #e5e7eb; color: #374151; }
+.severity-low { background: #dbeafe; color: #1e40af; }
+.severity-medium { background: #fef3c7; color: #92400e; }
+.severity-high { background: #fed7aa; color: #9a3412; }
+.severity-exact_overlap { background: #fee2e2; color: #991b1b; }
+
+.tolerance-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.finding-row {
+  cursor: pointer;
+}
+.finding-row:hover {
+  background: #f8fafc;
+}
+.finding-row.selected {
+  background: #eef2f7;
+}
+
+.matrix-scroll {
+  overflow-x: auto;
+}
+.ambiguity-matrix {
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+.ambiguity-matrix th {
+  padding: 0.3rem;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  color: var(--muted);
+}
+.ambiguity-matrix th:first-child {
+  text-align: right;
+}
+.matrix-cell {
+  width: 22px;
+  height: 22px;
+  border: 1px solid white;
+  cursor: pointer;
+}
+.matrix-diagonal {
+  background: #f1f3f5;
+  cursor: default;
+}
+.matrix-empty {
+  background: #fafafa;
+  cursor: default;
+}
+.matrix-cell.severity-none { background: #e5e7eb; }
+.matrix-cell.severity-low { background: #93c5fd; }
+.matrix-cell.severity-medium { background: #fcd34d; }
+.matrix-cell.severity-high { background: #fb923c; }
+.matrix-cell.severity-exact_overlap { background: #ef4444; }
+.matrix-cell.matrix-selected {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.scatter-plot-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.range-chart h6 {
+  margin: 0 0 0.25rem 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
 .role-badge {
   font-size: 0.7rem;
   text-transform: uppercase;

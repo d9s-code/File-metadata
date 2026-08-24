@@ -19,7 +19,8 @@ export function PlatformBuilderPage() {
     <div className="page">
       <h1>{platform.name}</h1>
       {platform.description && <p className="muted">{platform.description}</p>}
-      <Link to={`/platforms/${platform.id}/versions`}>Version history</Link>
+      <Link to={`/platforms/${platform.id}/versions`}>Version history</Link>{" "}
+      <Link to={`/ambiguity/platform/${platform.id}`}>Ambiguity check</Link>
 
       <h4>Pinned Emitters</h4>
       <PlatformLinkTable platformId={platform.id} links={links ?? []} emittersById={emittersById} />

@@ -31,6 +31,7 @@ export function EmitterEditorPage() {
         <span className={`status-badge status-${emitter.status}`}>{emitter.status}</span>
         <StatusTransitionControls emitterId={emitter.id} status={emitter.status} />
         <Link to={`/emitters/${emitter.id}/versions`}>Version history</Link>
+        <Link to={`/ambiguity/emitter/${emitter.id}`}>Ambiguity check</Link>
       </div>
       {emitter.description && <p className="muted">{emitter.description}</p>}
 
