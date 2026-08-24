@@ -8,6 +8,7 @@ export interface ModeElementInput {
   stagger_values?: number[] | null;
   jitter_min?: number | null;
   jitter_max?: number | null;
+  delta?: number | null;
   label?: string | null;
   sort_order?: number;
 }

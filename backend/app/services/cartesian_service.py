@@ -6,6 +6,7 @@ from app.core.enums import ElementType, PriType
 from app.dsl.renderer import render_mode_line
 from app.models.mode import Mode, ModeElement, ModeLine
 from app.models.source import Source
+from app.services.delta import apply_delta
 
 
 class CartesianProductError(ValueError):
@@ -65,18 +66,21 @@ def run_cartesian_product(
                 db.add(mode)
                 db.flush()
 
+                rf_min, rf_max = apply_delta(rf_el.value_min, rf_el.value_max, rf_el.delta)
+                pw_min, pw_max = apply_delta(pw_el.value_min, pw_el.value_max, pw_el.delta)
                 line_kwargs = dict(
-                    rf_min_mhz=rf_el.value_min,
-                    rf_max_mhz=rf_el.value_max,
-                    pw_min_us=pw_el.value_min,
-                    pw_max_us=pw_el.value_max,
+                    rf_min_mhz=rf_min,
+                    rf_max_mhz=rf_max,
+                    pw_min_us=pw_min,
+                    pw_max_us=pw_max,
                 )
                 if pri_type == PriType.stagger:
                     line_kwargs["pri_stagger_values_us"] = pri_el.stagger_values
                 else:
+                    pri_min, pri_max = apply_delta(pri_el.value_min, pri_el.value_max, pri_el.delta)
                     line_kwargs.update(
-                        pri_min_us=pri_el.value_min,
-                        pri_max_us=pri_el.value_max,
+                        pri_min_us=pri_min,
+                        pri_max_us=pri_max,
                         jitter_min_us=pri_el.jitter_min,
                         jitter_max_us=pri_el.jitter_max,
                     )

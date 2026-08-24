@@ -27,6 +27,11 @@ export function EwGroupPanel({
         <h3>{ewGroup.name}</h3>
         <div className="ew-group-meta">
           <span>Scan: {ewGroup.scan_min ?? "—"}–{ewGroup.scan_max ?? "—"}</span>
+          {ewGroup.scan_delta != null && (
+            <span className="hint-text">
+              engineered: {ewGroup.engineered_scan_min}–{ewGroup.engineered_scan_max} (±{ewGroup.scan_delta})
+            </span>
+          )}
           <span>Threat priority: {ewGroup.threat_priority ?? "—"}</span>
         </div>
         <RequireRole minimum="editor">

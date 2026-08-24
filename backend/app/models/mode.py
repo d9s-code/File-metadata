@@ -82,6 +82,10 @@ class ModeElement(UUIDPkMixin, Base):
     stagger_values: Mapped[list[float] | None] = mapped_column(ARRAY(Numeric(14, 4)), nullable=True)
     jitter_min: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
     jitter_max: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
+    # Symmetric +/- tolerance margin applied to value_min/value_max to derive the
+    # engineered value used downstream; value_min/value_max stay the raw, as-typed
+    # source value. Not applicable to stagger PRI elements.
+    delta: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
     label: Mapped[str | None] = mapped_column(String(200), nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 

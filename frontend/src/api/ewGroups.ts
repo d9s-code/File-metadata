@@ -5,6 +5,7 @@ export interface EwGroupInput {
   name: string;
   scan_min?: number | null;
   scan_max?: number | null;
+  scan_delta?: number | null;
   threat_priority?: number | null;
   sort_order?: number;
 }

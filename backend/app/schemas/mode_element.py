@@ -1,8 +1,9 @@
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, computed_field, model_validator
 
 from app.core.enums import ElementType
+from app.services.delta import apply_delta
 
 
 class ModeElementCreate(BaseModel):
@@ -12,6 +13,7 @@ class ModeElementCreate(BaseModel):
     stagger_values: list[float] | None = None
     jitter_min: float | None = None
     jitter_max: float | None = None
+    delta: float | None = None
     label: str | None = None
     sort_order: int = 0
 
@@ -26,6 +28,8 @@ class ModeElementCreate(BaseModel):
                 raise ValueError("A PRI element needs either value_min/value_max or stagger_values")
             if has_stagger and (self.jitter_min is not None or self.jitter_max is not None):
                 raise ValueError("Jitter only applies to a Fixed-style PRI range element, not a stagger sequence")
+            if has_stagger and self.delta is not None:
+                raise ValueError("Delta only applies to a Fixed-style PRI range element, not a stagger sequence")
         else:
             if self.value_min is None or self.value_max is None:
                 raise ValueError(f"{self.element_type.value} elements require value_min and value_max")
@@ -35,6 +39,8 @@ class ModeElementCreate(BaseModel):
             raise ValueError("value_min must be <= value_max")
         if self.jitter_min is not None and self.jitter_max is not None and self.jitter_min > self.jitter_max:
             raise ValueError("jitter_min must be <= jitter_max")
+        if self.delta is not None and self.delta < 0:
+            raise ValueError("delta must be >= 0")
         return self
 
 
@@ -43,6 +49,16 @@ class ModeElementOut(ModeElementCreate):
 
     id: UUID
     source_id: UUID
+
+    @computed_field
+    @property
+    def engineered_min(self) -> float | None:
+        return apply_delta(self.value_min, self.value_max, self.delta)[0]
+
+    @computed_field
+    @property
+    def engineered_max(self) -> float | None:
+        return apply_delta(self.value_min, self.value_max, self.delta)[1]
 
 
 class CartesianProductRequest(BaseModel):

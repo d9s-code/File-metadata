@@ -17,6 +17,9 @@ class EwGroup(UUIDPkMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     scan_min: Mapped[float | None] = mapped_column(Numeric(12, 4), nullable=True)
     scan_max: Mapped[float | None] = mapped_column(Numeric(12, 4), nullable=True)
+    # Symmetric +/- tolerance margin applied to scan_min/scan_max to derive the
+    # engineered scan window; scan_min/scan_max stay the raw, as-typed values.
+    scan_delta: Mapped[float | None] = mapped_column(Numeric(12, 4), nullable=True)
     threat_priority: Mapped[int | None] = mapped_column(Integer, nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 

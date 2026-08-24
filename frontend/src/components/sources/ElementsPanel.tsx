@@ -15,6 +15,7 @@ function ElementForm({ emitterId, sourceId }: { emitterId: string; sourceId: str
   const [valueMax, setValueMax] = useState("");
   const [jitterMin, setJitterMin] = useState("");
   const [jitterMax, setJitterMax] = useState("");
+  const [delta, setDelta] = useState("");
   const [staggerValues, setStaggerValues] = useState("");
   const [label, setLabel] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +32,7 @@ function ElementForm({ emitterId, sourceId }: { emitterId: string; sourceId: str
         value_max: usesStagger ? undefined : Number(valueMax),
         jitter_min: elementType === "pri" && !usesStagger && jitterMin ? Number(jitterMin) : undefined,
         jitter_max: elementType === "pri" && !usesStagger && jitterMax ? Number(jitterMax) : undefined,
+        delta: !usesStagger && delta ? Number(delta) : undefined,
         stagger_values: usesStagger
           ? staggerValues
               .split(",")
@@ -43,6 +45,7 @@ function ElementForm({ emitterId, sourceId }: { emitterId: string; sourceId: str
       setValueMax("");
       setJitterMin("");
       setJitterMax("");
+      setDelta("");
       setStaggerValues("");
       setLabel("");
     } catch (err) {
@@ -71,6 +74,15 @@ function ElementForm({ emitterId, sourceId }: { emitterId: string; sourceId: str
         <>
           <input placeholder="min" type="number" step="any" value={valueMin} onChange={(e) => setValueMin(e.target.value)} required />
           <input placeholder="max" type="number" step="any" value={valueMax} onChange={(e) => setValueMax(e.target.value)} required />
+          <input
+            placeholder="delta (±, optional)"
+            type="number"
+            step="any"
+            min="0"
+            value={delta}
+            onChange={(e) => setDelta(e.target.value)}
+            title="Symmetric tolerance margin applied to the raw value to derive the engineered value used when generating Modes"
+          />
         </>
       )}
       {elementType === "pri" && priShape === "range" && (
@@ -122,6 +134,12 @@ export function ElementsPanel({ emitterId, sourceId }: { emitterId: string; sour
                   <>
                     {el.value_min}–{el.value_max}
                     {el.jitter_min != null && ` (jitter ${el.jitter_min}–${el.jitter_max})`}
+                    {el.delta != null && (
+                      <span className="hint-text">
+                        {" "}
+                        · raw · engineered: {el.engineered_min}–{el.engineered_max} (±{el.delta})
+                      </span>
+                    )}
                   </>
                 )}
                 <RequireRole minimum="editor">

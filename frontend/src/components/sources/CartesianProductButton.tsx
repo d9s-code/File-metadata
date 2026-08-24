@@ -54,17 +54,26 @@ export function CartesianProductButton({
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
 
+  function rangeLabel(min: number | null, max: number | null, engMin: number | null, engMax: number | null, unit: string) {
+    if (engMin !== min || engMax !== max) {
+      return `${engMin}–${engMax} ${unit} (raw ${min}–${max})`;
+    }
+    return `${min}–${max} ${unit}`;
+  }
+
   const rfItems = (elements ?? [])
     .filter((e) => e.element_type === "rf")
-    .map((e) => ({ id: e.id, label: `${e.value_min}–${e.value_max} MHz` }));
+    .map((e) => ({ id: e.id, label: rangeLabel(e.value_min, e.value_max, e.engineered_min, e.engineered_max, "MHz") }));
   const pwItems = (elements ?? [])
     .filter((e) => e.element_type === "pw")
-    .map((e) => ({ id: e.id, label: `${e.value_min}–${e.value_max} µs` }));
+    .map((e) => ({ id: e.id, label: rangeLabel(e.value_min, e.value_max, e.engineered_min, e.engineered_max, "µs") }));
   const priItems = (elements ?? [])
     .filter((e) => e.element_type === "pri")
     .map((e) => ({
       id: e.id,
-      label: e.stagger_values ? `stagger [${e.stagger_values.join(", ")}]` : `fixed ${e.value_min}–${e.value_max}`,
+      label: e.stagger_values
+        ? `stagger [${e.stagger_values.join(", ")}]`
+        : `fixed ${rangeLabel(e.value_min, e.value_max, e.engineered_min, e.engineered_max, "")}`,
     }));
 
   async function handleRun() {

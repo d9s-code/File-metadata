@@ -86,6 +86,88 @@ def test_cartesian_product_generates_nxmxk_modes(editor_client, emitter_ctx):
     assert all(m["line"]["dsl_text"] for m in modes)
 
 
+def test_create_element_rejects_negative_delta(editor_client, emitter_ctx):
+    resp = editor_client.post(
+        _elements_url(emitter_ctx),
+        json={"element_type": "rf", "value_min": 2900, "value_max": 3100, "delta": -5},
+    )
+    assert resp.status_code == 422
+
+
+def test_create_element_rejects_delta_on_stagger_pri(editor_client, emitter_ctx):
+    resp = editor_client.post(
+        _elements_url(emitter_ctx),
+        json={"element_type": "pri", "stagger_values": [800, 850, 900], "delta": 5},
+    )
+    assert resp.status_code == 422
+
+
+def test_element_response_includes_engineered_range(editor_client, emitter_ctx):
+    element = editor_client.post(
+        _elements_url(emitter_ctx),
+        json={"element_type": "rf", "value_min": 2900, "value_max": 3100, "delta": 5},
+    ).json()
+    assert element["engineered_min"] == 2895
+    assert element["engineered_max"] == 3105
+
+    element_no_delta = editor_client.post(
+        _elements_url(emitter_ctx), json={"element_type": "rf", "value_min": 4900, "value_max": 5100}
+    ).json()
+    assert element_no_delta["engineered_min"] == 4900
+    assert element_no_delta["engineered_max"] == 5100
+
+
+def test_ew_group_response_includes_engineered_scan_range(editor_client, emitter_ctx):
+    resp = editor_client.patch(
+        f"/emitters/{emitter_ctx['emitter']['id']}/ew-groups/{emitter_ctx['ew_group']['id']}",
+        json={"scan_min": 2000, "scan_max": 4000, "scan_delta": 100},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["engineered_scan_min"] == 1900
+    assert body["engineered_scan_max"] == 4100
+
+
+def test_cartesian_product_writes_engineered_values_into_mode_line(editor_client, emitter_ctx):
+    url = _elements_url(emitter_ctx)
+    rf1 = editor_client.post(url, json={"element_type": "rf", "value_min": 2900, "value_max": 3100, "delta": 10}).json()
+    pw1 = editor_client.post(url, json={"element_type": "pw", "value_min": 0.5, "value_max": 1.2}).json()
+    pri1 = editor_client.post(
+        url,
+        json={
+            "element_type": "pri",
+            "value_min": 800,
+            "value_max": 1200,
+            "jitter_min": 5,
+            "jitter_max": 15,
+            "delta": 20,
+        },
+    ).json()
+
+    resp = editor_client.post(
+        f"{url}/cartesian-product",
+        json={
+            "ew_group_id": emitter_ctx["ew_group"]["id"],
+            "rf_element_ids": [rf1["id"]],
+            "pw_element_ids": [pw1["id"]],
+            "pri_element_ids": [pri1["id"]],
+            "name_prefix": "Engineered",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+    modes = editor_client.get(f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes").json()
+    assert len(modes) == 1
+    line = modes[0]["line"]
+    # RF/PRI widened by their delta; PW has no delta so it stays exactly as typed.
+    assert line["rf_min_mhz"] == 2890
+    assert line["rf_max_mhz"] == 3110
+    assert line["pw_min_us"] == 0.5
+    assert line["pw_max_us"] == 1.2
+    assert line["pri_min_us"] == 780
+    assert line["pri_max_us"] == 1220
+
+
 def test_cartesian_product_rejects_mixed_pri_shapes(editor_client, emitter_ctx):
     url = _elements_url(emitter_ctx)
     rf1 = editor_client.post(url, json={"element_type": "rf", "value_min": 2900, "value_max": 3100}).json()

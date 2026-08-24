@@ -37,6 +37,9 @@ export interface EwGroup {
   name: string;
   scan_min: number | null;
   scan_max: number | null;
+  scan_delta: number | null;
+  engineered_scan_min: number | null;
+  engineered_scan_max: number | null;
   threat_priority: number | null;
   sort_order: number;
   created_at: string;
@@ -95,6 +98,9 @@ export interface ModeElement {
   stagger_values: number[] | null;
   jitter_min: number | null;
   jitter_max: number | null;
+  delta: number | null;
+  engineered_min: number | null;
+  engineered_max: number | null;
   label: string | null;
   sort_order: number;
 }
