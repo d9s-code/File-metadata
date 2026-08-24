@@ -8,11 +8,13 @@ export function NavBar() {
   return (
     <nav className="navbar">
       <div className="navbar-brand">
-        <Link to="/emitters">RF Emitter Profile Manager</Link>
+        <Link to="/dashboard">RF Emitter Profile Manager</Link>
       </div>
       <div className="navbar-links">
+        <Link to="/dashboard">Dashboard</Link>
         <Link to="/emitters">Emitters</Link>
         <Link to="/platforms">Platforms</Link>
+        <Link to="/mdfs">MDFs</Link>
       </div>
       <div className="navbar-user">
         <span>

@@ -162,9 +162,47 @@ label {
   color: #374151;
 }
 .status-draft { background: #e5e7eb; color: #374151; }
-.status-in_review { background: #fef3c7; color: #92400e; }
-.status-validated { background: #d1fae5; color: #065f46; }
+.status-in_review, .status-pending_review { background: #fef3c7; color: #92400e; }
+.status-validated, .status-approved { background: #d1fae5; color: #065f46; }
 .status-deprecated { background: #fee2e2; color: #991b1b; }
+.status-released { background: #dbeafe; color: #1e40af; }
+
+.test-result-badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  text-transform: capitalize;
+}
+.test-result-pass { background: #d1fae5; color: #065f46; }
+.test-result-fail { background: #fee2e2; color: #991b1b; }
+.test-result-partial { background: #fef3c7; color: #92400e; }
+.test-result-inconclusive { background: #e5e7eb; color: #374151; }
+
+.status-tiles { margin-bottom: 1rem; }
+.status-tile-row {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+.status-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+.status-tile-count {
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+.attention-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+}
 
 .role-badge {
   font-size: 0.7rem;

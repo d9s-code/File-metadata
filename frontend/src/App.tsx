@@ -10,6 +10,10 @@ import { EmitterVersionHistoryPage } from "./pages/EmitterVersionHistoryPage";
 import { PlatformsListPage } from "./pages/PlatformsListPage";
 import { PlatformBuilderPage } from "./pages/PlatformBuilderPage";
 import { PlatformVersionHistoryPage } from "./pages/PlatformVersionHistoryPage";
+import { MdfsListPage } from "./pages/MdfsListPage";
+import { MdfBuilderPage } from "./pages/MdfBuilderPage";
+import { MdfVersionHistoryPage } from "./pages/MdfVersionHistoryPage";
+import { DashboardPage } from "./pages/DashboardPage";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
@@ -71,7 +75,39 @@ export default function App() {
                 </RequireAuth>
               }
             />
-            <Route path="/" element={<Navigate to="/emitters" replace />} />
+            <Route
+              path="/mdfs"
+              element={
+                <RequireAuth>
+                  <MdfsListPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/mdfs/:mdfId"
+              element={
+                <RequireAuth>
+                  <MdfBuilderPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/mdfs/:mdfId/versions"
+              element={
+                <RequireAuth>
+                  <MdfVersionHistoryPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/dashboard"
+              element={
+                <RequireAuth>
+                  <DashboardPage />
+                </RequireAuth>
+              }
+            />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </AuthProvider>
       </BrowserRouter>

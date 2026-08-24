@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import auth, dsl, emitters, ew_groups, modes, platforms, sources, users
+from app.routers import auth, dashboard, dsl, emitters, ew_groups, mdfs, modes, platforms, sources, test_records, users
 
 app = FastAPI(title="RF Recognizer Emitter Profile Manager")
 
@@ -22,6 +22,10 @@ app.include_router(ew_groups.router)
 app.include_router(sources.router)
 app.include_router(modes.router)
 app.include_router(dsl.router)
+app.include_router(mdfs.router)
+app.include_router(test_records.emitter_router)
+app.include_router(test_records.mdf_router)
+app.include_router(dashboard.router)
 
 
 @app.get("/health")

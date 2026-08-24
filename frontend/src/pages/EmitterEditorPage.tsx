@@ -8,9 +8,10 @@ import { EwGroupForm } from "../components/ewGroups/EwGroupForm";
 import { SourceCard } from "../components/sources/SourceCard";
 import { SourceForm } from "../components/sources/SourceForm";
 import { StatusTransitionControls } from "../components/versioning/StatusTransitionControls";
+import { EmitterTestHistory } from "../components/testing/EmitterTestHistory";
 import { RequireRole } from "../auth/RequireAuth";
 
-type Tab = "ew-groups" | "sources";
+type Tab = "ew-groups" | "sources" | "tests";
 
 export function EmitterEditorPage() {
   const { emitterId } = useParams<{ emitterId: string }>();
@@ -40,6 +41,9 @@ export function EmitterEditorPage() {
         <button className={tab === "sources" ? "tab active" : "tab"} onClick={() => setTab("sources")}>
           Sources
         </button>
+        <button className={tab === "tests" ? "tab active" : "tab"} onClick={() => setTab("tests")}>
+          Test History
+        </button>
       </div>
 
       {tab === "ew-groups" && (
@@ -65,6 +69,8 @@ export function EmitterEditorPage() {
           </RequireRole>
         </div>
       )}
+
+      {tab === "tests" && <EmitterTestHistory emitterId={emitter.id} />}
     </div>
   );
 }

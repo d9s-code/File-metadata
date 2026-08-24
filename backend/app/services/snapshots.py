@@ -4,6 +4,7 @@ storing in a `snapshot JSONB` column and for structured diffing.
 """
 
 from app.models.emitter import Emitter
+from app.models.mdf import Mdf
 from app.models.mode import Mode, ModeElement
 from app.models.platform import Platform
 
@@ -103,5 +104,24 @@ def build_platform_snapshot(platform: Platform) -> dict:
                 "emitter_snapshot": link.emitter_version.snapshot,
             }
             for link in sorted(platform.links, key=lambda link: link.emitter.name)
+        ],
+    }
+
+
+def build_mdf_snapshot(mdf: Mdf) -> dict:
+    return {
+        "id": str(mdf.id),
+        "name": mdf.name,
+        "description": mdf.description,
+        "status": mdf.status.value,
+        "links": [
+            {
+                "platform_id": str(link.platform_id),
+                "platform_name": link.platform.name,
+                "platform_version_id": str(link.platform_version_id),
+                "platform_version_number": link.platform_version.version_number,
+                "platform_snapshot": link.platform_version.snapshot,
+            }
+            for link in sorted(mdf.links, key=lambda link: link.platform.name)
         ],
     }

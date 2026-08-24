@@ -17,7 +17,7 @@ export function LoginPage() {
     setSubmitting(true);
     try {
       await login(username, password);
-      navigate("/emitters");
+      navigate("/dashboard");
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : "Login failed");
     } finally {

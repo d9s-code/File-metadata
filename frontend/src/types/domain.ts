@@ -2,6 +2,11 @@ export type Role = "admin" | "editor" | "viewer";
 
 export type EmitterStatus = "draft" | "in_review" | "validated" | "deprecated";
 
+export type MdfStatus = "draft" | "pending_review" | "approved" | "released" | "deprecated";
+
+export type TestType = "simulation" | "lab_bench" | "live_range" | "field_exercise";
+export type TestResult = "pass" | "fail" | "partial" | "inconclusive";
+
 export type PriType = "fixed" | "stagger" | "cw" | "xlet";
 
 export type ElementType = "rf" | "pw" | "pri";
