@@ -4,6 +4,7 @@ import { useMdf } from "../state/hooks/useMdfs";
 import { useCommitMdfVersion, useMdfVersionDiff, useMdfVersions } from "../state/hooks/useMdfVersions";
 import { VersionList } from "../components/versioning/VersionList";
 import { DiffViewer } from "../components/versioning/DiffViewer";
+import { ExportXmlButton } from "../components/mdf/ExportXmlButton";
 import { RequireRole } from "../auth/RequireAuth";
 import { ApiRequestError } from "../api/client";
 
@@ -55,7 +56,10 @@ export function MdfVersionHistoryPage() {
           <VersionList versions={versions ?? []} selected={selected} onSelect={setSelected} />
         </div>
         <div className="card">
-          <h4>{selected ? `Diff: v${selected - 1} → v${selected}` : "Select a version to view its diff"}</h4>
+          <div className="version-diff-header">
+            <h4>{selected ? `Diff: v${selected - 1} → v${selected}` : "Select a version to view its diff"}</h4>
+            {selected != null && <ExportXmlButton mdfId={mdf.id} versionNumber={selected} />}
+          </div>
           {selected === 1 && <p className="hint-text">This is the first committed version — no prior version to diff against.</p>}
           {selected != null && selected > 1 && diffLoading && <p>Loading diff…</p>}
           {selected != null && selected > 1 && diff && <DiffViewer diff={diff} />}

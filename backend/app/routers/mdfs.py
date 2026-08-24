@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.core.csrf import verify_csrf
@@ -16,6 +17,7 @@ from app.services.readiness_service import compute_mdf_readiness_warnings
 from app.services.snapshots import build_mdf_snapshot
 from app.services.status_service import InvalidStatusTransition, validate_transition
 from app.services.versioning_service import VersionSpec, commit_version, diff_versions, get_version, list_versions
+from app.xml_export.serializer import serialize_mdf_snapshot_to_xml
 
 router = APIRouter(prefix="/mdfs", tags=["mdfs"])
 
@@ -241,3 +243,28 @@ def transition_mdf_status(
         db, spec=_VERSION_SPEC, entity_id=mdf.id, snapshot=snapshot, change_summary=summary, created_by=user.id
     )
     return MdfStatusTransitionOut(**MdfVersionOut.model_validate(version).model_dump(), warnings=warnings)
+
+
+@router.get("/{mdf_id}/versions/{version_number}/export.xml")
+def export_mdf_version_xml(
+    mdf_id: UUID,
+    version_number: int,
+    db: Session = Depends(get_db),
+    _=Depends(require_role(Role.viewer)),
+) -> Response:
+    """Exports a committed MDF version to the (placeholder-mapped) target
+    XML format — Platforms -> Emitters -> EW Groups -> Modes -> mode lines.
+    Sources and their elements are authoring-only and never appear here.
+    """
+    _get_mdf_or_404(db, mdf_id)
+    version = get_version(db, spec=_VERSION_SPEC, entity_id=mdf_id, version_number=version_number)
+    if version is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Version not found")
+
+    xml_bytes = serialize_mdf_snapshot_to_xml(version.snapshot, version_number)
+    filename = f"mdf_{version.mdf_id}_v{version_number}.xml"
+    return Response(
+        content=xml_bytes,
+        media_type="application/xml",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

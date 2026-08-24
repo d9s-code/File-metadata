@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMdf, useMdfLinks } from "../state/hooks/useMdfs";
+import { useMdfVersions } from "../state/hooks/useMdfVersions";
 import { usePlatforms } from "../state/hooks/usePlatforms";
 import { MdfLinkTable } from "../components/mdf/MdfLinkTable";
 import { PlatformVersionPicker } from "../components/mdf/PlatformVersionPicker";
 import { MdfStatusTransitionControls } from "../components/mdf/MdfStatusTransitionControls";
+import { ExportXmlButton } from "../components/mdf/ExportXmlButton";
 import { MdfTestHistory } from "../components/testing/MdfTestHistory";
 import { RequireRole } from "../auth/RequireAuth";
 
@@ -16,10 +18,12 @@ export function MdfBuilderPage() {
   const { data: mdf, isLoading } = useMdf(mdfId);
   const { data: links } = useMdfLinks(mdfId ?? "");
   const { data: platforms } = usePlatforms();
+  const { data: versions } = useMdfVersions(mdfId ?? "");
 
   if (isLoading || !mdf) return <p>Loading…</p>;
 
   const platformsById = Object.fromEntries((platforms ?? []).map((p) => [p.id, p]));
+  const latestVersion = versions && versions.length > 0 ? versions[versions.length - 1] : null;
 
   return (
     <div className="page">
@@ -29,6 +33,7 @@ export function MdfBuilderPage() {
         <MdfStatusTransitionControls mdfId={mdf.id} status={mdf.status} />
         <Link to={`/mdfs/${mdf.id}/versions`}>Version history</Link>
         <Link to={`/ambiguity/mdf/${mdf.id}`}>Ambiguity check</Link>
+        {latestVersion && <ExportXmlButton mdfId={mdf.id} versionNumber={latestVersion.version_number} />}
       </div>
       {mdf.description && <p className="muted">{mdf.description}</p>}
 
