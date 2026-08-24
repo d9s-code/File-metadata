@@ -1,27 +1,7 @@
 import { api } from "./client";
+import type { DiffResult, VersionSummary } from "../types/versioning";
 
-export interface EmitterVersionSummary {
-  id: string;
-  emitter_id: string;
-  version_number: number;
-  change_summary: string | null;
-  created_by: string | null;
-  created_at: string;
-}
-
-export interface DiffEntry {
-  path: string;
-  value?: unknown;
-  old_value?: unknown;
-  new_value?: unknown;
-}
-
-export interface DiffResult {
-  added: DiffEntry[];
-  removed: DiffEntry[];
-  changed: DiffEntry[];
-  identical: boolean;
-}
+export type EmitterVersionSummary = VersionSummary & { emitter_id: string };
 
 export const emitterVersionsApi = {
   list: (emitterId: string) => api.get<EmitterVersionSummary[]>(`/emitters/${emitterId}/versions`),

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import auth, dsl, emitters, ew_groups, modes, sources, users
+from app.routers import auth, dsl, emitters, ew_groups, modes, platforms, sources, users
 
 app = FastAPI(title="RF Recognizer Emitter Profile Manager")
 
@@ -16,6 +16,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(platforms.router)
 app.include_router(emitters.router)
 app.include_router(ew_groups.router)
 app.include_router(sources.router)

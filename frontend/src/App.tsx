@@ -7,6 +7,9 @@ import { LoginPage } from "./pages/LoginPage";
 import { EmittersListPage } from "./pages/EmittersListPage";
 import { EmitterEditorPage } from "./pages/EmitterEditorPage";
 import { EmitterVersionHistoryPage } from "./pages/EmitterVersionHistoryPage";
+import { PlatformsListPage } from "./pages/PlatformsListPage";
+import { PlatformBuilderPage } from "./pages/PlatformBuilderPage";
+import { PlatformVersionHistoryPage } from "./pages/PlatformVersionHistoryPage";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
@@ -41,6 +44,30 @@ export default function App() {
               element={
                 <RequireAuth>
                   <EmitterVersionHistoryPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/platforms"
+              element={
+                <RequireAuth>
+                  <PlatformsListPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/platforms/:platformId"
+              element={
+                <RequireAuth>
+                  <PlatformBuilderPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/platforms/:platformId/versions"
+              element={
+                <RequireAuth>
+                  <PlatformVersionHistoryPage />
                 </RequireAuth>
               }
             />

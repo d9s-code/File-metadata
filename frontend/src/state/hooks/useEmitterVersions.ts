@@ -18,7 +18,7 @@ export function useEmitterVersionDiff(emitterId: string, versionNumber: number, 
   return useQuery({
     queryKey: [...emitterVersionsKey(emitterId), versionNumber, "diff", against],
     queryFn: () => emitterVersionsApi.diff(emitterId, versionNumber, against),
-    enabled: !!emitterId && versionNumber > 0,
+    enabled: !!emitterId && versionNumber > 1,
   });
 }
 

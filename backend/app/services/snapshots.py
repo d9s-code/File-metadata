@@ -5,6 +5,7 @@ storing in a `snapshot JSONB` column and for structured diffing.
 
 from app.models.emitter import Emitter
 from app.models.mode import Mode, ModeElement
+from app.models.platform import Platform
 
 
 def _num(value):
@@ -84,5 +85,23 @@ def build_emitter_snapshot(emitter: Emitter) -> dict:
                 "elements": [_mode_element_dict(e) for e in sorted(s.elements, key=lambda e: e.sort_order)],
             }
             for s in sorted(emitter.sources, key=lambda s: s.name)
+        ],
+    }
+
+
+def build_platform_snapshot(platform: Platform) -> dict:
+    return {
+        "id": str(platform.id),
+        "name": platform.name,
+        "description": platform.description,
+        "links": [
+            {
+                "emitter_id": str(link.emitter_id),
+                "emitter_name": link.emitter.name,
+                "emitter_version_id": str(link.emitter_version_id),
+                "emitter_version_number": link.emitter_version.version_number,
+                "emitter_snapshot": link.emitter_version.snapshot,
+            }
+            for link in sorted(platform.links, key=lambda link: link.emitter.name)
         ],
     }

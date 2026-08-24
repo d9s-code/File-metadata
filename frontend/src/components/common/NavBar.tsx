@@ -12,6 +12,7 @@ export function NavBar() {
       </div>
       <div className="navbar-links">
         <Link to="/emitters">Emitters</Link>
+        <Link to="/platforms">Platforms</Link>
       </div>
       <div className="navbar-user">
         <span>

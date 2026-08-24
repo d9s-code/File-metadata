@@ -1,11 +1,11 @@
-import type { EmitterVersionSummary } from "../../api/emitterVersions";
+import type { VersionSummary } from "../../types/versioning";
 
 export function VersionList({
   versions,
   selected,
   onSelect,
 }: {
-  versions: EmitterVersionSummary[];
+  versions: VersionSummary[];
   selected: number | null;
   onSelect: (versionNumber: number) => void;
 }) {

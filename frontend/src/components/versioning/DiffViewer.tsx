@@ -1,4 +1,4 @@
-import type { DiffResult } from "../../api/emitterVersions";
+import type { DiffResult } from "../../types/versioning";
 
 function formatValue(value: unknown): string {
   if (value === null || value === undefined) return "—";
