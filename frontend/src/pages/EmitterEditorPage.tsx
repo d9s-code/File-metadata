@@ -1,0 +1,63 @@
+import { useState } from "react";
+import { useParams } from "react-router-dom";
+import { useEmitter } from "../state/hooks/useEmitters";
+import { useEwGroups } from "../state/hooks/useEwGroups";
+import { useSources } from "../state/hooks/useSources";
+import { EwGroupPanel } from "../components/ewGroups/EwGroupPanel";
+import { EwGroupForm } from "../components/ewGroups/EwGroupForm";
+import { SourcePanel } from "../components/sources/SourcePanel";
+import { SourceForm } from "../components/sources/SourceForm";
+import { RequireRole } from "../auth/RequireAuth";
+
+type Tab = "ew-groups" | "sources";
+
+export function EmitterEditorPage() {
+  const { emitterId } = useParams<{ emitterId: string }>();
+  const [tab, setTab] = useState<Tab>("ew-groups");
+  const { data: emitter, isLoading } = useEmitter(emitterId);
+  const { data: ewGroups } = useEwGroups(emitterId ?? "");
+  const { data: sources } = useSources(emitterId ?? "");
+
+  if (isLoading || !emitter) return <p>Loading…</p>;
+
+  return (
+    <div className="page">
+      <h1>
+        {emitter.name} {emitter.designation && <span className="muted">({emitter.designation})</span>}
+      </h1>
+      <span className={`status-badge status-${emitter.status}`}>{emitter.status}</span>
+      {emitter.description && <p className="muted">{emitter.description}</p>}
+
+      <div className="tab-bar">
+        <button className={tab === "ew-groups" ? "tab active" : "tab"} onClick={() => setTab("ew-groups")}>
+          EW Groups → Modes
+        </button>
+        <button className={tab === "sources" ? "tab active" : "tab"} onClick={() => setTab("sources")}>
+          Sources
+        </button>
+      </div>
+
+      {tab === "ew-groups" && (
+        <div>
+          {ewGroups?.map((g) => (
+            <EwGroupPanel key={g.id} emitterId={emitter.id} ewGroup={g} sources={sources ?? []} />
+          ))}
+          <RequireRole minimum="editor">
+            <h4>Add EW Group</h4>
+            <EwGroupForm emitterId={emitter.id} />
+          </RequireRole>
+        </div>
+      )}
+
+      {tab === "sources" && (
+        <div>
+          <SourcePanel emitterId={emitter.id} sources={sources ?? []} />
+          <RequireRole minimum="editor">
+            <h4>Add Source</h4>
+            <SourceForm emitterId={emitter.id} />
+          </RequireRole>
+        </div>
+      )}
+    </div>
+  );
+}

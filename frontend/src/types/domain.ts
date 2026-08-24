@@ -1,0 +1,84 @@
+export type Role = "admin" | "editor" | "viewer";
+
+export type EmitterStatus = "draft" | "in_review" | "validated" | "deprecated";
+
+export type PriType = "fixed" | "stagger" | "cw" | "xlet";
+
+export interface User {
+  id: string;
+  username: string;
+  role: Role;
+  is_active: boolean;
+  created_at: string;
+  last_login_at: string | null;
+}
+
+export interface Emitter {
+  id: string;
+  name: string;
+  designation: string | null;
+  description: string | null;
+  status: EmitterStatus;
+  is_deleted: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EwGroup {
+  id: string;
+  emitter_id: string;
+  name: string;
+  scan_min: number | null;
+  scan_max: number | null;
+  threat_priority: number | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Source {
+  id: string;
+  emitter_id: string;
+  name: string;
+  description: string | null;
+  source_date: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ModeLineFields {
+  rf_min_mhz: number;
+  rf_max_mhz: number;
+  pw_min_us: number;
+  pw_max_us: number;
+  pri_min_us?: number | null;
+  pri_max_us?: number | null;
+  jitter_min_us?: number | null;
+  jitter_max_us?: number | null;
+  pri_stagger_values_us?: number[] | null;
+  type_data?: Record<string, unknown> | null;
+}
+
+export interface ModeLine extends ModeLineFields {
+  id: string;
+  mode_id: string;
+  dsl_text: string | null;
+  created_at: string;
+}
+
+export interface Mode {
+  id: string;
+  ew_group_id: string;
+  source_id: string;
+  name: string;
+  pri_type: PriType;
+  notes: string | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  line: ModeLine | null;
+}
+
+export interface ApiError {
+  detail: string | { msg: string }[];
+}
