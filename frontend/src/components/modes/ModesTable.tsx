@@ -1,40 +1,24 @@
-import type { Mode, Source } from "../../types/domain";
-import { useDeleteMode } from "../../state/hooks/useModes";
+import type { EwGroup, Mode, Source } from "../../types/domain";
+import { formatPri } from "./modeFormat";
 import { RequireRole } from "../../auth/RequireAuth";
 
-function formatPri(mode: Mode): string {
-  const line = mode.line;
-  if (!line) return "—";
-  switch (mode.pri_type) {
-    case "fixed":
-      return `${line.pri_min_us}–${line.pri_max_us} µs (jitter ${line.jitter_min_us}–${line.jitter_max_us})`;
-    case "stagger":
-      return `[${(line.pri_stagger_values_us ?? []).join(", ")}] µs`;
-    case "cw":
-      return "CW (constant)";
-    case "xlet":
-      return "—";
-  }
-}
-
-export function ModeLinesTable({
-  ewGroupId,
+export function ModesTable({
   modes,
+  ewGroupsById,
   sourcesById,
+  onDelete,
 }: {
-  ewGroupId: string;
   modes: Mode[];
+  ewGroupsById: Record<string, EwGroup>;
   sourcesById: Record<string, Source>;
+  onDelete: (modeId: string, ewGroupId: string, name: string) => void;
 }) {
-  const deleteMode = useDeleteMode(ewGroupId);
-
-  if (modes.length === 0) return <p className="hint-text">No modes yet.</p>;
-
   return (
     <table className="data-table">
       <thead>
         <tr>
           <th>Name</th>
+          <th>EW Group</th>
           <th>Source</th>
           <th>RF (MHz)</th>
           <th>PW (µs)</th>
@@ -47,16 +31,15 @@ export function ModeLinesTable({
         {modes.map((m) => (
           <tr key={m.id}>
             <td>{m.name}</td>
+            <td>{ewGroupsById[m.ew_group_id]?.name ?? "—"}</td>
             <td>{sourcesById[m.source_id]?.name ?? "—"}</td>
-            <td>
-              {m.line ? `${m.line.rf_min_mhz}–${m.line.rf_max_mhz}` : "—"}
-            </td>
+            <td>{m.line ? `${m.line.rf_min_mhz}–${m.line.rf_max_mhz}` : "—"}</td>
             <td>{m.line ? `${m.line.pw_min_us}–${m.line.pw_max_us}` : "—"}</td>
             <td>{m.pri_type.toUpperCase()}</td>
             <td>{formatPri(m)}</td>
             <td>
               <RequireRole minimum="editor">
-                <button className="link-button" onClick={() => void deleteMode.mutateAsync(m.id)}>
+                <button className="link-button" onClick={() => onDelete(m.id, m.ew_group_id, m.name)}>
                   Delete
                 </button>
               </RequireRole>

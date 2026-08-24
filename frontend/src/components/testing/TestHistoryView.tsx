@@ -3,6 +3,7 @@ import type { TestRecord, TestRecordInput } from "../../api/testRecords";
 import type { TestResult, TestType } from "../../types/domain";
 import { RequireRole } from "../../auth/RequireAuth";
 import { ApiRequestError } from "../../api/client";
+import { useConfirmDialog } from "../common/ConfirmDialog";
 
 const TEST_TYPES: TestType[] = ["simulation", "lab_bench", "live_range", "field_exercise"];
 const TEST_RESULTS: TestResult[] = ["pass", "fail", "partial", "inconclusive"];
@@ -24,6 +25,13 @@ export function TestHistoryView({
   const [testDate, setTestDate] = useState("");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const { confirmDelete, dialog } = useConfirmDialog();
+
+  async function handleDelete(id: string, title: string) {
+    if (await confirmDelete(`Delete the test record "${title}"?`)) {
+      await onDelete(id);
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -66,7 +74,7 @@ export function TestHistoryView({
                 <td>{r.notes ?? "—"}</td>
                 <td>
                   <RequireRole minimum="editor">
-                    <button className="link-button" onClick={() => void onDelete(r.id)}>
+                    <button className="link-button" onClick={() => void handleDelete(r.id, r.title)}>
                       Delete
                     </button>
                   </RequireRole>
@@ -101,6 +109,7 @@ export function TestHistoryView({
           {error && <div className="error-text">{error}</div>}
         </form>
       </RequireRole>
+      {dialog}
     </div>
   );
 }

@@ -9,7 +9,10 @@ from app.database import get_db
 from app.deps import require_role
 from app.models.emitter import Emitter
 from app.models.emitter_version import EmitterVersion
+from app.models.ew_group import EwGroup
+from app.models.mode import Mode
 from app.schemas.emitter import EmitterCreate, EmitterOut, EmitterUpdate
+from app.schemas.mode import ModeOut
 from app.schemas.emitter_version import (
     CommitVersionRequest,
     DiffOut,
@@ -112,6 +115,21 @@ def _get_emitter_or_404(db: Session, emitter_id: UUID) -> Emitter:
     if emitter is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Emitter not found")
     return emitter
+
+
+@router.get("/{emitter_id}/modes", response_model=list[ModeOut])
+def list_emitter_modes(
+    emitter_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
+) -> list[Mode]:
+    """All Modes across every EW Group belonging to this Emitter, in one flat list."""
+    _get_emitter_or_404(db, emitter_id)
+    return (
+        db.query(Mode)
+        .join(EwGroup, Mode.ew_group_id == EwGroup.id)
+        .filter(EwGroup.emitter_id == emitter_id)
+        .order_by(EwGroup.sort_order, Mode.sort_order)
+        .all()
+    )
 
 
 @router.post(

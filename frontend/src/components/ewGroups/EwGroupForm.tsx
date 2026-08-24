@@ -34,7 +34,7 @@ export function EwGroupForm({ emitterId }: { emitterId: string }) {
 
   return (
     <form className="card inline-form" onSubmit={handleSubmit}>
-      <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required />
+      <input placeholder="EW Group name" value={name} onChange={(e) => setName(e.target.value)} required />
       <input placeholder="Scan min" type="number" step="any" value={scanMin} onChange={(e) => setScanMin(e.target.value)} />
       <input placeholder="Scan max" type="number" step="any" value={scanMax} onChange={(e) => setScanMax(e.target.value)} />
       <input

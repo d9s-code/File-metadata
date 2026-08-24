@@ -4,6 +4,7 @@ import { useCreateElement, useDeleteElement, useElements } from "../../state/hoo
 import { FrametimeBadge } from "./FrametimeBadge";
 import { ApiRequestError } from "../../api/client";
 import { RequireRole } from "../../auth/RequireAuth";
+import { useConfirmDialog } from "../common/ConfirmDialog";
 
 const ELEMENT_TYPES: ElementType[] = ["rf", "pw", "pri"];
 
@@ -110,6 +111,13 @@ function ElementForm({ emitterId, sourceId }: { emitterId: string; sourceId: str
 export function ElementsPanel({ emitterId, sourceId }: { emitterId: string; sourceId: string }) {
   const { data: elements } = useElements(emitterId, sourceId);
   const deleteElement = useDeleteElement(emitterId, sourceId);
+  const { confirmDelete, dialog } = useConfirmDialog();
+
+  async function handleDelete(elementId: string) {
+    if (await confirmDelete("Delete this element? Modes already generated from it are not affected.")) {
+      await deleteElement.mutateAsync(elementId);
+    }
+  }
 
   const grouped = ELEMENT_TYPES.map((t) => ({
     type: t,
@@ -143,7 +151,7 @@ export function ElementsPanel({ emitterId, sourceId }: { emitterId: string; sour
                   </>
                 )}
                 <RequireRole minimum="editor">
-                  <button className="link-button" onClick={() => void deleteElement.mutateAsync(el.id)}>
+                  <button className="link-button" onClick={() => void handleDelete(el.id)}>
                     Delete
                   </button>
                 </RequireRole>
@@ -155,6 +163,7 @@ export function ElementsPanel({ emitterId, sourceId }: { emitterId: string; sour
       <RequireRole minimum="editor">
         <ElementForm emitterId={emitterId} sourceId={sourceId} />
       </RequireRole>
+      {dialog}
     </div>
   );
 }

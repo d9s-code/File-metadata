@@ -3,9 +3,17 @@ import { useCreateModeFromDsl } from "../../state/hooks/useModes";
 import { ApiRequestError } from "../../api/client";
 import type { EwGroup } from "../../types/domain";
 
-export function DslEditor({ sourceId, ewGroups }: { sourceId: string; ewGroups: EwGroup[] }) {
+export function DslEditor({
+  emitterId,
+  sourceId,
+  ewGroups,
+}: {
+  emitterId: string;
+  sourceId: string;
+  ewGroups: EwGroup[];
+}) {
   const [ewGroupId, setEwGroupId] = useState(ewGroups[0]?.id ?? "");
-  const createFromDsl = useCreateModeFromDsl(ewGroupId);
+  const createFromDsl = useCreateModeFromDsl(ewGroupId, emitterId);
   const [name, setName] = useState("");
   const [dslText, setDslText] = useState("");
   const [error, setError] = useState<string | null>(null);

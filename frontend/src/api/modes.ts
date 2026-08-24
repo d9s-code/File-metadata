@@ -20,6 +20,7 @@ export interface ModeUpdateInput {
 
 export const modesApi = {
   list: (ewGroupId: string) => api.get<Mode[]>(`/ew-groups/${ewGroupId}/modes`),
+  listByEmitter: (emitterId: string) => api.get<Mode[]>(`/emitters/${emitterId}/modes`),
   create: (ewGroupId: string, input: ModeCreateInput) =>
     api.post<Mode>(`/ew-groups/${ewGroupId}/modes`, input),
   update: (ewGroupId: string, modeId: string, input: ModeUpdateInput) =>

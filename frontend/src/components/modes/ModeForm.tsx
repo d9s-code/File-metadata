@@ -1,12 +1,23 @@
 import { useState, type FormEvent } from "react";
 import { useCreateMode } from "../../state/hooks/useModes";
 import { ApiRequestError } from "../../api/client";
-import type { PriType, Source } from "../../types/domain";
+import type { EwGroup, PriType, Source } from "../../types/domain";
 
 const PRI_TYPES: PriType[] = ["fixed", "stagger", "cw", "xlet"];
 
-export function ModeForm({ ewGroupId, sources }: { ewGroupId: string; sources: Source[] }) {
-  const createMode = useCreateMode(ewGroupId);
+export function ModeForm({
+  emitterId,
+  ewGroups,
+  sources,
+  defaultEwGroupId,
+}: {
+  emitterId: string;
+  ewGroups: EwGroup[];
+  sources: Source[];
+  defaultEwGroupId?: string;
+}) {
+  const [ewGroupId, setEwGroupId] = useState(defaultEwGroupId || ewGroups[0]?.id || "");
+  const createMode = useCreateMode(ewGroupId, emitterId);
   const [name, setName] = useState("");
   const [sourceId, setSourceId] = useState(sources[0]?.id ?? "");
   const [priType, setPriType] = useState<PriType>("fixed");
@@ -24,6 +35,10 @@ export function ModeForm({ ewGroupId, sources }: { ewGroupId: string; sources: S
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!ewGroupId) {
+      setError("An EW Group is required — create one first.");
+      return;
+    }
     if (!sourceId) {
       setError("A Source is required — create one first.");
       return;
@@ -71,6 +86,16 @@ export function ModeForm({ ewGroupId, sources }: { ewGroupId: string; sources: S
     <form className="card mode-form" onSubmit={handleSubmit}>
       <div className="form-row">
         <input placeholder="Mode name" value={name} onChange={(e) => setName(e.target.value)} required />
+        <select value={ewGroupId} onChange={(e) => setEwGroupId(e.target.value)} required>
+          <option value="" disabled>
+            Select EW Group…
+          </option>
+          {ewGroups.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.name}
+            </option>
+          ))}
+        </select>
         <select value={sourceId} onChange={(e) => setSourceId(e.target.value)} required>
           <option value="" disabled>
             Select source…

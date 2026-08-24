@@ -1,24 +1,36 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useEmitter } from "../state/hooks/useEmitters";
 import { useEwGroups } from "../state/hooks/useEwGroups";
 import { useSources } from "../state/hooks/useSources";
-import { EwGroupPanel } from "../components/ewGroups/EwGroupPanel";
-import { EwGroupForm } from "../components/ewGroups/EwGroupForm";
-import { SourceCard } from "../components/sources/SourceCard";
-import { SourceForm } from "../components/sources/SourceForm";
+import { EwGroupsTable } from "../components/ewGroups/EwGroupsTable";
+import { SourcesTable } from "../components/sources/SourcesTable";
+import { ModesSection } from "../components/modes/ModesSection";
 import { StatusTransitionControls } from "../components/versioning/StatusTransitionControls";
 import { EmitterTestHistory } from "../components/testing/EmitterTestHistory";
-import { RequireRole } from "../auth/RequireAuth";
 
-type Tab = "ew-groups" | "sources" | "tests";
+type Tab = "modes" | "tests";
 
 export function EmitterEditorPage() {
   const { emitterId } = useParams<{ emitterId: string }>();
-  const [tab, setTab] = useState<Tab>("ew-groups");
+  const [tab, setTab] = useState<Tab>("modes");
   const { data: emitter, isLoading } = useEmitter(emitterId);
-  const { data: ewGroups } = useEwGroups(emitterId ?? "");
-  const { data: sources } = useSources(emitterId ?? "");
+  const { data: ewGroups, isLoading: ewGroupsLoading } = useEwGroups(emitterId ?? "");
+  const { data: sources, isLoading: sourcesLoading } = useSources(emitterId ?? "");
+
+  // Auto-expand the setup panel once, only if setup looks incomplete on first load — never
+  // force it open/closed again afterward, so it doesn't snap shut on the user mid-interaction
+  // the moment they finish adding the first EW Group/Source.
+  const [setupOpen, setSetupOpen] = useState(false);
+  const autoOpenDecided = useRef(false);
+  useEffect(() => {
+    if (!ewGroupsLoading && !sourcesLoading && !autoOpenDecided.current) {
+      autoOpenDecided.current = true;
+      if ((ewGroups ?? []).length === 0 || (sources ?? []).length === 0) {
+        setSetupOpen(true);
+      }
+    }
+  }, [ewGroupsLoading, sourcesLoading, ewGroups, sources]);
 
   if (isLoading || !emitter) return <p>Loading…</p>;
 
@@ -36,38 +48,26 @@ export function EmitterEditorPage() {
       {emitter.description && <p className="muted">{emitter.description}</p>}
 
       <div className="tab-bar">
-        <button className={tab === "ew-groups" ? "tab active" : "tab"} onClick={() => setTab("ew-groups")}>
-          EW Groups → Modes
-        </button>
-        <button className={tab === "sources" ? "tab active" : "tab"} onClick={() => setTab("sources")}>
-          Sources
+        <button className={tab === "modes" ? "tab active" : "tab"} onClick={() => setTab("modes")}>
+          Modes
         </button>
         <button className={tab === "tests" ? "tab active" : "tab"} onClick={() => setTab("tests")}>
           Test History
         </button>
       </div>
 
-      {tab === "ew-groups" && (
+      {tab === "modes" && (
         <div>
-          {ewGroups?.map((g) => (
-            <EwGroupPanel key={g.id} emitterId={emitter.id} ewGroup={g} sources={sources ?? []} />
-          ))}
-          <RequireRole minimum="editor">
-            <h4>Add EW Group</h4>
-            <EwGroupForm emitterId={emitter.id} />
-          </RequireRole>
-        </div>
-      )}
-
-      {tab === "sources" && (
-        <div>
-          {(sources ?? []).map((s) => (
-            <SourceCard key={s.id} emitterId={emitter.id} source={s} ewGroups={ewGroups ?? []} />
-          ))}
-          <RequireRole minimum="editor">
-            <h4>Add Source</h4>
-            <SourceForm emitterId={emitter.id} />
-          </RequireRole>
+          <ModesSection emitterId={emitter.id} ewGroups={ewGroups ?? []} sources={sources ?? []} />
+          <details
+            className="setup-collapse"
+            open={setupOpen}
+            onToggle={(e) => setSetupOpen(e.currentTarget.open)}
+          >
+            <summary>EW Groups &amp; Sources setup</summary>
+            <EwGroupsTable emitterId={emitter.id} ewGroups={ewGroups ?? []} />
+            <SourcesTable emitterId={emitter.id} sources={sources ?? []} ewGroups={ewGroups ?? []} />
+          </details>
         </div>
       )}
 

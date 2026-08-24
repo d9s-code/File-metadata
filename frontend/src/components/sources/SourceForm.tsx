@@ -24,7 +24,7 @@ export function SourceForm({ emitterId }: { emitterId: string }) {
 
   return (
     <form className="card inline-form" onSubmit={handleSubmit}>
-      <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required />
+      <input placeholder="Source name" value={name} onChange={(e) => setName(e.target.value)} required />
       <input placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
       <label className="inline-date-label">
         Date last updated

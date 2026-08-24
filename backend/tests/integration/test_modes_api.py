@@ -103,6 +103,28 @@ def test_mode_rejects_source_from_a_different_emitter(editor_client, emitter_ctx
     assert resp.status_code == 422
 
 
+def test_list_emitter_modes_spans_all_ew_groups(editor_client, emitter_ctx):
+    other_group = editor_client.post(
+        f"/emitters/{emitter_ctx['emitter']['id']}/ew-groups", json={"name": "Search Group"}
+    ).json()
+
+    editor_client.post(
+        f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes",
+        json={"source_id": emitter_ctx["source"]["id"], "name": "In Track Group", "pri_type": "fixed", "line": FIXED_LINE},
+    )
+    editor_client.post(
+        f"/ew-groups/{other_group['id']}/modes",
+        json={"source_id": emitter_ctx["source"]["id"], "name": "In Search Group", "pri_type": "fixed", "line": FIXED_LINE},
+    )
+
+    resp = editor_client.get(f"/emitters/{emitter_ctx['emitter']['id']}/modes")
+    assert resp.status_code == 200, resp.text
+    names = {m["name"] for m in resp.json()}
+    assert names == {"In Track Group", "In Search Group"}
+    ew_group_ids = {m["ew_group_id"] for m in resp.json()}
+    assert ew_group_ids == {emitter_ctx["ew_group"]["id"], other_group["id"]}
+
+
 def test_source_with_modes_cannot_be_deleted(editor_client, emitter_ctx):
     editor_client.post(
         f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes",
