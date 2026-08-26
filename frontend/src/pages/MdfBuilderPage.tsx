@@ -8,9 +8,10 @@ import { PlatformVersionPicker } from "../components/mdf/PlatformVersionPicker";
 import { MdfStatusTransitionControls } from "../components/mdf/MdfStatusTransitionControls";
 import { ExportXmlButton } from "../components/mdf/ExportXmlButton";
 import { MdfTestHistory } from "../components/testing/MdfTestHistory";
+import { EntityAuditTrail } from "../components/audit/EntityAuditTrail";
 import { RequireRole } from "../auth/RequireAuth";
 
-type Tab = "platforms" | "tests";
+type Tab = "platforms" | "tests" | "audit";
 
 export function MdfBuilderPage() {
   const { mdfId } = useParams<{ mdfId: string }>();
@@ -44,6 +45,9 @@ export function MdfBuilderPage() {
         <button className={tab === "tests" ? "tab active" : "tab"} onClick={() => setTab("tests")}>
           Test History
         </button>
+        <button className={tab === "audit" ? "tab active" : "tab"} onClick={() => setTab("audit")}>
+          Audit
+        </button>
       </div>
 
       {tab === "platforms" && (
@@ -60,6 +64,7 @@ export function MdfBuilderPage() {
       )}
 
       {tab === "tests" && <MdfTestHistory mdfId={mdf.id} />}
+      {tab === "audit" && <EntityAuditTrail entityType="mdf" entityId={mdf.id} />}
     </div>
   );
 }

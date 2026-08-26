@@ -451,6 +451,67 @@ label {
 .test-result-partial { background: var(--badge-amber-bg); color: var(--badge-amber-fg); }
 .test-result-inconclusive { background: var(--badge-neutral-bg); color: var(--badge-neutral-fg); }
 
+.audit-action-badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  background: var(--badge-neutral-bg);
+  color: var(--badge-neutral-fg);
+}
+.audit-action-create { background: var(--badge-green-bg); color: var(--badge-green-fg); }
+.audit-action-update, .audit-action-status_change { background: var(--badge-amber-bg); color: var(--badge-amber-fg); }
+.audit-action-delete { background: var(--badge-red-bg); color: var(--badge-red-fg); }
+.audit-action-commit { background: var(--badge-blue-bg); color: var(--badge-blue-fg); }
+.audit-action-login { background: var(--badge-green-bg); color: var(--badge-green-fg); }
+.audit-action-login_failed { background: var(--badge-red-bg); color: var(--badge-red-fg); }
+.audit-action-logout { background: var(--badge-neutral-bg); color: var(--badge-neutral-fg); }
+
+.audit-changes-pre {
+  margin: 0.4rem 0 0;
+  padding: 0.5rem 0.6rem;
+  background: var(--hover-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.75rem;
+  max-width: 420px;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.audit-log-layout {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+.audit-log-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 200px;
+  flex-shrink: 0;
+}
+.audit-group-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  background: none;
+  border: none;
+  color: var(--text);
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.9rem;
+}
+.audit-group-item:hover { background: var(--hover-bg); }
+.audit-group-item.active { background: var(--primary); color: white; }
+.audit-group-count { color: var(--muted); font-size: 0.8rem; }
+.audit-group-item.active .audit-group-count { color: rgba(255, 255, 255, 0.8); }
+.audit-log-content { flex: 1; min-width: 0; }
+
 .status-tiles { margin-bottom: 1rem; }
 .status-tile-row {
   display: flex;

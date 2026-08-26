@@ -83,6 +83,27 @@ def test_create_test_record_rejects_unknown_mode_id(editor_client, emitter_with_
     assert resp.status_code == 404
 
 
+def test_deleting_a_test_linked_mode_does_not_block_deletion(editor_client, emitter_with_mode):
+    emitter_id = emitter_with_mode["emitter"]["id"]
+    mode = emitter_with_mode["mode"]
+    editor_client.post(
+        f"/emitters/{emitter_id}/test-records",
+        json={
+            "test_type": "lab_bench",
+            "result": "pass",
+            "title": "Bench run",
+            "test_date": "2026-01-01",
+            "mode_ids": [mode["id"]],
+        },
+    )
+    resp = editor_client.delete(f"/ew-groups/{mode['ew_group_id']}/modes/{mode['id']}")
+    assert resp.status_code == 204, resp.text
+
+    # The test record survives, just with that Mode dropped from its list.
+    [record] = editor_client.get(f"/emitters/{emitter_id}/test-records").json()
+    assert record["modes"] == []
+
+
 def test_create_test_record_without_modes_still_works(editor_client, emitter_with_mode):
     emitter_id = emitter_with_mode["emitter"]["id"]
     resp = editor_client.post(

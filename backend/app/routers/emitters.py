@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.csrf import verify_csrf
-from app.core.enums import EMITTER_STATUS_TRANSITIONS, EmitterStatus, Role
+from app.core.enums import EMITTER_STATUS_TRANSITIONS, AuditAction, AuditEntityType, EmitterStatus, Role
 from app.database import get_db
 from app.deps import require_role
 from app.models.emitter import Emitter
@@ -20,6 +20,7 @@ from app.schemas.emitter_version import (
     EmitterVersionOut,
     StatusTransitionRequest,
 )
+from app.services.audit_service import record_audit
 from app.services.snapshots import build_emitter_snapshot
 from app.services.status_service import InvalidStatusTransition, validate_transition
 from app.services.versioning_service import VersionSpec, commit_version, diff_versions, get_version, list_versions
@@ -69,6 +70,16 @@ def create_emitter(
         created_by=user.id,
     )
     db.add(emitter)
+    db.flush()
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.create,
+        entity_type=AuditEntityType.emitter.value,
+        entity_id=emitter.id,
+        summary=f"Created Emitter '{emitter.name}'",
+        changes=payload.model_dump(mode="json"),
+    )
     db.commit()
     db.refresh(emitter)
     return emitter
@@ -79,13 +90,22 @@ def update_emitter(
     emitter_id: UUID,
     payload: EmitterUpdate,
     db: Session = Depends(get_db),
-    _=Depends(require_role(Role.editor)),
+    user=Depends(require_role(Role.editor)),
 ) -> Emitter:
     emitter = db.get(Emitter, emitter_id)
     if emitter is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Emitter not found")
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(emitter, field, value)
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.update,
+        entity_type=AuditEntityType.emitter.value,
+        entity_id=emitter.id,
+        summary=f"Updated Emitter '{emitter.name}'",
+        changes=payload.model_dump(exclude_unset=True, mode="json"),
+    )
     db.commit()
     db.refresh(emitter)
     return emitter
@@ -104,9 +124,25 @@ def delete_emitter(
     if hard:
         if user.role != Role.admin:
             raise HTTPException(status.HTTP_403_FORBIDDEN, "Hard delete requires admin role")
+        record_audit(
+            db,
+            actor_id=user.id,
+            action=AuditAction.delete,
+            entity_type=AuditEntityType.emitter.value,
+            entity_id=emitter.id,
+            summary=f"Hard-deleted Emitter '{emitter.name}'",
+        )
         db.delete(emitter)
     else:
         emitter.is_deleted = True
+        record_audit(
+            db,
+            actor_id=user.id,
+            action=AuditAction.delete,
+            entity_type=AuditEntityType.emitter.value,
+            entity_id=emitter.id,
+            summary=f"Deleted Emitter '{emitter.name}'",
+        )
     db.commit()
 
 
@@ -164,16 +200,25 @@ def list_generation_batches(
     dependencies=[Depends(verify_csrf)],
 )
 def delete_generation_batch(
-    emitter_id: UUID, batch_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.editor))
+    emitter_id: UUID, batch_id: UUID, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))
 ) -> None:
     """Deletes every Mode this batch generated (cascading their ModeLines), then the batch."""
     _get_emitter_or_404(db, emitter_id)
     batch = db.get(ModeGenerationBatch, batch_id)
     if batch is None or batch.ew_group.emitter_id != emitter_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Generation batch not found")
+    mode_count = len(batch.modes)
     for mode in list(batch.modes):
         db.delete(mode)
     db.delete(batch)
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.delete,
+        entity_type=AuditEntityType.mode_generation_batch.value,
+        entity_id=batch.id,
+        summary=f"Deleted generation batch '{batch.name_prefix}' ({mode_count} Mode(s))",
+    )
     db.commit()
 
 
@@ -191,6 +236,15 @@ def commit_emitter_version(
 ) -> EmitterVersion:
     emitter = _get_emitter_or_404(db, emitter_id)
     snapshot = build_emitter_snapshot(emitter)
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.commit,
+        entity_type=AuditEntityType.emitter.value,
+        entity_id=emitter.id,
+        summary=f"Committed a version of Emitter '{emitter.name}'"
+        + (f" — {payload.change_summary}" if payload.change_summary else ""),
+    )
     return commit_version(
         db,
         spec=_VERSION_SPEC,
@@ -269,6 +323,16 @@ def transition_emitter_status(
     summary = f"Status: {old_status} → {new_status.value}"
     if payload.note:
         summary += f" — {payload.note}"
+
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.status_change,
+        entity_type=AuditEntityType.emitter.value,
+        entity_id=emitter.id,
+        summary=f"Emitter '{emitter.name}': {summary}",
+        changes={"old_status": old_status, "new_status": new_status.value},
+    )
 
     snapshot = build_emitter_snapshot(emitter)
     return commit_version(

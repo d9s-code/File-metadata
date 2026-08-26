@@ -124,6 +124,38 @@ export interface ModeElement {
   sort_order: number;
 }
 
+export type AuditAction =
+  | "create"
+  | "update"
+  | "delete"
+  | "status_change"
+  | "commit"
+  | "login"
+  | "login_failed"
+  | "logout";
+
+export interface AuditLogEntry {
+  id: string;
+  actor_id: string | null;
+  actor_username: string | null;
+  action: AuditAction;
+  entity_type: string;
+  entity_id: string | null;
+  summary: string;
+  changes: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface AuditGroupCount {
+  entity_type: string;
+  count: number;
+}
+
+export interface AuditActionCount {
+  action: AuditAction;
+  count: number;
+}
+
 export interface ApiError {
   detail: string | { msg: string }[];
 }

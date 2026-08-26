@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.csrf import verify_csrf
-from app.core.enums import Role, TestScopeType
+from app.core.enums import AuditAction, AuditEntityType, Role, TestScopeType
 from app.database import get_db
 from app.deps import require_role
 from app.models.emitter import Emitter
@@ -13,6 +13,7 @@ from app.models.mdf import Mdf, MdfVersion
 from app.models.mode import Mode
 from app.models.test_record import TestRecord, TestRecordMode
 from app.schemas.test_record import TestRecordCreate, TestRecordOut
+from app.services.audit_service import record_audit
 
 _MODES_EAGER_LOAD = joinedload(TestRecord.modes).joinedload(TestRecordMode.mode)
 
@@ -67,6 +68,15 @@ def _create_test_record(
     db.flush()
     for mode_id in payload.mode_ids:
         db.add(TestRecordMode(test_record_id=record.id, mode_id=mode_id))
+    record_audit(
+        db,
+        actor_id=tested_by,
+        action=AuditAction.create,
+        entity_type=AuditEntityType.test_record.value,
+        entity_id=record.id,
+        summary=f"Logged a {payload.test_type.value.replace('_', ' ')} test '{payload.title}' ({payload.result.value})",
+        changes=payload.model_dump(mode="json"),
+    )
     db.commit()
     return db.query(TestRecord).options(_MODES_EAGER_LOAD).filter(TestRecord.id == record.id).one()
 
@@ -149,21 +159,37 @@ def create_mdf_test_record(
     "/{test_record_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(verify_csrf)]
 )
 def delete_emitter_test_record(
-    emitter_id: UUID, test_record_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.editor))
+    emitter_id: UUID, test_record_id: UUID, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))
 ) -> None:
     record = db.get(TestRecord, test_record_id)
     if record is None or record.scope_type != TestScopeType.emitter or record.scope_id != emitter_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Test record not found")
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.delete,
+        entity_type=AuditEntityType.test_record.value,
+        entity_id=record.id,
+        summary=f"Deleted test record '{record.title}'",
+    )
     db.delete(record)
     db.commit()
 
 
 @mdf_router.delete("/{test_record_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(verify_csrf)])
 def delete_mdf_test_record(
-    mdf_id: UUID, test_record_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.editor))
+    mdf_id: UUID, test_record_id: UUID, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))
 ) -> None:
     record = db.get(TestRecord, test_record_id)
     if record is None or record.scope_type != TestScopeType.mdf or record.scope_id != mdf_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Test record not found")
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.delete,
+        entity_type=AuditEntityType.test_record.value,
+        entity_id=record.id,
+        summary=f"Deleted test record '{record.title}'",
+    )
     db.delete(record)
     db.commit()

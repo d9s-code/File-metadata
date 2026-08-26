@@ -8,8 +8,9 @@ import { SourcesTable } from "../components/sources/SourcesTable";
 import { ModesSection } from "../components/modes/ModesSection";
 import { StatusTransitionControls } from "../components/versioning/StatusTransitionControls";
 import { EmitterTestHistory } from "../components/testing/EmitterTestHistory";
+import { EntityAuditTrail } from "../components/audit/EntityAuditTrail";
 
-type Tab = "modes" | "tests";
+type Tab = "modes" | "tests" | "audit";
 
 export function EmitterEditorPage() {
   const { emitterId } = useParams<{ emitterId: string }>();
@@ -54,6 +55,9 @@ export function EmitterEditorPage() {
         <button className={tab === "tests" ? "tab active" : "tab"} onClick={() => setTab("tests")}>
           Test History
         </button>
+        <button className={tab === "audit" ? "tab active" : "tab"} onClick={() => setTab("audit")}>
+          Audit
+        </button>
       </div>
 
       {tab === "modes" && (
@@ -72,6 +76,7 @@ export function EmitterEditorPage() {
       )}
 
       {tab === "tests" && <EmitterTestHistory emitterId={emitter.id} />}
+      {tab === "audit" && <EntityAuditTrail entityType="emitter" entityId={emitter.id} />}
     </div>
   );
 }
