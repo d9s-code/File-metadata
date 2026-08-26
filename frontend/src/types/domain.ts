@@ -61,6 +61,9 @@ export interface ModeLineFields {
   rf_max_mhz: number;
   pw_min_us: number;
   pw_max_us: number;
+  rf_delta?: number | null;
+  pw_delta?: number | null;
+  pri_delta?: number | null;
   pri_min_us?: number | null;
   pri_max_us?: number | null;
   jitter_min_us?: number | null;
@@ -74,6 +77,12 @@ export interface ModeLine extends ModeLineFields {
   mode_id: string;
   dsl_text: string | null;
   created_at: string;
+  engineered_rf_min_mhz: number | null;
+  engineered_rf_max_mhz: number | null;
+  engineered_pw_min_us: number | null;
+  engineered_pw_max_us: number | null;
+  engineered_pri_min_us: number | null;
+  engineered_pri_max_us: number | null;
 }
 
 export interface Mode {

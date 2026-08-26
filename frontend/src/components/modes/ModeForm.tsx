@@ -23,13 +23,17 @@ export function ModeForm({
   const [priType, setPriType] = useState<PriType>("fixed");
   const [rfMin, setRfMin] = useState("");
   const [rfMax, setRfMax] = useState("");
+  const [rfDelta, setRfDelta] = useState("");
   const [pwMin, setPwMin] = useState("");
   const [pwMax, setPwMax] = useState("");
+  const [pwDelta, setPwDelta] = useState("");
   const [priMin, setPriMin] = useState("");
   const [priMax, setPriMax] = useState("");
+  const [priDelta, setPriDelta] = useState("");
   const [jitterMin, setJitterMin] = useState("");
   const [jitterMax, setJitterMax] = useState("");
   const [staggerValues, setStaggerValues] = useState("");
+  const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: FormEvent) {
@@ -48,13 +52,17 @@ export function ModeForm({
         source_id: sourceId,
         name,
         pri_type: priType,
+        notes: notes || undefined,
         line: {
           rf_min_mhz: Number(rfMin),
           rf_max_mhz: Number(rfMax),
+          rf_delta: Number(rfDelta),
           pw_min_us: Number(pwMin),
           pw_max_us: Number(pwMax),
+          pw_delta: Number(pwDelta),
           pri_min_us: priType === "fixed" ? Number(priMin) : undefined,
           pri_max_us: priType === "fixed" ? Number(priMax) : undefined,
+          pri_delta: priType === "fixed" ? Number(priDelta) : undefined,
           jitter_min_us: priType === "fixed" ? Number(jitterMin) : undefined,
           jitter_max_us: priType === "fixed" ? Number(jitterMax) : undefined,
           pri_stagger_values_us:
@@ -70,13 +78,17 @@ export function ModeForm({
       setName("");
       setRfMin("");
       setRfMax("");
+      setRfDelta("");
       setPwMin("");
       setPwMax("");
+      setPwDelta("");
       setPriMin("");
       setPriMax("");
+      setPriDelta("");
       setJitterMin("");
       setJitterMax("");
       setStaggerValues("");
+      setNotes("");
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : "Failed to create Mode");
     }
@@ -125,12 +137,36 @@ export function ModeForm({
           <input type="number" step="any" value={rfMax} onChange={(e) => setRfMax(e.target.value)} required />
         </label>
         <label>
+          RF delta (±MHz)
+          <input
+            type="number"
+            step="any"
+            min="0"
+            value={rfDelta}
+            onChange={(e) => setRfDelta(e.target.value)}
+            title="Symmetric tolerance margin applied to RF min/max to derive the engineered value"
+            required
+          />
+        </label>
+        <label>
           PW min (µs)
           <input type="number" step="any" value={pwMin} onChange={(e) => setPwMin(e.target.value)} required />
         </label>
         <label>
           PW max (µs)
           <input type="number" step="any" value={pwMax} onChange={(e) => setPwMax(e.target.value)} required />
+        </label>
+        <label>
+          PW delta (±µs)
+          <input
+            type="number"
+            step="any"
+            min="0"
+            value={pwDelta}
+            onChange={(e) => setPwDelta(e.target.value)}
+            title="Symmetric tolerance margin applied to PW min/max to derive the engineered value"
+            required
+          />
         </label>
       </div>
 
@@ -143,6 +179,18 @@ export function ModeForm({
           <label>
             PRI max (µs)
             <input type="number" step="any" value={priMax} onChange={(e) => setPriMax(e.target.value)} required />
+          </label>
+          <label>
+            PRI delta (±µs)
+            <input
+              type="number"
+              step="any"
+              min="0"
+              value={priDelta}
+              onChange={(e) => setPriDelta(e.target.value)}
+              title="Symmetric tolerance margin applied to PRI min/max to derive the engineered value"
+              required
+            />
           </label>
           <label>
             Jitter min (µs)
@@ -171,6 +219,18 @@ export function ModeForm({
 
       {priType === "cw" && <p className="hint-text">CW: PRI is constant — no value to enter.</p>}
       {priType === "xlet" && <p className="hint-text">Xlet: no fields defined yet.</p>}
+
+      <div className="form-row">
+        <label className="wide-label">
+          Notes (optional)
+          <textarea
+            placeholder="Any context worth recording about this Mode…"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={2}
+          />
+        </label>
+      </div>
 
       <button type="submit" disabled={createMode.isPending}>
         Add Mode

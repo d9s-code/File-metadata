@@ -13,19 +13,28 @@ export function TestHistoryView({
   onCreate,
   onDelete,
   creating,
+  availableModes,
 }: {
   records: TestRecord[];
   onCreate: (input: TestRecordInput) => Promise<unknown>;
   onDelete: (id: string) => Promise<unknown>;
   creating: boolean;
+  /** Modes the "log test" form can link this record to. Omitted where there's no
+   * direct Emitter scope to draw a Mode list from (e.g. MDF-scoped tests). */
+  availableModes?: { id: string; name: string }[];
 }) {
   const [testType, setTestType] = useState<TestType>("simulation");
   const [result, setResult] = useState<TestResult>("pass");
   const [title, setTitle] = useState("");
   const [testDate, setTestDate] = useState("");
   const [notes, setNotes] = useState("");
+  const [modeIds, setModeIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const { confirmDelete, dialog } = useConfirmDialog();
+
+  function toggleMode(id: string) {
+    setModeIds((ids) => (ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id]));
+  }
 
   async function handleDelete(id: string, title: string) {
     if (await confirmDelete(`Delete the test record "${title}"?`)) {
@@ -37,10 +46,18 @@ export function TestHistoryView({
     e.preventDefault();
     setError(null);
     try {
-      await onCreate({ test_type: testType, result, title, test_date: testDate, notes: notes || undefined });
+      await onCreate({
+        test_type: testType,
+        result,
+        title,
+        test_date: testDate,
+        notes: notes || undefined,
+        mode_ids: modeIds,
+      });
       setTitle("");
       setTestDate("");
       setNotes("");
+      setModeIds([]);
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : "Failed to log test");
     }
@@ -58,6 +75,7 @@ export function TestHistoryView({
               <th>Type</th>
               <th>Result</th>
               <th>Title</th>
+              <th>Modes</th>
               <th>Notes</th>
               <th></th>
             </tr>
@@ -71,6 +89,7 @@ export function TestHistoryView({
                   <span className={`test-result-badge test-result-${r.result}`}>{r.result}</span>
                 </td>
                 <td>{r.title}</td>
+                <td>{r.modes?.length ? r.modes.map((m) => m.mode_name).join(", ") : "—"}</td>
                 <td>{r.notes ?? "—"}</td>
                 <td>
                   <RequireRole minimum="editor">
@@ -103,6 +122,17 @@ export function TestHistoryView({
           <input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} required />
           <input type="date" value={testDate} onChange={(e) => setTestDate(e.target.value)} required />
           <input placeholder="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+          {availableModes && availableModes.length > 0 && (
+            <fieldset className="mode-link-picker">
+              <legend>Modes exercised (optional)</legend>
+              {availableModes.map((m) => (
+                <label key={m.id} className="mode-link-option">
+                  <input type="checkbox" checked={modeIds.includes(m.id)} onChange={() => toggleMode(m.id)} />
+                  {m.name}
+                </label>
+              ))}
+            </fieldset>
+          )}
           <button type="submit" disabled={creating}>
             Log Test
           </button>

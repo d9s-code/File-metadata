@@ -20,6 +20,9 @@ FIXED_LINE = {
     "pri_max_us": 1200,
     "jitter_min_us": 5,
     "jitter_max_us": 15,
+    "rf_delta": 1,
+    "pw_delta": 0.05,
+    "pri_delta": 10,
 }
 
 

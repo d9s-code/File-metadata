@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.csrf import verify_csrf
 from app.core.enums import Role, TestScopeType
@@ -10,8 +10,11 @@ from app.deps import require_role
 from app.models.emitter import Emitter
 from app.models.emitter_version import EmitterVersion
 from app.models.mdf import Mdf, MdfVersion
+from app.models.mode import Mode
 from app.models.test_record import TestRecord, TestRecordMode
 from app.schemas.test_record import TestRecordCreate, TestRecordOut
+
+_MODES_EAGER_LOAD = joinedload(TestRecord.modes).joinedload(TestRecordMode.mode)
 
 emitter_router = APIRouter(prefix="/emitters/{emitter_id}/test-records", tags=["test-records"])
 mdf_router = APIRouter(prefix="/mdfs/{mdf_id}/test-records", tags=["test-records"])
@@ -42,6 +45,12 @@ def _create_test_record(
     payload: TestRecordCreate,
     tested_by: UUID,
 ) -> TestRecord:
+    if payload.mode_ids:
+        found_ids = {m.id for m in db.query(Mode.id).filter(Mode.id.in_(payload.mode_ids)).all()}
+        missing = set(payload.mode_ids) - found_ids
+        if missing:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, f"Unknown mode id(s): {missing}")
+
     record = TestRecord(
         scope_type=scope_type,
         scope_id=scope_id,
@@ -59,8 +68,7 @@ def _create_test_record(
     for mode_id in payload.mode_ids:
         db.add(TestRecordMode(test_record_id=record.id, mode_id=mode_id))
     db.commit()
-    db.refresh(record)
-    return record
+    return db.query(TestRecord).options(_MODES_EAGER_LOAD).filter(TestRecord.id == record.id).one()
 
 
 @emitter_router.get("", response_model=list[TestRecordOut])
@@ -71,6 +79,7 @@ def list_emitter_test_records(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Emitter not found")
     return (
         db.query(TestRecord)
+        .options(_MODES_EAGER_LOAD)
         .filter(TestRecord.scope_type == TestScopeType.emitter, TestRecord.scope_id == emitter_id)
         .order_by(TestRecord.test_date.desc())
         .all()
@@ -107,6 +116,7 @@ def list_mdf_test_records(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "MDF not found")
     return (
         db.query(TestRecord)
+        .options(_MODES_EAGER_LOAD)
         .filter(TestRecord.scope_type == TestScopeType.mdf, TestRecord.scope_id == mdf_id)
         .order_by(TestRecord.test_date.desc())
         .all()

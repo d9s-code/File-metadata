@@ -12,10 +12,20 @@ from app.dsl.renderer import render_mode_line
 from app.models.ew_group import EwGroup
 from app.models.mode import Mode, ModeLine
 from app.models.source import Source
-from app.schemas.mode import ModeCreate, ModeCreateFromDsl, ModeOut, ModeUpdate, validate_pri_type_fields
+from app.schemas.mode import (
+    ModeCreate,
+    ModeCreateFromDsl,
+    ModeOut,
+    ModeUpdate,
+    require_manual_deltas,
+    validate_pri_type_fields,
+)
 from app.services.dsl_mode_service import create_mode_from_dsl
 
 router = APIRouter(prefix="/ew-groups/{ew_group_id}/modes", tags=["modes"])
+
+# ModeLineFields columns that aren't part of the rendered DSL line text.
+_NON_DSL_LINE_FIELDS = {"type_data", "rf_delta", "pw_delta", "pri_delta"}
 
 
 def _get_ew_group_or_404(db: Session, ew_group_id: UUID) -> EwGroup:
@@ -66,7 +76,7 @@ def create_mode(
     line_fields = payload.line.model_dump()
     try:
         dsl_text = render_mode_line(
-            pri_type=payload.pri_type, **{k: v for k, v in line_fields.items() if k != "type_data"}
+            pri_type=payload.pri_type, **{k: v for k, v in line_fields.items() if k not in _NON_DSL_LINE_FIELDS}
         )
     except DslSyntaxError:
         dsl_text = None  # e.g. Xlet, which has no DSL line syntax yet
@@ -144,12 +154,13 @@ def update_mode(
 
     if payload.line is not None:
         validate_pri_type_fields(mode.pri_type, payload.line)
+        require_manual_deltas(mode.pri_type, payload.line)
         line_fields = payload.line.model_dump()
         for field, value in line_fields.items():
             setattr(mode.line, field, value)
         try:
             mode.line.dsl_text = render_mode_line(
-                pri_type=mode.pri_type, **{k: v for k, v in line_fields.items() if k != "type_data"}
+                pri_type=mode.pri_type, **{k: v for k, v in line_fields.items() if k not in _NON_DSL_LINE_FIELDS}
             )
         except DslSyntaxError:
             mode.line.dsl_text = None
