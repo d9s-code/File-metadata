@@ -121,7 +121,15 @@ export function TestHistoryView({
           </select>
           <input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} required />
           <input type="date" value={testDate} onChange={(e) => setTestDate(e.target.value)} required />
-          <input placeholder="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+          <label className="test-notes-field">
+            Notes (optional)
+            <textarea
+              placeholder="Any context worth recording about this test run…"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={4}
+            />
+          </label>
           {availableModes && availableModes.length > 0 && (
             <fieldset className="mode-link-picker">
               <legend>Modes exercised (optional)</legend>

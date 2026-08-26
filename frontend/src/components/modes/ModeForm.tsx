@@ -127,17 +127,18 @@ export function ModeForm({
         </select>
       </div>
 
-      <div className="form-row">
+      <div className="form-row param-row">
+        <span className="param-row-label">RF</span>
         <label>
-          RF min (MHz)
+          min (MHz)
           <input type="number" step="any" value={rfMin} onChange={(e) => setRfMin(e.target.value)} required />
         </label>
         <label>
-          RF max (MHz)
+          max (MHz)
           <input type="number" step="any" value={rfMax} onChange={(e) => setRfMax(e.target.value)} required />
         </label>
         <label>
-          RF delta (±MHz)
+          delta (±MHz)
           <input
             type="number"
             step="any"
@@ -148,16 +149,20 @@ export function ModeForm({
             required
           />
         </label>
+      </div>
+
+      <div className="form-row param-row">
+        <span className="param-row-label">PW</span>
         <label>
-          PW min (µs)
+          min (µs)
           <input type="number" step="any" value={pwMin} onChange={(e) => setPwMin(e.target.value)} required />
         </label>
         <label>
-          PW max (µs)
+          max (µs)
           <input type="number" step="any" value={pwMax} onChange={(e) => setPwMax(e.target.value)} required />
         </label>
         <label>
-          PW delta (±µs)
+          delta (±µs)
           <input
             type="number"
             step="any"
@@ -171,17 +176,18 @@ export function ModeForm({
       </div>
 
       {priType === "fixed" && (
-        <div className="form-row">
+        <div className="form-row param-row">
+          <span className="param-row-label">PRI</span>
           <label>
-            PRI min (µs)
+            min (µs)
             <input type="number" step="any" value={priMin} onChange={(e) => setPriMin(e.target.value)} required />
           </label>
           <label>
-            PRI max (µs)
+            max (µs)
             <input type="number" step="any" value={priMax} onChange={(e) => setPriMax(e.target.value)} required />
           </label>
           <label>
-            PRI delta (±µs)
+            delta (±µs)
             <input
               type="number"
               step="any"
@@ -193,11 +199,11 @@ export function ModeForm({
             />
           </label>
           <label>
-            Jitter min (µs)
+            jitter min (µs)
             <input type="number" step="any" value={jitterMin} onChange={(e) => setJitterMin(e.target.value)} required />
           </label>
           <label>
-            Jitter max (µs)
+            jitter max (µs)
             <input type="number" step="any" value={jitterMax} onChange={(e) => setJitterMax(e.target.value)} required />
           </label>
         </div>
@@ -227,7 +233,7 @@ export function ModeForm({
             placeholder="Any context worth recording about this Mode…"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            rows={2}
+            rows={4}
           />
         </label>
       </div>
