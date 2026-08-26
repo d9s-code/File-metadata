@@ -173,7 +173,11 @@ def get_frametime(
     )
 
 
-@router.post("/{source_id}/elements/cartesian-product", response_model=CartesianProductResult)
+@router.post(
+    "/{source_id}/elements/cartesian-product",
+    response_model=CartesianProductResult,
+    dependencies=[Depends(verify_csrf)],
+)
 def cartesian_product(
     emitter_id: UUID,
     source_id: UUID,

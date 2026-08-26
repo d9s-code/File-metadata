@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.csrf import verify_csrf
 from app.core.enums import AmbiguityRunStatus, AmbiguityScopeType, AmbiguitySeverity, Role
 from app.database import get_db
-from app.deps import require_role
+from app.deps import has_role, require_role
 from app.models.ambiguity import AmbiguityFinding, AmbiguityRun
 from app.models.emitter import Emitter
 from app.models.emitter_version import EmitterVersion
@@ -53,6 +53,9 @@ def create_ambiguity_run(
     db: Session = Depends(get_db),
     user=Depends(require_role(Role.viewer)),
 ) -> AmbiguityRun:
+    if payload.tolerance_config is not None and not has_role(user, Role.editor):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only Editors and Admins may set a custom tolerance")
+
     version = _resolve_version(db, payload)
     _, _, _, version_fk_field = _SCOPE_MODELS[payload.scope_type]
 

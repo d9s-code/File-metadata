@@ -71,6 +71,32 @@ def test_viewer_can_trigger_run(viewer_client, emitter_with_two_overlapping_mode
     assert resp.status_code == 201
 
 
+def test_viewer_cannot_set_custom_tolerance(viewer_client, emitter_with_two_overlapping_modes):
+    emitter_id = emitter_with_two_overlapping_modes["emitter"]["id"]
+    resp = viewer_client.post(
+        "/ambiguity/runs",
+        json={
+            "scope_type": "emitter",
+            "scope_id": emitter_id,
+            "tolerance_config": {"low_threshold": 10.0, "high_threshold": 50.0, "exact_threshold": 95.0},
+        },
+    )
+    assert resp.status_code == 403
+
+
+def test_editor_can_set_custom_tolerance(editor_client, emitter_with_two_overlapping_modes):
+    emitter_id = emitter_with_two_overlapping_modes["emitter"]["id"]
+    resp = editor_client.post(
+        "/ambiguity/runs",
+        json={
+            "scope_type": "emitter",
+            "scope_id": emitter_id,
+            "tolerance_config": {"low_threshold": 10.0, "high_threshold": 50.0, "exact_threshold": 95.0},
+        },
+    )
+    assert resp.status_code == 201, resp.text
+
+
 def test_viewer_cannot_review_finding(viewer_client, editor_client, emitter_with_two_overlapping_modes):
     emitter_id = emitter_with_two_overlapping_modes["emitter"]["id"]
     run = editor_client.post("/ambiguity/runs", json={"scope_type": "emitter", "scope_id": emitter_id}).json()

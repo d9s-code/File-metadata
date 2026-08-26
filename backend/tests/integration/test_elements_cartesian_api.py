@@ -168,6 +168,28 @@ def test_cartesian_product_writes_engineered_values_into_mode_line(editor_client
     assert line["pri_max_us"] == 1220
 
 
+def test_cartesian_product_requires_csrf_token(editor_client, emitter_ctx):
+    url = _elements_url(emitter_ctx)
+    rf1 = editor_client.post(url, json={"element_type": "rf", "value_min": 2900, "value_max": 3100}).json()
+    pw1 = editor_client.post(url, json={"element_type": "pw", "value_min": 0.5, "value_max": 1.2}).json()
+    pri1 = editor_client.post(
+        url, json={"element_type": "pri", "value_min": 800, "value_max": 1200, "jitter_min": 5, "jitter_max": 15}
+    ).json()
+
+    resp = editor_client.post(
+        f"{url}/cartesian-product",
+        json={
+            "ew_group_id": emitter_ctx["ew_group"]["id"],
+            "rf_element_ids": [rf1["id"]],
+            "pw_element_ids": [pw1["id"]],
+            "pri_element_ids": [pri1["id"]],
+            "name_prefix": "NoCsrf",
+        },
+        headers={"x-csrf-token": ""},
+    )
+    assert resp.status_code == 403
+
+
 def test_cartesian_product_rejects_mixed_pri_shapes(editor_client, emitter_ctx):
     url = _elements_url(emitter_ctx)
     rf1 = editor_client.post(url, json={"element_type": "rf", "value_min": 2900, "value_max": 3100}).json()

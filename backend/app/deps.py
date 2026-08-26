@@ -12,6 +12,10 @@ from app.models.user import User
 _ROLE_RANK = {Role.viewer: 0, Role.editor: 1, Role.admin: 2}
 
 
+def has_role(user: User, minimum: Role) -> bool:
+    return _ROLE_RANK[user.role] >= _ROLE_RANK[minimum]
+
+
 def get_current_user(
     access_token: str | None = Cookie(default=None),
     db: Session = Depends(get_db),
