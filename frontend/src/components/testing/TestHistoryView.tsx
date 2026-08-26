@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import type { TestRecord, TestRecordInput } from "../../api/testRecords";
 import type { TestResult, TestType } from "../../types/domain";
 import { RequireRole } from "../../auth/RequireAuth";
@@ -32,6 +32,14 @@ export function TestHistoryView({
   const [error, setError] = useState<string | null>(null);
   const { confirmDelete, dialog } = useConfirmDialog();
 
+  // A test run is assumed to exercise every current Mode unless told
+  // otherwise — with 70+ Modes on some Emitters, requiring an editor to
+  // individually check each one would make logging a test painful. Default
+  // to "all selected" and let them uncheck the few that weren't covered.
+  useEffect(() => {
+    setModeIds((availableModes ?? []).map((m) => m.id));
+  }, [availableModes]);
+
   function toggleMode(id: string) {
     setModeIds((ids) => (ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id]));
   }
@@ -57,7 +65,7 @@ export function TestHistoryView({
       setTitle("");
       setTestDate("");
       setNotes("");
-      setModeIds([]);
+      setModeIds((availableModes ?? []).map((m) => m.id));
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : "Failed to log test");
     }
@@ -132,7 +140,17 @@ export function TestHistoryView({
           </label>
           {availableModes && availableModes.length > 0 && (
             <fieldset className="mode-link-picker">
-              <legend>Modes exercised (optional)</legend>
+              <legend>
+                Modes exercised — assumed to be all of them ({modeIds.length}/{availableModes.length});
+                uncheck any that weren't{" "}
+                <button type="button" className="link-button" onClick={() => setModeIds(availableModes.map((m) => m.id))}>
+                  select all
+                </button>{" "}
+                ·{" "}
+                <button type="button" className="link-button" onClick={() => setModeIds([])}>
+                  select none
+                </button>
+              </legend>
               {availableModes.map((m) => (
                 <label key={m.id} className="mode-link-option">
                   <input type="checkbox" checked={modeIds.includes(m.id)} onChange={() => toggleMode(m.id)} />
