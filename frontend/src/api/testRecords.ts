@@ -18,6 +18,7 @@ export interface TestRecord {
   notes: string | null;
   tested_by: string | null;
   test_date: string;
+  simulation_created_date: string | null;
   created_at: string;
   modes: TestRecordModeLink[];
 }
@@ -28,6 +29,7 @@ export interface TestRecordInput {
   title: string;
   notes?: string;
   test_date: string;
+  simulation_created_date?: string;
   mode_ids?: string[];
 }
 

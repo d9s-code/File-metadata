@@ -21,6 +21,7 @@ from app.schemas.emitter_version import (
     StatusTransitionRequest,
 )
 from app.services.audit_service import record_audit
+from app.services.mode_test_status_service import get_last_test_status
 from app.services.snapshots import build_emitter_snapshot
 from app.services.status_service import InvalidStatusTransition, validate_transition
 from app.services.versioning_service import VersionSpec, commit_version, diff_versions, get_version, list_versions
@@ -156,16 +157,27 @@ def _get_emitter_or_404(db: Session, emitter_id: UUID) -> Emitter:
 @router.get("/{emitter_id}/modes", response_model=list[ModeOut])
 def list_emitter_modes(
     emitter_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
-) -> list[Mode]:
-    """All Modes across every EW Group belonging to this Emitter, in one flat list."""
+) -> list[ModeOut]:
+    """All Modes across every EW Group belonging to this Emitter, in one flat
+    list — this is the Emitter's mode overview, so each Mode carries its
+    computed last-tested status alongside its parameters.
+    """
     _get_emitter_or_404(db, emitter_id)
-    return (
+    modes = (
         db.query(Mode)
         .join(EwGroup, Mode.ew_group_id == EwGroup.id)
         .filter(EwGroup.emitter_id == emitter_id)
         .order_by(EwGroup.sort_order, Mode.sort_order)
         .all()
     )
+    test_status = get_last_test_status(db, [m.id for m in modes])
+    results = []
+    for m in modes:
+        out = ModeOut.model_validate(m)
+        if m.id in test_status:
+            out.last_tested_at, out.last_test_result = test_status[m.id]
+        results.append(out)
+    return results
 
 
 @router.get("/{emitter_id}/generation-batches", response_model=list[ModeGenerationBatchOut])

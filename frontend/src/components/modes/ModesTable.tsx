@@ -64,6 +64,7 @@ export function ModesTable({
             {header("PRI Type", "pri_type")}
             {header("PRI Min", "pri_min")}
             {header("PRI Max", "pri_max")}
+            {header("Last Tested", "last_tested")}
             <th></th>
           </tr>
         </thead>
@@ -139,6 +140,20 @@ export function ModesTable({
                 ) : (
                   <td colSpan={2}>{m.pri_type === "cw" ? "CW (constant)" : "—"}</td>
                 )}
+                <td>
+                  {m.last_tested_at ? (
+                    <>
+                      {m.last_tested_at}
+                      {m.last_test_result && (
+                        <span className={`test-result-badge test-result-${m.last_test_result}`}>
+                          {m.last_test_result}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="hint-text">never</span>
+                  )}
+                </td>
                 <td>
                   <RequireRole minimum="editor">
                     <button className="link-button" onClick={() => onDelete(m.id, m.ew_group_id, m.name)}>

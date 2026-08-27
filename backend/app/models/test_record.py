@@ -34,6 +34,10 @@ class TestRecord(UUIDPkMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
     test_date: Mapped[date] = mapped_column(Date, nullable=False)
+    # Required for test_type == simulation only (see TestRecordCreate) — when the
+    # simulation model/scenario itself was built, as distinct from test_date (when
+    # the test run happened against it).
+    simulation_created_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     modes: Mapped[list["TestRecordMode"]] = relationship(
         back_populates="test_record", cascade="all, delete-orphan"

@@ -126,6 +126,23 @@ export function ModesCardGrid({
                   <dd>{m.pri_type === "cw" ? "CW (constant)" : "—"}</dd>
                 </div>
               )}
+              <div>
+                <dt>Last Tested</dt>
+                <dd>
+                  {m.last_tested_at ? (
+                    <>
+                      {m.last_tested_at}
+                      {m.last_test_result && (
+                        <span className={`test-result-badge test-result-${m.last_test_result}`}>
+                          {m.last_test_result}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="hint-text">never</span>
+                  )}
+                </dd>
+              </div>
             </dl>
           </div>
         );

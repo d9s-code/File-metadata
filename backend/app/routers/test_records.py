@@ -62,6 +62,7 @@ def _create_test_record(
         title=payload.title,
         notes=payload.notes,
         test_date=payload.test_date,
+        simulation_created_date=payload.simulation_created_date,
         tested_by=tested_by,
     )
     db.add(record)

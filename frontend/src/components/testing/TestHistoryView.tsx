@@ -27,6 +27,7 @@ export function TestHistoryView({
   const [result, setResult] = useState<TestResult>("pass");
   const [title, setTitle] = useState("");
   const [testDate, setTestDate] = useState("");
+  const [simulationCreatedDate, setSimulationCreatedDate] = useState("");
   const [notes, setNotes] = useState("");
   const [modeIds, setModeIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -59,11 +60,13 @@ export function TestHistoryView({
         result,
         title,
         test_date: testDate,
+        simulation_created_date: testType === "simulation" ? simulationCreatedDate : undefined,
         notes: notes || undefined,
         mode_ids: modeIds,
       });
       setTitle("");
       setTestDate("");
+      setSimulationCreatedDate("");
       setNotes("");
       setModeIds((availableModes ?? []).map((m) => m.id));
     } catch (err) {
@@ -91,7 +94,12 @@ export function TestHistoryView({
           <tbody>
             {records.map((r) => (
               <tr key={r.id}>
-                <td>{r.test_date}</td>
+                <td>
+                  {r.test_date}
+                  {r.simulation_created_date && (
+                    <span className="jitter-subline">sim created {r.simulation_created_date}</span>
+                  )}
+                </td>
                 <td>{r.test_type.replace("_", " ")}</td>
                 <td>
                   <span className={`test-result-badge test-result-${r.result}`}>{r.result}</span>
@@ -128,7 +136,22 @@ export function TestHistoryView({
             ))}
           </select>
           <input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} required />
-          <input type="date" value={testDate} onChange={(e) => setTestDate(e.target.value)} required />
+          <label className="inline-date-label">
+            Test date
+            <input type="date" value={testDate} onChange={(e) => setTestDate(e.target.value)} required />
+          </label>
+          {testType === "simulation" && (
+            <label className="inline-date-label">
+              Simulation created
+              <input
+                type="date"
+                value={simulationCreatedDate}
+                onChange={(e) => setSimulationCreatedDate(e.target.value)}
+                title="When the simulation model/scenario itself was built, as distinct from the test date"
+                required
+              />
+            </label>
+          )}
           <label className="test-notes-field">
             Notes (optional)
             <textarea

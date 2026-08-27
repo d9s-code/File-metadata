@@ -1,9 +1,9 @@
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, computed_field, field_validator, model_validator
 
-from app.core.enums import PriType
+from app.core.enums import PriType, TestResult
 from app.services.delta import apply_delta
 
 
@@ -183,6 +183,12 @@ class ModeOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     line: ModeLineOut | None = None
+    # Computed on read from test_record_modes/test_records — see
+    # app.services.mode_test_status_service. Not populated on every endpoint
+    # that returns a Mode; left null unless the router explicitly attaches it
+    # (list endpoints, where the overview value is worth the extra query).
+    last_tested_at: date | None = None
+    last_test_result: TestResult | None = None
 
 
 class ModeGenerationBatchOut(BaseModel):

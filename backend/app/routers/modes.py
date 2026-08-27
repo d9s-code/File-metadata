@@ -22,6 +22,7 @@ from app.schemas.mode import (
 )
 from app.services.audit_service import record_audit
 from app.services.dsl_mode_service import create_mode_from_dsl
+from app.services.mode_test_status_service import get_last_test_status
 
 router = APIRouter(prefix="/ew-groups/{ew_group_id}/modes", tags=["modes"])
 
@@ -39,9 +40,17 @@ def _get_ew_group_or_404(db: Session, ew_group_id: UUID) -> EwGroup:
 @router.get("", response_model=list[ModeOut])
 def list_modes(
     ew_group_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
-) -> list[Mode]:
+) -> list[ModeOut]:
     _get_ew_group_or_404(db, ew_group_id)
-    return db.query(Mode).filter(Mode.ew_group_id == ew_group_id).order_by(Mode.sort_order).all()
+    modes = db.query(Mode).filter(Mode.ew_group_id == ew_group_id).order_by(Mode.sort_order).all()
+    test_status = get_last_test_status(db, [m.id for m in modes])
+    results = []
+    for m in modes:
+        out = ModeOut.model_validate(m)
+        if m.id in test_status:
+            out.last_tested_at, out.last_test_result = test_status[m.id]
+        results.append(out)
+    return results
 
 
 @router.post(

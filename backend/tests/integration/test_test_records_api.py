@@ -55,7 +55,7 @@ def test_list_test_records_includes_linked_mode_names(editor_client, emitter_wit
     editor_client.post(
         f"/emitters/{emitter_id}/test-records",
         json={
-            "test_type": "simulation",
+            "test_type": "lab_bench",
             "result": "pass",
             "title": "Sim run",
             "test_date": "2026-01-02",
@@ -73,7 +73,7 @@ def test_create_test_record_rejects_unknown_mode_id(editor_client, emitter_with_
     resp = editor_client.post(
         f"/emitters/{emitter_id}/test-records",
         json={
-            "test_type": "simulation",
+            "test_type": "lab_bench",
             "result": "pass",
             "title": "Sim run",
             "test_date": "2026-01-02",
@@ -112,3 +112,76 @@ def test_create_test_record_without_modes_still_works(editor_client, emitter_wit
     )
     assert resp.status_code == 201, resp.text
     assert resp.json()["modes"] == []
+
+
+def test_simulation_test_requires_simulation_created_date(editor_client, emitter_with_mode):
+    emitter_id = emitter_with_mode["emitter"]["id"]
+    resp = editor_client.post(
+        f"/emitters/{emitter_id}/test-records",
+        json={"test_type": "simulation", "result": "pass", "title": "Sim run", "test_date": "2026-01-02"},
+    )
+    assert resp.status_code == 422
+
+
+def test_simulation_test_succeeds_with_simulation_created_date(editor_client, emitter_with_mode):
+    emitter_id = emitter_with_mode["emitter"]["id"]
+    resp = editor_client.post(
+        f"/emitters/{emitter_id}/test-records",
+        json={
+            "test_type": "simulation",
+            "result": "pass",
+            "title": "Sim run",
+            "test_date": "2026-01-02",
+            "simulation_created_date": "2025-12-01",
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["simulation_created_date"] == "2025-12-01"
+
+
+def test_non_simulation_test_does_not_require_simulation_created_date(editor_client, emitter_with_mode):
+    emitter_id = emitter_with_mode["emitter"]["id"]
+    resp = editor_client.post(
+        f"/emitters/{emitter_id}/test-records",
+        json={"test_type": "lab_bench", "result": "pass", "title": "Bench run", "test_date": "2026-01-02"},
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["simulation_created_date"] is None
+
+
+def test_emitter_modes_list_carries_last_test_status(editor_client, emitter_with_mode):
+    emitter_id = emitter_with_mode["emitter"]["id"]
+    mode_id = emitter_with_mode["mode"]["id"]
+
+    [mode_before] = editor_client.get(f"/emitters/{emitter_id}/modes").json()
+    assert mode_before["last_tested_at"] is None
+    assert mode_before["last_test_result"] is None
+
+    editor_client.post(
+        f"/emitters/{emitter_id}/test-records",
+        json={
+            "test_type": "lab_bench",
+            "result": "partial",
+            "title": "Bench run",
+            "test_date": "2026-01-05",
+            "mode_ids": [mode_id],
+        },
+    )
+    [mode_after] = editor_client.get(f"/emitters/{emitter_id}/modes").json()
+    assert mode_after["last_tested_at"] == "2026-01-05"
+    assert mode_after["last_test_result"] == "partial"
+
+    # A later test replaces the "last" status.
+    editor_client.post(
+        f"/emitters/{emitter_id}/test-records",
+        json={
+            "test_type": "lab_bench",
+            "result": "fail",
+            "title": "Second bench run",
+            "test_date": "2026-01-10",
+            "mode_ids": [mode_id],
+        },
+    )
+    [mode_latest] = editor_client.get(f"/emitters/{emitter_id}/modes").json()
+    assert mode_latest["last_tested_at"] == "2026-01-10"
+    assert mode_latest["last_test_result"] == "fail"

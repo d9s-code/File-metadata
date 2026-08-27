@@ -97,6 +97,9 @@ export interface Mode {
   created_at: string;
   updated_at: string;
   line: ModeLine | null;
+  /** Computed on read from test history — see backend mode_test_status_service. */
+  last_tested_at: string | null;
+  last_test_result: TestResult | null;
 }
 
 export interface ModeGenerationBatch {
