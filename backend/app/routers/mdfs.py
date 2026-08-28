@@ -5,7 +5,7 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.core.csrf import verify_csrf
-from app.core.enums import MDF_STATUS_TRANSITIONS, MdfStatus, Role
+from app.core.enums import MDF_STATUS_TRANSITIONS, AuditAction, AuditEntityType, MdfStatus, Role
 from app.database import get_db
 from app.deps import require_role
 from app.models.mdf import Mdf, MdfPlatformLink, MdfVersion
@@ -13,6 +13,7 @@ from app.models.platform import PlatformVersion
 from app.schemas.emitter_version import CommitVersionRequest, DiffOut, StatusTransitionRequest
 from app.schemas.mdf import MdfCreate, MdfLinkCreate, MdfLinkOut, MdfOut, MdfReadinessOut, MdfUpdate
 from app.schemas.mdf_version import MdfStatusTransitionOut, MdfVersionDetailOut, MdfVersionOut
+from app.services.audit_service import record_audit
 from app.services.readiness_service import compute_mdf_readiness_warnings
 from app.services.snapshots import build_mdf_snapshot
 from app.services.status_service import InvalidStatusTransition, validate_transition
@@ -54,6 +55,16 @@ def create_mdf(
         raise HTTPException(status.HTTP_409_CONFLICT, "MDF name already exists")
     mdf = Mdf(name=payload.name, description=payload.description, created_by=user.id)
     db.add(mdf)
+    db.flush()
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.create,
+        entity_type=AuditEntityType.mdf.value,
+        entity_id=mdf.id,
+        summary=f"Created MDF '{mdf.name}'",
+        changes=payload.model_dump(mode="json"),
+    )
     db.commit()
     db.refresh(mdf)
     return mdf
@@ -61,11 +72,20 @@ def create_mdf(
 
 @router.patch("/{mdf_id}", response_model=MdfOut, dependencies=[Depends(verify_csrf)])
 def update_mdf(
-    mdf_id: UUID, payload: MdfUpdate, db: Session = Depends(get_db), _=Depends(require_role(Role.editor))
+    mdf_id: UUID, payload: MdfUpdate, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))
 ) -> Mdf:
     mdf = _get_mdf_or_404(db, mdf_id)
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(mdf, field, value)
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.update,
+        entity_type=AuditEntityType.mdf.value,
+        entity_id=mdf.id,
+        summary=f"Updated MDF '{mdf.name}'",
+        changes=payload.model_dump(exclude_unset=True, mode="json"),
+    )
     db.commit()
     db.refresh(mdf)
     return mdf
@@ -82,9 +102,25 @@ def delete_mdf(
     if hard:
         if user.role != Role.admin:
             raise HTTPException(status.HTTP_403_FORBIDDEN, "Hard delete requires admin role")
+        record_audit(
+            db,
+            actor_id=user.id,
+            action=AuditAction.delete,
+            entity_type=AuditEntityType.mdf.value,
+            entity_id=mdf.id,
+            summary=f"Hard-deleted MDF '{mdf.name}'",
+        )
         db.delete(mdf)
     else:
         mdf.is_deleted = True
+        record_audit(
+            db,
+            actor_id=user.id,
+            action=AuditAction.delete,
+            entity_type=AuditEntityType.mdf.value,
+            entity_id=mdf.id,
+            summary=f"Deleted MDF '{mdf.name}'",
+        )
     db.commit()
 
 
@@ -101,10 +137,10 @@ def pin_platform(
     mdf_id: UUID,
     payload: MdfLinkCreate,
     db: Session = Depends(get_db),
-    _=Depends(require_role(Role.editor)),
+    user=Depends(require_role(Role.editor)),
 ) -> MdfPlatformLink:
     """Pins (or repins) a specific committed Platform version into this MDF."""
-    _get_mdf_or_404(db, mdf_id)
+    mdf = _get_mdf_or_404(db, mdf_id)
     platform_version = db.get(PlatformVersion, payload.platform_version_id)
     if platform_version is None or platform_version.platform_id != payload.platform_id:
         raise HTTPException(
@@ -124,6 +160,14 @@ def pin_platform(
             mdf_id=mdf_id, platform_id=payload.platform_id, platform_version_id=payload.platform_version_id
         )
         db.add(link)
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.update,
+        entity_type=AuditEntityType.mdf_link.value,
+        entity_id=mdf.id,
+        summary=f"Pinned Platform version {platform_version.version_number} into MDF '{mdf.name}'",
+    )
     db.commit()
     db.refresh(link)
     return link
@@ -133,9 +177,9 @@ def pin_platform(
     "/{mdf_id}/links/{platform_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(verify_csrf)]
 )
 def unpin_platform(
-    mdf_id: UUID, platform_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.editor))
+    mdf_id: UUID, platform_id: UUID, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))
 ) -> None:
-    _get_mdf_or_404(db, mdf_id)
+    mdf = _get_mdf_or_404(db, mdf_id)
     link = (
         db.query(MdfPlatformLink)
         .filter(MdfPlatformLink.mdf_id == mdf_id, MdfPlatformLink.platform_id == platform_id)
@@ -143,6 +187,14 @@ def unpin_platform(
     )
     if link is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Link not found")
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.update,
+        entity_type=AuditEntityType.mdf_link.value,
+        entity_id=mdf.id,
+        summary=f"Unpinned a Platform from MDF '{mdf.name}'",
+    )
     db.delete(link)
     db.commit()
 
@@ -158,6 +210,15 @@ def commit_mdf_version(
 ) -> MdfVersion:
     mdf = _get_mdf_or_404(db, mdf_id)
     snapshot = build_mdf_snapshot(mdf)
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.commit,
+        entity_type=AuditEntityType.mdf.value,
+        entity_id=mdf.id,
+        summary=f"Committed a version of MDF '{mdf.name}'"
+        + (f" — {payload.change_summary}" if payload.change_summary else ""),
+    )
     return commit_version(
         db, spec=_VERSION_SPEC, entity_id=mdf.id, snapshot=snapshot, change_summary=payload.change_summary, created_by=user.id
     )
@@ -237,6 +298,16 @@ def transition_mdf_status(
     summary = f"Status: {old_status} → {new_status.value}"
     if payload.note:
         summary += f" — {payload.note}"
+
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.status_change,
+        entity_type=AuditEntityType.mdf.value,
+        entity_id=mdf.id,
+        summary=f"MDF '{mdf.name}': {summary}",
+        changes={"old_status": old_status, "new_status": new_status.value},
+    )
 
     snapshot = build_mdf_snapshot(mdf)
     version = commit_version(

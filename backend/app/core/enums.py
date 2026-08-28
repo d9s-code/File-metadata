@@ -95,3 +95,34 @@ class TestResult(str, enum.Enum):
 class TestScopeType(str, enum.Enum):
     emitter = "emitter"
     mdf = "mdf"
+
+
+class AuditAction(str, enum.Enum):
+    create = "create"
+    update = "update"
+    delete = "delete"
+    status_change = "status_change"
+    commit = "commit"
+    login = "login"
+    login_failed = "login_failed"
+    logout = "logout"
+
+
+class AuditEntityType(str, enum.Enum):
+    """The "group" an audit entry is filed under. A flat list underneath
+    (see AuditLog) — this enum is what the UI groups/subgroups by.
+    """
+
+    emitter = "emitter"
+    ew_group = "ew_group"
+    source = "source"
+    mode_element = "mode_element"
+    mode = "mode"
+    mode_generation_batch = "mode_generation_batch"
+    platform = "platform"
+    platform_link = "platform_link"
+    mdf = "mdf"
+    mdf_link = "mdf_link"
+    test_record = "test_record"
+    user = "user"
+    auth = "auth"

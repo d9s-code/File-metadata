@@ -61,6 +61,9 @@ export interface ModeLineFields {
   rf_max_mhz: number;
   pw_min_us: number;
   pw_max_us: number;
+  rf_delta?: number | null;
+  pw_delta?: number | null;
+  pri_delta?: number | null;
   pri_min_us?: number | null;
   pri_max_us?: number | null;
   jitter_min_us?: number | null;
@@ -74,6 +77,12 @@ export interface ModeLine extends ModeLineFields {
   mode_id: string;
   dsl_text: string | null;
   created_at: string;
+  engineered_rf_min_mhz: number | null;
+  engineered_rf_max_mhz: number | null;
+  engineered_pw_min_us: number | null;
+  engineered_pw_max_us: number | null;
+  engineered_pri_min_us: number | null;
+  engineered_pri_max_us: number | null;
 }
 
 export interface Mode {
@@ -88,6 +97,9 @@ export interface Mode {
   created_at: string;
   updated_at: string;
   line: ModeLine | null;
+  /** Computed on read from test history — see backend mode_test_status_service. */
+  last_tested_at: string | null;
+  last_test_result: TestResult | null;
 }
 
 export interface ModeGenerationBatch {
@@ -113,6 +125,38 @@ export interface ModeElement {
   engineered_max: number | null;
   label: string | null;
   sort_order: number;
+}
+
+export type AuditAction =
+  | "create"
+  | "update"
+  | "delete"
+  | "status_change"
+  | "commit"
+  | "login"
+  | "login_failed"
+  | "logout";
+
+export interface AuditLogEntry {
+  id: string;
+  actor_id: string | null;
+  actor_username: string | null;
+  action: AuditAction;
+  entity_type: string;
+  entity_id: string | null;
+  summary: string;
+  changes: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface AuditGroupCount {
+  entity_type: string;
+  count: number;
+}
+
+export interface AuditActionCount {
+  action: AuditAction;
+  count: number;
 }
 
 export interface ApiError {

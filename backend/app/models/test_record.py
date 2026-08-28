@@ -34,6 +34,10 @@ class TestRecord(UUIDPkMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
     test_date: Mapped[date] = mapped_column(Date, nullable=False)
+    # Required for test_type == simulation only (see TestRecordCreate) — when the
+    # simulation model/scenario itself was built, as distinct from test_date (when
+    # the test run happened against it).
+    simulation_created_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     modes: Mapped[list["TestRecordMode"]] = relationship(
         back_populates="test_record", cascade="all, delete-orphan"
@@ -46,7 +50,13 @@ class TestRecordMode(UUIDPkMixin, Base):
     test_record_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("test_records.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    mode_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("modes.id"), nullable=False)
+    # CASCADE: deleting a Mode just drops it from any test record's exercised-modes
+    # list — the test record itself (and its result/notes/other linked Modes)
+    # survives. Modes get regenerated/edited routinely, so a Mode being test-linked
+    # must never block its own deletion.
+    mode_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("modes.id", ondelete="CASCADE"), nullable=False
+    )
 
     test_record: Mapped["TestRecord"] = relationship(back_populates="modes")
     mode: Mapped["Mode"] = relationship()  # noqa: F821

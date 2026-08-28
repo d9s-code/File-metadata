@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.csrf import verify_csrf
-from app.core.enums import Role
+from app.core.enums import AuditAction, AuditEntityType, Role
 from app.database import get_db
 from app.deps import require_role
 from app.models.emitter_version import EmitterVersion
@@ -12,6 +12,7 @@ from app.models.platform import Platform, PlatformEmitterLink, PlatformVersion
 from app.schemas.emitter_version import CommitVersionRequest, DiffOut
 from app.schemas.platform import PlatformCreate, PlatformLinkCreate, PlatformLinkOut, PlatformOut, PlatformUpdate
 from app.schemas.platform_version import PlatformVersionDetailOut, PlatformVersionOut
+from app.services.audit_service import record_audit
 from app.services.snapshots import build_platform_snapshot
 from app.services.versioning_service import VersionSpec, commit_version, diff_versions, get_version, list_versions
 
@@ -52,6 +53,16 @@ def create_platform(
         raise HTTPException(status.HTTP_409_CONFLICT, "Platform name already exists")
     platform = Platform(name=payload.name, description=payload.description, created_by=user.id)
     db.add(platform)
+    db.flush()
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.create,
+        entity_type=AuditEntityType.platform.value,
+        entity_id=platform.id,
+        summary=f"Created Platform '{platform.name}'",
+        changes=payload.model_dump(mode="json"),
+    )
     db.commit()
     db.refresh(platform)
     return platform
@@ -62,11 +73,20 @@ def update_platform(
     platform_id: UUID,
     payload: PlatformUpdate,
     db: Session = Depends(get_db),
-    _=Depends(require_role(Role.editor)),
+    user=Depends(require_role(Role.editor)),
 ) -> Platform:
     platform = _get_platform_or_404(db, platform_id)
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(platform, field, value)
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.update,
+        entity_type=AuditEntityType.platform.value,
+        entity_id=platform.id,
+        summary=f"Updated Platform '{platform.name}'",
+        changes=payload.model_dump(exclude_unset=True, mode="json"),
+    )
     db.commit()
     db.refresh(platform)
     return platform
@@ -83,9 +103,25 @@ def delete_platform(
     if hard:
         if user.role != Role.admin:
             raise HTTPException(status.HTTP_403_FORBIDDEN, "Hard delete requires admin role")
+        record_audit(
+            db,
+            actor_id=user.id,
+            action=AuditAction.delete,
+            entity_type=AuditEntityType.platform.value,
+            entity_id=platform.id,
+            summary=f"Hard-deleted Platform '{platform.name}'",
+        )
         db.delete(platform)
     else:
         platform.is_deleted = True
+        record_audit(
+            db,
+            actor_id=user.id,
+            action=AuditAction.delete,
+            entity_type=AuditEntityType.platform.value,
+            entity_id=platform.id,
+            summary=f"Deleted Platform '{platform.name}'",
+        )
     db.commit()
 
 
@@ -107,13 +143,13 @@ def pin_emitter(
     platform_id: UUID,
     payload: PlatformLinkCreate,
     db: Session = Depends(get_db),
-    _=Depends(require_role(Role.editor)),
+    user=Depends(require_role(Role.editor)),
 ) -> PlatformEmitterLink:
     """Pins (or repins) a specific committed Emitter version into this
     Platform. Always requires an existing `emitter_versions` row — an
     Emitter with only uncommitted draft changes cannot be pinned.
     """
-    _get_platform_or_404(db, platform_id)
+    platform = _get_platform_or_404(db, platform_id)
     emitter_version = db.get(EmitterVersion, payload.emitter_version_id)
     if emitter_version is None or emitter_version.emitter_id != payload.emitter_id:
         raise HTTPException(
@@ -133,6 +169,14 @@ def pin_emitter(
             platform_id=platform_id, emitter_id=payload.emitter_id, emitter_version_id=payload.emitter_version_id
         )
         db.add(link)
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.update,
+        entity_type=AuditEntityType.platform_link.value,
+        entity_id=platform.id,
+        summary=f"Pinned Emitter version {emitter_version.version_number} into Platform '{platform.name}'",
+    )
     db.commit()
     db.refresh(link)
     return link
@@ -145,9 +189,9 @@ def unpin_emitter(
     platform_id: UUID,
     emitter_id: UUID,
     db: Session = Depends(get_db),
-    _=Depends(require_role(Role.editor)),
+    user=Depends(require_role(Role.editor)),
 ) -> None:
-    _get_platform_or_404(db, platform_id)
+    platform = _get_platform_or_404(db, platform_id)
     link = (
         db.query(PlatformEmitterLink)
         .filter(PlatformEmitterLink.platform_id == platform_id, PlatformEmitterLink.emitter_id == emitter_id)
@@ -155,6 +199,14 @@ def unpin_emitter(
     )
     if link is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Link not found")
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.update,
+        entity_type=AuditEntityType.platform_link.value,
+        entity_id=platform.id,
+        summary=f"Unpinned an Emitter from Platform '{platform.name}'",
+    )
     db.delete(link)
     db.commit()
 
@@ -173,6 +225,15 @@ def commit_platform_version(
 ) -> PlatformVersion:
     platform = _get_platform_or_404(db, platform_id)
     snapshot = build_platform_snapshot(platform)
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.commit,
+        entity_type=AuditEntityType.platform.value,
+        entity_id=platform.id,
+        summary=f"Committed a version of Platform '{platform.name}'"
+        + (f" — {payload.change_summary}" if payload.change_summary else ""),
+    )
     return commit_version(
         db,
         spec=_VERSION_SPEC,

@@ -62,7 +62,14 @@ export function ModesCardGrid({
               </div>
               <div>
                 <dt>RF Max (MHz)</dt>
-                <dd>{m.line?.rf_max_mhz ?? "—"}</dd>
+                <dd>
+                  {m.line?.rf_max_mhz ?? "—"}
+                  {m.line?.rf_delta != null && (
+                    <span className="jitter-subline">
+                      eng {m.line.engineered_rf_min_mhz}–{m.line.engineered_rf_max_mhz} (±{m.line.rf_delta})
+                    </span>
+                  )}
+                </dd>
               </div>
               <div>
                 <dt>PW Min (µs)</dt>
@@ -70,7 +77,14 @@ export function ModesCardGrid({
               </div>
               <div>
                 <dt>PW Max (µs)</dt>
-                <dd>{m.line?.pw_max_us ?? "—"}</dd>
+                <dd>
+                  {m.line?.pw_max_us ?? "—"}
+                  {m.line?.pw_delta != null && (
+                    <span className="jitter-subline">
+                      eng {m.line.engineered_pw_min_us}–{m.line.engineered_pw_max_us} (±{m.line.pw_delta})
+                    </span>
+                  )}
+                </dd>
               </div>
               <div>
                 <dt>PRI Type</dt>
@@ -98,6 +112,11 @@ export function ModesCardGrid({
                           jitter {m.line.jitter_min_us}–{m.line.jitter_max_us}
                         </span>
                       )}
+                      {m.line?.pri_delta != null && (
+                        <span className="jitter-subline">
+                          eng {m.line.engineered_pri_min_us}–{m.line.engineered_pri_max_us} (±{m.line.pri_delta})
+                        </span>
+                      )}
                     </dd>
                   </div>
                 </>
@@ -107,6 +126,23 @@ export function ModesCardGrid({
                   <dd>{m.pri_type === "cw" ? "CW (constant)" : "—"}</dd>
                 </div>
               )}
+              <div>
+                <dt>Last Tested</dt>
+                <dd>
+                  {m.last_tested_at ? (
+                    <>
+                      {m.last_tested_at}
+                      {m.last_test_result && (
+                        <span className={`test-result-badge test-result-${m.last_test_result}`}>
+                          {m.last_test_result}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="hint-text">never</span>
+                  )}
+                </dd>
+              </div>
             </dl>
           </div>
         );

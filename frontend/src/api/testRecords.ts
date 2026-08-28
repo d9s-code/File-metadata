@@ -1,6 +1,11 @@
 import { api } from "./client";
 import type { TestResult, TestType } from "../types/domain";
 
+export interface TestRecordModeLink {
+  mode_id: string;
+  mode_name: string;
+}
+
 export interface TestRecord {
   id: string;
   scope_type: "emitter" | "mdf";
@@ -13,7 +18,9 @@ export interface TestRecord {
   notes: string | null;
   tested_by: string | null;
   test_date: string;
+  simulation_created_date: string | null;
   created_at: string;
+  modes: TestRecordModeLink[];
 }
 
 export interface TestRecordInput {
@@ -22,6 +29,7 @@ export interface TestRecordInput {
   title: string;
   notes?: string;
   test_date: string;
+  simulation_created_date?: string;
   mode_ids?: string[];
 }
 

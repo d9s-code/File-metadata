@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import type { TestRecord, TestRecordInput } from "../../api/testRecords";
 import type { TestResult, TestType } from "../../types/domain";
 import { RequireRole } from "../../auth/RequireAuth";
@@ -13,19 +13,37 @@ export function TestHistoryView({
   onCreate,
   onDelete,
   creating,
+  availableModes,
 }: {
   records: TestRecord[];
   onCreate: (input: TestRecordInput) => Promise<unknown>;
   onDelete: (id: string) => Promise<unknown>;
   creating: boolean;
+  /** Modes the "log test" form can link this record to. Omitted where there's no
+   * direct Emitter scope to draw a Mode list from (e.g. MDF-scoped tests). */
+  availableModes?: { id: string; name: string }[];
 }) {
   const [testType, setTestType] = useState<TestType>("simulation");
   const [result, setResult] = useState<TestResult>("pass");
   const [title, setTitle] = useState("");
   const [testDate, setTestDate] = useState("");
+  const [simulationCreatedDate, setSimulationCreatedDate] = useState("");
   const [notes, setNotes] = useState("");
+  const [modeIds, setModeIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const { confirmDelete, dialog } = useConfirmDialog();
+
+  // A test run is assumed to exercise every current Mode unless told
+  // otherwise — with 70+ Modes on some Emitters, requiring an editor to
+  // individually check each one would make logging a test painful. Default
+  // to "all selected" and let them uncheck the few that weren't covered.
+  useEffect(() => {
+    setModeIds((availableModes ?? []).map((m) => m.id));
+  }, [availableModes]);
+
+  function toggleMode(id: string) {
+    setModeIds((ids) => (ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id]));
+  }
 
   async function handleDelete(id: string, title: string) {
     if (await confirmDelete(`Delete the test record "${title}"?`)) {
@@ -37,10 +55,20 @@ export function TestHistoryView({
     e.preventDefault();
     setError(null);
     try {
-      await onCreate({ test_type: testType, result, title, test_date: testDate, notes: notes || undefined });
+      await onCreate({
+        test_type: testType,
+        result,
+        title,
+        test_date: testDate,
+        simulation_created_date: testType === "simulation" ? simulationCreatedDate : undefined,
+        notes: notes || undefined,
+        mode_ids: modeIds,
+      });
       setTitle("");
       setTestDate("");
+      setSimulationCreatedDate("");
       setNotes("");
+      setModeIds((availableModes ?? []).map((m) => m.id));
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : "Failed to log test");
     }
@@ -58,6 +86,7 @@ export function TestHistoryView({
               <th>Type</th>
               <th>Result</th>
               <th>Title</th>
+              <th>Modes</th>
               <th>Notes</th>
               <th></th>
             </tr>
@@ -65,12 +94,18 @@ export function TestHistoryView({
           <tbody>
             {records.map((r) => (
               <tr key={r.id}>
-                <td>{r.test_date}</td>
+                <td>
+                  {r.test_date}
+                  {r.simulation_created_date && (
+                    <span className="jitter-subline">sim created {r.simulation_created_date}</span>
+                  )}
+                </td>
                 <td>{r.test_type.replace("_", " ")}</td>
                 <td>
                   <span className={`test-result-badge test-result-${r.result}`}>{r.result}</span>
                 </td>
                 <td>{r.title}</td>
+                <td>{r.modes?.length ? r.modes.map((m) => m.mode_name).join(", ") : "—"}</td>
                 <td>{r.notes ?? "—"}</td>
                 <td>
                   <RequireRole minimum="editor">
@@ -101,8 +136,52 @@ export function TestHistoryView({
             ))}
           </select>
           <input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} required />
-          <input type="date" value={testDate} onChange={(e) => setTestDate(e.target.value)} required />
-          <input placeholder="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+          <label className="inline-date-label">
+            Test date
+            <input type="date" value={testDate} onChange={(e) => setTestDate(e.target.value)} required />
+          </label>
+          {testType === "simulation" && (
+            <label className="inline-date-label">
+              Simulation created
+              <input
+                type="date"
+                value={simulationCreatedDate}
+                onChange={(e) => setSimulationCreatedDate(e.target.value)}
+                title="When the simulation model/scenario itself was built, as distinct from the test date"
+                required
+              />
+            </label>
+          )}
+          <label className="test-notes-field">
+            Notes (optional)
+            <textarea
+              placeholder="Any context worth recording about this test run…"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={4}
+            />
+          </label>
+          {availableModes && availableModes.length > 0 && (
+            <fieldset className="mode-link-picker">
+              <legend>
+                Modes exercised — assumed to be all of them ({modeIds.length}/{availableModes.length});
+                uncheck any that weren't{" "}
+                <button type="button" className="link-button" onClick={() => setModeIds(availableModes.map((m) => m.id))}>
+                  select all
+                </button>{" "}
+                ·{" "}
+                <button type="button" className="link-button" onClick={() => setModeIds([])}>
+                  select none
+                </button>
+              </legend>
+              {availableModes.map((m) => (
+                <label key={m.id} className="mode-link-option">
+                  <input type="checkbox" checked={modeIds.includes(m.id)} onChange={() => toggleMode(m.id)} />
+                  {m.name}
+                </label>
+              ))}
+            </fieldset>
+          )}
           <button type="submit" disabled={creating}>
             Log Test
           </button>

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.csrf import verify_csrf
-from app.core.enums import Role
+from app.core.enums import AuditAction, AuditEntityType, Role
 from app.database import get_db
 from app.deps import require_role
 from app.models.emitter import Emitter
@@ -19,6 +19,7 @@ from app.schemas.mode_element import (
     ModeElementOut,
 )
 from app.schemas.source import SourceCreate, SourceOut, SourceUpdate
+from app.services.audit_service import record_audit
 from app.services.cartesian_service import CartesianProductError, run_cartesian_product
 from app.services.frametime_service import compute_frametime_us
 
@@ -47,11 +48,21 @@ def create_source(
     emitter_id: UUID,
     payload: SourceCreate,
     db: Session = Depends(get_db),
-    _=Depends(require_role(Role.editor)),
+    user=Depends(require_role(Role.editor)),
 ) -> Source:
     _get_emitter_or_404(db, emitter_id)
     source = Source(emitter_id=emitter_id, **payload.model_dump())
     db.add(source)
+    db.flush()
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.create,
+        entity_type=AuditEntityType.source.value,
+        entity_id=source.id,
+        summary=f"Created Source '{source.name}'",
+        changes=payload.model_dump(mode="json"),
+    )
     db.commit()
     db.refresh(source)
     return source
@@ -63,13 +74,22 @@ def update_source(
     source_id: UUID,
     payload: SourceUpdate,
     db: Session = Depends(get_db),
-    _=Depends(require_role(Role.editor)),
+    user=Depends(require_role(Role.editor)),
 ) -> Source:
     source = db.get(Source, source_id)
     if source is None or source.emitter_id != emitter_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Source not found")
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(source, field, value)
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.update,
+        entity_type=AuditEntityType.source.value,
+        entity_id=source.id,
+        summary=f"Updated Source '{source.name}'",
+        changes=payload.model_dump(exclude_unset=True, mode="json"),
+    )
     db.commit()
     db.refresh(source)
     return source
@@ -80,13 +100,21 @@ def delete_source(
     emitter_id: UUID,
     source_id: UUID,
     db: Session = Depends(get_db),
-    _=Depends(require_role(Role.editor)),
+    user=Depends(require_role(Role.editor)),
 ) -> None:
     source = db.get(Source, source_id)
     if source is None or source.emitter_id != emitter_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Source not found")
     if source.modes:
         raise HTTPException(status.HTTP_409_CONFLICT, "Cannot delete a Source that still has Modes")
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.delete,
+        entity_type=AuditEntityType.source.value,
+        entity_id=source.id,
+        summary=f"Deleted Source '{source.name}'",
+    )
     db.delete(source)
     db.commit()
 
@@ -122,11 +150,21 @@ def create_element(
     source_id: UUID,
     payload: ModeElementCreate,
     db: Session = Depends(get_db),
-    _=Depends(require_role(Role.editor)),
+    user=Depends(require_role(Role.editor)),
 ) -> ModeElement:
-    _get_source_or_404(db, emitter_id, source_id)
+    source = _get_source_or_404(db, emitter_id, source_id)
     element = ModeElement(source_id=source_id, **payload.model_dump())
     db.add(element)
+    db.flush()
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.create,
+        entity_type=AuditEntityType.mode_element.value,
+        entity_id=element.id,
+        summary=f"Added a {element.element_type.value.upper()} element to Source '{source.name}'",
+        changes=payload.model_dump(mode="json"),
+    )
     db.commit()
     db.refresh(element)
     return element
@@ -142,12 +180,20 @@ def delete_element(
     source_id: UUID,
     element_id: UUID,
     db: Session = Depends(get_db),
-    _=Depends(require_role(Role.editor)),
+    user=Depends(require_role(Role.editor)),
 ) -> None:
     _get_source_or_404(db, emitter_id, source_id)
     element = db.get(ModeElement, element_id)
     if element is None or element.source_id != source_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Element not found")
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.delete,
+        entity_type=AuditEntityType.mode_element.value,
+        entity_id=element.id,
+        summary=f"Deleted a {element.element_type.value.upper()} element",
+    )
     db.delete(element)
     db.commit()
 
@@ -206,4 +252,14 @@ def cartesian_product(
         )
     except CartesianProductError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.create,
+        entity_type=AuditEntityType.mode_generation_batch.value,
+        entity_id=created[0].generation_batch_id if created else None,
+        summary=f"Generated {len(created)} Mode(s) via cartesian product on Source '{source.name}' "
+        f"('{payload.name_prefix}')",
+    )
+    db.commit()
     return CartesianProductResult(created_mode_ids=[m.id for m in created], count=len(created))

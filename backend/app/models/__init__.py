@@ -4,6 +4,7 @@ Alembic's env.py imports this module to get the full metadata for autogenerate.
 """
 
 from app.models.ambiguity import AmbiguityFinding, AmbiguityRun  # noqa: F401
+from app.models.audit_log import AuditLog  # noqa: F401
 from app.models.emitter import Emitter  # noqa: F401
 from app.models.emitter_version import EmitterVersion  # noqa: F401
 from app.models.ew_group import EwGroup  # noqa: F401

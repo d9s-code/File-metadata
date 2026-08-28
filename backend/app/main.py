@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.routers import (
     ambiguity,
+    audit_log,
     auth,
     dashboard,
     dsl,
@@ -40,6 +41,7 @@ app.include_router(test_records.emitter_router)
 app.include_router(test_records.mdf_router)
 app.include_router(dashboard.router)
 app.include_router(ambiguity.router)
+app.include_router(audit_log.router)
 
 
 @app.get("/health")

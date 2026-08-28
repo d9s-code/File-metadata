@@ -94,7 +94,13 @@ def test_readiness_clears_once_emitter_validated_and_test_passes(editor_client, 
     )
     editor_client.post(
         f"/mdfs/{mdf['id']}/test-records",
-        json={"test_type": "simulation", "result": "pass", "title": "Sim run 1", "test_date": "2025-06-01"},
+        json={
+            "test_type": "simulation",
+            "result": "pass",
+            "title": "Sim run 1",
+            "test_date": "2025-06-01",
+            "simulation_created_date": "2025-05-01",
+        },
     )
 
     resp = editor_client.get(f"/mdfs/{mdf['id']}/status/readiness")

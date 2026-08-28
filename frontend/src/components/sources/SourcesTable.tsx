@@ -5,7 +5,6 @@ import { useElements } from "../../state/hooks/useElements";
 import { useConfirmDialog } from "../common/ConfirmDialog";
 import { ElementsPanel } from "./ElementsPanel";
 import { CartesianProductButton } from "./CartesianProductButton";
-import { DslEditor } from "../modes/DslEditor";
 import { SourceForm } from "./SourceForm";
 import { RequireRole } from "../../auth/RequireAuth";
 import { ApiRequestError } from "../../api/client";
@@ -96,7 +95,6 @@ export function SourcesTable({
                         <RequireRole minimum="editor">
                           <h5>Editorial Tools</h5>
                           <CartesianProductButton emitterId={emitterId} sourceId={s.id} ewGroups={ewGroups} />
-                          <DslEditor emitterId={emitterId} sourceId={s.id} ewGroups={ewGroups} />
                         </RequireRole>
                       </div>
                     </td>

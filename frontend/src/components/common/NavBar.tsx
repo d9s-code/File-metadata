@@ -16,6 +16,7 @@ export function NavBar() {
           <Link to="/emitters">Emitters</Link>
           <Link to="/platforms">Platforms</Link>
           <Link to="/mdfs">MDFs</Link>
+          <Link to="/audit-log">Audit Log</Link>
         </div>
       )}
       {!user && <div className="navbar-links" />}

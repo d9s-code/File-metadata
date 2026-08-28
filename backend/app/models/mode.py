@@ -52,6 +52,15 @@ class ModeLine(UUIDPkMixin, Base):
     pw_min_us: Mapped[float] = mapped_column(Numeric(14, 4), nullable=False)
     pw_max_us: Mapped[float] = mapped_column(Numeric(14, 4), nullable=False)
 
+    # Symmetric +/- tolerance margin per parameter, applied to the raw min/max above to
+    # derive the engineered value — same raw-vs-engineered pattern as ModeElement.delta
+    # and EwGroup.scan_delta. Required for manually-authored lines (see ModeCreate);
+    # left null for DSL-parsed/cartesian-generated lines, which carry no raw value since
+    # the cartesian path already bakes each element's delta into rf_min_mhz/etc.
+    rf_delta: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
+    pw_delta: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
+    pri_delta: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
+
     # Fixed only
     pri_min_us: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
     pri_max_us: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)

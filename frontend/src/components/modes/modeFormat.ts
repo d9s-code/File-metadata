@@ -27,6 +27,7 @@ export function searchableText(mode: Mode, ewGroup: EwGroup | undefined, source:
     mode.line ? `${mode.line.pw_min_us} ${mode.line.pw_max_us}` : "",
     mode.line?.pri_min_us != null ? `${mode.line.pri_min_us} ${mode.line.pri_max_us}` : "",
     mode.line?.pri_stagger_values_us?.join(" ") ?? "",
+    mode.last_test_result ?? "",
   ];
   return parts.join(" ").toLowerCase();
 }
@@ -41,7 +42,8 @@ export type ModeSortKey =
   | "pw_max"
   | "pri_type"
   | "pri_min"
-  | "pri_max";
+  | "pri_max"
+  | "last_tested";
 
 export type SortDir = "asc" | "desc";
 
@@ -72,6 +74,8 @@ function sortValue(
       return mode.line?.pri_min_us ?? null;
     case "pri_max":
       return mode.line?.pri_max_us ?? null;
+    case "last_tested":
+      return mode.last_tested_at;
   }
 }
 

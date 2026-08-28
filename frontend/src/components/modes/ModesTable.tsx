@@ -64,6 +64,7 @@ export function ModesTable({
             {header("PRI Type", "pri_type")}
             {header("PRI Min", "pri_min")}
             {header("PRI Max", "pri_max")}
+            {header("Last Tested", "last_tested")}
             <th></th>
           </tr>
         </thead>
@@ -97,9 +98,23 @@ export function ModesTable({
                   )}
                 </td>
                 <td>{m.line?.rf_min_mhz ?? "—"}</td>
-                <td>{m.line?.rf_max_mhz ?? "—"}</td>
+                <td>
+                  {m.line?.rf_max_mhz ?? "—"}
+                  {m.line?.rf_delta != null && (
+                    <span className="jitter-subline">
+                      eng {m.line.engineered_rf_min_mhz}–{m.line.engineered_rf_max_mhz} (±{m.line.rf_delta})
+                    </span>
+                  )}
+                </td>
                 <td>{m.line?.pw_min_us ?? "—"}</td>
-                <td>{m.line?.pw_max_us ?? "—"}</td>
+                <td>
+                  {m.line?.pw_max_us ?? "—"}
+                  {m.line?.pw_delta != null && (
+                    <span className="jitter-subline">
+                      eng {m.line.engineered_pw_min_us}–{m.line.engineered_pw_max_us} (±{m.line.pw_delta})
+                    </span>
+                  )}
+                </td>
                 <td>{m.pri_type.toUpperCase()}</td>
                 {m.pri_type === "stagger" ? (
                   <td colSpan={2}>
@@ -115,11 +130,30 @@ export function ModesTable({
                           jitter {m.line.jitter_min_us}–{m.line.jitter_max_us}
                         </span>
                       )}
+                      {m.line?.pri_delta != null && (
+                        <span className="jitter-subline">
+                          eng {m.line.engineered_pri_min_us}–{m.line.engineered_pri_max_us} (±{m.line.pri_delta})
+                        </span>
+                      )}
                     </td>
                   </>
                 ) : (
                   <td colSpan={2}>{m.pri_type === "cw" ? "CW (constant)" : "—"}</td>
                 )}
+                <td>
+                  {m.last_tested_at ? (
+                    <>
+                      {m.last_tested_at}
+                      {m.last_test_result && (
+                        <span className={`test-result-badge test-result-${m.last_test_result}`}>
+                          {m.last_test_result}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="hint-text">never</span>
+                  )}
+                </td>
                 <td>
                   <RequireRole minimum="editor">
                     <button className="link-button" onClick={() => onDelete(m.id, m.ew_group_id, m.name)}>

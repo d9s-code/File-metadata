@@ -16,6 +16,7 @@ import { MdfBuilderPage } from "./pages/MdfBuilderPage";
 import { MdfVersionHistoryPage } from "./pages/MdfVersionHistoryPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { AmbiguityDashboardPage } from "./pages/AmbiguityDashboardPage";
+import { AuditLogPage } from "./pages/AuditLogPage";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
@@ -115,6 +116,14 @@ export default function App() {
                 element={
                   <RequireAuth>
                     <AmbiguityDashboardPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/audit-log"
+                element={
+                  <RequireAuth>
+                    <AuditLogPage />
                   </RequireAuth>
                 }
               />

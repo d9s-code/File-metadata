@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { EwGroup, Mode, Source } from "../../types/domain";
 import { useElements } from "../../state/hooks/useElements";
+import { useFloatingPosition } from "../common/useFloatingPosition";
 
 export function ModeHoverDetail({ mode }: { mode: Mode }) {
   return (
@@ -62,20 +64,30 @@ export function SourceHoverDetail({ emitterId, source }: { emitterId: string; so
 
 export function StaggerSequenceBox({ mode }: { mode: Mode }) {
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const pos = useFloatingPosition(triggerRef, contentRef, open);
   const values = mode.line?.pri_stagger_values_us ?? [];
   const frametime = values.reduce((sum, v) => sum + v, 0);
   return (
     <div className="stagger-box">
-      <button type="button" className="stagger-box-trigger" onClick={() => setOpen((v) => !v)}>
+      <button
+        ref={triggerRef}
+        type="button"
+        className="stagger-box-trigger"
+        onClick={() => setOpen((v) => !v)}
+      >
         View sequence ({values.length})
       </button>
-      {open && (
-        <div className="stagger-box-content">
-          [{values.join(", ")}] µs
-          <br />
-          Frametime: {frametime} µs
-        </div>
-      )}
+      {pos &&
+        createPortal(
+          <div ref={contentRef} className="stagger-box-content" style={{ top: pos.top, left: pos.left }}>
+            [{values.join(", ")}] µs
+            <br />
+            Frametime: {frametime} µs
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

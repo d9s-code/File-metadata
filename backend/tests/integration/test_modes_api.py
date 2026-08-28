@@ -24,6 +24,9 @@ FIXED_LINE = {
     "pri_max_us": 1200,
     "jitter_min_us": 5,
     "jitter_max_us": 15,
+    "rf_delta": 1,
+    "pw_delta": 0.05,
+    "pri_delta": 10,
 }
 
 
@@ -45,6 +48,30 @@ def test_create_fixed_mode_succeeds_with_jitter(editor_client, emitter_ctx):
     body = resp.json()
     assert body["line"]["jitter_min_us"] == 5
     assert body["line"]["pri_stagger_values_us"] is None
+
+
+def test_create_manual_mode_requires_deltas(editor_client, emitter_ctx):
+    line = {k: v for k, v in FIXED_LINE.items() if k not in ("rf_delta", "pw_delta", "pri_delta")}
+    resp = editor_client.post(
+        f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes",
+        json={"source_id": emitter_ctx["source"]["id"], "name": "No Delta", "pri_type": "fixed", "line": line},
+    )
+    assert resp.status_code == 422
+
+
+def test_create_fixed_mode_computes_engineered_range(editor_client, emitter_ctx):
+    resp = editor_client.post(
+        f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes",
+        json={"source_id": emitter_ctx["source"]["id"], "name": "Engineered", "pri_type": "fixed", "line": FIXED_LINE},
+    )
+    assert resp.status_code == 201, resp.text
+    line_out = resp.json()["line"]
+    assert line_out["engineered_rf_min_mhz"] == 2899
+    assert line_out["engineered_rf_max_mhz"] == 3101
+    assert line_out["engineered_pw_min_us"] == pytest.approx(0.45)
+    assert line_out["engineered_pw_max_us"] == pytest.approx(1.25)
+    assert line_out["engineered_pri_min_us"] == 790
+    assert line_out["engineered_pri_max_us"] == 1210
 
 
 def test_create_stagger_mode_rejects_fixed_fields(editor_client, emitter_ctx):
@@ -70,6 +97,8 @@ def test_create_stagger_mode_preserves_sequence_order(editor_client, emitter_ctx
         "rf_max_mhz": 3100,
         "pw_min_us": 0.5,
         "pw_max_us": 1.2,
+        "rf_delta": 1,
+        "pw_delta": 0.05,
         "pri_stagger_values_us": sequence,
     }
     resp = editor_client.post(
