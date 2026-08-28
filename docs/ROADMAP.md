@@ -6,7 +6,10 @@ Backlog notes for features under consideration but not yet built. Unlike [FEATUR
 
 ## Audit Trail
 
-**Status:** Proposed — not started
+**Status:** Shipped (`9d3ea77`) — see `backend/app/models/audit_log.py`,
+`backend/app/routers/audit_log.py`, `frontend/src/pages/AuditLogPage.tsx`. The scope below
+describes the original proposal; the shipped version is worth diffing against it to confirm the
+"explicitly out of scope" boundaries were respected before removing this note entirely.
 
 **What it would be:** an append-only log of who changed what, when — across Emitters, Platforms, and MDFs at minimum, possibly extending to EW Groups/Sources/Modes. Each entry would record the actor, the action (create / update / delete / status change), the entity affected, and a summary of what changed.
 

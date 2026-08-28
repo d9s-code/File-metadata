@@ -70,8 +70,27 @@ this log starts. Since then, in order:
 8. **A second, narrower review** of frontend *workflow logic* (not accessibility, not code
    quality — distinct from item 6) was run, again via parallel Explore agents, walking real user
    stories through the Emitter editor, versioning/pinning, ambiguity dashboard, test tracking,
-   and navigation. Findings below, under "Open items" — **none of these are fixed yet**; the
-   user was mid-way through choosing which to prioritize when this handover was requested.
+   and navigation. Findings below, under "Open items." The user was mid-way through choosing
+   which to prioritize when this handover was requested — no answer was given.
+9. **`9d3ea77`–`e05e5d9`** — While this handover doc was being written, **a concurrent session
+   under this same account** (`yildeez <d9s.yil@gmail.com>`, i.e. you, working locally or
+   through another agent — not this session) pushed 5 commits directly to this branch: a full
+   Audit Trail implementation (`9d3ea77` — the exact feature proposed in `docs/ROADMAP.md`;
+   status there has been updated to "Shipped," **the roadmap entry's scope should be diffed
+   against what actually shipped** before trusting it as documentation), a Mode form regroup
+   into per-parameter rows with per-parameter deltas (`9cf0e37`; note this is a materially
+   different delta model than the single Mode-level `rf_delta`/`pw_delta`/`pri_delta` described
+   in item 1 above and `docs/FEATURES.md` §3 — **check which is now current before writing
+   about deltas**), a fix making the Mode-name/EW-Group/Source hover popovers focus-driven in
+   addition to hover-driven (`InfoPopover.tsx` now handles `onFocus`/`onBlur`, and popover
+   positioning moved to a portal via a new `useFloatingPosition` hook, fixing a clipping bug —
+   this likely closes or reduces the "hover popovers are hover-only" accessibility finding under
+   "From the earlier full-app review" below, **not independently reverified in this session**),
+   and test-tracking changes linking test records to specific Modes with per-mode status. This
+   session merged those commits in (merge commit `5a96174`) rather than overwrite them, but
+   **did not re-review the new code** beyond what's noted here — treat the "Open items" lists
+   below as written *before* this merge except where a note says otherwise, and re-check
+   anything they claim against current `main`/branch state before acting on it.
 
 ## Open items (not yet implemented)
 
@@ -95,7 +114,10 @@ this log starts. Since then, in order:
   `emitter_version_id`/etc. — confirmed unused in any JSX via grep. `useAmbiguityRuns` (past-runs
   hook) exists and is never called.
 - **Test records don't show their pinned version**, and the "Log Test" form doesn't warn when
-  logging against a never-committed draft.
+  logging against a never-committed draft. **Partially touched** by the concurrent commits in
+  item 9 above (test records now link to specific Modes with per-mode status, and the log form's
+  Mode-selection default changed) — re-check whether the version-visibility gap specifically was
+  also addressed before re-flagging it.
 - **Minor:** the manual "+ Add Mode" form is a third mode-creation path that (unlike the DSL
   path) never derives Elements, silently leaving the Elements pool empty; `FindingsTable.tsx`
   always acknowledges with `note: undefined` despite a reviewer-note field existing on the
@@ -126,8 +148,9 @@ one.
 - **No test infrastructure at all** — no vitest/jest/testing-library/Playwright config, zero
   `*.test.*` files anywhere.
 - Accessibility: the ambiguity matrix is keyboard-unreachable (`<td onClick>`, no
-  tabIndex/role/onKeyDown) and severity is color-only; `HoverInfo` popovers open on CSS `:hover`
-  only (no `:focus`); sortable table headers are mouse-only.
+  tabIndex/role/onKeyDown) and severity is color-only; sortable table headers are mouse-only.
+  `HoverInfo` popovers were originally hover-only (no `:focus`) — **likely fixed** by the
+  concurrent commits in item 9 above (`onFocus`/`onBlur` added), but not reverified here.
 - Perf: every `HoverInfo` is always-mounted (not lazy), the Source popover fires a live query per
   row, no `staleTime` tuning anywhere, no virtualization for large Mode lists.
 
