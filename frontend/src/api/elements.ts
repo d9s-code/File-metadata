@@ -1,8 +1,9 @@
 import { api } from "./client";
-import type { ElementType, ModeElement } from "../types/domain";
+import type { ElementType, ElementVariant, ModeElement } from "../types/domain";
 
 export interface ModeElementInput {
   element_type: ElementType;
+  variant?: ElementVariant | null;
   value_min?: number | null;
   value_max?: number | null;
   stagger_values?: number[] | null;

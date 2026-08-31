@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useMdf, useMdfLinks } from "../state/hooks/useMdfs";
 import { useMdfVersions } from "../state/hooks/useMdfVersions";
 import { usePlatforms } from "../state/hooks/usePlatforms";
@@ -10,18 +10,26 @@ import { ExportXmlButton } from "../components/mdf/ExportXmlButton";
 import { MdfTestHistory } from "../components/testing/MdfTestHistory";
 import { EntityAuditTrail } from "../components/audit/EntityAuditTrail";
 import { RequireRole } from "../auth/RequireAuth";
+import { LoadingState } from "../components/common/LoadingState";
 
 type Tab = "platforms" | "tests" | "audit";
 
 export function MdfBuilderPage() {
   const { mdfId } = useParams<{ mdfId: string }>();
-  const [tab, setTab] = useState<Tab>("platforms");
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState<Tab>(searchParams.get("tab") === "tests" ? "tests" : "platforms");
+  const highlightTestRecordId = searchParams.get("testRecord") ?? undefined;
+
+  useEffect(() => {
+    if (searchParams.get("tab") === "tests") setTab("tests");
+  }, [searchParams]);
+
   const { data: mdf, isLoading } = useMdf(mdfId);
   const { data: links } = useMdfLinks(mdfId ?? "");
   const { data: platforms } = usePlatforms();
   const { data: versions } = useMdfVersions(mdfId ?? "");
 
-  if (isLoading || !mdf) return <p>Loading…</p>;
+  if (isLoading || !mdf) return <LoadingState label="Loading MDF…" />;
 
   const platformsById = Object.fromEntries((platforms ?? []).map((p) => [p.id, p]));
   const latestVersion = versions && versions.length > 0 ? versions[versions.length - 1] : null;
@@ -63,7 +71,7 @@ export function MdfBuilderPage() {
         </div>
       )}
 
-      {tab === "tests" && <MdfTestHistory mdfId={mdf.id} />}
+      {tab === "tests" && <MdfTestHistory mdfId={mdf.id} highlightTestRecordId={highlightTestRecordId} />}
       {tab === "audit" && <EntityAuditTrail entityType="mdf" entityId={mdf.id} />}
     </div>
   );

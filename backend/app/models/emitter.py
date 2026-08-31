@@ -16,6 +16,12 @@ class Emitter(UUIDPkMixin, TimestampMixin, Base):
     designation: Mapped[str | None] = mapped_column(String(200), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[EmitterStatus] = mapped_column(nullable=False, default=EmitterStatus.draft)
+    # Set from the required note when transitioning validated -> deprecated
+    # ("Operational" -> "Needs rework"); cleared on any transition away from
+    # deprecated, since a stale note on a since-fixed Emitter would mislead —
+    # the note still lives on permanently in that transition's audit/version
+    # history, this is only the "what's currently outstanding" indicator.
+    rework_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True

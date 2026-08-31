@@ -4,12 +4,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.csrf import verify_csrf
-from app.core.enums import AuditAction, AuditEntityType, Role
+from app.core.enums import AuditAction, AuditEntityType, Role, SourceStatus
 from app.database import get_db
 from app.deps import require_role
 from app.models.emitter import Emitter
 from app.models.ew_group import EwGroup
 from app.models.mode import ModeElement
+from app.models.parameter_sequence import ParameterSequence
 from app.models.source import Source
 from app.schemas.mode_element import (
     CartesianProductRequest,
@@ -18,8 +19,9 @@ from app.schemas.mode_element import (
     ModeElementCreate,
     ModeElementOut,
 )
+from app.schemas.parameter_sequence import ParameterSequenceOut
 from app.schemas.source import SourceCreate, SourceOut, SourceUpdate
-from app.services.audit_service import record_audit
+from app.services.audit_service import apply_and_diff, record_audit
 from app.services.cartesian_service import CartesianProductError, run_cartesian_product
 from app.services.frametime_service import compute_frametime_us
 
@@ -62,6 +64,7 @@ def create_source(
         entity_id=source.id,
         summary=f"Created Source '{source.name}'",
         changes=payload.model_dump(mode="json"),
+        emitter_id=emitter_id,
     )
     db.commit()
     db.refresh(source)
@@ -79,8 +82,7 @@ def update_source(
     source = db.get(Source, source_id)
     if source is None or source.emitter_id != emitter_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Source not found")
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(source, field, value)
+    changes = apply_and_diff(source, payload.model_dump(exclude_unset=True))
     record_audit(
         db,
         actor_id=user.id,
@@ -88,7 +90,8 @@ def update_source(
         entity_type=AuditEntityType.source.value,
         entity_id=source.id,
         summary=f"Updated Source '{source.name}'",
-        changes=payload.model_dump(exclude_unset=True, mode="json"),
+        changes=changes,
+        emitter_id=emitter_id,
     )
     db.commit()
     db.refresh(source)
@@ -114,6 +117,7 @@ def delete_source(
         entity_type=AuditEntityType.source.value,
         entity_id=source.id,
         summary=f"Deleted Source '{source.name}'",
+        emitter_id=emitter_id,
     )
     db.delete(source)
     db.commit()
@@ -124,6 +128,77 @@ def _get_source_or_404(db: Session, emitter_id: UUID, source_id: UUID) -> Source
     if source is None or source.emitter_id != emitter_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Source not found")
     return source
+
+
+@router.post("/{source_id}/approve", response_model=SourceOut, dependencies=[Depends(verify_csrf)])
+def approve_source(
+    emitter_id: UUID,
+    source_id: UUID,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+) -> Source:
+    source = _get_source_or_404(db, emitter_id, source_id)
+    if source.status != SourceStatus.pending_review:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Only a pending-review Source can be approved (this one is {source.status.value})",
+        )
+    source.status = SourceStatus.approved
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.status_change,
+        entity_type=AuditEntityType.source.value,
+        entity_id=source.id,
+        summary=f"Approved imported Source '{source.name}'",
+        changes={"status": {"old": SourceStatus.pending_review.value, "new": SourceStatus.approved.value}},
+        emitter_id=emitter_id,
+    )
+    db.commit()
+    db.refresh(source)
+    return source
+
+
+@router.post("/{source_id}/reject", response_model=SourceOut, dependencies=[Depends(verify_csrf)])
+def reject_source(
+    emitter_id: UUID,
+    source_id: UUID,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+) -> Source:
+    source = _get_source_or_404(db, emitter_id, source_id)
+    if source.status != SourceStatus.pending_review:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Only a pending-review Source can be rejected (this one is {source.status.value})",
+        )
+    source.status = SourceStatus.rejected
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.status_change,
+        entity_type=AuditEntityType.source.value,
+        entity_id=source.id,
+        summary=f"Rejected imported Source '{source.name}'",
+        changes={"status": {"old": SourceStatus.pending_review.value, "new": SourceStatus.rejected.value}},
+        emitter_id=emitter_id,
+    )
+    db.commit()
+    db.refresh(source)
+    return source
+
+
+@router.get("/{source_id}/parameter-sequences", response_model=list[ParameterSequenceOut])
+def list_parameter_sequences(
+    emitter_id: UUID, source_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
+) -> list[ParameterSequence]:
+    _get_source_or_404(db, emitter_id, source_id)
+    return (
+        db.query(ParameterSequence)
+        .filter(ParameterSequence.source_id == source_id)
+        .order_by(ParameterSequence.sort_order)
+        .all()
+    )
 
 
 @router.get("/{source_id}/elements", response_model=list[ModeElementOut])
@@ -164,6 +239,7 @@ def create_element(
         entity_id=element.id,
         summary=f"Added a {element.element_type.value.upper()} element to Source '{source.name}'",
         changes=payload.model_dump(mode="json"),
+        emitter_id=emitter_id,
     )
     db.commit()
     db.refresh(element)
@@ -193,6 +269,7 @@ def delete_element(
         entity_type=AuditEntityType.mode_element.value,
         entity_id=element.id,
         summary=f"Deleted a {element.element_type.value.upper()} element",
+        emitter_id=emitter_id,
     )
     db.delete(element)
     db.commit()
@@ -260,6 +337,7 @@ def cartesian_product(
         entity_id=created[0].generation_batch_id if created else None,
         summary=f"Generated {len(created)} Mode(s) via cartesian product on Source '{source.name}' "
         f"('{payload.name_prefix}')",
+        emitter_id=emitter_id,
     )
     db.commit()
     return CartesianProductResult(created_mode_ids=[m.id for m in created], count=len(created))

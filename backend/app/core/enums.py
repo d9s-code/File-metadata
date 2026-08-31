@@ -14,10 +14,55 @@ class PriType(str, enum.Enum):
     xlet = "xlet"
 
 
+class ModeStatus(str, enum.Enum):
+    """A Mode's place in the propose/approve micro-workflow for line edits.
+    Metadata-only edits (name, notes, EW Group) bypass this entirely and stay
+    instant — only a change to the actual RF/PW/PRI line goes through it.
+
+    approved   - the live, canonical line. What ambiguity checks, XML export,
+                 and Emitter version snapshots all see.
+    draft      - a proposed edit, pending review. Carries `supersedes_id`
+                 pointing at the approved Mode it would replace.
+    superseded - a formerly-approved Mode whose draft edit was approved.
+                 Permanently kept for lineage; excluded from active views.
+    rejected   - a draft whose edit was declined. The original it targeted
+                 was never touched and stays approved.
+    """
+
+    approved = "approved"
+    draft = "draft"
+    superseded = "superseded"
+    rejected = "rejected"
+
+
+class TestRecordModeLinkType(str, enum.Enum):
+    """Why a Test Record is linked to a Mode: `exercised` means the Mode was
+    tested as-is; `derived` means the Mode's values themselves are explained
+    by (came out of) that test's findings, rather than a Source's data.
+    """
+
+    exercised = "exercised"
+    derived = "derived"
+
+
 class ElementType(str, enum.Enum):
     rf = "rf"
     pw = "pw"
     pri = "pri"
+    scan = "scan"
+
+
+class ElementVariant(str, enum.Enum):
+    """Which measurement basis a parametric-set Element represents. Imported
+    Elements may carry several variants of the same element_type (e.g. RF
+    typical + RF extreme as separate rows); manually-entered Elements
+    typically leave this unset.
+    """
+
+    typical = "typical"
+    discrete = "discrete"
+    most_probable = "most_probable"
+    extreme = "extreme"
 
 
 class EmitterStatus(str, enum.Enum):
@@ -50,6 +95,19 @@ MDF_STATUS_TRANSITIONS: dict[MdfStatus, list[MdfStatus]] = {
     MdfStatus.released: [MdfStatus.deprecated],
     MdfStatus.deprecated: [MdfStatus.draft],
 }
+
+
+class SourceStatus(str, enum.Enum):
+    """A Source's review state. Manually-created Sources are immediately
+    usable (approved). Imported Sources start pending_review — an editor must
+    approve or reject each one; no draft/supersede complexity since an
+    imported Source is always a brand-new row, never an edit to an existing
+    one.
+    """
+
+    approved = "approved"
+    pending_review = "pending_review"
+    rejected = "rejected"
 
 
 class VersionedEntityType(str, enum.Enum):
@@ -124,5 +182,7 @@ class AuditEntityType(str, enum.Enum):
     mdf = "mdf"
     mdf_link = "mdf_link"
     test_record = "test_record"
+    import_batch = "import_batch"
+    parameter_sequence = "parameter_sequence"
     user = "user"
     auth = "auth"

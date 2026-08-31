@@ -19,9 +19,18 @@ export function useAuditEntityTypeCounts() {
   });
 }
 
-export function useAuditActionCounts(entityType?: string, entityId?: string) {
+export function useAuditActionCounts(entityType?: string, entityId?: string, emitterId?: string) {
   return useQuery({
-    queryKey: ["auditLog", "actions", entityType, entityId] as const,
-    queryFn: () => auditLogApi.actionCounts(entityType, entityId),
+    queryKey: ["auditLog", "actions", entityType, entityId, emitterId] as const,
+    queryFn: () => auditLogApi.actionCounts(entityType, entityId, emitterId),
+  });
+}
+
+export function useAuditEntitySearch(q: string) {
+  const trimmed = q.trim();
+  return useQuery({
+    queryKey: ["auditLog", "entities", trimmed] as const,
+    queryFn: () => auditLogApi.searchEntities(trimmed),
+    enabled: trimmed.length >= 2,
   });
 }

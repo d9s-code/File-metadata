@@ -3,8 +3,33 @@ import type { AmbiguityFinding, AmbiguitySeverity } from "../../api/ambiguity";
 import { useReviewFinding, useUnreviewFinding } from "../../state/hooks/useAmbiguity";
 import { SeverityBadge } from "./SeverityBadge";
 import { RequireRole } from "../../auth/RequireAuth";
+import { SortableColumnHeader } from "../common/SortableColumnHeader";
+import { useSortableTable } from "../common/useSortableTable";
+import { compareNullable, compareStrings } from "../common/sortUtils";
 
 const SEVERITIES: AmbiguitySeverity[] = ["exact_overlap", "high", "medium", "low"];
+const SEVERITY_RANK: Record<AmbiguitySeverity, number> = { exact_overlap: 0, high: 1, medium: 2, low: 3, none: 4 };
+
+type FindingSortKey = "severity" | "mode_a" | "mode_b" | "rf_pct" | "pw_pct" | "pri_pct" | "reviewed";
+
+function compareFindings(a: AmbiguityFinding, b: AmbiguityFinding, key: FindingSortKey, dir: "asc" | "desc"): number {
+  switch (key) {
+    case "severity":
+      return compareNullable(SEVERITY_RANK[a.combined_severity], SEVERITY_RANK[b.combined_severity], dir);
+    case "mode_a":
+      return compareStrings(a.details.mode_a.mode_name, b.details.mode_a.mode_name, dir);
+    case "mode_b":
+      return compareStrings(a.details.mode_b.mode_name, b.details.mode_b.mode_name, dir);
+    case "rf_pct":
+      return compareNullable(a.rf_overlap_pct, b.rf_overlap_pct, dir);
+    case "pw_pct":
+      return compareNullable(a.pw_overlap_pct, b.pw_overlap_pct, dir);
+    case "pri_pct":
+      return compareNullable(a.pri_overlap_pct, b.pri_overlap_pct, dir);
+    case "reviewed":
+      return compareNullable(a.reviewed_at, b.reviewed_at, dir);
+  }
+}
 
 export function FindingsTable({
   runId,
@@ -22,6 +47,7 @@ export function FindingsTable({
   const unreview = useUnreviewFinding(runId);
 
   const filtered = severityFilter ? findings.filter((f) => f.combined_severity === severityFilter) : findings;
+  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(filtered, compareFindings);
 
   if (findings.length === 0) return <p className="hint-text">No ambiguous pairs found — nothing to flag.</p>;
 
@@ -40,18 +66,50 @@ export function FindingsTable({
       <table className="data-table">
         <thead>
           <tr>
-            <th>Severity</th>
-            <th>Mode A</th>
-            <th>Mode B</th>
-            <th>RF %</th>
-            <th>PW %</th>
-            <th>PRI %</th>
-            <th>Reviewed</th>
+            <SortableColumnHeader label="Severity" columnKey="severity" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
+            <SortableColumnHeader label="Mode A" columnKey="mode_a" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
+            <SortableColumnHeader label="Mode B" columnKey="mode_b" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
+            <SortableColumnHeader
+              label="RF %"
+              columnKey="rf_pct"
+              columnType="number"
+              activeKey={sortKey}
+              activeDir={sortDir}
+              onSort={onSort}
+              onClear={onClear}
+            />
+            <SortableColumnHeader
+              label="PW %"
+              columnKey="pw_pct"
+              columnType="number"
+              activeKey={sortKey}
+              activeDir={sortDir}
+              onSort={onSort}
+              onClear={onClear}
+            />
+            <SortableColumnHeader
+              label="PRI %"
+              columnKey="pri_pct"
+              columnType="number"
+              activeKey={sortKey}
+              activeDir={sortDir}
+              onSort={onSort}
+              onClear={onClear}
+            />
+            <SortableColumnHeader
+              label="Reviewed"
+              columnKey="reviewed"
+              columnType="date"
+              activeKey={sortKey}
+              activeDir={sortDir}
+              onSort={onSort}
+              onClear={onClear}
+            />
             <th></th>
           </tr>
         </thead>
         <tbody>
-          {filtered.map((f) => (
+          {sorted.map((f) => (
             <tr
               key={f.id}
               className={f.id === selectedId ? "finding-row selected" : "finding-row"}

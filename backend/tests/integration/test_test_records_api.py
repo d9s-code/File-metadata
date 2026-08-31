@@ -36,10 +36,9 @@ def test_create_test_record_links_modes(editor_client, emitter_with_mode):
         f"/emitters/{emitter_id}/test-records",
         json={
             "test_type": "lab_bench",
-            "result": "pass",
             "title": "Bench run",
             "test_date": "2026-01-01",
-            "mode_ids": [mode_id],
+            "mode_results": [{"mode_id": mode_id, "result": "pass"}],
         },
     )
     assert resp.status_code == 201, resp.text
@@ -56,10 +55,9 @@ def test_list_test_records_includes_linked_mode_names(editor_client, emitter_wit
         f"/emitters/{emitter_id}/test-records",
         json={
             "test_type": "lab_bench",
-            "result": "pass",
             "title": "Sim run",
             "test_date": "2026-01-02",
-            "mode_ids": [mode_id],
+            "mode_results": [{"mode_id": mode_id, "result": "pass"}],
         },
     )
     resp = editor_client.get(f"/emitters/{emitter_id}/test-records")
@@ -74,10 +72,9 @@ def test_create_test_record_rejects_unknown_mode_id(editor_client, emitter_with_
         f"/emitters/{emitter_id}/test-records",
         json={
             "test_type": "lab_bench",
-            "result": "pass",
             "title": "Sim run",
             "test_date": "2026-01-02",
-            "mode_ids": ["00000000-0000-0000-0000-000000000000"],
+            "mode_results": [{"mode_id": "00000000-0000-0000-0000-000000000000", "result": "pass"}],
         },
     )
     assert resp.status_code == 404
@@ -90,10 +87,9 @@ def test_deleting_a_test_linked_mode_does_not_block_deletion(editor_client, emit
         f"/emitters/{emitter_id}/test-records",
         json={
             "test_type": "lab_bench",
-            "result": "pass",
             "title": "Bench run",
             "test_date": "2026-01-01",
-            "mode_ids": [mode["id"]],
+            "mode_results": [{"mode_id": mode["id"], "result": "pass"}],
         },
     )
     resp = editor_client.delete(f"/ew-groups/{mode['ew_group_id']}/modes/{mode['id']}")
@@ -161,10 +157,9 @@ def test_emitter_modes_list_carries_last_test_status(editor_client, emitter_with
         f"/emitters/{emitter_id}/test-records",
         json={
             "test_type": "lab_bench",
-            "result": "partial",
             "title": "Bench run",
             "test_date": "2026-01-05",
-            "mode_ids": [mode_id],
+            "mode_results": [{"mode_id": mode_id, "result": "partial"}],
         },
     )
     [mode_after] = editor_client.get(f"/emitters/{emitter_id}/modes").json()
@@ -176,10 +171,9 @@ def test_emitter_modes_list_carries_last_test_status(editor_client, emitter_with
         f"/emitters/{emitter_id}/test-records",
         json={
             "test_type": "lab_bench",
-            "result": "fail",
             "title": "Second bench run",
             "test_date": "2026-01-10",
-            "mode_ids": [mode_id],
+            "mode_results": [{"mode_id": mode_id, "result": "fail"}],
         },
     )
     [mode_latest] = editor_client.get(f"/emitters/{emitter_id}/modes").json()

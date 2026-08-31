@@ -2,12 +2,13 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, computed_field, model_validator
 
-from app.core.enums import ElementType
+from app.core.enums import ElementType, ElementVariant
 from app.services.delta import apply_delta
 
 
 class ModeElementCreate(BaseModel):
     element_type: ElementType
+    variant: ElementVariant | None = None
     value_min: float | None = None
     value_max: float | None = None
     stagger_values: list[float] | None = None

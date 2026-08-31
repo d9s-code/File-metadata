@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -12,11 +12,33 @@ export function NavBar() {
       </div>
       {user && (
         <div className="navbar-links">
-          <Link to="/dashboard">Dashboard</Link>
-          <Link to="/emitters">Emitters</Link>
-          <Link to="/platforms">Platforms</Link>
-          <Link to="/mdfs">MDFs</Link>
-          <Link to="/audit-log">Audit Log</Link>
+          <NavLink to="/dashboard" className={({ isActive }) => (isActive ? "navbar-link-active" : undefined)}>
+            Dashboard
+          </NavLink>
+          <NavLink
+            to="/emitters"
+            className={({ isActive }) => (isActive ? "navbar-link-active" : undefined)}
+          >
+            Emitters
+          </NavLink>
+          <NavLink
+            to="/platforms"
+            className={({ isActive }) => (isActive ? "navbar-link-active" : undefined)}
+          >
+            Platforms
+          </NavLink>
+          <NavLink to="/mdfs" className={({ isActive }) => (isActive ? "navbar-link-active" : undefined)}>
+            MDFs
+          </NavLink>
+          <NavLink
+            to="/audit-log"
+            className={({ isActive }) => (isActive ? "navbar-link-active" : undefined)}
+          >
+            Audit Log
+          </NavLink>
+          <NavLink to="/help" className={({ isActive }) => (isActive ? "navbar-link-active" : undefined)}>
+            Help
+          </NavLink>
         </div>
       )}
       {!user && <div className="navbar-links" />}

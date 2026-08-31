@@ -12,7 +12,7 @@ from app.models.platform import Platform, PlatformEmitterLink, PlatformVersion
 from app.schemas.emitter_version import CommitVersionRequest, DiffOut
 from app.schemas.platform import PlatformCreate, PlatformLinkCreate, PlatformLinkOut, PlatformOut, PlatformUpdate
 from app.schemas.platform_version import PlatformVersionDetailOut, PlatformVersionOut
-from app.services.audit_service import record_audit
+from app.services.audit_service import apply_and_diff, record_audit
 from app.services.snapshots import build_platform_snapshot
 from app.services.versioning_service import VersionSpec, commit_version, diff_versions, get_version, list_versions
 
@@ -76,8 +76,7 @@ def update_platform(
     user=Depends(require_role(Role.editor)),
 ) -> Platform:
     platform = _get_platform_or_404(db, platform_id)
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(platform, field, value)
+    changes = apply_and_diff(platform, payload.model_dump(exclude_unset=True))
     record_audit(
         db,
         actor_id=user.id,
@@ -85,7 +84,7 @@ def update_platform(
         entity_type=AuditEntityType.platform.value,
         entity_id=platform.id,
         summary=f"Updated Platform '{platform.name}'",
-        changes=payload.model_dump(exclude_unset=True, mode="json"),
+        changes=changes,
     )
     db.commit()
     db.refresh(platform)

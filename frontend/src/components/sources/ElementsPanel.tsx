@@ -6,7 +6,7 @@ import { ApiRequestError } from "../../api/client";
 import { RequireRole } from "../../auth/RequireAuth";
 import { useConfirmDialog } from "../common/ConfirmDialog";
 
-const ELEMENT_TYPES: ElementType[] = ["rf", "pw", "pri"];
+const ELEMENT_TYPES: ElementType[] = ["rf", "pw", "pri", "scan"];
 
 function ElementForm({ emitterId, sourceId }: { emitterId: string; sourceId: string }) {
   const createElement = useCreateElement(emitterId, sourceId);
@@ -133,6 +133,7 @@ export function ElementsPanel({ emitterId, sourceId }: { emitterId: string; sour
           <ul className="element-list">
             {items.map((el) => (
               <li key={el.id}>
+                {el.variant && <span className="hint-text">[{el.variant.replace("_", " ")}] </span>}
                 {el.label && <strong>{el.label}: </strong>}
                 {el.stagger_values ? (
                   <>

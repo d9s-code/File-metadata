@@ -1,6 +1,11 @@
 import { useState } from "react";
-import type { AuditAction } from "../types/domain";
-import { useAuditActionCounts, useAuditEntityTypeCounts, useAuditLog } from "../state/hooks/useAuditLog";
+import type { AuditAction, AuditEntitySearchResult } from "../types/domain";
+import {
+  useAuditActionCounts,
+  useAuditEntitySearch,
+  useAuditEntityTypeCounts,
+  useAuditLog,
+} from "../state/hooks/useAuditLog";
 import { actionLabel, entityTypeLabel } from "../components/audit/auditFormat";
 import { AuditLogList } from "../components/audit/AuditLogList";
 
@@ -10,14 +15,22 @@ export function AuditLogPage() {
   const [entityType, setEntityType] = useState<string | null>(null);
   const [action, setAction] = useState<AuditAction | "">("");
   const [search, setSearch] = useState("");
+  const [selectedEntity, setSelectedEntity] = useState<AuditEntitySearchResult | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [offset, setOffset] = useState(0);
 
   const { data: groups } = useAuditEntityTypeCounts();
   const { data: actions } = useAuditActionCounts(entityType ?? undefined);
+  const { data: entityMatches } = useAuditEntitySearch(selectedEntity ? "" : search);
   const { data, isLoading } = useAuditLog({
-    entity_type: entityType ?? undefined,
+    entity_type: selectedEntity ? selectedEntity.entity_type : (entityType ?? undefined),
+    entity_id: selectedEntity?.entity_id,
     action: action || undefined,
-    q: search.trim() || undefined,
+    q: selectedEntity ? undefined : search.trim() || undefined,
+    since: dateFrom || undefined,
+    until: dateTo ? `${dateTo}T23:59:59` : undefined,
     limit: PAGE_SIZE,
     offset,
   });
@@ -25,11 +38,40 @@ export function AuditLogPage() {
   function selectGroup(type: string | null) {
     setEntityType(type);
     setAction("");
+    setSelectedEntity(null);
     setOffset(0);
   }
 
   function selectAction(value: string) {
     setAction(value as AuditAction | "");
+    setOffset(0);
+  }
+
+  function pickEntity(result: AuditEntitySearchResult) {
+    setSelectedEntity(result);
+    setSearch("");
+    setPickerOpen(false);
+    setOffset(0);
+  }
+
+  function clearEntity() {
+    setSelectedEntity(null);
+    setOffset(0);
+  }
+
+  function changeDateFrom(value: string) {
+    setDateFrom(value);
+    setOffset(0);
+  }
+
+  function changeDateTo(value: string) {
+    setDateTo(value);
+    setOffset(0);
+  }
+
+  function clearDates() {
+    setDateFrom("");
+    setDateTo("");
     setOffset(0);
   }
 
@@ -42,7 +84,8 @@ export function AuditLogPage() {
       <h1>Audit Log</h1>
       <p className="hint-text">
         A chronological record of who changed what, when — across the whole app. Navigate by entity type
-        (group) and then by action (subgroup), or search freely below.
+        (group) and then by action (subgroup), search an object by name (an Emitter, Platform, MDF, EW
+        Group, or Source), or search freely over summaries below.
       </p>
 
       <div className="audit-log-layout">
@@ -68,15 +111,42 @@ export function AuditLogPage() {
 
         <div className="audit-log-content">
           <div className="modes-toolbar-row">
-            <input
-              type="text"
-              placeholder="Search summaries…"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setOffset(0);
-              }}
-            />
+            {selectedEntity ? (
+              <span className="audit-entity-chip">
+                Scoped to: <strong>{selectedEntity.name}</strong>{" "}
+                <span className="muted">({entityTypeLabel(selectedEntity.entity_type)})</span>
+                <button type="button" className="link-button" onClick={clearEntity}>
+                  ✕
+                </button>
+              </span>
+            ) : (
+              <div className="audit-entity-search">
+                <input
+                  type="text"
+                  placeholder="Search by name (Emitter, Platform, MDF, EW Group, Source) or free text…"
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPickerOpen(true);
+                    setOffset(0);
+                  }}
+                  onFocus={() => setPickerOpen(true)}
+                  onBlur={() => setTimeout(() => setPickerOpen(false), 150)}
+                />
+                {pickerOpen && (entityMatches ?? []).length > 0 && (
+                  <ul className="audit-entity-picker">
+                    {(entityMatches ?? []).map((m) => (
+                      <li key={`${m.entity_type}:${m.entity_id}`}>
+                        <button type="button" onMouseDown={() => pickEntity(m)}>
+                          <span>{m.name}</span>
+                          <span className="audit-entity-picker-type">{entityTypeLabel(m.entity_type)}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
             <select value={action} onChange={(e) => selectAction(e.target.value)}>
               <option value="">All actions</option>
               {(actions ?? [])
@@ -87,13 +157,26 @@ export function AuditLogPage() {
                   </option>
                 ))}
             </select>
+            <label className="inline-date-filter">
+              From
+              <input type="date" value={dateFrom} onChange={(e) => changeDateFrom(e.target.value)} />
+            </label>
+            <label className="inline-date-filter">
+              To
+              <input type="date" value={dateTo} onChange={(e) => changeDateTo(e.target.value)} />
+            </label>
+            {(dateFrom || dateTo) && (
+              <button type="button" className="link-button" onClick={clearDates}>
+                Clear dates
+              </button>
+            )}
           </div>
 
           {isLoading ? (
             <p className="page-loading">Loading…</p>
           ) : (
             <>
-              <AuditLogList entries={data?.items ?? []} showEntityType={entityType === null} />
+              <AuditLogList entries={data?.items ?? []} showEntityType={entityType === null && !selectedEntity} />
               {total > shown && (
                 <button className="icon-button" onClick={() => setOffset(offset + PAGE_SIZE)}>
                   Load more ({shown} of {total})

@@ -3,7 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, computed_field, field_validator, model_validator
 
-from app.core.enums import PriType, TestResult
+from app.core.enums import ModeStatus, PriType, TestResult, TestType
 from app.services.delta import apply_delta
 
 
@@ -106,6 +106,9 @@ class ModeCreate(BaseModel):
     notes: str | None = None
     sort_order: int = 0
     line: ModeLineFields
+    # Test Record(s) whose findings explain this Mode's values, for a Mode
+    # that didn't come from the Source's data (see TestRecordModeLinkType).
+    derived_from_test_record_ids: list[UUID] = []
 
     @model_validator(mode="after")
     def check_pri_type(self) -> "ModeCreate":
@@ -128,6 +131,34 @@ class ModeUpdate(BaseModel):
     sort_order: int | None = None
     ew_group_id: UUID | None = None
     line: ModeLineFields | None = None
+
+
+class ModeDraftCreate(BaseModel):
+    """Proposes a line edit to an already-`approved` Mode. Creates a new
+    `draft` Mode (same name/notes/EW-Group/Source as the original — only the
+    line, and optionally the PRI Type it's expressed in, can change) that,
+    once approved, supersedes the original. See ModeStatus.
+    """
+
+    pri_type: PriType
+    line: ModeLineFields
+    derived_from_test_record_ids: list[UUID] = []
+
+    @model_validator(mode="after")
+    def check_pri_type(self) -> "ModeDraftCreate":
+        validate_pri_type_fields(self.pri_type, self.line)
+        require_manual_deltas(self.pri_type, self.line)
+        return self
+
+
+class TestRecordBrief(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    title: str
+    test_type: TestType
+    result: TestResult
+    test_date: date
 
 
 class ModeLineOut(ModeLineFields):
@@ -180,15 +211,20 @@ class ModeOut(BaseModel):
     notes: str | None = None
     sort_order: int
     generation_batch_id: UUID | None = None
+    status: ModeStatus
+    supersedes_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
     line: ModeLineOut | None = None
     # Computed on read from test_record_modes/test_records — see
     # app.services.mode_test_status_service. Not populated on every endpoint
-    # that returns a Mode; left null unless the router explicitly attaches it
-    # (list endpoints, where the overview value is worth the extra query).
+    # that returns a Mode; left null/empty unless the router explicitly
+    # attaches it (list endpoints, where the overview value is worth the
+    # extra query).
     last_tested_at: date | None = None
     last_test_result: TestResult | None = None
+    last_test_record_id: UUID | None = None
+    derived_from_test_records: list[TestRecordBrief] = []
 
 
 class ModeGenerationBatchOut(BaseModel):

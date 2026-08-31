@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.csrf import verify_csrf
-from app.core.enums import EMITTER_STATUS_TRANSITIONS, AuditAction, AuditEntityType, EmitterStatus, Role
+from app.core.enums import EMITTER_STATUS_TRANSITIONS, AuditAction, AuditEntityType, EmitterStatus, ModeStatus, Role
 from app.database import get_db
 from app.deps import require_role
 from app.models.emitter import Emitter
@@ -20,8 +20,9 @@ from app.schemas.emitter_version import (
     EmitterVersionOut,
     StatusTransitionRequest,
 )
-from app.services.audit_service import record_audit
-from app.services.mode_test_status_service import get_last_test_status
+from app.services.audit_service import apply_and_diff, record_audit
+from app.services.emitter_summary_service import attach_emitter_summaries
+from app.services.mode_test_status_service import attach_mode_extras
 from app.services.snapshots import build_emitter_snapshot
 from app.services.status_service import InvalidStatusTransition, validate_transition
 from app.services.versioning_service import VersionSpec, commit_version, diff_versions, get_version, list_versions
@@ -36,21 +37,22 @@ def list_emitters(
     include_deleted: bool = False,
     db: Session = Depends(get_db),
     _=Depends(require_role(Role.viewer)),
-) -> list[Emitter]:
+) -> list[EmitterOut]:
     q = db.query(Emitter)
     if not include_deleted:
         q = q.filter(Emitter.is_deleted.is_(False))
-    return q.order_by(Emitter.name).all()
+    emitters = q.order_by(Emitter.name).all()
+    return attach_emitter_summaries(db, emitters)
 
 
 @router.get("/{emitter_id}", response_model=EmitterOut)
 def get_emitter(
     emitter_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
-) -> Emitter:
+) -> EmitterOut:
     emitter = db.get(Emitter, emitter_id)
     if emitter is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Emitter not found")
-    return emitter
+    return attach_emitter_summaries(db, [emitter])[0]
 
 
 @router.post(
@@ -80,6 +82,7 @@ def create_emitter(
         entity_id=emitter.id,
         summary=f"Created Emitter '{emitter.name}'",
         changes=payload.model_dump(mode="json"),
+        emitter_id=emitter.id,
     )
     db.commit()
     db.refresh(emitter)
@@ -96,8 +99,7 @@ def update_emitter(
     emitter = db.get(Emitter, emitter_id)
     if emitter is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Emitter not found")
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(emitter, field, value)
+    changes = apply_and_diff(emitter, payload.model_dump(exclude_unset=True))
     record_audit(
         db,
         actor_id=user.id,
@@ -105,7 +107,8 @@ def update_emitter(
         entity_type=AuditEntityType.emitter.value,
         entity_id=emitter.id,
         summary=f"Updated Emitter '{emitter.name}'",
-        changes=payload.model_dump(exclude_unset=True, mode="json"),
+        changes=changes,
+        emitter_id=emitter.id,
     )
     db.commit()
     db.refresh(emitter)
@@ -132,6 +135,7 @@ def delete_emitter(
             entity_type=AuditEntityType.emitter.value,
             entity_id=emitter.id,
             summary=f"Hard-deleted Emitter '{emitter.name}'",
+            emitter_id=emitter.id,
         )
         db.delete(emitter)
     else:
@@ -143,6 +147,7 @@ def delete_emitter(
             entity_type=AuditEntityType.emitter.value,
             entity_id=emitter.id,
             summary=f"Deleted Emitter '{emitter.name}'",
+            emitter_id=emitter.id,
         )
     db.commit()
 
@@ -156,28 +161,27 @@ def _get_emitter_or_404(db: Session, emitter_id: UUID) -> Emitter:
 
 @router.get("/{emitter_id}/modes", response_model=list[ModeOut])
 def list_emitter_modes(
-    emitter_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
+    emitter_id: UUID,
+    include_history: bool = False,
+    db: Session = Depends(get_db),
+    _=Depends(require_role(Role.viewer)),
 ) -> list[ModeOut]:
     """All Modes across every EW Group belonging to this Emitter, in one flat
     list — this is the Emitter's mode overview, so each Mode carries its
-    computed last-tested status alongside its parameters.
+    computed last-tested status alongside its parameters. Hides superseded/
+    rejected Modes by default (pass include_history=true to see the full
+    lineage) — see ModeStatus.
     """
     _get_emitter_or_404(db, emitter_id)
-    modes = (
+    query = (
         db.query(Mode)
         .join(EwGroup, Mode.ew_group_id == EwGroup.id)
         .filter(EwGroup.emitter_id == emitter_id)
-        .order_by(EwGroup.sort_order, Mode.sort_order)
-        .all()
     )
-    test_status = get_last_test_status(db, [m.id for m in modes])
-    results = []
-    for m in modes:
-        out = ModeOut.model_validate(m)
-        if m.id in test_status:
-            out.last_tested_at, out.last_test_result = test_status[m.id]
-        results.append(out)
-    return results
+    if not include_history:
+        query = query.filter(Mode.status.in_([ModeStatus.approved, ModeStatus.draft]))
+    modes = query.order_by(EwGroup.sort_order, Mode.sort_order).all()
+    return attach_mode_extras(db, modes)
 
 
 @router.get("/{emitter_id}/generation-batches", response_model=list[ModeGenerationBatchOut])
@@ -221,6 +225,15 @@ def delete_generation_batch(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Generation batch not found")
     mode_count = len(batch.modes)
     for mode in list(batch.modes):
+        record_audit(
+            db,
+            actor_id=user.id,
+            action=AuditAction.delete,
+            entity_type=AuditEntityType.mode.value,
+            entity_id=mode.id,
+            summary=f"Deleted Mode '{mode.name}' (cascaded from deleting generation batch '{batch.name_prefix}')",
+            emitter_id=emitter_id,
+        )
         db.delete(mode)
     db.delete(batch)
     record_audit(
@@ -230,6 +243,7 @@ def delete_generation_batch(
         entity_type=AuditEntityType.mode_generation_batch.value,
         entity_id=batch.id,
         summary=f"Deleted generation batch '{batch.name_prefix}' ({mode_count} Mode(s))",
+        emitter_id=emitter_id,
     )
     db.commit()
 
@@ -256,6 +270,7 @@ def commit_emitter_version(
         entity_id=emitter.id,
         summary=f"Committed a version of Emitter '{emitter.name}'"
         + (f" — {payload.change_summary}" if payload.change_summary else ""),
+        emitter_id=emitter.id,
     )
     return commit_version(
         db,
@@ -328,7 +343,21 @@ def transition_emitter_status(
     except InvalidStatusTransition as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
 
+    # Operational -> Needs rework is a claim that something concrete is
+    # wrong with previously-validated data — require the note explaining
+    # what, so the regression is traceable later instead of just a bare
+    # status flip.
+    if emitter.status == EmitterStatus.validated and new_status == EmitterStatus.deprecated and not payload.note:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "A note explaining what needs rework is required when moving from Operational to Needs rework",
+        )
+
     old_status = emitter.status.value
+    if new_status == EmitterStatus.deprecated:
+        emitter.rework_note = payload.note
+    elif emitter.status == EmitterStatus.deprecated:
+        emitter.rework_note = None
     emitter.status = new_status
     db.flush()
 
@@ -343,7 +372,8 @@ def transition_emitter_status(
         entity_type=AuditEntityType.emitter.value,
         entity_id=emitter.id,
         summary=f"Emitter '{emitter.name}': {summary}",
-        changes={"old_status": old_status, "new_status": new_status.value},
+        changes={"status": {"old": old_status, "new": new_status.value}},
+        emitter_id=emitter.id,
     )
 
     snapshot = build_emitter_snapshot(emitter)

@@ -1,6 +1,6 @@
 import os
 
-os.environ["DATABASE_URL"] = "postgresql+psycopg2://rf_app:rf_app_dev_pw@localhost:5432/rf_emitter_test"
+os.environ["DATABASE_URL"] = "postgresql+psycopg2://rf_app:eb8b9f0877d28745ec6c0ff79e59f9b8@localhost:5433/rf_emitter_test"
 os.environ["COOKIE_SECURE"] = "false"
 
 import pytest

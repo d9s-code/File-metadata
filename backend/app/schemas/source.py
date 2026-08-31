@@ -3,6 +3,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
+from app.core.enums import SourceStatus
+
 
 class SourceCreate(BaseModel):
     name: str
@@ -24,5 +26,7 @@ class SourceOut(BaseModel):
     name: str
     description: str | None = None
     source_date: date
+    status: SourceStatus
+    import_batch_id: UUID | None = None
     created_at: datetime
     updated_at: datetime

@@ -27,7 +27,7 @@ def compute_mdf_readiness_warnings(db: Session, mdf: Mdf) -> list[str]:
             names = ", ".join(sorted(not_validated))
             warnings.append(
                 f"{len(not_validated)} of {len(referenced_emitters)} referenced emitter(s) are not yet "
-                f"'validated' (via pinned platforms): {names}"
+                f"'Operational' (via pinned platforms): {names}"
             )
 
     has_passing_test = (

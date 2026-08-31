@@ -31,6 +31,16 @@ class AuditLog(UUIDPkMixin, Base):
     # that seeds the UI's group list needs updating.
     entity_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     entity_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    # Denormalized rollup key: the Emitter this entry's entity belongs to (set
+    # for emitter/ew_group/source/mode/mode_element/mode_generation_batch/
+    # import_batch/emitter-scoped test_record entries; null for entries with
+    # no owning Emitter, e.g. Platform/MDF/user/auth entries). Populated at
+    # write time because some entities (Modes especially) are hard-deleted,
+    # which would otherwise make "everything that happened under Emitter X"
+    # unanswerable once a child row is gone.
+    emitter_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("emitters.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     summary: Mapped[str] = mapped_column(Text, nullable=False)
     changes: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(

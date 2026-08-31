@@ -6,6 +6,7 @@ import { PlatformLinkTable } from "../components/platform/PlatformLinkTable";
 import { PlatformEmitterVersionPicker } from "../components/platform/PlatformEmitterVersionPicker";
 import { EntityAuditTrail } from "../components/audit/EntityAuditTrail";
 import { RequireRole } from "../auth/RequireAuth";
+import { LoadingState } from "../components/common/LoadingState";
 
 type Tab = "emitters" | "audit";
 
@@ -16,7 +17,7 @@ export function PlatformBuilderPage() {
   const { data: links } = usePlatformLinks(platformId ?? "");
   const { data: emitters } = useEmitters();
 
-  if (isLoading || !platform) return <p>Loading…</p>;
+  if (isLoading || !platform) return <LoadingState label="Loading platform…" />;
 
   const emittersById = Object.fromEntries((emitters ?? []).map((e) => [e.id, e]));
 

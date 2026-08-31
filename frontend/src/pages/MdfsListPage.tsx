@@ -3,9 +3,29 @@ import { Link } from "react-router-dom";
 import { useCreateMdf, useMdfs } from "../state/hooks/useMdfs";
 import { RequireRole } from "../auth/RequireAuth";
 import { ApiRequestError } from "../api/client";
+import { LoadingState } from "../components/common/LoadingState";
+import { EmptyState } from "../components/common/EmptyState";
+import { SortableColumnHeader } from "../components/common/SortableColumnHeader";
+import { useSortableTable } from "../components/common/useSortableTable";
+import { compareStrings } from "../components/common/sortUtils";
+import type { Mdf } from "../api/mdfs";
+
+type MdfSortKey = "name" | "description" | "status";
+
+function compareMdfs(a: Mdf, b: Mdf, key: MdfSortKey, dir: "asc" | "desc"): number {
+  switch (key) {
+    case "name":
+      return compareStrings(a.name, b.name, dir);
+    case "description":
+      return compareStrings(a.description, b.description, dir);
+    case "status":
+      return compareStrings(a.status, b.status, dir);
+  }
+}
 
 export function MdfsListPage() {
   const { data: mdfs, isLoading } = useMdfs();
+  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(mdfs ?? [], compareMdfs);
   const createMdf = useCreateMdf();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -38,29 +58,55 @@ export function MdfsListPage() {
         {error && <div className="error-text">{error}</div>}
       </RequireRole>
 
-      {isLoading && <p>Loading…</p>}
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Description</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {mdfs?.map((m) => (
-            <tr key={m.id}>
-              <td>
-                <Link to={`/mdfs/${m.id}`}>{m.name}</Link>
-              </td>
-              <td>{m.description ?? "—"}</td>
-              <td>
-                <span className={`status-badge status-${m.status}`}>{m.status.replace("_", " ")}</span>
-              </td>
+      {isLoading ? (
+        <LoadingState label="Loading MDFs…" />
+      ) : mdfs && mdfs.length === 0 ? (
+        <EmptyState icon="◇" title="No MDFs yet" message="Add one above, then pin committed Platform versions to it." />
+      ) : (
+        <table className="data-table">
+          <thead>
+            <tr>
+              <SortableColumnHeader
+                label="Name"
+                columnKey="name"
+                activeKey={sortKey}
+                activeDir={sortDir}
+                onSort={onSort}
+                onClear={onClear}
+              />
+              <SortableColumnHeader
+                label="Description"
+                columnKey="description"
+                activeKey={sortKey}
+                activeDir={sortDir}
+                onSort={onSort}
+                onClear={onClear}
+              />
+              <SortableColumnHeader
+                label="Status"
+                columnKey="status"
+                activeKey={sortKey}
+                activeDir={sortDir}
+                onSort={onSort}
+                onClear={onClear}
+              />
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {sorted.map((m) => (
+              <tr key={m.id}>
+                <td>
+                  <Link to={`/mdfs/${m.id}`}>{m.name}</Link>
+                </td>
+                <td>{m.description ?? "—"}</td>
+                <td>
+                  <span className={`status-badge status-${m.status}`}>{m.status.replace("_", " ")}</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

@@ -3,10 +3,11 @@ from uuid import UUID
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.core.enums import ElementType, PriType
+from app.core.enums import AuditAction, AuditEntityType, ElementType, PriType
 from app.dsl.renderer import render_mode_line
 from app.models.mode import Mode, ModeElement, ModeGenerationBatch, ModeLine
 from app.models.source import Source
+from app.services.audit_service import _json_safe, record_audit
 from app.services.delta import apply_delta
 
 
@@ -100,6 +101,16 @@ def run_cartesian_product(
 
                 dsl_text = render_mode_line(pri_type=pri_type, **line_kwargs)
                 db.add(ModeLine(mode_id=mode.id, dsl_text=dsl_text, **line_kwargs))
+                record_audit(
+                    db,
+                    actor_id=created_by,
+                    action=AuditAction.create,
+                    entity_type=AuditEntityType.mode.value,
+                    entity_id=mode.id,
+                    summary=f"Created Mode '{mode.name}' via cartesian product batch '{name_prefix}'",
+                    changes={**{k: _json_safe(v) for k, v in line_kwargs.items()}, "generation_batch_id": str(batch.id)},
+                    emitter_id=source.emitter_id,
+                )
                 created.append(mode)
                 counter += 1
 

@@ -33,3 +33,9 @@ class AuditGroupCount(BaseModel):
 class AuditActionCount(BaseModel):
     action: AuditAction
     count: int
+
+
+class AuditEntitySearchResult(BaseModel):
+    entity_type: str
+    entity_id: UUID
+    name: str

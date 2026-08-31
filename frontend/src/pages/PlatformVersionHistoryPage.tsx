@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { usePlatform } from "../state/hooks/usePlatforms";
 import {
   useCommitPlatformVersion,
@@ -10,13 +10,16 @@ import { VersionList } from "../components/versioning/VersionList";
 import { DiffViewer } from "../components/versioning/DiffViewer";
 import { RequireRole } from "../auth/RequireAuth";
 import { ApiRequestError } from "../api/client";
+import { LoadingState } from "../components/common/LoadingState";
 
 export function PlatformVersionHistoryPage() {
   const { platformId } = useParams<{ platformId: string }>();
   const { data: platform } = usePlatform(platformId);
   const { data: versions } = usePlatformVersions(platformId ?? "");
   const commitVersion = useCommitPlatformVersion(platformId ?? "");
-  const [selected, setSelected] = useState<number | null>(null);
+  const [searchParams] = useSearchParams();
+  const initialVersion = Number(searchParams.get("version"));
+  const [selected, setSelected] = useState<number | null>(initialVersion > 0 ? initialVersion : null);
   const [changeSummary, setChangeSummary] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -32,7 +35,7 @@ export function PlatformVersionHistoryPage() {
     }
   }
 
-  if (!platform) return <p>Loading…</p>;
+  if (!platform) return <LoadingState label="Loading version history…" />;
 
   return (
     <div className="page">

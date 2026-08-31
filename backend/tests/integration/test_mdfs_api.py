@@ -67,7 +67,7 @@ def test_readiness_warns_on_unvalidated_emitter_and_no_test(editor_client, platf
     resp = editor_client.get(f"/mdfs/{mdf['id']}/status/readiness")
     assert resp.status_code == 200
     warnings = resp.json()["warnings"]
-    assert any("not yet 'validated'" in w for w in warnings)
+    assert any("not yet 'Operational'" in w for w in warnings)
     assert any("No passing test on file" in w for w in warnings)
 
 

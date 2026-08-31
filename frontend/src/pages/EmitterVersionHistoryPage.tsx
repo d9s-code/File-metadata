@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useEmitter } from "../state/hooks/useEmitters";
 import {
   useCommitEmitterVersion,
@@ -10,13 +10,16 @@ import { VersionList } from "../components/versioning/VersionList";
 import { DiffViewer } from "../components/versioning/DiffViewer";
 import { RequireRole } from "../auth/RequireAuth";
 import { ApiRequestError } from "../api/client";
+import { LoadingState } from "../components/common/LoadingState";
 
 export function EmitterVersionHistoryPage() {
   const { emitterId } = useParams<{ emitterId: string }>();
   const { data: emitter } = useEmitter(emitterId);
   const { data: versions } = useEmitterVersions(emitterId ?? "");
   const commitVersion = useCommitEmitterVersion(emitterId ?? "");
-  const [selected, setSelected] = useState<number | null>(null);
+  const [searchParams] = useSearchParams();
+  const initialVersion = Number(searchParams.get("version"));
+  const [selected, setSelected] = useState<number | null>(initialVersion > 0 ? initialVersion : null);
   const [changeSummary, setChangeSummary] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -32,7 +35,7 @@ export function EmitterVersionHistoryPage() {
     }
   }
 
-  if (!emitter) return <p>Loading…</p>;
+  if (!emitter) return <LoadingState label="Loading version history…" />;
 
   return (
     <div className="page">

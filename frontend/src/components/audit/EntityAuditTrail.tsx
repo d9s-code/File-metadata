@@ -6,13 +6,31 @@ import { AuditLogList } from "./AuditLogList";
 
 const PAGE_SIZE = 25;
 
-export function EntityAuditTrail({ entityType, entityId }: { entityType: string; entityId: string }) {
+export function EntityAuditTrail({
+  entityType,
+  entityId,
+  emitterId,
+}: {
+  entityType: string;
+  entityId: string;
+  /** When set, rolls the trail up to everything under this Emitter (its own
+   * entries plus its EW Groups/Sources/Modes/elements/generation
+   * batches/imports/test records) instead of only exact entityType/entityId
+   * matches — pass this from the Emitter Editor page only. */
+  emitterId?: string;
+}) {
   const [action, setAction] = useState<AuditAction | "">("");
   const [offset, setOffset] = useState(0);
-  const { data: actionCounts } = useAuditActionCounts(entityType, entityId);
+  const rollup = !!emitterId;
+  const { data: actionCounts } = useAuditActionCounts(
+    rollup ? undefined : entityType,
+    rollup ? undefined : entityId,
+    emitterId,
+  );
   const { data, isLoading } = useAuditLog({
-    entity_type: entityType,
-    entity_id: entityId,
+    entity_type: rollup ? undefined : entityType,
+    entity_id: rollup ? undefined : entityId,
+    emitter_id: emitterId,
     action: action || undefined,
     limit: PAGE_SIZE,
     offset,
@@ -28,6 +46,12 @@ export function EntityAuditTrail({ entityType, entityId }: { entityType: string;
 
   return (
     <section className="card">
+      {rollup && (
+        <p className="hint-text">
+          Includes this Emitter's own history plus its EW Groups, Sources, Modes, elements, generation
+          batches, imports, and test records.
+        </p>
+      )}
       <div className="modes-toolbar-row">
         <select value={action} onChange={(e) => handleActionChange(e.target.value)}>
           <option value="">All actions</option>
@@ -44,7 +68,7 @@ export function EntityAuditTrail({ entityType, entityId }: { entityType: string;
         <p className="page-loading">Loading…</p>
       ) : (
         <>
-          <AuditLogList entries={data?.items ?? []} showEntityType={false} />
+          <AuditLogList entries={data?.items ?? []} showEntityType={rollup} />
           {total > shown && (
             <button className="icon-button" onClick={() => setOffset(offset + PAGE_SIZE)}>
               Load more ({shown} of {total})

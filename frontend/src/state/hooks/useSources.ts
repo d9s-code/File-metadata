@@ -24,3 +24,19 @@ export function useDeleteSource(emitterId: string) {
     onSuccess: () => qc.invalidateQueries({ queryKey: sourcesKey(emitterId) }),
   });
 }
+
+export function useApproveSource(emitterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (sourceId: string) => sourcesApi.approve(emitterId, sourceId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: sourcesKey(emitterId) }),
+  });
+}
+
+export function useRejectSource(emitterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (sourceId: string) => sourcesApi.reject(emitterId, sourceId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: sourcesKey(emitterId) }),
+  });
+}

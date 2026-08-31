@@ -14,6 +14,7 @@ from app.models.mode import Mode
 from app.models.test_record import TestRecord, TestRecordMode
 from app.schemas.test_record import TestRecordCreate, TestRecordOut
 from app.services.audit_service import record_audit
+from app.services.test_result_service import compute_overall_result
 
 _MODES_EAGER_LOAD = joinedload(TestRecord.modes).joinedload(TestRecordMode.mode)
 
@@ -45,12 +46,28 @@ def _create_test_record(
     mdf_version_id: UUID | None,
     payload: TestRecordCreate,
     tested_by: UUID,
+    emitter_id: UUID | None = None,
 ) -> TestRecord:
-    if payload.mode_ids:
-        found_ids = {m.id for m in db.query(Mode.id).filter(Mode.id.in_(payload.mode_ids)).all()}
-        missing = set(payload.mode_ids) - found_ids
+    mode_ids = [mr.mode_id for mr in payload.mode_results]
+    if mode_ids:
+        found_ids = {m.id for m in db.query(Mode.id).filter(Mode.id.in_(mode_ids)).all()}
+        missing = set(mode_ids) - found_ids
         if missing:
             raise HTTPException(status.HTTP_404_NOT_FOUND, f"Unknown mode id(s): {missing}")
+
+    if payload.retests_test_record_id is not None:
+        retested = db.get(TestRecord, payload.retests_test_record_id)
+        if retested is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "retests_test_record_id not found")
+        if retested.scope_type != scope_type or retested.scope_id != scope_id:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, "retests_test_record_id must belong to the same scope"
+            )
+
+    overall_result = (
+        compute_overall_result([mr.result for mr in payload.mode_results]) if payload.mode_results else payload.result
+    )
+    assert overall_result is not None  # guaranteed by TestRecordCreate.check_result
 
     record = TestRecord(
         scope_type=scope_type,
@@ -58,25 +75,35 @@ def _create_test_record(
         emitter_version_id=emitter_version_id,
         mdf_version_id=mdf_version_id,
         test_type=payload.test_type,
-        result=payload.result,
+        result=overall_result,
         title=payload.title,
         notes=payload.notes,
         test_date=payload.test_date,
         simulation_created_date=payload.simulation_created_date,
+        retests_test_record_id=payload.retests_test_record_id,
         tested_by=tested_by,
     )
     db.add(record)
     db.flush()
-    for mode_id in payload.mode_ids:
-        db.add(TestRecordMode(test_record_id=record.id, mode_id=mode_id))
+    for mr in payload.mode_results:
+        db.add(
+            TestRecordMode(
+                test_record_id=record.id,
+                mode_id=mr.mode_id,
+                result=mr.result,
+                notes=mr.notes,
+                observed_values=mr.observed_values,
+            )
+        )
     record_audit(
         db,
         actor_id=tested_by,
         action=AuditAction.create,
         entity_type=AuditEntityType.test_record.value,
         entity_id=record.id,
-        summary=f"Logged a {payload.test_type.value.replace('_', ' ')} test '{payload.title}' ({payload.result.value})",
+        summary=f"Logged a {payload.test_type.value.replace('_', ' ')} test '{payload.title}' ({overall_result.value})",
         changes=payload.model_dump(mode="json"),
+        emitter_id=emitter_id,
     )
     db.commit()
     return db.query(TestRecord).options(_MODES_EAGER_LOAD).filter(TestRecord.id == record.id).one()
@@ -116,6 +143,7 @@ def create_emitter_test_record(
         mdf_version_id=None,
         payload=payload,
         tested_by=user.id,
+        emitter_id=emitter_id,
     )
 
 
@@ -172,6 +200,7 @@ def delete_emitter_test_record(
         entity_type=AuditEntityType.test_record.value,
         entity_id=record.id,
         summary=f"Deleted test record '{record.title}'",
+        emitter_id=emitter_id,
     )
     db.delete(record)
     db.commit()

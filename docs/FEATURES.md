@@ -86,6 +86,23 @@ Next to any Stagger element, a **Frametime badge** shows the sum of its sequence
 
 ---
 
+### Editing an existing Mode: draft edits & approval
+
+Editing a Mode's **metadata** (name, notes, which EW Group it's filed under) is an instant edit, same as creating one. But editing its **line** — the actual RF/PW/PRI/jitter/stagger values — works differently once the Mode is `approved` (the normal state for anything already created):
+
+- **Propose edit** creates a new `draft` Mode carrying your edited line, linked back to the Mode it would replace. The original is untouched and still fully live (still what ambiguity checks, XML export, and Emitter version commits see) while the draft sits pending.
+- Only one pending draft per Mode at a time — you can't propose a second edit while one is already under review.
+- **Approve** flips the draft to the live, canonical line and marks the Mode it replaced as `superseded`. Superseded Modes are kept permanently (full lineage, nothing is ever deleted) but are excluded from the active Modes list, ambiguity checks, and XML export — toggle **Show history** on the Modes table to see them.
+- **Reject** discards the draft; the original Mode is never touched.
+
+A `draft` Mode's line can still be freely edited directly (refining your own pending proposal) — the propose/approve gate only applies to the currently-`approved` line.
+
+### Test-Derived Modes
+
+A Mode's values don't always come from a Source — real-world testing can turn up an emission a datasheet never mentioned, or reveal that an existing Mode's parameters are wrong. Both the "+ Add Mode" form and a draft-edit proposal let you optionally link the Mode to one or more existing **Test Records** whose findings explain its values ("this Mode is test-derived"). A linked Mode shows a **Test-Derived** badge with a popover listing the justifying test(s) — explainability for a Mode that didn't come from a Source, without needing a Source to explain it.
+
+---
+
 ## 4. Sources
 
 A **Source** groups Modes by where the data came from (e.g. a specific collection event or report). Each Source has:

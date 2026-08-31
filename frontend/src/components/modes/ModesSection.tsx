@@ -9,6 +9,8 @@ import { ModesViewToggle, type ModesView } from "./ModesViewToggle";
 import { ModeForm } from "./ModeForm";
 import { compareModes, searchableText, type ModeSortKey, type SortDir } from "./modeFormat";
 import { RequireRole } from "../../auth/RequireAuth";
+import { EmptyState } from "../common/EmptyState";
+import { LoadingState } from "../common/LoadingState";
 
 const VIEW_STORAGE_KEY = "modesView";
 
@@ -29,7 +31,8 @@ export function ModesSection({
   ewGroups: EwGroup[];
   sources: Source[];
 }) {
-  const { data: modes, isLoading } = useEmitterModes(emitterId);
+  const [includeHistory, setIncludeHistory] = useState(false);
+  const { data: modes, isLoading } = useEmitterModes(emitterId, includeHistory);
   const { data: batches } = useEmitterBatches(emitterId);
   const deleteMode = useDeleteMode(emitterId);
   const deleteBatch = useDeleteBatch(emitterId);
@@ -67,13 +70,14 @@ export function ModesSection({
 
   const sorted = [...searched].sort((a, b) => compareModes(a, b, sortKey, sortDir, ewGroupsById, sourcesById));
 
-  function handleSort(key: ModeSortKey) {
-    if (key === sortKey) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
+  function handleSort(key: ModeSortKey, dir: SortDir) {
+    setSortKey(key);
+    setSortDir(dir);
+  }
+
+  function handleClearSort() {
+    setSortKey("name");
+    setSortDir("asc");
   }
 
   async function handleDelete(modeId: string, ewGroupId: string, name: string) {
@@ -143,16 +147,28 @@ export function ModesSection({
             </button>
           </RequireRole>
         )}
+        <label className="checkbox-label" title="Include superseded and rejected Modes">
+          <input
+            type="checkbox"
+            checked={includeHistory}
+            onChange={(e) => setIncludeHistory(e.target.checked)}
+          />
+          Show history
+        </label>
       </div>
 
       {isLoading ? (
-        <p className="page-loading">Loading…</p>
+        <LoadingState label="Loading modes…" />
       ) : sorted.length === 0 ? (
-        <p className="hint-text">
-          {modes && modes.length > 0
-            ? "No Modes match the current search/filters."
-            : "No Modes yet — add a Source, then either type a DSL line or add Elements and run Cartesian Product."}
-        </p>
+        <EmptyState
+          icon="◇"
+          title={modes && modes.length > 0 ? "No matches" : "No Modes yet"}
+          message={
+            modes && modes.length > 0
+              ? "No Modes match the current search/filters."
+              : "Add a Source, then either type a DSL line or add Elements and run Cartesian Product."
+          }
+        />
       ) : view === "table" ? (
         <ModesTable
           emitterId={emitterId}
@@ -162,6 +178,7 @@ export function ModesSection({
           sortKey={sortKey}
           sortDir={sortDir}
           onSort={handleSort}
+          onClear={handleClearSort}
           onDelete={handleDelete}
         />
       ) : (

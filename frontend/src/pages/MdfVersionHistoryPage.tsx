@@ -7,6 +7,7 @@ import { DiffViewer } from "../components/versioning/DiffViewer";
 import { ExportXmlButton } from "../components/mdf/ExportXmlButton";
 import { RequireRole } from "../auth/RequireAuth";
 import { ApiRequestError } from "../api/client";
+import { LoadingState } from "../components/common/LoadingState";
 
 export function MdfVersionHistoryPage() {
   const { mdfId } = useParams<{ mdfId: string }>();
@@ -29,7 +30,7 @@ export function MdfVersionHistoryPage() {
     }
   }
 
-  if (!mdf) return <p>Loading…</p>;
+  if (!mdf) return <LoadingState label="Loading version history…" />;
 
   return (
     <div className="page">

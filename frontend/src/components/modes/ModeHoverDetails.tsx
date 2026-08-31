@@ -4,21 +4,26 @@ import type { EwGroup, Mode, Source } from "../../types/domain";
 import { useElements } from "../../state/hooks/useElements";
 import { useFloatingPosition } from "../common/useFloatingPosition";
 
-export function ModeHoverDetail({ mode }: { mode: Mode }) {
+export function ModeHoverDetail({ mode, source }: { mode: Mode; source?: Source }) {
   return (
     <dl>
       <dt>Notes</dt>
       <dd>{mode.notes ?? "—"}</dd>
-      {mode.line?.dsl_text && (
+      <dt>Created</dt>
+      <dd>{new Date(mode.created_at).toLocaleString()}</dd>
+      <dt>Last updated</dt>
+      <dd>{new Date(mode.updated_at).toLocaleString()}</dd>
+      {source && (
         <>
-          <dt>DSL</dt>
+          <dt>Source last updated</dt>
           <dd>
-            <code>{mode.line.dsl_text}</code>
+            {new Date(source.updated_at).toLocaleString()}
+            {new Date(source.updated_at) > new Date(mode.updated_at) && (
+              <span className="jitter-subline">Source changed after this Mode was last touched — worth a look.</span>
+            )}
           </dd>
         </>
       )}
-      <dt>Created</dt>
-      <dd>{new Date(mode.created_at).toLocaleString()}</dd>
     </dl>
   );
 }
@@ -46,17 +51,19 @@ export function EwGroupHoverDetail({ ewGroup }: { ewGroup: EwGroup }) {
 
 export function SourceHoverDetail({ emitterId, source }: { emitterId: string; source: Source }) {
   const { data: elements } = useElements(emitterId, source.id);
-  const counts = { rf: 0, pw: 0, pri: 0 };
+  const counts = { rf: 0, pw: 0, pri: 0, scan: 0 };
   for (const el of elements ?? []) counts[el.element_type]++;
   return (
     <dl>
       <dt>Description</dt>
       <dd>{source.description ?? "—"}</dd>
-      <dt>Date last updated</dt>
+      <dt>Source date</dt>
       <dd>{source.source_date}</dd>
+      <dt>Last updated</dt>
+      <dd>{new Date(source.updated_at).toLocaleString()}</dd>
       <dt>Elements</dt>
       <dd>
-        {counts.rf} RF · {counts.pw} PW · {counts.pri} PRI
+        {counts.rf} RF · {counts.pw} PW · {counts.pri} PRI · {counts.scan} Scan
       </dd>
     </dl>
   );

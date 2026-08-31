@@ -13,7 +13,7 @@ from app.models.platform import PlatformVersion
 from app.schemas.emitter_version import CommitVersionRequest, DiffOut, StatusTransitionRequest
 from app.schemas.mdf import MdfCreate, MdfLinkCreate, MdfLinkOut, MdfOut, MdfReadinessOut, MdfUpdate
 from app.schemas.mdf_version import MdfStatusTransitionOut, MdfVersionDetailOut, MdfVersionOut
-from app.services.audit_service import record_audit
+from app.services.audit_service import apply_and_diff, record_audit
 from app.services.readiness_service import compute_mdf_readiness_warnings
 from app.services.snapshots import build_mdf_snapshot
 from app.services.status_service import InvalidStatusTransition, validate_transition
@@ -75,8 +75,7 @@ def update_mdf(
     mdf_id: UUID, payload: MdfUpdate, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))
 ) -> Mdf:
     mdf = _get_mdf_or_404(db, mdf_id)
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(mdf, field, value)
+    changes = apply_and_diff(mdf, payload.model_dump(exclude_unset=True))
     record_audit(
         db,
         actor_id=user.id,
@@ -84,7 +83,7 @@ def update_mdf(
         entity_type=AuditEntityType.mdf.value,
         entity_id=mdf.id,
         summary=f"Updated MDF '{mdf.name}'",
-        changes=payload.model_dump(exclude_unset=True, mode="json"),
+        changes=changes,
     )
     db.commit()
     db.refresh(mdf)
@@ -306,7 +305,7 @@ def transition_mdf_status(
         entity_type=AuditEntityType.mdf.value,
         entity_id=mdf.id,
         summary=f"MDF '{mdf.name}': {summary}",
-        changes={"old_status": old_status, "new_status": new_status.value},
+        changes={"status": {"old": old_status, "new": new_status.value}},
     )
 
     snapshot = build_mdf_snapshot(mdf)

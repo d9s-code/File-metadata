@@ -15,4 +15,8 @@ export const sourcesApi = {
     api.patch<Source>(`/emitters/${emitterId}/sources/${sourceId}`, input),
   delete: (emitterId: string, sourceId: string) =>
     api.delete<void>(`/emitters/${emitterId}/sources/${sourceId}`),
+  approve: (emitterId: string, sourceId: string) =>
+    api.post<Source>(`/emitters/${emitterId}/sources/${sourceId}/approve`, {}),
+  reject: (emitterId: string, sourceId: string) =>
+    api.post<Source>(`/emitters/${emitterId}/sources/${sourceId}/reject`, {}),
 };
