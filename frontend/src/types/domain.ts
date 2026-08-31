@@ -45,6 +45,7 @@ export interface Emitter {
    * cleared on any transition away from Needs rework. */
   rework_note: string | null;
   is_deleted: boolean;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
   summary: EmitterSummary;
@@ -60,6 +61,8 @@ export interface EwGroup {
   engineered_scan_min: number | null;
   engineered_scan_max: number | null;
   threat_priority: number | null;
+  /** Seconds — descriptive/reference value only, no automated behavior. */
+  ageout: number | null;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -82,6 +85,12 @@ export interface ModeLineFields {
   rf_max_mhz: number;
   pw_min_us: number;
   pw_max_us: number;
+  /** Set per parameter, not per Mode — required, and governed by the same
+   * draft-propose/approve cycle as any other line parameter once a Mode is
+   * approved. */
+  rf_range_matching: boolean;
+  pw_range_matching: boolean;
+  pri_range_matching: boolean;
   rf_delta?: number | null;
   pw_delta?: number | null;
   pri_delta?: number | null;
@@ -90,6 +99,7 @@ export interface ModeLineFields {
   jitter_min_us?: number | null;
   jitter_max_us?: number | null;
   pri_stagger_values_us?: number[] | null;
+  frame_time_delta_us?: number | null;
   type_data?: Record<string, unknown> | null;
 }
 
@@ -104,6 +114,9 @@ export interface ModeLine extends ModeLineFields {
   engineered_pw_max_us: number | null;
   engineered_pri_min_us: number | null;
   engineered_pri_max_us: number | null;
+  frame_time_us: number | null;
+  engineered_frame_time_min_us: number | null;
+  engineered_frame_time_max_us: number | null;
 }
 
 export type ModeStatus = "approved" | "draft" | "superseded" | "rejected";
@@ -163,6 +176,9 @@ export interface ModeElement {
   delta: number | null;
   engineered_min: number | null;
   engineered_max: number | null;
+  frametime_us: number | null;
+  engineered_frame_time_min_us: number | null;
+  engineered_frame_time_max_us: number | null;
   label: string | null;
   sort_order: number;
 }
@@ -190,6 +206,7 @@ export type AuditAction =
   | "create"
   | "update"
   | "delete"
+  | "restore"
   | "status_change"
   | "commit"
   | "login"

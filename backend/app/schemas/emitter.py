@@ -56,6 +56,7 @@ class EmitterOut(BaseModel):
     status: EmitterStatus
     rework_note: str | None = None
     is_deleted: bool
+    deleted_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
     summary: EmitterSummary = EmitterSummary()

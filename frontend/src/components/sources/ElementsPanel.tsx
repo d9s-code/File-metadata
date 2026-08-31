@@ -21,11 +21,18 @@ function ElementForm({ emitterId, sourceId }: { emitterId: string; sourceId: str
   const [label, setLabel] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  const usesStagger = elementType === "pri" && priShape === "stagger";
+  const suggestedFrameTimeUs = staggerValues
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map(Number)
+    .reduce((sum, v) => (Number.isFinite(v) ? sum + v : sum), 0);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     try {
-      const usesStagger = elementType === "pri" && priShape === "stagger";
       await createElement.mutateAsync({
         element_type: elementType,
         label: label || undefined,
@@ -33,7 +40,7 @@ function ElementForm({ emitterId, sourceId }: { emitterId: string; sourceId: str
         value_max: usesStagger ? undefined : Number(valueMax),
         jitter_min: elementType === "pri" && !usesStagger && jitterMin ? Number(jitterMin) : undefined,
         jitter_max: elementType === "pri" && !usesStagger && jitterMax ? Number(jitterMax) : undefined,
-        delta: !usesStagger && delta ? Number(delta) : undefined,
+        delta: delta ? Number(delta) : undefined,
         stagger_values: usesStagger
           ? staggerValues
               .split(",")
@@ -93,12 +100,27 @@ function ElementForm({ emitterId, sourceId }: { emitterId: string; sourceId: str
         </>
       )}
       {elementType === "pri" && priShape === "stagger" && (
-        <input
-          placeholder="800, 850, 900, 780"
-          value={staggerValues}
-          onChange={(e) => setStaggerValues(e.target.value)}
-          required
-        />
+        <>
+          <input
+            placeholder="800, 850, 900, 780"
+            value={staggerValues}
+            onChange={(e) => setStaggerValues(e.target.value)}
+            required
+          />
+          <input
+            placeholder="frame time delta (±µs)"
+            type="number"
+            step="any"
+            min="0"
+            value={delta}
+            onChange={(e) => setDelta(e.target.value)}
+            title="Symmetric tolerance margin applied to the suggested frame time (sum of the stagger sequence) to derive the engineered min/max — required for a stagger PRI element"
+            required
+          />
+          {suggestedFrameTimeUs > 0 && (
+            <span className="hint-text">Suggested frame time: {suggestedFrameTimeUs} µs</span>
+          )}
+        </>
       )}
       <button type="submit" disabled={createElement.isPending}>
         Add Element
@@ -138,6 +160,13 @@ export function ElementsPanel({ emitterId, sourceId }: { emitterId: string; sour
                 {el.stagger_values ? (
                   <>
                     [{el.stagger_values.join(", ")}] µs <FrametimeBadge staggerValues={el.stagger_values} />
+                    {el.delta != null && (
+                      <span className="hint-text">
+                        {" "}
+                        · engineered frame time: {el.engineered_frame_time_min_us}–{el.engineered_frame_time_max_us} µs
+                        (±{el.delta})
+                      </span>
+                    )}
                   </>
                 ) : (
                   <>

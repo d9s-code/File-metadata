@@ -21,6 +21,7 @@ class PlatformOut(BaseModel):
     name: str
     description: str | None = None
     is_deleted: bool
+    deleted_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 

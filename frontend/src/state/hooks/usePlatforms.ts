@@ -23,6 +23,22 @@ export function useCreatePlatform() {
   });
 }
 
+export function useDeletePlatform() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, hard }: { id: string; hard?: boolean }) => platformsApi.delete(id, hard),
+    onSuccess: () => qc.invalidateQueries({ queryKey: platformsKey }),
+  });
+}
+
+export function useRestorePlatform() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => platformsApi.restore(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: platformsKey }),
+  });
+}
+
 export function platformLinksKey(platformId: string) {
   return ["platformLinks", platformId] as const;
 }

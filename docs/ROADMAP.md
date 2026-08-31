@@ -32,6 +32,20 @@ This is intentionally *not* modeled after heavier prior art: a sibling project's
 
 ---
 
+## XML Import
+
+**Status:** Not yet started — implementation work is about to begin (by a
+separate agent/session), briefed via
+[docs/XML_IMPORT_BRIEF.md](XML_IMPORT_BRIEF.md) rather than this entry.
+
+**Why it's here:** flagging that it's imminent, and that the brief document
+identifies an open fork in the design (datasheet/parametric import at the
+Source/Element level vs. a full MDF round-trip import mirroring XML export)
+that hasn't been resolved yet — resolve it before treating either direction
+as "the" XML import feature.
+
+---
+
 ## Considered and rejected
 
 **Per-kind pattern flexibility (Stagger/Switcher/Dwell/Jitter for RF and PW, not just PRI).** A sibling project supports this for all three parameter kinds via a legality-matrix `CheckConstraint`. Not added here by default — it's a real schema expansion, not a bolt-on, and should only be scoped if there's an actual case where RF or PW needs to be more than a fixed range, rather than added because another project has it.

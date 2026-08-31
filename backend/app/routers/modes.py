@@ -29,7 +29,16 @@ from app.services.mode_test_status_service import attach_mode_extras
 router = APIRouter(prefix="/ew-groups/{ew_group_id}/modes", tags=["modes"])
 
 # ModeLineFields columns that aren't part of the rendered DSL line text.
-_NON_DSL_LINE_FIELDS = {"type_data", "rf_delta", "pw_delta", "pri_delta"}
+_NON_DSL_LINE_FIELDS = {
+    "type_data",
+    "rf_delta",
+    "pw_delta",
+    "pri_delta",
+    "frame_time_delta_us",
+    "rf_range_matching",
+    "pw_range_matching",
+    "pri_range_matching",
+}
 
 # Statuses shown by default — a pending draft is worth seeing alongside the
 # live set (it's what it would replace), but a superseded/rejected Mode is

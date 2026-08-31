@@ -12,6 +12,9 @@ FIXED_LINE = {
     "rf_delta": 1,
     "pw_delta": 0.05,
     "pri_delta": 10,
+    "rf_range_matching": False,
+    "pw_range_matching": False,
+    "pri_range_matching": False,
 }
 
 
@@ -63,7 +66,10 @@ def test_list_test_records_includes_linked_mode_names(editor_client, emitter_wit
     resp = editor_client.get(f"/emitters/{emitter_id}/test-records")
     assert resp.status_code == 200, resp.text
     [record] = resp.json()
-    assert record["modes"] == [{"mode_id": mode_id, "mode_name": "Mode 1"}]
+    [linked_mode] = record["modes"]
+    assert linked_mode["mode_id"] == mode_id
+    assert linked_mode["mode_name"] == "Mode 1"
+    assert linked_mode["result"] == "pass"
 
 
 def test_create_test_record_rejects_unknown_mode_id(editor_client, emitter_with_mode):

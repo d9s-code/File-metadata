@@ -37,7 +37,7 @@ def test_create_fixed_style_pri_element(editor_client, emitter_ctx):
 def test_frametime_sums_stagger_sequence(editor_client, emitter_ctx):
     element = editor_client.post(
         _elements_url(emitter_ctx),
-        json={"element_type": "pri", "stagger_values": [800, 850, 900, 780]},
+        json={"element_type": "pri", "stagger_values": [800, 850, 900, 780], "delta": 5},
     ).json()
     resp = editor_client.get(f"{_elements_url(emitter_ctx)}/{element['id']}/frametime")
     assert resp.status_code == 200
@@ -94,10 +94,10 @@ def test_create_element_rejects_negative_delta(editor_client, emitter_ctx):
     assert resp.status_code == 422
 
 
-def test_create_element_rejects_delta_on_stagger_pri(editor_client, emitter_ctx):
+def test_create_element_requires_delta_on_stagger_pri(editor_client, emitter_ctx):
     resp = editor_client.post(
         _elements_url(emitter_ctx),
-        json={"element_type": "pri", "stagger_values": [800, 850, 900], "delta": 5},
+        json={"element_type": "pri", "stagger_values": [800, 850, 900]},
     )
     assert resp.status_code == 422
 
@@ -197,7 +197,9 @@ def test_cartesian_product_rejects_mixed_pri_shapes(editor_client, emitter_ctx):
     pri_fixed = editor_client.post(
         url, json={"element_type": "pri", "value_min": 800, "value_max": 1200, "jitter_min": 5, "jitter_max": 15}
     ).json()
-    pri_stagger = editor_client.post(url, json={"element_type": "pri", "stagger_values": [1, 2, 3]}).json()
+    pri_stagger = editor_client.post(
+        url, json={"element_type": "pri", "stagger_values": [1, 2, 3], "delta": 1}
+    ).json()
 
     resp = editor_client.post(
         f"{url}/cartesian-product",

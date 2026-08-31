@@ -30,3 +30,11 @@ export function useDeleteEmitter() {
     onSuccess: () => qc.invalidateQueries({ queryKey: emittersKey }),
   });
 }
+
+export function useRestoreEmitter() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => emittersApi.restore(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: emittersKey }),
+  });
+}

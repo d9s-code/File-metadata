@@ -12,6 +12,9 @@ FIXED_LINE = {
     "rf_delta": 1,
     "pw_delta": 0.05,
     "pri_delta": 10,
+    "rf_range_matching": False,
+    "pw_range_matching": False,
+    "pri_range_matching": False,
 }
 
 

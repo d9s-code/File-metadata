@@ -33,7 +33,15 @@ gets pinned into an MDF, and why readiness warnings never hard-block release).
 - **Test tracking** — log simulation/lab/range/field test results pinned to the exact
   version tested.
 - **XML export** — export a committed MDF version to a custom XML format via a swappable
-  placeholder field-mapping layer (Sources/elements are deliberately excluded).
+  placeholder field-mapping layer (Sources/elements are deliberately excluded). XML
+  *import* is planned next — see `docs/XML_IMPORT_BRIEF.md`.
+- **Per-parameter deltas, Frame Time, and Range Matching** — RF/PW/PRI each carry their
+  own raw-vs-engineered tolerance margin; Stagger PRI adds a frame-time tolerance the
+  same way; RF/PW/PRI can each independently be flagged for range matching, governed by
+  the same propose/approve workflow as any other Mode Line edit.
+- **Recently Deleted & Admin panel** — Emitters/Platforms/MDFs soft-delete into a 30-day
+  Recently Deleted view (restore, or Admin-only permanent delete/auto-purge via cron);
+  Admins can also create and manage user accounts from the UI.
 - **Backup & restore** — `pg_dump`/`pg_restore` based, with retention pruning and
   automated restore verification; treated as the most critical piece of ops, not an
   afterthought.
@@ -97,6 +105,10 @@ Schedule regular backups via OS cron (decoupled from whether the app process is 
 ```
 # nightly backup + retention pruning at 03:00
 0 3 * * * cd /opt/rf-emitter-app/backend && .venv/bin/python scripts/backup_db.py >> /var/log/rf-emitter-backup.log 2>&1
+
+# nightly trash purge at 03:30 — hard-deletes Emitters/Platforms/MDFs that
+# have sat in Recently Deleted past the retention window (TRASH_RETENTION_DAYS, default 30)
+30 3 * * * cd /opt/rf-emitter-app/backend && .venv/bin/python scripts/purge_deleted.py >> /var/log/rf-emitter-purge.log 2>&1
 ```
 
 Restore is deliberately a CLI-only, confirmation-required runbook rather than a UI
@@ -118,5 +130,9 @@ JSONB and array columns whose behavior only real Postgres reproduces faithfully.
 ## Documentation
 
 - **[docs/FEATURES.md](docs/FEATURES.md)** — full feature walkthrough (Emitters, Modes &
-  PRI types, the DSL, Sources, versioning & diffs, Platforms, MDFs, test tracking, the
-  dashboard, ambiguity checks, XML export, backup & restore, accounts & roles).
+  PRI types, the DSL, Sources & import, versioning & diffs, Platforms, MDFs, test
+  tracking, the dashboard, ambiguity checks, XML export, backup & restore, accounts &
+  roles, the Admin panel).
+- **[docs/XML_IMPORT_BRIEF.md](docs/XML_IMPORT_BRIEF.md)** — field-mapping reference and
+  open design questions for the upcoming XML import feature.
+- **[docs/ROADMAP.md](docs/ROADMAP.md)** — proposed-but-not-yet-built features.

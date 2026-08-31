@@ -7,6 +7,7 @@ export interface Mdf {
   description: string | null;
   status: MdfStatus;
   is_deleted: boolean;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -30,6 +31,7 @@ export const mdfsApi = {
   create: (input: MdfCreateInput) => api.post<Mdf>("/mdfs", input),
   update: (id: string, input: Partial<MdfCreateInput>) => api.patch<Mdf>(`/mdfs/${id}`, input),
   delete: (id: string, hard = false) => api.delete<void>(`/mdfs/${id}${hard ? "?hard=true" : ""}`),
+  restore: (id: string) => api.post<Mdf>(`/mdfs/${id}/restore`),
 
   listLinks: (mdfId: string) => api.get<MdfLink[]>(`/mdfs/${mdfId}/links`),
   pinPlatform: (mdfId: string, platformId: string, platformVersionId: string) =>

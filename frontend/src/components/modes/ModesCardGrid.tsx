@@ -7,6 +7,7 @@ import { TestDerivedBadge } from "./TestDerivedBadge";
 import { LastTestedCell } from "./LastTestedCell";
 import { ModeDraftForm } from "./ModeDraftForm";
 import { useApproveModeDraft, useRejectModeDraft } from "../../state/hooks/useModes";
+import { rangeMatchingTags } from "./modeFormat";
 
 const STATUS_LABEL: Record<string, string> = { draft: "Pending Review", superseded: "Superseded", rejected: "Rejected" };
 
@@ -166,6 +167,20 @@ export function ModesCardGrid({
                   <dd>{m.pri_type === "cw" ? "CW (constant)" : "—"}</dd>
                 </div>
               )}
+              <div>
+                <dt>Range Matching</dt>
+                <dd>
+                  {rangeMatchingTags(m).length > 0 ? (
+                    rangeMatchingTags(m).map((tag) => (
+                      <span key={tag} className="status-badge range-matching-tag">
+                        {tag}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="hint-text">—</span>
+                  )}
+                </dd>
+              </div>
               <div>
                 <dt>Last Tested</dt>
                 <dd>

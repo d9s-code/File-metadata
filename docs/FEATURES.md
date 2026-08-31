@@ -24,6 +24,7 @@ An EW Group represents an operational grouping — think "the set of modes this 
 - **Scan min / max** — the group's scan parameter range, as raw/as-entered
 - **Scan delta** (optional) — a symmetric ± tolerance margin; see [Raw vs. engineered values](#raw-vs-engineered-values) below
 - **Threat priority** — a numeric priority value
+- **Ageout** (optional, seconds) — a plain descriptive reference value. No automated behavior is tied to it (nothing expires or gets flagged when it elapses) — it's recorded and displayed only.
 
 EW Groups are how the "EW Groups → Modes" tab on the Emitter page is organized: expand a group to see (and add) its Modes.
 
@@ -76,19 +77,33 @@ Mixing Fixed-style and Stagger PRI elements in a single cartesian-product run is
 
 ### Raw vs. engineered values
 
-An element's min/max is the **raw** value — pulled straight from the source, exactly as reported, with no adjustment. Separately, an RF, PW, or Fixed-style PRI element (not Stagger — a discrete value sequence has no single range to widen) can carry an optional **delta**: a symmetric ± tolerance margin representing sensor/collection measurement uncertainty. When a delta is set, the app computes the element's **engineered** range (`raw min − delta` to `raw max + delta`) and shows it alongside the raw value wherever the element appears — the raw value itself is never overwritten.
+An element's min/max is the **raw** value — pulled straight from the source, exactly as reported, with no adjustment. Separately, an RF, PW, or Fixed-style PRI element (not Stagger, for which delta means something different — see Frame Time below) can carry an optional **delta**: a symmetric ± tolerance margin representing sensor/collection measurement uncertainty. When a delta is set, the app computes the element's **engineered** range (`raw min − delta` to `raw max + delta`) and shows it alongside the raw value wherever the element appears — the raw value itself is never overwritten.
 
-The engineered range, not the raw range, is what actually gets written into the generated Mode Line when the element is used in a cartesian-product run — so ambiguity checks, the Mode's DSL text, and XML export all see the engineered value, while the Elements pool keeps the raw value on record for provenance. An element created by typing a DSL line directly gets no delta (the typed numbers are already treated as final); go back to the Elements panel afterward to add one if the source data needs an engineering margin. EW Group **scan delta** works the same way for computing an engineered scan window, but for v1 it's display-only: XML export still exports the group's raw `scan_min`/`scan_max` unchanged. Say so if you'd rather XML export emit the engineered scan window instead.
+The engineered range, not the raw range, is what actually gets written into the generated Mode Line when the element is used in a cartesian-product run — so ambiguity checks, the Mode's DSL text, and XML export all see the engineered value, while the Elements pool keeps the raw value on record for provenance. An element created by typing a DSL line directly gets no delta (the typed numbers are already treated as final); go back to the Elements panel afterward to add one if the source data needs an engineering margin.
+
+A manually-created or manually-edited Mode Line carries its **own** per-parameter deltas — `rf_delta`, `pw_delta`, and (for Fixed PRI) `pri_delta` — required fields, same status as `rf_min_mhz`/etc. Cartesian-generated and DSL-parsed lines don't set these: the engineered value is already baked into the line's raw min/max at generation time, so a separate delta would be redundant.
+
+EW Group **scan delta** works the same way for computing an engineered scan window, but for v1 it's display-only: XML export still exports the group's raw `scan_min`/`scan_max` unchanged. Say so if you'd rather XML export emit the engineered scan window instead.
 
 ### Frame Time
 
-Next to any Stagger element, a **Frametime badge** shows the sum of its sequence — the time for one full cycle through the stagger pattern.
+Next to any Stagger element or Stagger Mode, a **Frametime badge** shows the sum of its sequence — the time for one full cycle through the stagger pattern.
+
+A Stagger PRI **element** must carry a **delta** (repurposing the same `delta` field used for RF/PW/Fixed-PRI elsewhere, now meaning a frame-time tolerance rather than a range tolerance) — the app can't compute an engineered frame-time window without it, so it's required, not optional, specifically for Stagger. This is also how frame time flows through the cartesian-product tool: since a Stagger PRI element can't exist without its delta already set, every cartesian-generated Stagger Mode automatically inherits a valid frame-time delta with no separate input needed in the Cartesian Product form itself.
+
+A manually-created or manually-edited Stagger Mode Line carries its own `frame_time_delta_us`, entered directly in the Mode form next to the stagger sequence (which shows a live "Suggested frame time" hint as you type the sequence). The engineered frame-time range (`frame time − delta` to `frame time + delta`) is shown wherever the sequence appears.
+
+### Range Matching
+
+A per-parameter flag — `RF`, `PW`, and `PRI` are each independently on or off for a given Mode Line. Currently a stored flag only; no behavior elsewhere in the app reacts to it yet, but it's shown as its own sortable column on the Modes table (and its own field on the Mode cards view), rendering one small tag per active parameter (e.g. `RF` `PRI` side by side) or `—` if none are set.
+
+Range matching is treated as **any other Mode Line parameter** — not a metadata field you can toggle freely. It's set when creating a Mode, and on an already-`approved` Mode it can only change through the same propose-edit/approve cycle as RF/PW/PRI values themselves (see [Editing an existing Mode](#editing-an-existing-mode-draft-edits--approval) below) — a direct attempt to flip it on an approved Mode is rejected the same way a direct line edit is.
 
 ---
 
 ### Editing an existing Mode: draft edits & approval
 
-Editing a Mode's **metadata** (name, notes, which EW Group it's filed under) is an instant edit, same as creating one. But editing its **line** — the actual RF/PW/PRI/jitter/stagger values — works differently once the Mode is `approved` (the normal state for anything already created):
+Editing a Mode's **metadata** (name, notes, which EW Group it's filed under) is an instant edit, same as creating one. But editing its **line** — the actual RF/PW/PRI/jitter/stagger values, deltas, and range matching flags — works differently once the Mode is `approved` (the normal state for anything already created):
 
 - **Propose edit** creates a new `draft` Mode carrying your edited line, linked back to the Mode it would replace. The original is untouched and still fully live (still what ambiguity checks, XML export, and Emitter version commits see) while the draft sits pending.
 - Only one pending draft per Mode at a time — you can't propose a second edit while one is already under review.
@@ -114,6 +129,12 @@ A **Source** groups Modes by where the data came from (e.g. a specific collectio
 Sources are scoped per-Emitter — each Emitter curates its own list.
 
 A Source can't be deleted while it still has Modes attached.
+
+### Import
+
+Beyond typing a DSL line or building Elements by hand, a Source's Elements and Parameter Sequences can be bulk-imported from a structured JSON payload — one `POST /emitters/{emitter_id}/imports` call creates a new Source (starting `pending_review`, same as any imported data) per "parametric set" in the payload, each carrying its own Elements/Sequences. A `/validate` dry-run endpoint checks the payload (cross-object checks like duplicate Source names within one import) without writing anything, returning field-path-addressable issues suitable for a pre-commit review UI.
+
+**XML import — not yet built.** The Elements panel has an "Import from XML" entry point ("coming soon") that will eventually parse an uploaded XML datasheet into this same JSON shape rather than requiring it hand-typed. See **[docs/XML_IMPORT_BRIEF.md](XML_IMPORT_BRIEF.md)** for the full field-mapping reference and open design questions before that work starts.
 
 ---
 
@@ -235,6 +256,7 @@ Two things worth knowing:
 - **Sources and Elements never appear in the export.** They're an authoring/organizational construct with no meaning outside this tool — the export excludes them by construction (the serializer never even reads that part of the snapshot).
 - **The XML tag names are placeholders.** Since the target system's real XML Schema (XSD) wasn't available when this was built, all tag-name mapping lives in one file (`backend/app/xml_export/field_mapping.py`). Swapping in the real schema later is a data change to that file, not a rewrite of the export logic.
 - **RF/PW/PRI values exported are already engineered** (raw ± any element delta, applied when the Mode was generated — see [Raw vs. engineered values](#raw-vs-engineered-values)); **EW Group scan range is exported raw**, ignoring `scan_delta`, since scan delta is display-only for v1.
+- **Not yet exported at all:** per-parameter deltas (`rf_delta`/`pw_delta`/`pri_delta`), `frame_time_delta_us`, Range Matching flags, and EW Group `ageout`. None of these existed when the export mapping was built; whether they belong in the target XML format (and under what tag names) is undecided — see [docs/XML_IMPORT_BRIEF.md](XML_IMPORT_BRIEF.md), which flags this explicitly since it matters for any future import work too.
 
 Export is available from the MDF page (latest committed version) and from the MDF's Version History page (any specific version) — click **Export XML** to download.
 
@@ -261,6 +283,27 @@ Three roles, enforced by the backend on every request (not just hidden in the UI
 |---|---|
 | **Viewer** | Read everything, including version diffs and ambiguity dashboards. Can trigger ambiguity runs (non-destructive) but not edit tolerance thresholds or acknowledge findings. |
 | **Editor** | Full CRUD on Platforms/Emitters/EW Groups/Sources/Modes/Elements, commit versions, build/pin Platforms and MDFs, run ambiguity checks, acknowledge findings, log test records. |
-| **Admin** | Everything Editor can, plus user management and hard delete (Emitters/MDFs are soft-deleted by default, to protect version history from being orphaned). |
+| **Admin** | Everything Editor can, plus the [Admin panel](#14-admin-panel) (user management, Recently Deleted) and hard/permanent delete. |
 
 Authentication is local username/password (no external identity provider, matching the offline requirement), with the session stored in an httpOnly cookie and CSRF protection on every state-changing request.
+
+---
+
+## 14. Admin Panel
+
+Admin-only (both the nav link and the routes themselves redirect a non-admin away, not just hide the link) — two sections:
+
+### Users
+
+Create a user (username, password, role) directly from the UI — previously only possible via a one-off CLI script. Existing users can have their role changed or be **deactivated/reactivated** inline. Deactivation, not deletion, is how a user's access is revoked: there's no "delete a user" action, so a user row is never actually removed (and every audit-log entry that names them as the actor stays attributable).
+
+### Recently Deleted
+
+Emitters, Platforms, and MDFs are already soft-deleted by default when you delete one from its list page (see the [Roles](#13-accounts--roles) table above — hard/permanent delete is a separate, Admin-only action). This section is where that soft-deleted data actually lives:
+
+- Every soft-deleted item, across all three entity types, in one list with a live "days left" countdown (30 days by default, `TRASH_RETENTION_DAYS`).
+- **Restore** — reverses the soft delete; the item reappears wherever it normally lives.
+- **Delete forever** — Admin-only, immediate, irreversible hard delete from the trash view itself.
+- **Automatic purge** — a cron-run script (`backend/scripts/purge_deleted.py`, see the [README](../README.md#backups) for the crontab entry) hard-deletes anything past the retention window on a schedule, so nothing relies on a human remembering to empty the trash.
+
+Restoring can fail with a 409 if another item now holds the same name — rename the conflicting one first.

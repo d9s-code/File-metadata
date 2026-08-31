@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ARRAY, DateTime, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import ARRAY, Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -61,6 +61,13 @@ class ModeLine(UUIDPkMixin, Base):
     pw_min_us: Mapped[float] = mapped_column(Numeric(14, 4), nullable=False)
     pw_max_us: Mapped[float] = mapped_column(Numeric(14, 4), nullable=False)
 
+    # Set per parameter, not per Mode — governed the same as any other line
+    # field: instant on manual create, but requires a draft-propose/approve
+    # cycle to change on an already-approved Mode (see ModeUpdate/update_mode).
+    rf_range_matching: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    pw_range_matching: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    pri_range_matching: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
     # Symmetric +/- tolerance margin per parameter, applied to the raw min/max above to
     # derive the engineered value — same raw-vs-engineered pattern as ModeElement.delta
     # and EwGroup.scan_delta. Required for manually-authored lines (see ModeCreate);
@@ -78,6 +85,10 @@ class ModeLine(UUIDPkMixin, Base):
 
     # Stagger only (ordered)
     pri_stagger_values_us: Mapped[list[float] | None] = mapped_column(ARRAY(Numeric(14, 4)), nullable=True)
+    # Symmetric +/- tolerance margin applied to the computed frame time (sum of
+    # pri_stagger_values_us) to derive its engineered min/max — same raw-vs-engineered
+    # pattern as rf_delta/pw_delta/pri_delta. Required for stagger PRI, forbidden otherwise.
+    frame_time_delta_us: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
 
     # Xlet + future PRI-type fields
     type_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)

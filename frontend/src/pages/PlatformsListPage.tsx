@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { useCreatePlatform, usePlatforms } from "../state/hooks/usePlatforms";
+import { useCreatePlatform, useDeletePlatform, usePlatforms } from "../state/hooks/usePlatforms";
 import { RequireRole } from "../auth/RequireAuth";
 import { ApiRequestError } from "../api/client";
 import { LoadingState } from "../components/common/LoadingState";
@@ -8,6 +8,7 @@ import { EmptyState } from "../components/common/EmptyState";
 import { SortableColumnHeader } from "../components/common/SortableColumnHeader";
 import { useSortableTable } from "../components/common/useSortableTable";
 import { compareStrings } from "../components/common/sortUtils";
+import { useConfirmDialog } from "../components/common/ConfirmDialog";
 import type { Platform } from "../api/platforms";
 
 type PlatformSortKey = "name" | "description";
@@ -25,9 +26,17 @@ export function PlatformsListPage() {
   const { data: platforms, isLoading } = usePlatforms();
   const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(platforms ?? [], comparePlatforms);
   const createPlatform = useCreatePlatform();
+  const deletePlatform = useDeletePlatform();
+  const { confirmDelete, dialog } = useConfirmDialog();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  async function handleDelete(platform: Platform) {
+    if (await confirmDelete(`Delete Platform "${platform.name}"? It can be restored from Recently Deleted for 30 days.`)) {
+      await deletePlatform.mutateAsync({ id: platform.id });
+    }
+  }
 
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
@@ -81,6 +90,7 @@ export function PlatformsListPage() {
                 onSort={onSort}
                 onClear={onClear}
               />
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -90,11 +100,19 @@ export function PlatformsListPage() {
                   <Link to={`/platforms/${p.id}`}>{p.name}</Link>
                 </td>
                 <td>{p.description ?? "—"}</td>
+                <td>
+                  <RequireRole minimum="editor">
+                    <button className="link-button" onClick={() => void handleDelete(p)}>
+                      Delete
+                    </button>
+                  </RequireRole>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       )}
+      {dialog}
     </div>
   );
 }

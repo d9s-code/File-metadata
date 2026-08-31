@@ -24,6 +24,7 @@ class MdfOut(BaseModel):
     description: str | None = None
     status: MdfStatus
     is_deleted: bool
+    deleted_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 

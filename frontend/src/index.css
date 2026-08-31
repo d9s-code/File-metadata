@@ -848,6 +848,7 @@ label {
   background: var(--badge-neutral-bg);
   color: var(--badge-neutral-fg);
 }
+.range-matching-tag + .range-matching-tag { margin-left: 0.3rem; }
 .status-draft { background: var(--badge-neutral-bg); color: var(--badge-neutral-fg); }
 .status-in_review, .status-pending_review { background: var(--badge-amber-bg); color: var(--badge-amber-fg); }
 .status-validated, .status-approved { background: var(--badge-green-bg); color: var(--badge-green-fg); }

@@ -54,6 +54,9 @@ def test_deleting_a_mode_writes_an_entry(editor_client):
         "rf_delta": 1,
         "pw_delta": 0.05,
         "pri_delta": 10,
+        "rf_range_matching": False,
+        "pw_range_matching": False,
+        "pri_range_matching": False,
     }
     mode = editor_client.post(
         f"/ew-groups/{ew_group['id']}/modes",

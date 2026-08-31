@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     backup_retention_weekly: int = 8
     backup_retention_monthly: int = 6
 
+    trash_retention_days: int = 30
+
     cors_origins: list[str] = ["http://localhost:5173"]
     # Set false only for local dev over plain HTTP; must be true in any real deployment.
     cookie_secure: bool = True

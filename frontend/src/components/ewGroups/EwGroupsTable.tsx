@@ -9,7 +9,7 @@ import { SortableColumnHeader } from "../common/SortableColumnHeader";
 import { useSortableTable } from "../common/useSortableTable";
 import { compareNullable, compareStrings } from "../common/sortUtils";
 
-type EwGroupSortKey = "name" | "scan" | "threat_priority";
+type EwGroupSortKey = "name" | "scan" | "threat_priority" | "ageout";
 
 function compareEwGroups(a: EwGroup, b: EwGroup, key: EwGroupSortKey, dir: "asc" | "desc"): number {
   switch (key) {
@@ -19,6 +19,8 @@ function compareEwGroups(a: EwGroup, b: EwGroup, key: EwGroupSortKey, dir: "asc"
       return compareNullable(a.scan_min, b.scan_min, dir);
     case "threat_priority":
       return compareNullable(a.threat_priority, b.threat_priority, dir);
+    case "ageout":
+      return compareNullable(a.ageout, b.ageout, dir);
   }
 }
 
@@ -66,6 +68,15 @@ export function EwGroupsTable({ emitterId, ewGroups }: { emitterId: string; ewGr
                 onSort={onSort}
                 onClear={onClear}
               />
+              <SortableColumnHeader
+                label="Ageout (s)"
+                columnKey="ageout"
+                columnType="number"
+                activeKey={sortKey}
+                activeDir={sortDir}
+                onSort={onSort}
+                onClear={onClear}
+              />
               <th></th>
             </tr>
           </thead>
@@ -83,6 +94,7 @@ export function EwGroupsTable({ emitterId, ewGroups }: { emitterId: string; ewGr
                   )}
                 </td>
                 <td>{g.threat_priority ?? "—"}</td>
+                <td>{g.ageout ?? "—"}</td>
                 <td>
                   <RequireRole minimum="editor">
                     <button className="link-button" onClick={() => void handleDelete(g)}>

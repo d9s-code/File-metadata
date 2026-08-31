@@ -4,7 +4,7 @@ import { useApproveModeDraft, useRejectModeDraft } from "../../state/hooks/useMo
 import { HoverInfo } from "../common/InfoPopover";
 import { RequireRole } from "../../auth/RequireAuth";
 import { SortableColumnHeader, type ColumnType } from "../common/SortableColumnHeader";
-import type { ModeSortKey, SortDir } from "./modeFormat";
+import { rangeMatchingTags, type ModeSortKey, type SortDir } from "./modeFormat";
 import { EwGroupHoverDetail, ModeHoverDetail, SourceHoverDetail, StaggerSequenceBox } from "./ModeHoverDetails";
 import { TestDerivedBadge } from "./TestDerivedBadge";
 import { LastTestedCell } from "./LastTestedCell";
@@ -70,6 +70,7 @@ export function ModesTable({
             {header("PRI Type", "pri_type")}
             {header("PRI Min", "pri_min", "number")}
             {header("PRI Max", "pri_max", "number")}
+            {header("Range Matching", "range_matching")}
             {header("Last Tested", "last_tested", "date")}
             <th></th>
           </tr>
@@ -137,6 +138,17 @@ export function ModesTable({
                   <td colSpan={2}>{m.pri_type === "cw" ? "CW (constant)" : "—"}</td>
                 )}
                 <td>
+                  {rangeMatchingTags(m).length > 0 ? (
+                    rangeMatchingTags(m).map((tag) => (
+                      <span key={tag} className="status-badge range-matching-tag">
+                        {tag}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="hint-text">—</span>
+                  )}
+                </td>
+                <td>
                   {m.last_tested_at ? (
                     <LastTestedCell
                       emitterId={emitterId}
@@ -185,7 +197,7 @@ export function ModesTable({
               </tr>
               {editingModeId === m.id && (
                 <tr>
-                  <td colSpan={12}>
+                  <td colSpan={13}>
                     <ModeDraftForm emitterId={emitterId} mode={m} onDone={() => setEditingModeId(null)} />
                   </td>
                 </tr>

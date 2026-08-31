@@ -92,6 +92,38 @@ this log starts. Since then, in order:
    below as written *before* this merge except where a note says otherwise, and re-check
    anything they claim against current `main`/branch state before acting on it.
 
+10. **This session** (a separate session from all of the above — picked up the repo cold via
+    "pull up the server"). Shipped, in order:
+    - Pulled in `claude/production-readiness` (fast-forward merge) — the Mode form
+      per-parameter-delta regroup from item 9 above **is confirmed current**; the single
+      Mode-level `rf_delta`/`pw_delta`/`pri_delta` described in item 1 is superseded.
+    - Diagnosed and fixed a real bug found live: the "pre-fill from observed values"
+      retest feature silently no-op'd because a `useState` initializer never resynced
+      after mount (`ModeForm.tsx`).
+    - Built soft-delete + a 30-day Recently Deleted trash (Emitters/Platforms/MDFs) +
+      an Admin panel (Users create/role/deactivate, Recently Deleted with
+      restore/permanent-delete), plus `scripts/purge_deleted.py` for cron-driven
+      auto-purge. See `docs/FEATURES.md` §14. Caught a real bug during this: adding
+      `AuditAction.restore` to the Python enum wasn't enough — Postgres's own native
+      enum type needed a matching `ALTER TYPE ... ADD VALUE` migration too, or every
+      restore/purge call 500'd.
+    - Added per-Mode-Line **Range Matching**, **Frame Time** (Stagger PRI frame-time
+      tolerance + engineered min/max), and EW Group **Ageout**. Range Matching shipped
+      *twice*: the first pass built it as a single per-Mode boolean, freely toggleable;
+      the user corrected this — it's actually three independent per-parameter
+      (RF/PW/PRI) fields, and needed to be governed by the same propose/draft/approve
+      workflow as any other Mode Line field, not an instant toggle. Second pass reverted
+      the first design and rebuilt it as line-level fields. Worth remembering: this user
+      wants line-level parameters treated uniformly, not given bespoke instant-edit
+      shortcuts, even for flags that look metadata-like at first glance.
+    - Added a dedicated, sortable **Range Matching** column to the Modes table/cards,
+      rendering one tag per active parameter (not a joined string).
+    - Wrote `docs/XML_IMPORT_BRIEF.md` ahead of a separate agent starting XML import
+      work, and refreshed `docs/FEATURES.md`/`README.md`/this file accordingly.
+    - All work verified live against the running dev server (this session's environment:
+      Postgres as a native Windows service, not Docker — see updated environment notes
+      below) in addition to the backend test suite (141 passing as of this entry).
+
 ## Open items (not yet implemented)
 
 ### From the frontend workflow-logic review (most recent, least acted-on)
@@ -167,24 +199,33 @@ one.
 ## Environment notes specific to this dev session
 
 These are facts about *this* sandboxed session's environment, not the app itself — check
-whether they still apply wherever you're picking this up:
+whether they still apply wherever you're picking this up. **This session ran on Windows**,
+a materially different environment from whatever produced the notes this section replaced
+(a Linux container) — don't assume either set of notes applies to a third environment.
 
-- Postgres runs as a local OS service here (not Docker) — started via `service postgresql start`
-  when this session began (it starts stopped by default in this container image).
-- A Python venv already exists at `backend/.venv` with all `requirements.txt` deps installed.
+- Windows machine, PowerShell + Git Bash both used. Postgres 17 runs as a native Windows
+  service (`postgresql-x64-17`), not Docker — Docker Desktop is installed but wasn't running
+  and wasn't started (no need arose). Node.js and PostgreSQL's `bin/` were both installed but
+  not on the default `PATH` for tool invocations; commands referenced them via full paths
+  (`C:\Program Files\nodejs`, `C:\Program Files\PostgreSQL\17\bin`).
+- A Python venv already exists at `backend/.venv` with all `requirements.txt` deps installed;
+  frontend `node_modules` was already present too.
 - Dev DB `rf_emitter_db` and test DB `rf_emitter_test` both already exist, owned by role
   `rf_app` / password `rf_app_dev_pw` (matches `DATABASE_URL` defaults in `app/config.py`).
-- The dev DB has pre-existing real users (`admin`, `deltatest`, `viewer1`) whose passwords are
-  **not known** to me — they were created in earlier sessions. If you need admin access and
-  don't have the password, reset it directly via `UPDATE users SET password_hash = ...` using
-  `app.core.security.hash_password()` to generate the hash (this is what was done to create and
-  then delete a throwaway test user during the security-fix verification — see commit
-  `864d1d1`'s description for context).
+- **Admin credentials for this dev DB are `admin` / `admin`** (reset this session, since the
+  existing admin user's password wasn't known — see `git log` around the "pull up the server"
+  request). This is a local/dev-only credential; do not carry the assumption that this password
+  works on any other deployment of this app, including whatever the user's remote server ends
+  up with once redeployed there.
 - `backend/app/main.py` runs single-process/single-worker (`Dockerfile` and
   `docker-compose.yml` both call plain `uvicorn app.main:app` with no `--workers`) — this is why
   the login rate limiter (`app/core/rate_limit.py`) is a plain in-memory dict rather than a
   Redis-backed one. If deployment ever moves to multiple workers/instances, that limiter needs a
   shared store instead.
+- The user's actual target deployment is **their own remote server, with no internet access**
+  — this is why an offline-installable bundle (backend wheels + frontend `node_modules`, not
+  just source) was produced alongside this session's final push; see the zip/bundle handed to
+  the user directly rather than committed to the repo.
 
 ## Working conventions established this session (carry these forward)
 

@@ -12,15 +12,23 @@ def _validate_scan_delta(v: float | None) -> float | None:
     return v
 
 
+def _validate_ageout(v: float | None) -> float | None:
+    if v is not None and v < 0:
+        raise ValueError("ageout must be >= 0")
+    return v
+
+
 class EwGroupCreate(BaseModel):
     name: str
     scan_min: float | None = None
     scan_max: float | None = None
     scan_delta: float | None = None
     threat_priority: int | None = None
+    ageout: float | None = None
     sort_order: int = 0
 
     _validate_scan_delta = field_validator("scan_delta")(_validate_scan_delta)
+    _validate_ageout = field_validator("ageout")(_validate_ageout)
 
 
 class EwGroupUpdate(BaseModel):
@@ -29,9 +37,11 @@ class EwGroupUpdate(BaseModel):
     scan_max: float | None = None
     scan_delta: float | None = None
     threat_priority: int | None = None
+    ageout: float | None = None
     sort_order: int | None = None
 
     _validate_scan_delta = field_validator("scan_delta")(_validate_scan_delta)
+    _validate_ageout = field_validator("ageout")(_validate_ageout)
 
 
 class EwGroupOut(BaseModel):
@@ -44,6 +54,7 @@ class EwGroupOut(BaseModel):
     scan_max: float | None = None
     scan_delta: float | None = None
     threat_priority: int | None = None
+    ageout: float | None = None
     sort_order: int
     created_at: datetime
     updated_at: datetime

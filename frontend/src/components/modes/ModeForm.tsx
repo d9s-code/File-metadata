@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useCreateMode } from "../../state/hooks/useModes";
 import { ApiRequestError } from "../../api/client";
 import type { EwGroup, PriType, Source } from "../../types/domain";
@@ -57,11 +57,28 @@ export function ModeForm({
   const [jitterMin, setJitterMin] = useState("");
   const [jitterMax, setJitterMax] = useState("");
   const [staggerValues, setStaggerValues] = useState("");
+  const [frameTimeDelta, setFrameTimeDelta] = useState("");
+  const [rfRangeMatching, setRfRangeMatching] = useState(false);
+  const [pwRangeMatching, setPwRangeMatching] = useState(false);
+  const [priRangeMatching, setPriRangeMatching] = useState(false);
   const [notes, setNotes] = useState("");
   const [derivedFrom, setDerivedFrom] = useState<Set<string>>(new Set());
   const [showDerivedFrom, setShowDerivedFrom] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preFillFrom, setPreFillFrom] = useState(observedValueOptions?.[0]?.modeName ?? "");
+
+  // observedValueOptions can go from empty to populated (or its first entry
+  // can change) after this form already mounted — e.g. staging a new Mode
+  // before typing observed values into the picker. Without this, preFillFrom
+  // stays stuck at its mount-time value ("" if the list was empty then),
+  // the <select> shows an option that was never actually selected, and
+  // applyPreFill()'s lookup silently finds nothing.
+  useEffect(() => {
+    if (!observedValueOptions?.length) return;
+    if (!observedValueOptions.some((o) => o.modeName === preFillFrom)) {
+      setPreFillFrom(observedValueOptions[0].modeName);
+    }
+  }, [observedValueOptions, preFillFrom]);
 
   function applyPreFill() {
     const values = observedValueOptions?.find((o) => o.modeName === preFillFrom)?.values;
@@ -84,6 +101,13 @@ export function ModeForm({
     }
   }
 
+  const suggestedFrameTimeUs = staggerValues
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map(Number)
+    .reduce((sum, v) => (Number.isFinite(v) ? sum + v : sum), 0);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
@@ -104,9 +128,12 @@ export function ModeForm({
         rf_min_mhz: Number(rfMin),
         rf_max_mhz: Number(rfMax),
         rf_delta: Number(rfDelta),
+        rf_range_matching: rfRangeMatching,
         pw_min_us: Number(pwMin),
         pw_max_us: Number(pwMax),
         pw_delta: Number(pwDelta),
+        pw_range_matching: pwRangeMatching,
+        pri_range_matching: priRangeMatching,
         pri_min_us: priType === "fixed" ? Number(priMin) : undefined,
         pri_max_us: priType === "fixed" ? Number(priMax) : undefined,
         pri_delta: priType === "fixed" ? Number(priDelta) : undefined,
@@ -120,6 +147,7 @@ export function ModeForm({
                 .filter(Boolean)
                 .map(Number)
             : undefined,
+        frame_time_delta_us: priType === "stagger" ? Number(frameTimeDelta) : undefined,
       },
     };
     if (onStage) {
@@ -137,6 +165,10 @@ export function ModeForm({
       setJitterMin("");
       setJitterMax("");
       setStaggerValues("");
+      setFrameTimeDelta("");
+      setRfRangeMatching(false);
+      setPwRangeMatching(false);
+      setPriRangeMatching(false);
       setNotes("");
       return;
     }
@@ -158,6 +190,10 @@ export function ModeForm({
       setJitterMin("");
       setJitterMax("");
       setStaggerValues("");
+      setFrameTimeDelta("");
+      setRfRangeMatching(false);
+      setPwRangeMatching(false);
+      setPriRangeMatching(false);
       setNotes("");
       setDerivedFrom(new Set());
     } catch (err) {
@@ -196,6 +232,34 @@ export function ModeForm({
             </option>
           ))}
         </select>
+      </div>
+
+      <div className="form-row param-row">
+        <span className="param-row-label">Range matching</span>
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={rfRangeMatching}
+            onChange={(e) => setRfRangeMatching(e.target.checked)}
+          />
+          RF
+        </label>
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={pwRangeMatching}
+            onChange={(e) => setPwRangeMatching(e.target.checked)}
+          />
+          PW
+        </label>
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={priRangeMatching}
+            onChange={(e) => setPriRangeMatching(e.target.checked)}
+          />
+          PRI
+        </label>
       </div>
 
       {observedValueOptions && observedValueOptions.length > 0 && (
@@ -301,7 +365,7 @@ export function ModeForm({
       )}
 
       {priType === "stagger" && (
-        <div className="form-row">
+        <div className="form-row param-row">
           <label className="wide-label">
             Stagger sequence (comma-separated µs, in order)
             <input
@@ -311,6 +375,21 @@ export function ModeForm({
               required
             />
           </label>
+          <label>
+            frame time delta (±µs)
+            <input
+              type="number"
+              step="any"
+              min="0"
+              value={frameTimeDelta}
+              onChange={(e) => setFrameTimeDelta(e.target.value)}
+              title="Symmetric tolerance margin applied to the suggested frame time (sum of the stagger sequence) to derive the engineered min/max"
+              required
+            />
+          </label>
+          {suggestedFrameTimeUs > 0 && (
+            <span className="hint-text">Suggested frame time: {suggestedFrameTimeUs} µs</span>
+          )}
         </div>
       )}
 

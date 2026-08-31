@@ -100,6 +100,10 @@ def run_cartesian_product(
                     )
 
                 dsl_text = render_mode_line(pri_type=pri_type, **line_kwargs)
+                if pri_type == PriType.stagger:
+                    # Not passed to render_mode_line above — it has no parameter for this
+                    # and would raise a TypeError, not a caught DslSyntaxError.
+                    line_kwargs["frame_time_delta_us"] = pri_el.delta
                 db.add(ModeLine(mode_id=mode.id, dsl_text=dsl_text, **line_kwargs))
                 record_audit(
                     db,

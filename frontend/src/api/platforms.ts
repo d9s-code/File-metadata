@@ -5,6 +5,7 @@ export interface Platform {
   name: string;
   description: string | null;
   is_deleted: boolean;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -29,6 +30,7 @@ export const platformsApi = {
   create: (input: PlatformCreateInput) => api.post<Platform>("/platforms", input),
   update: (id: string, input: Partial<PlatformCreateInput>) => api.patch<Platform>(`/platforms/${id}`, input),
   delete: (id: string, hard = false) => api.delete<void>(`/platforms/${id}${hard ? "?hard=true" : ""}`),
+  restore: (id: string) => api.post<Platform>(`/platforms/${id}/restore`),
 
   listLinks: (platformId: string) => api.get<PlatformLink[]>(`/platforms/${platformId}/links`),
   pinEmitter: (platformId: string, emitterId: string, emitterVersionId: string) =>

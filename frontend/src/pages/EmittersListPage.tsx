@@ -1,11 +1,12 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useCreateEmitter, useEmitters } from "../state/hooks/useEmitters";
+import { useCreateEmitter, useDeleteEmitter, useEmitters } from "../state/hooks/useEmitters";
 import { RequireRole } from "../auth/RequireAuth";
 import { ApiRequestError } from "../api/client";
 import { LoadingState } from "../components/common/LoadingState";
 import { EmptyState } from "../components/common/EmptyState";
 import { Modal } from "../components/common/Modal";
+import { useConfirmDialog } from "../components/common/ConfirmDialog";
 import { SortableColumnHeader } from "../components/common/SortableColumnHeader";
 import { useSortableTable } from "../components/common/useSortableTable";
 import { compareNullable, compareStrings } from "../components/common/sortUtils";
@@ -69,6 +70,8 @@ function rangeOverlaps(filterMin: string, filterMax: string, valueMin: number | 
 export function EmittersListPage() {
   const { data: emitters, isLoading, error } = useEmitters();
   const createEmitter = useCreateEmitter();
+  const deleteEmitter = useDeleteEmitter();
+  const { confirmDelete, dialog } = useConfirmDialog();
   const navigate = useNavigate();
   const [showAddModal, setShowAddModal] = useState(false);
   const [name, setName] = useState("");
@@ -124,6 +127,12 @@ export function EmittersListPage() {
     setPriMax("");
     setScanMin("");
     setScanMax("");
+  }
+
+  async function handleDelete(emitter: Emitter) {
+    if (await confirmDelete(`Delete Emitter "${emitter.name}"? It can be restored from Recently Deleted for 30 days.`)) {
+      await deleteEmitter.mutateAsync({ id: emitter.id });
+    }
   }
 
   async function handleCreate(e: FormEvent) {
@@ -259,6 +268,7 @@ export function EmittersListPage() {
               {header("Scan min", "scan_min", "number")}
               {header("Scan max", "scan_max", "number")}
               {header("Modes passing", "modes_passing", "number")}
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -282,12 +292,20 @@ export function EmittersListPage() {
                 <td>
                   {e.summary.mode_count > 0 ? `${e.summary.modes_passing} / ${e.summary.mode_count}` : "—"}
                 </td>
+                <td>
+                  <RequireRole minimum="editor">
+                    <button className="link-button" onClick={() => void handleDelete(e)}>
+                      Delete
+                    </button>
+                  </RequireRole>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
         </div>
       )}
+      {dialog}
     </div>
   );
 }

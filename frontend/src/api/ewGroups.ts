@@ -7,6 +7,7 @@ export interface EwGroupInput {
   scan_max?: number | null;
   scan_delta?: number | null;
   threat_priority?: number | null;
+  ageout?: number | null;
   sort_order?: number;
 }
 

@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict, computed_field, model_validator
 
 from app.core.enums import ElementType, ElementVariant
 from app.services.delta import apply_delta
+from app.services.frametime_service import compute_frametime_us
 
 
 class ModeElementCreate(BaseModel):
@@ -29,8 +30,8 @@ class ModeElementCreate(BaseModel):
                 raise ValueError("A PRI element needs either value_min/value_max or stagger_values")
             if has_stagger and (self.jitter_min is not None or self.jitter_max is not None):
                 raise ValueError("Jitter only applies to a Fixed-style PRI range element, not a stagger sequence")
-            if has_stagger and self.delta is not None:
-                raise ValueError("Delta only applies to a Fixed-style PRI range element, not a stagger sequence")
+            if has_stagger and self.delta is None:
+                raise ValueError("Delta (frame time tolerance) is required for a stagger PRI sequence")
         else:
             if self.value_min is None or self.value_max is None:
                 raise ValueError(f"{self.element_type.value} elements require value_min and value_max")
@@ -60,6 +61,25 @@ class ModeElementOut(ModeElementCreate):
     @property
     def engineered_max(self) -> float | None:
         return apply_delta(self.value_min, self.value_max, self.delta)[1]
+
+    @computed_field
+    @property
+    def frametime_us(self) -> float | None:
+        return compute_frametime_us(self.stagger_values) if self.stagger_values else None
+
+    @computed_field
+    @property
+    def engineered_frame_time_min_us(self) -> float | None:
+        if not self.stagger_values:
+            return None
+        return apply_delta(self.frametime_us, self.frametime_us, self.delta)[0]
+
+    @computed_field
+    @property
+    def engineered_frame_time_max_us(self) -> float | None:
+        if not self.stagger_values:
+            return None
+        return apply_delta(self.frametime_us, self.frametime_us, self.delta)[1]
 
 
 class CartesianProductRequest(BaseModel):

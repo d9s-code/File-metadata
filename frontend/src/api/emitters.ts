@@ -14,4 +14,5 @@ export const emittersApi = {
   create: (input: EmitterCreateInput) => api.post<Emitter>("/emitters", input),
   update: (id: string, input: Partial<EmitterCreateInput>) => api.patch<Emitter>(`/emitters/${id}`, input),
   delete: (id: string, hard = false) => api.delete<void>(`/emitters/${id}${hard ? "?hard=true" : ""}`),
+  restore: (id: string) => api.post<Emitter>(`/emitters/${id}/restore`),
 };

@@ -15,6 +15,17 @@ export function formatPri(mode: Mode): string {
   }
 }
 
+/** Which of RF/PW/PRI have range matching set on this Mode's current line —
+ * empty if none. Set per parameter via the Mode form / a draft edit, same
+ * governance as any other line field. */
+export function rangeMatchingTags(mode: Mode): string[] {
+  const tags: string[] = [];
+  if (mode.line?.rf_range_matching) tags.push("RF");
+  if (mode.line?.pw_range_matching) tags.push("PW");
+  if (mode.line?.pri_range_matching) tags.push("PRI");
+  return tags;
+}
+
 export function searchableText(mode: Mode, ewGroup: EwGroup | undefined, source: Source | undefined): string {
   const parts = [
     mode.name,
@@ -43,6 +54,7 @@ export type ModeSortKey =
   | "pri_type"
   | "pri_min"
   | "pri_max"
+  | "range_matching"
   | "last_tested";
 
 export type SortDir = "asc" | "desc";
@@ -74,6 +86,8 @@ function sortValue(
       return mode.line?.pri_min_us ?? null;
     case "pri_max":
       return mode.line?.pri_max_us ?? null;
+    case "range_matching":
+      return rangeMatchingTags(mode).join(",") || null;
     case "last_tested":
       return mode.last_tested_at;
   }

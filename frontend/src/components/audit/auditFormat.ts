@@ -24,6 +24,7 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   create: "Created",
   update: "Updated",
   delete: "Deleted",
+  restore: "Restored",
   status_change: "Status change",
   commit: "Committed",
   login: "Logged in",

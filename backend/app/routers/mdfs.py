@@ -1,7 +1,9 @@
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.csrf import verify_csrf
@@ -112,6 +114,7 @@ def delete_mdf(
         db.delete(mdf)
     else:
         mdf.is_deleted = True
+        mdf.deleted_at = datetime.now(timezone.utc)
         record_audit(
             db,
             actor_id=user.id,
@@ -121,6 +124,35 @@ def delete_mdf(
             summary=f"Deleted MDF '{mdf.name}'",
         )
     db.commit()
+
+
+@router.post("/{mdf_id}/restore", response_model=MdfOut, dependencies=[Depends(verify_csrf)])
+def restore_mdf(
+    mdf_id: UUID,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+) -> Mdf:
+    mdf = _get_mdf_or_404(db, mdf_id)
+    mdf.is_deleted = False
+    mdf.deleted_at = None
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.restore,
+        entity_type=AuditEntityType.mdf.value,
+        entity_id=mdf.id,
+        summary=f"Restored MDF '{mdf.name}'",
+    )
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"An active MDF named '{mdf.name}' already exists — rename it before restoring this one.",
+        ) from exc
+    db.refresh(mdf)
+    return mdf
 
 
 @router.get("/{mdf_id}/links", response_model=list[MdfLinkOut])

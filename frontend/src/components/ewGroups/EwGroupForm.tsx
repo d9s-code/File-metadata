@@ -9,6 +9,7 @@ export function EwGroupForm({ emitterId }: { emitterId: string }) {
   const [scanMax, setScanMax] = useState("");
   const [scanDelta, setScanDelta] = useState("");
   const [threatPriority, setThreatPriority] = useState("");
+  const [ageout, setAgeout] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: FormEvent) {
@@ -21,12 +22,14 @@ export function EwGroupForm({ emitterId }: { emitterId: string }) {
         scan_max: scanMax ? Number(scanMax) : null,
         scan_delta: scanDelta ? Number(scanDelta) : null,
         threat_priority: threatPriority ? Number(threatPriority) : null,
+        ageout: ageout ? Number(ageout) : null,
       });
       setName("");
       setScanMin("");
       setScanMax("");
       setScanDelta("");
       setThreatPriority("");
+      setAgeout("");
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : "Failed to create EW Group");
     }
@@ -51,6 +54,15 @@ export function EwGroupForm({ emitterId }: { emitterId: string }) {
         type="number"
         value={threatPriority}
         onChange={(e) => setThreatPriority(e.target.value)}
+      />
+      <input
+        placeholder="Ageout (s)"
+        type="number"
+        step="any"
+        min="0"
+        value={ageout}
+        onChange={(e) => setAgeout(e.target.value)}
+        title="Descriptive reference value in seconds — no automated behavior tied to it"
       />
       <button type="submit" disabled={createEwGroup.isPending}>
         Add EW Group

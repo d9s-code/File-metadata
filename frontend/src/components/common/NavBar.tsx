@@ -1,5 +1,6 @@
 import { Link, NavLink } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
+import { RequireRole } from "../../auth/RequireAuth";
 import { ThemeToggle } from "./ThemeToggle";
 
 export function NavBar() {
@@ -39,6 +40,14 @@ export function NavBar() {
           <NavLink to="/help" className={({ isActive }) => (isActive ? "navbar-link-active" : undefined)}>
             Help
           </NavLink>
+          <RequireRole minimum="admin">
+            <NavLink
+              to="/admin/users"
+              className={({ isActive }) => (isActive ? "navbar-link-active" : undefined)}
+            >
+              Admin
+            </NavLink>
+          </RequireRole>
         </div>
       )}
       {!user && <div className="navbar-links" />}

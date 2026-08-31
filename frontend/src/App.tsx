@@ -1,7 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "./auth/AuthContext";
-import { RequireAuth } from "./auth/RequireAuth";
+import { RequireAuth, RequireAdmin } from "./auth/RequireAuth";
 import { ThemeProvider } from "./theme/ThemeContext";
 import { NavBar } from "./components/common/NavBar";
 import { LoginPage } from "./pages/LoginPage";
@@ -18,6 +18,8 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { AmbiguityDashboardPage } from "./pages/AmbiguityDashboardPage";
 import { AuditLogPage } from "./pages/AuditLogPage";
 import { HelpPage } from "./pages/HelpPage";
+import { AdminUsersPage } from "./pages/AdminUsersPage";
+import { AdminTrashPage } from "./pages/AdminTrashPage";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
@@ -133,6 +135,26 @@ export default function App() {
                 element={
                   <RequireAuth>
                     <HelpPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/admin/users"
+                element={
+                  <RequireAuth>
+                    <RequireAdmin>
+                      <AdminUsersPage />
+                    </RequireAdmin>
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/admin/trash"
+                element={
+                  <RequireAuth>
+                    <RequireAdmin>
+                      <AdminTrashPage />
+                    </RequireAdmin>
                   </RequireAuth>
                 }
               />

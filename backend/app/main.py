@@ -16,6 +16,7 @@ from app.routers import (
     platforms,
     sources,
     test_records,
+    trash,
     users,
 )
 
@@ -44,6 +45,7 @@ app.include_router(test_records.mdf_router)
 app.include_router(dashboard.router)
 app.include_router(ambiguity.router)
 app.include_router(audit_log.router)
+app.include_router(trash.router)
 
 
 @app.get("/health")

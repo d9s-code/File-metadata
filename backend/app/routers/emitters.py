@@ -1,6 +1,8 @@
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.csrf import verify_csrf
@@ -140,6 +142,7 @@ def delete_emitter(
         db.delete(emitter)
     else:
         emitter.is_deleted = True
+        emitter.deleted_at = datetime.now(timezone.utc)
         record_audit(
             db,
             actor_id=user.id,
@@ -150,6 +153,36 @@ def delete_emitter(
             emitter_id=emitter.id,
         )
     db.commit()
+
+
+@router.post("/{emitter_id}/restore", response_model=EmitterOut, dependencies=[Depends(verify_csrf)])
+def restore_emitter(
+    emitter_id: UUID,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+) -> Emitter:
+    emitter = _get_emitter_or_404(db, emitter_id)
+    emitter.is_deleted = False
+    emitter.deleted_at = None
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.restore,
+        entity_type=AuditEntityType.emitter.value,
+        entity_id=emitter.id,
+        summary=f"Restored Emitter '{emitter.name}'",
+        emitter_id=emitter.id,
+    )
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"An active Emitter named '{emitter.name}' already exists — rename it before restoring this one.",
+        ) from exc
+    db.refresh(emitter)
+    return emitter
 
 
 def _get_emitter_or_404(db: Session, emitter_id: UUID) -> Emitter:

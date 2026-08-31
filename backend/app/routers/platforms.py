@@ -1,6 +1,8 @@
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.csrf import verify_csrf
@@ -113,6 +115,7 @@ def delete_platform(
         db.delete(platform)
     else:
         platform.is_deleted = True
+        platform.deleted_at = datetime.now(timezone.utc)
         record_audit(
             db,
             actor_id=user.id,
@@ -122,6 +125,35 @@ def delete_platform(
             summary=f"Deleted Platform '{platform.name}'",
         )
     db.commit()
+
+
+@router.post("/{platform_id}/restore", response_model=PlatformOut, dependencies=[Depends(verify_csrf)])
+def restore_platform(
+    platform_id: UUID,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+) -> Platform:
+    platform = _get_platform_or_404(db, platform_id)
+    platform.is_deleted = False
+    platform.deleted_at = None
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.restore,
+        entity_type=AuditEntityType.platform.value,
+        entity_id=platform.id,
+        summary=f"Restored Platform '{platform.name}'",
+    )
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"An active Platform named '{platform.name}' already exists — rename it before restoring this one.",
+        ) from exc
+    db.refresh(platform)
+    return platform
 
 
 @router.get("/{platform_id}/links", response_model=list[PlatformLinkOut])

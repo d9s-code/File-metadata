@@ -19,6 +19,22 @@ export function useCreateMdf() {
   });
 }
 
+export function useDeleteMdf() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, hard }: { id: string; hard?: boolean }) => mdfsApi.delete(id, hard),
+    onSuccess: () => qc.invalidateQueries({ queryKey: mdfsKey }),
+  });
+}
+
+export function useRestoreMdf() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => mdfsApi.restore(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: mdfsKey }),
+  });
+}
+
 export function mdfLinksKey(mdfId: string) {
   return ["mdfLinks", mdfId] as const;
 }

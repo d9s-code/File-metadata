@@ -159,6 +159,7 @@ class AuditAction(str, enum.Enum):
     create = "create"
     update = "update"
     delete = "delete"
+    restore = "restore"
     status_change = "status_change"
     commit = "commit"
     login = "login"

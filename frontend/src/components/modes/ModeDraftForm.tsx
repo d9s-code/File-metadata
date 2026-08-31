@@ -21,18 +21,29 @@ export function ModeDraftForm({
   const [rfMin, setRfMin] = useState(String(line?.rf_min_mhz ?? ""));
   const [rfMax, setRfMax] = useState(String(line?.rf_max_mhz ?? ""));
   const [rfDelta, setRfDelta] = useState(String(line?.rf_delta ?? ""));
+  const [rfRangeMatching, setRfRangeMatching] = useState(line?.rf_range_matching ?? false);
   const [pwMin, setPwMin] = useState(String(line?.pw_min_us ?? ""));
   const [pwMax, setPwMax] = useState(String(line?.pw_max_us ?? ""));
   const [pwDelta, setPwDelta] = useState(String(line?.pw_delta ?? ""));
+  const [pwRangeMatching, setPwRangeMatching] = useState(line?.pw_range_matching ?? false);
+  const [priRangeMatching, setPriRangeMatching] = useState(line?.pri_range_matching ?? false);
   const [priMin, setPriMin] = useState(String(line?.pri_min_us ?? ""));
   const [priMax, setPriMax] = useState(String(line?.pri_max_us ?? ""));
   const [priDelta, setPriDelta] = useState(String(line?.pri_delta ?? ""));
   const [jitterMin, setJitterMin] = useState(String(line?.jitter_min_us ?? ""));
   const [jitterMax, setJitterMax] = useState(String(line?.jitter_max_us ?? ""));
   const [staggerValues, setStaggerValues] = useState(line?.pri_stagger_values_us?.join(", ") ?? "");
+  const [frameTimeDelta, setFrameTimeDelta] = useState(String(line?.frame_time_delta_us ?? ""));
   const [derivedFrom, setDerivedFrom] = useState<Set<string>>(new Set());
   const [showDerivedFrom, setShowDerivedFrom] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const suggestedFrameTimeUs = staggerValues
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map(Number)
+    .reduce((sum, v) => (Number.isFinite(v) ? sum + v : sum), 0);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -47,9 +58,12 @@ export function ModeDraftForm({
             rf_min_mhz: Number(rfMin),
             rf_max_mhz: Number(rfMax),
             rf_delta: Number(rfDelta),
+            rf_range_matching: rfRangeMatching,
             pw_min_us: Number(pwMin),
             pw_max_us: Number(pwMax),
             pw_delta: Number(pwDelta),
+            pw_range_matching: pwRangeMatching,
+            pri_range_matching: priRangeMatching,
             pri_min_us: priType === "fixed" ? Number(priMin) : undefined,
             pri_max_us: priType === "fixed" ? Number(priMax) : undefined,
             pri_delta: priType === "fixed" ? Number(priDelta) : undefined,
@@ -59,6 +73,7 @@ export function ModeDraftForm({
               priType === "stagger"
                 ? staggerValues.split(",").map((s) => s.trim()).filter(Boolean).map(Number)
                 : undefined,
+            frame_time_delta_us: priType === "stagger" ? Number(frameTimeDelta) : undefined,
           },
           derived_from_test_record_ids: [...derivedFrom],
         },
@@ -83,6 +98,22 @@ export function ModeDraftForm({
             </option>
           ))}
         </select>
+      </div>
+
+      <div className="form-row param-row">
+        <span className="param-row-label">Range matching</span>
+        <label className="checkbox-label">
+          <input type="checkbox" checked={rfRangeMatching} onChange={(e) => setRfRangeMatching(e.target.checked)} />
+          RF
+        </label>
+        <label className="checkbox-label">
+          <input type="checkbox" checked={pwRangeMatching} onChange={(e) => setPwRangeMatching(e.target.checked)} />
+          PW
+        </label>
+        <label className="checkbox-label">
+          <input type="checkbox" checked={priRangeMatching} onChange={(e) => setPriRangeMatching(e.target.checked)} />
+          PRI
+        </label>
       </div>
 
       <div className="form-row param-row">
@@ -144,11 +175,26 @@ export function ModeDraftForm({
       )}
 
       {priType === "stagger" && (
-        <div className="form-row">
+        <div className="form-row param-row">
           <label className="wide-label">
             Stagger sequence (comma-separated µs, in order)
             <input value={staggerValues} onChange={(e) => setStaggerValues(e.target.value)} required />
           </label>
+          <label>
+            frame time delta (±µs)
+            <input
+              type="number"
+              step="any"
+              min="0"
+              value={frameTimeDelta}
+              onChange={(e) => setFrameTimeDelta(e.target.value)}
+              title="Symmetric tolerance margin applied to the suggested frame time (sum of the stagger sequence) to derive the engineered min/max"
+              required
+            />
+          </label>
+          {suggestedFrameTimeUs > 0 && (
+            <span className="hint-text">Suggested frame time: {suggestedFrameTimeUs} µs</span>
+          )}
         </div>
       )}
 

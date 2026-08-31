@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { useCreateMdf, useMdfs } from "../state/hooks/useMdfs";
+import { useCreateMdf, useDeleteMdf, useMdfs } from "../state/hooks/useMdfs";
 import { RequireRole } from "../auth/RequireAuth";
 import { ApiRequestError } from "../api/client";
 import { LoadingState } from "../components/common/LoadingState";
@@ -8,6 +8,7 @@ import { EmptyState } from "../components/common/EmptyState";
 import { SortableColumnHeader } from "../components/common/SortableColumnHeader";
 import { useSortableTable } from "../components/common/useSortableTable";
 import { compareStrings } from "../components/common/sortUtils";
+import { useConfirmDialog } from "../components/common/ConfirmDialog";
 import type { Mdf } from "../api/mdfs";
 
 type MdfSortKey = "name" | "description" | "status";
@@ -27,9 +28,17 @@ export function MdfsListPage() {
   const { data: mdfs, isLoading } = useMdfs();
   const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(mdfs ?? [], compareMdfs);
   const createMdf = useCreateMdf();
+  const deleteMdf = useDeleteMdf();
+  const { confirmDelete, dialog } = useConfirmDialog();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  async function handleDelete(mdf: Mdf) {
+    if (await confirmDelete(`Delete MDF "${mdf.name}"? It can be restored from Recently Deleted for 30 days.`)) {
+      await deleteMdf.mutateAsync({ id: mdf.id });
+    }
+  }
 
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
@@ -90,6 +99,7 @@ export function MdfsListPage() {
                 onSort={onSort}
                 onClear={onClear}
               />
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -102,11 +112,19 @@ export function MdfsListPage() {
                 <td>
                   <span className={`status-badge status-${m.status}`}>{m.status.replace("_", " ")}</span>
                 </td>
+                <td>
+                  <RequireRole minimum="editor">
+                    <button className="link-button" onClick={() => void handleDelete(m)}>
+                      Delete
+                    </button>
+                  </RequireRole>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       )}
+      {dialog}
     </div>
   );
 }

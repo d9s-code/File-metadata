@@ -39,6 +39,8 @@ export function EwGroupHoverDetail({ ewGroup }: { ewGroup: EwGroup }) {
       </dd>
       <dt>Threat priority</dt>
       <dd>{ewGroup.threat_priority ?? "—"}</dd>
+      <dt>Ageout</dt>
+      <dd>{ewGroup.ageout != null ? `${ewGroup.ageout} s` : "—"}</dd>
       {ewGroup.scan_delta != null && (
         <>
           <dt>Scan delta</dt>
@@ -76,6 +78,7 @@ export function StaggerSequenceBox({ mode }: { mode: Mode }) {
   const pos = useFloatingPosition(triggerRef, contentRef, open);
   const values = mode.line?.pri_stagger_values_us ?? [];
   const frametime = values.reduce((sum, v) => sum + v, 0);
+  const frameTimeDelta = mode.line?.frame_time_delta_us;
   return (
     <div className="stagger-box">
       <button
@@ -92,6 +95,8 @@ export function StaggerSequenceBox({ mode }: { mode: Mode }) {
             [{values.join(", ")}] µs
             <br />
             Frametime: {frametime} µs
+            {frameTimeDelta != null &&
+              ` (engineered: ${mode.line?.engineered_frame_time_min_us}–${mode.line?.engineered_frame_time_max_us}, ±${frameTimeDelta})`}
           </div>,
           document.body,
         )}
