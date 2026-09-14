@@ -21,6 +21,9 @@ export function ModesTable({
   onSort,
   onClear,
   onDelete,
+  selected,
+  onToggleSelect,
+  onToggleSelectAll,
 }: {
   emitterId: string;
   modes: Mode[];
@@ -31,6 +34,9 @@ export function ModesTable({
   onSort: (key: ModeSortKey, dir: SortDir) => void;
   onClear: () => void;
   onDelete: (modeId: string, ewGroupId: string, name: string) => void;
+  selected: Set<string>;
+  onToggleSelect: (modeId: string) => void;
+  onToggleSelectAll: () => void;
 }) {
   const [editingModeId, setEditingModeId] = useState<string | null>(null);
   const { data: emitter } = useEmitter(emitterId);
@@ -49,11 +55,25 @@ export function ModesTable({
     />
   );
 
+  const allVisibleSelected = modes.length > 0 && modes.every((m) => selected.has(m.id));
+  const someVisibleSelected = modes.some((m) => selected.has(m.id));
+
   return (
     <div className="matrix-scroll">
       <table className="data-table">
         <thead>
           <tr>
+            <th>
+              <input
+                type="checkbox"
+                checked={allVisibleSelected}
+                ref={(el) => {
+                  if (el) el.indeterminate = !allVisibleSelected && someVisibleSelected;
+                }}
+                onChange={onToggleSelectAll}
+                aria-label="Select all"
+              />
+            </th>
             {header("Name", "name")}
             {header("EW Group", "ew_group")}
             {header("Source", "source")}
@@ -76,6 +96,14 @@ export function ModesTable({
             return (
               <Fragment key={m.id}>
               <tr>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={selected.has(m.id)}
+                    onChange={() => onToggleSelect(m.id)}
+                    aria-label={`Select ${m.name}`}
+                  />
+                </td>
                 <td>
                   <HoverInfo label={m.name}>
                     <ModeHoverDetail mode={m} source={sourcesById[m.source_id]} />
@@ -165,7 +193,7 @@ export function ModesTable({
               </tr>
               {editingModeId === m.id && canEdit && (
                 <tr>
-                  <td colSpan={13}>
+                  <td colSpan={14}>
                     <ModeEditForm emitterId={emitterId} mode={m} onDone={() => setEditingModeId(null)} />
                   </td>
                 </tr>

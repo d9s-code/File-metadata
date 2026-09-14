@@ -56,11 +56,12 @@ def test_diff_shows_exactly_one_field_changed(editor_client, emitter_ctx):
 
     diff = editor_client.get(f"/emitters/{emitter_id}/versions/2/diff").json()
     assert diff["identical"] is False
-    assert len(diff["changed"]) == 1
-    assert diff["changed"][0]["path"] == "['description']"
-    assert diff["changed"][0]["new_value"] == "Updated description"
-    assert diff["added"] == []
-    assert diff["removed"] == []
+    assert len(diff["entries"]) == 1
+    entry = diff["entries"][0]
+    assert entry["scope"] == "Emitter"
+    assert entry["label"] == "Description"
+    assert entry["kind"] == "changed"
+    assert entry["new_value"] == "Updated description"
 
 
 def test_diff_shows_added_mode_not_spurious_field_noise(editor_client, emitter_ctx):
@@ -71,9 +72,10 @@ def test_diff_shows_added_mode_not_spurious_field_noise(editor_client, emitter_c
     editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "test"})  # v2, one mode
 
     diff = editor_client.get(f"/emitters/{emitter_id}/versions/2/diff").json()
-    assert len(diff["added"]) == 1
-    assert diff["added"][0]["value"]["name"] == "Mode 1"
-    assert diff["changed"] == []
+    assert len(diff["entries"]) == 1
+    entry = diff["entries"][0]
+    assert entry["scope"] == "Mode 'Mode 1'"
+    assert entry["kind"] == "added"
 
 
 def test_diff_against_specific_version(editor_client, emitter_ctx):
@@ -85,8 +87,8 @@ def test_diff_against_specific_version(editor_client, emitter_ctx):
     editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "test"})  # v3
 
     diff_1_to_3 = editor_client.get(f"/emitters/{emitter_id}/versions/3/diff?against=1").json()
-    assert diff_1_to_3["changed"][0]["old_value"] is None
-    assert diff_1_to_3["changed"][0]["new_value"] == "v3 desc"
+    assert diff_1_to_3["entries"][0]["old_value"] is None
+    assert diff_1_to_3["entries"][0]["new_value"] == "v3 desc"
 
 
 def test_diff_with_no_prior_version_is_400(editor_client, emitter_ctx):
@@ -94,6 +96,29 @@ def test_diff_with_no_prior_version_is_400(editor_client, emitter_ctx):
     editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "test"})  # v1
     resp = editor_client.get(f"/emitters/{emitter_id}/versions/1/diff")
     assert resp.status_code == 400
+
+
+def test_live_diff_is_404_before_any_commit(editor_client, emitter_ctx):
+    emitter_id = emitter_ctx["emitter"]["id"]
+    resp = editor_client.get(f"/emitters/{emitter_id}/diff/live")
+    assert resp.status_code == 404
+
+
+def test_live_diff_shows_uncommitted_change_and_clears_after_commit(editor_client, emitter_ctx):
+    emitter_id = emitter_ctx["emitter"]["id"]
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "v1"})
+
+    identical = editor_client.get(f"/emitters/{emitter_id}/diff/live").json()
+    assert identical["identical"] is True
+
+    editor_client.patch(f"/emitters/{emitter_id}", json={"description": "uncommitted edit"})
+    dirty = editor_client.get(f"/emitters/{emitter_id}/diff/live").json()
+    assert dirty["identical"] is False
+    assert any(e["scope"] == "Emitter" and e["label"] == "Description" for e in dirty["entries"])
+
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "v2"})
+    clean_again = editor_client.get(f"/emitters/{emitter_id}/diff/live").json()
+    assert clean_again["identical"] is True
 
 
 def test_status_transition_commits_a_version(editor_client, emitter_ctx):

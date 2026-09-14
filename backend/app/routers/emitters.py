@@ -14,10 +14,10 @@ from app.models.emitter_version import EmitterVersion
 from app.models.ew_group import EwGroup
 from app.models.mode import Mode, ModeGenerationBatch
 from app.schemas.emitter import EmitterCreate, EmitterOut, EmitterUpdate
-from app.schemas.mode import ModeGenerationBatchOut, ModeOut
+from app.schemas.mode import ModeBatchEditRequest, ModeBatchEditResult, ModeGenerationBatchOut, ModeOut
 from app.schemas.emitter_version import (
     CommitEmitterVersionRequest,
-    DiffOut,
+    EmitterDiffOut,
     EmitterVersionDetailOut,
     EmitterVersionOut,
     ForkRequest,
@@ -25,12 +25,14 @@ from app.schemas.emitter_version import (
 )
 from app.services import checkout_service
 from app.services.audit_service import apply_and_diff, record_audit
+from app.services.emitter_diff_service import compute_emitter_diff
 from app.services.emitter_revert_service import build_forked_emitter, reconcile_emitter_to_snapshot
 from app.services.emitter_summary_service import attach_emitter_summaries
+from app.services.mode_batch_service import apply_batch_edit, plan_batch_edit
 from app.services.mode_test_status_service import attach_mode_extras
 from app.services.snapshots import build_emitter_snapshot
 from app.services.status_service import InvalidStatusTransition, validate_transition
-from app.services.versioning_service import VersionSpec, commit_version, diff_versions, get_version, list_versions
+from app.services.versioning_service import VersionSpec, commit_version, get_version, list_versions
 
 router = APIRouter(prefix="/emitters", tags=["emitters"])
 
@@ -307,6 +309,39 @@ def list_emitter_modes(
     return attach_mode_extras(db, modes)
 
 
+@router.post(
+    "/{emitter_id}/modes/batch-edit",
+    response_model=ModeBatchEditResult,
+    dependencies=[Depends(verify_csrf)],
+)
+def batch_edit_modes(
+    emitter_id: UUID,
+    payload: ModeBatchEditRequest,
+    db: Session = Depends(get_db),
+    user=Depends(require_emitter_checkout()),
+) -> ModeBatchEditResult:
+    """Applies a field edit to many Modes at once, all-or-nothing: every
+    resulting line is validated before anything is written, so one Mode
+    ending up invalid (e.g. a forbidden field for its PRI type) rejects the
+    whole batch with a 422 listing every failure, rather than silently
+    applying to some and not others.
+    """
+    _get_emitter_or_404(db, emitter_id)
+    planned, errors = plan_batch_edit(db, emitter_id=emitter_id, mode_ids=payload.mode_ids, fields=payload.fields)
+    if errors:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=[e.model_dump(mode="json") for e in errors])
+
+    updated_ids = apply_batch_edit(
+        db,
+        planned=planned,
+        derived_from_test_record_ids=payload.derived_from_test_record_ids,
+        actor_id=user.id,
+        emitter_id=emitter_id,
+    )
+    db.commit()
+    return ModeBatchEditResult(updated_mode_ids=updated_ids, count=len(updated_ids))
+
+
 @router.get("/{emitter_id}/generation-batches", response_model=list[ModeGenerationBatchOut])
 def list_generation_batches(
     emitter_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
@@ -427,25 +462,43 @@ def get_emitter_version(
     return version
 
 
-@router.get("/{emitter_id}/versions/{version_number}/diff", response_model=DiffOut)
+@router.get("/{emitter_id}/versions/{version_number}/diff", response_model=EmitterDiffOut)
 def diff_emitter_version(
     emitter_id: UUID,
     version_number: int,
     against: int | None = None,
     db: Session = Depends(get_db),
     _=Depends(require_role(Role.viewer)),
-) -> DiffOut:
+) -> EmitterDiffOut:
     _get_emitter_or_404(db, emitter_id)
     from_version = against if against is not None else version_number - 1
     if from_version < 1:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "No prior version to diff against")
-    try:
-        result = diff_versions(
-            db, spec=_VERSION_SPEC, entity_id=emitter_id, from_version=from_version, to_version=version_number
-        )
-    except ValueError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
-    return DiffOut(**result)
+    old = get_version(db, spec=_VERSION_SPEC, entity_id=emitter_id, version_number=from_version)
+    new = get_version(db, spec=_VERSION_SPEC, entity_id=emitter_id, version_number=version_number)
+    if old is None or new is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "One or both versions not found")
+    return EmitterDiffOut(**compute_emitter_diff(old.snapshot, new.snapshot))
+
+
+@router.get("/{emitter_id}/diff/live", response_model=EmitterDiffOut)
+def diff_emitter_live_state(
+    emitter_id: UUID,
+    db: Session = Depends(get_db),
+    _=Depends(require_role(Role.viewer)),
+) -> EmitterDiffOut:
+    """Diffs the Emitter's current live state against its latest committed
+    version — what a Discard would throw away, or a Commit would capture.
+    404 if nothing has been committed yet (there's no baseline to diff
+    against).
+    """
+    emitter = _get_emitter_or_404(db, emitter_id)
+    versions = list_versions(db, spec=_VERSION_SPEC, entity_id=emitter_id)
+    if not versions:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No committed version to diff against yet")
+    latest = versions[-1]
+    live_snapshot = build_emitter_snapshot(emitter)
+    return EmitterDiffOut(**compute_emitter_diff(latest.snapshot, live_snapshot))
 
 
 @router.post(

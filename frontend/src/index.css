@@ -8,6 +8,8 @@
   --muted: #6b7280;
   --primary: #2b5aa0;
   --primary-hover: #1f4278;
+  --accent: #7c3aed;
+  --accent-hover: #6425d0;
   --error: #b3261e;
   --success: #065f46;
   --code-bg: #f1f3f5;
@@ -60,6 +62,8 @@
     --muted: #9aa1ab;
     --primary: #6ea8fe;
     --primary-hover: #8fbcff;
+    --accent: #a78bfa;
+    --accent-hover: #c4b5fd;
     --error: #f87171;
     --success: #34d399;
     --code-bg: #262b33;
@@ -99,6 +103,8 @@
   --muted: #9aa1ab;
   --primary: #6ea8fe;
   --primary-hover: #8fbcff;
+  --accent: #a78bfa;
+  --accent-hover: #c4b5fd;
   --error: #f87171;
   --success: #34d399;
   --code-bg: #262b33;
@@ -231,6 +237,14 @@ button:disabled {
 .danger-button:hover {
   background: var(--error);
   filter: brightness(0.9);
+}
+
+.accent-button {
+  background: var(--accent);
+  color: white;
+}
+.accent-button:hover {
+  background: var(--accent-hover);
 }
 
 .info-popover-trigger {
@@ -408,7 +422,7 @@ button:disabled {
   margin: 0 0 1rem 0;
 }
 .modal-dialog-wide {
-  width: 480px;
+  width: 760px;
 }
 .modal-header {
   display: flex;
@@ -685,8 +699,36 @@ label {
   padding-bottom: 0.4rem;
 }
 
+/* A label wrapping a compact control (e.g. a tri-state <select>) rather
+   than a full input+caption pair — kept single-line so it sits at the same
+   height as a sibling .param-row-label instead of the global `label`
+   rule's column stack (caption above input), which is tall enough to make
+   the row's whole caption line float above the section header. */
+.inline-field-label {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 .wide-label {
   flex: 1;
+}
+
+/* Unlike .param-row (label + fields all on one flex line, fine for a
+   handful of narrow controls), .param-block stacks the section label above
+   its fields so that when the fields wrap to a second line — inevitable
+   once there are 4+ inputs at modal width — the wrapped line still starts
+   under the label instead of a lone field floating at the container's left
+   edge with no visual tie to its section. */
+.param-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.param-block-fields {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .test-notes-field {
@@ -832,6 +874,12 @@ label {
 
 .data-table tbody tr {
   transition: background 0.1s var(--ease);
+}
+/* Reuses the page background (rather than a new token) for the stripe —
+   it already reads as a step down from the card's own background in both
+   themes, so alternating rows separate at a glance without extra colors. */
+.data-table tbody tr:nth-child(even) {
+  background: var(--bg);
 }
 .data-table tbody tr:hover {
   background: var(--hover-bg);
@@ -1674,6 +1722,16 @@ span.test-derived-badge {
   font-weight: 600;
   color: var(--muted);
 }
+.live-diff-panel {
+  padding: 0.6rem 0.75rem;
+  margin: -0.5rem 0 0.75rem 0;
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  background: var(--card-bg);
+  max-height: 320px;
+  overflow-y: auto;
+}
 .checkout-badge-mine {
   color: var(--primary);
 }
@@ -1792,6 +1850,27 @@ span.test-derived-badge {
   color: var(--badge-green-fg);
 }
 .diff-removed pre {
+  background: var(--badge-red-bg);
+  color: var(--badge-red-fg);
+}
+.diff-field-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 0.25rem;
+}
+.diff-badge {
+  display: inline-block;
+  font-size: 0.85rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 4px;
+}
+.diff-added .diff-badge {
+  background: var(--badge-green-bg);
+  color: var(--badge-green-fg);
+}
+.diff-removed .diff-badge {
   background: var(--badge-red-bg);
   color: var(--badge-red-fg);
 }

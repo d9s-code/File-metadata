@@ -8,9 +8,10 @@ import {
   useDiscardEmitterChanges,
   useEmitterCheckoutState,
 } from "../../state/hooks/useEmitterCheckout";
-import { useEmitterVersions } from "../../state/hooks/useEmitterVersions";
+import { useEmitterLiveDiff, useEmitterVersions } from "../../state/hooks/useEmitterVersions";
 import { useConfirmDialog } from "../common/ConfirmDialog";
 import { ApiRequestError } from "../../api/client";
+import { EmitterDiffViewer } from "./EmitterDiffViewer";
 
 export function CheckoutBanner({ emitter }: { emitter: Emitter }) {
   const { user } = useAuth();
@@ -21,6 +22,7 @@ export function CheckoutBanner({ emitter }: { emitter: Emitter }) {
   const discard = useDiscardEmitterChanges(emitter.id);
   const { confirmDelete, dialog } = useConfirmDialog();
   const [error, setError] = useState<string | null>(null);
+  const [showDiff, setShowDiff] = useState(false);
 
   const isAdmin = user?.role === "admin";
   const hasCommittedVersion = (versions?.length ?? 0) > 0;
@@ -39,7 +41,7 @@ export function CheckoutBanner({ emitter }: { emitter: Emitter }) {
     try {
       await checkin.mutateAsync();
     } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : "Failed to check in");
+      setError(err instanceof ApiRequestError ? err.message : "Failed to save");
     }
   }
 
@@ -55,6 +57,7 @@ export function CheckoutBanner({ emitter }: { emitter: Emitter }) {
 
   return (
     <RequireRole minimum="editor">
+    <div className="checkout-banner-wrap">
     <div className="checkout-banner">
       {!isCheckedOut ? (
         <>
@@ -75,7 +78,7 @@ export function CheckoutBanner({ emitter }: { emitter: Emitter }) {
             Discard changes
           </button>
           <button className="link-button" disabled={checkin.isPending} onClick={() => void handleCheckin()}>
-            Check in
+            Save
           </button>
         </>
       ) : (
@@ -91,9 +94,31 @@ export function CheckoutBanner({ emitter }: { emitter: Emitter }) {
           )}
         </>
       )}
+      {hasCommittedVersion && (
+        <button className="link-button" onClick={() => setShowDiff((v) => !v)}>
+          {showDiff ? "Hide changes" : "View changes since last commit"}
+        </button>
+      )}
       {error && <span className="error-text">{error}</span>}
       {dialog}
     </div>
+    {showDiff && <LiveDiffPanel emitterId={emitter.id} />}
+    </div>
     </RequireRole>
+  );
+}
+
+function LiveDiffPanel({ emitterId }: { emitterId: string }) {
+  const { data: diff, isLoading } = useEmitterLiveDiff(emitterId);
+  return (
+    <div className="live-diff-panel">
+      {isLoading ? (
+        <p className="hint-text">Loading changes…</p>
+      ) : diff ? (
+        <EmitterDiffViewer diff={diff} />
+      ) : (
+        <p className="hint-text">No committed version to compare against yet.</p>
+      )}
+    </div>
   );
 }

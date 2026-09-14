@@ -105,6 +105,12 @@ Range matching is treated as **any other Mode Line parameter** — set when crea
 
 Every field on a Mode — metadata (name, notes, which EW Group it's filed under) and the actual line (RF/PW/PRI/jitter/stagger values, deltas, range matching flags) alike — edits in place immediately, the same way everything else in the app works. The only gate is holding the Emitter's **checkout**: without it, every mutating action on the Emitter and everything under it (EW Groups, Sources, Modes, Elements) is rejected. There's no separate propose/approve step for a Mode line anymore — if you get something wrong, either edit it again or use the Emitter's **Discard changes** / **Revert to a version** actions (see [Versioning & Diffs](#5-versioning--diffs)) to get back to a known-good state.
 
+### Batch Edit
+
+Select multiple Modes (checkboxes on the table or card view — a header checkbox selects every currently-filtered Mode) and apply one change across all of them at once via **Batch Edit**: EW Group reassignment, an overwritten Notes value, the three Range Matching flags (each an independent tri-state — leave unchanged / turn on / turn off, not just a single on/off), and the four delta fields (`rf_delta`/`pw_delta`/`pri_delta`/`frame_time_delta_us`). Only fields you actually touch are sent, so leaving something blank/unchanged never overwrites it.
+
+It's **all-or-nothing**: every selected Mode's resulting line is validated in memory first (e.g. a PRI delta is invalid on a CW Mode), and if *any one* would end up invalid, nothing is written to any of them — every failure is listed by Mode name so you can see exactly which selections are the problem before retrying. It does not cover RF/PW/PRI min/max/stagger values directly (collapsing many Modes' ranges to one literal value is never what a batch edit means for a per-Mode range) and doesn't re-run `require_manual_deltas` (a batch edit doesn't change where a line *came from*, only its fields). Gated by the Emitter's checkout, same as every other Mode mutation.
+
 ### Test-Derived Modes
 
 A Mode's values don't always come from a Source — real-world testing can turn up an emission a datasheet never mentioned, or reveal that an existing Mode's parameters are wrong. Both the "+ Add Mode" form and an existing Mode's edit form let you optionally link it to one or more existing **Test Records** whose findings explain its values ("this Mode is test-derived"). A linked Mode shows a **Test-Derived** badge with a popover listing the justifying test(s) — explainability for a Mode that didn't come from a Source, without needing a Source to explain it.
@@ -156,6 +162,12 @@ An Emitter's live rows (and everything under it) can only be edited while you ho
 Reconciliation (used by both discard and revert) matches EW Groups/Sources/Modes/Elements by the UUID a committed snapshot already preserves — a row that still exists in the target keeps its id (so a Test Record linked to a surviving Mode stays linked), a row absent from the target is deleted (the same cascade a manual Mode delete already does, not a new class of data loss).
 
 Moving an Emitter's status to **Operational** (`validated`) requires a message describing what was validated, same as a manual commit — that transition is a trust signal everything downstream (Platforms/MDFs pinning this Emitter) relies on.
+
+### Live diff (uncommitted changes) and mode-centric rendering
+
+Next to the checkout banner, **View changes since last commit** shows a live diff between the Emitter's current draft state and its latest committed version — exactly what a **Discard** would throw away or a **Commit** would capture, without having to commit first just to see it. It's 404 (and hidden) until at least one version has been committed.
+
+Both this live diff and the Emitter's version-to-version diff render **mode-centric**: entries are grouped under the actual Mode/EW Group/Source/Emitter they belong to (matched by the id a snapshot already preserves, so a Mode that moved position in its list is never mistaken for a different one) and labeled with a human field name (e.g. "RF Min (MHz)") instead of a raw nested-path string like `['ew_groups'][0]['modes'][1]['line']['rf_min_mhz']`. This is a different, richer shape (`app/services/emitter_diff_service.py`, schema `EmitterDiffOut`) than the generic path-based diff Platforms and MDFs still use (`app/services/diffing.py`, schema `DiffOut`) — those snapshot shapes are different enough (a Platform/MDF snapshot embeds whole Emitter snapshots inside `links`) that the mode-centric walker doesn't apply to them as-is.
 
 ### Status
 

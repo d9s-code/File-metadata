@@ -36,6 +36,24 @@ Before merging any other branch/agent's work into this one:
   branch added a new mutating endpoint under `/emitters/{emitter_id}/...` or
   `/ew-groups/{ew_group_id}/modes/...`, it almost certainly needs the same gate added —
   it won't fail loudly, it'll just let anyone edit a checked-out-by-someone-else Emitter.
+- **Item 13 (this session's most recent work) changed what the two Emitter diff endpoints
+  return** — `GET /emitters/{id}/diff/live` and `GET /emitters/{id}/versions/{n}/diff` now
+  return the new `EmitterDiffOut` shape (`{entries: [{scope, label, kind, old_value,
+  new_value}], identical}`), not the old generic `DiffOut` (`{added, removed, changed,
+  identical}`, each entry a raw DeepDiff path). **Platform/MDF diff endpoints are unaffected
+  — they still return the old `DiffOut` shape.** If the incoming branch touched
+  `app/schemas/emitter_version.py`, `app/services/diffing.py`, either Emitter diff route in
+  `emitters.py`, `frontend/src/types/versioning.ts`, `DiffViewer.tsx`, or built any frontend
+  code that consumes an Emitter's diff response, expect a real conflict — check which shape
+  it assumes before merging either side's version in.
+- **Item 13 also added `POST /emitters/{emitter_id}/modes/batch-edit`** (new
+  `mode_batch_service.py`, new `BatchModeFieldEdit`/`ModeBatchEditRequest` schemas in
+  `schemas/mode.py`). If the incoming branch independently built Mode batch editing — a real
+  possibility, see item 11 above where a *different* unsupervised agent had already attempted
+  something similarly named in a sibling copy of this repo — treat it the same way item 11
+  was handled: read both implementations in full and rebuild the real intent cleanly against
+  whichever validation/all-or-nothing semantics are correct, don't try to reconcile two
+  competing endpoints at the same path by hand.
 
 ## Where to start
 
@@ -281,6 +299,69 @@ this log starts. Since then, in order:
       - `docs/FEATURES.md` §3 and §5 rewritten for the above; the in-app Help page
         (`HelpPage.tsx`) updated to match.
 
+13. **This session** (a separate session from all of the above — continued straight on from
+    item 12's checkout/revert/fork work, same branch). Two pieces of work, **not yet committed
+    — see "Uncommitted at end of session" below**:
+
+    - **Modes Batch Edit.** Select multiple Modes (table/card checkboxes, header "select all
+      filtered") and apply EW Group reassignment / Notes overwrite / the three Range Matching
+      tri-states / the four delta fields to all of them in one all-or-nothing call — see
+      `docs/FEATURES.md`'s new "Batch Edit" subsection under §3 for the exact semantics (why it
+      excludes RF/PW/PRI min/max/stagger, why it doesn't re-check `require_manual_deltas`).
+      Backend: `app/services/mode_batch_service.py` (`plan_batch_edit`/`apply_batch_edit`,
+      validate-everything-in-memory-first then write, same pattern as `cartesian_product`),
+      `POST /emitters/{emitter_id}/modes/batch-edit` in `emitters.py`, gated by
+      `require_emitter_checkout()` like every other Mode mutation. Originally scoped with a
+      second "Shift ranges" (additive RF/PW/PRI shift) operation too — the user tried it, called
+      it "useless," and it was fully removed from both backend and frontend before this was
+      considered done; if you see any reference to `BatchModeShift`/`rf_shift_mhz` anywhere,
+      that's stale and should have been deleted. Frontend: `BatchEditModal.tsx`,
+      `useBatchEditModes` in `useModes.ts`. Tests: `test_mode_batch_api.py` (7 cases including
+      the all-or-nothing rejection and a cross-Emitter `mode_id` 404).
+    - **Mode-centric Emitter diffs**, replacing the raw DeepDiff-path rendering the user
+      correctly called unreadable ("impossible to see what was altered, and which parameter").
+      New `app/services/emitter_diff_service.py::compute_emitter_diff` walks an Emitter
+      snapshot's own known shape (Emitter → EW Groups → Modes → Line, plus Sources) and matches
+      each level by the id a snapshot already preserves, emitting `{scope, label, kind,
+      old_value, new_value}` entries — `scope` is a resolved name like `Mode 'RM Mode'`, `label`
+      a human field name like `RF Min (MHz)` from a lookup table in that same file, never a raw
+      path. New schema `EmitterDiffOut`/`EmitterDiffEntry` in `emitter_version.py`, used by
+      **both** Emitter diff endpoints (`GET .../diff/live` and `GET .../versions/{n}/diff`) —
+      **the old generic `DiffOut`/`compute_diff` (`app/services/diffing.py`) is now Platform/MDF-
+      only**, see the merge-warning section below, this is exactly the kind of shape change that
+      bites a concurrent branch. New frontend `EmitterDiffViewer.tsx` (groups entries under a
+      `<h5>{scope}</h5>` per Mode/EW Group/etc.) replaces the shared `DiffViewer.tsx` on the two
+      Emitter-facing pages only (`EmitterVersionHistoryPage.tsx`, the live-diff panel in
+      `CheckoutBanner.tsx`) — `DiffViewer.tsx` itself is untouched and still serves Platform/MDF
+      version history. Also fixed a real bug surfaced while verifying this live: Mode mutations
+      (`useUpdateMode`/`useCreateMode`/`useDeleteMode`/`useBatchEditModes` in `useModes.ts`)
+      weren't invalidating the `emitterVersionsKey` query prefix, so an already-open "View
+      changes since last commit" panel wouldn't refresh after an edit until a full page reload —
+      **EW Group and Source mutations (`useEwGroups.ts`/`useSources.ts`) still have this same
+      gap**, not fixed this pass, worth doing in the same way if it's reported.
+    - Along the way, three small UI fixes the user flagged live while testing the above:
+      the Batch Edit modal's 4-field "Deltas" row was overflow-wrapping its last field
+      (Frame time) onto its own line with no visual tie back to the "Deltas" label — fixed by
+      restructuring to a label-above/fields-wrap-below layout (`.param-block` in `index.css`)
+      that stays grouped at any width instead of fighting exact pixel widths (this modal's width
+      had already been bumped 480px → 640px → 760px earlier in the session chain and was still
+      not the real fix); the "Batch Edit (N)" button was visually indistinguishable from the
+      bordered filter dropdowns next to it, given its own `.accent-button` violet fill (new
+      `--accent`/`--accent-hover` CSS variables, both light and dark `:root` blocks); and every
+      `.data-table` (used by 17 of the app's 18 table components — the ambiguity heatmap is the
+      one exception, it already encodes meaning in cell color and would visually fight a stripe)
+      got alternating-row zebra striping via `tbody tr:nth-child(even) { background: var(--bg);
+      }` — reuses the existing page-background token rather than a new color, so it's
+      theme-consistent for free.
+    - Full backend suite (**184 passing**, verified after both the schema-shape change and the
+      test-file updates it required in `test_versioning_api.py`) and `tsc -b` clean throughout.
+      Live-verified in the Browser pane at both desktop and mobile widths.
+
+    **Uncommitted at end of session** — working tree is dirty, nothing from this item has been
+    pushed. See `git status` for the exact file list before doing anything branch-related; the
+    new files (`emitter_diff_service.py`, `mode_batch_service.py`, `BatchEditModal.tsx`,
+    `EmitterDiffViewer.tsx`, their tests) are untracked, everything else is a modification.
+
 ## Open items (not yet implemented)
 
 ### From this session's PRS export cleanup (item 11 above)
@@ -315,10 +396,11 @@ this log starts. Since then, in order:
 - **EW Group deletion silently cascades and deletes all its Modes** (plain confirm dialog only),
   while Source deletion is properly blocked with a 409 if it still has Modes — same category of
   action, inconsistent safety behavior, not signaled anywhere.
-- **No "uncommitted draft changes" indicator** anywhere in the Emitter/Platform/MDF editors.
-  Partially adjacent to item 12's new `CheckoutBanner` (Emitter only) — that shows *who's
-  editing*, not *whether there are uncommitted changes*; still worth building for real, and
-  Platform/MDF have neither checkout nor a dirty-state indicator at all.
+- **No "uncommitted draft changes" indicator for Platform/MDF editors.** **Resolved for
+  Emitters** by item 13's live diff ("View changes since last commit" in `CheckoutBanner.tsx`
+  — shows not just *that* there are uncommitted changes but the exact mode-centric diff of
+  what they are). Platform/MDF still have neither a checkout concept nor any dirty-state
+  indicator at all — this item now only applies to those two.
 - **Ambiguity run results are ephemeral** (`runId` is local `useState`, lost on navigation) and
   **the checked version is never displayed** even though `AmbiguityRun` carries
   `emitter_version_id`/etc. — confirmed unused in any JSX via grep. `useAmbiguityRuns` (past-runs

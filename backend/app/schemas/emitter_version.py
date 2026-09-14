@@ -54,6 +54,19 @@ class DiffOut(BaseModel):
     identical: bool
 
 
+class EmitterDiffEntry(BaseModel):
+    scope: str
+    label: str
+    kind: str
+    old_value: object | None = None
+    new_value: object | None = None
+
+
+class EmitterDiffOut(BaseModel):
+    entries: list[EmitterDiffEntry]
+    identical: bool
+
+
 class StatusTransitionRequest(BaseModel):
     new_status: str
     note: str | None = None

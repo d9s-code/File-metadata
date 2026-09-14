@@ -6,6 +6,7 @@ import { emittersKey } from "./useEmitters";
 import { ewGroupsKey } from "./useEwGroups";
 import { sourcesKey } from "./useSources";
 import { emitterModesKey } from "./useModes";
+import { emitterVersionsKey } from "./useEmitterVersions";
 
 /** The single source of truth every gated form/table should read instead of
  * re-deriving "am I allowed to edit this" locally. */
@@ -55,6 +56,7 @@ export function useDiscardEmitterChanges(emitterId: string) {
       qc.invalidateQueries({ queryKey: ewGroupsKey(emitterId) });
       qc.invalidateQueries({ queryKey: sourcesKey(emitterId) });
       qc.invalidateQueries({ queryKey: emitterModesKey(emitterId) });
+      qc.invalidateQueries({ queryKey: emitterVersionsKey(emitterId) });
     },
   });
 }

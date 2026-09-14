@@ -8,7 +8,7 @@ import {
   useRevertEmitterVersion,
 } from "../state/hooks/useEmitterVersions";
 import { VersionList } from "../components/versioning/VersionList";
-import { DiffViewer } from "../components/versioning/DiffViewer";
+import { EmitterDiffViewer } from "../components/versioning/EmitterDiffViewer";
 import { ForkVersionModal } from "../components/versioning/ForkVersionModal";
 import { RequireRole } from "../auth/RequireAuth";
 import { ApiRequestError } from "../api/client";
@@ -92,7 +92,7 @@ export function EmitterVersionHistoryPage() {
           <h4>{selected ? `Diff: v${selected - 1} → v${selected}` : "Select a version to view its diff"}</h4>
           {selected === 1 && <p className="hint-text">This is the first committed version — no prior version to diff against.</p>}
           {selected != null && selected > 1 && diffLoading && <p>Loading diff…</p>}
-          {selected != null && selected > 1 && diff && <DiffViewer diff={diff} />}
+          {selected != null && selected > 1 && diff && <EmitterDiffViewer diff={diff} />}
           {selected != null && (
             <RequireRole minimum="editor">
               <div className="form-row">

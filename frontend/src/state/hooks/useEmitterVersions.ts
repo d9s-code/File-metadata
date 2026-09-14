@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { emitterVersionsApi } from "../../api/emitterVersions";
+import { ApiRequestError } from "../../api/client";
 import { emittersKey } from "./useEmitters";
 
 function invalidateEmitter(qc: ReturnType<typeof useQueryClient>, emitterId: string) {
@@ -25,6 +26,23 @@ export function useEmitterVersionDiff(emitterId: string, versionNumber: number, 
     queryKey: [...emitterVersionsKey(emitterId), versionNumber, "diff", against],
     queryFn: () => emitterVersionsApi.diff(emitterId, versionNumber, against),
     enabled: !!emitterId && versionNumber > 1,
+  });
+}
+
+export function useEmitterLiveDiff(emitterId: string) {
+  return useQuery({
+    queryKey: [...emitterVersionsKey(emitterId), "diff", "live"],
+    // No committed version yet is an expected, non-error state — surfaced
+    // as `data === null` instead of a query error.
+    queryFn: async () => {
+      try {
+        return await emitterVersionsApi.liveDiff(emitterId);
+      } catch (err) {
+        if (err instanceof ApiRequestError && err.status === 404) return null;
+        throw err;
+      }
+    },
+    enabled: !!emitterId,
   });
 }
 

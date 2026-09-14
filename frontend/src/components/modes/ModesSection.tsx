@@ -13,6 +13,7 @@ import { EmptyState } from "../common/EmptyState";
 import { LoadingState } from "../common/LoadingState";
 import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
+import { BatchEditModal } from "./BatchEditModal";
 
 const VIEW_STORAGE_KEY = "modesView";
 
@@ -46,6 +47,8 @@ export function ModesSection({
   const [sortKey, setSortKey] = useState<ModeSortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [showForm, setShowForm] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [showBatchEdit, setShowBatchEdit] = useState(false);
   const { data: emitter } = useEmitter(emitterId);
   const { canEdit } = useEmitterCheckoutState(emitter);
 
@@ -72,6 +75,38 @@ export function ModesSection({
     : filtered;
 
   const sorted = [...searched].sort((a, b) => compareModes(a, b, sortKey, sortDir, ewGroupsById, sourcesById));
+
+  // Selection survives filter/sort changes (so you can select across
+  // several filters), but not a Mode actually disappearing (deleted, or a
+  // batch-edit just applied and the list refetched).
+  useEffect(() => {
+    if (!modes) return;
+    const liveIds = new Set(modes.map((m) => m.id));
+    setSelected((prev) => {
+      const next = new Set([...prev].filter((id) => liveIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [modes]);
+
+  function toggleSelect(modeId: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(modeId)) next.delete(modeId);
+      else next.add(modeId);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    const visibleIds = sorted.map((m) => m.id);
+    const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allSelected) visibleIds.forEach((id) => next.delete(id));
+      else visibleIds.forEach((id) => next.add(id));
+      return next;
+    });
+  }
 
   function handleSort(key: ModeSortKey, dir: SortDir) {
     setSortKey(key);
@@ -151,6 +186,21 @@ export function ModesSection({
             </button>
           </RequireRole>
         )}
+        {selected.size > 0 && (
+          <RequireRole minimum="editor">
+            <button
+              className="accent-button"
+              disabled={!canEdit}
+              title={canEdit ? undefined : "Start editing this Emitter first"}
+              onClick={() => setShowBatchEdit(true)}
+            >
+              Batch Edit ({selected.size})
+            </button>
+            <button className="link-button" onClick={() => setSelected(new Set())}>
+              Clear selection
+            </button>
+          </RequireRole>
+        )}
       </div>
 
       {isLoading ? (
@@ -176,6 +226,9 @@ export function ModesSection({
           onSort={handleSort}
           onClear={handleClearSort}
           onDelete={handleDelete}
+          selected={selected}
+          onToggleSelect={toggleSelect}
+          onToggleSelectAll={toggleSelectAll}
         />
       ) : (
         <ModesCardGrid
@@ -184,6 +237,8 @@ export function ModesSection({
           ewGroupsById={ewGroupsById}
           sourcesById={sourcesById}
           onDelete={handleDelete}
+          selected={selected}
+          onToggleSelect={toggleSelect}
         />
       )}
 
@@ -203,6 +258,18 @@ export function ModesSection({
           </button>
         )}
       </RequireRole>
+      {showBatchEdit && (
+        <BatchEditModal
+          emitterId={emitterId}
+          modeIds={[...selected]}
+          ewGroups={ewGroups}
+          onClose={() => setShowBatchEdit(false)}
+          onDone={() => {
+            setShowBatchEdit(false);
+            setSelected(new Set());
+          }}
+        />
+      )}
       {dialog}
     </section>
   );

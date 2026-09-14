@@ -16,12 +16,16 @@ export function ModesCardGrid({
   ewGroupsById,
   sourcesById,
   onDelete,
+  selected,
+  onToggleSelect,
 }: {
   emitterId: string;
   modes: Mode[];
   ewGroupsById: Record<string, EwGroup>;
   sourcesById: Record<string, Source>;
   onDelete: (modeId: string, ewGroupId: string, name: string) => void;
+  selected: Set<string>;
+  onToggleSelect: (modeId: string) => void;
 }) {
   const [editingModeId, setEditingModeId] = useState<string | null>(null);
   const { data: emitter } = useEmitter(emitterId);
@@ -43,6 +47,12 @@ export function ModesCardGrid({
         return (
           <div key={m.id} className="mode-card">
             <div className="mode-card-header">
+              <input
+                type="checkbox"
+                checked={selected.has(m.id)}
+                onChange={() => onToggleSelect(m.id)}
+                aria-label={`Select ${m.name}`}
+              />
               <strong>
                 <HoverInfo label={m.name}>
                   <ModeHoverDetail mode={m} source={source} />

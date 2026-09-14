@@ -242,6 +242,57 @@ class ModeOut(BaseModel):
     derived_from_test_records: list[TestRecordBrief] = []
 
 
+class BatchModeFieldEdit(BaseModel):
+    """Fields settable across a batch of Modes at once. Only keys actually
+    present in the request are applied (see `exclude_unset` at the call
+    site) — booleans stay tri-state (unset/true/false) this way, with no
+    extra plumbing needed. Deliberately excludes RF/PW/PRI min/max/stagger
+    values: setting those to one literal value across many Modes would
+    collapse their ranges to be identical, which isn't a meaningful batch
+    operation on a per-Mode range.
+    """
+
+    ew_group_id: UUID | None = None
+    notes: str | None = None
+    rf_range_matching: bool | None = None
+    pw_range_matching: bool | None = None
+    pri_range_matching: bool | None = None
+    rf_delta: float | None = None
+    pw_delta: float | None = None
+    pri_delta: float | None = None
+    frame_time_delta_us: float | None = None
+
+    _validate_rf_delta = field_validator("rf_delta")(_validate_delta)
+    _validate_pw_delta = field_validator("pw_delta")(_validate_delta)
+    _validate_pri_delta = field_validator("pri_delta")(_validate_delta)
+    _validate_frame_time_delta = field_validator("frame_time_delta_us")(_validate_delta)
+
+
+class ModeBatchEditRequest(BaseModel):
+    mode_ids: list[UUID]
+    fields: BatchModeFieldEdit
+    # Test Record(s) whose findings explain this batch's values — applied to
+    # every affected Mode, same meaning as ModeUpdate.derived_from_test_record_ids.
+    derived_from_test_record_ids: list[UUID] = []
+
+    @model_validator(mode="after")
+    def check_non_empty(self) -> "ModeBatchEditRequest":
+        if not self.mode_ids:
+            raise ValueError("mode_ids must not be empty")
+        return self
+
+
+class ModeBatchEditError(BaseModel):
+    mode_id: UUID
+    mode_name: str
+    error: str
+
+
+class ModeBatchEditResult(BaseModel):
+    updated_mode_ids: list[UUID]
+    count: int
+
+
 class ModeGenerationBatchOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
