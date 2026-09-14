@@ -9,7 +9,13 @@ import io
 import zipfile
 from importlib import resources
 
-from app.services.prs_export.serializer import build_library_root, build_platform_element, build_emitter_element, to_xml_bytes
+from app.services.prs_export.serializer import (
+    build_emitter_element,
+    build_library_root,
+    build_platform_element,
+    sanitize_filename,
+    to_xml_bytes,
+)
 
 
 def _template_bytes(filename: str) -> bytes:
@@ -23,7 +29,7 @@ def _write_emitter_files(zf: zipfile.ZipFile, written: set[str], links: list[dic
             continue
         written.add(emitter_name)
         emitter_el = build_emitter_element(link["emitter_snapshot"])
-        zf.writestr(f"emitters/{emitter_name.replace(' ', '_')}.xml", to_xml_bytes(emitter_el))
+        zf.writestr(f"emitters/{sanitize_filename(emitter_name)}.xml", to_xml_bytes(emitter_el))
 
 
 def build_platform_export_zip(platform_snapshot: dict, *, platform_id: str) -> bytes:
@@ -41,10 +47,10 @@ def build_platform_export_zip(platform_snapshot: dict, *, platform_id: str) -> b
 
         platform_el = build_platform_element(platform_snapshot)
         platform_name = platform_snapshot["name"]
-        zf.writestr(f"platforms/{platform_name.replace(' ', '_')}.xml", to_xml_bytes(platform_el))
+        zf.writestr(f"platforms/{sanitize_filename(platform_name)}.xml", to_xml_bytes(platform_el))
 
         root_el = build_library_root(mdf_id=platform_id, mdf_name=platform_name)
-        zf.writestr(f"{platform_name.replace(' ', '_')}.xml", to_xml_bytes(root_el))
+        zf.writestr(f"{sanitize_filename(platform_name)}.xml", to_xml_bytes(root_el))
 
     return buffer.getvalue()
 
@@ -68,9 +74,9 @@ def build_mdf_export_zip(mdf_snapshot: dict, *, mdf_id: str) -> bytes:
             if platform_name not in written_platforms:
                 written_platforms.add(platform_name)
                 platform_el = build_platform_element(platform_snapshot)
-                zf.writestr(f"platforms/{platform_name.replace(' ', '_')}.xml", to_xml_bytes(platform_el))
+                zf.writestr(f"platforms/{sanitize_filename(platform_name)}.xml", to_xml_bytes(platform_el))
 
         root_el = build_library_root(mdf_id=mdf_id, mdf_name=mdf_snapshot["name"])
-        zf.writestr(f"{mdf_snapshot['name'].replace(' ', '_')}.xml", to_xml_bytes(root_el))
+        zf.writestr(f"{sanitize_filename(mdf_snapshot['name'])}.xml", to_xml_bytes(root_el))
 
     return buffer.getvalue()

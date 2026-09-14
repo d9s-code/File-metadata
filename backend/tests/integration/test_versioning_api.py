@@ -37,10 +37,10 @@ def _add_mode(editor_client, ctx, name="Mode 1"):
 
 
 def test_commit_creates_monotonic_versions(editor_client, emitter_ctx):
-    v1 = editor_client.post(f"/emitters/{emitter_ctx['emitter']['id']}/versions", json={}).json()
+    v1 = editor_client.post(f"/emitters/{emitter_ctx['emitter']['id']}/versions", json={"change_summary": "test"}).json()
     assert v1["version_number"] == 1
 
-    v2 = editor_client.post(f"/emitters/{emitter_ctx['emitter']['id']}/versions", json={}).json()
+    v2 = editor_client.post(f"/emitters/{emitter_ctx['emitter']['id']}/versions", json={"change_summary": "test"}).json()
     assert v2["version_number"] == 2
 
     versions = editor_client.get(f"/emitters/{emitter_ctx['emitter']['id']}/versions").json()
@@ -49,10 +49,10 @@ def test_commit_creates_monotonic_versions(editor_client, emitter_ctx):
 
 def test_diff_shows_exactly_one_field_changed(editor_client, emitter_ctx):
     emitter_id = emitter_ctx["emitter"]["id"]
-    editor_client.post(f"/emitters/{emitter_id}/versions", json={})  # v1
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "test"})  # v1
 
     editor_client.patch(f"/emitters/{emitter_id}", json={"description": "Updated description"})
-    editor_client.post(f"/emitters/{emitter_id}/versions", json={})  # v2
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "test"})  # v2
 
     diff = editor_client.get(f"/emitters/{emitter_id}/versions/2/diff").json()
     assert diff["identical"] is False
@@ -65,10 +65,10 @@ def test_diff_shows_exactly_one_field_changed(editor_client, emitter_ctx):
 
 def test_diff_shows_added_mode_not_spurious_field_noise(editor_client, emitter_ctx):
     emitter_id = emitter_ctx["emitter"]["id"]
-    editor_client.post(f"/emitters/{emitter_id}/versions", json={})  # v1, no modes
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "test"})  # v1, no modes
 
     _add_mode(editor_client, emitter_ctx)
-    editor_client.post(f"/emitters/{emitter_id}/versions", json={})  # v2, one mode
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "test"})  # v2, one mode
 
     diff = editor_client.get(f"/emitters/{emitter_id}/versions/2/diff").json()
     assert len(diff["added"]) == 1
@@ -78,11 +78,11 @@ def test_diff_shows_added_mode_not_spurious_field_noise(editor_client, emitter_c
 
 def test_diff_against_specific_version(editor_client, emitter_ctx):
     emitter_id = emitter_ctx["emitter"]["id"]
-    editor_client.post(f"/emitters/{emitter_id}/versions", json={})  # v1
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "test"})  # v1
     editor_client.patch(f"/emitters/{emitter_id}", json={"description": "v2 desc"})
-    editor_client.post(f"/emitters/{emitter_id}/versions", json={})  # v2
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "test"})  # v2
     editor_client.patch(f"/emitters/{emitter_id}", json={"description": "v3 desc"})
-    editor_client.post(f"/emitters/{emitter_id}/versions", json={})  # v3
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "test"})  # v3
 
     diff_1_to_3 = editor_client.get(f"/emitters/{emitter_id}/versions/3/diff?against=1").json()
     assert diff_1_to_3["changed"][0]["old_value"] is None
@@ -91,7 +91,7 @@ def test_diff_against_specific_version(editor_client, emitter_ctx):
 
 def test_diff_with_no_prior_version_is_400(editor_client, emitter_ctx):
     emitter_id = emitter_ctx["emitter"]["id"]
-    editor_client.post(f"/emitters/{emitter_id}/versions", json={})  # v1
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "test"})  # v1
     resp = editor_client.get(f"/emitters/{emitter_id}/versions/1/diff")
     assert resp.status_code == 400
 
@@ -123,5 +123,31 @@ def test_status_transition_rejects_unknown_status(editor_client, emitter_ctx):
 
 
 def test_viewer_cannot_commit_version(viewer_client, editor_client, emitter_ctx):
-    resp = viewer_client.post(f"/emitters/{emitter_ctx['emitter']['id']}/versions", json={})
+    resp = viewer_client.post(f"/emitters/{emitter_ctx['emitter']['id']}/versions", json={"change_summary": "test"})
     assert resp.status_code == 403
+
+
+def test_commit_requires_a_non_blank_change_summary(editor_client, emitter_ctx):
+    emitter_id = emitter_ctx["emitter"]["id"]
+    missing = editor_client.post(f"/emitters/{emitter_id}/versions", json={})
+    assert missing.status_code == 422
+
+    blank = editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "   "})
+    assert blank.status_code == 422
+
+    ok = editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "Initial commit"})
+    assert ok.status_code == 201, ok.text
+
+
+def test_transition_to_validated_requires_a_note(editor_client, emitter_ctx):
+    emitter_id = emitter_ctx["emitter"]["id"]
+    editor_client.post(f"/emitters/{emitter_id}/status", json={"new_status": "in_review"})
+
+    missing_note = editor_client.post(f"/emitters/{emitter_id}/status", json={"new_status": "validated"})
+    assert missing_note.status_code == 422
+
+    with_note = editor_client.post(
+        f"/emitters/{emitter_id}/status", json={"new_status": "validated", "note": "Confirmed against spec."}
+    )
+    assert with_note.status_code == 200, with_note.text
+    assert "Confirmed against spec." in with_note.json()["change_summary"]

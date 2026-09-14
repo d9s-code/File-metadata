@@ -3,10 +3,11 @@ from uuid import UUID
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.core.enums import ModeStatus, TestResult
+from app.core.enums import TestResult
 from app.models.emitter import Emitter
 from app.models.ew_group import EwGroup
 from app.models.mode import Mode, ModeLine
+from app.models.user import User
 from app.schemas.emitter import EmitterOut, EmitterSummary
 from app.services.mode_test_status_service import get_last_test_status
 
@@ -33,7 +34,7 @@ def compute_emitter_summaries(db: Session, emitter_ids: list[UUID]) -> dict[UUID
         .select_from(Mode)
         .join(EwGroup, Mode.ew_group_id == EwGroup.id)
         .join(ModeLine, ModeLine.mode_id == Mode.id)
-        .filter(EwGroup.emitter_id.in_(emitter_ids), Mode.status == ModeStatus.approved)
+        .filter(EwGroup.emitter_id.in_(emitter_ids))
         .group_by(EwGroup.emitter_id)
         .all()
     )
@@ -49,7 +50,7 @@ def compute_emitter_summaries(db: Session, emitter_ids: list[UUID]) -> dict[UUID
     mode_rows = (
         db.query(Mode.id, EwGroup.emitter_id)
         .join(EwGroup, Mode.ew_group_id == EwGroup.id)
-        .filter(EwGroup.emitter_id.in_(emitter_ids), Mode.status == ModeStatus.approved)
+        .filter(EwGroup.emitter_id.in_(emitter_ids))
         .all()
     )
     mode_to_emitter = {mode_id: emitter_id for mode_id, emitter_id in mode_rows}
@@ -90,9 +91,16 @@ def attach_emitter_summaries(db: Session, emitters: list[Emitter]) -> list[Emitt
     mode_test_status_service.attach_mode_extras.
     """
     summaries = compute_emitter_summaries(db, [e.id for e in emitters])
+    checkout_holder_ids = {e.checked_out_by_id for e in emitters if e.checked_out_by_id is not None}
+    usernames_by_id = {}
+    if checkout_holder_ids:
+        usernames_by_id = dict(db.query(User.id, User.username).filter(User.id.in_(checkout_holder_ids)).all())
+
     results = []
     for e in emitters:
         out = EmitterOut.model_validate(e)
         out.summary = summaries.get(e.id, EmitterSummary())
+        if e.checked_out_by_id is not None:
+            out.checked_out_by_username = usernames_by_id.get(e.checked_out_by_id)
         results.append(out)
     return results

@@ -4,7 +4,7 @@ import pytest
 @pytest.fixture()
 def platform_with_version(editor_client):
     emitter = editor_client.post("/emitters", json={"name": "MDF Test Emitter"}).json()
-    emitter_v1 = editor_client.post(f"/emitters/{emitter['id']}/versions", json={}).json()
+    emitter_v1 = editor_client.post(f"/emitters/{emitter['id']}/versions", json={"change_summary": "test"}).json()
 
     platform = editor_client.post("/platforms", json={"name": "MDF Test Platform"}).json()
     editor_client.post(
@@ -75,7 +75,7 @@ def test_readiness_clears_once_emitter_validated_and_test_passes(editor_client, 
     emitter_id = platform_with_version["emitter"]["id"]
     # Move the emitter through draft -> in_review -> validated
     editor_client.post(f"/emitters/{emitter_id}/status", json={"new_status": "in_review"})
-    editor_client.post(f"/emitters/{emitter_id}/status", json={"new_status": "validated"})
+    editor_client.post(f"/emitters/{emitter_id}/status", json={"new_status": "validated", "note": "Looks good."})
 
     # Re-pin the platform to a version that reflects the now-validated emitter, then re-commit the platform
     new_emitter_version = editor_client.get(f"/emitters/{emitter_id}/versions").json()[-1]

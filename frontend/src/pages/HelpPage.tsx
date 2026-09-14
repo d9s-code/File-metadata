@@ -140,8 +140,8 @@ export function HelpPage() {
           </li>
           <li>
             <span className="role-badge">editor</span> — everything a viewer can do, plus creating and
-            editing Emitters/Platforms/MDFs, Modes, EW Groups, Sources, Elements, logging tests, proposing
-            and approving Mode drafts, approving or rejecting imported Sources, and committing versions.
+            editing Emitters/Platforms/MDFs, Modes, EW Groups, Sources, Elements, logging tests, approving
+            or rejecting imported Sources, and committing versions.
           </li>
           <li>
             <span className="role-badge">admin</span> — everything an editor can do; the highest rank.
@@ -167,7 +167,7 @@ export function HelpPage() {
         <h2>Emitters</h2>
         <p>
           The Emitters list (top nav) shows every Emitter with its current status, and RF/PW/PRI/Scan
-          min/max plus a Modes-passing count computed across its approved Modes — every column is
+          min/max plus a Modes-passing count computed across its Modes — every column is
           sortable, and the toolbar above the table filters by name, designation, or any of those
           RF/PW/PRI/Scan ranges. <strong>+ Add Emitter</strong> opens a small form as an overlay rather
           than a full page; click a row to open that Emitter.
@@ -225,13 +225,10 @@ export function HelpPage() {
               test record that produced it.
             </p>
             <p>
-              Metadata edits (name, notes, EW Group) apply immediately. Editing a Mode's actual line values
-              (RF/PW/PRI/deltas) works differently: clicking <strong>Propose edit</strong> creates a{" "}
-              <span className="mode-status-badge mode-status-draft">Pending Review</span> draft alongside
-              the existing approved Mode, rather than changing it in place. The draft can then be{" "}
-              <strong>approved</strong> — which supersedes the original — or <strong>rejected</strong>, by
-              any editor. This keeps a live Mode's values stable (and safe to reference from a committed
-              version) while a proposed change is still being reviewed.
+              Every field — metadata (name, notes, EW Group) and the actual line values (RF/PW/PRI/deltas)
+              alike — edits in place immediately, the same way everything else in the app works. The only
+              gate is holding the Emitter's <strong>checkout</strong> (see below): with it, click{" "}
+              <strong>Edit</strong> on a Mode's row to change its line right there.
             </p>
           </div>
 
@@ -252,10 +249,9 @@ export function HelpPage() {
                 and notes to the selection, or exclude them from the test entirely.
               </li>
               <li>
-                The chip grid defaults to approved Modes only, and can be narrowed further by Result,
-                Status, or a "not tested since" date — useful once an Emitter has 70+ Modes. Narrowing
-                only changes which chips are <em>visible</em>; a chip you already flagged stays included in
-                the test even while filtered out of view.
+                The chip grid can be narrowed by Result or a "not tested since" date — useful once an
+                Emitter has 70+ Modes. Narrowing only changes which chips are <em>visible</em>; a chip you
+                already flagged stays included in the test even while filtered out of view.
               </li>
               <li>
                 Selecting exactly one Mode also reveals an <strong>observed values</strong> panel — what
@@ -356,12 +352,27 @@ export function HelpPage() {
         </div>
 
         <div className="help-subsection" id="emitter-versions">
-          <h3>Version history</h3>
+          <h3>Editing lock, Commit, Discard, Revert & Fork</h3>
           <p>
-            <strong>Commit Version</strong> takes an immutable snapshot of the Emitter's current state.
-            Only <strong>approved</strong> Modes are included in a snapshot, so a pending draft never leaks
-            into a released version. The page shows a diff between any two versions, called out
-            field-by-field rather than as a raw JSON dump.
+            Editing an Emitter (or any of its EW Groups/Sources/Modes/Elements) requires holding its{" "}
+            <strong>checkout</strong> first — a banner above the tabs shows whether it's free, held by you,
+            or held by someone else, with a <strong>Start Editing</strong> button when it's free. This
+            stops two people from editing the same Emitter at once; an Admin can force-release a stale
+            lock. A brand-new Emitter is auto-checked-out to whoever created it.
+          </p>
+          <p>
+            <strong>Commit Version</strong> takes an immutable snapshot of the Emitter's current state and
+            requires a short message describing what changed. <strong>Discard changes</strong> (shown while
+            you hold the checkout) throws away everything since the last commit, resetting live data back
+            to it. The page also shows a diff between any two versions, called out field-by-field rather
+            than as a raw JSON dump.
+          </p>
+          <p>
+            <strong>Revert to this version</strong> resets live data to match an older committed version
+            and immediately commits a new version documenting the revert — like <code>git revert</code>,
+            history is never rewritten or deleted. <strong>Fork this version</strong> instead spins that
+            version off into a brand-new, fully independent Emitter you can experiment on freely without
+            touching the original.
           </p>
         </div>
 

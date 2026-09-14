@@ -3,13 +3,11 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import Date, cast, func
 from sqlalchemy.orm import Session, joinedload
 
-from app.core.enums import AuditAction, EmitterStatus, MdfStatus, ModeStatus, SourceStatus, TestResult
+from app.core.enums import AuditAction, EmitterStatus, MdfStatus, SourceStatus, TestResult
 from app.models.audit_log import AuditLog
 from app.models.emitter import Emitter
 from app.models.emitter_version import EmitterVersion
-from app.models.ew_group import EwGroup
 from app.models.mdf import Mdf
-from app.models.mode import Mode
 from app.models.source import Source
 from app.models.test_record import TestRecord
 from app.schemas.audit_log import AuditLogOut
@@ -111,22 +109,6 @@ def _compute_pending_approvals(db: Session) -> list[dict]:
                 "message": f"Source '{source.name}' on Emitter '{emitter_name}' is awaiting review.",
                 "kind": "source",
                 "emitter_id": str(source.emitter_id),
-            }
-        )
-
-    pending_mode_drafts = (
-        db.query(Mode, EwGroup.emitter_id, Emitter.name)
-        .join(EwGroup, Mode.ew_group_id == EwGroup.id)
-        .join(Emitter, EwGroup.emitter_id == Emitter.id)
-        .filter(Mode.status == ModeStatus.draft, Emitter.is_deleted.is_(False))
-        .all()
-    )
-    for mode, emitter_id, emitter_name in pending_mode_drafts:
-        pending.append(
-            {
-                "message": f"Mode '{mode.name}' on Emitter '{emitter_name}' has a proposed edit awaiting approval.",
-                "kind": "mode",
-                "emitter_id": str(emitter_id),
             }
         )
 

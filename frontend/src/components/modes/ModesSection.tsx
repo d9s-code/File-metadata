@@ -11,6 +11,8 @@ import { compareModes, searchableText, type ModeSortKey, type SortDir } from "./
 import { RequireRole } from "../../auth/RequireAuth";
 import { EmptyState } from "../common/EmptyState";
 import { LoadingState } from "../common/LoadingState";
+import { useEmitter } from "../../state/hooks/useEmitters";
+import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 
 const VIEW_STORAGE_KEY = "modesView";
 
@@ -31,8 +33,7 @@ export function ModesSection({
   ewGroups: EwGroup[];
   sources: Source[];
 }) {
-  const [includeHistory, setIncludeHistory] = useState(false);
-  const { data: modes, isLoading } = useEmitterModes(emitterId, includeHistory);
+  const { data: modes, isLoading } = useEmitterModes(emitterId);
   const { data: batches } = useEmitterBatches(emitterId);
   const deleteMode = useDeleteMode(emitterId);
   const deleteBatch = useDeleteBatch(emitterId);
@@ -45,6 +46,8 @@ export function ModesSection({
   const [sortKey, setSortKey] = useState<ModeSortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [showForm, setShowForm] = useState(false);
+  const { data: emitter } = useEmitter(emitterId);
+  const { canEdit } = useEmitterCheckoutState(emitter);
 
   useEffect(() => {
     try {
@@ -100,7 +103,8 @@ export function ModesSection({
     }
   }
 
-  const canAddMode = ewGroups.length > 0 && sources.length > 0;
+  const hasSetup = ewGroups.length > 0 && sources.length > 0;
+  const canAddMode = hasSetup && canEdit;
 
   return (
     <section className="card">
@@ -147,14 +151,6 @@ export function ModesSection({
             </button>
           </RequireRole>
         )}
-        <label className="checkbox-label" title="Include superseded and rejected Modes">
-          <input
-            type="checkbox"
-            checked={includeHistory}
-            onChange={(e) => setIncludeHistory(e.target.checked)}
-          />
-          Show history
-        </label>
       </div>
 
       {isLoading ? (
@@ -192,12 +188,17 @@ export function ModesSection({
       )}
 
       <RequireRole minimum="editor">
-        {!canAddMode ? (
+        {!hasSetup ? (
           <p className="hint-text">Add a Source and an EW Group first.</p>
-        ) : showForm ? (
+        ) : showForm && canAddMode ? (
           <ModeForm emitterId={emitterId} ewGroups={ewGroups} sources={sources} defaultEwGroupId={ewGroupFilter} />
         ) : (
-          <button className="icon-button" onClick={() => setShowForm(true)}>
+          <button
+            className="icon-button"
+            disabled={!canEdit}
+            title={canEdit ? undefined : "Start editing this Emitter first"}
+            onClick={() => setShowForm(true)}
+          >
             + Add Mode
           </button>
         )}

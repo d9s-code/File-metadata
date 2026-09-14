@@ -3,7 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, computed_field, field_validator, model_validator
 
-from app.core.enums import ModeStatus, PriType, TestResult, TestType
+from app.core.enums import PriType, TestResult, TestType
 from app.services.delta import apply_delta
 from app.services.frametime_service import compute_frametime_us
 
@@ -20,8 +20,7 @@ class ModeLineFields(BaseModel):
     pw_min_us: float
     pw_max_us: float
     # Set per parameter, not per Mode — required on every manual line submission,
-    # same as rf_min_mhz/etc.; governed by the same draft-propose/approve cycle as
-    # the rest of the line once a Mode is approved (see ModeUpdate/update_mode).
+    # same as rf_min_mhz/etc.
     rf_range_matching: bool
     pw_range_matching: bool
     pri_range_matching: bool
@@ -148,24 +147,10 @@ class ModeUpdate(BaseModel):
     sort_order: int | None = None
     ew_group_id: UUID | None = None
     line: ModeLineFields | None = None
-
-
-class ModeDraftCreate(BaseModel):
-    """Proposes a line edit to an already-`approved` Mode. Creates a new
-    `draft` Mode (same name/notes/EW-Group/Source as the original — only the
-    line, and optionally the PRI Type it's expressed in, can change) that,
-    once approved, supersedes the original. See ModeStatus.
-    """
-
-    pri_type: PriType
-    line: ModeLineFields
+    # Test Record(s) whose findings explain this line edit, for a value that
+    # didn't come from the Source's data (see TestRecordModeLinkType). Only
+    # meaningful when `line` is also set.
     derived_from_test_record_ids: list[UUID] = []
-
-    @model_validator(mode="after")
-    def check_pri_type(self) -> "ModeDraftCreate":
-        validate_pri_type_fields(self.pri_type, self.line)
-        require_manual_deltas(self.pri_type, self.line)
-        return self
 
 
 class TestRecordBrief(BaseModel):
@@ -243,8 +228,6 @@ class ModeOut(BaseModel):
     notes: str | None = None
     sort_order: int
     generation_batch_id: UUID | None = None
-    status: ModeStatus
-    supersedes_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
     line: ModeLineOut | None = None

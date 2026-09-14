@@ -32,7 +32,6 @@ export function EmitterTestHistory({
       availableModes={(modes ?? []).map((m) => ({
         id: m.id,
         name: m.name,
-        status: m.status,
         last_tested_at: m.last_tested_at,
         last_test_result: m.last_test_result,
       }))}

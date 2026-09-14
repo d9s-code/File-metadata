@@ -12,6 +12,31 @@ cd File-metadata
 git checkout claude/rf-recognizer-emitter-profiles-le5jik
 ```
 
+## ⚠ If you're merging another branch into this one
+
+This session (item 12 below) **removed the entire Mode-level propose/approve/reject
+workflow** — `Mode.status`, `Mode.supersedes_id`, `POST .../modes/{id}/draft`,
+`.../approve`, `.../reject` are all gone from both backend and frontend, replaced by
+direct in-place line edits gated by a new Emitter-level **checkout** lock (see below).
+Before merging any other branch/agent's work into this one:
+
+- **Search the incoming branch for `ModeStatus`, `supersedes_id`, `propose_mode_draft`,
+  `ModeDraftForm`, `/draft`/`/approve`/`/reject` on the modes router.** If it touches any
+  of these, you have a real conflict to resolve by hand — the underlying feature it's
+  built on no longer exists on this side.
+- **Migration `d6c8b50650d6_remove_mode_draft_workflow` runs `DELETE FROM modes WHERE
+  status != 'approved'` before dropping the column.** If the other branch's work (or
+  data) created any Mode with `status` other than `approved` (i.e. an actual pending
+  draft), running this migration after merging will silently delete those rows. Check
+  for that *before* running `alembic upgrade head` on any database the other branch's
+  changes have touched.
+- Every mutating Emitter/EW-Group/Source/Mode endpoint now requires the Emitter to be
+  **checked out** by the requesting user (`checked_out_by_id` on `emitters`, gated via
+  `require_emitter_checkout`/`require_ew_group_checkout` in `app/deps.py`). If the other
+  branch added a new mutating endpoint under `/emitters/{emitter_id}/...` or
+  `/ew-groups/{ew_group_id}/modes/...`, it almost certainly needs the same gate added —
+  it won't fail loudly, it'll just let anyone edit a checked-out-by-someone-else Emitter.
+
 ## Where to start
 
 - **[README.md](../README.md)** — what this app is, the stack, and exact local-dev / Docker
@@ -174,6 +199,88 @@ this log starts. Since then, in order:
       *your* repo's real state rather than trying to reconcile a broken migration
       chain or import code wholesale.
 
+12. **This session** (a separate session from all of the above — picked up the repo cold,
+    already at `d5ac357`). Two pieces of work:
+
+    - **Small fix, found while seeding demo data:** the PRS exporter
+      (`backend/app/services/prs_export/`) didn't sanitize `/`/`\` out of Emitter/Platform
+      names when turning them into zip entry filenames or `<EmitterFile>` path references
+      — a realistic designation like `AN/APG-99` silently produced a stray nested zip
+      directory and a broken path. Added `sanitize_filename()` in `serializer.py`, used it
+      everywhere a name becomes a path in both `serializer.py` and `packager.py`, plus a
+      regression test.
+    - **Main work: Emitter checkout, revert, and fork**, requested because editing an
+      Emitter always mutated live rows directly with no way to undo, and the existing
+      Mode-line propose/approve micro-workflow (item 1's `delta` era design, formalized
+      further in item 10) added an extra click without giving the same protection at the
+      whole-Emitter level. Replaced both with one model — full design rationale and the
+      decisions made along the way are in `C:\Users\d9syi\.claude\plans\deep-greeting-parasol.md`
+      if you need the "why" behind a specific choice, but the load-bearing points:
+      - **Checkout**: `emitters.checked_out_by_id`/`checked_out_at`, claimed via
+        `POST /emitters/{id}/checkout`, released via `DELETE` (holder or Admin), checked by
+        every mutating Emitter/EW-Group/Source/Mode endpoint (see the merge-warning above).
+        A new Emitter auto-checks-out to its creator.
+      - **Discard** (`POST /emitters/{id}/discard`) and **Revert**
+        (`POST /emitters/{id}/versions/{n}/revert`) both reconcile live rows to a target
+        committed snapshot via one engine, `emitter_revert_service.py::reconcile_emitter_to_snapshot`
+        — matches EW Group/Source/Mode/Element by the UUID a snapshot already preserves, so
+        a surviving row keeps its id (and its TestRecord links) and only rows absent from
+        the target get deleted. Discard doesn't commit anything; Revert does (behaves like
+        `git revert`, not `git reset` — history is never rewritten).
+      - **Fork** (`POST /emitters/{id}/versions/{n}/fork`) spins a version off into a
+        brand-new, fully independent Emitter via `emitter_revert_service.py::build_forked_emitter`
+        (fresh UUIDs throughout), auto-checked-out to the requester, with
+        `forked_from_emitter_id`/`forked_from_version_id` set for traceability.
+      - Mode-level propose/approve/reject is **gone** — see the merge warning above. Line
+        edits are now instant `PATCH`es like everything else, gated only by the Emitter's
+        checkout. The "derived from these test records" traceability that used to live on
+        the propose-draft payload moved onto `ModeUpdate` directly.
+      - Emitter "Commit Version" now **requires** a non-blank `change_summary` (Platform/MDF
+        commits are unaffected, still optional — they share the versioning *engine*, not the
+        request schema, which is now split: `CommitVersionRequest` vs. the Emitter-only
+        `CommitEmitterVersionRequest`). Transitioning an Emitter to **Operational**
+        (`validated`) also now requires a note, folded into the same `note` field the
+        existing Operational→Needs-rework guard already used — one prompt, not two.
+      - Two new Alembic migrations: `08de475c3012_emitter_checkout_and_fork_provenance`,
+        `d6c8b50650d6_remove_mode_draft_workflow` (destructive — see merge warning). Both
+        applied to this session's dev `rf_emitter_db`; **run `alembic upgrade head`**
+        wherever else this branch lands.
+      - **A real SQLAlchemy gotcha, worth remembering**: the first version of the new
+        `Emitter.checked_out_by`/`forked_from_emitter`/`forked_from_version_id` fields used
+        real `relationship()` objects and a real FK for `forked_from_version_id`. That
+        created a genuine `emitters ↔ emitter_versions` table cycle
+        (`EmitterVersion.emitter_id` already points back at `Emitter`), which didn't just
+        break `Base.metadata.create_all`/`drop_all` (fixed with `use_alter=True` on the raw
+        column) — it **also intermittently broke flush ordering for entirely unrelated
+        inserts/deletes in the same transaction** (an `audit_log` insert racing a hard
+        Emitter delete, ~50% flaky, reproduced with a tight repro script, not caught by a
+        single test run). Root cause: two ORM relationships between the same two mapper
+        classes (the primary `versions`/`emitter` pair plus the new one) gave the UOW
+        dependency graph a real ambiguity, even though the second relationship never
+        cascaded anything. Fix: dropped `forked_from_version_id`'s FK constraint entirely
+        (it's a soft/display-only reference now, like `AuditLog.emitter_id`) and removed the
+        `checked_out_by`/`forked_from_emitter` relationship objects — nothing actually used
+        `emitter.checked_out_by` or `.forked_from_emitter` as ORM objects, only the raw `_id`
+        columns, so this cost nothing. **If you ever add a new FK-with-relationship from
+        `Emitter` back toward something `Emitter` already has a relationship to (directly or
+        transitively), run the full suite 5+ times before trusting one green run** — this
+        class of bug is real and doesn't announce itself as a warning every time.
+      - New tests: `test_emitter_checkout_api.py`, `test_emitter_revert_api.py` (including a
+        case reverting away an entire EW Group, which is what surfaced a second, harmless
+        SAWarning about a redundant cascade delete — fixed with a `db.expire_all()` after
+        the explicit Mode-deletion pass, see the comment in `emitter_revert_service.py`),
+        `test_emitter_fork_api.py`. Full suite: **175 passing**, run clean 2x in a row
+        after the SQLAlchemy fix above (given the flakiness discovered, don't trust a single
+        green run on this branch's DB-touching tests without rerunning at least once).
+      - Frontend: `CheckoutBanner.tsx`, `useEmitterCheckout.ts`, `ModeEditForm.tsx` (replaces
+        the deleted `ModeDraftForm.tsx`), `ForkVersionModal.tsx`, a "Revert to this version"
+        action in `EmitterVersionHistoryPage.tsx`. `tsc -b` compiles clean. Verified live in
+        the Browser pane: create → auto-checkout → edit a Mode line → discard (reverted) →
+        commit → fork → confirmed the fork is independently editable and the original
+        untouched.
+      - `docs/FEATURES.md` §3 and §5 rewritten for the above; the in-app Help page
+        (`HelpPage.tsx`) updated to match.
+
 ## Open items (not yet implemented)
 
 ### From this session's PRS export cleanup (item 11 above)
@@ -209,6 +316,9 @@ this log starts. Since then, in order:
   while Source deletion is properly blocked with a 409 if it still has Modes — same category of
   action, inconsistent safety behavior, not signaled anywhere.
 - **No "uncommitted draft changes" indicator** anywhere in the Emitter/Platform/MDF editors.
+  Partially adjacent to item 12's new `CheckoutBanner` (Emitter only) — that shows *who's
+  editing*, not *whether there are uncommitted changes*; still worth building for real, and
+  Platform/MDF have neither checkout nor a dirty-state indicator at all.
 - **Ambiguity run results are ephemeral** (`runId` is local `useState`, lost on navigation) and
   **the checked version is never displayed** even though `AmbiguityRun` carries
   `emitter_version_id`/etc. — confirmed unused in any JSX via grep. `useAmbiguityRuns` (past-runs
@@ -294,6 +404,19 @@ a materially different environment from whatever produced the notes this section
   — this is why an offline-installable bundle (backend wheels + frontend `node_modules`, not
   just source) was produced alongside this session's final push; see the zip/bundle handed to
   the user directly rather than committed to the repo.
+
+**Delta for item 12's session** (same Windows machine, still not the same as wherever you are):
+Postgres is now **18** (`postgresql-x64-18`), not 17 — `backend/.env`'s `DATABASE_URL` had a
+stale port (`5433`) left over from a Docker-based setup that was never actually running; fixed
+to `5432` to match the native service. Docker Desktop was attempted (`docker compose up`) and
+got stuck mid-startup (never finished past first-run initialization in ~2 minutes) — gave up on
+it and used the native Postgres service directly instead, same as item 10's session; if Docker
+Desktop is still flaky wherever you are, don't burn time waiting on it, the native-service path
+works fine. Admin login this session: `admin` / `admin1234` (again dev-only, don't assume it
+carries anywhere else). `rf_app`'s Postgres role password had also drifted from what
+`backend/tests/conftest.py` hardcodes (`rf_app_dev_pw`) — reset the role's password to match
+rather than the other way around, since the test suite's expectation is the one that can't
+change without editing tracked code.
 
 ## Working conventions established this session (carry these forward)
 

@@ -5,7 +5,7 @@ from sqlalchemy import ARRAY, Boolean, DateTime, ForeignKey, Integer, Numeric, S
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.enums import ElementType, ElementVariant, ModeStatus, PriType
+from app.core.enums import ElementType, ElementVariant, PriType
 from app.database import Base
 from app.models.mixins import TimestampMixin, UUIDPkMixin
 
@@ -29,22 +29,12 @@ class Mode(UUIDPkMixin, TimestampMixin, Base):
     generation_batch_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("mode_generation_batches.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    status: Mapped[ModeStatus] = mapped_column(nullable=False, default=ModeStatus.approved, server_default=ModeStatus.approved.value)
-    # Set only on a `draft` Mode: the `approved` Mode it proposes to replace.
-    # SET NULL on the original's deletion — a dangling draft against a Mode
-    # that no longer exists just becomes an ordinary standalone draft rather
-    # than being force-deleted itself.
-    supersedes_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("modes.id", ondelete="SET NULL"), nullable=True, index=True
-    )
-
     ew_group: Mapped["EwGroup"] = relationship(back_populates="modes")  # noqa: F821
     source: Mapped["Source"] = relationship(back_populates="modes")  # noqa: F821
     line: Mapped["ModeLine | None"] = relationship(
         back_populates="mode", cascade="all, delete-orphan", uselist=False
     )
     generation_batch: Mapped["ModeGenerationBatch | None"] = relationship(back_populates="modes")
-    supersedes: Mapped["Mode | None"] = relationship(remote_side="Mode.id", foreign_keys=[supersedes_id])
 
 
 class ModeLine(UUIDPkMixin, Base):

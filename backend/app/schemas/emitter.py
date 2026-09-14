@@ -59,4 +59,9 @@ class EmitterOut(BaseModel):
     deleted_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
+    checked_out_by_id: UUID | None = None
+    checked_out_by_username: str | None = None
+    checked_out_at: datetime | None = None
+    forked_from_emitter_id: UUID | None = None
+    forked_from_version_id: UUID | None = None
     summary: EmitterSummary = EmitterSummary()

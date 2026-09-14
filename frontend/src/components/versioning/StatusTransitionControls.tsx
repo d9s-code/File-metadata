@@ -12,11 +12,17 @@ const EMITTER_TRANSITIONS: Record<EmitterStatus, EmitterStatus[]> = {
   deprecated: ["draft"],
 };
 
-// Flagging previously-Operational data as needing rework is a claim that
-// something concrete broke — require the note explaining what, both here
-// and (authoritatively) server-side, so it's traceable later.
+// Two cases require a message, both here and (authoritatively) server-side:
+// flagging previously-Operational data as needing rework is a claim that
+// something concrete broke, and declaring something Operational is the one
+// status change everything downstream (Platforms/MDFs pinning this Emitter)
+// treats as a trust signal — both deserve a documented reason.
 function requiresNote(status: EmitterStatus, next: EmitterStatus): boolean {
-  return status === "validated" && next === "deprecated";
+  return (status === "validated" && next === "deprecated") || next === "validated";
+}
+
+function noteLabel(next: EmitterStatus): string {
+  return next === "validated" ? "What was validated? (required)" : "What needs rework? (required)";
 }
 
 export function StatusTransitionControls({ emitterId, status }: { emitterId: string; status: EmitterStatus }) {
@@ -63,7 +69,7 @@ export function StatusTransitionControls({ emitterId, status }: { emitterId: str
       {pendingNext && (
         <div className="status-note-form">
           <label>
-            What needs rework? (required)
+            {noteLabel(pendingNext)}
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}

@@ -28,7 +28,7 @@ def test_export_endpoint_returns_full_xml_for_committed_mdf_version(editor_clien
         f"/ew-groups/{ew_group['id']}/modes",
         json={"source_id": source["id"], "name": "Export Mode", "pri_type": "fixed", "line": FIXED_LINE},
     )
-    emitter_v1 = editor_client.post(f"/emitters/{emitter['id']}/versions", json={}).json()
+    emitter_v1 = editor_client.post(f"/emitters/{emitter['id']}/versions", json={"change_summary": "test"}).json()
 
     platform = editor_client.post("/platforms", json={"name": "Export Platform"}).json()
     editor_client.post(

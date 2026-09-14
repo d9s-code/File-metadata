@@ -3,7 +3,6 @@ JSON-serializable dict (no Decimal/UUID/datetime objects) suitable for
 storing in a `snapshot JSONB` column and for structured diffing.
 """
 
-from app.core.enums import ModeStatus
 from app.models.emitter import Emitter
 from app.models.mdf import Mdf
 from app.models.mode import Mode, ModeElement
@@ -83,16 +82,7 @@ def build_emitter_snapshot(emitter: Emitter) -> dict:
                 "threat_priority": g.threat_priority,
                 "ageout": _num(g.ageout),
                 "sort_order": g.sort_order,
-                # Only the currently-canonical line per Mode — a pending draft
-                # edit isn't vetted yet, and a superseded/rejected Mode isn't
-                # live truth anymore. This is what keeps ambiguity checks and
-                # XML export (both read purely off this snapshot) automatically
-                # approval-aware with no changes needed on their end.
-                "modes": [
-                    _mode_dict(m)
-                    for m in sorted(g.modes, key=lambda m: m.sort_order)
-                    if m.status == ModeStatus.approved
-                ],
+                "modes": [_mode_dict(m) for m in sorted(g.modes, key=lambda m: m.sort_order)],
             }
             for g in sorted(emitter.ew_groups, key=lambda g: g.sort_order)
         ],

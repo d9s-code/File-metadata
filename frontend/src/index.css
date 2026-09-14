@@ -1657,6 +1657,26 @@ span.test-derived-badge {
 .emitter-summary-row strong {
   color: var(--text);
 }
+
+.checkout-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card-bg);
+  font-size: 0.85rem;
+}
+.checkout-badge {
+  font-weight: 600;
+  color: var(--muted);
+}
+.checkout-badge-mine {
+  color: var(--primary);
+}
 .status-controls {
   display: flex;
   gap: 0.5rem;

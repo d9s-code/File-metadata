@@ -8,6 +8,8 @@ import { ParameterSequencesPanel } from "./ParameterSequencesPanel";
 import { CartesianProductButton } from "./CartesianProductButton";
 import { SourceForm } from "./SourceForm";
 import { RequireRole } from "../../auth/RequireAuth";
+import { useEmitter } from "../../state/hooks/useEmitters";
+import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 import { ApiRequestError } from "../../api/client";
 import { EmptyState } from "../common/EmptyState";
 import { SortableColumnHeader } from "../common/SortableColumnHeader";
@@ -56,6 +58,9 @@ export function SourcesTable({
   const [showForm, setShowForm] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(sources, compareSources);
+  const { data: emitter } = useEmitter(emitterId);
+  const { canEdit } = useEmitterCheckoutState(emitter);
+  const editTitle = canEdit ? undefined : "Start editing this Emitter first";
 
   async function handleDelete(source: Source) {
     setDeleteError(null);
@@ -129,21 +134,23 @@ export function SourcesTable({
                         <>
                           <button
                             className="link-button"
-                            disabled={approveSource.isPending}
+                            disabled={approveSource.isPending || !canEdit}
+                            title={editTitle}
                             onClick={() => void approveSource.mutateAsync(s.id)}
                           >
                             Approve
                           </button>{" "}
                           <button
                             className="link-button"
-                            disabled={rejectSource.isPending}
+                            disabled={rejectSource.isPending || !canEdit}
+                            title={editTitle}
                             onClick={() => void rejectSource.mutateAsync(s.id)}
                           >
                             Reject
                           </button>{" "}
                         </>
                       )}
-                      <button className="link-button" onClick={() => void handleDelete(s)}>
+                      <button className="link-button" disabled={!canEdit} title={editTitle} onClick={() => void handleDelete(s)}>
                         Delete
                       </button>
                     </RequireRole>
@@ -178,10 +185,10 @@ export function SourcesTable({
       )}
       {deleteError && <div className="error-text">{deleteError}</div>}
       <RequireRole minimum="editor">
-        {showForm ? (
+        {showForm && canEdit ? (
           <SourceForm emitterId={emitterId} />
         ) : (
-          <button className="icon-button" onClick={() => setShowForm(true)}>
+          <button className="icon-button" disabled={!canEdit} title={editTitle} onClick={() => setShowForm(true)}>
             + Add Source
           </button>
         )}

@@ -4,6 +4,8 @@ import { useDeleteEwGroup } from "../../state/hooks/useEwGroups";
 import { useConfirmDialog } from "../common/ConfirmDialog";
 import { EwGroupForm } from "./EwGroupForm";
 import { RequireRole } from "../../auth/RequireAuth";
+import { useEmitter } from "../../state/hooks/useEmitters";
+import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 import { EmptyState } from "../common/EmptyState";
 import { SortableColumnHeader } from "../common/SortableColumnHeader";
 import { useSortableTable } from "../common/useSortableTable";
@@ -29,6 +31,9 @@ export function EwGroupsTable({ emitterId, ewGroups }: { emitterId: string; ewGr
   const { confirmDelete, dialog } = useConfirmDialog();
   const [showForm, setShowForm] = useState(false);
   const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(ewGroups, compareEwGroups);
+  const { data: emitter } = useEmitter(emitterId);
+  const { canEdit } = useEmitterCheckoutState(emitter);
+  const editTitle = canEdit ? undefined : "Start editing this Emitter first";
 
   async function handleDelete(group: EwGroup) {
     if (await confirmDelete(`Delete EW Group "${group.name}"? Its Modes will be deleted too.`)) {
@@ -97,7 +102,7 @@ export function EwGroupsTable({ emitterId, ewGroups }: { emitterId: string; ewGr
                 <td>{g.ageout ?? "—"}</td>
                 <td>
                   <RequireRole minimum="editor">
-                    <button className="link-button" onClick={() => void handleDelete(g)}>
+                    <button className="link-button" disabled={!canEdit} title={editTitle} onClick={() => void handleDelete(g)}>
                       Delete
                     </button>
                   </RequireRole>
@@ -108,10 +113,10 @@ export function EwGroupsTable({ emitterId, ewGroups }: { emitterId: string; ewGr
         </table>
       )}
       <RequireRole minimum="editor">
-        {showForm ? (
+        {showForm && canEdit ? (
           <EwGroupForm emitterId={emitterId} />
         ) : (
-          <button className="icon-button" onClick={() => setShowForm(true)}>
+          <button className="icon-button" disabled={!canEdit} title={editTitle} onClick={() => setShowForm(true)}>
             + Add EW Group
           </button>
         )}

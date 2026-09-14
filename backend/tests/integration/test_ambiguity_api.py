@@ -34,7 +34,7 @@ def emitter_with_two_overlapping_modes(editor_client):
         f"/ew-groups/{ew_group['id']}/modes",
         json={"source_id": source["id"], "name": "Mode 2", "pri_type": "fixed", "line": FIXED_LINE},
     )
-    version = editor_client.post(f"/emitters/{emitter['id']}/versions", json={}).json()
+    version = editor_client.post(f"/emitters/{emitter['id']}/versions", json={"change_summary": "test"}).json()
     return {"emitter": emitter, "version": version}
 
 
@@ -139,7 +139,7 @@ def test_platform_scope_run_finds_cross_emitter_ambiguity(editor_client, emitter
         f"/ew-groups/{ew_group2['id']}/modes",
         json={"source_id": source2["id"], "name": "Mode X", "pri_type": "fixed", "line": FIXED_LINE},
     )
-    v2 = editor_client.post(f"/emitters/{emitter2['id']}/versions", json={}).json()
+    v2 = editor_client.post(f"/emitters/{emitter2['id']}/versions", json={"change_summary": "test"}).json()
 
     platform = editor_client.post("/platforms", json={"name": "Ambiguity Platform"}).json()
     editor_client.post(

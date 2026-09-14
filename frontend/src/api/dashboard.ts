@@ -9,7 +9,7 @@ export interface NeedsAttentionItem {
 
 export interface PendingApprovalItem {
   message: string;
-  kind: "source" | "mode";
+  kind: "source";
   emitter_id: string;
 }
 

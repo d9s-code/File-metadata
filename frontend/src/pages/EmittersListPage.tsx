@@ -236,7 +236,7 @@ export function EmittersListPage() {
           </button>
         </div>
         <p className="hint-text">
-          RF/PW/PRI filters match an Emitter if any of its approved Modes falls within the given range. Scan
+          RF/PW/PRI filters match an Emitter if any of its Modes falls within the given range. Scan
           filters match against the Emitter's EW Groups directly.
         </p>
       </div>

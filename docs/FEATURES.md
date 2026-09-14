@@ -97,24 +97,17 @@ A manually-created or manually-edited Stagger Mode Line carries its own `frame_t
 
 A per-parameter flag — `RF`, `PW`, and `PRI` are each independently on or off for a given Mode Line. Currently a stored flag only; no behavior elsewhere in the app reacts to it yet, but it's shown as its own sortable column on the Modes table (and its own field on the Mode cards view), rendering one small tag per active parameter (e.g. `RF` `PRI` side by side) or `—` if none are set.
 
-Range matching is treated as **any other Mode Line parameter** — not a metadata field you can toggle freely. It's set when creating a Mode, and on an already-`approved` Mode it can only change through the same propose-edit/approve cycle as RF/PW/PRI values themselves (see [Editing an existing Mode](#editing-an-existing-mode-draft-edits--approval) below) — a direct attempt to flip it on an approved Mode is rejected the same way a direct line edit is.
+Range matching is treated as **any other Mode Line parameter** — set when creating a Mode, and freely editable afterward like the rest of the line (see [Editing an existing Mode](#editing-an-existing-mode) below), gated only by holding the Emitter's checkout (see [Versioning & Diffs](#5-versioning--diffs)).
 
 ---
 
-### Editing an existing Mode: draft edits & approval
+### Editing an existing Mode
 
-Editing a Mode's **metadata** (name, notes, which EW Group it's filed under) is an instant edit, same as creating one. But editing its **line** — the actual RF/PW/PRI/jitter/stagger values, deltas, and range matching flags — works differently once the Mode is `approved` (the normal state for anything already created):
-
-- **Propose edit** creates a new `draft` Mode carrying your edited line, linked back to the Mode it would replace. The original is untouched and still fully live (still what ambiguity checks, XML export, and Emitter version commits see) while the draft sits pending.
-- Only one pending draft per Mode at a time — you can't propose a second edit while one is already under review.
-- **Approve** flips the draft to the live, canonical line and marks the Mode it replaced as `superseded`. Superseded Modes are kept permanently (full lineage, nothing is ever deleted) but are excluded from the active Modes list, ambiguity checks, and XML export — toggle **Show history** on the Modes table to see them.
-- **Reject** discards the draft; the original Mode is never touched.
-
-A `draft` Mode's line can still be freely edited directly (refining your own pending proposal) — the propose/approve gate only applies to the currently-`approved` line.
+Every field on a Mode — metadata (name, notes, which EW Group it's filed under) and the actual line (RF/PW/PRI/jitter/stagger values, deltas, range matching flags) alike — edits in place immediately, the same way everything else in the app works. The only gate is holding the Emitter's **checkout**: without it, every mutating action on the Emitter and everything under it (EW Groups, Sources, Modes, Elements) is rejected. There's no separate propose/approve step for a Mode line anymore — if you get something wrong, either edit it again or use the Emitter's **Discard changes** / **Revert to a version** actions (see [Versioning & Diffs](#5-versioning--diffs)) to get back to a known-good state.
 
 ### Test-Derived Modes
 
-A Mode's values don't always come from a Source — real-world testing can turn up an emission a datasheet never mentioned, or reveal that an existing Mode's parameters are wrong. Both the "+ Add Mode" form and a draft-edit proposal let you optionally link the Mode to one or more existing **Test Records** whose findings explain its values ("this Mode is test-derived"). A linked Mode shows a **Test-Derived** badge with a popover listing the justifying test(s) — explainability for a Mode that didn't come from a Source, without needing a Source to explain it.
+A Mode's values don't always come from a Source — real-world testing can turn up an emission a datasheet never mentioned, or reveal that an existing Mode's parameters are wrong. Both the "+ Add Mode" form and an existing Mode's edit form let you optionally link it to one or more existing **Test Records** whose findings explain its values ("this Mode is test-derived"). A linked Mode shows a **Test-Derived** badge with a popover listing the justifying test(s) — explainability for a Mode that didn't come from a Source, without needing a Source to explain it.
 
 ---
 
@@ -147,10 +140,22 @@ Beyond typing a DSL line or building Elements by hand, a Source's Elements and P
 Emitters, Platforms, and MDFs are all **versioned** the same way:
 
 - The live record is always an editable **draft**.
-- **Commit Version** takes a full, immutable snapshot of the current state (for an Emitter: every EW Group, Source, Mode, and Mode Line) and adds it to that entity's version history, numbered sequentially (v1, v2, v3, ...).
+- **Commit Version** takes a full, immutable snapshot of the current state (for an Emitter: every EW Group, Source, Mode, and Mode Line) and adds it to that entity's version history, numbered sequentially (v1, v2, v3, ...). An Emitter commit requires a non-blank change summary (Platform/MDF commits keep theirs optional).
 - The **Version History** page lists every committed version and lets you pick any two to **diff** — added / removed / changed fields, shown with old vs. new values. By default it diffs a version against the one immediately before it, but you can compare against any earlier version too.
 
 Nothing is ever silently lost: the live draft can keep changing, but a committed version is a permanent, inspectable snapshot you can always come back to.
+
+### Emitter checkout, discard, revert & fork
+
+An Emitter's live rows (and everything under it) can only be edited while you hold its **checkout** — an explicit lock, not a data copy. A banner on the Emitter's page shows whether it's free, held by you, or held by someone else, with a **Start Editing** button when it's free; an Admin can force-release a stale lock. A brand-new Emitter is auto-checked-out to whoever created it, so there's no extra click before populating it.
+
+- **Discard changes** (available while you hold the checkout) reconciles live data back to the latest committed version and releases the checkout — for throwing away uncommitted edits. Disabled if nothing has been committed yet.
+- **Revert to a version** reconciles live data to match an older committed version, then immediately commits a *new* version documenting the revert (`"Reverted to version N"`) — like `git revert`, history is never rewritten. It claims the checkout if it's free, and 409s if someone else holds it.
+- **Fork a version** spins that version off into a brand-new, fully independent Emitter (fresh EW Groups/Sources/Modes/Elements, its own version history starting at v1), auto-checked-out to whoever forked it, with `forked_from_emitter_id`/`forked_from_version_id` recorded for traceability. Editing the fork never affects the source Emitter, and forking doesn't require holding the source's checkout.
+
+Reconciliation (used by both discard and revert) matches EW Groups/Sources/Modes/Elements by the UUID a committed snapshot already preserves — a row that still exists in the target keeps its id (so a Test Record linked to a surviving Mode stays linked), a row absent from the target is deleted (the same cascade a manual Mode delete already does, not a new class of data loss).
+
+Moving an Emitter's status to **Operational** (`validated`) requires a message describing what was validated, same as a manual commit — that transition is a trust signal everything downstream (Platforms/MDFs pinning this Emitter) relies on.
 
 ### Status
 

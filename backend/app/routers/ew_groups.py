@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.csrf import verify_csrf
 from app.core.enums import AuditAction, AuditEntityType, Role
 from app.database import get_db
-from app.deps import require_role
+from app.deps import require_emitter_checkout, require_role
 from app.models.emitter import Emitter
 from app.models.ew_group import EwGroup
 from app.schemas.ew_group import EwGroupCreate, EwGroupOut, EwGroupUpdate
@@ -37,7 +37,7 @@ def create_ew_group(
     emitter_id: UUID,
     payload: EwGroupCreate,
     db: Session = Depends(get_db),
-    user=Depends(require_role(Role.editor)),
+    user=Depends(require_emitter_checkout()),
 ) -> EwGroup:
     _get_emitter_or_404(db, emitter_id)
     ew_group = EwGroup(emitter_id=emitter_id, **payload.model_dump())
@@ -64,7 +64,7 @@ def update_ew_group(
     ew_group_id: UUID,
     payload: EwGroupUpdate,
     db: Session = Depends(get_db),
-    user=Depends(require_role(Role.editor)),
+    user=Depends(require_emitter_checkout()),
 ) -> EwGroup:
     ew_group = db.get(EwGroup, ew_group_id)
     if ew_group is None or ew_group.emitter_id != emitter_id:
@@ -90,7 +90,7 @@ def delete_ew_group(
     emitter_id: UUID,
     ew_group_id: UUID,
     db: Session = Depends(get_db),
-    user=Depends(require_role(Role.editor)),
+    user=Depends(require_emitter_checkout()),
 ) -> None:
     ew_group = db.get(EwGroup, ew_group_id)
     if ew_group is None or ew_group.emitter_id != emitter_id:

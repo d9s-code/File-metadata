@@ -7,6 +7,7 @@ import { EwGroupsTable } from "../components/ewGroups/EwGroupsTable";
 import { SourcesTable } from "../components/sources/SourcesTable";
 import { ModesSection } from "../components/modes/ModesSection";
 import { StatusTransitionControls } from "../components/versioning/StatusTransitionControls";
+import { CheckoutBanner } from "../components/versioning/CheckoutBanner";
 import { EmitterTestHistory } from "../components/testing/EmitterTestHistory";
 import { EntityAuditTrail } from "../components/audit/EntityAuditTrail";
 import { LoadingState } from "../components/common/LoadingState";
@@ -66,6 +67,15 @@ export function EmitterEditorPage() {
       </div>
       {emitter.description && <p className="muted">{emitter.description}</p>}
 
+      <CheckoutBanner emitter={emitter} />
+
+      {emitter.forked_from_emitter_id && (
+        <p className="hint-text">
+          Forked from{" "}
+          <Link to={`/emitters/${emitter.forked_from_emitter_id}`}>an earlier Emitter</Link>.
+        </p>
+      )}
+
       {showReworkNote && (
         <Modal title="Needs rework" onClose={() => setShowReworkNote(false)}>
           <p>{emitter.rework_note}</p>
@@ -73,7 +83,7 @@ export function EmitterEditorPage() {
       )}
 
       {(emitter.summary.mode_count > 0 || emitter.summary.scan_min != null) && (
-        <div className="emitter-summary-row" title="RF/PW/PRI computed across this Emitter's approved Modes only; Scan across its EW Groups">
+        <div className="emitter-summary-row" title="RF/PW/PRI computed across this Emitter's Modes; Scan across its EW Groups">
           {emitter.summary.rf_min_mhz != null && (
             <span>
               RF <strong>{emitter.summary.rf_min_mhz}–{emitter.summary.rf_max_mhz}</strong> MHz

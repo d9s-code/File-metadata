@@ -48,6 +48,13 @@ export interface Emitter {
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
+  /** Editing lock — null means anyone with editor role can check it out. */
+  checked_out_by_id: string | null;
+  checked_out_by_username: string | null;
+  checked_out_at: string | null;
+  /** Provenance only, set when this Emitter was created via Fork. */
+  forked_from_emitter_id: string | null;
+  forked_from_version_id: string | null;
   summary: EmitterSummary;
 }
 
@@ -119,8 +126,6 @@ export interface ModeLine extends ModeLineFields {
   engineered_frame_time_max_us: number | null;
 }
 
-export type ModeStatus = "approved" | "draft" | "superseded" | "rejected";
-
 export interface TestRecordBrief {
   id: string;
   title: string;
@@ -138,9 +143,6 @@ export interface Mode {
   notes: string | null;
   sort_order: number;
   generation_batch_id: string | null;
-  status: ModeStatus;
-  /** Set only on a `draft` Mode: the `approved` Mode it would replace. */
-  supersedes_id: string | null;
   created_at: string;
   updated_at: string;
   line: ModeLine | null;
@@ -209,6 +211,11 @@ export type AuditAction =
   | "restore"
   | "status_change"
   | "commit"
+  | "checkout"
+  | "checkin"
+  | "discard"
+  | "revert"
+  | "fork"
   | "login"
   | "login_failed"
   | "logout";

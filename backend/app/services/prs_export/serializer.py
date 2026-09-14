@@ -7,6 +7,8 @@ default_unknown_platform.xml), not guessed. See prs_export_notes.md in this
 package for exactly which fields are real vs. placeholder.
 """
 
+import re
+
 from lxml import etree
 
 from app.services.delta import apply_delta
@@ -32,6 +34,20 @@ _PRI_CLASS_MAP = {"fixed": "Simple", "stagger": "Stagger", "xlet": "Xlet", "cw":
 
 def _sanitize(value: str | None) -> str:
     return (value or "").replace(" ", "_")
+
+
+# Characters invalid in a Windows filename, plus zip's own "/" separator —
+# real-world emitter designations often contain a forward slash (e.g.
+# "AN/APG-99"), which _sanitize() above leaves untouched. Left unsanitized,
+# that slash silently becomes an unintended nested directory in the export
+# zip and a broken path in the referencing XML. This is only for values used
+# as a filename/path segment, not for XML attribute/text content in general
+# (where a literal "/" is harmless).
+_FILENAME_UNSAFE_RE = re.compile(r'[\\/:*?"<>|\s]+')
+
+
+def sanitize_filename(value: str | None) -> str:
+    return _FILENAME_UNSAFE_RE.sub("_", value or "")
 
 
 def _bool_attr(value: bool | None) -> str:
@@ -157,7 +173,7 @@ def build_platform_element(platform_snapshot: dict) -> etree._Element:
     config_el = etree.SubElement(root, "Configuration")
     for link in platform_snapshot.get("links", []):
         file_el = etree.SubElement(config_el, "EmitterFile", Count="1")
-        file_el.text = f"emitters\\{_sanitize(link['emitter_name'])}.xml"
+        file_el.text = f"emitters\\{sanitize_filename(link['emitter_name'])}.xml"
 
     return root
 

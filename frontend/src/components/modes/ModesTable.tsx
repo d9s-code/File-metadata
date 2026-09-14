@@ -1,6 +1,5 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useState } from "react";
 import type { EwGroup, Mode, Source } from "../../types/domain";
-import { useApproveModeDraft, useRejectModeDraft } from "../../state/hooks/useModes";
 import { HoverInfo } from "../common/InfoPopover";
 import { RequireRole } from "../../auth/RequireAuth";
 import { SortableColumnHeader, type ColumnType } from "../common/SortableColumnHeader";
@@ -8,9 +7,9 @@ import { rangeMatchingTags, type ModeSortKey, type SortDir } from "./modeFormat"
 import { EwGroupHoverDetail, ModeHoverDetail, SourceHoverDetail, StaggerSequenceBox } from "./ModeHoverDetails";
 import { TestDerivedBadge } from "./TestDerivedBadge";
 import { LastTestedCell } from "./LastTestedCell";
-import { ModeDraftForm } from "./ModeDraftForm";
-
-const STATUS_LABEL: Record<string, string> = { draft: "Pending Review", superseded: "Superseded", rejected: "Rejected" };
+import { ModeEditForm } from "./ModeEditForm";
+import { useEmitter } from "../../state/hooks/useEmitters";
+import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 
 export function ModesTable({
   emitterId,
@@ -34,14 +33,9 @@ export function ModesTable({
   onDelete: (modeId: string, ewGroupId: string, name: string) => void;
 }) {
   const [editingModeId, setEditingModeId] = useState<string | null>(null);
-  const approveDraft = useApproveModeDraft(emitterId);
-  const rejectDraft = useRejectModeDraft(emitterId);
-
-  const pendingDraftBySupersedesId = useMemo(() => {
-    const map = new Map<string, Mode>();
-    for (const m of modes) if (m.status === "draft" && m.supersedes_id) map.set(m.supersedes_id, m);
-    return map;
-  }, [modes]);
+  const { data: emitter } = useEmitter(emitterId);
+  const { canEdit } = useEmitterCheckoutState(emitter);
+  const editTitle = canEdit ? undefined : "Start editing this Emitter first";
 
   const header = (label: string, key: ModeSortKey, columnType?: ColumnType) => (
     <SortableColumnHeader
@@ -79,21 +73,14 @@ export function ModesTable({
           {modes.map((m) => {
             const ewGroup = ewGroupsById[m.ew_group_id];
             const source = sourcesById[m.source_id];
-            const pendingDraft = pendingDraftBySupersedesId.get(m.id);
             return (
               <Fragment key={m.id}>
-              <tr className={m.status === "draft" ? "mode-draft-row" : undefined}>
+              <tr>
                 <td>
                   <HoverInfo label={m.name}>
                     <ModeHoverDetail mode={m} source={sourcesById[m.source_id]} />
                   </HoverInfo>
-                  {m.status !== "approved" && (
-                    <span className={`mode-status-badge mode-status-${m.status}`}>{STATUS_LABEL[m.status]}</span>
-                  )}
                   <TestDerivedBadge emitterId={emitterId} records={m.derived_from_test_records} />
-                  {pendingDraft && (
-                    <span className="mode-draft-notice">A draft edit is pending review below.</span>
-                  )}
                 </td>
                 <td>
                   {ewGroup ? (
@@ -162,43 +149,24 @@ export function ModesTable({
                 </td>
                 <td>
                   <RequireRole minimum="editor">
-                    {m.status === "draft" ? (
-                      <>
-                        <button
-                          className="link-button"
-                          disabled={approveDraft.isPending}
-                          onClick={() => void approveDraft.mutateAsync({ ewGroupId: m.ew_group_id, modeId: m.id })}
-                        >
-                          Approve
-                        </button>{" "}
-                        <button
-                          className="link-button"
-                          disabled={rejectDraft.isPending}
-                          onClick={() => void rejectDraft.mutateAsync({ ewGroupId: m.ew_group_id, modeId: m.id })}
-                        >
-                          Reject
-                        </button>
-                      </>
-                    ) : m.status === "approved" ? (
-                      <button
-                        className="link-button"
-                        disabled={!!pendingDraft}
-                        title={pendingDraft ? "Already has a pending draft edit" : undefined}
-                        onClick={() => setEditingModeId(editingModeId === m.id ? null : m.id)}
-                      >
-                        {editingModeId === m.id ? "Cancel edit" : "Propose edit"}
-                      </button>
-                    ) : null}{" "}
-                    <button className="link-button" onClick={() => onDelete(m.id, m.ew_group_id, m.name)}>
+                    <button
+                      className="link-button"
+                      disabled={!canEdit}
+                      title={editTitle}
+                      onClick={() => setEditingModeId(editingModeId === m.id ? null : m.id)}
+                    >
+                      {editingModeId === m.id ? "Cancel edit" : "Edit"}
+                    </button>{" "}
+                    <button className="link-button" disabled={!canEdit} title={editTitle} onClick={() => onDelete(m.id, m.ew_group_id, m.name)}>
                       Delete
                     </button>
                   </RequireRole>
                 </td>
               </tr>
-              {editingModeId === m.id && (
+              {editingModeId === m.id && canEdit && (
                 <tr>
                   <td colSpan={13}>
-                    <ModeDraftForm emitterId={emitterId} mode={m} onDone={() => setEditingModeId(null)} />
+                    <ModeEditForm emitterId={emitterId} mode={m} onDone={() => setEditingModeId(null)} />
                   </td>
                 </tr>
               )}

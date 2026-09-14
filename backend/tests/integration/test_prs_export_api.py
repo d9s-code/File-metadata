@@ -54,7 +54,7 @@ def _build_mdf(editor_client):
         f"/ew-groups/{ew_group['id']}/modes",
         json={"source_id": source["id"], "name": "Stagger Mode", "pri_type": "stagger", "line": STAGGER_LINE},
     )
-    emitter_v1 = editor_client.post(f"/emitters/{emitter['id']}/versions", json={}).json()
+    emitter_v1 = editor_client.post(f"/emitters/{emitter['id']}/versions", json={"change_summary": "test"}).json()
 
     platform = editor_client.post("/platforms", json={"name": "PRS Export Platform"}).json()
     editor_client.post(
@@ -165,7 +165,7 @@ def test_prs_export_cw_pri_block_has_no_children(editor_client):
         f"/ew-groups/{ew_group['id']}/modes",
         json={"source_id": source["id"], "name": "CW Mode", "pri_type": "cw", "line": cw_line},
     )
-    emitter_v1 = editor_client.post(f"/emitters/{emitter['id']}/versions", json={}).json()
+    emitter_v1 = editor_client.post(f"/emitters/{emitter['id']}/versions", json={"change_summary": "test"}).json()
     platform = editor_client.post("/platforms", json={"name": "CW Platform"}).json()
     editor_client.post(
         f"/platforms/{platform['id']}/links",
@@ -199,6 +199,43 @@ def test_prs_export_404_for_missing_version(editor_client):
     mdf = editor_client.post("/mdfs", json={"name": "No Version PRS MDF"}).json()
     resp = editor_client.get(f"/mdfs/{mdf['id']}/versions/1/export/prs")
     assert resp.status_code == 404
+
+
+def test_prs_export_sanitizes_slash_in_emitter_and_platform_names(editor_client):
+    # Real-world designations often contain a slash (e.g. "AN/APG-99"), which
+    # must not leak into the zip as a path separator or into the referencing
+    # XML as a broken path.
+    emitter = editor_client.post("/emitters", json={"name": "AN/APG-99 Sample"}).json()
+    ew_group = editor_client.post(f"/emitters/{emitter['id']}/ew-groups", json={"name": "Slash Group"}).json()
+    source = editor_client.post(
+        f"/emitters/{emitter['id']}/sources", json={"name": "Slash Source", "source_date": "2025-01-01"}
+    ).json()
+    editor_client.post(
+        f"/ew-groups/{ew_group['id']}/modes",
+        json={"source_id": source["id"], "name": "Slash Mode", "pri_type": "fixed", "line": FIXED_LINE_RM},
+    )
+    emitter_v1 = editor_client.post(f"/emitters/{emitter['id']}/versions", json={"change_summary": "test"}).json()
+
+    platform = editor_client.post("/platforms", json={"name": "A/B Platform"}).json()
+    editor_client.post(
+        f"/platforms/{platform['id']}/links",
+        json={"emitter_id": emitter["id"], "emitter_version_id": emitter_v1["id"]},
+    )
+    editor_client.post(f"/platforms/{platform['id']}/versions", json={})
+
+    resp = editor_client.get(f"/platforms/{platform['id']}/versions/1/export/prs")
+    assert resp.status_code == 200, resp.text
+    zf = zipfile.ZipFile(io.BytesIO(resp.content))
+    names = set(zf.namelist())
+
+    # No unintended nested directory from the slash, and no bare "/" left in
+    # any path segment.
+    assert "emitters/AN_APG-99_Sample.xml" in names
+    assert "platforms/A_B_Platform.xml" in names
+    assert not any(n.startswith("emitters/AN/") for n in names)
+
+    platform_el = etree.fromstring(zf.read("platforms/A_B_Platform.xml"))
+    assert platform_el.find("Configuration/EmitterFile").text == "emitters\\AN_APG-99_Sample.xml"
 
 
 def test_viewer_can_export_prs(viewer_client, editor_client):

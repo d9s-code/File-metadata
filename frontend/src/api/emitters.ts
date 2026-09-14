@@ -15,4 +15,7 @@ export const emittersApi = {
   update: (id: string, input: Partial<EmitterCreateInput>) => api.patch<Emitter>(`/emitters/${id}`, input),
   delete: (id: string, hard = false) => api.delete<void>(`/emitters/${id}${hard ? "?hard=true" : ""}`),
   restore: (id: string) => api.post<Emitter>(`/emitters/${id}/restore`),
+  checkout: (id: string) => api.post<Emitter>(`/emitters/${id}/checkout`),
+  checkin: (id: string) => api.delete<Emitter>(`/emitters/${id}/checkout`),
+  discard: (id: string) => api.post<Emitter>(`/emitters/${id}/discard`),
 };
