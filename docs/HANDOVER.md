@@ -299,9 +299,8 @@ this log starts. Since then, in order:
       - `docs/FEATURES.md` §3 and §5 rewritten for the above; the in-app Help page
         (`HelpPage.tsx`) updated to match.
 
-13. **This session** (a separate session from all of the above — continued straight on from
-    item 12's checkout/revert/fork work, same branch). Two pieces of work, **not yet committed
-    — see "Uncommitted at end of session" below**:
+13. **`734b807`** — This session (a separate session from all of the above — continued straight
+    on from item 12's checkout/revert/fork work, same branch). Two pieces of work:
 
     - **Modes Batch Edit.** Select multiple Modes (table/card checkboxes, header "select all
       filtered") and apply EW Group reassignment / Notes overwrite / the three Range Matching
@@ -356,11 +355,7 @@ this log starts. Since then, in order:
     - Full backend suite (**184 passing**, verified after both the schema-shape change and the
       test-file updates it required in `test_versioning_api.py`) and `tsc -b` clean throughout.
       Live-verified in the Browser pane at both desktop and mobile widths.
-
-    **Uncommitted at end of session** — working tree is dirty, nothing from this item has been
-    pushed. See `git status` for the exact file list before doing anything branch-related; the
-    new files (`emitter_diff_service.py`, `mode_batch_service.py`, `BatchEditModal.tsx`,
-    `EmitterDiffViewer.tsx`, their tests) are untracked, everything else is a modification.
+    - Committed and pushed as `734b807` on `claude/rf-recognizer-emitter-profiles-le5jik`.
 
 ## Open items (not yet implemented)
 
