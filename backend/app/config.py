@@ -1,8 +1,16 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Resolved relative to this file, not the process's cwd — a relative ".env"
+# silently fails to load (falling back to defaults) whenever the process is
+# launched from a different working directory, which happens with some
+# process launchers/reload watchers.
+_BACKEND_DIR = Path(__file__).resolve().parent.parent
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=_BACKEND_DIR / ".env", env_file_encoding="utf-8")
 
     database_url: str = "postgresql+psycopg2://rf_app:rf_app_dev_pw@localhost:5432/rf_emitter_db"
     jwt_secret: str = "dev-only-insecure-secret-change-me"

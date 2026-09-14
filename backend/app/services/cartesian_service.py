@@ -9,7 +9,19 @@ from app.models.mode import Mode, ModeElement, ModeGenerationBatch, ModeLine
 from app.models.parameter_sequence import ParameterSequence
 from app.models.source import Source
 from app.services.audit_service import _json_safe, record_audit
-from app.services.delta import apply_delta
+
+# ModeLine columns that aren't part of the rendered DSL line text — mirrors
+# _NON_DSL_LINE_FIELDS in routers/modes.py (render_mode_line has a strict,
+# keyword-only signature with no catch-all, so these must never reach it).
+_NON_DSL_LINE_FIELDS = {
+    "rf_delta",
+    "pw_delta",
+    "pri_delta",
+    "frame_time_delta_us",
+    "rf_range_matching",
+    "pw_range_matching",
+    "pri_range_matching",
+}
 
 
 class CartesianProductError(ValueError):
@@ -32,6 +44,10 @@ def _fetch_elements(db: Session, source_id: UUID, ids: list[UUID], expected_type
     return elements
 
 
+def _dsl_kwargs(line_kwargs: dict) -> dict:
+    return {k: v for k, v in line_kwargs.items() if k not in _NON_DSL_LINE_FIELDS}
+
+
 def run_cartesian_product(
     db: Session,
     *,
@@ -44,11 +60,21 @@ def run_cartesian_product(
     name_prefix: str,
     created_by: UUID | None = None,
     batch_note: str | None = None,
+    rf_delta_overrides: dict[UUID, float] | None = None,
+    pw_delta_overrides: dict[UUID, float] | None = None,
+    pri_delta_overrides: dict[UUID, float] | None = None,
+    rf_range_matching: bool = False,
+    pw_range_matching: bool = False,
+    pri_range_matching: bool = False,
 ) -> list[Mode]:
+    rf_delta_overrides = rf_delta_overrides or {}
+    pw_delta_overrides = pw_delta_overrides or {}
+    pri_delta_overrides = pri_delta_overrides or {}
+
     # Fetch elements conditionally to avoid errors when sequences are used
     rf_elements = _fetch_elements(db, source.id, rf_element_ids, ElementType.rf) if rf_element_ids else [None]
     pw_elements = _fetch_elements(db, source.id, pw_element_ids, ElementType.pw) if pw_element_ids else [None]
-    
+
     sequences: list[ParameterSequence] = []
     if sequence_ids:
         sequences = db.query(ParameterSequence).filter(
@@ -76,37 +102,64 @@ def run_cartesian_product(
 
     base_sort_order = db.query(func.max(Mode.sort_order)).filter(Mode.ew_group_id == ew_group_id).scalar() or 0
 
+    # Auto-suffix on collision: a re-run with the same name_prefix must not
+    # produce Modes with names identical to an earlier run's. Seed with every
+    # existing name in this EW Group (not just this prefix — cheap, and
+    # avoids ever colliding with an unrelated Mode too), then keep bumping
+    # the counter past any name already taken as new ones are minted below.
+    used_names = {
+        name for (name,) in db.query(Mode.name).filter(Mode.ew_group_id == ew_group_id).all()
+    }
+
+    def _next_name(counter: int) -> tuple[str, int]:
+        while f"{name_prefix} {counter}" in used_names:
+            counter += 1
+        name = f"{name_prefix} {counter}"
+        used_names.add(name)
+        return name, counter + 1
+
     created: list[Mode] = []
     counter = 1
-    
+
     seq_iter = sequences if sequences else [None]
     pri_iter = pri_elements if not sequences else [None]
 
     for seq in seq_iter:
         for pri_el in pri_iter:
             pri_type = PriType.stagger if (pri_el and pri_el.stagger_values) else PriType.fixed
-            
+
             for rf_el in rf_elements:
                 for pw_el in pw_elements:
-                    rf_min, rf_max = apply_delta(rf_el.value_min, rf_el.value_max, rf_el.delta) if rf_el else (0.0, 0.0)
-                    pw_min, pw_max = apply_delta(pw_el.value_min, pw_el.value_max, pw_el.delta) if pw_el else (0.0, 0.0)
-                    
+                    rf_delta = rf_delta_overrides.get(rf_el.id, rf_el.delta) if rf_el else None
+                    pw_delta = pw_delta_overrides.get(pw_el.id, pw_el.delta) if pw_el else None
+
+                    # Store the element's own RAW value + the resolved delta
+                    # separately (not pre-widened into one number) — same
+                    # raw-vs-engineered split a manually-authored line keeps,
+                    # so ModeLineOut's engineered_* fields do the widening on
+                    # read instead of it being baked in and then unrecoverable.
                     base_line_kwargs = dict(
-                        rf_min_mhz=rf_min,
-                        rf_max_mhz=rf_max,
-                        pw_min_us=pw_min,
-                        pw_max_us=pw_max,
+                        rf_min_mhz=rf_el.value_min if rf_el else 0.0,
+                        rf_max_mhz=rf_el.value_max if rf_el else 0.0,
+                        rf_delta=rf_delta,
+                        rf_range_matching=rf_range_matching,
+                        pw_min_us=pw_el.value_min if pw_el else 0.0,
+                        pw_max_us=pw_el.value_max if pw_el else 0.0,
+                        pw_delta=pw_delta,
+                        pw_range_matching=pw_range_matching,
+                        pri_range_matching=pri_range_matching,
                     )
-                    
+
                     if pri_el:
+                        pri_delta = pri_delta_overrides.get(pri_el.id, pri_el.delta)
                         if pri_type == PriType.stagger:
                             base_line_kwargs["pri_stagger_values_us"] = pri_el.stagger_values
-                            base_line_kwargs["frame_time_delta_us"] = pri_el.delta
+                            base_line_kwargs["frame_time_delta_us"] = pri_delta
                         else:
-                            pri_min, pri_max = apply_delta(pri_el.value_min, pri_el.value_max, pri_el.delta)
                             base_line_kwargs.update(
-                                pri_min_us=pri_min,
-                                pri_max_us=pri_max,
+                                pri_min_us=pri_el.value_min,
+                                pri_max_us=pri_el.value_max,
+                                pri_delta=pri_delta,
                                 jitter_min_us=pri_el.jitter_min if pri_el.jitter_min is not None else 0.0,
                                 jitter_max_us=pri_el.jitter_max if pri_el.jitter_max is not None else 1.0,
                             )
@@ -114,16 +167,17 @@ def run_cartesian_product(
                     if seq:
                         # A sequence is PRI-only if no step modifies RF or PW.
                         is_pri_sequence = all(step.get("rf_mhz") is None and step.get("pw_us") is None for step in seq.steps)
-                        
+
                         if is_pri_sequence:
                             # CASE 1: PRI-only sequence -> ONE Mode, ONE ModeLine (containing the whole sequence)
                             # We treat all PRI-only sequences as Staggered modes to group the steps into one array.
                             mode_pri_type = PriType.stagger
-                            
+                            name, counter = _next_name(counter)
+
                             mode = Mode(
                                 ew_group_id=ew_group_id,
                                 source_id=source.id,
-                                name=f"{name_prefix} {counter}",
+                                name=name,
                                 pri_type=mode_pri_type,
                                 sort_order=base_sort_order + counter,
                                 generation_batch_id=batch.id,
@@ -133,7 +187,7 @@ def run_cartesian_product(
                             db.flush()
 
                             step_line_kwargs = base_line_kwargs.copy()
-                            
+
                             # Extract all PRI values from the sequence into a single array for the ModeLine
                             stagger_vals = []
                             for step in seq.steps:
@@ -141,18 +195,18 @@ def run_cartesian_product(
                                     stagger_vals.extend(step["pri_stagger_values_us"])
                                 elif "pri_us" in step:
                                     stagger_vals.append(float(step["pri_us"]))
-                            
+
                             if stagger_vals:
                                 step_line_kwargs["pri_stagger_values_us"] = stagger_vals
-                            
+
                             # For Stagger modes, frame_time_delta_us should be provided if available in steps
                             if seq.steps:
                                 if "frame_time_delta_us" in seq.steps[0]:
                                     step_line_kwargs["frame_time_delta_us"] = float(seq.steps[0]["frame_time_delta_us"])
 
-                            step_dsl = render_mode_line(pri_type=mode_pri_type, **step_line_kwargs)
+                            step_dsl = render_mode_line(pri_type=mode_pri_type, **_dsl_kwargs(step_line_kwargs))
                             db.add(ModeLine(mode_id=mode.id, dsl_text=step_dsl, **step_line_kwargs))
-                            
+
                             record_audit(
                                 db,
                                 actor_id=created_by,
@@ -164,12 +218,11 @@ def run_cartesian_product(
                                 emitter_id=source.emitter_id,
                             )
                             created.append(mode)
-                            counter += 1
                         else:
                             # CASE 2: RF/PW sequence -> ONE Mode PER step
                             for step in seq.steps:
                                 step_line_kwargs = base_line_kwargs.copy()
-                                
+
                                 step_pri_us = step.get("pri_us")
                                 step_jitter_min = step.get("jitter_min_us")
                                 step_jitter_max = step.get("jitter_max_us")
@@ -211,24 +264,26 @@ def run_cartesian_product(
                                 elif "pw_min_us" in base_line_kwargs:
                                     step_line_kwargs["pw_min_us"] = float(base_line_kwargs["pw_min_us"])
                                     step_line_kwargs["pw_max_us"] = float(base_line_kwargs["pw_max_us"])
-                                
+
                                 if "frame_time_delta_us" in step:
                                     step_line_kwargs["frame_time_delta_us"] = float(step["frame_time_delta_us"])
 
+                                name, counter = _next_name(counter)
                                 mode = Mode(
                                     ew_group_id=ew_group_id,
                                     source_id=source.id,
-                                    name=f"{name_prefix} {counter}",
+                                    name=name,
                                     pri_type=pri_type,
                                     sort_order=base_sort_order + counter,
                                     generation_batch_id=batch.id,
+                                    notes=batch_note,
                                 )
                                 db.add(mode)
                                 db.flush()
 
-                                step_dsl = render_mode_line(pri_type=pri_type, **step_line_kwargs)
+                                step_dsl = render_mode_line(pri_type=pri_type, **_dsl_kwargs(step_line_kwargs))
                                 db.add(ModeLine(mode_id=mode.id, dsl_text=step_dsl, **step_line_kwargs))
-                                
+
                                 record_audit(
                                     db,
                                     actor_id=created_by,
@@ -240,38 +295,38 @@ def run_cartesian_product(
                                     emitter_id=source.emitter_id,
                                 )
                                 created.append(mode)
-                                counter += 1
                     else:
                         # CASE 3: No sequence -> ONE Mode, ONE ModeLine
-                            mode = Mode(
-                                ew_group_id=ew_group_id,
-                                source_id=source.id,
-                                name=f"{name_prefix} {counter}",
-                                pri_type=pri_type,
-                                sort_order=base_sort_order + counter,
-                                generation_batch_id=batch.id,
-                                notes=batch_note,
-                            )
-                            db.add(mode)
-                            db.flush()
+                        if pri_type == PriType.stagger:
+                            base_line_kwargs["frame_time_delta_us"] = pri_delta_overrides.get(pri_el.id, pri_el.delta)
 
-                            if pri_type == PriType.stagger:
-                                base_line_kwargs["frame_time_delta_us"] = pri_el.delta
-                            dsl_text = render_mode_line(pri_type=pri_type, **base_line_kwargs)
-                            db.add(ModeLine(mode_id=mode.id, dsl_text=dsl_text, **base_line_kwargs))
-                            
-                            record_audit(
-                                db,
-                                actor_id=created_by,
-                                action=AuditAction.create,
-                                entity_type=AuditEntityType.mode.value,
-                                entity_id=mode.id,
-                                summary=f"Created Mode '{mode.name}' via cartesian product batch '{name_prefix}'",
-                                changes={**{k: _json_safe(v) for k, v in base_line_kwargs.items()}, "generation_batch_id": str(batch.id)},
-                                emitter_id=source.emitter_id,
-                            )
-                            created.append(mode)
-                            counter += 1
+                        name, counter = _next_name(counter)
+                        mode = Mode(
+                            ew_group_id=ew_group_id,
+                            source_id=source.id,
+                            name=name,
+                            pri_type=pri_type,
+                            sort_order=base_sort_order + counter,
+                            generation_batch_id=batch.id,
+                            notes=batch_note,
+                        )
+                        db.add(mode)
+                        db.flush()
+
+                        dsl_text = render_mode_line(pri_type=pri_type, **_dsl_kwargs(base_line_kwargs))
+                        db.add(ModeLine(mode_id=mode.id, dsl_text=dsl_text, **base_line_kwargs))
+
+                        record_audit(
+                            db,
+                            actor_id=created_by,
+                            action=AuditAction.create,
+                            entity_type=AuditEntityType.mode.value,
+                            entity_id=mode.id,
+                            summary=f"Created Mode '{mode.name}' via cartesian product batch '{name_prefix}'",
+                            changes={**{k: _json_safe(v) for k, v in base_line_kwargs.items()}, "generation_batch_id": str(batch.id)},
+                            emitter_id=source.emitter_id,
+                        )
+                        created.append(mode)
 
     db.commit()
     for mode in created:

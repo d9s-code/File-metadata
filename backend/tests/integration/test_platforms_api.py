@@ -79,11 +79,12 @@ def test_platform_pinning_survives_new_emitter_version(editor_client, emitter_wi
 
 
 def test_platform_version_commit_and_diff(editor_client, emitter_with_version):
+    # POST /platforms already auto-commits an initial version (v1, no links) —
+    # see "Automatically commit the initial version" in create_platform. No
+    # need to commit again before adding the link.
     platform = editor_client.post("/platforms", json={"name": "Versioned Platform"}).json()
     emitter = emitter_with_version["emitter"]
     v1 = emitter_with_version["version"]
-
-    editor_client.post(f"/platforms/{platform['id']}/versions", json={})  # platform v1, no links yet
 
     editor_client.post(
         f"/platforms/{platform['id']}/links", json={"emitter_id": emitter["id"], "emitter_version_id": v1["id"]}

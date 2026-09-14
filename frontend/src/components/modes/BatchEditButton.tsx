@@ -1,6 +1,5 @@
 import { BatchEditModal } from "./BatchEditModal";
 import { modesApi } from "../../api/modes";
-import type { Mode } from "../../types/domain";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 

@@ -3,17 +3,19 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.csrf import verify_csrf
 from app.core.enums import EMITTER_STATUS_TRANSITIONS, AuditAction, AuditEntityType, EmitterStatus, ModeStatus, Role
 from app.database import get_db
 from app.deps import require_role
 from app.models.emitter import Emitter
+from app.models.emitter_note import EmitterNote
 from app.models.emitter_version import EmitterVersion
 from app.models.ew_group import EwGroup
 from app.models.mode import Mode, ModeGenerationBatch
 from app.schemas.emitter import EmitterCreate, EmitterOut, EmitterUpdate
+from app.schemas.emitter_note import EmitterNoteCreate, EmitterNoteOut
 from app.schemas.mode import ModeGenerationBatchOut, ModeOut
 from app.schemas.emitter_version import (
     CommitVersionRequest,
@@ -192,6 +194,77 @@ def _get_emitter_or_404(db: Session, emitter_id: UUID) -> Emitter:
     if emitter is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Emitter not found")
     return emitter
+
+
+@router.get("/{emitter_id}/notes", response_model=list[EmitterNoteOut])
+def list_emitter_notes(
+    emitter_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
+) -> list[EmitterNote]:
+    """Newest-first analyst commentary log — see EmitterNote."""
+    _get_emitter_or_404(db, emitter_id)
+    return (
+        db.query(EmitterNote)
+        .options(joinedload(EmitterNote.author))
+        .filter(EmitterNote.emitter_id == emitter_id)
+        .order_by(EmitterNote.created_at.desc())
+        .all()
+    )
+
+
+@router.post(
+    "/{emitter_id}/notes",
+    response_model=EmitterNoteOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(verify_csrf)],
+)
+def create_emitter_note(
+    emitter_id: UUID,
+    payload: EmitterNoteCreate,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+) -> EmitterNote:
+    emitter = _get_emitter_or_404(db, emitter_id)
+    note = EmitterNote(emitter_id=emitter_id, author_id=user.id, body=payload.body)
+    db.add(note)
+    db.flush()
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.create,
+        entity_type=AuditEntityType.emitter_note.value,
+        entity_id=note.id,
+        summary=f"Added a note to Emitter '{emitter.name}'",
+        emitter_id=emitter_id,
+    )
+    db.commit()
+    db.refresh(note)
+    return note
+
+
+@router.delete(
+    "/{emitter_id}/notes/{note_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(verify_csrf)]
+)
+def delete_emitter_note(
+    emitter_id: UUID,
+    note_id: UUID,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+) -> None:
+    emitter = _get_emitter_or_404(db, emitter_id)
+    note = db.get(EmitterNote, note_id)
+    if note is None or note.emitter_id != emitter_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Note not found")
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.delete,
+        entity_type=AuditEntityType.emitter_note.value,
+        entity_id=note.id,
+        summary=f"Deleted a note from Emitter '{emitter.name}'",
+        emitter_id=emitter_id,
+    )
+    db.delete(note)
+    db.commit()
 
 
 @router.get("/{emitter_id}/modes", response_model=list[ModeOut])

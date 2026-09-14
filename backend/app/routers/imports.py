@@ -1,7 +1,8 @@
+from datetime import date
 from uuid import UUID
 from typing import List, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, Form, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app.core.csrf import verify_csrf
@@ -41,14 +42,18 @@ def validate_import(
 async def commit_json_import(
     emitter_id: UUID,
     file: UploadFile = File(...),
+    # Manually-entered "Date last updated" — takes precedence over whatever
+    # (if anything) the uploaded JSON's own per-set date_last_updated parses
+    # to. Optional: leave unset to trust the file's own dates.
+    source_date: date | None = Form(None),
     db: Session = Depends(get_db),
     user=Depends(require_role(Role.editor)),
 ) -> ImportCommitResult:
     import json
     content = await file.read()
     json_data = json.loads(content)
-    payload = transform_json_to_payload(json_data)
-    
+    payload = transform_json_to_payload(json_data, override_source_date=source_date)
+
     # Re-use existing logic
     result = validate_import_payload(db, emitter_id=emitter_id, payload=payload)
     if not result.valid:

@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useEmitter, useUpdateEmitter } from "../state/hooks/useEmitters";
 import { useEwGroups } from "../state/hooks/useEwGroups";
 import { useSources } from "../state/hooks/useSources";
+import { useCreateEmitterNote, useDeleteEmitterNote, useEmitterNotes } from "../state/hooks/useEmitterNotes";
 import { emittersApi } from "../api/emitters";
 import { EwGroupsTable } from "../components/ewGroups/EwGroupsTable";
 import { SourcesTable } from "../components/sources/SourcesTable";
@@ -12,6 +13,7 @@ import { EmitterTestHistory } from "../components/testing/EmitterTestHistory";
 import { EntityAuditTrail } from "../components/audit/EntityAuditTrail";
 import { LoadingState } from "../components/common/LoadingState";
 import { Modal } from "../components/common/Modal";
+import { NotesFeed } from "../components/common/NotesFeed";
 import { emitterStatusLabel } from "../components/common/emitterStatusLabel";
 import { JsonImportModal } from "../components/common/JsonImportModal";
 import { useQueryClient } from "@tanstack/react-query";
@@ -35,6 +37,9 @@ export function EmitterEditorPage() {
   const { data: sources, isLoading: sourcesLoading } = useSources(emitterId ?? "");
   const queryClient = useQueryClient();
   const { mutate: updateEmitter, isPending: isUpdating } = useUpdateEmitter();
+  const { data: emitterNotes, isLoading: notesLoading } = useEmitterNotes(emitterId ?? "");
+  const { mutateAsync: createEmitterNote, isPending: isAddingNote } = useCreateEmitterNote(emitterId ?? "");
+  const { mutateAsync: deleteEmitterNote } = useDeleteEmitterNote(emitterId ?? "");
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
@@ -151,6 +156,19 @@ export function EmitterEditorPage() {
         </>
       )}
       {emitter.description && <p className="muted">{emitter.description}</p>}
+      {!isEditing && (
+        <div className="card" style={{ marginTop: "0.5rem" }}>
+          <h5 style={{ marginTop: 0 }}>Analyst notes</h5>
+          <NotesFeed
+            notes={emitterNotes}
+            isLoading={notesLoading}
+            placeholder="Your own running notes/observations about this Emitter — separate from the description."
+            onAdd={(body) => createEmitterNote(body)}
+            isAdding={isAddingNote}
+            onDelete={(noteId) => deleteEmitterNote(noteId)}
+          />
+        </div>
+      )}
 
       {showReworkNote && (
         <Modal title="Needs rework" onClose={() => setShowReworkNote(false)}>
@@ -163,16 +181,37 @@ export function EmitterEditorPage() {
           {emitter.summary.rf_min_mhz != null && (
             <span>
               RF <strong>{emitter.summary.rf_min_mhz}–{emitter.summary.rf_max_mhz}</strong> MHz
+              {(emitter.summary.engineered_rf_min_mhz !== emitter.summary.rf_min_mhz ||
+                emitter.summary.engineered_rf_max_mhz !== emitter.summary.rf_max_mhz) && (
+                <span className="hint-text">
+                  {" "}
+                  · engineered: {emitter.summary.engineered_rf_min_mhz}–{emitter.summary.engineered_rf_max_mhz}
+                </span>
+              )}
             </span>
           )}
           {emitter.summary.pw_min_us != null && (
             <span>
               PW <strong>{emitter.summary.pw_min_us}–{emitter.summary.pw_max_us}</strong> µs
+              {(emitter.summary.engineered_pw_min_us !== emitter.summary.pw_min_us ||
+                emitter.summary.engineered_pw_max_us !== emitter.summary.pw_max_us) && (
+                <span className="hint-text">
+                  {" "}
+                  · engineered: {emitter.summary.engineered_pw_min_us}–{emitter.summary.engineered_pw_max_us}
+                </span>
+              )}
             </span>
           )}
           {emitter.summary.pri_min_us != null && (
             <span>
               PRI <strong>{emitter.summary.pri_min_us}–{emitter.summary.pri_max_us}</strong> µs
+              {(emitter.summary.engineered_pri_min_us !== emitter.summary.pri_min_us ||
+                emitter.summary.engineered_pri_max_us !== emitter.summary.pri_max_us) && (
+                <span className="hint-text">
+                  {" "}
+                  · engineered: {emitter.summary.engineered_pri_min_us}–{emitter.summary.engineered_pri_max_us}
+                </span>
+              )}
             </span>
           )}
           {emitter.summary.scan_min != null && (

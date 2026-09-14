@@ -180,6 +180,7 @@ export function ModesSection({
           onSort={handleSort}
           onClear={handleClearSort}
           onDelete={handleDelete}
+          onSelectionChange={() => {}}
         />
       ) : (
         <ModesCardGrid

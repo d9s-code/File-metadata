@@ -1,8 +1,11 @@
-import { Fragment, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import type { EwGroup, Source } from "../../types/domain";
 import { useApproveSource, useDeleteSource, useRejectSource } from "../../state/hooks/useSources";
+import { useCreateSourceNote, useDeleteSourceNote, useSourceNotes } from "../../state/hooks/useSourceNotes";
 import { useElements } from "../../state/hooks/useElements";
+import { useEmitterModes } from "../../state/hooks/useModes";
 import { useConfirmDialog } from "../common/ConfirmDialog";
+import { NotesFeed } from "../common/NotesFeed";
 import { ElementsPanel } from "./ElementsPanel";
 import { ParameterSequencesPanel } from "./ParameterSequencesPanel";
 import { CartesianProductButton } from "./CartesianProductButton";
@@ -14,7 +17,7 @@ import { SortableColumnHeader } from "../common/SortableColumnHeader";
 import { useSortableTable } from "../common/useSortableTable";
 import { compareStrings } from "../common/sortUtils";
 
-type SourceSortKey = "name" | "rf_legacy_term" | "pri_legacy_term" | "source_date";
+type SourceSortKey = "name" | "rf_legacy_term" | "pri_legacy_term" | "source_date" | "updated_at";
 
 function compareSources(a: Source, b: Source, key: SourceSortKey, dir: "asc" | "desc"): number {
   switch (key) {
@@ -26,6 +29,8 @@ function compareSources(a: Source, b: Source, key: SourceSortKey, dir: "asc" | "
       return compareStrings(a.pri_legacy_term, b.pri_legacy_term, dir);
     case "source_date":
       return compareStrings(a.source_date, b.source_date, dir);
+    case "updated_at":
+      return compareStrings(a.updated_at, b.updated_at, dir);
   }
 }
 
@@ -41,6 +46,47 @@ function ElementCounts({ emitterId, sourceId }: { emitterId: string; sourceId: s
   );
 }
 
+/** Which Modes were built from this Source — answers "source coverage": at a
+ * glance, has this Source's data actually been turned into any Modes yet? */
+function SourceCoverage({ emitterId, sourceId }: { emitterId: string; sourceId: string }) {
+  const { data: modes } = useEmitterModes(emitterId);
+  const covering = (modes ?? []).filter((m) => m.source_id === sourceId);
+  if (covering.length === 0) {
+    return <span className="hint-text">No Modes built from this Source yet</span>;
+  }
+  return (
+    <ul style={{ margin: 0, paddingLeft: "1.2rem" }}>
+      {covering.map((m) => (
+        <li key={m.id}>
+          {m.name}
+          {m.status !== "approved" && (
+            <span className={`mode-status-badge mode-status-${m.status}`} style={{ marginLeft: "0.4rem" }}>
+              {m.status}
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function SourceNotesEditor({ emitterId, source }: { emitterId: string; source: Source }) {
+  const { data: notes, isLoading } = useSourceNotes(emitterId, source.id);
+  const { mutateAsync: createNote, isPending: isAdding } = useCreateSourceNote(emitterId, source.id);
+  const { mutateAsync: deleteNote } = useDeleteSourceNote(emitterId, source.id);
+
+  return (
+    <NotesFeed
+      notes={notes}
+      isLoading={isLoading}
+      placeholder="Your own thoughts/observations about this Source."
+      onAdd={(body) => createNote(body)}
+      isAdding={isAdding}
+      onDelete={(noteId) => deleteNote(noteId)}
+    />
+  );
+}
+
 export function SourcesTable({
   emitterId,
   sources,
@@ -53,12 +99,19 @@ export function SourcesTable({
   const deleteSource = useDeleteSource(emitterId);
   const approveSource = useApproveSource(emitterId);
   const rejectSource = useRejectSource(emitterId);
+  const { data: allModes } = useEmitterModes(emitterId);
   const { confirmDelete, dialog } = useConfirmDialog();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isElementsCollapsed, setIsElementsCollapsed] = useState(false);
   const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(sources, compareSources);
+
+  const modeCountBySource = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const m of allModes ?? []) counts.set(m.source_id, (counts.get(m.source_id) ?? 0) + 1);
+    return counts;
+  }, [allModes]);
 
   async function handleDelete(source: Source) {
     setDeleteError(null);
@@ -109,7 +162,19 @@ export function SourcesTable({
                 onSort={onSort}
                 onClear={onClear}
               />
+              <SortableColumnHeader
+                label="Last edited"
+                columnKey="updated_at"
+                columnType="date"
+                activeKey={sortKey}
+                activeDir={sortDir}
+                onSort={onSort}
+                onClear={onClear}
+              />
               <th>Elements</th>
+              <th title="How many Modes have been built from this Source — see 'which Modes cover which Source'">
+                Modes
+              </th>
               <th></th>
             </tr>
           </thead>
@@ -126,8 +191,16 @@ export function SourcesTable({
                   <td>{s.rf_legacy_term ?? "—"}</td>
                   <td>{s.pri_legacy_term ?? "—"}</td>
                   <td>{s.source_date}</td>
+                  <td>{new Date(s.updated_at).toLocaleString()}</td>
                   <td>
                     <ElementCounts emitterId={emitterId} sourceId={s.id} />
+                  </td>
+                  <td>
+                    {modeCountBySource.get(s.id) ? (
+                      <span className="hint-text">{modeCountBySource.get(s.id)} Mode(s)</span>
+                    ) : (
+                      <span className="hint-text">—</span>
+                    )}
                   </td>
                   <td>
                     <button
@@ -163,9 +236,15 @@ export function SourcesTable({
                 </tr>
                 {expandedId === s.id && (
                   <tr>
-                    <td colSpan={6}>
+                    <td colSpan={8}>
                       <div className="source-detail">
-                        <div className="mb-4">
+                        <h5 className="mt-0">Analyst notes</h5>
+                        <SourceNotesEditor emitterId={emitterId} source={s} />
+
+                        <h5 className="mt-4">Coverage — Modes built from this Source</h5>
+                        <SourceCoverage emitterId={emitterId} sourceId={s.id} />
+
+                        <div className="mb-4 mt-4">
                           <button
                             onClick={() => setIsElementsCollapsed(!isElementsCollapsed)}
                             className="text-sm text-blue-600 hover:underline"

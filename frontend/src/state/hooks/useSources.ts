@@ -17,6 +17,15 @@ export function useCreateSource(emitterId: string) {
   });
 }
 
+export function useUpdateSource(emitterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ sourceId, input }: { sourceId: string; input: Partial<SourceInput> }) =>
+      sourcesApi.update(emitterId, sourceId, input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: sourcesKey(emitterId) }),
+  });
+}
+
 export function useDeleteSource(emitterId: string) {
   const qc = useQueryClient();
   return useMutation({

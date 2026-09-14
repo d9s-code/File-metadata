@@ -7,10 +7,25 @@ from app.schemas.parameter_sequence import ParameterSequenceCreate, ParameterSeq
 from app.core.enums import ElementType as CoreElementType
 
 
-def transform_json_to_payload(json_data: List[Dict[str, Any]]) -> ImportPayload:
+def _parse_date_last_updated(raw: str | None) -> date | None:
+    """Parses "10-06-2015 17:19:28 GMT" -> date(2015, 6, 10). Returns None
+    (rather than silently defaulting to today) when the value is missing or
+    malformed, so the caller can decide the right fallback."""
+    if not raw:
+        return None
+    date_str = raw.split(" ")[0]
+    try:
+        return datetime.strptime(date_str, "%d-%m-%Y").date()
+    except ValueError:
+        return None
+
+
+def transform_json_to_payload(
+    json_data: List[Dict[str, Any]], *, override_source_date: date | None = None
+) -> ImportPayload:
     """
     Transforms the JSON format into our internal ImportPayload.
-    
+
     JSON structure (one per file):
     {
         "file": str,
@@ -26,19 +41,17 @@ def transform_json_to_payload(json_data: List[Dict[str, Any]]) -> ImportPayload:
             }
         ]
     }
+
+    "date_last_updated" lives on each parametric set, not on the file as a
+    whole — read per-set below, not once for the whole file. If a set has no
+    parseable date of its own, `override_source_date` (typed in manually at
+    import time) is used; failing that, today's date is the last resort.
     """
     if not json_data:
         raise ValueError("JSON data is empty")
-    
+
     # We take the first file in the list as the document
     first_file = json_data[0]
-    
-    # Parse date: "10-06-2015 17:19:28 GMT" -> date(2015, 6, 10)
-    date_str = first_file.get("date_last_updated", "").split(" ")[0]
-    try:
-        parsed_date = datetime.strptime(date_str, "%d-%m-%Y").date()
-    except ValueError:
-        parsed_date = date.today()
 
     parametric_sets = []
     
@@ -186,10 +199,15 @@ def transform_json_to_payload(json_data: List[Dict[str, Any]]) -> ImportPayload:
                                 # Skip non-numeric values as they cannot be ModeElements
                                 continue
 
+        source_date = (
+            override_source_date
+            or _parse_date_last_updated(pset_json.get("date_last_updated"))
+            or date.today()
+        )
         parametric_sets.append(ParametricSetImport(
             source_name=pset_json.get("set_id"),
             source_description=source_description,
-            source_date=parsed_date,
+            source_date=source_date,
             elements=elements,
             sequences=sequences
         ))

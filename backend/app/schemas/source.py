@@ -8,16 +8,22 @@ from app.core.enums import SourceStatus
 
 class SourceCreate(BaseModel):
     name: str
+    description: str | None = None
     rf_legacy_term: str | None = None
     pri_legacy_term: str | None = None
+    source_type: str | None = None
     source_date: date
+    group_id: UUID | None = None
 
 
 class SourceUpdate(BaseModel):
     name: str | None = None
+    description: str | None = None
     rf_legacy_term: str | None = None
     pri_legacy_term: str | None = None
+    source_type: str | None = None
     source_date: date | None = None
+    group_id: UUID | None = None
 
 
 class SourceOut(BaseModel):
@@ -26,10 +32,13 @@ class SourceOut(BaseModel):
     id: UUID
     emitter_id: UUID
     name: str
+    description: str | None = None
     rf_legacy_term: str | None = None
     pri_legacy_term: str | None = None
+    source_type: str | None = None
     source_date: date
     status: SourceStatus
     import_batch_id: UUID | None = None
+    group_id: UUID | None = None
     created_at: datetime
     updated_at: datetime

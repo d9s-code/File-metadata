@@ -38,3 +38,11 @@ class Emitter(UUIDPkMixin, TimestampMixin, Base):
     versions: Mapped[list["EmitterVersion"]] = relationship(  # noqa: F821
         back_populates="emitter", cascade="all, delete-orphan", order_by="EmitterVersion.version_number"
     )
+    # Free-form analyst commentary — separate from `description` (what this
+    # Emitter *is*) and `rework_note` (a specific required-fix flag): an
+    # append-only log of an analyst's own running notes/observations, newest
+    # first. Immutable entries (see EmitterNote) so a later note never
+    # overwrites an earlier one.
+    notes: Mapped[list["EmitterNote"]] = relationship(  # noqa: F821
+        back_populates="emitter", cascade="all, delete-orphan", order_by="EmitterNote.created_at.desc()"
+    )

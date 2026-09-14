@@ -11,7 +11,11 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# configparser treats "%" as interpolation syntax, so a URL-encoded query
+# param (e.g. "%3D" in ?options=-csearch_path%3Dv2) must be escaped as "%%"
+# here — this only affects how alembic's ConfigParser stores the value;
+# get_main_option() below returns it unescaped.
+config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
 
 target_metadata = Base.metadata
 

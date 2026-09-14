@@ -16,21 +16,14 @@ export const emittersApi = {
   delete: (id: string, hard = false) => api.delete<void>(`/emitters/${id}${hard ? "?hard=true" : ""}`),
   restore: (id: string) => api.post<Emitter>(`/emitters/${id}/restore`),
   exportPrs: (id: string, options?: any) => api.post<void>(`/emitters/${id}/export/prs`, undefined, options),
-  importJson: (emitterId: string, file: File) => {
+  exportXml: (id: string, options?: any) => api.post<Blob>(`/emitters/${id}/export/xml`, undefined, options),
+  // sourceDate (YYYY-MM-DD), if given, overrides the "Date last updated" the
+  // importer would otherwise parse from the JSON file's own per-set
+  // date_last_updated field — see transformer.py.
+  importJson: (emitterId: string, file: File, sourceDate?: string) => {
     const formData = new FormData();
     formData.append("file", file);
-    // We use a trick here because our wrapper's post() method automatically 
-    // stringifies the body and sets Content-Type to application/json.
-    // For FormData, we must pass it as the body and let the browser 
-    // set the Content-Type with the appropriate boundary.
-    // Since we can't easily change the wrapper, we'll use a direct fetch 
-    // if we were allowed, but since we are constrained to the 'api' object,
-    // I'll check if I can bypass the stringification.
-    // Actually, looking at api.ts, it always does JSON.stringify(body).
-    // This is a limitation of the current 'api' wrapper.
-    // I will use a cast to 'any' to attempt to pass the FormData directly 
-    // and hope the wrapper's behavior allows it, OR better, I will 
-    // modify the wrapper to support non-JSON bodies.
-    return api.post<void>(`/emitters/${emitterId}/imports/json-import`, formData as any);
+    if (sourceDate) formData.append("source_date", sourceDate);
+    return api.post<void>(`/emitters/${emitterId}/imports/json-import`, formData);
   },
 };

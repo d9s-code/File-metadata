@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.csrf import verify_csrf
 from app.core.enums import AuditAction, AuditEntityType, Role, SourceStatus
@@ -12,6 +12,8 @@ from app.models.ew_group import EwGroup
 from app.models.mode import ModeElement
 from app.models.parameter_sequence import ParameterSequence
 from app.models.source import Source
+from app.models.source_group import SourceGroup
+from app.models.source_note import SourceNote
 from app.schemas.mode_element import (
     CartesianProductRequest,
     CartesianProductResult,
@@ -24,6 +26,7 @@ from app.schemas.parameter_sequence import (
     ParameterSequenceOut,
 )
 from app.schemas.source import SourceCreate, SourceOut, SourceUpdate
+from app.schemas.source_note import SourceNoteCreate, SourceNoteOut
 from app.services.audit_service import apply_and_diff, record_audit
 from app.services.cartesian_service import CartesianProductError, run_cartesian_product
 from app.services.frametime_service import compute_frametime_us
@@ -56,6 +59,8 @@ def create_source(
     user=Depends(require_role(Role.editor)),
 ) -> Source:
     _get_emitter_or_404(db, emitter_id)
+    if payload.group_id is not None and db.get(SourceGroup, payload.group_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Source Group not found")
     source = Source(emitter_id=emitter_id, **payload.model_dump())
     db.add(source)
     db.flush()
@@ -85,7 +90,10 @@ def update_source(
     source = db.get(Source, source_id)
     if source is None or source.emitter_id != emitter_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Source not found")
-    changes = apply_and_diff(source, payload.model_dump(exclude_unset=True))
+    data = payload.model_dump(exclude_unset=True)
+    if data.get("group_id") is not None and db.get(SourceGroup, data["group_id"]) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Source Group not found")
+    changes = apply_and_diff(source, data)
     record_audit(
         db,
         actor_id=user.id,
@@ -131,6 +139,79 @@ def _get_source_or_404(db: Session, emitter_id: UUID, source_id: UUID) -> Source
     if source is None or source.emitter_id != emitter_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Source not found")
     return source
+
+
+@router.get("/{source_id}/notes", response_model=list[SourceNoteOut])
+def list_source_notes(
+    emitter_id: UUID, source_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
+) -> list[SourceNote]:
+    """Newest-first analyst commentary log — see SourceNote."""
+    _get_source_or_404(db, emitter_id, source_id)
+    return (
+        db.query(SourceNote)
+        .options(joinedload(SourceNote.author))
+        .filter(SourceNote.source_id == source_id)
+        .order_by(SourceNote.created_at.desc())
+        .all()
+    )
+
+
+@router.post(
+    "/{source_id}/notes",
+    response_model=SourceNoteOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(verify_csrf)],
+)
+def create_source_note(
+    emitter_id: UUID,
+    source_id: UUID,
+    payload: SourceNoteCreate,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+) -> SourceNote:
+    source = _get_source_or_404(db, emitter_id, source_id)
+    note = SourceNote(source_id=source_id, author_id=user.id, body=payload.body)
+    db.add(note)
+    db.flush()
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.create,
+        entity_type=AuditEntityType.source_note.value,
+        entity_id=note.id,
+        summary=f"Added a note to Source '{source.name}'",
+        emitter_id=emitter_id,
+    )
+    db.commit()
+    db.refresh(note)
+    return note
+
+
+@router.delete(
+    "/{source_id}/notes/{note_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(verify_csrf)]
+)
+def delete_source_note(
+    emitter_id: UUID,
+    source_id: UUID,
+    note_id: UUID,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+) -> None:
+    source = _get_source_or_404(db, emitter_id, source_id)
+    note = db.get(SourceNote, note_id)
+    if note is None or note.source_id != source_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Note not found")
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.delete,
+        entity_type=AuditEntityType.source_note.value,
+        entity_id=note.id,
+        summary=f"Deleted a note from Source '{source.name}'",
+        emitter_id=emitter_id,
+    )
+    db.delete(note)
+    db.commit()
 
 
 @router.post("/{source_id}/approve", response_model=SourceOut, dependencies=[Depends(verify_csrf)])
@@ -435,6 +516,13 @@ def cartesian_product(
             sequence_ids=payload.sequence_ids,
             name_prefix=payload.name_prefix,
             created_by=user.id,
+            batch_note=payload.batch_note,
+            rf_delta_overrides=payload.rf_delta_overrides,
+            pw_delta_overrides=payload.pw_delta_overrides,
+            pri_delta_overrides=payload.pri_delta_overrides,
+            rf_range_matching=payload.rf_range_matching,
+            pw_range_matching=payload.pw_range_matching,
+            pri_range_matching=payload.pri_range_matching,
         )
     except CartesianProductError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc

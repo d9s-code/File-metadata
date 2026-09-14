@@ -128,7 +128,7 @@ def test_ew_group_response_includes_engineered_scan_range(editor_client, emitter
     assert body["engineered_scan_max"] == 4100
 
 
-def test_cartesian_product_writes_engineered_values_into_mode_line(editor_client, emitter_ctx):
+def test_cartesian_product_carries_element_delta_into_mode_line(editor_client, emitter_ctx):
     url = _elements_url(emitter_ctx)
     rf1 = editor_client.post(url, json={"element_type": "rf", "value_min": 2900, "value_max": 3100, "delta": 10}).json()
     pw1 = editor_client.post(url, json={"element_type": "pw", "value_min": 0.5, "value_max": 1.2}).json()
@@ -159,13 +159,137 @@ def test_cartesian_product_writes_engineered_values_into_mode_line(editor_client
     modes = editor_client.get(f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes").json()
     assert len(modes) == 1
     line = modes[0]["line"]
-    # RF/PRI widened by their delta; PW has no delta so it stays exactly as typed.
-    assert line["rf_min_mhz"] == 2890
-    assert line["rf_max_mhz"] == 3110
+    # The RAW element value is stored as-is (not pre-widened) with its delta
+    # carried through onto the Mode Line's own delta field — same raw/delta
+    # split a manually-authored line keeps, so the engineered range is what's
+    # computed on read, not baked in and made unrecoverable at generation time.
+    assert line["rf_min_mhz"] == 2900
+    assert line["rf_max_mhz"] == 3100
+    assert line["rf_delta"] == 10
+    assert line["engineered_rf_min_mhz"] == 2890
+    assert line["engineered_rf_max_mhz"] == 3110
     assert line["pw_min_us"] == 0.5
     assert line["pw_max_us"] == 1.2
-    assert line["pri_min_us"] == 780
-    assert line["pri_max_us"] == 1220
+    assert line["pw_delta"] is None
+    assert line["pri_min_us"] == 800
+    assert line["pri_max_us"] == 1200
+    assert line["pri_delta"] == 20
+    assert line["engineered_pri_min_us"] == 780
+    assert line["engineered_pri_max_us"] == 1220
+
+
+def test_cartesian_product_per_element_delta_override(editor_client, emitter_ctx):
+    url = _elements_url(emitter_ctx)
+    # Element has its own delta of 10, but the request overrides it to 50 for this run only.
+    rf1 = editor_client.post(url, json={"element_type": "rf", "value_min": 2900, "value_max": 3100, "delta": 10}).json()
+    pw1 = editor_client.post(url, json={"element_type": "pw", "value_min": 0.5, "value_max": 1.2}).json()
+    pri1 = editor_client.post(
+        url, json={"element_type": "pri", "value_min": 800, "value_max": 1200, "jitter_min": 5, "jitter_max": 15}
+    ).json()
+
+    resp = editor_client.post(
+        f"{url}/cartesian-product",
+        json={
+            "ew_group_id": emitter_ctx["ew_group"]["id"],
+            "rf_element_ids": [rf1["id"]],
+            "pw_element_ids": [pw1["id"]],
+            "pri_element_ids": [pri1["id"]],
+            "name_prefix": "Override",
+            "rf_delta_overrides": {rf1["id"]: 50},
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+    modes = editor_client.get(f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes").json()
+    line = modes[0]["line"]
+    assert line["rf_min_mhz"] == 2900  # raw is untouched
+    assert line["rf_delta"] == 50  # override wins over the element's own delta of 10
+
+    # The element itself is unaffected by the override.
+    elements = editor_client.get(url).json()
+    rf1_after = next(e for e in elements if e["id"] == rf1["id"])
+    assert rf1_after["delta"] == 10
+
+
+def test_cartesian_product_batch_note_becomes_mode_notes(editor_client, emitter_ctx):
+    url = _elements_url(emitter_ctx)
+    rf1 = editor_client.post(url, json={"element_type": "rf", "value_min": 2900, "value_max": 3100}).json()
+    pw1 = editor_client.post(url, json={"element_type": "pw", "value_min": 0.5, "value_max": 1.2}).json()
+    pri1 = editor_client.post(
+        url, json={"element_type": "pri", "value_min": 800, "value_max": 1200, "jitter_min": 5, "jitter_max": 15}
+    ).json()
+
+    resp = editor_client.post(
+        f"{url}/cartesian-product",
+        json={
+            "ew_group_id": emitter_ctx["ew_group"]["id"],
+            "rf_element_ids": [rf1["id"]],
+            "pw_element_ids": [pw1["id"]],
+            "pri_element_ids": [pri1["id"]],
+            "name_prefix": "NotedBatch",
+            "batch_note": "Derived from the March intercepts.",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+    modes = editor_client.get(f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes").json()
+    assert modes[0]["notes"] == "Derived from the March intercepts."
+
+
+def test_cartesian_product_applies_range_matching_flags(editor_client, emitter_ctx):
+    url = _elements_url(emitter_ctx)
+    rf1 = editor_client.post(url, json={"element_type": "rf", "value_min": 2900, "value_max": 3100}).json()
+    pw1 = editor_client.post(url, json={"element_type": "pw", "value_min": 0.5, "value_max": 1.2}).json()
+    pri1 = editor_client.post(
+        url, json={"element_type": "pri", "value_min": 800, "value_max": 1200, "jitter_min": 5, "jitter_max": 15}
+    ).json()
+
+    resp = editor_client.post(
+        f"{url}/cartesian-product",
+        json={
+            "ew_group_id": emitter_ctx["ew_group"]["id"],
+            "rf_element_ids": [rf1["id"]],
+            "pw_element_ids": [pw1["id"]],
+            "pri_element_ids": [pri1["id"]],
+            "name_prefix": "RangeMatched",
+            "rf_range_matching": True,
+            "pri_range_matching": True,
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+    modes = editor_client.get(f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes").json()
+    line = modes[0]["line"]
+    assert line["rf_range_matching"] is True
+    assert line["pw_range_matching"] is False
+    assert line["pri_range_matching"] is True
+
+
+def test_repeated_cartesian_product_runs_with_same_prefix_get_distinct_names(editor_client, emitter_ctx):
+    url = _elements_url(emitter_ctx)
+    rf1 = editor_client.post(url, json={"element_type": "rf", "value_min": 2900, "value_max": 3100}).json()
+    pw1 = editor_client.post(url, json={"element_type": "pw", "value_min": 0.5, "value_max": 1.2}).json()
+    pri1 = editor_client.post(
+        url, json={"element_type": "pri", "value_min": 800, "value_max": 1200, "jitter_min": 5, "jitter_max": 15}
+    ).json()
+
+    for _ in range(2):
+        resp = editor_client.post(
+            f"{url}/cartesian-product",
+            json={
+                "ew_group_id": emitter_ctx["ew_group"]["id"],
+                "rf_element_ids": [rf1["id"]],
+                "pw_element_ids": [pw1["id"]],
+                "pri_element_ids": [pri1["id"]],
+                "name_prefix": "SameName",
+            },
+        )
+        assert resp.status_code == 200, resp.text
+
+    modes = editor_client.get(f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes").json()
+    names = [m["name"] for m in modes]
+    assert len(names) == len(set(names)), f"expected unique names, got {names}"
+    assert set(names) == {"SameName 1", "SameName 2"}
 
 
 def test_cartesian_product_requires_csrf_token(editor_client, emitter_ctx):

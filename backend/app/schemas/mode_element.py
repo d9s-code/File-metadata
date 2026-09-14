@@ -90,6 +90,20 @@ class CartesianProductRequest(BaseModel):
     pri_element_ids: list[UUID]
     sequence_ids: list[UUID] | None = None
     name_prefix: str = "Mode"
+    batch_note: str | None = None
+    # Per-element delta overrides — takes precedence over the element's own
+    # stored `delta` for this run only (the element itself is unchanged).
+    # Keyed by element id; only elements actually selected above are used.
+    rf_delta_overrides: dict[UUID, float] | None = None
+    pw_delta_overrides: dict[UUID, float] | None = None
+    pri_delta_overrides: dict[UUID, float] | None = None
+    # Applied uniformly to every Mode Line this run generates — Range
+    # Matching is a per-parameter Mode Line flag, not a per-Element one, so
+    # there's one choice per parameter for the whole batch rather than a
+    # per-element override like the deltas above.
+    rf_range_matching: bool = False
+    pw_range_matching: bool = False
+    pri_range_matching: bool = False
 
 
 class CartesianProductResult(BaseModel):

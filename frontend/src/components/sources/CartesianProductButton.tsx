@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { EwGroup, ElementVariant } from "../../types/domain";
 import { useCartesianProduct, useElements } from "../../state/hooks/useElements";
 import { ApiRequestError } from "../../api/client";
@@ -24,14 +24,24 @@ function CheckboxList({
   selected,
   onToggle,
   showVariant = false,
+  deltaOverrides,
+  onDeltaChange,
+  elementDeltaById,
 }: {
   items: { id: string; label: string; variant?: ElementVariant }[];
   selected: Set<string>;
   onToggle: (id: string) => void;
   showVariant?: boolean;
+  /** Per-element delta override, keyed by element id — only rendered when both this and onDeltaChange are given. */
+  deltaOverrides?: Record<string, string>;
+  onDeltaChange?: (id: string, value: string) => void;
+  /** The element's own stored delta, shown as the input's placeholder so it's
+   * clear what "leave blank" means (use the element's own value, if any). */
+  elementDeltaById?: Record<string, number | null>;
 }) {
   if (items.length === 0) return <p className="hint-text">No items available.</p>;
-  
+  const showDelta = !!(deltaOverrides && onDeltaChange);
+
   if (showVariant) {
     return (
       <div className="overflow-x-auto border border-gray-200 rounded-lg">
@@ -40,6 +50,7 @@ function CheckboxList({
             <tr>
               <th className="px-2 py-1 w-24">Variant</th>
               <th className="px-2 py-1">Label</th>
+              {showDelta && <th className="px-2 py-1 w-28">Delta override</th>}
               <th className="px-2 py-1 w-10"></th>
             </tr>
           </thead>
@@ -76,6 +87,24 @@ function CheckboxList({
                     {item.label}
                   </label>
                 </td>
+                {showDelta && (
+                  <td className="px-2 py-1 align-middle">
+                    {selected.has(item.id) && (
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        style={{ width: "5.5rem" }}
+                        value={deltaOverrides?.[item.id] ?? ""}
+                        onChange={(e) => onDeltaChange?.(item.id, e.target.value)}
+                        placeholder={
+                          elementDeltaById?.[item.id] != null ? `${elementDeltaById[item.id]}` : "none"
+                        }
+                        title="Leave blank to use this element's own delta (if any)"
+                      />
+                    )}
+                  </td>
+                )}
                 <td className="px-2 py-1 w-6"></td>
               </tr>
             ))}
@@ -127,11 +156,50 @@ export function CartesianProductButton({
   const [pwSelected, setPwSelected] = useState<Set<string>>(new Set());
   const [priSelected, setPriSelected] = useState<Set<string>>(new Set());
   const [sequenceSelected, setSequenceSelected] = useState<Set<string>>(new Set());
+  const [rfDeltaOverrides, setRfDeltaOverrides] = useState<Record<string, string>>({});
+  const [pwDeltaOverrides, setPwDeltaOverrides] = useState<Record<string, string>>({});
+  const [priDeltaOverrides, setPriDeltaOverrides] = useState<Record<string, string>>({});
   const [ewGroupId, setEwGroupId] = useState(ewGroups[0]?.id ?? "");
   const [namePrefix, setNamePrefix] = useState("Mode");
   const [batchNote, setBatchNote] = useState("");
+  const [rfRangeMatching, setRfRangeMatching] = useState(false);
+  const [pwRangeMatching, setPwRangeMatching] = useState(false);
+  const [priRangeMatching, setPriRangeMatching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
+
+  // If an element gets deleted (or a sequence removed) while this panel is
+  // open, drop any now-stale id from the selection/override state instead of
+  // silently keeping a reference to something that no longer exists — the
+  // checkbox already visually disappears, but without this the id would
+  // still be submitted on Generate and get rejected server-side.
+  useEffect(() => {
+    const validIds = new Set((elements ?? []).map((e) => e.id));
+    const prune = (setFn: React.Dispatch<React.SetStateAction<Set<string>>>) =>
+      setFn((prev) => {
+        const next = new Set([...prev].filter((id) => validIds.has(id)));
+        return next.size === prev.size ? prev : next;
+      });
+    prune(setRfSelected);
+    prune(setPwSelected);
+    prune(setPriSelected);
+    const pruneOverrides = (setFn: React.Dispatch<React.SetStateAction<Record<string, string>>>) =>
+      setFn((prev) => {
+        const next = Object.fromEntries(Object.entries(prev).filter(([id]) => validIds.has(id)));
+        return Object.keys(next).length === Object.keys(prev).length ? prev : next;
+      });
+    pruneOverrides(setRfDeltaOverrides);
+    pruneOverrides(setPwDeltaOverrides);
+    pruneOverrides(setPriDeltaOverrides);
+  }, [elements]);
+
+  useEffect(() => {
+    const validIds = new Set((sequences ?? []).map((s) => s.id));
+    setSequenceSelected((prev) => {
+      const next = new Set([...prev].filter((id) => validIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [sequences]);
 
   function rangeLabel(min: number | null, max: number | null, engMin: number | null, engMax: number | null, unit: string) {
     if (engMin !== min || engMax !== max) {
@@ -150,7 +218,7 @@ export function CartesianProductButton({
     .map((e) => ({ 
       id: e.id, 
       label: rangeLabel(e.value_min, e.value_max, e.engineered_min, e.engineered_max, "MHz"),
-      variant: e.variant 
+      variant: e.variant ?? undefined
     }));
   const pwItems = (elements ?? [])
     .filter((e) => e.element_type === "pw")
@@ -162,7 +230,7 @@ export function CartesianProductButton({
     .map((e) => ({ 
       id: e.id, 
       label: rangeLabel(e.value_min, e.value_max, e.engineered_min, e.engineered_max, "µs"),
-      variant: e.variant 
+      variant: e.variant ?? undefined
     }));
   const priItems = (elements ?? [])
     .filter((e) => e.element_type === "pri")
@@ -176,13 +244,22 @@ export function CartesianProductButton({
         label: e.stagger_values
           ? `stagger [${e.stagger_values.join(", ")}]`
           : rangeLabel(e.value_min, e.value_max, e.engineered_min, e.engineered_max, "µs"),
-        variant: e.variant 
+        variant: e.variant ?? undefined
       }));
 
   const sequenceItems = (sequences ?? []).map((s) => ({
     id: s.id,
     label: s.label,
   }));
+
+  const elementDeltaById = Object.fromEntries((elements ?? []).map((e) => [e.id, e.delta]));
+
+  function toOverridePayload(overrides: Record<string, string>): Record<string, number> | undefined {
+    const entries = Object.entries(overrides)
+      .map(([id, v]) => [id, Number(v)] as const)
+      .filter(([, v]) => v !== null && !Number.isNaN(v) && Number.isFinite(v) && v >= 0);
+    return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+  }
 
   async function handleRun() {
     setError(null);
@@ -200,6 +277,12 @@ export function CartesianProductButton({
         sequence_ids: [...sequenceSelected],
         name_prefix: namePrefix,
         batch_note: batchNote || undefined,
+        rf_delta_overrides: toOverridePayload(rfDeltaOverrides),
+        pw_delta_overrides: toOverridePayload(pwDeltaOverrides),
+        pri_delta_overrides: toOverridePayload(priDeltaOverrides),
+        rf_range_matching: rfRangeMatching,
+        pw_range_matching: pwRangeMatching,
+        pri_range_matching: priRangeMatching,
       });
       setResult(`Created ${res.count} mode(s).`);
     } catch (err) {
@@ -215,16 +298,49 @@ export function CartesianProductButton({
       </p>
       <div className="cartesian-columns">
         <div>
-          <strong>RF</strong>
-          <CheckboxList items={rfItems} selected={rfSelected} onToggle={(id) => setRfSelected((s) => toggle(s, id))} showVariant={true} />
+          <strong>RF</strong> <label className="checkbox-label" style={{ display: "inline-flex", width: "auto" }}>
+            <input type="checkbox" checked={rfRangeMatching} onChange={(e) => setRfRangeMatching(e.target.checked)} />
+            Range matching
+          </label>
+          <CheckboxList
+            items={rfItems}
+            selected={rfSelected}
+            onToggle={(id) => setRfSelected((s) => toggle(s, id))}
+            showVariant={true}
+            deltaOverrides={rfDeltaOverrides}
+            onDeltaChange={(id, value) => setRfDeltaOverrides((prev) => ({ ...prev, [id]: value }))}
+            elementDeltaById={elementDeltaById}
+          />
         </div>
         <div>
-          <strong>PRI</strong>
-          <CheckboxList items={priItems} selected={priSelected} onToggle={(id) => setPriSelected((s) => toggle(s, id))} showVariant={true} />
+          <strong>PRI</strong> <label className="checkbox-label" style={{ display: "inline-flex", width: "auto" }}>
+            <input type="checkbox" checked={priRangeMatching} onChange={(e) => setPriRangeMatching(e.target.checked)} />
+            Range matching
+          </label>
+          <CheckboxList
+            items={priItems}
+            selected={priSelected}
+            onToggle={(id) => setPriSelected((s) => toggle(s, id))}
+            showVariant={true}
+            deltaOverrides={priDeltaOverrides}
+            onDeltaChange={(id, value) => setPriDeltaOverrides((prev) => ({ ...prev, [id]: value }))}
+            elementDeltaById={elementDeltaById}
+          />
         </div>
         <div>
-          <strong>PW</strong>
-          <CheckboxList items={pwItems} selected={pwSelected} onToggle={(id) => setPwSelected((s) => toggle(s, id))} showVariant={true} />
+          <strong>PW</strong> <label className="checkbox-label" style={{ display: "inline-flex", width: "auto" }}>
+            <input type="checkbox" checked={pwRangeMatching} onChange={(e) => setPwRangeMatching(e.target.checked)} />
+            Range matching
+          </label>
+          <CheckboxList
+            items={pwItems}
+            selected={pwSelected}
+            onToggle={(id) => setPwSelected((s) => toggle(s, id))}
+            showVariant={true}
+            deltaOverrides={pwDeltaOverrides}
+            onDeltaChange={(id, value) => setPwDeltaOverrides((prev) => ({ ...prev, [id]: value }))}
+            elementDeltaById={elementDeltaById}
+          />
         </div>
         <div>
           <strong>Sequences</strong>

@@ -16,13 +16,14 @@ export function JsonImportModal({
 }: JsonImportModalProps) {
   const [isImporting, setIsImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sourceDate, setSourceDate] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImport = async (file: File) => {
     setIsImporting(true);
     setError(null);
     try {
-      await emittersApi.importJson(emitterId, file);
+      await emittersApi.importJson(emitterId, file, sourceDate || undefined);
       onSuccess();
       onClose();
     } catch (err) {
@@ -39,7 +40,21 @@ export function JsonImportModal({
           <p className="hint-text">
             Upload a JSON file to populate this Emitter with new sources.
           </p>
-          
+
+          <label className="wide-label" style={{ marginTop: "1rem", display: "block" }}>
+            Date last updated (optional)
+            <input
+              type="date"
+              value={sourceDate}
+              onChange={(e) => setSourceDate(e.target.value)}
+              disabled={isImporting}
+            />
+          </label>
+          <p className="hint-text" style={{ marginTop: "0.25rem" }}>
+            If set, every Source created by this import uses this date instead of
+            whatever (if anything) the JSON file's own per-set date parses to.
+          </p>
+
           <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginTop: "1rem" }}>
             <input
               type="file"

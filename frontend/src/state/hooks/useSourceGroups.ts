@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { sourceGroupsApi } from "../../api/source_groups";
-import type { SourceGroup } from "../../types/domain";
 
 export function useSourceGroups() {
   const queryClient = useQueryClient();

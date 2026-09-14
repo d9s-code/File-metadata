@@ -32,6 +32,14 @@ class EmitterSummary(BaseModel):
     there's no stored link between a Mode and the Element(s) it was built
     from today, so that half of "how much of this Emitter is verified" isn't
     computable without a new data-model addition.
+
+    rf/pw/pri_min/max_mhz|us are RAW extremes (each Mode Line's own raw
+    min/max, before that line's own delta). engineered_* are the same
+    extremes computed from each line's engineered (raw +/- delta) range
+    instead — the true worst-case envelope once every Mode's own tolerance
+    is folded in. The two commonly differ whenever any contributing Mode has
+    a delta set; showing both (rather than just one) keeps that visible
+    instead of silently picking a side.
     """
 
     rf_min_mhz: float | None = None
@@ -40,6 +48,12 @@ class EmitterSummary(BaseModel):
     pw_max_us: float | None = None
     pri_min_us: float | None = None
     pri_max_us: float | None = None
+    engineered_rf_min_mhz: float | None = None
+    engineered_rf_max_mhz: float | None = None
+    engineered_pw_min_us: float | None = None
+    engineered_pw_max_us: float | None = None
+    engineered_pri_min_us: float | None = None
+    engineered_pri_max_us: float | None = None
     scan_min: float | None = None
     scan_max: float | None = None
     mode_count: int = 0

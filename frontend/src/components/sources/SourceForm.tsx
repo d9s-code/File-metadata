@@ -13,7 +13,11 @@ export function SourceForm({ emitterId }: { emitterId: string }) {
     e.preventDefault();
     setError(null);
     try {
-      await createSource.mutateAsync({ name, description: description || undefined, source_date: sourceDate });
+      await createSource.mutateAsync({
+        name,
+        description: description || undefined,
+        source_date: sourceDate,
+      });
       setName("");
       setDescription("");
       setSourceDate("");

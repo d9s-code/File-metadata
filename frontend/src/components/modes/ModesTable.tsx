@@ -73,16 +73,16 @@ export function ModesTable({
           <tr>
             <th className="w-10"></th>
             {header("Name", "name")}
-            {header("EW Group", "ew_group")}
-            {header("Source", "source")}
             {header("RF Min", "rf_min", "number")}
             {header("RF Max", "rf_max", "number")}
-            {header("PW Min", "pw_min", "number")}
-            {header("PW Max", "pw_max", "number")}
             {header("PRI Type", "pri_type")}
             {header("PRI Min", "pri_min", "number")}
             {header("PRI Max", "pri_max", "number")}
+            {header("PW Min", "pw_min", "number")}
+            {header("PW Max", "pw_max", "number")}
             {header("Range Matching", "range_matching")}
+            {header("EW Group", "ew_group")}
+            {header("Source", "source")}
             {header("Last Tested", "last_tested", "date")}
             <th className="w-32"></th>
           </tr>
@@ -110,7 +110,7 @@ export function ModesTable({
                   />
                 </td>
                 <td>
-                  <HoverInfo label={m.name}>
+                  <HoverInfo label={<>{m.name}{m.notes && " 📝"}</>}>
                     <ModeHoverDetail mode={m} source={sourcesById[m.source_id]} />
                   </HoverInfo>
                   {m.status !== "approved" && (
@@ -121,28 +121,8 @@ export function ModesTable({
                     <span className="mode-draft-notice">A draft edit is pending review below.</span>
                   )}
                 </td>
-                <td>
-                  {ewGroup ? (
-                    <HoverInfo label={ewGroup.name}>
-                      <EwGroupHoverDetail ewGroup={ewGroup} />
-                    </HoverInfo>
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td>
-                  {source ? (
-                    <HoverInfo label={source.name}>
-                      <SourceHoverDetail emitterId={emitterId} source={source} />
-                    </HoverInfo>
-                  ) : (
-                    "—"
-                  )}
-                </td>
                 <td>{m.line?.rf_min_mhz ?? "—"}</td>
                 <td>{m.line?.rf_max_mhz ?? "—"}</td>
-                <td>{m.line?.pw_min_us ?? "—"}</td>
-                <td>{m.line?.pw_max_us ?? "—"}</td>
                 <td>{m.pri_type.toUpperCase()}</td>
                 {m.pri_type === "stagger" ? (
                   <td colSpan={2}>
@@ -163,6 +143,8 @@ export function ModesTable({
                 ) : (
                   <td colSpan={2}>{m.pri_type === "cw" ? "CW (constant)" : "—"}</td>
                 )}
+                <td>{m.line?.pw_min_us ?? "—"}</td>
+                <td>{m.line?.pw_max_us ?? "—"}</td>
                 <td>
                   {rangeMatchingTags(m).length > 0 ? (
                     rangeMatchingTags(m).map((tag) => (
@@ -172,6 +154,24 @@ export function ModesTable({
                     ))
                   ) : (
                     <span className="hint-text">—</span>
+                  )}
+                </td>
+                <td>
+                  {ewGroup ? (
+                    <HoverInfo label={ewGroup.name}>
+                      <EwGroupHoverDetail ewGroup={ewGroup} />
+                    </HoverInfo>
+                  ) : (
+                    "—"
+                  )}
+                </td>
+                <td>
+                  {source ? (
+                    <HoverInfo label={source.name}>
+                      <SourceHoverDetail emitterId={emitterId} source={source} />
+                    </HoverInfo>
+                  ) : (
+                    "—"
                   )}
                 </td>
                 <td>

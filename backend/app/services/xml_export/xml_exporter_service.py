@@ -12,6 +12,8 @@ from app.models.emitter import Emitter
 from app.models.mode import Mode, ModeLine
 from app.models.ew_group import EwGroup
 from app.models.source import Source
+from app.services.delta import apply_delta
+from app.services.frametime_service import compute_frametime_us
 
 
 class XMLExporterService:
@@ -133,21 +135,32 @@ class XMLExporterService:
                 if mode.status != ModeStatus.approved:
                     continue
                 mode_el = etree.SubElement(root, "Mode", Name=self._sanitize(mode.name))
-                
-                # RangeMatch
-                etree.SubElement(mode_el, "RangeMatch", 
-                                 PRI=str(mode.pri_type not in ["Simple", "Stagger", "Xlet", "CW"]).lower(), 
-                                 PulseWidth="false", 
-                                 Frequency="false")
-                
+
+                line = mode.line
+
+                # RangeMatch — the real per-parameter flags, not a guess derived
+                # from pri_type (which never matched anything: it compared the
+                # enum against XML Class strings, so PRI was always "true").
+                etree.SubElement(
+                    mode_el,
+                    "RangeMatch",
+                    PRI=str(bool(line and line.pri_range_matching)).lower(),
+                    PulseWidth=str(bool(line and line.pw_range_matching)).lower(),
+                    Frequency=str(bool(line and line.rf_range_matching)).lower(),
+                )
+
                 etree.SubElement(mode_el, "ConfirmationQuality", Value="100", Units="percent")
                 etree.SubElement(mode_el, "ConfirmationQuantity", Value="2", Units="count")
-                
+
                 if mode.line:
-                    line = mode.line
-                    etree.SubElement(mode_el, "Frequency", Min=str(line.rf_min_mhz), Max=str(line.rf_max_mhz), Units="MHz")
-                    etree.SubElement(mode_el, "PulseWidth", Min=str(line.pw_min_us), Max=str(line.pw_max_us), Units="us")
-                    
+                    # Engineered (raw +/- delta) values — a null/zero delta is a
+                    # no-op passthrough, so this is correct whether or not this
+                    # particular line actually has a delta set.
+                    rf_min, rf_max = apply_delta(line.rf_min_mhz, line.rf_max_mhz, line.rf_delta)
+                    pw_min, pw_max = apply_delta(line.pw_min_us, line.pw_max_us, line.pw_delta)
+                    etree.SubElement(mode_el, "Frequency", Min=str(rf_min), Max=str(rf_max), Units="MHz")
+                    etree.SubElement(mode_el, "PulseWidth", Min=str(pw_min), Max=str(pw_max), Units="us")
+
                     # PRI Logic
                     from app.core.enums import PriType
                     class_map = {
@@ -156,17 +169,20 @@ class XMLExporterService:
                         PriType.xlet: "Xlet",
                         PriType.cw: "CW"
                     }
-                    
+
                     pri_el = etree.SubElement(mode_el, "PRI", Class=class_map.get(mode.pri_type, "Unknown"))
-                    
+
                     if mode.pri_type == PriType.fixed:
-                        etree.SubElement(pri_el, "SimplePRI", Min=str(line.pri_min_us), Max=str(line.pri_max_us), Units="us")
+                        pri_min, pri_max = apply_delta(line.pri_min_us, line.pri_max_us, line.pri_delta)
+                        etree.SubElement(pri_el, "SimplePRI", Min=str(pri_min), Max=str(pri_max), Units="us")
                         jitter_min = str(line.jitter_min_us) if line.jitter_min_us is not None else "0"
                         jitter_max = str(line.jitter_max_us) if line.jitter_max_us is not None else "0"
                         etree.SubElement(pri_el, "Jitter", Min=jitter_min, Max=jitter_max, Units="us")
                         etree.SubElement(pri_el, "IntrapulseData", Name="default")
                     elif mode.pri_type == PriType.stagger and line.pri_stagger_values_us:
-                        etree.SubElement(pri_el, "FramePeriod", Min="1100", Max="1300", Units="us")
+                        frame_time = compute_frametime_us(line.pri_stagger_values_us)
+                        ft_min, ft_max = apply_delta(frame_time, frame_time, line.frame_time_delta_us)
+                        etree.SubElement(pri_el, "FramePeriod", Min=str(ft_min), Max=str(ft_max), Units="us")
                         stagger = etree.SubElement(pri_el, "StaggerLevels", Count=str(len(line.pri_stagger_values_us)))
                         for val in line.pri_stagger_values_us:
                             etree.SubElement(stagger, "Level", Value=str(val), Units="us")

@@ -29,10 +29,35 @@ export interface EmitterSummary {
   pw_max_us: number | null;
   pri_min_us: number | null;
   pri_max_us: number | null;
+  /** Same extremes, computed from each contributing Mode Line's engineered
+   * (raw +/- delta) range instead of its raw range — differs from the plain
+   * fields above whenever any contributing Mode has a delta set. */
+  engineered_rf_min_mhz: number | null;
+  engineered_rf_max_mhz: number | null;
+  engineered_pw_min_us: number | null;
+  engineered_pw_max_us: number | null;
+  engineered_pri_min_us: number | null;
+  engineered_pri_max_us: number | null;
   scan_min: number | null;
   scan_max: number | null;
   mode_count: number;
   modes_passing: number;
+}
+
+export interface EmitterNote {
+  id: string;
+  author_id: string | null;
+  author_username: string | null;
+  body: string;
+  created_at: string;
+}
+
+export interface SourceNote {
+  id: string;
+  author_id: string | null;
+  author_username: string | null;
+  body: string;
+  created_at: string;
 }
 
 export interface Emitter {
@@ -73,11 +98,22 @@ export interface Source {
   id: string;
   emitter_id: string;
   name: string;
+  description: string | null;
   rf_legacy_term: string | null;
   pri_legacy_term: string | null;
+  source_type: string | null;
   source_date: string;
   status: SourceStatus;
   import_batch_id: string | null;
+  group_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SourceGroup {
+  id: string;
+  name: string;
+  description: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -213,6 +249,15 @@ export interface CartesianProductInput {
   sequence_ids?: string[];
   name_prefix: string;
   batch_note?: string | null;
+  /** Per-element delta override for this run only — keyed by element id,
+   * takes precedence over that element's own stored delta. */
+  rf_delta_overrides?: Record<string, number>;
+  pw_delta_overrides?: Record<string, number>;
+  pri_delta_overrides?: Record<string, number>;
+  /** Applied uniformly to every Mode Line this run generates. */
+  rf_range_matching?: boolean;
+  pw_range_matching?: boolean;
+  pri_range_matching?: boolean;
 }
 
 export type AuditAction =

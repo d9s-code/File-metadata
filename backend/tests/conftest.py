@@ -1,6 +1,11 @@
 import os
 
-os.environ["DATABASE_URL"] = "postgresql+psycopg2://rf_app:rf_app_dev_pw@localhost:5432/rf_emitter_test"
+os.environ["DATABASE_URL"] = (
+    # An isolated schema, not "public" — this is the same physical database
+    # File-metadata's own test suite uses, and this suite runs drop_all() on
+    # every session start, so a shared schema would destroy its tables.
+    "postgresql+psycopg2://rf_app:rf_app_dev_pw@localhost:5432/rf_emitter_test?options=-csearch_path%3Dv2_test"
+)
 os.environ["COOKIE_SECURE"] = "false"
 
 import pytest

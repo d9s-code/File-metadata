@@ -19,6 +19,12 @@ def compute_emitter_summaries(db: Session, emitter_ids: list[UUID]) -> dict[UUID
     if not emitter_ids:
         return {}
 
+    def _eng_min(raw_col, delta_col):
+        return raw_col - func.coalesce(delta_col, 0)
+
+    def _eng_max(raw_col, delta_col):
+        return raw_col + func.coalesce(delta_col, 0)
+
     extreme_rows = (
         db.query(
             EwGroup.emitter_id,
@@ -28,6 +34,12 @@ def compute_emitter_summaries(db: Session, emitter_ids: list[UUID]) -> dict[UUID
             func.max(ModeLine.pw_max_us),
             func.min(ModeLine.pri_min_us),
             func.max(ModeLine.pri_max_us),
+            func.min(_eng_min(ModeLine.rf_min_mhz, ModeLine.rf_delta)),
+            func.max(_eng_max(ModeLine.rf_max_mhz, ModeLine.rf_delta)),
+            func.min(_eng_min(ModeLine.pw_min_us, ModeLine.pw_delta)),
+            func.max(_eng_max(ModeLine.pw_max_us, ModeLine.pw_delta)),
+            func.min(_eng_min(ModeLine.pri_min_us, ModeLine.pri_delta)),
+            func.max(_eng_max(ModeLine.pri_max_us, ModeLine.pri_delta)),
             func.count(Mode.id),
         )
         .select_from(Mode)
@@ -64,7 +76,22 @@ def compute_emitter_summaries(db: Session, emitter_ids: list[UUID]) -> dict[UUID
 
     summaries: dict[UUID, EmitterSummary] = {}
     for row in extreme_rows:
-        emitter_id, rf_min, rf_max, pw_min, pw_max, pri_min, pri_max, mode_count = row
+        (
+            emitter_id,
+            rf_min,
+            rf_max,
+            pw_min,
+            pw_max,
+            pri_min,
+            pri_max,
+            eng_rf_min,
+            eng_rf_max,
+            eng_pw_min,
+            eng_pw_max,
+            eng_pri_min,
+            eng_pri_max,
+            mode_count,
+        ) = row
         scan_min, scan_max = scan_by_emitter.get(emitter_id, (None, None))
         summaries[emitter_id] = EmitterSummary(
             rf_min_mhz=rf_min,
@@ -73,6 +100,12 @@ def compute_emitter_summaries(db: Session, emitter_ids: list[UUID]) -> dict[UUID
             pw_max_us=pw_max,
             pri_min_us=pri_min,
             pri_max_us=pri_max,
+            engineered_rf_min_mhz=eng_rf_min,
+            engineered_rf_max_mhz=eng_rf_max,
+            engineered_pw_min_us=eng_pw_min,
+            engineered_pw_max_us=eng_pw_max,
+            engineered_pri_min_us=eng_pri_min,
+            engineered_pri_max_us=eng_pri_max,
             scan_min=scan_min,
             scan_max=scan_max,
             mode_count=mode_count,

@@ -1,7 +1,4 @@
 import { useState } from "react";
-import type { Mode } from "../../types/domain";
-import { modesApi } from "../../api/modes";
-import { useQueryClient } from "@tanstack/react-query";
 
 interface BatchEditModalProps {
   ewGroupId: string;
@@ -11,7 +8,6 @@ interface BatchEditModalProps {
 }
 
 export function BatchEditModal({
-  ewGroupId,
   selectedModeIds,
   onClose,
   onApply,

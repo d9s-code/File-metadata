@@ -175,8 +175,11 @@ class AuditEntityType(str, enum.Enum):
     """
 
     emitter = "emitter"
+    emitter_note = "emitter_note"
     ew_group = "ew_group"
     source = "source"
+    source_note = "source_note"
+    source_group = "source_group"
     mode_element = "mode_element"
     mode = "mode"
     mode_generation_batch = "mode_generation_batch"
