@@ -1,0 +1,168 @@
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AuthProvider } from "./auth/AuthContext";
+import { RequireAuth, RequireAdmin } from "./auth/RequireAuth";
+import { ThemeProvider } from "./theme/ThemeContext";
+import { NavBar } from "./components/common/NavBar";
+import { LoginPage } from "./pages/LoginPage";
+import { EmittersListPage } from "./pages/EmittersListPage";
+import { EmitterEditorPage } from "./pages/EmitterEditorPage";
+import { EmitterVersionHistoryPage } from "./pages/EmitterVersionHistoryPage";
+import { PlatformsListPage } from "./pages/PlatformsListPage";
+import { PlatformBuilderPage } from "./pages/PlatformBuilderPage";
+import { PlatformVersionHistoryPage } from "./pages/PlatformVersionHistoryPage";
+import { MdfsListPage } from "./pages/MdfsListPage";
+import { MdfBuilderPage } from "./pages/MdfBuilderPage";
+import { MdfVersionHistoryPage } from "./pages/MdfVersionHistoryPage";
+import { DashboardPage } from "./pages/DashboardPage";
+import { AmbiguityDashboardPage } from "./pages/AmbiguityDashboardPage";
+import { AuditLogPage } from "./pages/AuditLogPage";
+import { HelpPage } from "./pages/HelpPage";
+import { AdminUsersPage } from "./pages/AdminUsersPage";
+import { AdminTrashPage } from "./pages/AdminTrashPage";
+
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
+});
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <AuthProvider>
+            <NavBar />
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route
+                path="/emitters"
+                element={
+                  <RequireAuth>
+                    <EmittersListPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/emitters/:emitterId"
+                element={
+                  <RequireAuth>
+                    <EmitterEditorPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/emitters/:emitterId/versions"
+                element={
+                  <RequireAuth>
+                    <EmitterVersionHistoryPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/platforms"
+                element={
+                  <RequireAuth>
+                    <PlatformsListPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/platforms/:platformId"
+                element={
+                  <RequireAuth>
+                    <PlatformBuilderPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/platforms/:platformId/versions"
+                element={
+                  <RequireAuth>
+                    <PlatformVersionHistoryPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/mdfs"
+                element={
+                  <RequireAuth>
+                    <MdfsListPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/mdfs/:mdfId"
+                element={
+                  <RequireAuth>
+                    <MdfBuilderPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/mdfs/:mdfId/versions"
+                element={
+                  <RequireAuth>
+                    <MdfVersionHistoryPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/dashboard"
+                element={
+                  <RequireAuth>
+                    <DashboardPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/ambiguity/:scopeType/:scopeId"
+                element={
+                  <RequireAuth>
+                    <AmbiguityDashboardPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/audit-log"
+                element={
+                  <RequireAuth>
+                    <AuditLogPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/help"
+                element={
+                  <RequireAuth>
+                    <HelpPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/admin/users"
+                element={
+                  <RequireAuth>
+                    <RequireAdmin>
+                      <AdminUsersPage />
+                    </RequireAdmin>
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/admin/trash"
+                element={
+                  <RequireAuth>
+                    <RequireAdmin>
+                      <AdminTrashPage />
+                    </RequireAdmin>
+                  </RequireAuth>
+                }
+              />
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </AuthProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ThemeProvider>
+  );
+}
