@@ -17,6 +17,7 @@ class ModeElementCreate(BaseModel):
     jitter_max: float | None = None
     delta: float | None = None
     label: str | None = None
+    details: str | None = None
     sort_order: int = 0
 
     @model_validator(mode="after")

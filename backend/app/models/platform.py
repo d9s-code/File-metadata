@@ -45,7 +45,7 @@ class PlatformEmitterLink(UUIDPkMixin, Base):
         UUID(as_uuid=True), ForeignKey("platforms.id", ondelete="CASCADE"), nullable=False, index=True
     )
     emitter_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("emitters.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("emitters.id", ondelete="CASCADE"), nullable=False
     )
     emitter_version_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("emitter_versions.id"), nullable=False

@@ -54,6 +54,13 @@ def _mode_dict(mode: Mode) -> dict:
             "jitter_min_us": _num(line.jitter_min_us),
             "jitter_max_us": _num(line.jitter_max_us),
             "pri_stagger_values_us": _num_list(line.pri_stagger_values_us),
+            "rf_delta": _num(line.rf_delta),
+            "pw_delta": _num(line.pw_delta),
+            "pri_delta": _num(line.pri_delta),
+            "frame_time_delta_us": _num(line.frame_time_delta_us),
+            "rf_range_matching": line.rf_range_matching,
+            "pw_range_matching": line.pw_range_matching,
+            "pri_range_matching": line.pri_range_matching,
             "type_data": line.type_data,
             "dsl_text": line.dsl_text,
         },
@@ -74,6 +81,7 @@ def build_emitter_snapshot(emitter: Emitter) -> dict:
                 "scan_min": _num(g.scan_min),
                 "scan_max": _num(g.scan_max),
                 "threat_priority": g.threat_priority,
+                "ageout": _num(g.ageout),
                 "sort_order": g.sort_order,
                 # Only the currently-canonical line per Mode — a pending draft
                 # edit isn't vetted yet, and a superseded/rejected Mode isn't

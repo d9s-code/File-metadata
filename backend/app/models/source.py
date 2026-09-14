@@ -23,6 +23,14 @@ class Source(UUIDPkMixin, TimestampMixin, Base):
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Legacy/alternate terminology this Source's data used for its RF and PRI
+    # values, e.g. carried over from an imported datasheet's own vocabulary.
+    # Additive alongside `description`, not a replacement for it.
+    rf_legacy_term: Mapped[str | None] = mapped_column(Text, nullable=True)
+    pri_legacy_term: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Free-text categorization (e.g. "ELINT report", "lab measurement") — descriptive
+    # only, no fixed enum since the real vocabulary isn't settled yet.
+    source_type: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
     # User-entered fact (e.g. date of the collection/report), independent of created_at/updated_at.
     source_date: Mapped[date] = mapped_column(Date, nullable=False)
     status: Mapped[SourceStatus] = mapped_column(
@@ -34,8 +42,14 @@ class Source(UUIDPkMixin, TimestampMixin, Base):
     import_batch_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("import_batches.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    # Optional cross-Emitter grouping label — see SourceGroup. SET NULL if the
+    # group is deleted; a Source never disappears because its group did.
+    group_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("source_groups.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     emitter: Mapped["Emitter"] = relationship(back_populates="sources")  # noqa: F821
+    group: Mapped["SourceGroup | None"] = relationship(back_populates="sources")  # noqa: F821
     modes: Mapped[list["Mode"]] = relationship(back_populates="source")  # noqa: F821
     elements: Mapped[list["ModeElement"]] = relationship(  # noqa: F821
         back_populates="source", cascade="all, delete-orphan", order_by="ModeElement.sort_order"

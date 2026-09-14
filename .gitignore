@@ -1,5 +1,6 @@
 # Python
 backend/.venv/
+backend/wheels/
 __pycache__/
 *.pyc
 .pytest_cache/

@@ -12,6 +12,7 @@ from app.models.ew_group import EwGroup
 from app.models.mode import ModeElement
 from app.models.parameter_sequence import ParameterSequence
 from app.models.source import Source
+from app.models.source_group import SourceGroup
 from app.schemas.mode_element import (
     CartesianProductRequest,
     CartesianProductResult,
@@ -53,6 +54,8 @@ def create_source(
     user=Depends(require_role(Role.editor)),
 ) -> Source:
     _get_emitter_or_404(db, emitter_id)
+    if payload.group_id is not None and db.get(SourceGroup, payload.group_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Source Group not found")
     source = Source(emitter_id=emitter_id, **payload.model_dump())
     db.add(source)
     db.flush()
@@ -82,7 +85,10 @@ def update_source(
     source = db.get(Source, source_id)
     if source is None or source.emitter_id != emitter_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Source not found")
-    changes = apply_and_diff(source, payload.model_dump(exclude_unset=True))
+    data = payload.model_dump(exclude_unset=True)
+    if data.get("group_id") is not None and db.get(SourceGroup, data["group_id"]) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Source Group not found")
+    changes = apply_and_diff(source, data)
     record_audit(
         db,
         actor_id=user.id,

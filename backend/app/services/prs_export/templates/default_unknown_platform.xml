@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Platform IsUnknown="true">
+    <Name>Unknown</Name>
+    <Hostility Value="UNKNOWN" />
+    <Base Value="UNKNOWN" />
+    <Speed Min="0" Max="0" Units="kph" />
+    <Configuration><EmitterFile Count="1">emitters\default_unknown_emitter.xml</EmitterFile></Configuration>
+</Platform>

@@ -126,6 +126,7 @@ class ModeElement(UUIDPkMixin, Base):
     # source value. Not applicable to stagger PRI elements.
     delta: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
     label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    details: Mapped[str | None] = mapped_column(Text, nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     source: Mapped["Source"] = relationship(back_populates="elements")  # noqa: F821

@@ -34,15 +34,21 @@ This is intentionally *not* modeled after heavier prior art: a sibling project's
 
 ## XML Import
 
-**Status:** Not yet started — implementation work is about to begin (by a
-separate agent/session), briefed via
-[docs/XML_IMPORT_BRIEF.md](XML_IMPORT_BRIEF.md) rather than this entry.
+**Status:** Not yet started — the import side is unbuilt. The **export**
+side of this got resolved along the way: the real target format (PRS,
+`urn:com:bae:prs:pfm:library`) was confirmed against real sample files and
+is now implemented at `GET /platforms/{id}/versions/{n}/export/prs` and
+`GET /mdfs/{id}/versions/{n}/export/prs` (`backend/app/services/prs_export/`)
+— see [FEATURES.md §11a](FEATURES.md#11a-prs-export). The legacy
+placeholder XML export (§11) still exists unchanged; PRS Export supersedes
+it as the "real" format going forward.
 
-**Why it's here:** flagging that it's imminent, and that the brief document
-identifies an open fork in the design (datasheet/parametric import at the
-Source/Element level vs. a full MDF round-trip import mirroring XML export)
-that hasn't been resolved yet — resolve it before treating either direction
-as "the" XML import feature.
+**Why it's here:** the brief, [docs/XML_IMPORT_BRIEF.md](XML_IMPORT_BRIEF.md),
+identifies an open fork in the import design (datasheet/parametric import at
+the Source/Element level vs. a full MDF round-trip import mirroring the now-real
+PRS export) that hasn't been resolved yet — resolve it before treating either
+direction as "the" XML import feature. With the export format confirmed, an
+MDF round-trip import has a real target to parse against for the first time.
 
 ---
 

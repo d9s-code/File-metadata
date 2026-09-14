@@ -130,6 +130,10 @@ Sources are scoped per-Emitter — each Emitter curates its own list.
 
 A Source can't be deleted while it still has Modes attached.
 
+### Source Groups, legacy terms, and element details (API only)
+
+Backend support exists for grouping Sources under a **Source Group** (`/source-groups`, name + description), tagging a Source with `rf_legacy_term`/`pri_legacy_term`/`source_type` free-text fields (alongside its existing `description`, not replacing it — for reconciling against older naming conventions in imported data), and attaching a free-text `details` note to an individual Element. All of this is reachable via the API and schema today; **no frontend UI has been built for any of it yet** — it's scoped for a future pass once the shape of the data these are meant to reconcile against (e.g. an XML import) is clearer.
+
 ### Import
 
 Beyond typing a DSL line or building Elements by hand, a Source's Elements and Parameter Sequences can be bulk-imported from a structured JSON payload — one `POST /emitters/{emitter_id}/imports` call creates a new Source (starting `pending_review`, same as any imported data) per "parametric set" in the payload, each carrying its own Elements/Sequences. A `/validate` dry-run endpoint checks the payload (cross-object checks like duplicate Source names within one import) without writing anything, returning field-path-addressable issues suitable for a pre-commit review UI.
@@ -256,9 +260,41 @@ Two things worth knowing:
 - **Sources and Elements never appear in the export.** They're an authoring/organizational construct with no meaning outside this tool — the export excludes them by construction (the serializer never even reads that part of the snapshot).
 - **The XML tag names are placeholders.** Since the target system's real XML Schema (XSD) wasn't available when this was built, all tag-name mapping lives in one file (`backend/app/xml_export/field_mapping.py`). Swapping in the real schema later is a data change to that file, not a rewrite of the export logic.
 - **RF/PW/PRI values exported are already engineered** (raw ± any element delta, applied when the Mode was generated — see [Raw vs. engineered values](#raw-vs-engineered-values)); **EW Group scan range is exported raw**, ignoring `scan_delta`, since scan delta is display-only for v1.
-- **Not yet exported at all:** per-parameter deltas (`rf_delta`/`pw_delta`/`pri_delta`), `frame_time_delta_us`, Range Matching flags, and EW Group `ageout`. None of these existed when the export mapping was built; whether they belong in the target XML format (and under what tag names) is undecided — see [docs/XML_IMPORT_BRIEF.md](XML_IMPORT_BRIEF.md), which flags this explicitly since it matters for any future import work too.
+- **Not yet exported at all:** per-parameter deltas (`rf_delta`/`pw_delta`/`pri_delta`), `frame_time_delta_us`, Range Matching flags, and EW Group `ageout`. None of these existed when the export mapping was built; whether they belong in the target XML format (and under what tag names) is undecided.
 
 Export is available from the MDF page (latest committed version) and from the MDF's Version History page (any specific version) — click **Export XML** to download.
+
+This placeholder format predates the real target format below and is kept only because nothing consumes it downstream yet; new integration work should use PRS Export instead.
+
+---
+
+## 11a. PRS Export
+
+A second, separate export: the **real** target format (namespace `urn:com:bae:prs:pfm:library`), confirmed against actual sample files from the target system rather than guessed. Unlike the placeholder XML Export above, this one reads the correct field for every value it has one for — including the fields the placeholder export never got: per-parameter Range Matching, EW Group Ageout, and the engineered Frame Time range.
+
+Available from a committed **Platform** version or a committed **MDF** version — `GET /platforms/{id}/versions/{n}/export/prs` and `GET /mdfs/{id}/versions/{n}/export/prs` — download a ZIP package (`backend/app/services/prs_export/`), not a single file, matching how the real format ships:
+
+```
+<name>.xml              — root ThreatLibrary, references a DefaultUnknown platform + the real MDF/Platform
+platforms/<name>.xml    — one file per pinned Platform
+emitters/<name>.xml     — one file per pinned Emitter (deduplicated across Platforms)
+```
+
+A Platform-level export synthesizes its own single-Platform root (there's no real MDF in scope), everything else is identical.
+
+What's real vs. placeholder in the generated XML:
+
+| Field | Source |
+|---|---|
+| RangeMatch (Frequency/PulseWidth/PRI) | Real — from `rf_range_matching`/`pw_range_matching`/`pri_range_matching` on the Mode Line |
+| Ageout | Real — from the EW Group |
+| Frequency/PulseWidth Min/Max | Real — engineered (raw ± delta), same values as the placeholder export |
+| PRI (Simple/Stagger/Xlet/CW) | Real — Stagger's `FramePeriod` is the engineered frame time range (`compute_frametime_us` sum ± `frame_time_delta_us`); CW correctly emits an empty `<PRI Class="CW" />` with no children, matching the real sample exactly |
+| ThreatPriority | Real — from the EW Group |
+| LethalCeiling, LethalPower, MinERP/MaxERP, ConfirmationQuality/Quantity, Scan Class, Platform Hostility/Base | **Placeholder constants** — this app has no field for any of these yet; see `backend/app/services/prs_export/serializer.py` for the exact stand-in values |
+| Dwell files | **Not generated at all** — the real format has a `dwells/` directory but no corresponding data model exists anywhere in this app; a known gap, not an oversight |
+
+Like every other export/ambiguity consumer, this reads only committed version **snapshots**, never live/draft ORM state — an already-pinned version's PRS export never changes underneath you.
 
 ---
 

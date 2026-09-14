@@ -22,7 +22,7 @@ class AmbiguityRun(UUIDPkMixin, Base):
     scope_type: Mapped[AmbiguityScopeType] = mapped_column(nullable=False, index=True)
     scope_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
     emitter_version_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("emitter_versions.id"), nullable=True
+        UUID(as_uuid=True), ForeignKey("emitter_versions.id", ondelete="CASCADE"), nullable=True
     )
     platform_version_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("platform_versions.id"), nullable=True

@@ -123,8 +123,76 @@ this log starts. Since then, in order:
     - All work verified live against the running dev server (this session's environment:
       Postgres as a native Windows service, not Docker — see updated environment notes
       below) in addition to the backend test suite (141 passing as of this entry).
+    - Pushed to `claude/rf-recognizer-emitter-profiles-le5jik` (commit `e4424da`) and
+      built a Windows offline-deployment zip (wheels + `node_modules` bundled, no
+      internet needed on the target machine) for the user to test on a remote server.
+
+11. **Same session, continued.** The user pointed at a second, separate
+    non-git-tracked copy of this repo (`file-metadata_v2`) where a different AI agent
+    had kept working unsupervised on XML import/export, Source Groups, and a Modes
+    batch-edit — and asked for a review. Findings, in short: the JSON datasheet
+    importer there (`json_import/transformer.py`) was solid and reuses this app's
+    real validate/commit import pipeline correctly — worth porting later, not done
+    this pass. Everything else needed real fixes before being trustworthy:
+    - Its Alembic chain was broken (two heads, a fabricated dummy root migration, a
+      destructive column rename via a hand-rolled inspector-based patch script) —
+      not fixable in place, so instead of trying to reconcile it, the underlying
+      *intent* (Source Groups, `sources.source_type`/legacy-term fields,
+      `mode_elements.details`, two legitimate CASCADE FK fixes) was rebuilt as one
+      clean migration (`f5a6b7c8d9e0_...`) against this repo's real, single-head
+      chain. See `docs/FEATURES.md`'s new "Source Groups, legacy terms, and element
+      details (API only)" note under Sources — backend/schema only, no frontend UI
+      yet, deliberately deferred until the shape of the data these reconcile against
+      (e.g. an eventual XML import) is clearer.
+    - Its PRS exporter was broken in ways that would have shipped silently wrong data
+      to the target system: an undefined-name `NameError` on the MDF path, an
+      unimplemented `export_mdf_to_zip` (literally `pass`), a namespace typo
+      (`xml:pfm` instead of `urn:com:bae:prs:pfm:library`), and — worst — RangeMatch/
+      Ageout/ThreatPriority all **hardcoded** rather than reading the app's real
+      fields. Its own real sample files, though (`Profile_format/`, supplied
+      externally, not git-tracked), were genuinely valuable and had never been
+      cross-checked against the code claiming to match them — e.g. the code added a
+      nested `<CW/>` child that the real sample never has, and claimed `Speed
+      Units="knots"` where the real sample says `"kph"`. Read every real sample file
+      in full and rebuilt the exporter clean against them
+      (`backend/app/services/prs_export/`), reusing this app's existing
+      `apply_delta`/`compute_frametime_us` services rather than reimplementing them.
+      Wrote 7 new integration tests (`test_prs_export_api.py`) mirroring the existing
+      `test_xml_export_api.py` pattern — full suite now 148 passing. See
+      `docs/FEATURES.md` §11a and the "PRS Export" section in
+      `docs/XML_IMPORT_BRIEF.md` for what's real vs. placeholder in the output, and
+      the confirmed gap (no Dwell file generation — no data model for it anywhere in
+      this app).
+    - Explicitly **not** ported from the other copy, flagged for a future pass
+      instead: the JSON importer mentioned above, and an `EwGroup.modes_count`
+      feature (worked, but implemented by mutating an unmapped ORM attribute —
+      needs a cleaner approach, e.g. a query-time count, before it's worth adopting).
+    - Worth remembering: when a second unsupervised agent hands you "roughness to
+      clean up," the useful move is triage, not merge — read every changed file,
+      distinguish real external artifacts (the sample XML files) from generated
+      code claiming to match them, and rebuild the legitimate intent cleanly against
+      *your* repo's real state rather than trying to reconcile a broken migration
+      chain or import code wholesale.
 
 ## Open items (not yet implemented)
+
+### From this session's PRS export cleanup (item 11 above)
+
+- **JSON datasheet importer, not yet ported.** `file-metadata_v2`'s
+  `json_import/transformer.py` + its `/json-import` endpoint + `JsonImportModal.tsx`
+  looked functionally sound (reuses this app's real `validate_import_payload`/
+  `commit_import_payload` pipeline correctly) but wasn't brought over this pass —
+  only explicitly-scoped work was. Worth a look before building path A of XML import
+  (see `docs/XML_IMPORT_BRIEF.md`) — may already solve most of it for JSON input.
+- **`EwGroup.modes_count`, not yet ported.** A real, useful feature in the other
+  copy's `routers/ew_groups.py`, but implemented by mutating an unmapped ORM
+  attribute at read time — needs a cleaner approach (a query-time count/subquery)
+  before it's worth adopting here.
+- **No frontend UI for Source Groups / `source_type` / `rf_legacy_term` /
+  `pri_legacy_term` / `mode_elements.details`.** Backend API + schema only (see
+  `docs/FEATURES.md`'s "Source Groups, legacy terms, and element details (API
+  only)" note) — deliberately deferred until it's clearer what data these are
+  meant to reconcile against.
 
 ### From the frontend workflow-logic review (most recent, least acted-on)
 

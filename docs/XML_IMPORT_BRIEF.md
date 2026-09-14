@@ -34,6 +34,12 @@ tools entirely) and need different code. **Confirm which one (or both, and in
 which order) is wanted before scoping further.** Everything below documents
 the groundwork for both, since either path reuses it.
 
+**Update since this brief was first written:** the real target export format
+is no longer unknown — see [PRS Export, below](#what-now-exists-the-real-prs-export-format-relevant-to-path-b).
+If you're building path B, target *that* format (`urn:com:bae:prs:pfm:library`),
+not the placeholder `backend/app/xml_export/` mapping described next, which
+predates the real samples and is now legacy.
+
 ---
 
 ## What already exists: the parametric-import JSON API (feeds path A)
@@ -136,20 +142,19 @@ top of that file and `backend/app/xml_export/schema/README.md`):
 | `MODE` | `root="Mode"`, `id`, `name`, `pri_type→PriType`, `notes`, `line→ModeLine` |
 | `MODE_LINE` | `rf_min_mhz→RfMin`, `rf_max_mhz→RfMax`, `pw_min_us→PwMin`, `pw_max_us→PwMax`, `pri_min_us→PriMin`, `pri_max_us→PriMax`, `jitter_min_us→JitterMin`, `jitter_max_us→JitterMax`, stagger container `stagger_values_container→StaggerValues` wrapping repeated `stagger_value→Value`, `dsl_text→DslText` |
 
-**Important gap to resolve either way:** the export (and therefore this
-mapping) does **not** include several fields that exist on the model today:
-`rf_delta`/`pw_delta`/`pri_delta`, `frame_time_delta_us`,
-`rf_range_matching`/`pw_range_matching`/`pri_range_matching` (see
+**Important gap, specific to this placeholder mapping:** it does **not**
+include several fields that exist on the model today: `rf_delta`/
+`pw_delta`/`pri_delta`, `frame_time_delta_us`, `rf_range_matching`/
+`pw_range_matching`/`pri_range_matching` (see
 [FEATURES.md's Range Matching section](FEATURES.md)), or EW Group `ageout`.
 RF/PW/PRI values that *are* exported are already the **engineered** value
 (raw ± delta, baked in at generation time) — see
 [Raw vs. engineered values](FEATURES.md#raw-vs-engineered-values) — so the
-raw/delta split is invisible in the output XML today. Scan range is the one
+raw/delta split is invisible in this output XML. Scan range is the one
 exception: it's exported **raw**, ignoring `scan_delta`, and `ageout` isn't
-exported at all. **Decide explicitly whether an import (either direction)
-needs to round-trip these fields** — if path B is built naively against the
-current export shape, delta/range-matching/ageout data will be silently
-lost on any export→import→export cycle.
+exported at all. This gap is now closed in the *real* PRS export below —
+Range Matching and Ageout are both real fields there — so anyone building
+path B should use that format rather than extending this placeholder one.
 
 **Data source:** the export endpoint (`GET
 /mdfs/{mdf_id}/versions/{version_number}/export.xml`,
@@ -163,12 +168,57 @@ rows.
 
 ---
 
+## What now exists: the real PRS export format (relevant to path B)
+
+Since this brief was first written, real sample files from the target system
+were made available (`Profile_format/` — not tracked in this repo — supplied
+externally), confirming the actual target format: **PRS**, namespace
+`urn:com:bae:prs:pfm:library`, shipped as a **ZIP package**, not a single
+XML file:
+
+```
+<name>.xml              — root ThreatLibrary: DefaultUnknown platform ref + MDF/Name
+platforms/<name>.xml    — one file per Platform, referencing its Emitter files by relative path
+emitters/<name>.xml     — one file per Emitter (ELNOT, EWParameters/Scan pairs, Modes)
+```
+
+This is implemented — not just documented — in `backend/app/services/prs_export/`
+(`serializer.py` builds the element trees, `packager.py` assembles the ZIP),
+exposed at `GET /platforms/{id}/versions/{n}/export/prs` and
+`GET /mdfs/{id}/versions/{n}/export/prs`. See
+[FEATURES.md §11a](FEATURES.md#11a-prs-export) for the full field-reality
+table (what's real vs. placeholder in the generated XML) and for the one
+confirmed structural gap: the real format also has a `dwells/` directory,
+and this app has no data model for dwells at all, so no dwell files are
+generated.
+
+**Why this matters for path B specifically:** if MDF round-trip import is
+built, it should parse *this* format, not the legacy `field_mapping.py`
+shape above — PRS is the format the target system actually produces and
+consumes, and (unlike the legacy export) it already carries Range Matching
+and Ageout, so nothing is lost on an export→import→export cycle for those
+two fields. The still-placeholder fields in the table linked above
+(LethalCeiling/LethalPower/ERP/ConfirmationQuality/Quantity/Scan Class/
+Platform Hostility/Base) would still need real source fields added to the
+data model before a round-trip could preserve them — an import that reads
+real PRS files today would either have to invent new columns for these or
+accept that they're discarded going in, same as they're synthesized going
+out.
+
+**Sources and Elements still never appear here either** — same rule as the
+legacy export, same reason: authoring-only construct, no meaning to the
+target recognizer, and the serializer never reads that part of the
+snapshot.
+
+---
+
 ## Recommended next step
 
-Before writing any parser: get (or write, if none exists) a real sample XML
-document for whichever path is confirmed, and a real XSD if the target
-system has one. Everything above is either placeholder (export tags) or
-undefined (import shape) — swapping in the real schema is meant to be a
-data change to `field_mapping.py` / a new equivalent import-mapping file,
-not a rewrite of the tree-walking logic, so get the schema right before
-building around it.
+For path B, the real PRS sample files already exist (see above) — start
+there rather than waiting on anything further. For path A, there's still no
+sample of the *incoming* datasheet format anywhere in this repo; get one (or
+confirm the target system actually intends to hand over PRS-shaped files for
+import too, in which case path A and B may converge on one parser) before
+writing a transformer. Either way, swapping in a confirmed schema is meant to
+be additive to the existing mapping/serializer files, not a rewrite of the
+tree-walking logic.

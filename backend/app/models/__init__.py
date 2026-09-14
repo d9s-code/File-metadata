@@ -14,5 +14,6 @@ from app.models.mode import Mode, ModeElement, ModeLine  # noqa: F401
 from app.models.parameter_sequence import ParameterSequence  # noqa: F401
 from app.models.platform import Platform, PlatformEmitterLink, PlatformVersion  # noqa: F401
 from app.models.source import Source  # noqa: F401
+from app.models.source_group import SourceGroup  # noqa: F401
 from app.models.test_record import TestRecord, TestRecordMode  # noqa: F401
 from app.models.user import User  # noqa: F401
