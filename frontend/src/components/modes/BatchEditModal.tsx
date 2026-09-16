@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Modal } from "../common/Modal";
 import { useBatchEditModes } from "../../state/hooks/useModes";
 import { ApiRequestError } from "../../api/client";
-import type { EwGroup } from "../../types/domain";
+import type { EwGroup, FunctionGroup } from "../../types/domain";
 import type { BatchModeFieldEdit, ModeBatchEditError } from "../../api/modes";
 
 type TriState = "" | "true" | "false";
@@ -19,18 +19,21 @@ export function BatchEditModal({
   emitterId,
   modeIds,
   ewGroups,
+  functionGroups,
   onClose,
   onDone,
 }: {
   emitterId: string;
   modeIds: string[];
   ewGroups: EwGroup[];
+  functionGroups?: FunctionGroup[];
   onClose: () => void;
   onDone: () => void;
 }) {
   const batchEdit = useBatchEditModes(emitterId);
 
   const [ewGroupId, setEwGroupId] = useState("");
+  const [functionGroupId, setFunctionGroupId] = useState("");
   const [notes, setNotes] = useState("");
   const [rfRangeMatching, setRfRangeMatching] = useState<TriState>("");
   const [pwRangeMatching, setPwRangeMatching] = useState<TriState>("");
@@ -40,12 +43,29 @@ export function BatchEditModal({
   const [priDelta, setPriDelta] = useState("");
   const [frameTimeDelta, setFrameTimeDelta] = useState("");
 
+  const [rfMinShift, setRfMinShift] = useState("");
+  const [rfMaxShift, setRfMaxShift] = useState("");
+  const [pwMinShift, setPwMinShift] = useState("");
+  const [pwMaxShift, setPwMaxShift] = useState("");
+  const [priMinShift, setPriMinShift] = useState("");
+  const [priMaxShift, setPriMaxShift] = useState("");
+  const [shiftReason, setShiftReason] = useState("");
+
   const [errors, setErrors] = useState<ModeBatchEditError[] | null>(null);
   const [genericError, setGenericError] = useState<string | null>(null);
+
+  const hasShift =
+    rfMinShift.trim() !== "" ||
+    rfMaxShift.trim() !== "" ||
+    pwMinShift.trim() !== "" ||
+    pwMaxShift.trim() !== "" ||
+    priMinShift.trim() !== "" ||
+    priMaxShift.trim() !== "";
 
   function buildFields(): BatchModeFieldEdit {
     const fields: BatchModeFieldEdit = {};
     if (ewGroupId) fields.ew_group_id = ewGroupId;
+    if (functionGroupId) fields.function_group_id = functionGroupId;
     if (notes.trim() !== "") fields.notes = notes;
     const rfRM = triStateToBool(rfRangeMatching);
     if (rfRM !== undefined) fields.rf_range_matching = rfRM;
@@ -61,6 +81,18 @@ export function BatchEditModal({
     if (priD !== undefined) fields.pri_delta = priD;
     const ftD = numOrUndefined(frameTimeDelta);
     if (ftD !== undefined) fields.frame_time_delta_us = ftD;
+    const rfMinS = numOrUndefined(rfMinShift);
+    if (rfMinS !== undefined) fields.rf_min_shift = rfMinS;
+    const rfMaxS = numOrUndefined(rfMaxShift);
+    if (rfMaxS !== undefined) fields.rf_max_shift = rfMaxS;
+    const pwMinS = numOrUndefined(pwMinShift);
+    if (pwMinS !== undefined) fields.pw_min_shift = pwMinS;
+    const pwMaxS = numOrUndefined(pwMaxShift);
+    if (pwMaxS !== undefined) fields.pw_max_shift = pwMaxS;
+    const priMinS = numOrUndefined(priMinShift);
+    if (priMinS !== undefined) fields.pri_min_shift = priMinS;
+    const priMaxS = numOrUndefined(priMaxShift);
+    if (priMaxS !== undefined) fields.pri_max_shift = priMaxS;
     return fields;
   }
 
@@ -73,8 +105,16 @@ export function BatchEditModal({
       setGenericError("Set at least one field.");
       return;
     }
+    if (hasShift && shiftReason.trim() === "") {
+      setGenericError("Explain why you're shifting these values — a reason is required.");
+      return;
+    }
     try {
-      await batchEdit.mutateAsync({ mode_ids: modeIds, fields });
+      await batchEdit.mutateAsync({
+        mode_ids: modeIds,
+        fields,
+        shift_reason: hasShift ? shiftReason.trim() : undefined,
+      });
       onDone();
     } catch (err) {
       if (err instanceof ApiRequestError && Array.isArray(err.detail)) {
@@ -95,7 +135,7 @@ export function BatchEditModal({
         </p>
 
         <div className="batch-edit-section">
-          <div className="batch-edit-grid batch-edit-grid-2">
+          <div className="batch-edit-grid batch-edit-grid-3">
             <label>
               EW Group
               <select value={ewGroupId} onChange={(e) => setEwGroupId(e.target.value)}>
@@ -110,6 +150,17 @@ export function BatchEditModal({
             <label>
               Notes (overwrites all selected)
               <input value={notes} onChange={(e) => setNotes(e.target.value)} />
+            </label>
+            <label>
+              Function Group
+              <select value={functionGroupId} onChange={(e) => setFunctionGroupId(e.target.value)}>
+                <option value="">— leave unchanged —</option>
+                {(functionGroups ?? []).map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
         </div>
@@ -172,11 +223,56 @@ export function BatchEditModal({
           </div>
         </div>
 
+        <div className="batch-edit-section">
+          <span className="batch-edit-section-label">Shift existing values (add/remove a fixed amount)</span>
+          <p className="hint-text">
+            Shifts each bound independently — e.g. an RF min shift never touches RF max. A shift on a
+            bound a Mode doesn't have (e.g. PRI on a CW Mode) is silently skipped for that Mode.
+          </p>
+          <div className="batch-edit-grid batch-edit-grid-4">
+            <label>
+              RF min shift (MHz)
+              <input type="number" step="any" value={rfMinShift} onChange={(e) => setRfMinShift(e.target.value)} />
+            </label>
+            <label>
+              RF max shift (MHz)
+              <input type="number" step="any" value={rfMaxShift} onChange={(e) => setRfMaxShift(e.target.value)} />
+            </label>
+            <label>
+              PW min shift (µs)
+              <input type="number" step="any" value={pwMinShift} onChange={(e) => setPwMinShift(e.target.value)} />
+            </label>
+            <label>
+              PW max shift (µs)
+              <input type="number" step="any" value={pwMaxShift} onChange={(e) => setPwMaxShift(e.target.value)} />
+            </label>
+            <label>
+              PRI min shift (µs, Fixed only)
+              <input type="number" step="any" value={priMinShift} onChange={(e) => setPriMinShift(e.target.value)} />
+            </label>
+            <label>
+              PRI max shift (µs, Fixed only)
+              <input type="number" step="any" value={priMaxShift} onChange={(e) => setPriMaxShift(e.target.value)} />
+            </label>
+          </div>
+          {hasShift && (
+            <label className="batch-edit-shift-reason">
+              Reason for this shift (required)
+              <textarea
+                value={shiftReason}
+                onChange={(e) => setShiftReason(e.target.value)}
+                placeholder="Why are these values being shifted?"
+                required
+              />
+            </label>
+          )}
+        </div>
+
         <div className="batch-edit-actions">
           <button type="button" className="icon-button" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" disabled={batchEdit.isPending}>
+          <button type="submit" disabled={batchEdit.isPending || (hasShift && shiftReason.trim() === "")}>
             Apply to {modeIds.length} Mode{modeIds.length === 1 ? "" : "s"}
           </button>
         </div>

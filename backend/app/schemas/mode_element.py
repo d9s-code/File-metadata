@@ -83,12 +83,20 @@ class ModeElementOut(ModeElementCreate):
         return apply_delta(self.frametime_us, self.frametime_us, self.delta)[1]
 
 
+class SequenceStepSelection(BaseModel):
+    sequence_id: UUID
+    order: int
+
+
 class CartesianProductRequest(BaseModel):
     ew_group_id: UUID
     rf_element_ids: list[UUID]
     pw_element_ids: list[UUID]
     pri_element_ids: list[UUID]
-    sequence_ids: list[UUID] | None = None
+    # Individually-selected (sequence, step) pairs — replaces whole-sequence
+    # selection. Each selected step becomes its own Mode; PRI Elements are
+    # not combined with steps (mirrors the old whole-sequence behavior).
+    sequence_steps: list[SequenceStepSelection] | None = None
     name_prefix: str = "Mode"
     batch_note: str | None = None
     # Per-element delta overrides — takes precedence over the element's own

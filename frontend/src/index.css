@@ -567,6 +567,30 @@ label {
   gap: 0.3rem;
 }
 
+.mode-chip-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 0.2rem;
+}
+.mode-chip-section {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+}
+.mode-chip-section summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.mode-chip-section .mode-chip-grid {
+  max-height: none;
+  overflow-y: visible;
+  padding-top: 0.4rem;
+}
+
 .mode-chip-grid {
   display: flex;
   flex-wrap: wrap;
@@ -674,6 +698,25 @@ label {
   gap: 0.2rem;
 }
 
+.test-record-function-group-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.35rem;
+}
+
+.function-group-ratings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem 0;
+}
+.function-group-rating-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
 .mode-form {
   display: flex;
   flex-direction: column;
@@ -772,6 +815,11 @@ label {
 .batch-edit-grid select,
 .batch-edit-grid input {
   width: 100%;
+}
+.batch-edit-shift-reason textarea {
+  width: 100%;
+  min-height: 3rem;
+  resize: vertical;
 }
 .batch-edit-actions {
   display: flex;

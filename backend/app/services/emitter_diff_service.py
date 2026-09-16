@@ -35,6 +35,7 @@ MODE_FIELD_LABELS = {
     "pri_type": "PRI Type",
     "notes": "Notes",
     "source_name": "Source",
+    "function_group_name": "Function Group",
 }
 
 # dsl_text deliberately excluded — it's a rendered cache of these other

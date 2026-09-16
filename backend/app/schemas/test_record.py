@@ -78,6 +78,11 @@ class TestRecordCreate(BaseModel):
     # Optional pointer to an earlier test record this one re-runs, e.g. after a
     # fix — must belong to the same scope (checked in the router).
     retests_test_record_id: UUID | None = None
+    # Per-Function-Group manual override — used when the tester's judgment of
+    # that Function Group's overall performance differs from the mechanical
+    # worst-of-N aggregate computed from mode_results (see _create_test_record).
+    # A Function Group not present here just gets its computed aggregate.
+    function_group_overrides: dict[UUID, TestResult] = {}
 
     @model_validator(mode="after")
     def check_simulation_date(self) -> "TestRecordCreate":
@@ -103,6 +108,15 @@ class TestRecordModeOut(BaseModel):
     observed_values: list[dict] | None = None
 
 
+class TestRecordFunctionGroupOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    function_group_id: UUID
+    function_group_name: str = Field(validation_alias=AliasPath("function_group", "name"))
+    computed_result: TestResult
+    override_result: TestResult | None = None
+
+
 class TestRecordOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -121,3 +135,4 @@ class TestRecordOut(BaseModel):
     created_at: datetime
     retests_test_record_id: UUID | None = None
     modes: list[TestRecordModeOut] = []
+    function_groups: list[TestRecordFunctionGroupOut] = []

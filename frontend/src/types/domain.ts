@@ -4,7 +4,7 @@ export type EmitterStatus = "draft" | "in_review" | "validated" | "deprecated";
 
 export type MdfStatus = "draft" | "pending_review" | "approved" | "released" | "deprecated";
 
-export type TestType = "simulation" | "lab_bench" | "live_range" | "field_exercise";
+export type TestType = "simulation" | "lab_bench" | "live_range" | "field_exercise" | "intercept";
 export type TestResult = "pass" | "fail" | "partial" | "inconclusive";
 
 export type PriType = "fixed" | "stagger" | "cw" | "xlet";
@@ -100,6 +100,16 @@ export interface EwGroup {
   updated_at: string;
 }
 
+export interface FunctionGroup {
+  id: string;
+  emitter_id: string;
+  name: string;
+  sort_order: number;
+  modes_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Source {
   id: string;
   emitter_id: string;
@@ -189,6 +199,7 @@ export interface Mode {
   notes: string | null;
   sort_order: number;
   generation_batch_id: string | null;
+  function_group_id: string | null;
   created_at: string;
   updated_at: string;
   line: ModeLine | null;
@@ -249,6 +260,17 @@ export interface ParameterSequence {
   steps: ParameterSequenceStep[];
   sort_order: number;
   created_at: string;
+  /** Symmetric +/- tolerance margin applied to whichever of a selected
+   * step's rf_mhz/pw_us/pri_us gets used in Cartesian Product — not
+   * applicable to a PRI-only sequence (every step sets only pri_us). */
+  rf_delta: number | null;
+  pw_delta: number | null;
+  pri_delta: number | null;
+}
+
+export interface SequenceStepSelection {
+  sequence_id: string;
+  order: number;
 }
 
 export interface CartesianProductInput {
@@ -256,7 +278,7 @@ export interface CartesianProductInput {
   rf_element_ids: string[];
   pw_element_ids: string[];
   pri_element_ids: string[];
-  sequence_ids?: string[];
+  sequence_steps?: SequenceStepSelection[];
   name_prefix: string;
   batch_note?: string | null;
   /** Per-element delta override for this run only — keyed by element id,

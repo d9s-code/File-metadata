@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -33,6 +33,14 @@ class ParameterSequence(UUIDPkMixin, Base):
     # — shape validated at the Pydantic layer (ParameterSequenceStepIn), not the DB.
     steps: Mapped[list[dict]] = mapped_column(JSONB, nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Symmetric +/- tolerance margin applied to whichever of a selected step's
+    # rf_mhz/pw_us/pri_us gets used when generating a Mode from this sequence
+    # via Cartesian Product — same raw-vs-engineered pattern as
+    # ModeElement.delta. Not applicable to a PRI-only sequence (every step
+    # sets only pri_us/dwell_s) — the frontend hides these inputs there.
+    rf_delta: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
+    pw_delta: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
+    pri_delta: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     source: Mapped["Source"] = relationship(back_populates="parameter_sequences")  # noqa: F821

@@ -122,6 +122,7 @@ class TestType(str, enum.Enum):
     lab_bench = "lab_bench"
     live_range = "live_range"
     field_exercise = "field_exercise"
+    intercept = "intercept"
 
 
 class TestResult(str, enum.Enum):
@@ -161,6 +162,7 @@ class AuditEntityType(str, enum.Enum):
     emitter = "emitter"
     emitter_note = "emitter_note"
     ew_group = "ew_group"
+    function_group = "function_group"
     source = "source"
     source_note = "source_note"
     source_group = "source_group"

@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useUpdateMode } from "../../state/hooks/useModes";
 import { ApiRequestError } from "../../api/client";
-import type { Mode } from "../../types/domain";
+import type { FunctionGroup, Mode } from "../../types/domain";
 import { DerivedFromPicker } from "./DerivedFromPicker";
 
 /** Edits an existing Mode's line in place — pri_type is fixed at creation
@@ -10,10 +10,12 @@ import { DerivedFromPicker } from "./DerivedFromPicker";
 export function ModeEditForm({
   emitterId,
   mode,
+  functionGroups,
   onDone,
 }: {
   emitterId: string;
   mode: Mode;
+  functionGroups?: FunctionGroup[];
   onDone: () => void;
 }) {
   const updateMode = useUpdateMode(emitterId);
@@ -36,6 +38,7 @@ export function ModeEditForm({
   const [staggerValues, setStaggerValues] = useState(line?.pri_stagger_values_us?.join(", ") ?? "");
   const [frameTimeDelta, setFrameTimeDelta] = useState(String(line?.frame_time_delta_us ?? ""));
   const [notes, setNotes] = useState(mode.notes ?? "");
+  const [functionGroupId, setFunctionGroupId] = useState(mode.function_group_id ?? "");
   const [derivedFrom, setDerivedFrom] = useState<Set<string>>(new Set());
   const [showDerivedFrom, setShowDerivedFrom] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +59,7 @@ export function ModeEditForm({
         modeId: mode.id,
         input: {
           notes: notes.trim() || null,
+          function_group_id: functionGroupId || null,
           line: {
             rf_min_mhz: Number(rfMin),
             rf_max_mhz: Number(rfMax),
@@ -197,6 +201,17 @@ export function ModeEditForm({
         <label className="wide-label">
           Notes (optional)
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+        </label>
+        <label>
+          Function Group
+          <select value={functionGroupId} onChange={(e) => setFunctionGroupId(e.target.value)}>
+            <option value="">— none —</option>
+            {(functionGroups ?? []).map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
 

@@ -15,12 +15,17 @@ export interface ModeElementInput {
   sort_order?: number;
 }
 
+export interface SequenceStepSelection {
+  sequence_id: string;
+  order: number;
+}
+
 export interface CartesianProductInput {
   ew_group_id: string;
   rf_element_ids: string[];
   pw_element_ids: string[];
   pri_element_ids: string[];
-  sequence_ids?: string[];
+  sequence_steps?: SequenceStepSelection[];
   name_prefix: string;
   batch_note?: string | null;
   /** Per-element delta override for this run only — keyed by element id,

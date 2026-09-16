@@ -412,6 +412,7 @@ def batch_edit_modes(
         derived_from_test_record_ids=payload.derived_from_test_record_ids,
         actor_id=user.id,
         emitter_id=emitter_id,
+        shift_reason=payload.shift_reason,
     )
     db.commit()
     return ModeBatchEditResult(updated_mode_ids=updated_ids, count=len(updated_ids))

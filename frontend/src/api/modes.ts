@@ -8,6 +8,7 @@ export interface ModeCreateInput {
   notes?: string | null;
   sort_order?: number;
   line: ModeLineFields;
+  function_group_id?: string | null;
   derived_from_test_record_ids?: string[];
 }
 
@@ -16,12 +17,14 @@ export interface ModeUpdateInput {
   notes?: string | null;
   sort_order?: number;
   ew_group_id?: string;
+  function_group_id?: string | null;
   line?: ModeLineFields;
   derived_from_test_record_ids?: string[];
 }
 
 export interface BatchModeFieldEdit {
   ew_group_id?: string;
+  function_group_id?: string | null;
   notes?: string;
   rf_range_matching?: boolean;
   pw_range_matching?: boolean;
@@ -30,12 +33,19 @@ export interface BatchModeFieldEdit {
   pw_delta?: number;
   pri_delta?: number;
   frame_time_delta_us?: number;
+  rf_min_shift?: number;
+  rf_max_shift?: number;
+  pw_min_shift?: number;
+  pw_max_shift?: number;
+  pri_min_shift?: number;
+  pri_max_shift?: number;
 }
 
 export interface ModeBatchEditInput {
   mode_ids: string[];
   fields: BatchModeFieldEdit;
   derived_from_test_record_ids?: string[];
+  shift_reason?: string;
 }
 
 export interface ModeBatchEditError {

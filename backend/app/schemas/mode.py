@@ -123,6 +123,9 @@ class ModeCreate(BaseModel):
     notes: str | None = None
     sort_order: int = 0
     line: ModeLineFields
+    # Optional — which Function Group this Mode serves, independent of its
+    # (required) EW Group.
+    function_group_id: UUID | None = None
     # Test Record(s) whose findings explain this Mode's values, for a Mode
     # that didn't come from the Source's data (see TestRecordModeLinkType).
     derived_from_test_record_ids: list[UUID] = []
@@ -140,6 +143,7 @@ class ModeCreateFromDsl(BaseModel):
     dsl_text: str
     notes: str | None = None
     sort_order: int = 0
+    function_group_id: UUID | None = None
 
 
 class ModeUpdate(BaseModel):
@@ -148,6 +152,7 @@ class ModeUpdate(BaseModel):
     sort_order: int | None = None
     ew_group_id: UUID | None = None
     source_id: UUID | None = None
+    function_group_id: UUID | None = None
     line: ModeLineFields | None = None
     # Test Record(s) whose findings explain this Mode's (possibly just-edited)
     # values — same meaning as ModeCreate.derived_from_test_record_ids.
@@ -165,6 +170,7 @@ class BatchModeFieldEdit(BaseModel):
     """
 
     ew_group_id: UUID | None = None
+    function_group_id: UUID | None = None
     notes: str | None = None
     rf_range_matching: bool | None = None
     pw_range_matching: bool | None = None
@@ -173,16 +179,47 @@ class BatchModeFieldEdit(BaseModel):
     pw_delta: float | None = None
     pri_delta: float | None = None
     frame_time_delta_us: float | None = None
+    # "Add/remove a fixed amount" — shifts the named bound by this signed
+    # amount for every selected Mode (current_value + shift; negative to
+    # subtract), independently of the other bound in the same parameter.
+    # Unlike the deltas above this doesn't collapse ranges to one literal
+    # value, so it's meaningful as a batch operation — but precisely because
+    # it silently rewrites real data across many Modes at once, using any of
+    # these six fields requires `shift_reason` (see ModeBatchEditRequest).
+    rf_min_shift: float | None = None
+    rf_max_shift: float | None = None
+    pw_min_shift: float | None = None
+    pw_max_shift: float | None = None
+    pri_min_shift: float | None = None
+    pri_max_shift: float | None = None
 
     _validate_rf_delta = field_validator("rf_delta")(_validate_delta)
     _validate_pw_delta = field_validator("pw_delta")(_validate_delta)
     _validate_pri_delta = field_validator("pri_delta")(_validate_delta)
     _validate_frame_time_delta = field_validator("frame_time_delta_us")(_validate_delta)
 
+    def has_shift(self) -> bool:
+        return any(
+            v is not None
+            for v in (
+                self.rf_min_shift,
+                self.rf_max_shift,
+                self.pw_min_shift,
+                self.pw_max_shift,
+                self.pri_min_shift,
+                self.pri_max_shift,
+            )
+        )
+
 
 class ModeBatchEditRequest(BaseModel):
     mode_ids: list[UUID]
     fields: BatchModeFieldEdit
+    # Required, non-blank, whenever `fields` sets any of the six *_shift
+    # fields — same "a mechanical batch rewrite needs a written why" pattern
+    # as CommitEmitterVersionRequest.change_summary. Optional/unused
+    # otherwise, so ordinary field/delta batch edits are unaffected.
+    shift_reason: str | None = None
     # Test Record(s) whose findings explain this batch's values — applied to
     # every affected Mode, same meaning as ModeUpdate.derived_from_test_record_ids.
     derived_from_test_record_ids: list[UUID] = []
@@ -191,6 +228,8 @@ class ModeBatchEditRequest(BaseModel):
     def check_non_empty(self) -> "ModeBatchEditRequest":
         if not self.mode_ids:
             raise ValueError("mode_ids must not be empty")
+        if self.fields.has_shift() and not (self.shift_reason or "").strip():
+            raise ValueError("shift_reason is required when shifting an existing value")
         return self
 
 
@@ -280,6 +319,7 @@ class ModeOut(BaseModel):
     notes: str | None = None
     sort_order: int
     generation_batch_id: UUID | None = None
+    function_group_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
     line: ModeLineOut | None = None

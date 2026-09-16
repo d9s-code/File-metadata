@@ -1,9 +1,12 @@
 import { api } from "./client";
-import type { Source } from "../types/domain";
+import type { ParameterSequence, Source } from "../types/domain";
 
 export interface SourceInput {
   name: string;
   description?: string | null;
+  rf_legacy_term?: string | null;
+  pri_legacy_term?: string | null;
+  source_type?: string | null;
   source_date: string;
   group_id?: string | null;
 }
@@ -21,7 +24,7 @@ export const sourcesApi = {
   reject: (emitterId: string, sourceId: string) =>
     api.post<Source>(`/emitters/${emitterId}/sources/${sourceId}/reject`, {}),
   listParameterSequences: (emitterId: string, sourceId: string) =>
-    api.get<any[]>(`/emitters/${emitterId}/sources/${sourceId}/parameter-sequences`),
+    api.get<ParameterSequence[]>(`/emitters/${emitterId}/sources/${sourceId}/parameter-sequences`),
 
   deleteParameterSequence: (
     emitterId: string,

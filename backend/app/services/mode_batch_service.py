@@ -17,6 +17,7 @@ from app.core.enums import AuditAction, AuditEntityType, TestRecordModeLinkType
 from app.dsl.exceptions import DslSyntaxError
 from app.dsl.renderer import render_mode_line
 from app.models.ew_group import EwGroup
+from app.models.function_group import FunctionGroup
 from app.models.mode import Mode
 from app.models.test_record import TestRecord, TestRecordMode
 from app.schemas.mode import (
@@ -49,7 +50,20 @@ _LINE_FIELD_KEYS = {
     "pri_delta",
     "frame_time_delta_us",
 }
-_METADATA_FIELD_KEYS = {"ew_group_id", "notes"}
+_METADATA_FIELD_KEYS = {"ew_group_id", "function_group_id", "notes"}
+
+# Each *_shift field is applied to exactly one bound, independently of its
+# pair — e.g. rf_min_shift never touches rf_max_mhz. A shift on a bound the
+# Mode doesn't currently have (e.g. pri_min_shift on a Stagger-PRI Mode,
+# where pri_min_us is null) is a silent no-op — there's nothing to shift.
+_SHIFT_TARGET_FIELDS = {
+    "rf_min_shift": "rf_min_mhz",
+    "rf_max_shift": "rf_max_mhz",
+    "pw_min_shift": "pw_min_us",
+    "pw_max_shift": "pw_max_us",
+    "pri_min_shift": "pri_min_us",
+    "pri_max_shift": "pri_max_us",
+}
 
 
 @dataclass
@@ -107,6 +121,11 @@ def plan_batch_edit(
         if target is None or target.emitter_id != emitter_id:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Target EW Group not found in this Emitter")
 
+    if field_data.get("function_group_id") is not None:
+        target_fg = db.get(FunctionGroup, field_data["function_group_id"])
+        if target_fg is None or target_fg.emitter_id != emitter_id:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Target Function Group not found in this Emitter")
+
     planned: list[PlannedModeEdit] = []
     errors: list[ModeBatchEditError] = []
 
@@ -116,6 +135,10 @@ def plan_batch_edit(
             for key, value in field_data.items():
                 if key in _LINE_FIELD_KEYS:
                     values[key] = value
+                elif key in _SHIFT_TARGET_FIELDS and value is not None:
+                    target = _SHIFT_TARGET_FIELDS[key]
+                    if values.get(target) is not None:
+                        values[target] = values[target] + value
 
             new_line = ModeLineFields(**values)
             validate_pri_type_fields(mode.pri_type, new_line)
@@ -135,6 +158,7 @@ def apply_batch_edit(
     derived_from_test_record_ids: list[UUID],
     actor_id: UUID | None,
     emitter_id: UUID,
+    shift_reason: str | None = None,
 ) -> list[UUID]:
     if derived_from_test_record_ids:
         found_ids = {r.id for r in db.query(TestRecord.id).filter(TestRecord.id.in_(derived_from_test_record_ids)).all()}
@@ -160,13 +184,16 @@ def apply_batch_edit(
                 TestRecordMode(test_record_id=test_record_id, mode_id=mode.id, link_type=TestRecordModeLinkType.derived)
             )
 
+        summary = f"Batch-updated Mode '{mode.name}'"
+        if shift_reason:
+            summary += f" — {shift_reason}"
         record_audit(
             db,
             actor_id=actor_id,
             action=AuditAction.update,
             entity_type=AuditEntityType.mode.value,
             entity_id=mode.id,
-            summary=f"Batch-updated Mode '{mode.name}'",
+            summary=summary,
             changes=changes,
             emitter_id=emitter_id,
         )

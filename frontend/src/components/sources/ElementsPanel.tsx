@@ -1,11 +1,26 @@
 import { useState, type FormEvent } from "react";
-import type { ElementType, ElementVariant } from "../../types/domain";
+import type { ElementType, ElementVariant, ModeElement } from "../../types/domain";
 import { useCreateElement, useDeleteElement, useElements } from "../../state/hooks/useElements";
 import { FrametimeBadge } from "./FrametimeBadge";
 import { ApiRequestError } from "../../api/client";
 import { RequireRole } from "../../auth/RequireAuth";
 import { useConfirmDialog } from "../common/ConfirmDialog";
 import { SequenceForm } from "./SequenceForm";
+import { groupElements, type MergedElementGroup } from "./elementMerge";
+import { SortableColumnHeader } from "../common/SortableColumnHeader";
+import { useSortableTable } from "../common/useSortableTable";
+import { compareNullable, compareStrings } from "../common/sortUtils";
+
+type ElementSortKey = "label" | "value";
+
+function compareGroups(a: MergedElementGroup, b: MergedElementGroup, key: ElementSortKey, dir: "asc" | "desc"): number {
+  switch (key) {
+    case "label":
+      return compareStrings(a.members[0].label, b.members[0].label, dir);
+    case "value":
+      return compareNullable(a.value_min, b.value_min, dir);
+  }
+}
 
 const ELEMENT_TYPES: ElementType[] = ["rf", "pri", "pw", "scan"];
 
@@ -185,16 +200,46 @@ export function ElementsPanel({
     extreme: 3,
   };
 
-  const grouped = ELEMENT_TYPES.map((t) => ({
-    type: t,
-    items: (elements ?? [])
-      .filter((e) => e.element_type === t)
-      .sort((a, b) => {
-        const orderA = a.variant ? VARIANT_ORDER[a.variant] ?? 99 : 99;
-        const orderB = b.variant ? VARIANT_ORDER[b.variant] ?? 99 : 99;
-        return orderA - orderB;
-      }),
-  }));
+  const { sortKey, sortDir, onSort, onClear } = useSortableTable<MergedElementGroup, ElementSortKey>(
+    [],
+    compareGroups,
+  );
+
+  const grouped = ELEMENT_TYPES.map((t) => {
+    const groups = groupElements((elements ?? []).filter((e) => e.element_type === t));
+    const sorted = sortKey
+      ? [...groups].sort((a, b) => compareGroups(a, b, sortKey, sortDir))
+      : [...groups].sort((a, b) => {
+          const orderA = a.members[0].variant ? VARIANT_ORDER[a.members[0].variant] ?? 99 : 99;
+          const orderB = b.members[0].variant ? VARIANT_ORDER[b.members[0].variant] ?? 99 : 99;
+          return orderA - orderB;
+        });
+    return { type: t, groups: sorted };
+  });
+
+  function renderVariantBadge(el: ModeElement) {
+    if (!el.variant) return <span className="text-gray-400">—</span>;
+    const rawVariant = el.variant.trim().toLowerCase();
+    const variantKey = rawVariant.replace(/-/g, "_") as keyof typeof VARIANT_STYLES;
+    const style = VARIANT_STYLES[variantKey] || {
+      label: rawVariant.replace(/_/g, " "),
+      bg: "#fef3c7",
+      fg: "#92400e",
+      border: "#fcd34d",
+    };
+    const meta: string[] = [];
+    if (el.jitter_min != null) meta.push(`jitter ${el.jitter_min}–${el.jitter_max}`);
+    if (el.delta != null) meta.push(`±${el.delta} delta`);
+    return (
+      <span
+        className="inline-block px-1.5 py-0.5 rounded border text-[10px] font-bold uppercase mr-1 mb-1"
+        style={{ backgroundColor: style.bg, color: style.fg, borderColor: style.border }}
+        title={meta.length ? `${el.variant} (${meta.join(", ")})` : el.variant}
+      >
+        {style.label}
+      </span>
+    );
+  }
 
   const [creationMode, setCreationMode] = useState<"element" | "sequence">("element");
 
@@ -203,7 +248,7 @@ export function ElementsPanel({
       {!isPanelCollapsed && (
         <>
           <div className="cartesian-columns grid grid-cols-4 gap-4 my-3 overflow-x-auto pb-4">
-            {grouped.map(({ type, items }) => {
+            {grouped.map(({ type, groups }) => {
               const isCollapsed = collapsedGroups.has(type);
               return (
                 <div key={type} className="element-group flex flex-col">
@@ -235,7 +280,7 @@ export function ElementsPanel({
 
                   {!isCollapsed && (
                     <div className="mt-1">
-                      {items.length === 0 ? (
+                      {groups.length === 0 ? (
                         <p className="hint-text">None yet.</p>
                       ) : (
                         <div className="overflow-x-auto border border-gray-200 rounded-lg">
@@ -243,64 +288,76 @@ export function ElementsPanel({
                             <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 text-xs uppercase font-medium">
                               <tr>
                                 <th className="px-2 py-0 w-24">Variant</th>
-                                <th className="px-2 py-0 w-48">Label</th>
-                                <th className="px-2 py-0 w-64">Values</th>
+                                <SortableColumnHeader
+                                  label="Label"
+                                  columnKey="label"
+                                  activeKey={sortKey}
+                                  activeDir={sortDir}
+                                  onSort={onSort}
+                                  onClear={onClear}
+                                />
+                                <SortableColumnHeader
+                                  label="Values"
+                                  columnKey="value"
+                                  columnType="number"
+                                  activeKey={sortKey}
+                                  activeDir={sortDir}
+                                  onSort={onSort}
+                                  onClear={onClear}
+                                />
                                 <th className="px-2 py-0">Notes</th>
                                 <th className="px-2 py-0 text-right">Actions</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
-                              {items.map((el) => (
-                                <tr key={el.id} className="hover:bg-gray-50 transition-colors">
+                              {groups.map((g) => (
+                                <tr key={g.representativeId} className="hover:bg-gray-50 transition-colors">
                                   <td className="px-2 py-0 align-middle">
-                                    {el.variant ? (
-                                      (() => {
-                                        const rawVariant = el.variant.trim().toLowerCase();
-                                        const variantKey = rawVariant.replace(/-/g, "_") as keyof typeof VARIANT_STYLES;
-                                        const style = VARIANT_STYLES[variantKey] || { 
-                                          label: rawVariant.replace(/_/g, " "), 
-                                          bg: "#fef3c7", 
-                                          fg: "#92400e", 
-                                          border: "#fcd34d" 
-                                        };
-                                        return (
-                                          <span 
-                                            className="inline-block px-1.5 py-0.5 rounded border text-[10px] font-bold uppercase"
-                                            style={{ backgroundColor: style.bg, color: style.fg, borderColor: style.border }}
-                                            title={el.variant}
-                                          >
-                                            {style.label}
-                                          </span>
-                                        );
-                                      })()
+                                    {g.members.map((el) => (
+                                      <span key={el.id}>{renderVariantBadge(el)}</span>
+                                    ))}
+                                  </td>
+                                  <td className="px-2 py-0 align-middle">
+                                    {g.members.some((el) => el.label) ? (
+                                      <span className="font-bold">
+                                        {g.members
+                                          .map((el) => el.label)
+                                          .filter(Boolean)
+                                          .join(" · ")}
+                                      </span>
                                     ) : (
-                                      <span className="text-gray-400">—</span>
+                                      <span className="text-gray-400 italic">unnamed</span>
                                     )}
                                   </td>
-                                  <td className="px-2 py-0 align-middle">
-                                    {el.label ? <span className="font-bold">{el.label}</span> : <span className="text-gray-400 italic">unnamed</span>}
-                                  </td>
                                   <td className="px-2 py-0 align-middle whitespace-nowrap">
-                                    {el.stagger_values ? (
+                                    {g.stagger_values ? (
                                       <div className="flex items-center gap-2">
-                                        <span className="font-mono">[{el.stagger_values.join(", ")}] µs</span>
-                                        <FrametimeBadge staggerValues={el.stagger_values} />
+                                        <span className="font-mono">[{g.stagger_values.join(", ")}] µs</span>
+                                        <FrametimeBadge staggerValues={g.stagger_values} />
                                       </div>
                                     ) : (
                                       <div className="font-mono">
-                                        {el.value_min}–{el.value_max}
-                                        {el.jitter_min != null && <span className="text-gray-500 text-xs"> (jitter {el.jitter_min}–{el.jitter_max})</span>}
+                                        {g.value_min}–{g.value_max}
                                       </div>
                                     )}
                                   </td>
                                   <td className="px-2 py-0 align-middle text-xs text-gray-500">
-                                    {el.details}
+                                    {g.members
+                                      .map((el) => el.details)
+                                      .filter(Boolean)
+                                      .join(" · ")}
                                   </td>
                                   <td className="px-2 py-0 align-middle text-right">
                                     <RequireRole minimum="editor">
-                                      <button className="text-red-600 hover:text-red-800 text-xs font-medium" onClick={() => void handleDelete(el.id)}>
-                                        Delete
-                                      </button>
+                                      {g.memberIds.map((id) => (
+                                        <button
+                                          key={id}
+                                          className="text-red-600 hover:text-red-800 text-xs font-medium ml-2"
+                                          onClick={() => void handleDelete(id)}
+                                        >
+                                          Delete
+                                        </button>
+                                      ))}
                                     </RequireRole>
                                   </td>
                                 </tr>

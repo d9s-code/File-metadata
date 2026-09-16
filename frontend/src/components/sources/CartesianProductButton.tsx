@@ -4,6 +4,22 @@ import { useCartesianProduct, useElements } from "../../state/hooks/useElements"
 import { ApiRequestError } from "../../api/client";
 import { useQuery } from "@tanstack/react-query";
 import { sourcesApi } from "../../api/sources";
+import { groupElements } from "./elementMerge";
+import { SortableColumnHeader } from "../common/SortableColumnHeader";
+import { useSortableTable } from "../common/useSortableTable";
+import { compareNullable, compareStrings } from "../common/sortUtils";
+
+type CheckboxItem = { id: string; label: string; variants?: (ElementVariant | undefined)[]; sortValue?: number | null };
+type ItemSortKey = "label" | "value";
+
+function compareItems(a: CheckboxItem, b: CheckboxItem, key: ItemSortKey, dir: "asc" | "desc"): number {
+  switch (key) {
+    case "label":
+      return compareStrings(a.label, b.label, dir);
+    case "value":
+      return compareNullable(a.sortValue, b.sortValue, dir);
+  }
+}
 
 const VARIANT_STYLES: Record<string, { label: string; bg: string; fg: string; border: string }> = {
   typical: { label: "typical", bg: "var(--badge-blue-bg)", fg: "var(--badge-blue-fg)", border: "var(--badge-blue-fg)" },
@@ -27,8 +43,12 @@ function CheckboxList({
   deltaOverrides,
   onDeltaChange,
   elementDeltaById,
+  sortKey,
+  sortDir,
+  onSort,
+  onClear,
 }: {
-  items: { id: string; label: string; variant?: ElementVariant }[];
+  items: CheckboxItem[];
   selected: Set<string>;
   onToggle: (id: string) => void;
   showVariant?: boolean;
@@ -38,6 +58,10 @@ function CheckboxList({
   /** The element's own stored delta, shown as the input's placeholder so it's
    * clear what "leave blank" means (use the element's own value, if any). */
   elementDeltaById?: Record<string, number | null>;
+  sortKey?: ItemSortKey | null;
+  sortDir?: "asc" | "desc";
+  onSort?: (key: ItemSortKey, dir: "asc" | "desc") => void;
+  onClear?: () => void;
 }) {
   if (items.length === 0) return <p className="hint-text">No items available.</p>;
   const showDelta = !!(deltaOverrides && onDeltaChange);
@@ -49,7 +73,18 @@ function CheckboxList({
           <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 text-xs uppercase font-medium">
             <tr>
               <th className="px-2 py-1 w-24">Variant</th>
-              <th className="px-2 py-1">Label</th>
+              {onSort && onClear ? (
+                <SortableColumnHeader
+                  label="Label"
+                  columnKey="label"
+                  activeKey={sortKey ?? null}
+                  activeDir={sortDir ?? "asc"}
+                  onSort={onSort}
+                  onClear={onClear}
+                />
+              ) : (
+                <th className="px-2 py-1">Label</th>
+              )}
               {showDelta && <th className="px-2 py-1 w-28">Delta override</th>}
               <th className="px-2 py-1 w-10"></th>
             </tr>
@@ -58,9 +93,9 @@ function CheckboxList({
             {items.map((item) => (
               <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                 <td className="px-2 py-1 align-middle whitespace-nowrap">
-                  {item.variant ? (
-                    (() => {
-                      const rawVariant = item.variant.trim().toLowerCase();
+                  {item.variants && item.variants.some(Boolean) ? (
+                    item.variants.filter(Boolean).map((variant, i) => {
+                      const rawVariant = (variant as string).trim().toLowerCase();
                       const variantKey = rawVariant.replace(/-/g, "_") as keyof typeof VARIANT_STYLES;
                       const style = VARIANT_STYLES[variantKey] || {
                         label: rawVariant.replace(/_/g, " "),
@@ -70,13 +105,14 @@ function CheckboxList({
                       };
                       return (
                         <span
-                          className="inline-block px-1.5 py-0.5 rounded border text-[10px] font-bold uppercase"
+                          key={i}
+                          className="inline-block px-1.5 py-0.5 rounded border text-[10px] font-bold uppercase mr-1 mb-1"
                           style={{ backgroundColor: style.bg, color: style.fg, borderColor: style.border }}
                         >
                           {style.label}
                         </span>
                       );
-                    })()
+                    })
                   ) : (
                     <span className="text-gray-400">—</span>
                   )}
@@ -194,9 +230,11 @@ export function CartesianProductButton({
   }, [elements]);
 
   useEffect(() => {
-    const validIds = new Set((sequences ?? []).map((s) => s.id));
+    const validStepIds = new Set(
+      (sequences ?? []).flatMap((s) => s.steps.map((step) => `${s.id}:${step.order}`)),
+    );
     setSequenceSelected((prev) => {
-      const next = new Set([...prev].filter((id) => validIds.has(id)));
+      const next = new Set([...prev].filter((id) => validStepIds.has(id)));
       return next.size === prev.size ? prev : next;
     });
   }, [sequences]);
@@ -208,49 +246,75 @@ export function CartesianProductButton({
     return `${min}–${max} ${unit}`;
   }
 
-  const rfItems = (elements ?? [])
-    .filter((e) => e.element_type === "rf")
-    .sort((a, b) => {
-      const orderA = a.variant ? VARIANT_ORDER[a.variant] ?? 99 : 99;
-      const orderB = b.variant ? VARIANT_ORDER[b.variant] ?? 99 : 99;
-      return orderA - orderB;
-    })
-    .map((e) => ({ 
-      id: e.id, 
-      label: rangeLabel(e.value_min, e.value_max, e.engineered_min, e.engineered_max, "MHz"),
-      variant: e.variant ?? undefined
-    }));
-  const pwItems = (elements ?? [])
-    .filter((e) => e.element_type === "pw")
-    .sort((a, b) => {
-      const orderA = a.variant ? VARIANT_ORDER[a.variant] ?? 99 : 99;
-      const orderB = b.variant ? VARIANT_ORDER[b.variant] ?? 99 : 99;
-      return orderA - orderB;
-    })
-    .map((e) => ({ 
-      id: e.id, 
-      label: rangeLabel(e.value_min, e.value_max, e.engineered_min, e.engineered_max, "µs"),
-      variant: e.variant ?? undefined
-    }));
-  const priItems = (elements ?? [])
-    .filter((e) => e.element_type === "pri")
-    .sort((a, b) => {
-      const orderA = a.variant ? VARIANT_ORDER[a.variant] ?? 99 : 99;
-      const orderB = b.variant ? VARIANT_ORDER[b.variant] ?? 99 : 99;
-      return orderA - orderB;
-    })
-      .map((e) => ({
-        id: e.id,
-        label: e.stagger_values
-          ? `stagger [${e.stagger_values.join(", ")}]`
-          : rangeLabel(e.value_min, e.value_max, e.engineered_min, e.engineered_max, "µs"),
-        variant: e.variant ?? undefined
-      }));
+  const { sortKey, sortDir, onSort, onClear } = useSortableTable<CheckboxItem, ItemSortKey>([], compareItems);
+  const sortItems = (items: CheckboxItem[]) =>
+    sortKey
+      ? [...items].sort((a, b) => compareItems(a, b, sortKey, sortDir))
+      : [...items].sort((a, b) => {
+          const orderA = a.variants?.[0] ? VARIANT_ORDER[a.variants[0]] ?? 99 : 99;
+          const orderB = b.variants?.[0] ? VARIANT_ORDER[b.variants[0]] ?? 99 : 99;
+          return orderA - orderB;
+        });
 
-  const sequenceItems = (sequences ?? []).map((s) => ({
-    id: s.id,
-    label: s.label,
-  }));
+  const elementById = Object.fromEntries((elements ?? []).map((e) => [e.id, e]));
+
+  const rfGroups = groupElements((elements ?? []).filter((e) => e.element_type === "rf"));
+  const pwGroups = groupElements((elements ?? []).filter((e) => e.element_type === "pw"));
+  const priGroups = groupElements((elements ?? []).filter((e) => e.element_type === "pri"));
+
+  const rfItems = sortItems(
+    rfGroups.map((g) => {
+      const rep = elementById[g.representativeId];
+      return {
+        id: g.representativeId,
+        label: rangeLabel(g.value_min, g.value_max, rep?.engineered_min ?? g.value_min, rep?.engineered_max ?? g.value_max, "MHz"),
+        variants: g.members.map((m) => m.variant ?? undefined),
+        sortValue: g.value_min,
+      };
+    }),
+  );
+  const pwItems = sortItems(
+    pwGroups.map((g) => {
+      const rep = elementById[g.representativeId];
+      return {
+        id: g.representativeId,
+        label: rangeLabel(g.value_min, g.value_max, rep?.engineered_min ?? g.value_min, rep?.engineered_max ?? g.value_max, "µs"),
+        variants: g.members.map((m) => m.variant ?? undefined),
+        sortValue: g.value_min,
+      };
+    }),
+  );
+  const priItems = sortItems(
+    priGroups.map((g) => {
+      const rep = elementById[g.representativeId];
+      return {
+        id: g.representativeId,
+        label: g.stagger_values
+          ? `stagger [${g.stagger_values.join(", ")}]`
+          : rangeLabel(g.value_min, g.value_max, rep?.engineered_min ?? g.value_min, rep?.engineered_max ?? g.value_max, "µs"),
+        variants: g.members.map((m) => m.variant ?? undefined),
+        sortValue: g.value_min,
+      };
+    }),
+  );
+
+  function stepLabel(step: { rf_mhz?: number | null; pw_us?: number | null; pri_us?: number | null }): string {
+    const parts: string[] = [];
+    if (step.rf_mhz != null) parts.push(`RF ${step.rf_mhz}`);
+    if (step.pw_us != null) parts.push(`PW ${step.pw_us}`);
+    if (step.pri_us != null) parts.push(`PRI ${step.pri_us}`);
+    return parts.join(", ") || "—";
+  }
+
+  // Individually selectable (sequence, step) pairs — a whole sequence is no
+  // longer a single checkbox, so multi-step sequences don't force every step
+  // to be used at once.
+  const sequenceItems = (sequences ?? []).flatMap((s) =>
+    s.steps.map((step) => ({
+      id: `${s.id}:${step.order}`,
+      label: `${s.label ?? "Sequence"} · step ${step.order}: ${stepLabel(step)}`,
+    })),
+  );
 
   const elementDeltaById = Object.fromEntries((elements ?? []).map((e) => [e.id, e.delta]));
 
@@ -274,7 +338,10 @@ export function CartesianProductButton({
         rf_element_ids: [...rfSelected],
         pw_element_ids: [...pwSelected],
         pri_element_ids: [...priSelected],
-        sequence_ids: [...sequenceSelected],
+        sequence_steps: [...sequenceSelected].map((id) => {
+          const sep = id.lastIndexOf(":");
+          return { sequence_id: id.slice(0, sep), order: Number(id.slice(sep + 1)) };
+        }),
         name_prefix: namePrefix,
         batch_note: batchNote || undefined,
         rf_delta_overrides: toOverridePayload(rfDeltaOverrides),
@@ -310,6 +377,10 @@ export function CartesianProductButton({
             deltaOverrides={rfDeltaOverrides}
             onDeltaChange={(id, value) => setRfDeltaOverrides((prev) => ({ ...prev, [id]: value }))}
             elementDeltaById={elementDeltaById}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onSort={onSort}
+            onClear={onClear}
           />
         </div>
         <div>
@@ -325,6 +396,10 @@ export function CartesianProductButton({
             deltaOverrides={priDeltaOverrides}
             onDeltaChange={(id, value) => setPriDeltaOverrides((prev) => ({ ...prev, [id]: value }))}
             elementDeltaById={elementDeltaById}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onSort={onSort}
+            onClear={onClear}
           />
         </div>
         <div>
@@ -340,6 +415,10 @@ export function CartesianProductButton({
             deltaOverrides={pwDeltaOverrides}
             onDeltaChange={(id, value) => setPwDeltaOverrides((prev) => ({ ...prev, [id]: value }))}
             elementDeltaById={elementDeltaById}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onSort={onSort}
+            onClear={onClear}
           />
         </div>
         <div>

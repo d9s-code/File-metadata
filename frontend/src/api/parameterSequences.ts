@@ -26,4 +26,15 @@ export const parameterSequencesApi = {
 
   create: (emitterId: string, sourceId: string, input: any) =>
     api.post<ParameterSequence>(`/emitters/${emitterId}/sources/${sourceId}/parameter-sequences`, input),
+
+  update: (
+    emitterId: string,
+    sourceId: string,
+    sequenceId: string,
+    input: { rf_delta?: number | null; pw_delta?: number | null; pri_delta?: number | null },
+  ) =>
+    api.patch<ParameterSequence>(
+      `/emitters/${emitterId}/sources/${sourceId}/parameter-sequences/${sequenceId}`,
+      input,
+    ),
 };

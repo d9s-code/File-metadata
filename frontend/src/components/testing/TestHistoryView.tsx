@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ObservedValues, TestRecord, TestRecordInput } from "../../api/testRecords";
 import { modesApi, type ModeCreateInput } from "../../api/modes";
-import type { EwGroup, Source, TestResult } from "../../types/domain";
+import type { EwGroup, FunctionGroup, Source, TestResult, TestType } from "../../types/domain";
 import { RequireRole } from "../../auth/RequireAuth";
 import { ApiRequestError } from "../../api/client";
 import { useConfirmDialog } from "../common/ConfirmDialog";
@@ -15,6 +15,11 @@ import { useSortableTable } from "../common/useSortableTable";
 import { compareStrings } from "../common/sortUtils";
 
 const TEST_RESULTS: TestResult[] = ["pass", "fail", "partial", "inconclusive"];
+const TEST_TYPES: TestType[] = ["simulation", "lab_bench", "live_range", "field_exercise", "intercept"];
+
+function todayDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 type RecordSortKey = "date" | "sim_created" | "type" | "result" | "title";
 
@@ -92,6 +97,7 @@ export function TestHistoryView({
   emitterId,
   ewGroups,
   sources,
+  functionGroups,
   highlightId,
 }: {
   records: TestRecord[];
@@ -107,19 +113,22 @@ export function TestHistoryView({
   emitterId?: string;
   ewGroups?: EwGroup[];
   sources?: Source[];
+  functionGroups?: FunctionGroup[];
   /** A test record id to scroll to and highlight — e.g. reached via the
    * Test-Derived badge on a Mode. */
   highlightId?: string;
 }) {
   const [showForm, setShowForm] = useState(false);
   const [manualResult, setManualResult] = useState<TestResult>("pass");
+  const [testType, setTestType] = useState<TestType>("lab_bench");
   const [title, setTitle] = useState("");
-  const [testDate, setTestDate] = useState("");
+  const [testDate, setTestDate] = useState(todayDate());
   const [simulationCreatedDate, setSimulationCreatedDate] = useState("");
   const [retestsId, setRetestsId] = useState("");
   const [copyFromId, setCopyFromId] = useState("");
   const [notes, setNotes] = useState("");
   const [modeEntries, setModeEntries] = useState<Record<string, ModeResultEntry>>({});
+  const [functionGroupOverrides, setFunctionGroupOverrides] = useState<Record<string, TestResult | "">>({});
   const [error, setError] = useState<string | null>(null);
   const [addingModeForRecordId, setAddingModeForRecordId] = useState<string | null>(null);
   // New Modes found while filling out this test — staged client-side only,
@@ -156,6 +165,27 @@ export function TestHistoryView({
     .map((e) => e.result);
   const derivedResult = hasModes ? computeOverallResult(includedResults) : null;
 
+  // Live-computed worst-of-N per represented Function Group, from the exact
+  // same in-progress modeEntries the overall result derives from — the
+  // number the "override" dropdown below is judged against.
+  const functionGroupComputed: Record<string, TestResult> = {};
+  if (functionGroups && functionGroups.length > 0) {
+    const resultsByGroup = new Map<string, TestResult[]>();
+    for (const m of availableModes ?? []) {
+      if (!m.function_group_id) continue;
+      const entry = modeEntries[m.id];
+      if (!entry?.included) continue;
+      const list = resultsByGroup.get(m.function_group_id) ?? [];
+      list.push(entry.result);
+      resultsByGroup.set(m.function_group_id, list);
+    }
+    for (const [groupId, results] of resultsByGroup) {
+      const computed = computeOverallResult(results);
+      if (computed) functionGroupComputed[groupId] = computed;
+    }
+  }
+  const representedFunctionGroups = (functionGroups ?? []).filter((g) => functionGroupComputed[g.id] != null);
+
   // Observed-value sets with something to pre-fill a staged Mode's line from
   // — offered to every staged ModeForm below. A Mode with multiple sets (e.g.
   // measured twice with different results) contributes one option per set.
@@ -175,12 +205,14 @@ export function TestHistoryView({
 
   function resetForm() {
     setTitle("");
-    setTestDate("");
+    setTestType("lab_bench");
+    setTestDate(todayDate());
     setSimulationCreatedDate("");
     setRetestsId("");
     setCopyFromId("");
     setNotes("");
     setModeEntries(initialModeEntries(availableModes ?? []));
+    setFunctionGroupOverrides({});
     setStagingKeys([]);
     setStagedModes([]);
   }
@@ -231,10 +263,13 @@ export function TestHistoryView({
       setError("Include at least one Mode, or this can't derive an overall result.");
       return;
     }
+    const overrides = Object.fromEntries(
+      Object.entries(functionGroupOverrides).filter(([, v]) => v !== ""),
+    ) as Record<string, TestResult>;
     let record: TestRecord;
     try {
       record = await onCreate({
-        test_type: "lab_bench",
+        test_type: testType,
         title,
         test_date: testDate,
         simulation_created_date: simulationCreatedDate || undefined,
@@ -242,6 +277,7 @@ export function TestHistoryView({
         mode_results: hasModes ? modeResults : undefined,
         result: hasModes ? undefined : manualResult,
         retests_test_record_id: retestsId || undefined,
+        function_group_overrides: Object.keys(overrides).length ? overrides : undefined,
       });
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : "Failed to log test");
@@ -382,6 +418,23 @@ export function TestHistoryView({
                   ) : (
                     "—"
                   )}
+                  {r.function_groups.length > 0 && (
+                    <div className="test-record-function-group-badges">
+                      {r.function_groups.map((fg) => (
+                        <span
+                          key={fg.function_group_id}
+                          className={`status-badge test-result-${fg.override_result ?? fg.computed_result}`}
+                          title={
+                            fg.override_result
+                              ? `Computed: ${fg.computed_result} — overridden to ${fg.override_result}`
+                              : `Computed: ${fg.computed_result}`
+                          }
+                        >
+                          {fg.function_group_name}: {fg.override_result ?? fg.computed_result}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </td>
                 <td>{r.notes ?? "—"}</td>
                 <td>
@@ -423,6 +476,7 @@ export function TestHistoryView({
                       emitterId={emitterId as string}
                       ewGroups={ewGroups ?? []}
                       sources={sources ?? []}
+                      functionGroups={functionGroups}
                       fixedDerivedFromTestRecordId={r.id}
                     />
                   </td>
@@ -444,7 +498,17 @@ export function TestHistoryView({
             <div className="form-row">
               <input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} required />
               <label className="inline-date-label">
-                Test date
+                Type
+                <select value={testType} onChange={(e) => setTestType(e.target.value as TestType)}>
+                  {TEST_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {t.replace("_", " ")}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="inline-date-label">
+                {testType === "intercept" ? "Intercept date" : "Test date"}
                 <input type="date" value={testDate} onChange={(e) => setTestDate(e.target.value)} required />
               </label>
               <label className="inline-date-label">
@@ -512,6 +576,7 @@ export function TestHistoryView({
                   modes={availableModes ?? []}
                   entries={modeEntries}
                   onChange={(modeId, entry) => setModeEntries((prev) => ({ ...prev, [modeId]: entry }))}
+                  functionGroups={functionGroups}
                 />
                 <p className="hint-text">
                   Derived overall result:{" "}
@@ -522,6 +587,39 @@ export function TestHistoryView({
                   )}
                 </p>
               </>
+            )}
+
+            {representedFunctionGroups.length > 0 && (
+              <div className="function-group-ratings">
+                <span className="param-row-label">Function Group ratings</span>
+                {representedFunctionGroups.map((g) => (
+                  <div key={g.id} className="function-group-rating-row">
+                    <span>{g.name}</span>
+                    <span className={`test-result-badge test-result-${functionGroupComputed[g.id]}`}>
+                      {functionGroupComputed[g.id]}
+                    </span>
+                    <label className="inline-date-label">
+                      Override
+                      <select
+                        value={functionGroupOverrides[g.id] ?? ""}
+                        onChange={(e) =>
+                          setFunctionGroupOverrides((prev) => ({
+                            ...prev,
+                            [g.id]: e.target.value as TestResult | "",
+                          }))
+                        }
+                      >
+                        <option value="">use computed</option>
+                        {TEST_RESULTS.map((r) => (
+                          <option key={r} value={r}>
+                            {r}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                ))}
+              </div>
             )}
 
             {canAddModeFromTest && stagedModes.length > 0 && (
@@ -561,6 +659,7 @@ export function TestHistoryView({
                   emitterId={emitterId as string}
                   ewGroups={ewGroups ?? []}
                   sources={sources ?? []}
+                  functionGroups={functionGroups}
                   onStage={(ewGroupId, input) => addStaged(k, ewGroupId, input)}
                   observedValueOptions={observedValueOptions}
                 />

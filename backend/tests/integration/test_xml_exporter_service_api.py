@@ -65,6 +65,97 @@ def test_emitter_xml_export_uses_engineered_values_and_real_range_matching(edito
     assert float(simple_pri.get("Max")) == 1220.0  # 1200 + 20
 
 
+def test_emitter_xml_export_scan_period_uses_ew_group_values(editor_client):
+    emitter = editor_client.post("/emitters", json={"name": "Scan Export Emitter"}).json()
+    ew_group = editor_client.post(
+        f"/emitters/{emitter['id']}/ew-groups",
+        json={"name": "Group A", "scan_min": 2, "scan_max": 4, "scan_delta": 1, "threat_priority": 7, "ageout": 30},
+    ).json()
+    source = editor_client.post(
+        f"/emitters/{emitter['id']}/sources", json={"name": "Source A", "source_date": "2025-01-01"}
+    ).json()
+    create_resp = editor_client.post(
+        f"/ew-groups/{ew_group['id']}/modes",
+        json={
+            "source_id": source["id"],
+            "name": "Scan Mode",
+            "pri_type": "fixed",
+            "line": {
+                "rf_min_mhz": 2900,
+                "rf_max_mhz": 3100,
+                "rf_delta": 0,
+                "rf_range_matching": False,
+                "pw_min_us": 0.5,
+                "pw_max_us": 1.2,
+                "pw_delta": 0,
+                "pw_range_matching": False,
+                "pri_min_us": 800,
+                "pri_max_us": 1200,
+                "pri_delta": 0,
+                "pri_range_matching": False,
+                "jitter_min_us": 5,
+                "jitter_max_us": 15,
+            },
+        },
+    )
+    assert create_resp.status_code == 201, create_resp.text
+
+    resp = editor_client.post(f"/emitters/{emitter['id']}/export/xml")
+    assert resp.status_code == 200, resp.text
+    zf = zipfile.ZipFile(io.BytesIO(resp.content))
+    root = etree.fromstring(zf.read("emitters/Scan_Export_Emitter.xml"))
+
+    period = root.find("Scan/Period")
+    # engineered scan = raw (2-4) +/- delta (1) = 1-5, not the 5/10 placeholder
+    assert float(period.get("Min")) == 1.0
+    assert float(period.get("Max")) == 5.0
+
+    ew_params = root.find("EWParameters")
+    assert ew_params.find("ThreatPriority").get("Value") == "7"
+    assert float(ew_params.find("Ageout").get("Value")) == 30.0
+
+
+def test_emitter_xml_export_scan_period_falls_back_without_ew_group_scan_data(editor_client):
+    emitter = editor_client.post("/emitters", json={"name": "No Scan Export Emitter"}).json()
+    ew_group = editor_client.post(f"/emitters/{emitter['id']}/ew-groups", json={"name": "Group A"}).json()
+    source = editor_client.post(
+        f"/emitters/{emitter['id']}/sources", json={"name": "Source A", "source_date": "2025-01-01"}
+    ).json()
+    create_resp = editor_client.post(
+        f"/ew-groups/{ew_group['id']}/modes",
+        json={
+            "source_id": source["id"],
+            "name": "No Scan Mode",
+            "pri_type": "fixed",
+            "line": {
+                "rf_min_mhz": 2900,
+                "rf_max_mhz": 3100,
+                "rf_delta": 0,
+                "rf_range_matching": False,
+                "pw_min_us": 0.5,
+                "pw_max_us": 1.2,
+                "pw_delta": 0,
+                "pw_range_matching": False,
+                "pri_min_us": 800,
+                "pri_max_us": 1200,
+                "pri_delta": 0,
+                "pri_range_matching": False,
+                "jitter_min_us": 5,
+                "jitter_max_us": 15,
+            },
+        },
+    )
+    assert create_resp.status_code == 201, create_resp.text
+
+    resp = editor_client.post(f"/emitters/{emitter['id']}/export/xml")
+    assert resp.status_code == 200, resp.text
+    zf = zipfile.ZipFile(io.BytesIO(resp.content))
+    root = etree.fromstring(zf.read("emitters/No_Scan_Export_Emitter.xml"))
+    period = root.find("Scan/Period")
+    assert float(period.get("Min")) == 5.0
+    assert float(period.get("Max")) == 10.0
+
+
 def test_emitter_xml_export_stagger_frame_period_uses_engineered_delta(editor_client):
     emitter = editor_client.post("/emitters", json={"name": "Stagger Export Emitter"}).json()
     ew_group = editor_client.post(f"/emitters/{emitter['id']}/ew-groups", json={"name": "Group A"}).json()

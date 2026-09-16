@@ -103,29 +103,42 @@ class XMLExporterService:
                 scan_groups[scan_name].append(mode)
 
         scan_to_set_id = {}
+        scan_to_ew_group: dict[str, EwGroup] = {}
         current_set_id = 1
         for scan_name, modes in scan_groups.items():
             scan_to_set_id[scan_name] = current_set_id
-            
+
             representative_mode = modes[0]
+            ew_group = representative_mode.ew_group
+            scan_to_ew_group[scan_name] = ew_group
             line = representative_mode.line
-            
+
             if line:
+                threat_priority = ew_group.threat_priority if ew_group.threat_priority is not None else 10
+                ageout = ew_group.ageout if ew_group.ageout is not None else 10
                 ew_params_el = etree.SubElement(root, "EWParameters", SetId=str(current_set_id))
-                etree.SubElement(ew_params_el, "ThreatPriority", Value="10")
+                etree.SubElement(ew_params_el, "ThreatPriority", Value=str(threat_priority))
                 etree.SubElement(ew_params_el, "LethalPower", Value="-50", Units="dBm")
                 etree.SubElement(ew_params_el, "MinERP", Value="80", Units="dBm")
                 etree.SubElement(ew_params_el, "MaxERP", Value="80", Units="dBm")
                 etree.SubElement(ew_params_el, "ModeFlags")
-                etree.SubElement(ew_params_el, "Ageout", Value="10", Units="s")
-            
+                etree.SubElement(ew_params_el, "Ageout", Value=str(ageout), Units="s")
+
             current_set_id += 1
 
-        # 2. Create Scans
+        # 2. Create Scans — Period reflects the EW Group's own engineered scan
+        # range (scan_min/scan_max widened by scan_delta), falling back to a
+        # placeholder 5-10s window only when the EW Group has no scan data
+        # configured at all.
         for scan_name, set_id in scan_to_set_id.items():
+            ew_group = scan_to_ew_group[scan_name]
+            eng_scan_min, eng_scan_max = apply_delta(ew_group.scan_min, ew_group.scan_max, ew_group.scan_delta)
+            period_min = "5" if eng_scan_min is None else str(eng_scan_min)
+            period_max = "10" if eng_scan_max is None else str(eng_scan_max)
+
             scan = etree.SubElement(root, "Scan", Name=self._sanitize(scan_name))
             etree.SubElement(scan, "Class").text = "Undetermined"
-            etree.SubElement(scan, "Period", Min="5", Max="10", Units="s")
+            etree.SubElement(scan, "Period", Min=period_min, Max=period_max, Units="s")
             etree.SubElement(scan, "EWParametersRef", SetId=str(set_id))
 
         # 3. Create Modes

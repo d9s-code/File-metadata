@@ -41,6 +41,8 @@ def _mode_dict(mode: Mode) -> dict:
         "sort_order": mode.sort_order,
         "source_id": str(mode.source_id),
         "source_name": mode.source.name,
+        "function_group_id": str(mode.function_group_id) if mode.function_group_id else None,
+        "function_group_name": mode.function_group.name if mode.function_group else None,
         "line": None
         if line is None
         else {

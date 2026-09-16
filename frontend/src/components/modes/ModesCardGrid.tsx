@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { EwGroup, Mode, Source } from "../../types/domain";
+import type { EwGroup, FunctionGroup, Mode, Source } from "../../types/domain";
 import { HoverInfo } from "../common/InfoPopover";
 import { RequireRole } from "../../auth/RequireAuth";
 import { EwGroupHoverDetail, ModeHoverDetail, SourceHoverDetail, StaggerSequenceBox } from "./ModeHoverDetails";
@@ -21,6 +21,7 @@ export function ModesCardGrid({
   modes,
   ewGroupsById,
   sourcesById,
+  functionGroupsById,
   onDelete,
   selected,
   onToggleSelect,
@@ -30,6 +31,7 @@ export function ModesCardGrid({
   modes: Mode[];
   ewGroupsById: Record<string, EwGroup>;
   sourcesById: Record<string, Source>;
+  functionGroupsById: Record<string, FunctionGroup>;
   onDelete: (modeId: string, ewGroupId: string, name: string) => void;
   selected: Set<string>;
   onToggleSelect: (modeId: string) => void;
@@ -52,7 +54,12 @@ export function ModesCardGrid({
         if (editingModeId === m.id && canEdit) {
           return (
             <div key={m.id} className="mode-card mode-card-editing">
-              <ModeEditForm emitterId={emitterId} mode={m} onDone={() => setEditingModeId(null)} />
+              <ModeEditForm
+                emitterId={emitterId}
+                mode={m}
+                functionGroups={Object.values(functionGroupsById)}
+                onDone={() => setEditingModeId(null)}
+              />
             </div>
           );
         }
@@ -109,6 +116,9 @@ export function ModesCardGrid({
                   "—"
                 )}
               </span>
+              {m.function_group_id && (
+                <span className="status-badge">{functionGroupsById[m.function_group_id]?.name ?? "—"}</span>
+              )}
             </div>
             <dl className="mode-card-fields">
               <div>

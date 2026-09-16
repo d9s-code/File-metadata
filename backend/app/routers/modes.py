@@ -10,6 +10,7 @@ from app.deps import require_ew_group_checkout, require_role
 from app.dsl.exceptions import DslSyntaxError
 from app.dsl.renderer import render_mode_line
 from app.models.ew_group import EwGroup
+from app.models.function_group import FunctionGroup
 from app.models.mode import Mode, ModeLine
 from app.models.source import Source
 from app.models.test_record import TestRecord, TestRecordMode
@@ -45,6 +46,14 @@ def _get_ew_group_or_404(db: Session, ew_group_id: UUID) -> EwGroup:
     if ew_group is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "EW Group not found")
     return ew_group
+
+
+def _check_function_group(db: Session, *, function_group_id: UUID | None, emitter_id: UUID) -> None:
+    if function_group_id is None:
+        return
+    group = db.get(FunctionGroup, function_group_id)
+    if group is None or group.emitter_id != emitter_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Function Group not found in this Emitter")
 
 
 def _link_derived_test_records(db: Session, *, mode_id: UUID, test_record_ids: list[UUID]) -> None:
@@ -87,6 +96,7 @@ def create_mode(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             "Source and EW Group must belong to the same Emitter",
         )
+    _check_function_group(db, function_group_id=payload.function_group_id, emitter_id=ew_group.emitter_id)
 
     mode = Mode(
         ew_group_id=ew_group_id,
@@ -95,6 +105,7 @@ def create_mode(
         pri_type=payload.pri_type,
         notes=payload.notes,
         sort_order=payload.sort_order,
+        function_group_id=payload.function_group_id,
     )
     db.add(mode)
     db.flush()
@@ -153,6 +164,7 @@ def create_mode_from_dsl_text(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             "Source and EW Group must belong to the same Emitter",
         )
+    _check_function_group(db, function_group_id=payload.function_group_id, emitter_id=ew_group.emitter_id)
     try:
         mode = create_mode_from_dsl(
             db,
@@ -162,6 +174,7 @@ def create_mode_from_dsl_text(
             dsl_text=payload.dsl_text,
             notes=payload.notes,
             sort_order=payload.sort_order,
+            function_group_id=payload.function_group_id,
         )
     except DslSyntaxError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
@@ -201,6 +214,8 @@ def update_mode(
                 status.HTTP_422_UNPROCESSABLE_ENTITY,
                 "Target EW Group must belong to the same Emitter as the Mode's Source",
             )
+    if "function_group_id" in data:
+        _check_function_group(db, function_group_id=data["function_group_id"], emitter_id=mode.source.emitter_id)
     changes = apply_and_diff(mode, data)
 
     if payload.line is not None:

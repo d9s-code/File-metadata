@@ -24,6 +24,7 @@ from app.schemas.mode_element import (
 from app.schemas.parameter_sequence import (
     ParameterSequenceCreate,
     ParameterSequenceOut,
+    ParameterSequenceUpdate,
 )
 from app.schemas.source import SourceCreate, SourceOut, SourceUpdate
 from app.schemas.source_note import SourceNoteCreate, SourceNoteOut
@@ -317,6 +318,42 @@ def create_parameter_sequence(
     return sequence
 
 
+@router.patch(
+    "/{source_id}/parameter-sequences/{sequence_id}",
+    response_model=ParameterSequenceOut,
+    dependencies=[Depends(verify_csrf)],
+)
+def update_parameter_sequence(
+    emitter_id: UUID,
+    source_id: UUID,
+    sequence_id: UUID,
+    payload: ParameterSequenceUpdate,
+    db: Session = Depends(get_db),
+    user=Depends(require_emitter_checkout()),
+) -> ParameterSequence:
+    _get_source_or_404(db, emitter_id, source_id)
+    sequence = db.query(ParameterSequence).filter(
+        ParameterSequence.id == sequence_id, ParameterSequence.source_id == source_id
+    ).first()
+    if sequence is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Sequence not found")
+
+    changes = apply_and_diff(sequence, payload.model_dump(exclude_unset=True))
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.update,
+        entity_type="parameter_sequence",
+        entity_id=sequence.id,
+        summary=f"Updated Parameter Sequence '{sequence.label}'",
+        changes=changes,
+        emitter_id=emitter_id,
+    )
+    db.commit()
+    db.refresh(sequence)
+    return sequence
+
+
 @router.delete(
     "/{source_id}/parameter-sequences/{sequence_id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -513,7 +550,7 @@ def cartesian_product(
             rf_element_ids=payload.rf_element_ids,
             pw_element_ids=payload.pw_element_ids,
             pri_element_ids=payload.pri_element_ids,
-            sequence_ids=payload.sequence_ids,
+            sequence_steps=[(s.sequence_id, s.order) for s in payload.sequence_steps] if payload.sequence_steps else None,
             name_prefix=payload.name_prefix,
             created_by=user.id,
             batch_note=payload.batch_note,

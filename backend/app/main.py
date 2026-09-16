@@ -10,6 +10,7 @@ from app.routers import (
     dsl,
     emitters,
     ew_groups,
+    function_groups,
     imports,
     mdfs,
     modes,
@@ -36,6 +37,7 @@ app.include_router(users.router)
 app.include_router(platforms.router)
 app.include_router(emitters.router)
 app.include_router(ew_groups.router)
+app.include_router(function_groups.router)
 app.include_router(sources.router)
 app.include_router(source_groups.router)
 app.include_router(imports.router)

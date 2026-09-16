@@ -1,4 +1,11 @@
-import { useParameterSequences, useDeleteParameterSequence, useDeleteParameterSequenceStep } from "../../state/hooks/useParameterSequences";
+import { useState } from "react";
+import type { ParameterSequence } from "../../types/domain";
+import {
+  useParameterSequences,
+  useDeleteParameterSequence,
+  useDeleteParameterSequenceStep,
+  useUpdateParameterSequence,
+} from "../../state/hooks/useParameterSequences";
 import { useConfirmDialog } from "../common/ConfirmDialog";
 
 const STEP_COLUMNS: { key: "rf_mhz" | "pw_us" | "pri_us" | "dwell_s"; label: string }[] = [
@@ -8,8 +15,71 @@ const STEP_COLUMNS: { key: "rf_mhz" | "pw_us" | "pri_us" | "dwell_s"; label: str
   { key: "dwell_s", label: "Dwell (pulses)" },
 ];
 
-/** Read-only for now — Parameter Sequences are import-only in this phase, no
- * manual creation UI yet. */
+/** A sequence with no step touching rf_mhz/pw_us — delta override doesn't
+ * apply to it (every value it can contribute is a PRI point value). */
+function isPriOnlySequence(seq: ParameterSequence): boolean {
+  return seq.steps.every((s) => s.rf_mhz == null && s.pw_us == null);
+}
+
+function SequenceDeltaEditor({
+  emitterId,
+  sourceId,
+  sequence,
+}: {
+  emitterId: string;
+  sourceId: string;
+  sequence: ParameterSequence;
+}) {
+  const updateSequence = useUpdateParameterSequence(emitterId, sourceId);
+  const [rfDelta, setRfDelta] = useState(sequence.rf_delta?.toString() ?? "");
+  const [pwDelta, setPwDelta] = useState(sequence.pw_delta?.toString() ?? "");
+  const [priDelta, setPriDelta] = useState(sequence.pri_delta?.toString() ?? "");
+
+  function commit(field: "rf_delta" | "pw_delta" | "pri_delta", raw: string) {
+    const value = raw.trim() === "" ? null : Number(raw);
+    if (value != null && Number.isNaN(value)) return;
+    updateSequence.mutate({ sequenceId: sequence.id, input: { [field]: value } });
+  }
+
+  return (
+    <div className="form-row" style={{ marginTop: "0.5rem" }}>
+      <label>
+        RF delta (±MHz)
+        <input
+          type="number"
+          step="any"
+          min="0"
+          value={rfDelta}
+          onChange={(e) => setRfDelta(e.target.value)}
+          onBlur={() => commit("rf_delta", rfDelta)}
+        />
+      </label>
+      <label>
+        PW delta (±µs)
+        <input
+          type="number"
+          step="any"
+          min="0"
+          value={pwDelta}
+          onChange={(e) => setPwDelta(e.target.value)}
+          onBlur={() => commit("pw_delta", pwDelta)}
+        />
+      </label>
+      <label>
+        PRI delta (±µs)
+        <input
+          type="number"
+          step="any"
+          min="0"
+          value={priDelta}
+          onChange={(e) => setPriDelta(e.target.value)}
+          onBlur={() => commit("pri_delta", priDelta)}
+        />
+      </label>
+    </div>
+  );
+}
+
 export function ParameterSequencesPanel({ emitterId, sourceId }: { emitterId: string; sourceId: string }) {
   const { data: sequences } = useParameterSequences(emitterId, sourceId);
   const deleteSequence = useDeleteParameterSequence(emitterId, sourceId);
@@ -41,14 +111,17 @@ export function ParameterSequencesPanel({ emitterId, sourceId }: { emitterId: st
               {seq.label || "Sequence"}
               {seq.variant && <span className="hint-text"> [{seq.variant.replace("_", " ")}]</span>}
             </h5>
-            <button 
-              className="link-button" 
+            <button
+              className="link-button"
               onClick={() => void handleDeleteSequence(seq.id, seq.label || "unnamed")}
               disabled={deleteSequence.isPending}
             >
               Delete Sequence
             </button>
           </div>
+          {!isPriOnlySequence(seq) && (
+            <SequenceDeltaEditor emitterId={emitterId} sourceId={sourceId} sequence={seq} />
+          )}
           <table className="data-table">
             <thead>
               <tr>

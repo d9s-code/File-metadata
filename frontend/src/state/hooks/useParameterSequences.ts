@@ -48,3 +48,19 @@ export function useCreateParameterSequence(emitterId: string, sourceId: string) 
     },
   });
 }
+
+export function useUpdateParameterSequence(emitterId: string, sourceId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      sequenceId,
+      input,
+    }: {
+      sequenceId: string;
+      input: { rf_delta?: number | null; pw_delta?: number | null; pri_delta?: number | null };
+    }) => parameterSequencesApi.update(emitterId, sourceId, sequenceId, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: parameterSequencesKey(emitterId, sourceId) });
+    },
+  });
+}

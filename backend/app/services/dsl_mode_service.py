@@ -58,6 +58,7 @@ def create_mode_from_dsl(
     dsl_text: str,
     notes: str | None = None,
     sort_order: int = 0,
+    function_group_id=None,
 ) -> Mode:
     parsed = parse_mode_line(dsl_text)
 
@@ -68,6 +69,7 @@ def create_mode_from_dsl(
         pri_type=parsed.pri_type,
         notes=notes,
         sort_order=sort_order,
+        function_group_id=function_group_id,
     )
     db.add(mode)
     db.flush()

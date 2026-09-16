@@ -1,4 +1,4 @@
-import type { EwGroup, Mode, Source } from "../../types/domain";
+import type { EwGroup, FunctionGroup, Mode, Source } from "../../types/domain";
 
 export function formatPri(mode: Mode): string {
   const line = mode.line;
@@ -107,13 +107,19 @@ export function rangeOverlaps(filterMin: string, filterMax: string, valueMin: nu
   return valueMin <= fMax && valueMax >= fMin;
 }
 
-export function searchableText(mode: Mode, ewGroup: EwGroup | undefined, source: Source | undefined): string {
+export function searchableText(
+  mode: Mode,
+  ewGroup: EwGroup | undefined,
+  source: Source | undefined,
+  functionGroup?: FunctionGroup | undefined,
+): string {
   const parts = [
     mode.name,
     mode.pri_type,
     mode.notes ?? "",
     ewGroup?.name ?? "",
     source?.name ?? "",
+    functionGroup?.name ?? "",
     mode.line?.dsl_text ?? "",
     mode.line ? `${mode.line.rf_min_mhz} ${mode.line.rf_max_mhz}` : "",
     mode.line ? `${mode.line.pw_min_us} ${mode.line.pw_max_us}` : "",
@@ -127,6 +133,7 @@ export function searchableText(mode: Mode, ewGroup: EwGroup | undefined, source:
 export type ModeSortKey =
   | "name"
   | "ew_group"
+  | "function_group"
   | "source"
   | "rf_min"
   | "rf_max"
@@ -145,12 +152,15 @@ function sortValue(
   key: ModeSortKey,
   ewGroupsById: Record<string, EwGroup>,
   sourcesById: Record<string, Source>,
+  functionGroupsById: Record<string, FunctionGroup> = {},
 ): string | number | null {
   switch (key) {
     case "name":
       return mode.name.toLowerCase();
     case "ew_group":
       return (ewGroupsById[mode.ew_group_id]?.name ?? "").toLowerCase();
+    case "function_group":
+      return mode.function_group_id ? (functionGroupsById[mode.function_group_id]?.name ?? "").toLowerCase() : null;
     case "source":
       return (sourcesById[mode.source_id]?.name ?? "").toLowerCase();
     case "rf_min":
@@ -181,9 +191,10 @@ export function compareModes(
   dir: SortDir,
   ewGroupsById: Record<string, EwGroup>,
   sourcesById: Record<string, Source>,
+  functionGroupsById: Record<string, FunctionGroup> = {},
 ): number {
-  const av = sortValue(a, key, ewGroupsById, sourcesById);
-  const bv = sortValue(b, key, ewGroupsById, sourcesById);
+  const av = sortValue(a, key, ewGroupsById, sourcesById, functionGroupsById);
+  const bv = sortValue(b, key, ewGroupsById, sourcesById, functionGroupsById);
   // Nulls (e.g. PRI min/max on a Stagger/CW mode) always sort last, regardless of direction.
   if (av == null && bv == null) return 0;
   if (av == null) return 1;

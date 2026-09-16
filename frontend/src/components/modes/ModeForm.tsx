@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useCreateMode, useUpdateMode } from "../../state/hooks/useModes";
 import { ApiRequestError } from "../../api/client";
-import type { EwGroup, Mode, PriType, Source } from "../../types/domain";
+import type { EwGroup, FunctionGroup, Mode, PriType, Source } from "../../types/domain";
 import type { ModeCreateInput } from "../../api/modes";
 import type { ObservedValues } from "../../api/testRecords";
 import { DerivedFromPicker } from "./DerivedFromPicker";
@@ -12,6 +12,7 @@ export function ModeForm({
   emitterId,
   ewGroups,
   sources,
+  functionGroups,
   defaultEwGroupId,
   fixedDerivedFromTestRecordId,
   onStage,
@@ -22,6 +23,7 @@ export function ModeForm({
   emitterId: string;
   ewGroups: EwGroup[];
   sources: Source[];
+  functionGroups?: FunctionGroup[];
   defaultEwGroupId?: string;
   /** When set, this Mode is always linked as derived from this one Test
    * Record — the usual "is this test-derived?" toggle/picker is hidden. */
@@ -47,6 +49,7 @@ export function ModeForm({
 }) {
   const [ewGroupId, setEwGroupId] = useState(defaultEwGroupId || ewGroups[0]?.id || "");
   const [sourceId, setSourceId] = useState(sources[0]?.id ?? "");
+  const [functionGroupId, setFunctionGroupId] = useState("");
   const [name, setName] = useState("");
   const [priType, setPriType] = useState<PriType>("fixed");
   const [rfMin, setRfMin] = useState("");
@@ -81,6 +84,7 @@ export function ModeForm({
       setName(initialData.name);
       setPriType(initialData.pri_type);
       setNotes(initialData.notes || "");
+      setFunctionGroupId(initialData.function_group_id ?? "");
       
       if (initialData.line) {
         setRfMin(String(initialData.line.rf_min_mhz));
@@ -191,6 +195,7 @@ export function ModeForm({
         pri_type: priType,
         notes: notes || undefined,
         line: linePayload,
+        function_group_id: functionGroupId || null,
       };
       onStage(ewGroupId, payload);
       return;
@@ -205,6 +210,7 @@ export function ModeForm({
             name,
             notes: notes || undefined,
             ew_group_id: ewGroupId,
+            function_group_id: functionGroupId || null,
             source_id: sourceId,
             line: linePayload,
           },
@@ -216,6 +222,7 @@ export function ModeForm({
           pri_type: priType,
           notes: notes || undefined,
           line: linePayload,
+          function_group_id: functionGroupId || null,
         };
         await createMode.mutateAsync({
           ...payload,
@@ -256,6 +263,14 @@ export function ModeForm({
           {PRI_TYPES.map((t) => (
             <option key={t} value={t}>
               {t.toUpperCase()}
+            </option>
+          ))}
+        </select>
+        <select value={functionGroupId} onChange={(e) => setFunctionGroupId(e.target.value)}>
+          <option value="">— no Function Group —</option>
+          {(functionGroups ?? []).map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.name}
             </option>
           ))}
         </select>

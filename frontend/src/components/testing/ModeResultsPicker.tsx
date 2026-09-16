@@ -11,6 +11,12 @@ export interface ModeOption {
   name: string;
   last_tested_at: string | null;
   last_test_result: TestResult | null;
+  function_group_id: string | null;
+}
+
+export interface FunctionGroupOption {
+  id: string;
+  name: string;
 }
 
 type NumericObservedKey =
@@ -63,10 +69,16 @@ export function ModeResultsPicker({
   modes,
   entries,
   onChange,
+  functionGroups,
 }: {
   modes: ModeOption[];
   entries: Record<string, ModeResultEntry>;
   onChange: (modeId: string, entry: ModeResultEntry) => void;
+  /** When given, the chip grid is organized into one collapsible section per
+   * represented Function Group (plus "Ungrouped" last) instead of one flat
+   * grid — lets the tester work through Modes by what they do rather than
+   * hunting across 70+ chips at once. */
+  functionGroups?: FunctionGroupOption[];
 }) {
   const [search, setSearch] = useState("");
   const [resultFilter, setResultFilter] = useState<TestResult | "never" | "">("");
@@ -92,6 +104,31 @@ export function ModeResultsPicker({
       return true;
     });
   }, [modes, search, resultFilter, testedDir, testedDate]);
+
+  // Grouped display — one section per represented Function Group (in the
+  // order given), "Ungrouped" last. Only built/used when functionGroups is
+  // supplied; otherwise the picker renders one flat grid as before.
+  const groupedFiltered = useMemo(() => {
+    if (!functionGroups || functionGroups.length === 0) return null;
+    const byGroup = new Map<string, ModeOption[]>();
+    const ungrouped: ModeOption[] = [];
+    for (const m of filtered) {
+      if (m.function_group_id) {
+        const list = byGroup.get(m.function_group_id) ?? [];
+        list.push(m);
+        byGroup.set(m.function_group_id, list);
+      } else {
+        ungrouped.push(m);
+      }
+    }
+    const sections: { key: string; label: string; modes: ModeOption[] }[] = [];
+    for (const g of functionGroups) {
+      const list = byGroup.get(g.id);
+      if (list && list.length > 0) sections.push({ key: g.id, label: g.name, modes: list });
+    }
+    if (ungrouped.length > 0) sections.push({ key: "__ungrouped__", label: "Ungrouped", modes: ungrouped });
+    return sections;
+  }, [filtered, functionGroups]);
 
   const counts = useMemo(() => {
     const c = { pass: 0, fail: 0, partial: 0, inconclusive: 0, excluded: 0 };
@@ -179,6 +216,23 @@ export function ModeResultsPicker({
     setSelected(new Set());
   }
 
+  function renderChip(m: ModeOption) {
+    const lastInfo = `Last: ${m.last_test_result ?? "never tested"}${m.last_tested_at ? ` (${m.last_tested_at})` : ""}`;
+    const title = entries[m.id]?.notes ? `${entries[m.id]!.notes}\n${lastInfo}` : lastInfo;
+    const cls = chipClass(entries[m.id], selected.has(m.id));
+    return (
+      <button
+        key={m.id}
+        type="button"
+        className={m.last_test_result === "fail" ? `${cls} mode-chip-flag-fail` : cls}
+        title={title}
+        onClick={() => toggleChip(m.id)}
+      >
+        {m.name}
+      </button>
+    );
+  }
+
   return (
     <div className="mode-results-picker">
       <div className="mode-results-picker-header">
@@ -222,25 +276,24 @@ export function ModeResultsPicker({
         excluded from this test), then apply below.
       </p>
 
-      <div className="mode-chip-grid">
-        {filtered.map((m) => {
-          const lastInfo = `Last: ${m.last_test_result ?? "never tested"}${m.last_tested_at ? ` (${m.last_tested_at})` : ""}`;
-          const title = entries[m.id]?.notes ? `${entries[m.id]!.notes}\n${lastInfo}` : lastInfo;
-          const cls = chipClass(entries[m.id], selected.has(m.id));
-          return (
-            <button
-              key={m.id}
-              type="button"
-              className={m.last_test_result === "fail" ? `${cls} mode-chip-flag-fail` : cls}
-              title={title}
-              onClick={() => toggleChip(m.id)}
-            >
-              {m.name}
-            </button>
-          );
-        })}
-        {filtered.length === 0 && <span className="hint-text">No Modes match the current filters.</span>}
-      </div>
+      {groupedFiltered ? (
+        <div className="mode-chip-sections">
+          {groupedFiltered.map((section) => (
+            <details key={section.key} className="mode-chip-section" open>
+              <summary>
+                {section.label} <span className="hint-text">({section.modes.length})</span>
+              </summary>
+              <div className="mode-chip-grid">{section.modes.map((m) => renderChip(m))}</div>
+            </details>
+          ))}
+          {groupedFiltered.length === 0 && <span className="hint-text">No Modes match the current filters.</span>}
+        </div>
+      ) : (
+        <div className="mode-chip-grid">
+          {filtered.map((m) => renderChip(m))}
+          {filtered.length === 0 && <span className="hint-text">No Modes match the current filters.</span>}
+        </div>
+      )}
 
       {selected.size > 0 && (
         <div className="mode-chip-bulk-editor">

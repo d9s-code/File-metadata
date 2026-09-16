@@ -1,5 +1,5 @@
 import { Fragment, useState } from "react";
-import type { EwGroup, Mode, Source } from "../../types/domain";
+import type { EwGroup, FunctionGroup, Mode, Source } from "../../types/domain";
 import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 import { HoverInfo } from "../common/InfoPopover";
@@ -24,6 +24,7 @@ export function ModesTable({
   modes,
   ewGroupsById,
   sourcesById,
+  functionGroupsById,
   sortKey,
   sortDir,
   onSort,
@@ -38,6 +39,7 @@ export function ModesTable({
   modes: Mode[];
   ewGroupsById: Record<string, EwGroup>;
   sourcesById: Record<string, Source>;
+  functionGroupsById: Record<string, FunctionGroup>;
   sortKey: ModeSortKey;
   sortDir: SortDir;
   onSort: (key: ModeSortKey, dir: SortDir) => void;
@@ -96,6 +98,7 @@ export function ModesTable({
             <th>Jitter/Frametime Max</th>
             {header("Range Matching", "range_matching")}
             {header("EW Group", "ew_group")}
+            {header("Function Group", "function_group")}
             {header("Source", "source")}
             {header("Last Tested", "last_tested", "date")}
             <th className="w-32"></th>
@@ -199,6 +202,9 @@ export function ModesTable({
                   )}
                 </td>
                 <td>
+                  {m.function_group_id ? functionGroupsById[m.function_group_id]?.name ?? "—" : "—"}
+                </td>
+                <td>
                   {source ? (
                     <HoverInfo label={source.name}>
                       <SourceHoverDetail emitterId={emitterId} source={source} />
@@ -244,8 +250,13 @@ export function ModesTable({
               </tr>
               {editingModeId === m.id && canEdit && (
                 <tr>
-                  <td colSpan={16}>
-                    <ModeEditForm emitterId={emitterId} mode={m} onDone={() => setEditingModeId(null)} />
+                  <td colSpan={17}>
+                    <ModeEditForm
+                      emitterId={emitterId}
+                      mode={m}
+                      functionGroups={Object.values(functionGroupsById)}
+                      onDone={() => setEditingModeId(null)}
+                    />
                   </td>
                 </tr>
               )}

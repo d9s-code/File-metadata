@@ -157,6 +157,65 @@ def test_batch_edit_requires_checkout(editor_client, admin_client):
     assert resp.status_code == 409
 
 
+def test_batch_shift_applies_signed_offset_independently_per_bound(editor_client):
+    ctx = _setup_emitter(editor_client)
+    emitter_id = ctx["emitter"]["id"]
+    resp = editor_client.post(
+        f"/emitters/{emitter_id}/modes/batch-edit",
+        json={
+            "mode_ids": [ctx["fixed_mode"]["id"]],
+            "fields": {"rf_min_shift": 50, "rf_max_shift": -25},
+            "shift_reason": "Recalibrated per updated ELINT report",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+    modes = {m["id"]: m for m in editor_client.get(f"/emitters/{emitter_id}/modes").json()}
+    line = modes[ctx["fixed_mode"]["id"]]["line"]
+    assert line["rf_min_mhz"] == 2950  # 2900 + 50
+    assert line["rf_max_mhz"] == 3075  # 3100 - 25
+    # Untouched bound (pw) stays untouched.
+    assert line["pw_min_us"] == 0.5
+
+
+def test_batch_shift_without_reason_is_rejected(editor_client):
+    ctx = _setup_emitter(editor_client)
+    emitter_id = ctx["emitter"]["id"]
+    resp = editor_client.post(
+        f"/emitters/{emitter_id}/modes/batch-edit",
+        json={"mode_ids": [ctx["fixed_mode"]["id"]], "fields": {"rf_min_shift": 50}},
+    )
+    assert resp.status_code == 422, resp.text
+
+    # Blank/whitespace-only reason is rejected the same way.
+    resp = editor_client.post(
+        f"/emitters/{emitter_id}/modes/batch-edit",
+        json={"mode_ids": [ctx["fixed_mode"]["id"]], "fields": {"rf_min_shift": 50}, "shift_reason": "   "},
+    )
+    assert resp.status_code == 422, resp.text
+
+    # Nothing was written.
+    modes = {m["id"]: m for m in editor_client.get(f"/emitters/{emitter_id}/modes").json()}
+    assert modes[ctx["fixed_mode"]["id"]]["line"]["rf_min_mhz"] == 2900
+
+
+def test_batch_shift_on_nonexistent_bound_is_a_no_op_not_an_error(editor_client):
+    ctx = _setup_emitter(editor_client)
+    emitter_id = ctx["emitter"]["id"]
+    # cw_mode has no pri_min_us/pri_max_us at all — shifting it must not error.
+    resp = editor_client.post(
+        f"/emitters/{emitter_id}/modes/batch-edit",
+        json={
+            "mode_ids": [ctx["cw_mode"]["id"]],
+            "fields": {"pri_min_shift": 10},
+            "shift_reason": "testing no-op",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    modes = {m["id"]: m for m in editor_client.get(f"/emitters/{emitter_id}/modes").json()}
+    assert modes[ctx["cw_mode"]["id"]]["line"]["pri_min_us"] is None
+
+
 def test_batch_edit_requires_fields(editor_client):
     ctx = _setup_emitter(editor_client)
     resp = editor_client.post(

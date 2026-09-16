@@ -457,6 +457,115 @@ def test_delete_generation_batch_removes_its_modes(editor_client, emitter_ctx):
     assert batches == []
 
 
+def _sequences_url(ctx):
+    return f"/emitters/{ctx['emitter']['id']}/sources/{ctx['source']['id']}/parameter-sequences"
+
+
+def test_cartesian_product_single_step_selection_generates_one_mode(editor_client, emitter_ctx):
+    seq = editor_client.post(
+        _sequences_url(emitter_ctx),
+        json={
+            "label": "Sweep",
+            "steps": [
+                {"order": 0, "rf_mhz": 3000, "pri_us": 800},
+                {"order": 1, "rf_mhz": 3500, "pri_us": 900},
+            ],
+            "rf_delta": 10,
+            "pri_delta": 5,
+        },
+    ).json()
+
+    resp = editor_client.post(
+        f"{_elements_url(emitter_ctx)}/cartesian-product",
+        json={
+            "ew_group_id": emitter_ctx["ew_group"]["id"],
+            "rf_element_ids": [],
+            "pw_element_ids": [],
+            "pri_element_ids": [],
+            "sequence_steps": [{"sequence_id": seq["id"], "order": 0}],
+            "name_prefix": "StepGen",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    # Only the ONE selected step, not both — the whole point of step-level
+    # selection instead of whole-sequence selection.
+    assert body["count"] == 1
+
+    modes = editor_client.get(f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes").json()
+    assert len(modes) == 1
+    mode = modes[0]
+    assert mode["pri_type"] == "fixed"
+    assert mode["line"]["rf_min_mhz"] == 3000
+    assert mode["line"]["rf_max_mhz"] == 3000
+    assert mode["line"]["rf_delta"] == 10
+    assert mode["line"]["pri_min_us"] == 800
+    assert mode["line"]["pri_max_us"] == 800
+    assert mode["line"]["pri_delta"] == 5
+
+
+def test_cartesian_product_pri_only_sequence_step_has_no_rf_pw_delta(editor_client, emitter_ctx):
+    seq = editor_client.post(
+        _sequences_url(emitter_ctx),
+        json={
+            "label": "PRI only",
+            "steps": [{"order": 0, "pri_us": 750}],
+        },
+    ).json()
+
+    resp = editor_client.post(
+        f"{_elements_url(emitter_ctx)}/cartesian-product",
+        json={
+            "ew_group_id": emitter_ctx["ew_group"]["id"],
+            "rf_element_ids": [],
+            "pw_element_ids": [],
+            "pri_element_ids": [],
+            "sequence_steps": [{"sequence_id": seq["id"], "order": 0}],
+            "name_prefix": "PriOnly",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+    modes = editor_client.get(f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes").json()
+    assert len(modes) == 1
+    line = modes[0]["line"]
+    assert line["pri_min_us"] == 750
+    assert line["rf_delta"] is None
+    assert line["pw_delta"] is None
+
+
+def test_cartesian_product_unknown_sequence_step_order_rejected(editor_client, emitter_ctx):
+    seq = editor_client.post(
+        _sequences_url(emitter_ctx),
+        json={"label": "Short", "steps": [{"order": 0, "rf_mhz": 3000}]},
+    ).json()
+
+    resp = editor_client.post(
+        f"{_elements_url(emitter_ctx)}/cartesian-product",
+        json={
+            "ew_group_id": emitter_ctx["ew_group"]["id"],
+            "rf_element_ids": [],
+            "pw_element_ids": [],
+            "pri_element_ids": [],
+            "sequence_steps": [{"sequence_id": seq["id"], "order": 99}],
+            "name_prefix": "Bad",
+        },
+    )
+    assert resp.status_code == 422
+
+
+def test_update_parameter_sequence_delta(editor_client, emitter_ctx):
+    seq = editor_client.post(
+        _sequences_url(emitter_ctx),
+        json={"label": "Editable", "steps": [{"order": 0, "rf_mhz": 3000}]},
+    ).json()
+    assert seq["rf_delta"] is None
+
+    resp = editor_client.patch(f"{_sequences_url(emitter_ctx)}/{seq['id']}", json={"rf_delta": 12.5})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["rf_delta"] == 12.5
+
+
 def test_dsl_parse_and_render_endpoints(viewer_client):
     resp = viewer_client.post("/dsl/parse", json={"text": "RF 2900-3100 PRI CW PW 0.5-1.2"})
     assert resp.status_code == 200

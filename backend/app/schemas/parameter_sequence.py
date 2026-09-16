@@ -28,6 +28,9 @@ class ParameterSequenceCreate(BaseModel):
     variant: ElementVariant | None = None
     steps: list[ParameterSequenceStepIn]
     sort_order: int = 0
+    rf_delta: float | None = None
+    pw_delta: float | None = None
+    pri_delta: float | None = None
 
     @model_validator(mode="after")
     def check_steps(self) -> "ParameterSequenceCreate":
@@ -37,6 +40,12 @@ class ParameterSequenceCreate(BaseModel):
         if len(set(orders)) != len(orders):
             raise ValueError("Step 'order' values must be unique within a sequence")
         return self
+
+
+class ParameterSequenceUpdate(BaseModel):
+    rf_delta: float | None = None
+    pw_delta: float | None = None
+    pri_delta: float | None = None
 
 
 class ParameterSequenceOut(ParameterSequenceCreate):

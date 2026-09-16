@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { EwGroup, Source } from "../../types/domain";
+import type { EwGroup, FunctionGroup, Source } from "../../types/domain";
 import { useDeleteMode, useEmitterModes } from "../../state/hooks/useModes";
 import { useDeleteBatch, useEmitterBatches } from "../../state/hooks/useModeBatches";
 import { useConfirmDialog } from "../common/ConfirmDialog";
@@ -30,10 +30,12 @@ export function ModesSection({
   emitterId,
   ewGroups,
   sources,
+  functionGroups,
 }: {
   emitterId: string;
   ewGroups: EwGroup[];
   sources: Source[];
+  functionGroups: FunctionGroup[];
 }) {
   const { data: modes, isLoading } = useEmitterModes(emitterId);
   const { data: batches } = useEmitterBatches(emitterId);
@@ -42,6 +44,7 @@ export function ModesSection({
   const { confirmDelete, dialog } = useConfirmDialog();
   const [view, setView] = useState<ModesView>(readStoredView);
   const [ewGroupFilter, setEwGroupFilter] = useState("");
+  const [functionGroupFilter, setFunctionGroupFilter] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
   const [batchFilter, setBatchFilter] = useState("");
   const [search, setSearch] = useState("");
@@ -85,9 +88,14 @@ export function ModesSection({
 
   const ewGroupsById = useMemo(() => Object.fromEntries(ewGroups.map((g) => [g.id, g])), [ewGroups]);
   const sourcesById = useMemo(() => Object.fromEntries(sources.map((s) => [s.id, s])), [sources]);
+  const functionGroupsById = useMemo(
+    () => Object.fromEntries(functionGroups.map((g) => [g.id, g])),
+    [functionGroups],
+  );
 
   const filtered = (modes ?? []).filter((m) => {
     if (ewGroupFilter && m.ew_group_id !== ewGroupFilter) return false;
+    if (functionGroupFilter && m.function_group_id !== functionGroupFilter) return false;
     if (sourceFilter && m.source_id !== sourceFilter) return false;
     if (batchFilter && m.generation_batch_id !== batchFilter) return false;
     if (priTypeFilter && m.pri_type !== priTypeFilter) return false;
@@ -107,10 +115,19 @@ export function ModesSection({
   });
 
   const searched = search.trim()
-    ? filtered.filter((m) => searchableText(m, ewGroupsById[m.ew_group_id], sourcesById[m.source_id]).includes(search.trim().toLowerCase()))
+    ? filtered.filter((m) =>
+        searchableText(
+          m,
+          ewGroupsById[m.ew_group_id],
+          sourcesById[m.source_id],
+          m.function_group_id ? functionGroupsById[m.function_group_id] : undefined,
+        ).includes(search.trim().toLowerCase()),
+      )
     : filtered;
 
-  const sorted = [...searched].sort((a, b) => compareModes(a, b, sortKey, sortDir, ewGroupsById, sourcesById));
+  const sorted = [...searched].sort((a, b) =>
+    compareModes(a, b, sortKey, sortDir, ewGroupsById, sourcesById, functionGroupsById),
+  );
 
   function handleSort(key: ModeSortKey, dir: SortDir) {
     setSortKey(key);
@@ -213,6 +230,14 @@ export function ModesSection({
         <select value={ewGroupFilter} onChange={(e) => setEwGroupFilter(e.target.value)}>
           <option value="">All EW Groups</option>
           {ewGroups.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.name}
+            </option>
+          ))}
+        </select>
+        <select value={functionGroupFilter} onChange={(e) => setFunctionGroupFilter(e.target.value)}>
+          <option value="">All Function Groups</option>
+          {functionGroups.map((g) => (
             <option key={g.id} value={g.id}>
               {g.name}
             </option>
@@ -337,6 +362,7 @@ export function ModesSection({
           modes={sorted}
           ewGroupsById={ewGroupsById}
           sourcesById={sourcesById}
+          functionGroupsById={functionGroupsById}
           sortKey={sortKey}
           sortDir={sortDir}
           onSort={handleSort}
@@ -353,6 +379,7 @@ export function ModesSection({
           modes={sorted}
           ewGroupsById={ewGroupsById}
           sourcesById={sourcesById}
+          functionGroupsById={functionGroupsById}
           onDelete={handleDelete}
           selected={selected}
           onToggleSelect={toggleSelect}
@@ -368,6 +395,7 @@ export function ModesSection({
             emitterId={emitterId}
             ewGroups={ewGroups}
             sources={sources}
+            functionGroups={functionGroups}
             defaultEwGroupId={ewGroupFilter}
             onClose={() => setShowForm(false)}
           />
@@ -387,6 +415,7 @@ export function ModesSection({
           emitterId={emitterId}
           modeIds={[...selected]}
           ewGroups={ewGroups}
+          functionGroups={functionGroups}
           onClose={() => setShowBatchEdit(false)}
           onDone={() => {
             setShowBatchEdit(false);

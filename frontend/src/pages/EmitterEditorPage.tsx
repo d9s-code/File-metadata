@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useEmitter, useUpdateEmitter } from "../state/hooks/useEmitters";
 import { useEwGroups } from "../state/hooks/useEwGroups";
+import { useFunctionGroups } from "../state/hooks/useFunctionGroups";
 import { useSources } from "../state/hooks/useSources";
 import { useCreateEmitterNote, useDeleteEmitterNote, useEmitterNotes } from "../state/hooks/useEmitterNotes";
 import { emittersApi } from "../api/emitters";
 import { EwGroupsTable } from "../components/ewGroups/EwGroupsTable";
+import { FunctionGroupsTable } from "../components/functionGroups/FunctionGroupsTable";
 import { SourcesTable } from "../components/sources/SourcesTable";
 import { ModesSection } from "../components/modes/ModesSection";
 import { StatusTransitionControls } from "../components/versioning/StatusTransitionControls";
@@ -35,6 +37,7 @@ export function EmitterEditorPage() {
   }, [searchParams]);
   const { data: emitter, isLoading } = useEmitter(emitterId);
   const { data: ewGroups, isLoading: ewGroupsLoading } = useEwGroups(emitterId ?? "");
+  const { data: functionGroups } = useFunctionGroups(emitterId ?? "");
   const { data: sources, isLoading: sourcesLoading } = useSources(emitterId ?? "");
   const queryClient = useQueryClient();
   const { mutate: updateEmitter, isPending: isUpdating } = useUpdateEmitter();
@@ -45,6 +48,7 @@ export function EmitterEditorPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
   const [editDesignation, setEditDesignation] = useState("");
+  const [editDescription, setEditDescription] = useState("");
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   // Auto-expand the setup panel once, only if setup looks incomplete on first load — never
@@ -68,6 +72,7 @@ export function EmitterEditorPage() {
   const handleStartEdit = () => {
     setEditName(emitter.name);
     setEditDesignation(emitter.designation ?? "");
+    setEditDescription(emitter.description ?? "");
     setIsEditing(true);
   };
 
@@ -96,7 +101,7 @@ export function EmitterEditorPage() {
     updateEmitter(
       {
         id: emitter.id,
-        input: { name: editName, designation: editDesignation || undefined },
+        input: { name: editName, designation: editDesignation || undefined, description: editDescription || undefined },
       },
       {
         onSuccess: () => setIsEditing(false),
@@ -122,6 +127,13 @@ export function EmitterEditorPage() {
               onChange={(e) => setEditDesignation(e.target.value)}
               placeholder="Designation"
               className="edit-input"
+            />
+            <textarea
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              placeholder="Description"
+              className="edit-input"
+              rows={3}
             />
           </div>
           <div className="edit-actions">
@@ -259,39 +271,50 @@ export function EmitterEditorPage() {
         </button>
       </div>
 
-      {tab === "modes" && (
-        <div>
-          <ModesSection emitterId={emitter.id} ewGroups={ewGroups ?? []} sources={sources ?? []} />
-          <details
-            className="setup-collapse"
-            open={setupOpen}
-            onToggle={(e) => setSetupOpen(e.currentTarget.open)}
-          >
-            <summary>EW Groups & Sources setup</summary>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 1rem" }}>
-              <h5 style={{ margin: 0 }}>Setup</h5>
-              <button
-                className="button"
-                onClick={() => setIsImportModalOpen(true)}
-              >
-                Import JSON
-              </button>
-            </div>
-            <EwGroupsTable emitterId={emitter.id} ewGroups={ewGroups ?? []} />
-            <SourcesTable emitterId={emitter.id} sources={sources ?? []} ewGroups={ewGroups ?? []} />
-          </details>
-        </div>
-      )}
+      {/* All three tabs stay mounted — only visibility toggles (`hidden`, not a
+          JSX conditional) — so switching tabs never unmounts/resets a Mode
+          search filter or an in-progress "New Test" form the user hasn't
+          saved yet. */}
+      <div hidden={tab !== "modes"}>
+        <ModesSection
+          emitterId={emitter.id}
+          ewGroups={ewGroups ?? []}
+          sources={sources ?? []}
+          functionGroups={functionGroups ?? []}
+        />
+        <details
+          className="setup-collapse"
+          open={setupOpen}
+          onToggle={(e) => setSetupOpen(e.currentTarget.open)}
+        >
+          <summary>EW Groups & Sources setup</summary>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 1rem" }}>
+            <h5 style={{ margin: 0 }}>Setup</h5>
+            <button
+              className="button"
+              onClick={() => setIsImportModalOpen(true)}
+            >
+              Import JSON
+            </button>
+          </div>
+          <EwGroupsTable emitterId={emitter.id} ewGroups={ewGroups ?? []} />
+          <FunctionGroupsTable emitterId={emitter.id} functionGroups={functionGroups ?? []} />
+          <SourcesTable emitterId={emitter.id} sources={sources ?? []} ewGroups={ewGroups ?? []} />
+        </details>
+      </div>
 
-      {tab === "tests" && (
+      <div hidden={tab !== "tests"}>
         <EmitterTestHistory
           emitterId={emitter.id}
           ewGroups={ewGroups ?? []}
           sources={sources ?? []}
+          functionGroups={functionGroups ?? []}
           highlightTestRecordId={highlightTestRecordId}
         />
-      )}
-      {tab === "audit" && <EntityAuditTrail entityType="emitter" entityId={emitter.id} emitterId={emitter.id} />}
+      </div>
+      <div hidden={tab !== "audit"}>
+        <EntityAuditTrail entityType="emitter" entityId={emitter.id} emitterId={emitter.id} />
+      </div>
 
       {isImportModalOpen && (
         <JsonImportModal

@@ -47,6 +47,9 @@ class TestRecord(UUIDPkMixin, TimestampMixin, Base):
     modes: Mapped[list["TestRecordMode"]] = relationship(
         back_populates="test_record", cascade="all, delete-orphan"
     )
+    function_groups: Mapped[list["TestRecordFunctionGroup"]] = relationship(
+        back_populates="test_record", cascade="all, delete-orphan"
+    )
 
 
 class TestRecordMode(UUIDPkMixin, Base):
@@ -87,3 +90,29 @@ class TestRecordMode(UUIDPkMixin, Base):
 
     test_record: Mapped["TestRecord"] = relationship(back_populates="modes")
     mode: Mapped["Mode"] = relationship()  # noqa: F821
+
+
+class TestRecordFunctionGroup(UUIDPkMixin, Base):
+    """One Function Group's outcome within a specific Test Record — the
+    worst-of-N aggregate across that Function Group's Modes actually
+    exercised by this test (`computed_result`, frozen at submit time so
+    history doesn't silently recompute if later test data changes), plus an
+    optional manual `override_result` for when the tester's judgment differs
+    from the mechanical aggregate. A Function Group's "current rating" is the
+    override (if set) else the computed result of its most recent row here —
+    see app.services.function_group_test_status_service.
+    """
+
+    __tablename__ = "test_record_function_groups"
+
+    test_record_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("test_records.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    function_group_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("function_groups.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    computed_result: Mapped[TestResult] = mapped_column(nullable=False)
+    override_result: Mapped[TestResult | None] = mapped_column(nullable=True)
+
+    test_record: Mapped["TestRecord"] = relationship(back_populates="function_groups")
+    function_group: Mapped["FunctionGroup"] = relationship()  # noqa: F821
