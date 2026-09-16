@@ -3,7 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, computed_field, field_validator, model_validator
 
-from app.core.enums import ModeStatus, PriType, TestResult, TestType
+from app.core.enums import PriType, TestResult, TestType
 from app.services.delta import apply_delta
 from app.services.frametime_service import compute_frametime_us
 
@@ -20,8 +20,8 @@ class ModeLineFields(BaseModel):
     pw_min_us: float
     pw_max_us: float
     # Set per parameter, not per Mode — required on every manual line submission,
-    # same as rf_min_mhz/etc.; governed by the same draft-propose/approve cycle as
-    # the rest of the line once a Mode is approved (see ModeUpdate/update_mode).
+    # same as rf_min_mhz/etc.; an instant PATCH like the rest of the line,
+    # gated only by the Emitter's checkout lock (see ModeUpdate/update_mode).
     rf_range_matching: bool
     pw_range_matching: bool
     pri_range_matching: bool
@@ -149,36 +149,60 @@ class ModeUpdate(BaseModel):
     ew_group_id: UUID | None = None
     source_id: UUID | None = None
     line: ModeLineFields | None = None
+    # Test Record(s) whose findings explain this Mode's (possibly just-edited)
+    # values — same meaning as ModeCreate.derived_from_test_record_ids.
+    derived_from_test_record_ids: list[UUID] = []
 
 
-class ModeDraftCreate(BaseModel):
-    """Proposes an edit to an already-`approved` Mode. Creates a new `draft` Mode that
-    supersedes it once approved. See ModeStatus.
+class BatchModeFieldEdit(BaseModel):
+    """Fields settable across a batch of Modes at once. Only keys actually
+    present in the request are applied (see `exclude_unset` at the call
+    site) — booleans stay tri-state (unset/true/false) this way, with no
+    extra plumbing needed. Deliberately excludes RF/PW/PRI min/max/stagger
+    values: setting those to one literal value across many Modes would
+    collapse their ranges to be identical, which isn't a meaningful batch
+    operation on a per-Mode range.
     """
 
-    name: str | None = None
     ew_group_id: UUID | None = None
-    source_id: UUID | None = None
     notes: str | None = None
-    pri_type: PriType
-    line: ModeLineFields
+    rf_range_matching: bool | None = None
+    pw_range_matching: bool | None = None
+    pri_range_matching: bool | None = None
+    rf_delta: float | None = None
+    pw_delta: float | None = None
+    pri_delta: float | None = None
+    frame_time_delta_us: float | None = None
+
+    _validate_rf_delta = field_validator("rf_delta")(_validate_delta)
+    _validate_pw_delta = field_validator("pw_delta")(_validate_delta)
+    _validate_pri_delta = field_validator("pri_delta")(_validate_delta)
+    _validate_frame_time_delta = field_validator("frame_time_delta_us")(_validate_delta)
+
+
+class ModeBatchEditRequest(BaseModel):
+    mode_ids: list[UUID]
+    fields: BatchModeFieldEdit
+    # Test Record(s) whose findings explain this batch's values — applied to
+    # every affected Mode, same meaning as ModeUpdate.derived_from_test_record_ids.
     derived_from_test_record_ids: list[UUID] = []
 
     @model_validator(mode="after")
-    def check_pri_type(self) -> "ModeDraftCreate":
-        validate_pri_type_fields(self.pri_type, self.line)
-        require_manual_deltas(self.pri_type, self.line)
+    def check_non_empty(self) -> "ModeBatchEditRequest":
+        if not self.mode_ids:
+            raise ValueError("mode_ids must not be empty")
         return self
 
 
-class ModeBatchUpdate(BaseModel):
-    """Payload for updating multiple modes in a single batch operation."""
-    mode_ids: list[UUID]
-    name: str | None = None
-    notes: str | None = None
-    sort_order: int | None = None
-    ew_group_id: UUID | None = None
-    source_id: UUID | None = None
+class ModeBatchEditError(BaseModel):
+    mode_id: UUID
+    mode_name: str
+    error: str
+
+
+class ModeBatchEditResult(BaseModel):
+    updated_mode_ids: list[UUID]
+    count: int
 
 
 class TestRecordBrief(BaseModel):
@@ -256,8 +280,6 @@ class ModeOut(BaseModel):
     notes: str | None = None
     sort_order: int
     generation_batch_id: UUID | None = None
-    status: ModeStatus
-    supersedes_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
     line: ModeLineOut | None = None

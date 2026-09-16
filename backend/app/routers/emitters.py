@@ -6,9 +6,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.csrf import verify_csrf
-from app.core.enums import EMITTER_STATUS_TRANSITIONS, AuditAction, AuditEntityType, EmitterStatus, ModeStatus, Role
+from app.core.enums import EMITTER_STATUS_TRANSITIONS, AuditAction, AuditEntityType, EmitterStatus, Role
 from app.database import get_db
-from app.deps import require_role
+from app.deps import require_emitter_checkout, require_role
 from app.models.emitter import Emitter
 from app.models.emitter_note import EmitterNote
 from app.models.emitter_version import EmitterVersion
@@ -16,20 +16,25 @@ from app.models.ew_group import EwGroup
 from app.models.mode import Mode, ModeGenerationBatch
 from app.schemas.emitter import EmitterCreate, EmitterOut, EmitterUpdate
 from app.schemas.emitter_note import EmitterNoteCreate, EmitterNoteOut
-from app.schemas.mode import ModeGenerationBatchOut, ModeOut
+from app.schemas.mode import ModeBatchEditRequest, ModeBatchEditResult, ModeGenerationBatchOut, ModeOut
 from app.schemas.emitter_version import (
-    CommitVersionRequest,
-    DiffOut,
+    CommitEmitterVersionRequest,
+    EmitterDiffOut,
     EmitterVersionDetailOut,
     EmitterVersionOut,
+    ForkRequest,
     StatusTransitionRequest,
 )
+from app.services import checkout_service
 from app.services.audit_service import apply_and_diff, record_audit
+from app.services.emitter_diff_service import compute_emitter_diff
+from app.services.emitter_revert_service import build_forked_emitter, reconcile_emitter_to_snapshot
 from app.services.emitter_summary_service import attach_emitter_summaries
+from app.services.mode_batch_service import apply_batch_edit, plan_batch_edit
 from app.services.mode_test_status_service import attach_mode_extras
 from app.services.snapshots import build_emitter_snapshot
 from app.services.status_service import InvalidStatusTransition, validate_transition
-from app.services.versioning_service import VersionSpec, commit_version, diff_versions, get_version, list_versions
+from app.services.versioning_service import VersionSpec, commit_version, get_version, list_versions
 from app.services.xml_export.xml_exporter_service import XMLExporterService
 from fastapi import Response
 
@@ -80,6 +85,7 @@ def create_emitter(
     )
     db.add(emitter)
     db.flush()
+    checkout_service.start_checkout(emitter, user.id)
     record_audit(
         db,
         actor_id=user.id,
@@ -100,7 +106,7 @@ def update_emitter(
     emitter_id: UUID,
     payload: EmitterUpdate,
     db: Session = Depends(get_db),
-    user=Depends(require_role(Role.editor)),
+    user=Depends(require_emitter_checkout()),
 ) -> Emitter:
     emitter = db.get(Emitter, emitter_id)
     if emitter is None:
@@ -196,6 +202,96 @@ def _get_emitter_or_404(db: Session, emitter_id: UUID) -> Emitter:
     return emitter
 
 
+@router.post("/{emitter_id}/checkout", response_model=EmitterOut, dependencies=[Depends(verify_csrf)])
+def checkout_emitter(
+    emitter_id: UUID,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+) -> EmitterOut:
+    """Claims the editing lock — required before PATCHing the Emitter or any
+    of its EW Groups/Sources/Modes/Elements. Idempotent if you already hold
+    it; 409s if someone else does.
+    """
+    emitter = _get_emitter_or_404(db, emitter_id)
+    try:
+        checkout_service.start_checkout(emitter, user.id)
+    except checkout_service.AlreadyCheckedOutBySomeoneElse as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, f"Checked out by another user (since {emitter.checked_out_at})") from exc
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.checkout,
+        entity_type=AuditEntityType.emitter.value,
+        entity_id=emitter.id,
+        summary=f"Started editing Emitter '{emitter.name}'",
+        emitter_id=emitter.id,
+    )
+    db.commit()
+    db.refresh(emitter)
+    return attach_emitter_summaries(db, [emitter])[0]
+
+
+@router.delete("/{emitter_id}/checkout", response_model=EmitterOut, dependencies=[Depends(verify_csrf)])
+def checkin_emitter(
+    emitter_id: UUID,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+) -> EmitterOut:
+    """Releases the editing lock without discarding anything — whatever is
+    currently live stays live, just no longer exclusively held. The holder
+    can always do this; an Admin can also force-release someone else's.
+    """
+    emitter = _get_emitter_or_404(db, emitter_id)
+    if emitter.checked_out_by_id is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "This Emitter isn't checked out")
+    if emitter.checked_out_by_id != user.id and user.role != Role.admin:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the holder or an Admin can release this checkout")
+    checkout_service.release_checkout(emitter)
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.checkin,
+        entity_type=AuditEntityType.emitter.value,
+        entity_id=emitter.id,
+        summary=f"Checked in Emitter '{emitter.name}'",
+        emitter_id=emitter.id,
+    )
+    db.commit()
+    db.refresh(emitter)
+    return attach_emitter_summaries(db, [emitter])[0]
+
+
+@router.post("/{emitter_id}/discard", response_model=EmitterOut, dependencies=[Depends(verify_csrf)])
+def discard_emitter_changes(
+    emitter_id: UUID,
+    db: Session = Depends(get_db),
+    user=Depends(require_emitter_checkout()),
+) -> EmitterOut:
+    """Reconciles live rows back to the latest committed version and releases
+    the checkout — for uncommitted edits you want to throw away. Nothing new
+    is committed, since nothing here is worth keeping a record of.
+    """
+    emitter = _get_emitter_or_404(db, emitter_id)
+    versions = list_versions(db, spec=_VERSION_SPEC, entity_id=emitter_id)
+    if not versions:
+        raise HTTPException(status.HTTP_409_CONFLICT, "This Emitter has no committed version to discard back to")
+    latest = versions[-1]
+    reconcile_emitter_to_snapshot(db, emitter, latest.snapshot)
+    checkout_service.release_checkout(emitter)
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.discard,
+        entity_type=AuditEntityType.emitter.value,
+        entity_id=emitter.id,
+        summary=f"Discarded uncommitted changes on Emitter '{emitter.name}' (back to version {latest.version_number})",
+        emitter_id=emitter.id,
+    )
+    db.commit()
+    db.refresh(emitter)
+    return attach_emitter_summaries(db, [emitter])[0]
+
+
 @router.get("/{emitter_id}/notes", response_model=list[EmitterNoteOut])
 def list_emitter_notes(
     emitter_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
@@ -270,26 +366,55 @@ def delete_emitter_note(
 @router.get("/{emitter_id}/modes", response_model=list[ModeOut])
 def list_emitter_modes(
     emitter_id: UUID,
-    include_history: bool = False,
     db: Session = Depends(get_db),
     _=Depends(require_role(Role.viewer)),
 ) -> list[ModeOut]:
     """All Modes across every EW Group belonging to this Emitter, in one flat
     list — this is the Emitter's mode overview, so each Mode carries its
-    computed last-tested status alongside its parameters. Hides superseded/
-    rejected Modes by default (pass include_history=true to see the full
-    lineage) — see ModeStatus.
+    computed last-tested status alongside its parameters.
     """
     _get_emitter_or_404(db, emitter_id)
-    query = (
+    modes = (
         db.query(Mode)
         .join(EwGroup, Mode.ew_group_id == EwGroup.id)
         .filter(EwGroup.emitter_id == emitter_id)
+        .order_by(EwGroup.sort_order, Mode.sort_order)
+        .all()
     )
-    if not include_history:
-        query = query.filter(Mode.status.in_([ModeStatus.approved, ModeStatus.draft]))
-    modes = query.order_by(EwGroup.sort_order, Mode.sort_order).all()
     return attach_mode_extras(db, modes)
+
+
+@router.post(
+    "/{emitter_id}/modes/batch-edit",
+    response_model=ModeBatchEditResult,
+    dependencies=[Depends(verify_csrf)],
+)
+def batch_edit_modes(
+    emitter_id: UUID,
+    payload: ModeBatchEditRequest,
+    db: Session = Depends(get_db),
+    user=Depends(require_emitter_checkout()),
+) -> ModeBatchEditResult:
+    """Applies a field edit to many Modes at once, all-or-nothing: every
+    resulting line is validated before anything is written, so one Mode
+    ending up invalid (e.g. a forbidden field for its PRI type) rejects the
+    whole batch with a 422 listing every failure, rather than silently
+    applying to some and not others.
+    """
+    _get_emitter_or_404(db, emitter_id)
+    planned, errors = plan_batch_edit(db, emitter_id=emitter_id, mode_ids=payload.mode_ids, fields=payload.fields)
+    if errors:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=[e.model_dump(mode="json") for e in errors])
+
+    updated_ids = apply_batch_edit(
+        db,
+        planned=planned,
+        derived_from_test_record_ids=payload.derived_from_test_record_ids,
+        actor_id=user.id,
+        emitter_id=emitter_id,
+    )
+    db.commit()
+    return ModeBatchEditResult(updated_mode_ids=updated_ids, count=len(updated_ids))
 
 
 @router.get("/{emitter_id}/generation-batches", response_model=list[ModeGenerationBatchOut])
@@ -364,7 +489,7 @@ def delete_generation_batch(
 )
 def commit_emitter_version(
     emitter_id: UUID,
-    payload: CommitVersionRequest,
+    payload: CommitEmitterVersionRequest,
     db: Session = Depends(get_db),
     user=Depends(require_role(Role.editor)),
 ) -> EmitterVersion:
@@ -412,25 +537,151 @@ def get_emitter_version(
     return version
 
 
-@router.get("/{emitter_id}/versions/{version_number}/diff", response_model=DiffOut)
+@router.get("/{emitter_id}/versions/{version_number}/diff", response_model=EmitterDiffOut)
 def diff_emitter_version(
     emitter_id: UUID,
     version_number: int,
     against: int | None = None,
     db: Session = Depends(get_db),
     _=Depends(require_role(Role.viewer)),
-) -> DiffOut:
+) -> EmitterDiffOut:
     _get_emitter_or_404(db, emitter_id)
     from_version = against if against is not None else version_number - 1
     if from_version < 1:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "No prior version to diff against")
+    old = get_version(db, spec=_VERSION_SPEC, entity_id=emitter_id, version_number=from_version)
+    new = get_version(db, spec=_VERSION_SPEC, entity_id=emitter_id, version_number=version_number)
+    if old is None or new is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "One or both versions not found")
+    return EmitterDiffOut(**compute_emitter_diff(old.snapshot, new.snapshot))
+
+
+@router.get("/{emitter_id}/diff/live", response_model=EmitterDiffOut)
+def diff_emitter_live_state(
+    emitter_id: UUID,
+    db: Session = Depends(get_db),
+    _=Depends(require_role(Role.viewer)),
+) -> EmitterDiffOut:
+    """Diffs the Emitter's current live state against its latest committed
+    version — what a Discard would throw away, or a Commit would capture.
+    404 if nothing has been committed yet (there's no baseline to diff
+    against).
+    """
+    emitter = _get_emitter_or_404(db, emitter_id)
+    versions = list_versions(db, spec=_VERSION_SPEC, entity_id=emitter_id)
+    if not versions:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No committed version to diff against yet")
+    latest = versions[-1]
+    live_snapshot = build_emitter_snapshot(emitter)
+    return EmitterDiffOut(**compute_emitter_diff(latest.snapshot, live_snapshot))
+
+
+@router.post(
+    "/{emitter_id}/versions/{version_number}/revert",
+    response_model=EmitterVersionOut,
+    dependencies=[Depends(verify_csrf)],
+)
+def revert_emitter_version(
+    emitter_id: UUID,
+    version_number: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+) -> EmitterVersion:
+    """Reconciles live rows to match an older committed version, then commits
+    a *new* version documenting the revert — history is never rewritten,
+    this behaves like `git revert`, not `git reset`. Claims the checkout if
+    it's free; 409s if someone else already holds it.
+    """
+    emitter = _get_emitter_or_404(db, emitter_id)
+    target = get_version(db, spec=_VERSION_SPEC, entity_id=emitter_id, version_number=version_number)
+    if target is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Version not found")
     try:
-        result = diff_versions(
-            db, spec=_VERSION_SPEC, entity_id=emitter_id, from_version=from_version, to_version=version_number
-        )
-    except ValueError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
-    return DiffOut(**result)
+        checkout_service.start_checkout(emitter, user.id)
+    except checkout_service.AlreadyCheckedOutBySomeoneElse as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, f"Checked out by another user (since {emitter.checked_out_at})") from exc
+
+    reconcile_emitter_to_snapshot(db, emitter, target.snapshot)
+    change_summary = f"Reverted to version {version_number}"
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.revert,
+        entity_type=AuditEntityType.emitter.value,
+        entity_id=emitter.id,
+        summary=f"Emitter '{emitter.name}': {change_summary}",
+        emitter_id=emitter.id,
+    )
+    snapshot = build_emitter_snapshot(emitter)
+    return commit_version(
+        db, spec=_VERSION_SPEC, entity_id=emitter.id, snapshot=snapshot, change_summary=change_summary, created_by=user.id
+    )
+
+
+@router.post(
+    "/{emitter_id}/versions/{version_number}/fork",
+    response_model=EmitterOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(verify_csrf)],
+)
+def fork_emitter_version(
+    emitter_id: UUID,
+    version_number: int,
+    payload: ForkRequest,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+) -> EmitterOut:
+    """Spins a committed version off into a brand-new, fully independent
+    Emitter — new UUIDs throughout, starting at status Draft, auto-checked-
+    out to the requester. The source Emitter is untouched and doesn't need
+    to be checked out.
+    """
+    source_emitter = _get_emitter_or_404(db, emitter_id)
+    source_version = get_version(db, spec=_VERSION_SPEC, entity_id=emitter_id, version_number=version_number)
+    if source_version is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Version not found")
+    if db.query(Emitter).filter(Emitter.name == payload.new_name).first() is not None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Emitter name already exists")
+
+    new_emitter = build_forked_emitter(
+        db, source_snapshot=source_version.snapshot, new_name=payload.new_name, created_by=user.id
+    )
+    new_emitter.forked_from_emitter_id = source_emitter.id
+    new_emitter.forked_from_version_id = source_version.id
+    checkout_service.start_checkout(new_emitter, user.id)
+    db.flush()
+
+    fork_summary = f"Forked from Emitter '{source_emitter.name}' version {version_number}"
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.fork,
+        entity_type=AuditEntityType.emitter.value,
+        entity_id=new_emitter.id,
+        summary=f"Created Emitter '{new_emitter.name}' — {fork_summary}",
+        emitter_id=new_emitter.id,
+    )
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.fork,
+        entity_type=AuditEntityType.emitter.value,
+        entity_id=source_emitter.id,
+        summary=f"Forked into new Emitter '{new_emitter.name}' from version {version_number}",
+        emitter_id=source_emitter.id,
+    )
+
+    snapshot = build_emitter_snapshot(new_emitter)
+    commit_version(
+        db,
+        spec=_VERSION_SPEC,
+        entity_id=new_emitter.id,
+        snapshot=snapshot,
+        change_summary=fork_summary,
+        created_by=user.id,
+    )
+    db.refresh(new_emitter)
+    return attach_emitter_summaries(db, [new_emitter])[0]
 
 
 @router.post("/{emitter_id}/export/xml")
@@ -459,7 +710,7 @@ def transition_emitter_status(
     emitter_id: UUID,
     payload: StatusTransitionRequest,
     db: Session = Depends(get_db),
-    user=Depends(require_role(Role.editor)),
+    user=Depends(require_emitter_checkout()),
 ) -> EmitterVersion:
     emitter = _get_emitter_or_404(db, emitter_id)
     try:
@@ -480,6 +731,16 @@ def transition_emitter_status(
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             "A note explaining what needs rework is required when moving from Operational to Needs rework",
+        )
+    # Mirror of the guard above: declaring something Operational is the one
+    # status change everything downstream (Platforms/MDFs pinning this
+    # Emitter) treats as a trust signal, so it gets the same required-message
+    # treatment as a manual Commit Version — folded into this same request/
+    # note rather than a second prompt.
+    if new_status == EmitterStatus.validated and not payload.note:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "A message describing what was validated is required when moving to Operational",
         )
 
     old_status = emitter.status.value

@@ -42,4 +42,6 @@ export const platformsApi = {
     api.delete<void>(`/platforms/${platformId}/links/${emitterId}`),
   exportXml: (platformId: string) =>
     api.post<Blob>(`/platforms/${platformId}/export/xml`, {}),
+  exportPrs: (platformId: string, versionNumber: number) =>
+    api.get<Blob>(`/platforms/${platformId}/versions/${versionNumber}/export/prs`),
 };

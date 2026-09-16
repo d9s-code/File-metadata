@@ -17,43 +17,46 @@ export interface ModeUpdateInput {
   sort_order?: number;
   ew_group_id?: string;
   line?: ModeLineFields;
-}
-
-export interface ModeDraftInput {
-  name?: string;
-  ew_group_id?: string;
-  source_id?: string;
-  notes?: string | null;
-  pri_type: PriType;
-  line: ModeLineFields;
   derived_from_test_record_ids?: string[];
 }
 
-export interface ModeBatchUpdateInput {
-  mode_ids: string[];
-  name?: string;
-  notes?: string | null;
-  sort_order?: number;
+export interface BatchModeFieldEdit {
   ew_group_id?: string;
-  source_id?: string;
+  notes?: string;
+  rf_range_matching?: boolean;
+  pw_range_matching?: boolean;
+  pri_range_matching?: boolean;
+  rf_delta?: number;
+  pw_delta?: number;
+  pri_delta?: number;
+  frame_time_delta_us?: number;
+}
+
+export interface ModeBatchEditInput {
+  mode_ids: string[];
+  fields: BatchModeFieldEdit;
+  derived_from_test_record_ids?: string[];
+}
+
+export interface ModeBatchEditError {
+  mode_id: string;
+  mode_name: string;
+  error: string;
+}
+
+export interface ModeBatchEditResult {
+  updated_mode_ids: string[];
+  count: number;
 }
 
 export const modesApi = {
-  list: (ewGroupId: string, includeHistory = false) =>
-    api.get<Mode[]>(`/ew-groups/${ewGroupId}/modes${includeHistory ? "?include_history=true" : ""}`),
-  listByEmitter: (emitterId: string, includeHistory = false) =>
-    api.get<Mode[]>(`/emitters/${emitterId}/modes${includeHistory ? "?include_history=true" : ""}`),
+  list: (ewGroupId: string) => api.get<Mode[]>(`/ew-groups/${ewGroupId}/modes`),
+  listByEmitter: (emitterId: string) => api.get<Mode[]>(`/emitters/${emitterId}/modes`),
   create: (ewGroupId: string, input: ModeCreateInput) =>
     api.post<Mode>(`/ew-groups/${ewGroupId}/modes`, input),
   update: (ewGroupId: string, modeId: string, input: ModeUpdateInput) =>
     api.patch<Mode>(`/ew-groups/${ewGroupId}/modes/${modeId}`, input),
   delete: (ewGroupId: string, modeId: string) => api.delete<void>(`/ew-groups/${ewGroupId}/modes/${modeId}`),
-  proposeDraft: (ewGroupId: string, modeId: string, input: ModeDraftInput) =>
-    api.post<Mode>(`/ew-groups/${ewGroupId}/modes/${modeId}/draft`, input),
-  approve: (ewGroupId: string, modeId: string) =>
-    api.post<Mode>(`/ew-groups/${ewGroupId}/modes/${modeId}/approve`, {}),
-  reject: (ewGroupId: string, modeId: string) =>
-    api.post<Mode>(`/ew-groups/${ewGroupId}/modes/${modeId}/reject`, {}),
-  batchUpdate: (ewGroupId: string, input: ModeBatchUpdateInput) =>
-    api.patch< { updated_count: number }>(`/ew-groups/${ewGroupId}/modes/batch`, input),
+  batchEdit: (emitterId: string, input: ModeBatchEditInput) =>
+    api.post<ModeBatchEditResult>(`/emitters/${emitterId}/modes/batch-edit`, input),
 };

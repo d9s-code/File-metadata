@@ -28,6 +28,28 @@ class Emitter(UUIDPkMixin, TimestampMixin, Base):
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
+    # Whole-Emitter edit lock — every mutating Emitter/EW-Group/Source/Mode
+    # endpoint requires the caller to hold this (see require_emitter_checkout/
+    # require_ew_group_checkout in app/deps.py). Replaces the old Mode-level
+    # propose/approve/reject workflow with one lock at the Emitter level plus
+    # instant edits underneath it.
+    checked_out_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    checked_out_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    forked_from_emitter_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("emitters.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    # Deliberately NOT a ForeignKey (not even use_alter) and neither this nor
+    # forked_from_emitter_id/checked_out_by_id gets a relationship() object —
+    # every caller reads the raw _id column directly. A real FK here creates
+    # a genuine emitters <-> emitter_versions cycle (EmitterVersion.emitter_id
+    # already points back at Emitter), which empirically broke SQLAlchemy's
+    # flush-dependency ordering for unrelated insert/delete pairs in the same
+    # transaction (e.g. an audit_log insert racing a hard Emitter delete) —
+    # intermittent, ~50% flaky, not caught by a single test run. This column
+    # is a soft/display-only reference, like AuditLog.emitter_id.
+    forked_from_version_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
 
     ew_groups: Mapped[list["EwGroup"]] = relationship(
         back_populates="emitter", cascade="all, delete-orphan", order_by="EwGroup.sort_order"

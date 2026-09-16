@@ -10,6 +10,7 @@ from app.deps import require_role
 from app.models.source_group import SourceGroup
 from app.schemas.source_group import SourceGroupCreate, SourceGroupOut, SourceGroupUpdate
 from app.services.audit_service import apply_and_diff, record_audit
+from app.services.source_group_service import compute_source_group_stats
 
 router = APIRouter(prefix="/source-groups", tags=["source_groups"])
 
@@ -21,16 +22,33 @@ def _get_source_group_or_404(db: Session, group_id: UUID) -> SourceGroup:
     return group
 
 
+def _to_out(group: SourceGroup) -> SourceGroupOut:
+    stats = compute_source_group_stats(group)
+    out = SourceGroupOut.model_validate(group)
+    out.source_count = stats.source_count
+    out.last_updated_source_date = stats.last_updated_source_date
+    out.last_edited_at = stats.last_edited_at
+    out.rf_min_mhz = stats.rf_min_mhz
+    out.rf_max_mhz = stats.rf_max_mhz
+    out.pw_min_us = stats.pw_min_us
+    out.pw_max_us = stats.pw_max_us
+    out.pri_min_us = stats.pri_min_us
+    out.pri_max_us = stats.pri_max_us
+    out.pri_stagger_count = stats.pri_stagger_count
+    return out
+
+
 @router.get("/", response_model=list[SourceGroupOut])
-def list_source_groups(db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))) -> list[SourceGroup]:
-    """Lists all source groups."""
-    return db.query(SourceGroup).order_by(SourceGroup.name).all()
+def list_source_groups(db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))) -> list[SourceGroupOut]:
+    """Lists all source groups, with derived stats rolled up across each group's Sources."""
+    groups = db.query(SourceGroup).order_by(SourceGroup.name).all()
+    return [_to_out(g) for g in groups]
 
 
 @router.post("/", response_model=SourceGroupOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(verify_csrf)])
 def create_source_group(
     source_group: SourceGroupCreate, db: Session = Depends(get_db), user=Depends(require_role(Role.admin))
-) -> SourceGroup:
+) -> SourceGroupOut:
     """Creates a new source group."""
     db_group = SourceGroup(**source_group.model_dump())
     db.add(db_group)
@@ -46,15 +64,15 @@ def create_source_group(
     )
     db.commit()
     db.refresh(db_group)
-    return db_group
+    return _to_out(db_group)
 
 
 @router.get("/{group_id}", response_model=SourceGroupOut)
 def get_source_group(
     group_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
-) -> SourceGroup:
+) -> SourceGroupOut:
     """Gets a specific source group by ID."""
-    return _get_source_group_or_404(db, group_id)
+    return _to_out(_get_source_group_or_404(db, group_id))
 
 
 @router.patch("/{group_id}", response_model=SourceGroupOut, dependencies=[Depends(verify_csrf)])
@@ -63,7 +81,7 @@ def update_source_group(
     source_group_update: SourceGroupUpdate,
     db: Session = Depends(get_db),
     user=Depends(require_role(Role.admin)),
-) -> SourceGroup:
+) -> SourceGroupOut:
     """Updates an existing source group."""
     db_group = _get_source_group_or_404(db, group_id)
     changes = apply_and_diff(db_group, source_group_update.model_dump(exclude_unset=True))
@@ -78,7 +96,7 @@ def update_source_group(
     )
     db.commit()
     db.refresh(db_group)
-    return db_group
+    return _to_out(db_group)
 
 
 @router.delete("/{group_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(verify_csrf)])

@@ -27,7 +27,11 @@ export function NotesFeed({
 }) {
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
   const { confirmDelete, dialog } = useConfirmDialog();
+
+  const hiddenCount = notes ? Math.max(notes.length - 1, 0) : 0;
+  const visibleNotes = showAll ? notes : notes?.slice(0, 1);
 
   async function handleAdd() {
     if (!draft.trim()) return;
@@ -56,22 +60,29 @@ export function NotesFeed({
       ) : !notes || notes.length === 0 ? (
         <p className="hint-text">No notes yet.</p>
       ) : (
-        <ul className="notes-feed-list">
-          {notes.map((n) => (
-            <li key={n.id} className="notes-feed-entry">
-              <div className="notes-feed-meta">
-                <span>{n.author_username ?? "system"}</span>
-                <span className="hint-text">{new Date(n.created_at).toLocaleString()}</span>
-                <RequireRole minimum="editor">
-                  <button type="button" className="link-button" onClick={() => void handleDelete(n.id)}>
-                    Delete
-                  </button>
-                </RequireRole>
-              </div>
-              <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{n.body}</p>
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="notes-feed-list">
+            {(visibleNotes ?? []).map((n) => (
+              <li key={n.id} className="notes-feed-entry">
+                <div className="notes-feed-meta">
+                  <span>{n.author_username ?? "system"}</span>
+                  <span className="hint-text">{new Date(n.created_at).toLocaleString()}</span>
+                  <RequireRole minimum="editor">
+                    <button type="button" className="link-button" onClick={() => void handleDelete(n.id)}>
+                      Delete
+                    </button>
+                  </RequireRole>
+                </div>
+                <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{n.body}</p>
+              </li>
+            ))}
+          </ul>
+          {hiddenCount > 0 && (
+            <button type="button" className="link-button" onClick={() => setShowAll((v) => !v)}>
+              {showAll ? "Show only the most recent" : `Show ${hiddenCount} earlier note${hiddenCount === 1 ? "" : "s"}`}
+            </button>
+          )}
+        </>
       )}
       <RequireRole minimum="editor">
         <div className="notes-feed-add">

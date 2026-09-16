@@ -15,6 +15,75 @@ export function formatPri(mode: Mode): string {
   }
 }
 
+export interface ParamDisplay {
+  min: number | null;
+  max: number | null;
+  /** Shown as a shaded subline under the max value — only in raw (non-engineered) mode. */
+  delta: number | null;
+}
+
+/** RF/PW/PRI(fixed)'s min/max, either raw (with its delta broken out
+ * separately, to render as a subline the way jitter already is) or the
+ * already-combined engineered range the backend computes — same
+ * raw-vs-engineered toggle for all three parameters. */
+export function rfDisplay(mode: Mode, engineered: boolean): ParamDisplay {
+  const line = mode.line;
+  if (!line) return { min: null, max: null, delta: null };
+  if (engineered) return { min: line.engineered_rf_min_mhz, max: line.engineered_rf_max_mhz, delta: null };
+  return { min: line.rf_min_mhz, max: line.rf_max_mhz, delta: line.rf_delta ?? null };
+}
+
+export function pwDisplay(mode: Mode, engineered: boolean): ParamDisplay {
+  const line = mode.line;
+  if (!line) return { min: null, max: null, delta: null };
+  if (engineered) return { min: line.engineered_pw_min_us, max: line.engineered_pw_max_us, delta: null };
+  return { min: line.pw_min_us, max: line.pw_max_us, delta: line.pw_delta ?? null };
+}
+
+/** Fixed PRI only — Stagger/CW/Xlet have no single min/max pair here. */
+export function priDisplay(mode: Mode, engineered: boolean): ParamDisplay {
+  const line = mode.line;
+  if (!line || mode.pri_type !== "fixed") return { min: null, max: null, delta: null };
+  if (engineered) return { min: line.engineered_pri_min_us, max: line.engineered_pri_max_us, delta: null };
+  return { min: line.pri_min_us ?? null, max: line.pri_max_us ?? null, delta: line.pri_delta ?? null };
+}
+
+export interface JitterOrFrameTimeDisplay {
+  min: number | null;
+  max: number | null;
+  /** "jitter" for Fixed, "frametime" for Stagger — printed alongside the
+   * value since both share the same pair of columns and a bare number
+   * wouldn't say which one it is at a glance. */
+  label: "jitter" | "frametime" | null;
+  /** Frame time only, raw mode only — frame_time_us is a single nominal
+   * value (not a min/max pair) with a tolerance delta on top, unlike
+   * jitter which is already a stored min/max range. */
+  delta: number | null;
+}
+
+/** Jitter (Fixed) and frame time (Stagger) share one pair of table
+ * columns — a Mode is never both, so nothing is lost by not giving each
+ * its own pair. */
+export function jitterOrFrameTimeDisplay(mode: Mode, engineered: boolean): JitterOrFrameTimeDisplay {
+  const line = mode.line;
+  if (!line) return { min: null, max: null, label: null, delta: null };
+  if (mode.pri_type === "fixed") {
+    return { min: line.jitter_min_us ?? null, max: line.jitter_max_us ?? null, label: "jitter", delta: null };
+  }
+  if (mode.pri_type === "stagger") {
+    if (engineered) {
+      return {
+        min: line.engineered_frame_time_min_us,
+        max: line.engineered_frame_time_max_us,
+        label: "frametime",
+        delta: null,
+      };
+    }
+    return { min: line.frame_time_us, max: null, label: "frametime", delta: line.frame_time_delta_us ?? null };
+  }
+  return { min: null, max: null, label: null, delta: null };
+}
+
 /** Which of RF/PW/PRI have range matching set on this Mode's current line —
  * empty if none. Set per parameter via the Mode form / a draft edit, same
  * governance as any other line field. */
@@ -24,6 +93,18 @@ export function rangeMatchingTags(mode: Mode): string[] {
   if (mode.line?.pw_range_matching) tags.push("PW");
   if (mode.line?.pri_range_matching) tags.push("PRI");
   return tags;
+}
+
+/** No filter applied when both ends are blank. Otherwise a Mode matches only
+ * if it actually has a value for this parameter AND that value's range
+ * overlaps the filter range at all — mirrors the same helper on the
+ * Emitters list page. */
+export function rangeOverlaps(filterMin: string, filterMax: string, valueMin: number | null | undefined, valueMax: number | null | undefined): boolean {
+  if (!filterMin && !filterMax) return true;
+  if (valueMin == null || valueMax == null) return false;
+  const fMin = filterMin ? Number(filterMin) : -Infinity;
+  const fMax = filterMax ? Number(filterMax) : Infinity;
+  return valueMin <= fMax && valueMax >= fMin;
 }
 
 export function searchableText(mode: Mode, ewGroup: EwGroup | undefined, source: Source | undefined): string {

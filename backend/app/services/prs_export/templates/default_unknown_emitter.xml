@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Emitter Name="Unknown">
+    <ELNOT>UNKNOWN</ELNOT>
+    <OwnShip Flag="false" />
+    <LethalCeiling Value="0" Units="feet" />
+    <Intrapulse Name="default" Modulation="Unknown" />
+    <TacticGroup>None</TacticGroup>
+</Emitter>

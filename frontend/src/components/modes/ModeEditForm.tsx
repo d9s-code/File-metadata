@@ -1,30 +1,24 @@
 import { useState, type FormEvent } from "react";
-import { useProposeModeDraft } from "../../state/hooks/useModes";
+import { useUpdateMode } from "../../state/hooks/useModes";
 import { ApiRequestError } from "../../api/client";
-import type { Mode, PriType, EwGroup, Source } from "../../types/domain";
+import type { Mode } from "../../types/domain";
 import { DerivedFromPicker } from "./DerivedFromPicker";
 
-const PRI_TYPES: PriType[] = ["fixed", "stagger", "cw", "xlet"];
-
-export function ModeDraftForm({
+/** Edits an existing Mode's line in place — pri_type is fixed at creation
+ * and can't change here (the backend only accepts line edits against the
+ * Mode's own existing pri_type). */
+export function ModeEditForm({
   emitterId,
   mode,
   onDone,
-  ewGroups,
-  sources,
 }: {
   emitterId: string;
   mode: Mode;
   onDone: () => void;
-  ewGroups?: EwGroup[];
-  sources?: Source[];
 }) {
-  const proposeDraft = useProposeModeDraft(emitterId);
+  const updateMode = useUpdateMode(emitterId);
   const line = mode.line;
-  const [name, setName] = useState(mode.name);
-  const [ewGroupId, setEwGroupId] = useState(mode.ew_group_id);
-  const [sourceId, setSourceId] = useState(mode.source_id);
-  const [priType, setPriType] = useState<PriType>(mode.pri_type);
+  const priType = mode.pri_type;
   const [rfMin, setRfMin] = useState(String(line?.rf_min_mhz ?? ""));
   const [rfMax, setRfMax] = useState(String(line?.rf_max_mhz ?? ""));
   const [rfDelta, setRfDelta] = useState(String(line?.rf_delta ?? ""));
@@ -41,6 +35,7 @@ export function ModeDraftForm({
   const [jitterMax, setJitterMax] = useState(String(line?.jitter_max_us ?? ""));
   const [staggerValues, setStaggerValues] = useState(line?.pri_stagger_values_us?.join(", ") ?? "");
   const [frameTimeDelta, setFrameTimeDelta] = useState(String(line?.frame_time_delta_us ?? ""));
+  const [notes, setNotes] = useState(mode.notes ?? "");
   const [derivedFrom, setDerivedFrom] = useState<Set<string>>(new Set());
   const [showDerivedFrom, setShowDerivedFrom] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,14 +51,11 @@ export function ModeDraftForm({
     e.preventDefault();
     setError(null);
     try {
-      await proposeDraft.mutateAsync({
-        ewGroupId: ewGroupId,
+      await updateMode.mutateAsync({
+        ewGroupId: mode.ew_group_id,
         modeId: mode.id,
         input: {
-          name,
-          ew_group_id: ewGroupId,
-          source_id: sourceId,
-          pri_type: priType,
+          notes: notes.trim() || null,
           line: {
             rf_min_mhz: Number(rfMin),
             rf_max_mhz: Number(rfMax),
@@ -90,46 +82,15 @@ export function ModeDraftForm({
       });
       onDone();
     } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : "Failed to propose draft edit");
+      setError(err instanceof ApiRequestError ? err.message : "Failed to update Mode");
     }
   }
 
   return (
-    <form className="card mode-form mode-draft-form" onSubmit={handleSubmit}>
+    <form className="card mode-form mode-edit-form" onSubmit={handleSubmit}>
       <p className="hint-text">
-        Proposing an edit to <strong>{mode.name}</strong> — this creates a pending draft that supersedes
-        the current Mode once approved. The current Mode stays live and unchanged until then.
+        Editing <strong>{mode.name}</strong>&rsquo;s line ({priType.toUpperCase()}) — takes effect immediately.
       </p>
-      <div className="form-row">
-        <input placeholder="Mode name" value={name} onChange={(e) => setName(e.target.value)} required />
-        <select value={ewGroupId} onChange={(e) => setEwGroupId(e.target.value)} required>
-          <option value="" disabled>
-            Select EW Group…
-          </option>
-          {ewGroups?.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.name}
-            </option>
-          ))}
-        </select>
-        <select value={sourceId} onChange={(e) => setSourceId(e.target.value)} required>
-          <option value="" disabled>
-            Select source…
-          </option>
-          {sources?.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-        <select value={priType} onChange={(e) => setPriType(e.target.value as PriType)}>
-          {PRI_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {t.toUpperCase()}
-            </option>
-          ))}
-        </select>
-      </div>
 
       <div className="form-row param-row">
         <span className="param-row-label">Range matching</span>
@@ -232,6 +193,13 @@ export function ModeDraftForm({
       {priType === "cw" && <p className="hint-text">CW: PRI is constant — no value to enter.</p>}
       {priType === "xlet" && <p className="hint-text">Xlet: no fields defined yet.</p>}
 
+      <div className="form-row">
+        <label className="wide-label">
+          Notes (optional)
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+        </label>
+      </div>
+
       <div>
         {showDerivedFrom ? (
           <>
@@ -246,8 +214,8 @@ export function ModeDraftForm({
       </div>
 
       <div className="form-row">
-        <button type="submit" disabled={proposeDraft.isPending}>
-          Submit for review
+        <button type="submit" disabled={updateMode.isPending}>
+          Save
         </button>
         <button type="button" className="icon-button" onClick={onDone}>
           Cancel

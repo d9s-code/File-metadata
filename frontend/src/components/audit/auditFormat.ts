@@ -30,6 +30,11 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   login: "Logged in",
   login_failed: "Login failed",
   logout: "Logged out",
+  checkout: "Started editing",
+  checkin: "Checked in",
+  discard: "Discarded changes",
+  revert: "Reverted",
+  fork: "Forked",
 };
 
 export function actionLabel(action: AuditAction): string {

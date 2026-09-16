@@ -32,6 +32,12 @@ export function NavBar() {
             MDFs
           </NavLink>
           <NavLink
+            to="/source-groups"
+            className={({ isActive }) => (isActive ? "navbar-link-active" : undefined)}
+          >
+            Source Groups
+          </NavLink>
+          <NavLink
             to="/audit-log"
             className={({ isActive }) => (isActive ? "navbar-link-active" : undefined)}
           >

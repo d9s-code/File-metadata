@@ -14,7 +14,17 @@ def _path_to_str(deepdiff_path: str) -> str:
 
 
 def compute_diff(old_snapshot: dict, new_snapshot: dict) -> dict:
-    dd = DeepDiff(old_snapshot, new_snapshot, ignore_order=False, report_repetition=True, verbose_level=2)
+    dd = DeepDiff(
+        old_snapshot,
+        new_snapshot,
+        ignore_order=False,
+        report_repetition=True,
+        verbose_level=2,
+        # dsl_text is a rendered cache of a Mode Line's other fields, not
+        # independent data — showing it alongside the real field that
+        # changed (e.g. rf_max_mhz) is redundant noise, not a second change.
+        exclude_regex_paths=[r"\['dsl_text'\]$"],
+    )
 
     added: list[dict] = []
     removed: list[dict] = []

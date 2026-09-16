@@ -7,10 +7,14 @@ import { ModesTable } from "./ModesTable";
 import { ModesCardGrid } from "./ModesCardGrid";
 import { ModesViewToggle, type ModesView } from "./ModesViewToggle";
 import { ModeForm } from "./ModeForm";
-import { compareModes, searchableText, type ModeSortKey, type SortDir } from "./modeFormat";
+import { BatchEditModal } from "./BatchEditModal";
+import { compareModes, rangeOverlaps, searchableText, type ModeSortKey, type SortDir } from "./modeFormat";
+import type { PriType } from "../../types/domain";
 import { RequireRole } from "../../auth/RequireAuth";
 import { EmptyState } from "../common/EmptyState";
 import { LoadingState } from "../common/LoadingState";
+import { useEmitter } from "../../state/hooks/useEmitters";
+import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 
 const VIEW_STORAGE_KEY = "modesView";
 
@@ -31,8 +35,7 @@ export function ModesSection({
   ewGroups: EwGroup[];
   sources: Source[];
 }) {
-  const [includeHistory, setIncludeHistory] = useState(false);
-  const { data: modes, isLoading } = useEmitterModes(emitterId, includeHistory);
+  const { data: modes, isLoading } = useEmitterModes(emitterId);
   const { data: batches } = useEmitterBatches(emitterId);
   const deleteMode = useDeleteMode(emitterId);
   const deleteBatch = useDeleteBatch(emitterId);
@@ -45,6 +48,24 @@ export function ModesSection({
   const [sortKey, setSortKey] = useState<ModeSortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [showForm, setShowForm] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [showBatchEdit, setShowBatchEdit] = useState(false);
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [rfMin, setRfMin] = useState("");
+  const [rfMax, setRfMax] = useState("");
+  const [pwMin, setPwMin] = useState("");
+  const [pwMax, setPwMax] = useState("");
+  const [priMin, setPriMin] = useState("");
+  const [priMax, setPriMax] = useState("");
+  const [priTypeFilter, setPriTypeFilter] = useState<PriType | "">("");
+  const [rfRangeMatchingOnly, setRfRangeMatchingOnly] = useState(false);
+  const [pwRangeMatchingOnly, setPwRangeMatchingOnly] = useState(false);
+  const [priRangeMatchingOnly, setPriRangeMatchingOnly] = useState(false);
+  const [lastTestedFrom, setLastTestedFrom] = useState("");
+  const [lastTestedTo, setLastTestedTo] = useState("");
+  const [showEngineered, setShowEngineered] = useState(false);
+  const { data: emitter } = useEmitter(emitterId);
+  const { canEdit } = useEmitterCheckoutState(emitter);
 
   useEffect(() => {
     try {
@@ -54,15 +75,36 @@ export function ModesSection({
     }
   }, [view]);
 
+  useEffect(() => {
+    setSelected((prev) => {
+      const validIds = new Set((modes ?? []).map((m) => m.id));
+      const next = new Set([...prev].filter((id) => validIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [modes]);
+
   const ewGroupsById = useMemo(() => Object.fromEntries(ewGroups.map((g) => [g.id, g])), [ewGroups]);
   const sourcesById = useMemo(() => Object.fromEntries(sources.map((s) => [s.id, s])), [sources]);
 
-  const filtered = (modes ?? []).filter(
-    (m) =>
-      (!ewGroupFilter || m.ew_group_id === ewGroupFilter) &&
-      (!sourceFilter || m.source_id === sourceFilter) &&
-      (!batchFilter || m.generation_batch_id === batchFilter),
-  );
+  const filtered = (modes ?? []).filter((m) => {
+    if (ewGroupFilter && m.ew_group_id !== ewGroupFilter) return false;
+    if (sourceFilter && m.source_id !== sourceFilter) return false;
+    if (batchFilter && m.generation_batch_id !== batchFilter) return false;
+    if (priTypeFilter && m.pri_type !== priTypeFilter) return false;
+    if (rfRangeMatchingOnly && !m.line?.rf_range_matching) return false;
+    if (pwRangeMatchingOnly && !m.line?.pw_range_matching) return false;
+    if (priRangeMatchingOnly && !m.line?.pri_range_matching) return false;
+    if (!rangeOverlaps(rfMin, rfMax, m.line?.rf_min_mhz, m.line?.rf_max_mhz)) return false;
+    if (!rangeOverlaps(pwMin, pwMax, m.line?.pw_min_us, m.line?.pw_max_us)) return false;
+    if (!rangeOverlaps(priMin, priMax, m.line?.pri_min_us, m.line?.pri_max_us)) return false;
+    if (lastTestedFrom || lastTestedTo) {
+      if (!m.last_tested_at) return false;
+      const testedDate = m.last_tested_at.slice(0, 10);
+      if (lastTestedFrom && testedDate < lastTestedFrom) return false;
+      if (lastTestedTo && testedDate > lastTestedTo) return false;
+    }
+    return true;
+  });
 
   const searched = search.trim()
     ? filtered.filter((m) => searchableText(m, ewGroupsById[m.ew_group_id], sourcesById[m.source_id]).includes(search.trim().toLowerCase()))
@@ -80,10 +122,53 @@ export function ModesSection({
     setSortDir("asc");
   }
 
+  function resetMoreFilters() {
+    setRfMin("");
+    setRfMax("");
+    setPwMin("");
+    setPwMax("");
+    setPriMin("");
+    setPriMax("");
+    setPriTypeFilter("");
+    setRfRangeMatchingOnly(false);
+    setPwRangeMatchingOnly(false);
+    setPriRangeMatchingOnly(false);
+    setLastTestedFrom("");
+    setLastTestedTo("");
+  }
+
+  const activeMoreFiltersCount = [
+    rfMin || rfMax,
+    pwMin || pwMax,
+    priMin || priMax,
+    priTypeFilter,
+    rfRangeMatchingOnly,
+    pwRangeMatchingOnly,
+    priRangeMatchingOnly,
+    lastTestedFrom || lastTestedTo,
+  ].filter(Boolean).length;
+
   async function handleDelete(modeId: string, ewGroupId: string, name: string) {
     if (await confirmDelete(`Delete Mode "${name}"?`)) {
       await deleteMode.mutateAsync({ ewGroupId, modeId });
     }
+  }
+
+  function toggleSelect(modeId: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(modeId)) next.delete(modeId);
+      else next.add(modeId);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelected((prev) => {
+      const allSelected = sorted.length > 0 && sorted.every((m) => prev.has(m.id));
+      if (allSelected) return new Set();
+      return new Set(sorted.map((m) => m.id));
+    });
   }
 
   const selectedBatch = (batches ?? []).find((b) => b.id === batchFilter);
@@ -100,12 +185,21 @@ export function ModesSection({
     }
   }
 
-  const canAddMode = ewGroups.length > 0 && sources.length > 0;
+  const hasSetup = ewGroups.length > 0 && sources.length > 0;
+  const canAddMode = hasSetup && canEdit;
 
   return (
     <section className="card">
       <div className="modes-section-header">
         <h4>Modes</h4>
+        <label className="inline-field-label" title="Show each parameter's engineered (raw ± delta) value directly, instead of the raw value with its delta shown separately">
+          <input
+            type="checkbox"
+            checked={showEngineered}
+            onChange={(e) => setShowEngineered(e.target.checked)}
+          />
+          Show engineered values
+        </label>
         <ModesViewToggle view={view} onChange={setView} />
       </div>
 
@@ -140,6 +234,10 @@ export function ModesSection({
             </option>
           ))}
         </select>
+        <button type="button" className="link-button" onClick={() => setShowMoreFilters((v) => !v)}>
+          {showMoreFilters ? "Hide filters" : "More filters"}
+          {activeMoreFiltersCount > 0 ? ` (${activeMoreFiltersCount})` : ""}
+        </button>
         {selectedBatch && (
           <RequireRole minimum="editor">
             <button className="icon-button" onClick={() => void handleDeleteBatch()}>
@@ -147,15 +245,79 @@ export function ModesSection({
             </button>
           </RequireRole>
         )}
-        <label className="checkbox-label" title="Include superseded and rejected Modes">
-          <input
-            type="checkbox"
-            checked={includeHistory}
-            onChange={(e) => setIncludeHistory(e.target.checked)}
-          />
-          Show history
-        </label>
+        {selected.size > 0 && (
+          <RequireRole minimum="editor">
+            <button className="accent-button" disabled={!canEdit} onClick={() => setShowBatchEdit(true)}>
+              Batch Edit ({selected.size})
+            </button>
+            <button className="link-button" onClick={() => setSelected(new Set())}>
+              Clear selection
+            </button>
+          </RequireRole>
+        )}
       </div>
+
+      {showMoreFilters && (
+        <div className="modes-toolbar-row">
+          <label>
+            RF (MHz)
+            <input type="number" step="any" placeholder="min" value={rfMin} onChange={(e) => setRfMin(e.target.value)} />
+            <input type="number" step="any" placeholder="max" value={rfMax} onChange={(e) => setRfMax(e.target.value)} />
+          </label>
+          <label>
+            PW (µs)
+            <input type="number" step="any" placeholder="min" value={pwMin} onChange={(e) => setPwMin(e.target.value)} />
+            <input type="number" step="any" placeholder="max" value={pwMax} onChange={(e) => setPwMax(e.target.value)} />
+          </label>
+          <label>
+            PRI (µs)
+            <input type="number" step="any" placeholder="min" value={priMin} onChange={(e) => setPriMin(e.target.value)} />
+            <input type="number" step="any" placeholder="max" value={priMax} onChange={(e) => setPriMax(e.target.value)} />
+          </label>
+          <label>
+            PRI Type
+            <select value={priTypeFilter} onChange={(e) => setPriTypeFilter(e.target.value as PriType | "")}>
+              <option value="">All</option>
+              <option value="fixed">Fixed</option>
+              <option value="stagger">Stagger</option>
+              <option value="cw">CW</option>
+              <option value="xlet">Xlet</option>
+            </select>
+          </label>
+          <label className="inline-field-label">
+            <input
+              type="checkbox"
+              checked={rfRangeMatchingOnly}
+              onChange={(e) => setRfRangeMatchingOnly(e.target.checked)}
+            />
+            RF range matching
+          </label>
+          <label className="inline-field-label">
+            <input
+              type="checkbox"
+              checked={pwRangeMatchingOnly}
+              onChange={(e) => setPwRangeMatchingOnly(e.target.checked)}
+            />
+            PW range matching
+          </label>
+          <label className="inline-field-label">
+            <input
+              type="checkbox"
+              checked={priRangeMatchingOnly}
+              onChange={(e) => setPriRangeMatchingOnly(e.target.checked)}
+            />
+            PRI range matching
+          </label>
+          <label>
+            Last tested
+            <input type="date" value={lastTestedFrom} onChange={(e) => setLastTestedFrom(e.target.value)} />
+            <input type="date" value={lastTestedTo} onChange={(e) => setLastTestedTo(e.target.value)} />
+          </label>
+          <button type="button" className="link-button" onClick={resetMoreFilters}>
+            Reset filters
+          </button>
+        </div>
+      )}
 
       {isLoading ? (
         <LoadingState label="Loading modes…" />
@@ -180,7 +342,10 @@ export function ModesSection({
           onSort={handleSort}
           onClear={handleClearSort}
           onDelete={handleDelete}
-          onSelectionChange={() => {}}
+          selected={selected}
+          onToggleSelect={toggleSelect}
+          onToggleSelectAll={toggleSelectAll}
+          showEngineered={showEngineered}
         />
       ) : (
         <ModesCardGrid
@@ -189,20 +354,46 @@ export function ModesSection({
           ewGroupsById={ewGroupsById}
           sourcesById={sourcesById}
           onDelete={handleDelete}
+          selected={selected}
+          onToggleSelect={toggleSelect}
+          showEngineered={showEngineered}
         />
       )}
 
       <RequireRole minimum="editor">
-        {!canAddMode ? (
+        {!hasSetup ? (
           <p className="hint-text">Add a Source and an EW Group first.</p>
-        ) : showForm ? (
-          <ModeForm emitterId={emitterId} ewGroups={ewGroups} sources={sources} defaultEwGroupId={ewGroupFilter} />
+        ) : showForm && canAddMode ? (
+          <ModeForm
+            emitterId={emitterId}
+            ewGroups={ewGroups}
+            sources={sources}
+            defaultEwGroupId={ewGroupFilter}
+            onClose={() => setShowForm(false)}
+          />
         ) : (
-          <button className="icon-button" onClick={() => setShowForm(true)}>
+          <button
+            className="icon-button"
+            disabled={!canEdit}
+            title={canEdit ? undefined : "Start editing this Emitter first"}
+            onClick={() => setShowForm(true)}
+          >
             + Add Mode
           </button>
         )}
       </RequireRole>
+      {showBatchEdit && (
+        <BatchEditModal
+          emitterId={emitterId}
+          modeIds={[...selected]}
+          ewGroups={ewGroups}
+          onClose={() => setShowBatchEdit(false)}
+          onDone={() => {
+            setShowBatchEdit(false);
+            setSelected(new Set());
+          }}
+        />
+      )}
       {dialog}
     </section>
   );

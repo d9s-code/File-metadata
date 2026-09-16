@@ -1,16 +1,14 @@
 import { useMemo, useState } from "react";
-import type { ModeStatus, PriType, TestResult } from "../../types/domain";
+import type { PriType, TestResult } from "../../types/domain";
 import type { ObservedValues } from "../../api/testRecords";
 
 const TEST_RESULTS: TestResult[] = ["fail", "partial", "inconclusive", "pass"];
 const PRI_TYPES: PriType[] = ["fixed", "stagger", "cw", "xlet"];
-const MODE_STATUSES: ModeStatus[] = ["approved", "draft", "superseded", "rejected"];
 const RESULT_FILTERS: (TestResult | "never")[] = ["pass", "fail", "partial", "inconclusive", "never"];
 
 export interface ModeOption {
   id: string;
   name: string;
-  status: ModeStatus;
   last_tested_at: string | null;
   last_test_result: TestResult | null;
 }
@@ -71,10 +69,6 @@ export function ModeResultsPicker({
   onChange: (modeId: string, entry: ModeResultEntry) => void;
 }) {
   const [search, setSearch] = useState("");
-  // Defaults to "approved" — a test run is normally against the live Mode
-  // set; broaden to "All" (or another status) only when you specifically
-  // need to flag a pending-review/rejected/superseded Mode.
-  const [statusFilter, setStatusFilter] = useState<ModeStatus | "">("approved");
   const [resultFilter, setResultFilter] = useState<TestResult | "never" | "">("");
   const [testedDir, setTestedDir] = useState<"before" | "after" | "">("");
   const [testedDate, setTestedDate] = useState("");
@@ -86,7 +80,6 @@ export function ModeResultsPicker({
     const q = search.trim().toLowerCase();
     return modes.filter((m) => {
       if (q && !m.name.toLowerCase().includes(q)) return false;
-      if (statusFilter && m.status !== statusFilter) return false;
       if (resultFilter) {
         if (resultFilter === "never" ? m.last_test_result != null : m.last_test_result !== resultFilter) return false;
       }
@@ -98,7 +91,7 @@ export function ModeResultsPicker({
       }
       return true;
     });
-  }, [modes, search, statusFilter, resultFilter, testedDir, testedDate]);
+  }, [modes, search, resultFilter, testedDir, testedDate]);
 
   const counts = useMemo(() => {
     const c = { pass: 0, fail: 0, partial: 0, inconclusive: 0, excluded: 0 };
@@ -203,17 +196,6 @@ export function ModeResultsPicker({
 
       <div className="mode-chip-filters">
         <label>
-          Status
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as ModeStatus | "")}>
-            <option value="">All</option>
-            {MODE_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
           Last result
           <select value={resultFilter} onChange={(e) => setResultFilter(e.target.value as TestResult | "never" | "")}>
             <option value="">All</option>
@@ -242,7 +224,7 @@ export function ModeResultsPicker({
 
       <div className="mode-chip-grid">
         {filtered.map((m) => {
-          const lastInfo = `Last: ${m.last_test_result ?? "never tested"}${m.last_tested_at ? ` (${m.last_tested_at})` : ""} · Status: ${m.status}`;
+          const lastInfo = `Last: ${m.last_test_result ?? "never tested"}${m.last_tested_at ? ` (${m.last_tested_at})` : ""}`;
           const title = entries[m.id]?.notes ? `${entries[m.id]!.notes}\n${lastInfo}` : lastInfo;
           const cls = chipClass(entries[m.id], selected.has(m.id));
           return (

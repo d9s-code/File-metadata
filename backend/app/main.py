@@ -14,6 +14,7 @@ from app.routers import (
     mdfs,
     modes,
     platforms,
+    source_groups,
     sources,
     test_records,
     trash,
@@ -36,6 +37,7 @@ app.include_router(platforms.router)
 app.include_router(emitters.router)
 app.include_router(ew_groups.router)
 app.include_router(sources.router)
+app.include_router(source_groups.router)
 app.include_router(imports.router)
 app.include_router(modes.router)
 app.include_router(dsl.router)

@@ -27,7 +27,7 @@ def test_updating_and_deleting_an_emitter_each_write_an_entry(editor_client):
 
 def test_status_transition_writes_a_status_change_entry(editor_client):
     emitter = editor_client.post("/emitters", json={"name": "Status Emitter"}).json()
-    editor_client.post(f"/emitters/{emitter['id']}/versions", json={})
+    editor_client.post(f"/emitters/{emitter['id']}/versions", json={"change_summary": "test"})
     editor_client.post(f"/emitters/{emitter['id']}/status", json={"new_status": "in_review"})
 
     resp = editor_client.get("/audit-log", params={"entity_type": "emitter", "action": "status_change"})

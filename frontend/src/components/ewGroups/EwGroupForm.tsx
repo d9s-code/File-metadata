@@ -107,6 +107,11 @@ export function EwGroupForm({ emitterId, initialData, onClose }: EwGroupFormProp
       <button type="submit" disabled={isPending}>
         {initialData ? "Update EW Group" : "Add EW Group"}
       </button>
+      {onClose && (
+        <button type="button" className="icon-button" onClick={() => onClose()}>
+          Cancel
+        </button>
+      )}
       {error && <div className="error-text">{error}</div>}
     </form>
   );

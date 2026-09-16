@@ -19,10 +19,8 @@ class EmitterUpdate(BaseModel):
 
 
 class EmitterSummary(BaseModel):
-    """Read-computed, cross-Mode aggregate for one Emitter — scoped to its
-    `approved` Modes only (the same "live" set ambiguity checks/snapshots use),
-    so a pending draft or rejected Mode never skews it. RF/PW/PRI extremes are
-    the min-of-mins/max-of-maxes across every approved Mode's line (PRI is
+    """Read-computed, cross-Mode aggregate for one Emitter. RF/PW/PRI extremes
+    are the min-of-mins/max-of-maxes across every Mode's line (PRI is
     naturally skipped for stagger/cw/xlet Modes, which carry no PRI min/max to
     aggregate). `scan_min`/`scan_max` come from a different source: the
     Emitter's EW Groups directly (scan is an EW Group-level field, not a
@@ -73,4 +71,11 @@ class EmitterOut(BaseModel):
     deleted_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
+    checked_out_by_id: UUID | None = None
+    # Populated by attach_emitter_summaries, not a plain from_attributes
+    # column — see that function.
+    checked_out_by_username: str | None = None
+    checked_out_at: datetime | None = None
+    forked_from_emitter_id: UUID | None = None
+    forked_from_version_id: UUID | None = None
     summary: EmitterSummary = EmitterSummary()

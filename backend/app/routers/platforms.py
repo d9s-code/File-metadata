@@ -15,6 +15,7 @@ from app.schemas.emitter_version import CommitVersionRequest, DiffOut
 from app.schemas.platform import PlatformCreate, PlatformLinkCreate, PlatformLinkOut, PlatformOut, PlatformUpdate
 from app.schemas.platform_version import PlatformVersionDetailOut, PlatformVersionOut
 from app.services.audit_service import apply_and_diff, record_audit
+from app.services.prs_export.packager import build_platform_export_zip
 from app.services.snapshots import build_platform_snapshot
 from app.services.versioning_service import VersionSpec, commit_version, diff_versions, get_version, list_versions
 from app.services.xml_export.xml_exporter_service import XMLExporterService
@@ -350,4 +351,30 @@ async def export_platform_xml(
         headers={
             "Content-Disposition": f"attachment; filename={platform.name}_xml_export.zip"
         }
+    )
+
+
+@router.get("/{platform_id}/versions/{version_number}/export/prs")
+def export_platform_version_prs(
+    platform_id: UUID,
+    version_number: int,
+    db: Session = Depends(get_db),
+    _=Depends(require_role(Role.viewer)),
+) -> Response:
+    """Exports a committed Platform version, standalone, to a PRS-format ZIP
+    package (platforms/, emitters/, plus a synthetic library-root file using
+    this Platform's own id/name in place of a real MDF). See
+    docs/XML_IMPORT_BRIEF.md for the format reference and known gaps.
+    """
+    platform = _get_platform_or_404(db, platform_id)
+    version = get_version(db, spec=_VERSION_SPEC, entity_id=platform_id, version_number=version_number)
+    if version is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Version not found")
+
+    zip_bytes = build_platform_export_zip(version.snapshot, platform_id=str(platform.id))
+    filename = f"platform_{platform.id}_v{version_number}_prs.zip"
+    return Response(
+        content=zip_bytes,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

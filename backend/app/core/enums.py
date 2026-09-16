@@ -14,27 +14,6 @@ class PriType(str, enum.Enum):
     xlet = "xlet"
 
 
-class ModeStatus(str, enum.Enum):
-    """A Mode's place in the propose/approve micro-workflow for line edits.
-    Metadata-only edits (name, notes, EW Group) bypass this entirely and stay
-    instant — only a change to the actual RF/PW/PRI line goes through it.
-
-    approved   - the live, canonical line. What ambiguity checks, XML export,
-                 and Emitter version snapshots all see.
-    draft      - a proposed edit, pending review. Carries `supersedes_id`
-                 pointing at the approved Mode it would replace.
-    superseded - a formerly-approved Mode whose draft edit was approved.
-                 Permanently kept for lineage; excluded from active views.
-    rejected   - a draft whose edit was declined. The original it targeted
-                 was never touched and stays approved.
-    """
-
-    approved = "approved"
-    draft = "draft"
-    superseded = "superseded"
-    rejected = "rejected"
-
-
 class TestRecordModeLinkType(str, enum.Enum):
     """Why a Test Record is linked to a Mode: `exercised` means the Mode was
     tested as-is; `derived` means the Mode's values themselves are explained
@@ -167,6 +146,11 @@ class AuditAction(str, enum.Enum):
     login = "login"
     login_failed = "login_failed"
     logout = "logout"
+    checkout = "checkout"
+    checkin = "checkin"
+    discard = "discard"
+    revert = "revert"
+    fork = "fork"
 
 
 class AuditEntityType(str, enum.Enum):

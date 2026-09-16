@@ -12,7 +12,7 @@ def test_dashboard_counts_reflect_created_entities(editor_client):
 
 def test_dashboard_flags_mdf_needing_attention(editor_client):
     emitter = editor_client.post("/emitters", json={"name": "Dash Attn Emitter"}).json()
-    v1 = editor_client.post(f"/emitters/{emitter['id']}/versions", json={}).json()
+    v1 = editor_client.post(f"/emitters/{emitter['id']}/versions", json={"change_summary": "test"}).json()
     platform = editor_client.post("/platforms", json={"name": "Dash Attn Platform"}).json()
     editor_client.post(
         f"/platforms/{platform['id']}/links", json={"emitter_id": emitter["id"], "emitter_version_id": v1["id"]}
@@ -58,7 +58,7 @@ def test_dashboard_flags_needs_rework_emitter(editor_client):
     emitter = editor_client.post("/emitters", json={"name": "Dash Rework Emitter"}).json()
     eid = emitter["id"]
     editor_client.post(f"/emitters/{eid}/status", json={"new_status": "in_review"})
-    editor_client.post(f"/emitters/{eid}/status", json={"new_status": "validated"})
+    editor_client.post(f"/emitters/{eid}/status", json={"new_status": "validated", "note": "Looks good."})
 
     no_note = editor_client.post(f"/emitters/{eid}/status", json={"new_status": "deprecated"})
     assert no_note.status_code == 422
@@ -74,24 +74,14 @@ def test_dashboard_flags_needs_rework_emitter(editor_client):
     assert "RF drifted, recheck." in matches[0]["message"]
 
 
-def test_dashboard_lists_pending_source_and_mode_draft(editor_client, db_session):
+def test_dashboard_lists_pending_source(editor_client, db_session):
     from app.core.enums import SourceStatus
     from app.models.source import Source
 
     emitter = editor_client.post("/emitters", json={"name": "Dash Pending Emitter"}).json()
-    ew_group = editor_client.post(f"/emitters/{emitter['id']}/ew-groups", json={"name": "Group P"}).json()
     source = editor_client.post(
         f"/emitters/{emitter['id']}/sources", json={"name": "Source P", "source_date": "2025-01-01"}
     ).json()
-    mode = editor_client.post(
-        f"/ew-groups/{ew_group['id']}/modes",
-        json={"source_id": source["id"], "name": "Mode P", "pri_type": "fixed", "line": FIXED_LINE},
-    ).json()
-    draft_resp = editor_client.post(
-        f"/ew-groups/{ew_group['id']}/modes/{mode['id']}/draft",
-        json={"pri_type": "fixed", "line": FIXED_LINE},
-    )
-    assert draft_resp.status_code == 201, draft_resp.text
 
     # No HTTP path creates a pending_review Source directly (only the import
     # pipeline does) — flip it via the shared session, same as the request
@@ -102,7 +92,6 @@ def test_dashboard_lists_pending_source_and_mode_draft(editor_client, db_session
     items = editor_client.get("/dashboard").json()["pending_approvals"]
     kinds = {(item["kind"], item["emitter_id"]) for item in items}
     assert ("source", emitter["id"]) in kinds
-    assert ("mode", emitter["id"]) in kinds
 
 
 def test_dashboard_needs_redo_appears_then_disappears_after_retest(editor_client):

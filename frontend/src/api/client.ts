@@ -7,9 +7,15 @@ function readCookie(name: string): string | null {
 
 export class ApiRequestError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  /** The raw `detail` from the response body, when present — a plain string
+   * for most errors, but some endpoints (e.g. Mode batch-edit) return a
+   * structured array a caller may want to render itself instead of the
+   * flattened `message`. */
+  detail?: unknown;
+  constructor(status: number, message: string, detail?: unknown) {
     super(message);
     this.status = status;
+    this.detail = detail;
   }
 }
 
@@ -43,14 +49,18 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
   if (!resp.ok) {
     let message = resp.statusText;
+    let detail: unknown;
     try {
       const body = await resp.json();
+      detail = body.detail;
       if (typeof body.detail === "string") message = body.detail;
-      else if (Array.isArray(body.detail)) message = body.detail.map((d: { msg: string }) => d.msg).join("; ");
+      else if (Array.isArray(body.detail)) {
+        message = body.detail.map((d: { msg?: string; error?: string }) => d.msg ?? d.error ?? JSON.stringify(d)).join("; ");
+      }
     } catch {
       // response body wasn't JSON; fall back to statusText
     }
-    throw new ApiRequestError(resp.status, message);
+    throw new ApiRequestError(resp.status, message, detail);
   }
 
   if (resp.status === 204) return undefined as T;

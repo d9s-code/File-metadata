@@ -15,6 +15,7 @@ import { MdfsListPage } from "./pages/MdfsListPage";
 import { MdfBuilderPage } from "./pages/MdfBuilderPage";
 import { MdfVersionHistoryPage } from "./pages/MdfVersionHistoryPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { SourceGroupsPage } from "./pages/SourceGroupsPage";
 import { AmbiguityDashboardPage } from "./pages/AmbiguityDashboardPage";
 import { AuditLogPage } from "./pages/AuditLogPage";
 import { HelpPage } from "./pages/HelpPage";
@@ -103,6 +104,14 @@ export default function App() {
                 element={
                   <RequireAuth>
                     <MdfVersionHistoryPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/source-groups"
+                element={
+                  <RequireAuth>
+                    <SourceGroupsPage />
                   </RequireAuth>
                 }
               />

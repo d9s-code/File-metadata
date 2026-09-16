@@ -73,6 +73,12 @@ export interface Emitter {
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
+  /** Whole-Emitter edit lock — see useEmitterCheckoutState. */
+  checked_out_by_id: string | null;
+  checked_out_by_username: string | null;
+  checked_out_at: string | null;
+  forked_from_emitter_id: string | null;
+  forked_from_version_id: string | null;
   summary: EmitterSummary;
 }
 
@@ -116,6 +122,16 @@ export interface SourceGroup {
   description: string | null;
   created_at: string;
   updated_at: string;
+  source_count: number;
+  last_updated_source_date: string | null;
+  last_edited_at: string | null;
+  rf_min_mhz: number | null;
+  rf_max_mhz: number | null;
+  pw_min_us: number | null;
+  pw_max_us: number | null;
+  pri_min_us: number | null;
+  pri_max_us: number | null;
+  pri_stagger_count: number;
 }
 
 export interface ModeLineFields {
@@ -123,9 +139,8 @@ export interface ModeLineFields {
   rf_max_mhz: number;
   pw_min_us: number;
   pw_max_us: number;
-  /** Set per parameter, not per Mode — required, and governed by the same
-   * draft-propose/approve cycle as any other line parameter once a Mode is
-   * approved. */
+  /** Set per parameter, not per Mode — required. An instant PATCH like the
+   * rest of the line, gated only by the Emitter's checkout lock. */
   rf_range_matching: boolean;
   pw_range_matching: boolean;
   pri_range_matching: boolean;
@@ -157,8 +172,6 @@ export interface ModeLine extends ModeLineFields {
   engineered_frame_time_max_us: number | null;
 }
 
-export type ModeStatus = "approved" | "draft" | "superseded" | "rejected";
-
 export interface TestRecordBrief {
   id: string;
   title: string;
@@ -176,9 +189,6 @@ export interface Mode {
   notes: string | null;
   sort_order: number;
   generation_batch_id: string | null;
-  status: ModeStatus;
-  /** Set only on a `draft` Mode: the `approved` Mode it would replace. */
-  supersedes_id: string | null;
   created_at: string;
   updated_at: string;
   line: ModeLine | null;
@@ -269,7 +279,12 @@ export type AuditAction =
   | "commit"
   | "login"
   | "login_failed"
-  | "logout";
+  | "logout"
+  | "checkout"
+  | "checkin"
+  | "discard"
+  | "revert"
+  | "fork";
 
 export interface AuditLogEntry {
   id: string;

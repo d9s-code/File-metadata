@@ -129,11 +129,8 @@ class XMLExporterService:
             etree.SubElement(scan, "EWParametersRef", SetId=str(set_id))
 
         # 3. Create Modes
-        from app.core.enums import ModeStatus
         for source in emitter.sources:
             for mode in source.modes:
-                if mode.status != ModeStatus.approved:
-                    continue
                 mode_el = etree.SubElement(root, "Mode", Name=self._sanitize(mode.name))
 
                 line = mode.line

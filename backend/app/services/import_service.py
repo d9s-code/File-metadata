@@ -9,6 +9,7 @@ from app.models.import_batch import ImportBatch
 from app.models.mode import ModeElement
 from app.models.parameter_sequence import ParameterSequence
 from app.models.source import Source
+from app.models.source_group import SourceGroup
 from app.schemas.import_batch import ImportFieldIssue, ImportPayload, ImportValidationResult
 from app.schemas.mode_element import ModeElementCreate, ElementType, ElementVariant
 from app.schemas.parameter_sequence import ParameterSequenceCreate, ParameterSequenceStepIn
@@ -196,11 +197,15 @@ def validate_import_payload(db: Session, *, emitter_id: UUID, payload: ImportPay
 
 
 def commit_import_payload(
-    db: Session, *, emitter_id: UUID, payload: ImportPayload, created_by: UUID
+    db: Session, *, emitter_id: UUID, payload: ImportPayload, created_by: UUID, group_id: UUID | None = None
 ) -> tuple[ImportBatch, list[Source]]:
     """Persists the batch + every parametric set's Source/Elements/Sequences.
     Does not commit — the caller (router) owns the transaction boundary, same
     as every other create endpoint in this codebase.
+
+    `group_id`, if given (an existing SourceGroup the caller already resolved),
+    is used for every Source this import creates instead of the default
+    one-new-group-per-batch behavior below.
     """
     batch = ImportBatch(
         emitter_id=emitter_id,
@@ -210,6 +215,19 @@ def commit_import_payload(
     )
     db.add(batch)
     db.flush()
+
+    if group_id is not None:
+        target_group_id = group_id
+    else:
+        # One SourceGroup per import batch, so everything a single import brought
+        # in stays browsable together on the Source Groups page — named after
+        # the source document, deduplicated with the batch id since
+        # SourceGroup.name is unique and the same file may be re-imported later.
+        group_label = payload.document_name or "Import"
+        group = SourceGroup(name=f"{group_label} — {batch.id.hex[:8]}")
+        db.add(group)
+        db.flush()
+        target_group_id = group.id
 
     created_sources: list[Source] = []
     for pset in payload.parametric_sets:
@@ -221,6 +239,7 @@ def commit_import_payload(
             source_date=pset.source_date,
             status=SourceStatus.pending_review,
             import_batch_id=batch.id,
+            group_id=target_group_id,
         )
         db.add(source)
         db.flush()

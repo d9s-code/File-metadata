@@ -4,7 +4,7 @@ import pytest
 @pytest.fixture()
 def emitter_with_version(editor_client):
     emitter = editor_client.post("/emitters", json={"name": "Pinned Emitter"}).json()
-    v1 = editor_client.post(f"/emitters/{emitter['id']}/versions", json={}).json()
+    v1 = editor_client.post(f"/emitters/{emitter['id']}/versions", json={"change_summary": "test"}).json()
     return {"emitter": emitter, "version": v1}
 
 
@@ -47,7 +47,7 @@ def test_pin_and_repin_emitter_version(editor_client, emitter_with_version):
     assert resp.json()["emitter_version_id"] == v1["id"]
 
     # Commit a second emitter version, then repin to it.
-    v2 = editor_client.post(f"/emitters/{emitter['id']}/versions", json={}).json()
+    v2 = editor_client.post(f"/emitters/{emitter['id']}/versions", json={"change_summary": "test"}).json()
     resp = editor_client.post(
         f"/platforms/{platform['id']}/links",
         json={"emitter_id": emitter["id"], "emitter_version_id": v2["id"]},
@@ -72,7 +72,7 @@ def test_platform_pinning_survives_new_emitter_version(editor_client, emitter_wi
     )
 
     editor_client.patch(f"/emitters/{emitter['id']}", json={"description": "changed after pin"})
-    editor_client.post(f"/emitters/{emitter['id']}/versions", json={})  # v2, unrelated to the pin
+    editor_client.post(f"/emitters/{emitter['id']}/versions", json={"change_summary": "test"})  # v2, unrelated to the pin
 
     links = editor_client.get(f"/platforms/{platform['id']}/links").json()
     assert links[0]["emitter_version_id"] == v1["id"]

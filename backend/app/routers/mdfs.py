@@ -16,6 +16,7 @@ from app.schemas.emitter_version import CommitVersionRequest, DiffOut, StatusTra
 from app.schemas.mdf import MdfCreate, MdfLinkCreate, MdfLinkOut, MdfOut, MdfReadinessOut, MdfUpdate
 from app.schemas.mdf_version import MdfStatusTransitionOut, MdfVersionDetailOut, MdfVersionOut
 from app.services.audit_service import apply_and_diff, record_audit
+from app.services.prs_export.packager import build_mdf_export_zip
 from app.services.readiness_service import compute_mdf_readiness_warnings
 from app.services.snapshots import build_mdf_snapshot
 from app.services.status_service import InvalidStatusTransition, validate_transition
@@ -368,5 +369,31 @@ def export_mdf_version_xml(
     return Response(
         content=xml_bytes,
         media_type="application/xml",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/{mdf_id}/versions/{version_number}/export/prs")
+def export_mdf_version_prs(
+    mdf_id: UUID,
+    version_number: int,
+    db: Session = Depends(get_db),
+    _=Depends(require_role(Role.viewer)),
+) -> Response:
+    """Exports a committed MDF version to a PRS-format ZIP package —
+    platforms/, emitters/, and the library-root file, walking the full
+    pinned hierarchy (MDF -> Platforms -> Emitters). See
+    docs/XML_IMPORT_BRIEF.md for the format reference and known gaps.
+    """
+    _get_mdf_or_404(db, mdf_id)
+    version = get_version(db, spec=_VERSION_SPEC, entity_id=mdf_id, version_number=version_number)
+    if version is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Version not found")
+
+    zip_bytes = build_mdf_export_zip(version.snapshot, mdf_id=str(mdf_id))
+    filename = f"mdf_{mdf_id}_v{version_number}_prs.zip"
+    return Response(
+        content=zip_bytes,
+        media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

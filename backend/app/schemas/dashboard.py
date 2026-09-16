@@ -13,7 +13,7 @@ class NeedsAttentionItem(BaseModel):
 
 class PendingApprovalItem(BaseModel):
     message: str
-    kind: Literal["source", "mode"]
+    kind: Literal["source"]
     emitter_id: str
 
 

@@ -1,15 +1,20 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { EwGroup, Mode, Source } from "../../types/domain";
 import { HoverInfo } from "../common/InfoPopover";
 import { RequireRole } from "../../auth/RequireAuth";
 import { EwGroupHoverDetail, ModeHoverDetail, SourceHoverDetail, StaggerSequenceBox } from "./ModeHoverDetails";
 import { TestDerivedBadge } from "./TestDerivedBadge";
 import { LastTestedCell } from "./LastTestedCell";
-import { ModeDraftForm } from "./ModeDraftForm";
-import { useApproveModeDraft, useRejectModeDraft } from "../../state/hooks/useModes";
-import { rangeMatchingTags } from "./modeFormat";
-
-const STATUS_LABEL: Record<string, string> = { draft: "Pending Review", superseded: "Superseded", rejected: "Rejected" };
+import { ModeEditForm } from "./ModeEditForm";
+import { useEmitter } from "../../state/hooks/useEmitters";
+import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
+import {
+  jitterOrFrameTimeDisplay,
+  priDisplay,
+  pwDisplay,
+  rangeMatchingTags,
+  rfDisplay,
+} from "./modeFormat";
 
 export function ModesCardGrid({
   emitterId,
@@ -17,84 +22,74 @@ export function ModesCardGrid({
   ewGroupsById,
   sourcesById,
   onDelete,
+  selected,
+  onToggleSelect,
+  showEngineered,
 }: {
   emitterId: string;
   modes: Mode[];
   ewGroupsById: Record<string, EwGroup>;
   sourcesById: Record<string, Source>;
   onDelete: (modeId: string, ewGroupId: string, name: string) => void;
+  selected: Set<string>;
+  onToggleSelect: (modeId: string) => void;
+  showEngineered: boolean;
 }) {
   const [editingModeId, setEditingModeId] = useState<string | null>(null);
-  const approveDraft = useApproveModeDraft(emitterId);
-  const rejectDraft = useRejectModeDraft(emitterId);
-
-  const pendingDraftBySupersedesId = useMemo(() => {
-    const map = new Map<string, Mode>();
-    for (const m of modes) if (m.status === "draft" && m.supersedes_id) map.set(m.supersedes_id, m);
-    return map;
-  }, [modes]);
+  const { data: emitter } = useEmitter(emitterId);
+  const { canEdit } = useEmitterCheckoutState(emitter);
+  const editTitle = canEdit ? undefined : "Start editing this Emitter first";
 
   return (
     <div className="mode-card-grid">
       {modes.map((m) => {
         const ewGroup = ewGroupsById[m.ew_group_id];
         const source = sourcesById[m.source_id];
-        const pendingDraft = pendingDraftBySupersedesId.get(m.id);
-        if (editingModeId === m.id) {
+        const rf = rfDisplay(m, showEngineered);
+        const pw = pwDisplay(m, showEngineered);
+        const pri = priDisplay(m, showEngineered);
+        const jft = jitterOrFrameTimeDisplay(m, showEngineered);
+        if (editingModeId === m.id && canEdit) {
           return (
             <div key={m.id} className="mode-card mode-card-editing">
-              <ModeDraftForm emitterId={emitterId} mode={m} onDone={() => setEditingModeId(null)} />
+              <ModeEditForm emitterId={emitterId} mode={m} onDone={() => setEditingModeId(null)} />
             </div>
           );
         }
         return (
-          <div key={m.id} className={m.status === "draft" ? "mode-card mode-draft-row" : "mode-card"}>
+          <div key={m.id} className="mode-card">
             <div className="mode-card-header">
+              <input
+                type="checkbox"
+                checked={selected.has(m.id)}
+                onChange={() => onToggleSelect(m.id)}
+                aria-label={`Select ${m.name}`}
+              />
               <strong>
                 <HoverInfo label={m.name}>
                   <ModeHoverDetail mode={m} source={source} />
                 </HoverInfo>
-                {m.status !== "approved" && (
-                  <span className={`mode-status-badge mode-status-${m.status}`}>{STATUS_LABEL[m.status]}</span>
-                )}
                 <TestDerivedBadge emitterId={emitterId} records={m.derived_from_test_records} />
               </strong>
               <RequireRole minimum="editor">
-                {m.status === "draft" ? (
-                  <>
-                    <button
-                      className="link-button"
-                      disabled={approveDraft.isPending}
-                      onClick={() => void approveDraft.mutateAsync({ ewGroupId: m.ew_group_id, modeId: m.id })}
-                    >
-                      Approve
-                    </button>{" "}
-                    <button
-                      className="link-button"
-                      disabled={rejectDraft.isPending}
-                      onClick={() => void rejectDraft.mutateAsync({ ewGroupId: m.ew_group_id, modeId: m.id })}
-                    >
-                      Reject
-                    </button>{" "}
-                  </>
-                ) : m.status === "approved" ? (
-                  <>
-                    <button
-                      className="link-button"
-                      disabled={!!pendingDraft}
-                      title={pendingDraft ? "Already has a pending draft edit" : undefined}
-                      onClick={() => setEditingModeId(m.id)}
-                    >
-                      Propose edit
-                    </button>{" "}
-                  </>
-                ) : null}
-                <button className="link-button" onClick={() => onDelete(m.id, m.ew_group_id, m.name)}>
+                <button
+                  className="link-button"
+                  disabled={!canEdit}
+                  title={editTitle}
+                  onClick={() => setEditingModeId(m.id)}
+                >
+                  Edit
+                </button>{" "}
+                <button
+                  className="link-button"
+                  disabled={!canEdit}
+                  title={editTitle}
+                  onClick={() => onDelete(m.id, m.ew_group_id, m.name)}
+                >
                   Delete
                 </button>
               </RequireRole>
             </div>
-            {pendingDraft && <p className="mode-draft-notice">A draft edit is pending review.</p>}
             <div className="mode-card-badges">
               <span className="status-badge">
                 {ewGroup ? (
@@ -118,19 +113,25 @@ export function ModesCardGrid({
             <dl className="mode-card-fields">
               <div>
                 <dt>RF Min (MHz)</dt>
-                <dd>{m.line?.rf_min_mhz ?? "—"}</dd>
+                <dd>{rf.min ?? "—"}</dd>
               </div>
               <div>
                 <dt>RF Max (MHz)</dt>
-                <dd>{m.line?.rf_max_mhz ?? "—"}</dd>
+                <dd>
+                  {rf.max ?? "—"}
+                  {!!rf.delta && <span className="jitter-subline">±{rf.delta} MHz delta</span>}
+                </dd>
               </div>
               <div>
                 <dt>PW Min (µs)</dt>
-                <dd>{m.line?.pw_min_us ?? "—"}</dd>
+                <dd>{pw.min ?? "—"}</dd>
               </div>
               <div>
                 <dt>PW Max (µs)</dt>
-                <dd>{m.line?.pw_max_us ?? "—"}</dd>
+                <dd>
+                  {pw.max ?? "—"}
+                  {!!pw.delta && <span className="jitter-subline">±{pw.delta} µs delta</span>}
+                </dd>
               </div>
               <div>
                 <dt>PRI Type</dt>
@@ -147,17 +148,13 @@ export function ModesCardGrid({
                 <>
                   <div>
                     <dt>PRI Min (µs)</dt>
-                    <dd>{m.line?.pri_min_us ?? "—"}</dd>
+                    <dd>{pri.min ?? "—"}</dd>
                   </div>
                   <div>
                     <dt>PRI Max (µs)</dt>
                     <dd>
-                      {m.line?.pri_max_us ?? "—"}
-                      {m.line?.jitter_min_us != null && (
-                        <span className="jitter-subline">
-                          jitter {m.line.jitter_min_us}–{m.line.jitter_max_us}
-                        </span>
-                      )}
+                      {pri.max ?? "—"}
+                      {!!pri.delta && <span className="jitter-subline">±{pri.delta} µs delta</span>}
                     </dd>
                   </div>
                 </>
@@ -167,6 +164,30 @@ export function ModesCardGrid({
                   <dd>{m.pri_type === "cw" ? "CW (constant)" : "—"}</dd>
                 </div>
               )}
+              <div>
+                <dt>Jitter/Frametime Min (µs)</dt>
+                <dd>
+                  {jft.label ? (
+                    <>
+                      {jft.label} {jft.min ?? "—"} µs
+                    </>
+                  ) : (
+                    "—"
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt>Jitter/Frametime Max (µs)</dt>
+                <dd>
+                  {jft.label && jft.max != null && (
+                    <>
+                      {jft.label} {jft.max} µs
+                    </>
+                  )}
+                  {!!jft.delta && <span className="jitter-subline">±{jft.delta} µs delta</span>}
+                  {!jft.label || (jft.max == null && !jft.delta) ? "—" : null}
+                </dd>
+              </div>
               <div>
                 <dt>Range Matching</dt>
                 <dd>

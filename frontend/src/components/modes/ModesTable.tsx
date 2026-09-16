@@ -1,17 +1,23 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useState } from "react";
 import type { EwGroup, Mode, Source } from "../../types/domain";
-import { useApproveModeDraft, useRejectModeDraft } from "../../state/hooks/useModes";
+import { useEmitter } from "../../state/hooks/useEmitters";
+import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 import { HoverInfo } from "../common/InfoPopover";
 import { RequireRole } from "../../auth/RequireAuth";
 import { SortableColumnHeader, type ColumnType } from "../common/SortableColumnHeader";
-import { rangeMatchingTags, type ModeSortKey, type SortDir } from "./modeFormat";
+import {
+  jitterOrFrameTimeDisplay,
+  priDisplay,
+  pwDisplay,
+  rangeMatchingTags,
+  rfDisplay,
+  type ModeSortKey,
+  type SortDir,
+} from "./modeFormat";
 import { EwGroupHoverDetail, ModeHoverDetail, SourceHoverDetail, StaggerSequenceBox } from "./ModeHoverDetails";
 import { TestDerivedBadge } from "./TestDerivedBadge";
 import { LastTestedCell } from "./LastTestedCell";
-import { ModeDraftForm } from "./ModeDraftForm";
-import { BatchEditButton } from "./BatchEditButton";
-
-const STATUS_LABEL: Record<string, string> = { draft: "Pending Review", superseded: "Superseded", rejected: "Rejected" };
+import { ModeEditForm } from "./ModeEditForm";
 
 export function ModesTable({
   emitterId,
@@ -23,7 +29,10 @@ export function ModesTable({
   onSort,
   onClear,
   onDelete,
-  onSelectionChange,
+  selected,
+  onToggleSelect,
+  onToggleSelectAll,
+  showEngineered,
 }: {
   emitterId: string;
   modes: Mode[];
@@ -34,18 +43,15 @@ export function ModesTable({
   onSort: (key: ModeSortKey, dir: SortDir) => void;
   onClear: () => void;
   onDelete: (modeId: string, ewGroupId: string, name: string) => void;
-  onSelectionChange: (ids: string[]) => void;
+  selected: Set<string>;
+  onToggleSelect: (modeId: string) => void;
+  onToggleSelectAll: () => void;
+  showEngineered: boolean;
 }) {
   const [editingModeId, setEditingModeId] = useState<string | null>(null);
-  const [selectedModeIds, setSelectedModeIds] = useState<Set<string>>(new Set());
-  const approveDraft = useApproveModeDraft(emitterId);
-  const rejectDraft = useRejectModeDraft(emitterId);
-
-  const pendingDraftBySupersedesId = useMemo(() => {
-    const map = new Map<string, Mode>();
-    for (const m of modes) if (m.status === "draft" && m.supersedes_id) map.set(m.supersedes_id, m);
-    return map;
-  }, [modes]);
+  const { data: emitter } = useEmitter(emitterId);
+  const { canEdit } = useEmitterCheckoutState(emitter);
+  const editTitle = canEdit ? undefined : "Start editing this Emitter first";
 
   const header = (label: string, key: ModeSortKey, columnType?: ColumnType) => (
     <SortableColumnHeader
@@ -59,19 +65,25 @@ export function ModesTable({
     />
   );
 
+  const allVisibleSelected = modes.length > 0 && modes.every((m) => selected.has(m.id));
+  const someVisibleSelected = modes.some((m) => selected.has(m.id));
+
   return (
     <div className="matrix-scroll">
-      <div className="matrix-header-actions" style={{ marginBottom: "1rem", display: "flex", justifyContent: "flex-end" }}>
-        <BatchEditButton
-          ewGroupId={emitterId}
-          selectedModeIds={[...selectedModeIds]}
-          onSelectionChange={(ids) => setSelectedModeIds(new Set(ids))}
-        />
-      </div>
       <table className="data-table">
         <thead>
           <tr>
-            <th className="w-10"></th>
+            <th>
+              <input
+                type="checkbox"
+                checked={allVisibleSelected}
+                ref={(el) => {
+                  if (el) el.indeterminate = !allVisibleSelected && someVisibleSelected;
+                }}
+                onChange={onToggleSelectAll}
+                aria-label="Select all"
+              />
+            </th>
             {header("Name", "name")}
             {header("RF Min", "rf_min", "number")}
             {header("RF Max", "rf_max", "number")}
@@ -80,6 +92,8 @@ export function ModesTable({
             {header("PRI Max", "pri_max", "number")}
             {header("PW Min", "pw_min", "number")}
             {header("PW Max", "pw_max", "number")}
+            <th>Jitter/Frametime Min</th>
+            <th>Jitter/Frametime Max</th>
             {header("Range Matching", "range_matching")}
             {header("EW Group", "ew_group")}
             {header("Source", "source")}
@@ -91,38 +105,34 @@ export function ModesTable({
           {modes.map((m) => {
             const ewGroup = ewGroupsById[m.ew_group_id];
             const source = sourcesById[m.source_id];
-            const pendingDraft = pendingDraftBySupersedesId.get(m.id);
-            const isSelected = selectedModeIds.has(m.id);
+            const isSelected = selected.has(m.id);
+            const rf = rfDisplay(m, showEngineered);
+            const pw = pwDisplay(m, showEngineered);
+            const pri = priDisplay(m, showEngineered);
+            const jft = jitterOrFrameTimeDisplay(m, showEngineered);
 
             return (
               <Fragment key={m.id}>
-              <tr className={(m.status === "draft" ? "mode-draft-row" : "") + (isSelected ? " selected-row" : "")}>
-                <td onClick={() => {
-                  const next = new Set(selectedModeIds);
-                  if (isSelected) next.delete(m.id);
-                  else next.add(m.id);
-                  onSelectionChange([...next]);
-                }}>
-                  <input 
-                    type="checkbox" 
-                    checked={isSelected} 
-                    onChange={() => {}} // Handled by row click
+              <tr className={isSelected ? "selected-row" : ""}>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => onToggleSelect(m.id)}
+                    aria-label={`Select ${m.name}`}
                   />
                 </td>
                 <td>
                   <HoverInfo label={<>{m.name}{m.notes && " 📝"}</>}>
                     <ModeHoverDetail mode={m} source={sourcesById[m.source_id]} />
                   </HoverInfo>
-                  {m.status !== "approved" && (
-                    <span className={`mode-status-badge mode-status-${m.status}`}>{STATUS_LABEL[m.status]}</span>
-                  )}
                   <TestDerivedBadge emitterId={emitterId} records={m.derived_from_test_records} />
-                  {pendingDraft && (
-                    <span className="mode-draft-notice">A draft edit is pending review below.</span>
-                  )}
                 </td>
-                <td>{m.line?.rf_min_mhz ?? "—"}</td>
-                <td>{m.line?.rf_max_mhz ?? "—"}</td>
+                <td>{rf.min ?? "—"}</td>
+                <td>
+                  {rf.max ?? "—"}
+                  {!!rf.delta && <span className="jitter-subline">±{rf.delta} MHz delta</span>}
+                </td>
                 <td>{m.pri_type.toUpperCase()}</td>
                 {m.pri_type === "stagger" ? (
                   <td colSpan={2}>
@@ -130,21 +140,44 @@ export function ModesTable({
                   </td>
                 ) : m.pri_type === "fixed" ? (
                   <>
-                    <td>{m.line?.pri_min_us ?? "—"}</td>
+                    <td>{pri.min ?? "—"}</td>
                     <td>
-                      {m.line?.pri_max_us ?? "—"}
-                      {m.line?.jitter_min_us != null && (
-                        <span className="jitter-subline">
-                          jitter {m.line.jitter_min_us}–{m.line.jitter_max_us}
-                        </span>
-                      )}
+                      {pri.max ?? "—"}
+                      {!!pri.delta && <span className="jitter-subline">±{pri.delta} µs delta</span>}
                     </td>
                   </>
                 ) : (
                   <td colSpan={2}>{m.pri_type === "cw" ? "CW (constant)" : "—"}</td>
                 )}
-                <td>{m.line?.pw_min_us ?? "—"}</td>
-                <td>{m.line?.pw_max_us ?? "—"}</td>
+                <td>{pw.min ?? "—"}</td>
+                <td>
+                  {pw.max ?? "—"}
+                  {!!pw.delta && <span className="jitter-subline">±{pw.delta} µs delta</span>}
+                </td>
+                <td>
+                  {jft.label ? (
+                    <>
+                      {jft.label} {jft.min ?? "—"} µs
+                    </>
+                  ) : (
+                    "—"
+                  )}
+                </td>
+                <td>
+                  {jft.label ? (
+                    <>
+                      {jft.max != null && (
+                        <>
+                          {jft.label} {jft.max} µs
+                        </>
+                      )}
+                      {!!jft.delta && <span className="jitter-subline">±{jft.delta} µs delta</span>}
+                      {jft.max == null && !jft.delta && "—"}
+                    </>
+                  ) : (
+                    "—"
+                  )}
+                </td>
                 <td>
                   {rangeMatchingTags(m).length > 0 ? (
                     rangeMatchingTags(m).map((tag) => (
@@ -189,50 +222,30 @@ export function ModesTable({
                 <td>
                   <RequireRole minimum="editor">
                     <div className="flex gap-1">
-                      {m.status === "draft" ? (
-                        <>
-                          <button
-                            className="link-button"
-                            disabled={approveDraft.isPending}
-                            onClick={() => void approveDraft.mutateAsync({ ewGroupId: m.ew_group_id, modeId: m.id })}
-                          >
-                            Approve
-                          </button>{" "}
-                          <button
-                            className="link-button"
-                            disabled={rejectDraft.isPending}
-                            onClick={() => void rejectDraft.mutateAsync({ ewGroupId: m.ew_group_id, modeId: m.id })}
-                          >
-                            Reject
-                          </button>
-                        </>
-                      ) : m.status === "approved" ? (
-                        <button
-                          className="link-button"
-                          disabled={!!pendingDraft}
-                          title={pendingDraft ? "Already has a pending draft edit" : undefined}
-                          onClick={() => setEditingModeId(editingModeId === m.id ? null : m.id)}
-                        >
-                          {editingModeId === m.id ? "Cancel edit" : "Propose edit"}
-                        </button>
-                      ) : null}{" "}
-                      <button className="link-button" onClick={() => onDelete(m.id, m.ew_group_id, m.name)}>
+                      <button
+                        className="link-button"
+                        disabled={!canEdit}
+                        title={editTitle}
+                        onClick={() => setEditingModeId(editingModeId === m.id ? null : m.id)}
+                      >
+                        {editingModeId === m.id ? "Cancel edit" : "Edit"}
+                      </button>{" "}
+                      <button
+                        className="link-button"
+                        disabled={!canEdit}
+                        title={editTitle}
+                        onClick={() => onDelete(m.id, m.ew_group_id, m.name)}
+                      >
                         Delete
                       </button>
                     </div>
                   </RequireRole>
                 </td>
               </tr>
-              {editingModeId === m.id && (
+              {editingModeId === m.id && canEdit && (
                 <tr>
-                  <td colSpan={14}>
-                    <ModeDraftForm 
-                      emitterId={emitterId} 
-                      mode={m} 
-                      onDone={() => setEditingModeId(null)}
-                      ewGroups={Object.values(ewGroupsById)}
-                      sources={Object.values(sourcesById)}
-                    />
+                  <td colSpan={16}>
+                    <ModeEditForm emitterId={emitterId} mode={m} onDone={() => setEditingModeId(null)} />
                   </td>
                 </tr>
               )}

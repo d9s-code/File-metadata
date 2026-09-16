@@ -10,6 +10,7 @@ from app.core.enums import AuditAction, AuditEntityType, Role
 from app.database import get_db
 from app.deps import require_role
 from app.models.emitter import Emitter
+from app.models.source_group import SourceGroup
 from app.schemas.import_batch import ImportCommitResult, ImportPayload, ImportValidationResult
 from app.services.audit_service import record_audit
 from app.services.import_service import commit_import_payload, validate_import_payload
@@ -46,6 +47,10 @@ async def commit_json_import(
     # (if anything) the uploaded JSON's own per-set date_last_updated parses
     # to. Optional: leave unset to trust the file's own dates.
     source_date: date | None = Form(None),
+    # An existing Source Group to file every Source this import creates
+    # under. Leave unset to fall back to commit_import_payload's default: one
+    # new group created automatically for this import batch.
+    group_id: UUID | None = Form(None),
     db: Session = Depends(get_db),
     user=Depends(require_role(Role.editor)),
 ) -> ImportCommitResult:
@@ -54,12 +59,17 @@ async def commit_json_import(
     json_data = json.loads(content)
     payload = transform_json_to_payload(json_data, override_source_date=source_date)
 
+    if group_id is not None and db.get(SourceGroup, group_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Source group not found")
+
     # Re-use existing logic
     result = validate_import_payload(db, emitter_id=emitter_id, payload=payload)
     if not result.valid:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=[issue.model_dump() for issue in result.issues])
 
-    batch, sources = commit_import_payload(db, emitter_id=emitter_id, payload=payload, created_by=user.id)
+    batch, sources = commit_import_payload(
+        db, emitter_id=emitter_id, payload=payload, created_by=user.id, group_id=group_id
+    )
     record_audit(
         db,
         actor_id=user.id,

@@ -5,6 +5,7 @@ export interface SourceInput {
   name: string;
   description?: string | null;
   source_date: string;
+  group_id?: string | null;
 }
 
 export const sourcesApi = {

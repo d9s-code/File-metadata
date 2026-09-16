@@ -450,9 +450,16 @@ export function ModeForm({
         </div>
       )}
 
-      <button type="submit" disabled={!onStage && (initialData ? updateMode.isPending : createMode.isPending)}>
-        {onStage ? "Stage this Mode" : (initialData ? "Update Mode" : "Add Mode")}
-      </button>
+      <div className="form-row">
+        <button type="submit" disabled={!onStage && (initialData ? updateMode.isPending : createMode.isPending)}>
+          {onStage ? "Stage this Mode" : (initialData ? "Update Mode" : "Add Mode")}
+        </button>
+        {onClose && (
+          <button type="button" className="icon-button" onClick={() => onClose()}>
+            Cancel
+          </button>
+        )}
+      </div>
       {error && <div className="error-text">{error}</div>}
     </form>
   );

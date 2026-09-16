@@ -38,6 +38,9 @@ export const mdfsApi = {
     api.post<MdfLink>(`/mdfs/${mdfId}/links`, { platform_id: platformId, platform_version_id: platformVersionId }),
   unpinPlatform: (mdfId: string, platformId: string) => api.delete<void>(`/mdfs/${mdfId}/links/${platformId}`),
 
+  exportPrs: (mdfId: string, versionNumber: number) =>
+    api.get<Blob>(`/mdfs/${mdfId}/versions/${versionNumber}/export/prs`),
+
   getReadiness: (mdfId: string) => api.get<{ warnings: string[] }>(`/mdfs/${mdfId}/status/readiness`),
   transitionStatus: (mdfId: string, newStatus: string, note?: string) =>
     api.post<{ warnings: string[] }>(`/mdfs/${mdfId}/status`, { new_status: newStatus, note }),

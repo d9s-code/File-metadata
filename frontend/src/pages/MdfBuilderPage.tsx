@@ -7,6 +7,7 @@ import { MdfLinkTable } from "../components/mdf/MdfLinkTable";
 import { PlatformVersionPicker } from "../components/mdf/PlatformVersionPicker";
 import { MdfStatusTransitionControls } from "../components/mdf/MdfStatusTransitionControls";
 import { ExportXmlButton } from "../components/mdf/ExportXmlButton";
+import { ExportPrsButton } from "../components/versioning/ExportPrsButton";
 import { MdfTestHistory } from "../components/testing/MdfTestHistory";
 import { EntityAuditTrail } from "../components/audit/EntityAuditTrail";
 import { RequireRole } from "../auth/RequireAuth";
@@ -43,6 +44,7 @@ export function MdfBuilderPage() {
         <Link to={`/mdfs/${mdf.id}/versions`}>Version history</Link>
         <Link to={`/ambiguity/mdf/${mdf.id}`}>Ambiguity check</Link>
         {latestVersion && <ExportXmlButton mdfId={mdf.id} versionNumber={latestVersion.version_number} />}
+        {latestVersion && <ExportPrsButton kind="mdf" id={mdf.id} versionNumber={latestVersion.version_number} />}
       </div>
       {mdf.description && <p className="muted">{mdf.description}</p>}
 

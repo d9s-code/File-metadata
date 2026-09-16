@@ -7,7 +7,7 @@ export function PendingApprovalsCard({ items }: { items: PendingApprovalItem[] }
     <div className="card">
       <h4>Pending Approvals</h4>
       {items.length === 0 ? (
-        <EmptyState icon="✓" title="Nothing waiting" message="No Sources or Mode drafts are awaiting review." />
+        <EmptyState icon="✓" title="Nothing waiting" message="No Sources are awaiting review." />
       ) : (
         <ul className="attention-list">
           {items.map((item, i) => (

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.csrf import verify_csrf
 from app.core.enums import AuditAction, AuditEntityType, Role, SourceStatus
 from app.database import get_db
-from app.deps import require_role
+from app.deps import require_emitter_checkout, require_role
 from app.models.emitter import Emitter
 from app.models.ew_group import EwGroup
 from app.models.mode import ModeElement
@@ -56,7 +56,7 @@ def create_source(
     emitter_id: UUID,
     payload: SourceCreate,
     db: Session = Depends(get_db),
-    user=Depends(require_role(Role.editor)),
+    user=Depends(require_emitter_checkout()),
 ) -> Source:
     _get_emitter_or_404(db, emitter_id)
     if payload.group_id is not None and db.get(SourceGroup, payload.group_id) is None:
@@ -85,7 +85,7 @@ def update_source(
     source_id: UUID,
     payload: SourceUpdate,
     db: Session = Depends(get_db),
-    user=Depends(require_role(Role.editor)),
+    user=Depends(require_emitter_checkout()),
 ) -> Source:
     source = db.get(Source, source_id)
     if source is None or source.emitter_id != emitter_id:
@@ -114,7 +114,7 @@ def delete_source(
     emitter_id: UUID,
     source_id: UUID,
     db: Session = Depends(get_db),
-    user=Depends(require_role(Role.editor)),
+    user=Depends(require_emitter_checkout()),
 ) -> None:
     source = db.get(Source, source_id)
     if source is None or source.emitter_id != emitter_id:
@@ -219,7 +219,7 @@ def approve_source(
     emitter_id: UUID,
     source_id: UUID,
     db: Session = Depends(get_db),
-    user=Depends(require_role(Role.editor)),
+    user=Depends(require_emitter_checkout()),
 ) -> Source:
     source = _get_source_or_404(db, emitter_id, source_id)
     if source.status != SourceStatus.pending_review:
@@ -248,7 +248,7 @@ def reject_source(
     emitter_id: UUID,
     source_id: UUID,
     db: Session = Depends(get_db),
-    user=Depends(require_role(Role.editor)),
+    user=Depends(require_emitter_checkout()),
 ) -> Source:
     source = _get_source_or_404(db, emitter_id, source_id)
     if source.status != SourceStatus.pending_review:
@@ -296,7 +296,7 @@ def create_parameter_sequence(
     source_id: UUID,
     payload: ParameterSequenceCreate,
     db: Session = Depends(get_db),
-    user=Depends(require_role(Role.editor)),
+    user=Depends(require_emitter_checkout()),
 ) -> ParameterSequence:
     source = _get_source_or_404(db, emitter_id, source_id)
     sequence = ParameterSequence(source_id=source_id, **payload.model_dump())
@@ -327,7 +327,7 @@ def delete_parameter_sequence(
     source_id: UUID,
     sequence_id: UUID,
     db: Session = Depends(get_db),
-    user=Depends(require_role(Role.editor)),
+    user=Depends(require_emitter_checkout()),
 ) -> None:
     source = _get_source_or_404(db, emitter_id, source_id)
     sequence = db.query(ParameterSequence).filter(
@@ -361,7 +361,7 @@ def delete_parameter_sequence_step(
     sequence_id: UUID,
     step_order: int,
     db: Session = Depends(get_db),
-    user=Depends(require_role(Role.editor)),
+    user=Depends(require_emitter_checkout()),
 ) -> None:
     source = _get_source_or_404(db, emitter_id, source_id)
     sequence = db.query(ParameterSequence).filter(
@@ -414,7 +414,7 @@ def create_element(
     source_id: UUID,
     payload: ModeElementCreate,
     db: Session = Depends(get_db),
-    user=Depends(require_role(Role.editor)),
+    user=Depends(require_emitter_checkout()),
 ) -> ModeElement:
     source = _get_source_or_404(db, emitter_id, source_id)
     element = ModeElement(source_id=source_id, **payload.model_dump())
@@ -445,7 +445,7 @@ def delete_element(
     source_id: UUID,
     element_id: UUID,
     db: Session = Depends(get_db),
-    user=Depends(require_role(Role.editor)),
+    user=Depends(require_emitter_checkout()),
 ) -> None:
     _get_source_or_404(db, emitter_id, source_id)
     element = db.get(ModeElement, element_id)
@@ -495,7 +495,7 @@ def cartesian_product(
     source_id: UUID,
     payload: CartesianProductRequest,
     db: Session = Depends(get_db),
-    user=Depends(require_role(Role.editor)),
+    user=Depends(require_emitter_checkout()),
 ) -> CartesianProductResult:
     source = _get_source_or_404(db, emitter_id, source_id)
     ew_group = db.get(EwGroup, payload.ew_group_id)

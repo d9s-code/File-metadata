@@ -9,6 +9,7 @@ import { EwGroupsTable } from "../components/ewGroups/EwGroupsTable";
 import { SourcesTable } from "../components/sources/SourcesTable";
 import { ModesSection } from "../components/modes/ModesSection";
 import { StatusTransitionControls } from "../components/versioning/StatusTransitionControls";
+import { CheckoutBanner } from "../components/versioning/CheckoutBanner";
 import { EmitterTestHistory } from "../components/testing/EmitterTestHistory";
 import { EntityAuditTrail } from "../components/audit/EntityAuditTrail";
 import { LoadingState } from "../components/common/LoadingState";
@@ -51,6 +52,7 @@ export function EmitterEditorPage() {
   // the moment they finish adding the first EW Group/Source.
   const [showReworkNote, setShowReworkNote] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
   const autoOpenDecided = useRef(false);
   useEffect(() => {
     if (!ewGroupsLoading && !sourcesLoading && !autoOpenDecided.current) {
@@ -156,18 +158,33 @@ export function EmitterEditorPage() {
         </>
       )}
       {emitter.description && <p className="muted">{emitter.description}</p>}
+
+      <CheckoutBanner emitter={emitter} />
+
+      {emitter.forked_from_emitter_id && (
+        <p className="hint-text">
+          Forked from <Link to={`/emitters/${emitter.forked_from_emitter_id}`}>an earlier Emitter</Link>.
+        </p>
+      )}
+
       {!isEditing && (
-        <div className="card" style={{ marginTop: "0.5rem" }}>
-          <h5 style={{ marginTop: 0 }}>Analyst notes</h5>
-          <NotesFeed
-            notes={emitterNotes}
-            isLoading={notesLoading}
-            placeholder="Your own running notes/observations about this Emitter — separate from the description."
-            onAdd={(body) => createEmitterNote(body)}
-            isAdding={isAddingNote}
-            onDelete={(noteId) => deleteEmitterNote(noteId)}
-          />
-        </div>
+        <details
+          className="setup-collapse"
+          open={notesOpen}
+          onToggle={(e) => setNotesOpen(e.currentTarget.open)}
+        >
+          <summary>Analyst notes{emitterNotes && emitterNotes.length > 0 ? ` (${emitterNotes.length})` : ""}</summary>
+          <div className="card">
+            <NotesFeed
+              notes={emitterNotes}
+              isLoading={notesLoading}
+              placeholder="Your own running notes/observations about this Emitter — separate from the description."
+              onAdd={(body) => createEmitterNote(body)}
+              isAdding={isAddingNote}
+              onDelete={(noteId) => deleteEmitterNote(noteId)}
+            />
+          </div>
+        </details>
       )}
 
       {showReworkNote && (
@@ -177,7 +194,7 @@ export function EmitterEditorPage() {
       )}
 
       {(emitter.summary.mode_count > 0 || emitter.summary.scan_min != null) && (
-        <div className="emitter-summary-row" title="RF/PW/PRI computed across this Emitter's approved Modes only; Scan across its EW Groups">
+        <div className="emitter-summary-row" title="RF/PW/PRI computed across this Emitter's Modes; Scan across its EW Groups">
           {emitter.summary.rf_min_mhz != null && (
             <span>
               RF <strong>{emitter.summary.rf_min_mhz}–{emitter.summary.rf_max_mhz}</strong> MHz
