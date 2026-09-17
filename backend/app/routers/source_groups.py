@@ -9,7 +9,7 @@ from app.database import get_db
 from app.deps import require_role
 from app.models.source_group import SourceGroup
 from app.schemas.source_group import SourceGroupCreate, SourceGroupOut, SourceGroupUpdate
-from app.services.audit_service import apply_and_diff, record_audit
+from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.source_group_service import compute_source_group_stats
 
 router = APIRouter(prefix="/source-groups", tags=["source_groups"])
@@ -112,6 +112,7 @@ def delete_source_group(
         entity_type=AuditEntityType.source_group.value,
         entity_id=db_group.id,
         summary=f"Deleted Source Group '{db_group.name}'",
+        changes=snapshot(db_group, ["name", "description"]),
     )
     db.delete(db_group)
     db.commit()

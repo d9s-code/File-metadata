@@ -1,5 +1,6 @@
 from app.services.ambiguity_service import (
     FlatModeLine,
+    carry_forward_reviews,
     compute_pairwise_findings,
     compute_pri_overlap,
     compute_severity,
@@ -7,6 +8,31 @@ from app.services.ambiguity_service import (
     flatten_mdf_snapshot,
     flatten_platform_snapshot,
 )
+
+
+def _reviewed(mode_a="a", mode_b="b", rf=50.0, pw=60.0, pri=70.0, severity="medium", by="user-1", note="ok"):
+    return {
+        "mode_id_a": mode_a,
+        "mode_id_b": mode_b,
+        "rf_overlap_pct": rf,
+        "pw_overlap_pct": pw,
+        "pri_overlap_pct": pri,
+        "combined_severity": severity,
+        "reviewed_by": by,
+        "reviewed_at": "2026-01-01T00:00:00Z",
+        "reviewer_note": note,
+    }
+
+
+def _unreviewed(mode_a="a", mode_b="b", rf=50.0, pw=60.0, pri=70.0, severity="medium"):
+    return {
+        "mode_id_a": mode_a,
+        "mode_id_b": mode_b,
+        "rf_overlap_pct": rf,
+        "pw_overlap_pct": pw,
+        "pri_overlap_pct": pri,
+        "combined_severity": severity,
+    }
 
 
 def _line(rf=(2900, 3100), pw=(0.5, 1.2), pri_min=None, pri_max=None, stagger=None):
@@ -156,3 +182,39 @@ def test_flatten_platform_and_mdf_snapshots_carry_context_through():
     assert from_mdf[0].platform_id == "p1"
     assert from_mdf[0].emitter_id == "e1"
     assert from_mdf[0].mode_id == "m1"
+
+
+def test_carry_forward_reviews_matches_unordered_pair_and_unchanged_numbers():
+    new = [_unreviewed(mode_a="b", mode_b="a")]  # order flipped vs. the prior finding
+    prior = [_reviewed()]
+    carry_forward_reviews(new, prior)
+    assert new[0]["reviewed_by"] == "user-1"
+    assert new[0]["reviewed_at"] == "2026-01-01T00:00:00Z"
+    assert new[0]["reviewer_note"] == "ok"
+
+
+def test_carry_forward_reviews_skips_when_severity_changed():
+    new = [_unreviewed(severity="high")]
+    prior = [_reviewed(severity="medium")]
+    carry_forward_reviews(new, prior)
+    assert "reviewed_by" not in new[0]
+
+
+def test_carry_forward_reviews_skips_when_overlap_pct_changed():
+    new = [_unreviewed(rf=55.0)]
+    prior = [_reviewed(rf=50.0)]
+    carry_forward_reviews(new, prior)
+    assert "reviewed_by" not in new[0]
+
+
+def test_carry_forward_reviews_skips_unmatched_pair():
+    new = [_unreviewed(mode_a="c", mode_b="d")]
+    prior = [_reviewed(mode_a="a", mode_b="b")]
+    carry_forward_reviews(new, prior)
+    assert "reviewed_by" not in new[0]
+
+
+def test_carry_forward_reviews_handles_empty_prior_list():
+    new = [_unreviewed()]
+    carry_forward_reviews(new, [])
+    assert "reviewed_by" not in new[0]

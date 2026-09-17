@@ -161,6 +161,26 @@ def test_list_emitter_modes_spans_all_ew_groups(editor_client, emitter_ctx):
     assert ew_group_ids == {emitter_ctx["ew_group"]["id"], other_group["id"]}
 
 
+def test_deleting_a_mode_writes_a_snapshot_of_what_was_deleted(editor_client, emitter_ctx):
+    mode = editor_client.post(
+        f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes",
+        json={"source_id": emitter_ctx["source"]["id"], "name": "Doomed Mode", "pri_type": "fixed", "line": FIXED_LINE},
+    ).json()
+
+    resp = editor_client.delete(f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes/{mode['id']}")
+    assert resp.status_code == 204, resp.text
+
+    log = editor_client.get(
+        "/audit-log", params={"entity_type": "mode", "entity_id": mode["id"], "action": "delete"}
+    ).json()
+    assert log["total"] == 1, log
+    entry = log["items"][0]
+    assert entry["changes"]["name"] == "Doomed Mode"
+    assert entry["changes"]["pri_type"] == "fixed"
+    assert entry["changes"]["line"]["rf_min_mhz"] == 2900
+    assert entry["changes"]["line"]["pri_min_us"] == 800
+
+
 def test_source_with_modes_cannot_be_deleted(editor_client, emitter_ctx):
     editor_client.post(
         f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes",

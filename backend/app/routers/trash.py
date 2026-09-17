@@ -8,7 +8,7 @@ from app.core.enums import AuditAction, AuditEntityType, Role
 from app.database import get_db
 from app.deps import require_role
 from app.schemas.trash import DeletedItemOut
-from app.services.audit_service import record_audit
+from app.services.audit_service import record_audit, snapshot
 from app.services.trash_service import get_deleted_entity, list_deleted
 from app.models.platform import PlatformEmitterLink
 from app.models.platform import Platform as PlatformModel
@@ -16,6 +16,11 @@ from app.models.platform import Platform as PlatformModel
 router = APIRouter(prefix="/trash", tags=["trash"], dependencies=[Depends(require_role(Role.admin))])
 
 _ENTITY_TYPE_LABELS = {"emitter": "Emitter", "platform": "Platform", "mdf": "MDF"}
+_ENTITY_SNAPSHOT_FIELDS = {
+    "emitter": ["name", "designation", "description", "status"],
+    "platform": ["name", "description"],
+    "mdf": ["name", "description", "status"],
+}
 
 
 @router.get("", response_model=list[DeletedItemOut])
@@ -53,6 +58,7 @@ def purge_forever(
         entity_type=getattr(AuditEntityType, entity_type).value,
         entity_id=entity.id,
         summary=f"Permanently deleted {label} '{entity.name}' from trash",
+        changes=snapshot(entity, _ENTITY_SNAPSHOT_FIELDS[entity_type]),
     )
     db.delete(entity)
     db.commit()

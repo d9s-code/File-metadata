@@ -232,8 +232,17 @@ export function ElementsPanel({
     if (el.delta != null) meta.push(`±${el.delta} delta`);
     return (
       <span
-        className="inline-block px-1.5 py-0.5 rounded border text-[10px] font-bold uppercase mr-1 mb-1"
-        style={{ backgroundColor: style.bg, color: style.fg, borderColor: style.border }}
+        style={{
+          display: "inline-block",
+          padding: "1px 6px",
+          borderRadius: "4px",
+          border: `1px solid ${style.border}`,
+          fontSize: "10px",
+          fontWeight: 700,
+          textTransform: "uppercase",
+          backgroundColor: style.bg,
+          color: style.fg,
+        }}
         title={meta.length ? `${el.variant} (${meta.join(", ")})` : el.variant}
       >
         {style.label}
@@ -312,19 +321,24 @@ export function ElementsPanel({
                             <tbody className="divide-y divide-gray-200">
                               {groups.map((g) => (
                                 <tr key={g.representativeId} className="hover:bg-gray-50 transition-colors">
-                                  <td className="px-2 py-0 align-middle">
-                                    {g.members.map((el) => (
-                                      <span key={el.id}>{renderVariantBadge(el)}</span>
-                                    ))}
+                                  <td className="px-2 py-1 align-middle">
+                                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "4px" }}>
+                                      {g.members.map((el) => (
+                                        <span key={el.id}>{renderVariantBadge(el)}</span>
+                                      ))}
+                                    </div>
                                   </td>
-                                  <td className="px-2 py-0 align-middle">
+                                  <td className="px-2 py-1 align-middle">
                                     {g.members.some((el) => el.label) ? (
-                                      <span className="font-bold">
+                                      <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                                         {g.members
-                                          .map((el) => el.label)
-                                          .filter(Boolean)
-                                          .join(" · ")}
-                                      </span>
+                                          .filter((el) => el.label)
+                                          .map((el) => (
+                                            <span key={el.id} style={{ fontWeight: 700 }}>
+                                              {el.label}
+                                            </span>
+                                          ))}
+                                      </div>
                                     ) : (
                                       <span className="text-gray-400 italic">unnamed</span>
                                     )}

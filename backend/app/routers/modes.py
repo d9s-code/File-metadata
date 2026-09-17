@@ -22,7 +22,7 @@ from app.schemas.mode import (
     require_manual_deltas,
     validate_pri_type_fields,
 )
-from app.services.audit_service import apply_and_diff, record_audit
+from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.dsl_mode_service import create_mode_from_dsl
 from app.services.mode_test_status_service import attach_mode_extras
 
@@ -257,6 +257,20 @@ def delete_mode(
     mode = db.get(Mode, mode_id)
     if mode is None or mode.ew_group_id != ew_group_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Mode not found")
+    mode_snapshot = snapshot(
+        mode, ["name", "pri_type", "notes", "sort_order", "source_id", "function_group_id"]
+    )
+    if mode.line is not None:
+        mode_snapshot["line"] = snapshot(
+            mode.line,
+            [
+                "rf_min_mhz", "rf_max_mhz", "pw_min_us", "pw_max_us",
+                "rf_range_matching", "pw_range_matching", "pri_range_matching",
+                "rf_delta", "pw_delta", "pri_delta",
+                "pri_min_us", "pri_max_us", "jitter_min_us", "jitter_max_us",
+                "pri_stagger_values_us", "frame_time_delta_us", "type_data",
+            ],
+        )
     record_audit(
         db,
         actor_id=user.id,
@@ -264,6 +278,7 @@ def delete_mode(
         entity_type=AuditEntityType.mode.value,
         entity_id=mode.id,
         summary=f"Deleted Mode '{mode.name}'",
+        changes=mode_snapshot,
         emitter_id=mode.source.emitter_id,
     )
     db.delete(mode)

@@ -211,3 +211,31 @@ def compute_pairwise_findings(mode_lines: list[FlatModeLine], tolerance: dict | 
             }
         )
     return findings
+
+
+def carry_forward_reviews(new_findings: list[dict[str, Any]], prior_reviewed: list[dict[str, Any]]) -> None:
+    """Mutates `new_findings` in place. `prior_reviewed` is the previous run's
+    reviewed findings for the same scope, shaped like a subset of a finding
+    dict (mode_id_a/b, the three overlap percentages, combined_severity,
+    reviewed_by/reviewed_at/reviewer_note).
+
+    A new finding inherits the prior review only when its mode-id pair
+    (order-independent — a mode_a/mode_b re-run can flip) AND every overlap
+    number AND severity are unchanged from the prior run. If any of those
+    differ, the underlying Mode data changed and the finding legitimately
+    needs a fresh look — carrying the old review forward would hide that.
+    """
+    by_pair = {frozenset((p["mode_id_a"], p["mode_id_b"])): p for p in prior_reviewed}
+    for f in new_findings:
+        prior = by_pair.get(frozenset((f["mode_id_a"], f["mode_id_b"])))
+        if prior is None:
+            continue
+        if (
+            prior["combined_severity"] == f["combined_severity"]
+            and prior["rf_overlap_pct"] == f["rf_overlap_pct"]
+            and prior["pw_overlap_pct"] == f["pw_overlap_pct"]
+            and prior["pri_overlap_pct"] == f["pri_overlap_pct"]
+        ):
+            f["reviewed_by"] = prior["reviewed_by"]
+            f["reviewed_at"] = prior["reviewed_at"]
+            f["reviewer_note"] = prior["reviewer_note"]

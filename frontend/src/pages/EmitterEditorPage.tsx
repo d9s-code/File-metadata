@@ -111,30 +111,61 @@ export function EmitterEditorPage() {
 
   return (
     <div className="page">
-      {isEditing ? (
-        <div className="edit-header">
+      <h1>
+        {emitter.name} {emitter.designation && <span className="muted">({emitter.designation})</span>}
+      </h1>
+      <div className="status-row">
+        <span className={`status-badge status-${emitter.status}`}>{emitterStatusLabel(emitter.status)}</span>
+        {emitter.status === "deprecated" && emitter.rework_note && (
+          <button className="rework-note-button" onClick={() => setShowReworkNote(true)}>
+            ⚠ View rework note
+          </button>
+        )}
+        <StatusTransitionControls emitterId={emitter.id} status={emitter.status} />
+        <Link to={`/emitters/${emitter.id}/versions`}>Version history</Link>
+        <Link to={`/ambiguity/emitter/${emitter.id}`}>Ambiguity check</Link>
+        <button className="button secondary small" onClick={handleStartEdit}>
+          Edit Name/Designation/Description
+        </button>
+        <button className="button secondary small" onClick={handleExportXml}>
+          Export XML
+        </button>
+      </div>
+      {emitter.description && <p className="muted">{emitter.description}</p>}
+
+      {isEditing && (
+        <Modal title="Edit Name/Designation/Description" onClose={handleCancelEdit} wide>
           <div className="edit-fields">
-            <input
-              type="text"
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              placeholder="Emitter Name"
-              className="edit-input"
-            />
-            <input
-              type="text"
-              value={editDesignation}
-              onChange={(e) => setEditDesignation(e.target.value)}
-              placeholder="Designation"
-              className="edit-input"
-            />
-            <textarea
-              value={editDescription}
-              onChange={(e) => setEditDescription(e.target.value)}
-              placeholder="Description"
-              className="edit-input"
-              rows={3}
-            />
+            <label>
+              Name
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Emitter Name"
+                className="edit-input"
+              />
+            </label>
+            <label>
+              Designation
+              <input
+                type="text"
+                value={editDesignation}
+                onChange={(e) => setEditDesignation(e.target.value)}
+                placeholder="Designation"
+                className="edit-input"
+              />
+            </label>
+            <label>
+              Description
+              <textarea
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                placeholder="Description"
+                className="edit-input"
+                rows={12}
+              />
+            </label>
           </div>
           <div className="edit-actions">
             <button className="button primary" onClick={handleSaveEdit} disabled={isUpdating}>
@@ -144,32 +175,8 @@ export function EmitterEditorPage() {
               Cancel
             </button>
           </div>
-        </div>
-      ) : (
-        <>
-          <h1>
-            {emitter.name} {emitter.designation && <span className="muted">({emitter.designation})</span>}
-          </h1>
-          <div className="status-row">
-            <span className={`status-badge status-${emitter.status}`}>{emitterStatusLabel(emitter.status)}</span>
-            {emitter.status === "deprecated" && emitter.rework_note && (
-              <button className="rework-note-button" onClick={() => setShowReworkNote(true)}>
-                ⚠ View rework note
-              </button>
-            )}
-            <StatusTransitionControls emitterId={emitter.id} status={emitter.status} />
-            <Link to={`/emitters/${emitter.id}/versions`}>Version history</Link>
-            <Link to={`/ambiguity/emitter/${emitter.id}`}>Ambiguity check</Link>
-            <button className="button secondary small" onClick={handleStartEdit}>
-              Edit Name/Designation
-            </button>
-            <button className="button secondary small" onClick={handleExportXml}>
-              Export XML
-            </button>
-          </div>
-        </>
+        </Modal>
       )}
-      {emitter.description && <p className="muted">{emitter.description}</p>}
 
       <CheckoutBanner emitter={emitter} />
 

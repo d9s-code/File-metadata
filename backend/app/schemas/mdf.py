@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -9,11 +9,17 @@ from app.core.enums import MdfStatus
 class MdfCreate(BaseModel):
     name: str
     description: str | None = None
+    notes: str | None = None
+    release_date: date | None = None
+    customer_id: UUID | None = None
 
 
 class MdfUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
+    notes: str | None = None
+    release_date: date | None = None
+    customer_id: UUID | None = None
 
 
 class MdfOut(BaseModel):
@@ -22,11 +28,15 @@ class MdfOut(BaseModel):
     id: UUID
     name: str
     description: str | None = None
+    notes: str | None = None
+    release_date: date | None = None
+    customer_id: UUID | None = None
     status: MdfStatus
     is_deleted: bool
     deleted_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
+    platforms_count: int = 0
 
 
 class MdfLinkCreate(BaseModel):

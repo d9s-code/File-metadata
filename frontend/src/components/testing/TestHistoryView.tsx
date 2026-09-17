@@ -508,16 +508,20 @@ export function TestHistoryView({
                 </select>
               </label>
               <label className="inline-date-label">
-                {testType === "intercept" ? "Intercept date" : "Test date"}
+                Test date
                 <input type="date" value={testDate} onChange={(e) => setTestDate(e.target.value)} required />
               </label>
               <label className="inline-date-label">
-                Simulation created (optional)
+                {testType === "intercept" ? "Intercept date (optional)" : "Simulation created (optional)"}
                 <input
                   type="date"
                   value={simulationCreatedDate}
                   onChange={(e) => setSimulationCreatedDate(e.target.value)}
-                  title="When the lab simulation/setup itself was built, as distinct from the test date — optional, for traceability"
+                  title={
+                    testType === "intercept"
+                      ? "When the intercept itself occurred, as distinct from the test date — optional, for traceability"
+                      : "When the lab simulation/setup itself was built, as distinct from the test date — optional, for traceability"
+                  }
                 />
               </label>
               {!hasModes && (

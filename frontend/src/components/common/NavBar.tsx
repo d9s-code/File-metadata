@@ -38,6 +38,12 @@ export function NavBar() {
             Source Groups
           </NavLink>
           <NavLink
+            to="/customers"
+            className={({ isActive }) => (isActive ? "navbar-link-active" : undefined)}
+          >
+            Customers
+          </NavLink>
+          <NavLink
             to="/audit-log"
             className={({ isActive }) => (isActive ? "navbar-link-active" : undefined)}
           >

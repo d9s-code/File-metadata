@@ -566,6 +566,35 @@ def test_update_parameter_sequence_delta(editor_client, emitter_ctx):
     assert resp.json()["rf_delta"] == 12.5
 
 
+def test_deleting_an_element_writes_a_snapshot_of_what_was_deleted(editor_client, emitter_ctx):
+    element = editor_client.post(
+        _elements_url(emitter_ctx),
+        json={
+            "element_type": "rf",
+            "variant": "extreme",
+            "value_min": 9000,
+            "value_max": 9500,
+            "delta": 10,
+            "label": "Extreme search band",
+        },
+    ).json()
+
+    resp = editor_client.delete(f"{_elements_url(emitter_ctx)}/{element['id']}")
+    assert resp.status_code == 204, resp.text
+
+    log = editor_client.get(
+        "/audit-log", params={"entity_type": "mode_element", "entity_id": element["id"], "action": "delete"}
+    ).json()
+    assert log["total"] == 1, log
+    entry = log["items"][0]
+    assert "Extreme search band" in entry["summary"]
+    assert entry["changes"]["value_min"] == 9000
+    assert entry["changes"]["value_max"] == 9500
+    assert entry["changes"]["variant"] == "extreme"
+    assert entry["changes"]["label"] == "Extreme search band"
+    assert entry["changes"]["delta"] == 10
+
+
 def test_dsl_parse_and_render_endpoints(viewer_client):
     resp = viewer_client.post("/dsl/parse", json={"text": "RF 2900-3100 PRI CW PW 0.5-1.2"})
     assert resp.status_code == 200

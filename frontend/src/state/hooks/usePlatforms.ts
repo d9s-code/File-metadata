@@ -23,6 +23,18 @@ export function useCreatePlatform() {
   });
 }
 
+export function useUpdatePlatform() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Partial<PlatformCreateInput> }) =>
+      platformsApi.update(id, input),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: platformsKey });
+      qc.invalidateQueries({ queryKey: [...platformsKey, variables.id] });
+    },
+  });
+}
+
 export function useDeletePlatform() {
   const qc = useQueryClient();
   return useMutation({

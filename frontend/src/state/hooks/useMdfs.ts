@@ -19,6 +19,17 @@ export function useCreateMdf() {
   });
 }
 
+export function useUpdateMdf() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Partial<MdfCreateInput> }) => mdfsApi.update(id, input),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: mdfsKey });
+      qc.invalidateQueries({ queryKey: [...mdfsKey, variables.id] });
+    },
+  });
+}
+
 export function useDeleteMdf() {
   const qc = useQueryClient();
   return useMutation({

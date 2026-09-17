@@ -6,6 +6,7 @@ from app.routers import (
     ambiguity,
     audit_log,
     auth,
+    customers,
     dashboard,
     dsl,
     emitters,
@@ -40,6 +41,7 @@ app.include_router(ew_groups.router)
 app.include_router(function_groups.router)
 app.include_router(sources.router)
 app.include_router(source_groups.router)
+app.include_router(customers.router)
 app.include_router(imports.router)
 app.include_router(modes.router)
 app.include_router(dsl.router)

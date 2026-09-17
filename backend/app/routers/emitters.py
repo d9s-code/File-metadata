@@ -26,7 +26,7 @@ from app.schemas.emitter_version import (
     StatusTransitionRequest,
 )
 from app.services import checkout_service
-from app.services.audit_service import apply_and_diff, record_audit
+from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.emitter_diff_service import compute_emitter_diff
 from app.services.emitter_revert_service import build_forked_emitter, reconcile_emitter_to_snapshot
 from app.services.emitter_summary_service import attach_emitter_summaries
@@ -147,6 +147,7 @@ def delete_emitter(
             entity_type=AuditEntityType.emitter.value,
             entity_id=emitter.id,
             summary=f"Hard-deleted Emitter '{emitter.name}'",
+            changes=snapshot(emitter, ["name", "designation", "description", "status"]),
             emitter_id=emitter.id,
         )
         db.delete(emitter)
@@ -160,6 +161,7 @@ def delete_emitter(
             entity_type=AuditEntityType.emitter.value,
             entity_id=emitter.id,
             summary=f"Deleted Emitter '{emitter.name}'",
+            changes=snapshot(emitter, ["name", "designation", "description", "status"]),
             emitter_id=emitter.id,
         )
     db.commit()
@@ -357,6 +359,7 @@ def delete_emitter_note(
         entity_type=AuditEntityType.emitter_note.value,
         entity_id=note.id,
         summary=f"Deleted a note from Emitter '{emitter.name}'",
+        changes=snapshot(note, ["body"]),
         emitter_id=emitter_id,
     )
     db.delete(note)
@@ -459,6 +462,20 @@ def delete_generation_batch(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Generation batch not found")
     mode_count = len(batch.modes)
     for mode in list(batch.modes):
+        mode_snapshot = snapshot(
+            mode, ["name", "pri_type", "notes", "sort_order", "source_id", "function_group_id"]
+        )
+        if mode.line is not None:
+            mode_snapshot["line"] = snapshot(
+                mode.line,
+                [
+                    "rf_min_mhz", "rf_max_mhz", "pw_min_us", "pw_max_us",
+                    "rf_range_matching", "pw_range_matching", "pri_range_matching",
+                    "rf_delta", "pw_delta", "pri_delta",
+                    "pri_min_us", "pri_max_us", "jitter_min_us", "jitter_max_us",
+                    "pri_stagger_values_us", "frame_time_delta_us", "type_data",
+                ],
+            )
         record_audit(
             db,
             actor_id=user.id,
@@ -466,6 +483,7 @@ def delete_generation_batch(
             entity_type=AuditEntityType.mode.value,
             entity_id=mode.id,
             summary=f"Deleted Mode '{mode.name}' (cascaded from deleting generation batch '{batch.name_prefix}')",
+            changes=mode_snapshot,
             emitter_id=emitter_id,
         )
         db.delete(mode)
@@ -477,6 +495,7 @@ def delete_generation_batch(
         entity_type=AuditEntityType.mode_generation_batch.value,
         entity_id=batch.id,
         summary=f"Deleted generation batch '{batch.name_prefix}' ({mode_count} Mode(s))",
+        changes=snapshot(batch, ["name_prefix", "ew_group_id", "source_id"]),
         emitter_id=emitter_id,
     )
     db.commit()

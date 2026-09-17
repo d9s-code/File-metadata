@@ -3,6 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -10,12 +11,13 @@ from app.core.csrf import verify_csrf
 from app.core.enums import MDF_STATUS_TRANSITIONS, AuditAction, AuditEntityType, MdfStatus, Role
 from app.database import get_db
 from app.deps import require_role
+from app.models.customer import Customer
 from app.models.mdf import Mdf, MdfPlatformLink, MdfVersion
 from app.models.platform import PlatformVersion
 from app.schemas.emitter_version import CommitVersionRequest, DiffOut, StatusTransitionRequest
 from app.schemas.mdf import MdfCreate, MdfLinkCreate, MdfLinkOut, MdfOut, MdfReadinessOut, MdfUpdate
 from app.schemas.mdf_version import MdfStatusTransitionOut, MdfVersionDetailOut, MdfVersionOut
-from app.services.audit_service import apply_and_diff, record_audit
+from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.prs_export.packager import build_mdf_export_zip
 from app.services.readiness_service import compute_mdf_readiness_warnings
 from app.services.snapshots import build_mdf_snapshot
@@ -35,19 +37,40 @@ def _get_mdf_or_404(db: Session, mdf_id: UUID) -> Mdf:
     return mdf
 
 
+def _attach_platforms_count(db: Session, mdf: Mdf) -> Mdf:
+    mdf.platforms_count = db.query(func.count(MdfPlatformLink.id)).filter(MdfPlatformLink.mdf_id == mdf.id).scalar() or 0
+    return mdf
+
+
+def _check_customer(db: Session, customer_id: UUID | None) -> None:
+    if customer_id is None:
+        return
+    if db.get(Customer, customer_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Customer not found")
+
+
 @router.get("", response_model=list[MdfOut])
 def list_mdfs(
     include_deleted: bool = False, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
 ) -> list[Mdf]:
-    q = db.query(Mdf)
+    query = (
+        db.query(Mdf, func.count(MdfPlatformLink.id).label("platforms_count"))
+        .outerjoin(MdfPlatformLink, MdfPlatformLink.mdf_id == Mdf.id)
+        .group_by(Mdf.id)
+        .order_by(Mdf.name)
+    )
     if not include_deleted:
-        q = q.filter(Mdf.is_deleted.is_(False))
-    return q.order_by(Mdf.name).all()
+        query = query.filter(Mdf.is_deleted.is_(False))
+    results = []
+    for mdf, platforms_count in query.all():
+        mdf.platforms_count = platforms_count
+        results.append(mdf)
+    return results
 
 
 @router.get("/{mdf_id}", response_model=MdfOut)
 def get_mdf(mdf_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))) -> Mdf:
-    return _get_mdf_or_404(db, mdf_id)
+    return _attach_platforms_count(db, _get_mdf_or_404(db, mdf_id))
 
 
 @router.post("", response_model=MdfOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(verify_csrf)])
@@ -56,7 +79,15 @@ def create_mdf(
 ) -> Mdf:
     if db.query(Mdf).filter(Mdf.name == payload.name).first() is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, "MDF name already exists")
-    mdf = Mdf(name=payload.name, description=payload.description, created_by=user.id)
+    _check_customer(db, payload.customer_id)
+    mdf = Mdf(
+        name=payload.name,
+        description=payload.description,
+        notes=payload.notes,
+        release_date=payload.release_date,
+        customer_id=payload.customer_id,
+        created_by=user.id,
+    )
     db.add(mdf)
     db.flush()
     record_audit(
@@ -70,7 +101,7 @@ def create_mdf(
     )
     db.commit()
     db.refresh(mdf)
-    return mdf
+    return _attach_platforms_count(db, mdf)
 
 
 @router.patch("/{mdf_id}", response_model=MdfOut, dependencies=[Depends(verify_csrf)])
@@ -78,7 +109,10 @@ def update_mdf(
     mdf_id: UUID, payload: MdfUpdate, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))
 ) -> Mdf:
     mdf = _get_mdf_or_404(db, mdf_id)
-    changes = apply_and_diff(mdf, payload.model_dump(exclude_unset=True))
+    data = payload.model_dump(exclude_unset=True)
+    if "customer_id" in data:
+        _check_customer(db, data["customer_id"])
+    changes = apply_and_diff(mdf, data)
     record_audit(
         db,
         actor_id=user.id,
@@ -90,7 +124,7 @@ def update_mdf(
     )
     db.commit()
     db.refresh(mdf)
-    return mdf
+    return _attach_platforms_count(db, mdf)
 
 
 @router.delete("/{mdf_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(verify_csrf)])
@@ -111,6 +145,7 @@ def delete_mdf(
             entity_type=AuditEntityType.mdf.value,
             entity_id=mdf.id,
             summary=f"Hard-deleted MDF '{mdf.name}'",
+            changes=snapshot(mdf, ["name", "description", "notes", "release_date", "customer_id", "status"]),
         )
         db.delete(mdf)
     else:
@@ -123,6 +158,7 @@ def delete_mdf(
             entity_type=AuditEntityType.mdf.value,
             entity_id=mdf.id,
             summary=f"Deleted MDF '{mdf.name}'",
+            changes=snapshot(mdf, ["name", "description", "notes", "release_date", "customer_id", "status"]),
         )
     db.commit()
 
@@ -153,7 +189,7 @@ def restore_mdf(
             f"An active MDF named '{mdf.name}' already exists — rename it before restoring this one.",
         ) from exc
     db.refresh(mdf)
-    return mdf
+    return _attach_platforms_count(db, mdf)
 
 
 @router.get("/{mdf_id}/links", response_model=list[MdfLinkOut])
@@ -225,7 +261,8 @@ def unpin_platform(
         action=AuditAction.update,
         entity_type=AuditEntityType.mdf_link.value,
         entity_id=mdf.id,
-        summary=f"Unpinned a Platform from MDF '{mdf.name}'",
+        summary=f"Unpinned Platform '{link.platform.name}' from MDF '{mdf.name}'",
+        changes=snapshot(link, ["platform_id", "platform_version_id"]),
     )
     db.delete(link)
     db.commit()

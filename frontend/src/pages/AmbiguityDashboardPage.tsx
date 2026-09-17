@@ -1,12 +1,28 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import type { AmbiguityFinding, AmbiguityScopeType, ToleranceConfig } from "../api/ambiguity";
-import { useAmbiguityFindings, useAmbiguityRun, useCreateAmbiguityRun } from "../state/hooks/useAmbiguity";
+import type { AmbiguityFinding, AmbiguityRun, AmbiguityScopeType, ToleranceConfig } from "../api/ambiguity";
+import {
+  useAmbiguityFindings,
+  useAmbiguityRun,
+  useAmbiguityRuns,
+  useCreateAmbiguityRun,
+} from "../state/hooks/useAmbiguity";
+import { useEmitterVersions } from "../state/hooks/useEmitterVersions";
+import { usePlatformVersions } from "../state/hooks/usePlatformVersions";
+import { useMdfVersions } from "../state/hooks/useMdfVersions";
+import { useAuth } from "../auth/AuthContext";
 import { ToleranceConfigForm } from "../components/ambiguity/ToleranceConfigForm";
 import { AmbiguityMatrix } from "../components/ambiguity/AmbiguityMatrix";
+import { AmbiguitySummary } from "../components/ambiguity/AmbiguitySummary";
 import { FindingsTable } from "../components/ambiguity/FindingsTable";
 import { RfPriScatterPlot } from "../components/ambiguity/RfPriScatterPlot";
 import { ApiRequestError } from "../api/client";
+
+const RUN_VERSION_FIELD: Record<AmbiguityScopeType, keyof AmbiguityRun> = {
+  emitter: "emitter_version_id",
+  platform: "platform_version_id",
+  mdf: "mdf_version_id",
+};
 
 function matchesScope(finding: AmbiguityFinding, ewGroupId: string, sourceId: string): boolean {
   const ewOk =
@@ -27,6 +43,32 @@ export function AmbiguityDashboardPage() {
   const createRun = useCreateAmbiguityRun();
   const { data: run } = useAmbiguityRun(runId);
   const { data: findings } = useAmbiguityFindings(run?.status === "complete" ? runId : null);
+  const { user } = useAuth();
+
+  // Persist across a page refresh instead of forcing a brand-new analysis
+  // every time: load the most recent complete run for this scope on mount,
+  // if one exists. Never overrides a run the user explicitly just triggered.
+  const { data: priorRuns } = useAmbiguityRuns(scopeType as AmbiguityScopeType, scopeId as string);
+  const autoSelectedRef = useRef(false);
+  useEffect(() => {
+    if (autoSelectedRef.current || runId !== null || !priorRuns) return;
+    autoSelectedRef.current = true;
+    const mostRecentComplete = priorRuns.find((r) => r.status === "complete");
+    if (mostRecentComplete) setRunId(mostRecentComplete.id);
+  }, [priorRuns, runId]);
+
+  // Is the loaded run still current, or has this scope changed since it ran?
+  const { data: emitterVersions } = useEmitterVersions(scopeType === "emitter" ? (scopeId as string) : "");
+  const { data: platformVersions } = usePlatformVersions(scopeType === "platform" ? (scopeId as string) : "");
+  const { data: mdfVersions } = useMdfVersions(scopeType === "mdf" ? (scopeId as string) : "");
+  const scopeVersions = emitterVersions ?? platformVersions ?? mdfVersions;
+  const latestVersion = useMemo(() => {
+    if (!scopeVersions || scopeVersions.length === 0) return null;
+    return scopeVersions.reduce((max, v) => (v.version_number > max.version_number ? v : max), scopeVersions[0]);
+  }, [scopeVersions]);
+  const runVersionId = run && scopeType ? (run[RUN_VERSION_FIELD[scopeType as AmbiguityScopeType]] as string | null) : null;
+  const runVersion = scopeVersions?.find((v) => v.id === runVersionId) ?? null;
+  const isStale = run?.status === "complete" && !!latestVersion && runVersionId !== latestVersion.id;
 
   const [ewGroupScope, setEwGroupScope] = useState("");
   const [sourceScope, setSourceScope] = useState("");
@@ -81,8 +123,27 @@ export function AmbiguityDashboardPage() {
       {run?.status === "pending" && <p className="hint-text">Running…</p>}
       {run?.status === "failed" && <div className="error-text">Run failed: {run.error_message}</div>}
 
+      {run?.status === "complete" && (
+        <div className={isStale ? "checkout-banner checkout-banner-stale" : "checkout-banner"}>
+          <span>
+            Last check run {new Date(run.created_at).toLocaleString()}
+            {runVersion ? ` against version v${runVersion.version_number}` : ""}
+            {run.created_by && run.created_by === user?.id ? " by you" : ""}.
+          </span>
+          {isStale && (
+            <span>
+              Stale — this {scopeType} has changed since this check
+              {latestVersion ? ` (now v${latestVersion.version_number})` : ""}. Run a new check for current
+              results.
+            </span>
+          )}
+        </div>
+      )}
+
       {run?.status === "complete" && findings && (
         <>
+          <AmbiguitySummary findings={findings} />
+
           <div className="card">
             <h4>Scope</h4>
             <p className="hint-text">

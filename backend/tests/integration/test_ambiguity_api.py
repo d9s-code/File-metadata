@@ -126,6 +126,78 @@ def test_editor_can_review_and_unreview_finding(editor_client, emitter_with_two_
     assert resp.json()["reviewed_at"] is None
 
 
+def test_reviewing_and_unreviewing_a_finding_writes_audit_entries(editor_client, emitter_with_two_overlapping_modes):
+    emitter_id = emitter_with_two_overlapping_modes["emitter"]["id"]
+    run = editor_client.post("/ambiguity/runs", json={"scope_type": "emitter", "scope_id": emitter_id}).json()
+    finding = editor_client.get(f"/ambiguity/runs/{run['id']}/findings").json()[0]
+
+    editor_client.post(f"/ambiguity/findings/{finding['id']}/review", json={"reviewer_note": "Acceptable"})
+    editor_client.post(f"/ambiguity/findings/{finding['id']}/unreview")
+
+    resp = editor_client.get(
+        "/audit-log", params={"entity_type": "ambiguity_finding", "entity_id": finding["id"]}
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["total"] == 2
+    actions = {e["action"] for e in body["items"]}
+    assert actions == {"update"}
+    summaries = " ".join(e["summary"] for e in body["items"])
+    assert "Reviewed" in summaries
+    assert "Un-reviewed" in summaries
+    reviewed_entry = next(e for e in body["items"] if e["summary"].startswith("Reviewed"))
+    assert reviewed_entry["changes"]["reviewer_note"]["new"] == "Acceptable"
+
+    # emitter_id is a server-side rollup key (not exposed on the entry itself)
+    # used to roll this finding's review up into the Emitter's own Audit tab.
+    rollup = editor_client.get("/audit-log", params={"emitter_id": emitter_id}).json()
+    rollup_summaries = " ".join(e["summary"] for e in rollup["items"])
+    assert "Reviewed an ambiguity finding" in rollup_summaries
+    assert "Un-reviewed an ambiguity finding" in rollup_summaries
+
+
+def test_new_run_carries_forward_review_when_finding_unchanged(editor_client, emitter_with_two_overlapping_modes):
+    emitter_id = emitter_with_two_overlapping_modes["emitter"]["id"]
+    run1 = editor_client.post("/ambiguity/runs", json={"scope_type": "emitter", "scope_id": emitter_id}).json()
+    finding1 = editor_client.get(f"/ambiguity/runs/{run1['id']}/findings").json()[0]
+    editor_client.post(f"/ambiguity/findings/{finding1['id']}/review", json={"reviewer_note": "Known duplicate"})
+
+    # Commit again with no relevant Mode change, then run again against the
+    # same (unchanged) Mode data.
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "no functional change"})
+    run2 = editor_client.post("/ambiguity/runs", json={"scope_type": "emitter", "scope_id": emitter_id}).json()
+
+    findings2 = editor_client.get(f"/ambiguity/runs/{run2['id']}/findings").json()
+    assert len(findings2) == 1
+    assert findings2[0]["id"] != finding1["id"]  # a genuinely new row
+    assert findings2[0]["reviewed_at"] is not None
+    assert findings2[0]["reviewer_note"] == "Known duplicate"
+
+
+def test_new_run_does_not_carry_forward_review_when_overlap_changed(editor_client, emitter_with_two_overlapping_modes):
+    emitter_id = emitter_with_two_overlapping_modes["emitter"]["id"]
+    run1 = editor_client.post("/ambiguity/runs", json={"scope_type": "emitter", "scope_id": emitter_id}).json()
+    finding1 = editor_client.get(f"/ambiguity/runs/{run1['id']}/findings").json()[0]
+    editor_client.post(f"/ambiguity/findings/{finding1['id']}/review", json={"reviewer_note": "Known duplicate"})
+
+    # Shift mode_b's RF range so it only partially overlaps mode_a's (a range
+    # fully *contained* within the other would still score 100% overlap under
+    # the "pct of the smaller range" metric — this must actually reduce it).
+    modes = {m["id"]: m for m in editor_client.get(f"/emitters/{emitter_id}/modes").json()}
+    mode_b = modes[finding1["mode_id_b"]]
+    resp = editor_client.patch(
+        f"/ew-groups/{mode_b['ew_group_id']}/modes/{mode_b['id']}",
+        json={"line": {**FIXED_LINE, "rf_min_mhz": 3050, "rf_max_mhz": 3250}},
+    )
+    assert resp.status_code == 200, resp.text
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "shifted RF range"})
+
+    run2 = editor_client.post("/ambiguity/runs", json={"scope_type": "emitter", "scope_id": emitter_id}).json()
+    findings2 = editor_client.get(f"/ambiguity/runs/{run2['id']}/findings").json()
+    assert len(findings2) == 1
+    assert findings2[0]["reviewed_at"] is None
+
+
 def test_platform_scope_run_finds_cross_emitter_ambiguity(editor_client, emitter_with_two_overlapping_modes):
     emitter1_id = emitter_with_two_overlapping_modes["emitter"]["id"]
     v1 = emitter_with_two_overlapping_modes["version"]

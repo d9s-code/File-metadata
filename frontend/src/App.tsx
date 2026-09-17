@@ -1,5 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MutationCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "./auth/AuthContext";
 import { RequireAuth, RequireAdmin } from "./auth/RequireAuth";
 import { ThemeProvider } from "./theme/ThemeContext";
@@ -16,6 +16,7 @@ import { MdfBuilderPage } from "./pages/MdfBuilderPage";
 import { MdfVersionHistoryPage } from "./pages/MdfVersionHistoryPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { SourceGroupsPage } from "./pages/SourceGroupsPage";
+import { CustomersPage } from "./pages/CustomersPage";
 import { AmbiguityDashboardPage } from "./pages/AmbiguityDashboardPage";
 import { AuditLogPage } from "./pages/AuditLogPage";
 import { HelpPage } from "./pages/HelpPage";
@@ -24,6 +25,18 @@ import { AdminTrashPage } from "./pages/AdminTrashPage";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
+  // Every mutation in the app is a candidate for a new audit-log entry, and
+  // the Audit tab stays mounted across tab switches (see EmitterEditorPage's
+  // `hidden`-attribute tabs) rather than remounting, so it won't naturally
+  // refetch on its own. A single global hook here keeps it current after any
+  // mutation, instead of every mutation hook remembering to invalidate it
+  // individually — easy to forget (and to silently drop, e.g. via a batch
+  // edit, since audit entries are the one thing every mutation writes).
+  mutationCache: new MutationCache({
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["auditLog"] });
+    },
+  }),
 });
 
 export default function App() {
@@ -112,6 +125,14 @@ export default function App() {
                 element={
                   <RequireAuth>
                     <SourceGroupsPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/customers"
+                element={
+                  <RequireAuth>
+                    <CustomersPage />
                   </RequireAuth>
                 }
               />

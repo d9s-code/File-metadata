@@ -12,7 +12,7 @@ from app.models.emitter import Emitter
 from app.models.function_group import FunctionGroup
 from app.models.mode import Mode
 from app.schemas.function_group import FunctionGroupCreate, FunctionGroupOut, FunctionGroupUpdate
-from app.services.audit_service import apply_and_diff, record_audit
+from app.services.audit_service import apply_and_diff, record_audit, snapshot
 
 router = APIRouter(prefix="/emitters/{emitter_id}/function-groups", tags=["function-groups"])
 
@@ -122,6 +122,7 @@ def delete_function_group(
         entity_type=AuditEntityType.function_group.value,
         entity_id=group.id,
         summary=f"Deleted Function Group '{group.name}'",
+        changes=snapshot(group, ["name", "sort_order"]),
         emitter_id=emitter_id,
     )
     db.delete(group)

@@ -8,10 +8,11 @@ import {
   useDiscardEmitterChanges,
   useEmitterCheckoutState,
 } from "../../state/hooks/useEmitterCheckout";
-import { useEmitterLiveDiff, useEmitterVersions } from "../../state/hooks/useEmitterVersions";
+import { useCommitEmitterVersion, useEmitterLiveDiff, useEmitterVersions } from "../../state/hooks/useEmitterVersions";
 import { useConfirmDialog } from "../common/ConfirmDialog";
 import { ApiRequestError } from "../../api/client";
 import { EmitterDiffViewer } from "./EmitterDiffViewer";
+import { Modal } from "../common/Modal";
 
 export function CheckoutBanner({ emitter }: { emitter: Emitter }) {
   const { user } = useAuth();
@@ -19,10 +20,13 @@ export function CheckoutBanner({ emitter }: { emitter: Emitter }) {
   const { data: versions } = useEmitterVersions(emitter.id);
   const checkout = useCheckoutEmitter(emitter.id);
   const checkin = useCheckinEmitter(emitter.id);
+  const commitVersion = useCommitEmitterVersion(emitter.id);
   const discard = useDiscardEmitterChanges(emitter.id);
   const { confirmDelete, dialog } = useConfirmDialog();
   const [error, setError] = useState<string | null>(null);
   const [showDiff, setShowDiff] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [changeSummary, setChangeSummary] = useState("");
 
   const isAdmin = user?.role === "admin";
   const hasCommittedVersion = (versions?.length ?? 0) > 0;
@@ -36,12 +40,34 @@ export function CheckoutBanner({ emitter }: { emitter: Emitter }) {
     }
   }
 
-  async function handleCheckin() {
+  function handleOpenSave() {
+    setError(null);
+    setChangeSummary("");
+    setShowSaveModal(true);
+  }
+
+  // "Save" commits a real, named version (so it shows up in Version History
+  // with a summary an editor can later revert to) and only then releases the
+  // checkout — a bare check-in used to release the lock with no durable
+  // record of what changed and no way to roll back to that point.
+  async function handleSaveAndCheckin() {
+    if (!changeSummary.trim()) return;
+    setError(null);
+    try {
+      await commitVersion.mutateAsync(changeSummary.trim());
+      await checkin.mutateAsync();
+      setShowSaveModal(false);
+    } catch (err) {
+      setError(err instanceof ApiRequestError ? err.message : "Failed to save");
+    }
+  }
+
+  async function handleForceRelease() {
     setError(null);
     try {
       await checkin.mutateAsync();
     } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : "Failed to save");
+      setError(err instanceof ApiRequestError ? err.message : "Failed to release checkout");
     }
   }
 
@@ -77,7 +103,7 @@ export function CheckoutBanner({ emitter }: { emitter: Emitter }) {
           >
             Discard changes
           </button>
-          <button className="link-button" disabled={checkin.isPending} onClick={() => void handleCheckin()}>
+          <button className="link-button" disabled={checkin.isPending || commitVersion.isPending} onClick={handleOpenSave}>
             Save
           </button>
         </>
@@ -88,13 +114,18 @@ export function CheckoutBanner({ emitter }: { emitter: Emitter }) {
             {checkedOutAt ? ` since ${new Date(checkedOutAt).toLocaleString()}` : ""}
           </span>
           {isAdmin && (
-            <button className="link-button" disabled={checkin.isPending} onClick={() => void handleCheckin()}>
+            <button
+              className="link-button"
+              disabled={checkin.isPending}
+              title="Releases the lock without committing a version — whatever the other editor had live stays live, uncommitted. Use this to unstick an abandoned checkout, not as a substitute for Save."
+              onClick={() => void handleForceRelease()}
+            >
               Force release
             </button>
           )}
         </>
       )}
-      {hasCommittedVersion && (
+      {isMine && hasCommittedVersion && (
         <button className="link-button" onClick={() => setShowDiff((v) => !v)}>
           {showDiff ? "Hide changes" : "View changes since last save"}
         </button>
@@ -102,7 +133,40 @@ export function CheckoutBanner({ emitter }: { emitter: Emitter }) {
       {error && <span className="error-text">{error}</span>}
       {dialog}
     </div>
-    {showDiff && <LiveDiffPanel emitterId={emitter.id} />}
+    {isMine && showDiff && <LiveDiffPanel emitterId={emitter.id} />}
+    {showSaveModal && (
+      <Modal title="Save — commit a version" onClose={() => setShowSaveModal(false)} wide>
+        <p className="hint-text">
+          Saving commits a new, permanent version of this Emitter — it shows up in Version History with your
+          summary below and can be reverted to later. This is what makes your changes recoverable.
+        </p>
+        <LiveDiffPanel emitterId={emitter.id} />
+        <label>
+          What changed? (required)
+          <textarea
+            className="edit-input"
+            rows={3}
+            value={changeSummary}
+            onChange={(e) => setChangeSummary(e.target.value)}
+            placeholder="e.g. Added Track Mode 2, widened RF range on Mode 1 per updated ELINT report"
+            autoFocus
+          />
+        </label>
+        <div className="edit-actions">
+          <button
+            className="button primary"
+            onClick={() => void handleSaveAndCheckin()}
+            disabled={commitVersion.isPending || checkin.isPending || !changeSummary.trim()}
+          >
+            {commitVersion.isPending || checkin.isPending ? "Saving…" : "Save"}
+          </button>
+          <button className="button" onClick={() => setShowSaveModal(false)} disabled={commitVersion.isPending || checkin.isPending}>
+            Cancel
+          </button>
+        </div>
+        {error && <div className="error-text">{error}</div>}
+      </Modal>
+    )}
     </div>
     </RequireRole>
   );

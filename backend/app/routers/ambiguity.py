@@ -5,7 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.csrf import verify_csrf
-from app.core.enums import AmbiguityRunStatus, AmbiguityScopeType, AmbiguitySeverity, Role
+from app.core.enums import AmbiguityRunStatus, AmbiguityScopeType, AmbiguitySeverity, AuditAction, AuditEntityType, Role
 from app.database import get_db
 from app.deps import has_role, require_role
 from app.models.ambiguity import AmbiguityFinding, AmbiguityRun
@@ -16,6 +16,7 @@ from app.models.platform import Platform, PlatformVersion
 from app.schemas.ambiguity import AmbiguityFindingOut, AmbiguityRunCreate, AmbiguityRunOut, FindingReviewRequest
 from app.services.ambiguity_run_service import execute_ambiguity_run
 from app.services.ambiguity_service import DEFAULT_TOLERANCE
+from app.services.audit_service import apply_and_diff, record_audit
 
 router = APIRouter(prefix="/ambiguity", tags=["ambiguity"])
 
@@ -112,6 +113,14 @@ def list_findings(
     return q.all()
 
 
+def _finding_emitter_id(finding: AmbiguityFinding) -> UUID | None:
+    # scope_id is polymorphic (emitter/platform/mdf) — only pass it on as the
+    # audit row's emitter_id (a real FK to emitters.id) when the run it
+    # belongs to is actually Emitter-scoped, so a Platform/MDF-scoped
+    # finding's review never gets misattributed to an unrelated Emitter.
+    return finding.run.scope_id if finding.run.scope_type == AmbiguityScopeType.emitter else None
+
+
 @router.post("/findings/{finding_id}/review", response_model=AmbiguityFindingOut, dependencies=[Depends(verify_csrf)])
 def review_finding(
     finding_id: UUID,
@@ -122,9 +131,20 @@ def review_finding(
     finding = db.get(AmbiguityFinding, finding_id)
     if finding is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Finding not found")
-    finding.reviewed_by = user.id
-    finding.reviewed_at = datetime.now(timezone.utc)
-    finding.reviewer_note = payload.reviewer_note
+    changes = apply_and_diff(
+        finding,
+        {"reviewed_by": user.id, "reviewed_at": datetime.now(timezone.utc), "reviewer_note": payload.reviewer_note},
+    )
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.update,
+        entity_type=AuditEntityType.ambiguity_finding.value,
+        entity_id=finding.id,
+        summary=f"Reviewed an ambiguity finding ({finding.combined_severity.value} severity)",
+        changes=changes,
+        emitter_id=_finding_emitter_id(finding),
+    )
     db.commit()
     db.refresh(finding)
     return finding
@@ -134,14 +154,22 @@ def review_finding(
     "/findings/{finding_id}/unreview", response_model=AmbiguityFindingOut, dependencies=[Depends(verify_csrf)]
 )
 def unreview_finding(
-    finding_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.editor))
+    finding_id: UUID, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))
 ) -> AmbiguityFinding:
     finding = db.get(AmbiguityFinding, finding_id)
     if finding is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Finding not found")
-    finding.reviewed_by = None
-    finding.reviewed_at = None
-    finding.reviewer_note = None
+    changes = apply_and_diff(finding, {"reviewed_by": None, "reviewed_at": None, "reviewer_note": None})
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.update,
+        entity_type=AuditEntityType.ambiguity_finding.value,
+        entity_id=finding.id,
+        summary=f"Un-reviewed an ambiguity finding ({finding.combined_severity.value} severity)",
+        changes=changes,
+        emitter_id=_finding_emitter_id(finding),
+    )
     db.commit()
     db.refresh(finding)
     return finding

@@ -5,11 +5,15 @@ export interface Mdf {
   id: string;
   name: string;
   description: string | null;
+  notes: string | null;
+  release_date: string | null;
+  customer_id: string | null;
   status: MdfStatus;
   is_deleted: boolean;
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
+  platforms_count: number;
 }
 
 export interface MdfLink {
@@ -23,6 +27,9 @@ export interface MdfLink {
 export interface MdfCreateInput {
   name: string;
   description?: string;
+  notes?: string;
+  release_date?: string | null;
+  customer_id?: string | null;
 }
 
 export const mdfsApi = {

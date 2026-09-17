@@ -21,6 +21,67 @@ def test_create_mdf(editor_client):
     assert resp.json()["status"] == "draft"
 
 
+def test_create_and_update_mdf_with_notes_release_date_and_customer(editor_client):
+    customer = editor_client.post("/customers", json={"name": "MDF Field Test Co"}).json()
+    resp = editor_client.post(
+        "/mdfs",
+        json={
+            "name": "MDF With Fields",
+            "description": "desc",
+            "notes": "internal notes",
+            "release_date": "2026-03-01",
+            "customer_id": customer["id"],
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    mdf = resp.json()
+    assert mdf["notes"] == "internal notes"
+    assert mdf["release_date"] == "2026-03-01"
+    assert mdf["customer_id"] == customer["id"]
+    assert mdf["platforms_count"] == 0
+
+    resp = editor_client.patch(
+        f"/mdfs/{mdf['id']}", json={"notes": "updated notes", "release_date": "2026-04-15"}
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["notes"] == "updated notes"
+    assert resp.json()["release_date"] == "2026-04-15"
+    assert resp.json()["customer_id"] == customer["id"]  # untouched field stays as-is
+
+
+def test_create_mdf_rejects_unknown_customer_id(editor_client):
+    import uuid
+
+    resp = editor_client.post("/mdfs", json={"name": "Bad Customer MDF", "customer_id": str(uuid.uuid4())})
+    assert resp.status_code == 404
+
+
+def test_update_mdf_rejects_unknown_customer_id(editor_client):
+    import uuid
+
+    mdf = editor_client.post("/mdfs", json={"name": "Update Bad Customer MDF"}).json()
+    resp = editor_client.patch(f"/mdfs/{mdf['id']}", json={"customer_id": str(uuid.uuid4())})
+    assert resp.status_code == 404
+
+
+def test_platforms_count_reflects_pinned_platforms(editor_client, platform_with_version):
+    mdf = editor_client.post("/mdfs", json={"name": "Count MDF"}).json()
+    assert mdf["platforms_count"] == 0
+
+    editor_client.post(
+        f"/mdfs/{mdf['id']}/links",
+        json={
+            "platform_id": platform_with_version["platform"]["id"],
+            "platform_version_id": platform_with_version["platform_version"]["id"],
+        },
+    )
+    resp = editor_client.get(f"/mdfs/{mdf['id']}")
+    assert resp.json()["platforms_count"] == 1
+
+    listed = next(m for m in editor_client.get("/mdfs").json() if m["id"] == mdf["id"])
+    assert listed["platforms_count"] == 1
+
+
 def test_pin_requires_committed_platform_version(editor_client):
     mdf = editor_client.post("/mdfs", json={"name": "No Commit MDF"}).json()
     platform = editor_client.post("/platforms", json={"name": "Uncommitted Platform"}).json()

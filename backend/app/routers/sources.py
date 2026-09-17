@@ -28,7 +28,7 @@ from app.schemas.parameter_sequence import (
 )
 from app.schemas.source import SourceCreate, SourceOut, SourceUpdate
 from app.schemas.source_note import SourceNoteCreate, SourceNoteOut
-from app.services.audit_service import apply_and_diff, record_audit
+from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.cartesian_service import CartesianProductError, run_cartesian_product
 from app.services.frametime_service import compute_frametime_us
 
@@ -129,6 +129,10 @@ def delete_source(
         entity_type=AuditEntityType.source.value,
         entity_id=source.id,
         summary=f"Deleted Source '{source.name}'",
+        changes=snapshot(
+            source,
+            ["name", "description", "rf_legacy_term", "pri_legacy_term", "source_type", "source_date", "group_id"],
+        ),
         emitter_id=emitter_id,
     )
     db.delete(source)
@@ -209,6 +213,7 @@ def delete_source_note(
         entity_type=AuditEntityType.source_note.value,
         entity_id=note.id,
         summary=f"Deleted a note from Source '{source.name}'",
+        changes=snapshot(note, ["body"]),
         emitter_id=emitter_id,
     )
     db.delete(note)
@@ -381,6 +386,7 @@ def delete_parameter_sequence(
         entity_type="parameter_sequence",
         entity_id=sequence.id,
         summary=f"Deleted sequence '{sequence.label}'",
+        changes=snapshot(sequence, ["label", "variant", "steps", "sort_order", "rf_delta", "pw_delta", "pri_delta"]),
         emitter_id=emitter_id,
     )
     db.delete(sequence)
@@ -409,9 +415,10 @@ def delete_parameter_sequence_step(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Sequence not found")
 
     # Filter out the step with the matching order
+    removed_step = next((s for s in sequence.steps if s.get("order") == step_order), None)
     new_steps = [s for s in sequence.steps if s.get("order") != step_order]
 
-    if len(new_steps) == len(sequence.steps):
+    if removed_step is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"Step with order {step_order} not found")
 
     sequence.steps = new_steps
@@ -422,6 +429,7 @@ def delete_parameter_sequence_step(
         entity_type="parameter_sequence_step",
         entity_id=sequence.id,
         summary=f"Deleted step {step_order} from sequence '{sequence.label}'",
+        changes=removed_step,
         emitter_id=emitter_id,
     )
     db.commit()
@@ -488,13 +496,32 @@ def delete_element(
     element = db.get(ModeElement, element_id)
     if element is None or element.source_id != source_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Element not found")
+    summary = f"Deleted a {element.element_type.value.upper()} element"
+    if element.label:
+        summary += f" ('{element.label}')"
     record_audit(
         db,
         actor_id=user.id,
         action=AuditAction.delete,
         entity_type=AuditEntityType.mode_element.value,
         entity_id=element.id,
-        summary=f"Deleted a {element.element_type.value.upper()} element",
+        summary=summary,
+        changes=snapshot(
+            element,
+            [
+                "element_type",
+                "variant",
+                "value_min",
+                "value_max",
+                "stagger_values",
+                "jitter_min",
+                "jitter_max",
+                "delta",
+                "label",
+                "details",
+                "sort_order",
+            ],
+        ),
         emitter_id=emitter_id,
     )
     db.delete(element)

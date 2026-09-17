@@ -44,6 +44,19 @@ def apply_and_diff(entity: Any, updates: dict[str, Any]) -> dict[str, dict[str, 
     return changes
 
 
+def snapshot(entity: Any, fields: list[str]) -> dict[str, Any]:
+    """A JSON-safe snapshot of `entity`'s current field values, for a delete
+    endpoint's `changes` — there's no "new" value to diff against on a
+    delete, only a record of what's being removed, so this renders the same
+    way a create's payload does (new-value-only, no "old" side; see
+    ChangesToggle/formatChanges on the frontend). Without this, a delete's
+    audit entry names only the entity's type/id, not what it actually
+    contained — the one thing you'd want to recover after deleting the
+    wrong thing.
+    """
+    return {field: _json_safe(getattr(entity, field)) for field in fields}
+
+
 def record_audit(
     db: Session,
     *,

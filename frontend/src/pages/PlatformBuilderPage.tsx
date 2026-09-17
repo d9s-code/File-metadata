@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { usePlatform, usePlatformLinks } from "../state/hooks/usePlatforms";
+import { usePlatform, usePlatformLinks, useUpdatePlatform } from "../state/hooks/usePlatforms";
 import { useCommitPlatformVersion } from "../state/hooks/usePlatformVersions";
 import { useEmitters } from "../state/hooks/useEmitters";
 import { platformsApi } from "../api/platforms";
@@ -9,6 +9,7 @@ import { PlatformEmitterVersionPicker } from "../components/platform/PlatformEmi
 import { EntityAuditTrail } from "../components/audit/EntityAuditTrail";
 import { RequireRole } from "../auth/RequireAuth";
 import { LoadingState } from "../components/common/LoadingState";
+import { Modal } from "../components/common/Modal";
 
 type Tab = "emitters" | "audit";
 
@@ -20,68 +21,120 @@ export function PlatformBuilderPage() {
   const { data: links } = usePlatformLinks(platformId ?? "");
   const { data: emitters } = useEmitters();
   const commitVersion = useCommitPlatformVersion(platformId ?? "");
+  const { mutate: updatePlatform, isPending: isUpdating } = useUpdatePlatform();
   const [isExporting, setIsExporting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
 
   if (isLoading || !platform) return <LoadingState label="Loading platform…" />;
 
   const emittersById = Object.fromEntries((emitters ?? []).map((e) => [e.id, e]));
 
+  const handleStartEdit = () => {
+    setEditName(platform.name);
+    setEditDescription(platform.description ?? "");
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => setIsEditing(false);
+
+  const handleSaveEdit = () => {
+    updatePlatform(
+      { id: platform.id, input: { name: editName, description: editDescription || undefined } },
+      { onSuccess: () => setIsEditing(false) },
+    );
+  };
+
+  const handleExportXml = async () => {
+    try {
+      setIsExporting(true);
+      const blob = await platformsApi.exportXml(platform.id);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${platform.name}_xml_export.zip`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+    } catch (error) {
+      console.error("Export failed", error);
+      alert("Failed to export XML package.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="page">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1>{platform.name}</h1>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <RequireRole minimum="editor">
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+      <h1>{platform.name}</h1>
+      <div className="status-row">
+        <RequireRole minimum="editor">
+          <input
+            type="text"
+            placeholder="Commit summary..."
+            value={commitSummary}
+            onChange={(e) => setCommitSummary(e.target.value)}
+            style={{ padding: "0.25rem", fontSize: "0.875rem" }}
+          />
+          <button
+            className="button primary small"
+            onClick={() => {
+              commitVersion.mutate(commitSummary, {
+                onSuccess: () => setCommitSummary(""),
+              });
+            }}
+            disabled={commitVersion.isPending || !commitSummary.trim()}
+          >
+            {commitVersion.isPending ? "Committing..." : "Commit Version"}
+          </button>
+        </RequireRole>
+        <Link to={`/platforms/${platform.id}/versions`}>Version history</Link>
+        <Link to={`/ambiguity/platform/${platform.id}`}>Ambiguity check</Link>
+        <button className="button secondary small" onClick={handleStartEdit}>
+          Edit Name/Description
+        </button>
+        <button className="button secondary small" onClick={handleExportXml} disabled={isExporting}>
+          {isExporting ? "Exporting..." : "Export XML"}
+        </button>
+      </div>
+      {platform.description && <p className="muted">{platform.description}</p>}
+
+      {isEditing && (
+        <Modal title="Edit Name/Description" onClose={handleCancelEdit} wide>
+          <div className="edit-fields">
+            <label>
+              Name
               <input
                 type="text"
-                placeholder="Commit summary..."
-                value={commitSummary}
-                onChange={(e) => setCommitSummary(e.target.value)}
-                style={{ padding: '0.25rem', fontSize: '0.875rem' }}
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Platform Name"
+                className="edit-input"
               />
-              <button
-                className="button primary small"
-                onClick={() => {
-                  commitVersion.mutate(commitSummary, {
-                    onSuccess: () => setCommitSummary(""),
-                  });
-                }}
-                disabled={commitVersion.isPending || !commitSummary.trim()}
-              >
-                {commitVersion.isPending ? "Committing..." : "Commit Version"}
-              </button>
-            </div>
-          </RequireRole>
-          <Link to={`/platforms/${platform.id}/versions`}>Version history</Link>
-          <Link to={`/ambiguity/platform/${platform.id}`}>Ambiguity check</Link>
-              <button
-                className="button secondary small"
-                onClick={async () => {
-                  try {
-                    setIsExporting(true);
-                    const blob = await platformsApi.exportXml(platform.id);
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = `${platform.name}_xml_export.zip`;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    a.remove();
-                  } catch (error) {
-                    console.error("Export failed", error);
-                    alert("Failed to export XML package.");
-                  } finally {
-                    setIsExporting(false);
-                  }
-                }}
-                disabled={isExporting}
-              >
-                {isExporting ? "Exporting..." : "Export XML"}
-              </button>
-        </div>
-      </div>
+            </label>
+            <label>
+              Description
+              <textarea
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                placeholder="Description"
+                className="edit-input"
+                rows={12}
+              />
+            </label>
+          </div>
+          <div className="edit-actions">
+            <button className="button primary" onClick={handleSaveEdit} disabled={isUpdating}>
+              {isUpdating ? "Saving..." : "Save"}
+            </button>
+            <button className="button" onClick={handleCancelEdit} disabled={isUpdating}>
+              Cancel
+            </button>
+          </div>
+        </Modal>
+      )}
 
       <div className="tab-bar">
         <button className={tab === "emitters" ? "tab active" : "tab"} onClick={() => setTab("emitters")}>

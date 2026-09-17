@@ -11,7 +11,7 @@ from app.deps import require_emitter_checkout, require_role
 from app.models.emitter import Emitter
 from app.models.ew_group import EwGroup
 from app.schemas.ew_group import EwGroupCreate, EwGroupOut, EwGroupUpdate
-from app.services.audit_service import apply_and_diff, record_audit
+from app.services.audit_service import apply_and_diff, record_audit, snapshot
 
 router = APIRouter(prefix="/emitters/{emitter_id}/ew-groups", tags=["ew-groups"])
 
@@ -138,6 +138,9 @@ def delete_ew_group(
         entity_type=AuditEntityType.ew_group.value,
         entity_id=ew_group.id,
         summary=f"Deleted EW Group '{ew_group.name}'",
+        changes=snapshot(
+            ew_group, ["name", "scan_min", "scan_max", "scan_delta", "threat_priority", "ageout", "sort_order"]
+        ),
         emitter_id=emitter_id,
     )
     db.delete(ew_group)

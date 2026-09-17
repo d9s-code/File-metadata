@@ -1,7 +1,7 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -20,6 +20,14 @@ class Mdf(UUIDPkMixin, TimestampMixin, Base):
 
     name: Mapped[str] = mapped_column(String(200), unique=True, nullable=False, index=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Nullable — existing MDFs predate this column, and "defaults to today"
+    # is a frontend-only behavior on the create/edit form so it stays a real,
+    # overridable choice rather than a server-side default.
+    release_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    customer_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("customers.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     status: Mapped[MdfStatus] = mapped_column(nullable=False, default=MdfStatus.draft)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -31,6 +39,7 @@ class Mdf(UUIDPkMixin, TimestampMixin, Base):
     versions: Mapped[list["MdfVersion"]] = relationship(
         back_populates="mdf", cascade="all, delete-orphan", order_by="MdfVersion.version_number"
     )
+    customer: Mapped["Customer | None"] = relationship(back_populates="mdfs")  # noqa: F821
 
 
 class MdfPlatformLink(UUIDPkMixin, Base):

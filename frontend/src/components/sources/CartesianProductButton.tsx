@@ -94,25 +94,36 @@ function CheckboxList({
               <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                 <td className="px-2 py-1 align-middle whitespace-nowrap">
                   {item.variants && item.variants.some(Boolean) ? (
-                    item.variants.filter(Boolean).map((variant, i) => {
-                      const rawVariant = (variant as string).trim().toLowerCase();
-                      const variantKey = rawVariant.replace(/-/g, "_") as keyof typeof VARIANT_STYLES;
-                      const style = VARIANT_STYLES[variantKey] || {
-                        label: rawVariant.replace(/_/g, " "),
-                        bg: "#fef3c7",
-                        fg: "#92400e",
-                        border: "#fcd34d",
-                      };
-                      return (
-                        <span
-                          key={i}
-                          className="inline-block px-1.5 py-0.5 rounded border text-[10px] font-bold uppercase mr-1 mb-1"
-                          style={{ backgroundColor: style.bg, color: style.fg, borderColor: style.border }}
-                        >
-                          {style.label}
-                        </span>
-                      );
-                    })
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "4px" }}>
+                      {item.variants.filter(Boolean).map((variant, i) => {
+                        const rawVariant = (variant as string).trim().toLowerCase();
+                        const variantKey = rawVariant.replace(/-/g, "_") as keyof typeof VARIANT_STYLES;
+                        const style = VARIANT_STYLES[variantKey] || {
+                          label: rawVariant.replace(/_/g, " "),
+                          bg: "#fef3c7",
+                          fg: "#92400e",
+                          border: "#fcd34d",
+                        };
+                        return (
+                          <span
+                            key={i}
+                            style={{
+                              display: "inline-block",
+                              padding: "1px 6px",
+                              borderRadius: "4px",
+                              border: `1px solid ${style.border}`,
+                              fontSize: "10px",
+                              fontWeight: 700,
+                              textTransform: "uppercase",
+                              backgroundColor: style.bg,
+                              color: style.fg,
+                            }}
+                          >
+                            {style.label}
+                          </span>
+                        );
+                      })}
+                    </div>
                   ) : (
                     <span className="text-gray-400">—</span>
                   )}

@@ -14,7 +14,7 @@ from app.models.platform import Platform, PlatformEmitterLink, PlatformVersion
 from app.schemas.emitter_version import CommitVersionRequest, DiffOut
 from app.schemas.platform import PlatformCreate, PlatformLinkCreate, PlatformLinkOut, PlatformOut, PlatformUpdate
 from app.schemas.platform_version import PlatformVersionDetailOut, PlatformVersionOut
-from app.services.audit_service import apply_and_diff, record_audit
+from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.prs_export.packager import build_platform_export_zip
 from app.services.snapshots import build_platform_snapshot
 from app.services.versioning_service import VersionSpec, commit_version, diff_versions, get_version, list_versions
@@ -126,6 +126,7 @@ def delete_platform(
             entity_type=AuditEntityType.platform.value,
             entity_id=platform.id,
             summary=f"Hard-deleted Platform '{platform.name}'",
+            changes=snapshot(platform, ["name", "description"]),
         )
         db.delete(platform)
     else:
@@ -138,6 +139,7 @@ def delete_platform(
             entity_type=AuditEntityType.platform.value,
             entity_id=platform.id,
             summary=f"Deleted Platform '{platform.name}'",
+            changes=snapshot(platform, ["name", "description"]),
         )
     db.commit()
 
@@ -251,7 +253,8 @@ def unpin_emitter(
         action=AuditAction.update,
         entity_type=AuditEntityType.platform_link.value,
         entity_id=platform.id,
-        summary=f"Unpinned an Emitter from Platform '{platform.name}'",
+        summary=f"Unpinned Emitter '{link.emitter.name}' from Platform '{platform.name}'",
+        changes=snapshot(link, ["emitter_id", "emitter_version_id"]),
     )
     db.delete(link)
     db.commit()

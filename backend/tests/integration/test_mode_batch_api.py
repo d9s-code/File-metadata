@@ -216,6 +216,32 @@ def test_batch_shift_on_nonexistent_bound_is_a_no_op_not_an_error(editor_client)
     assert modes[ctx["cw_mode"]["id"]]["line"]["pri_min_us"] is None
 
 
+def test_batch_edit_writes_an_audit_entry_per_mode(editor_client):
+    ctx = _setup_emitter(editor_client)
+    emitter_id = ctx["emitter"]["id"]
+    resp = editor_client.post(
+        f"/emitters/{emitter_id}/modes/batch-edit",
+        json={
+            "mode_ids": [ctx["fixed_mode"]["id"], ctx["cw_mode"]["id"]],
+            "fields": {"rf_range_matching": True},
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+    for mode_id in (ctx["fixed_mode"]["id"], ctx["cw_mode"]["id"]):
+        log = editor_client.get(
+            "/audit-log", params={"entity_type": "mode", "entity_id": mode_id, "action": "update"}
+        ).json()
+        assert log["total"] == 1, log
+        entry = log["items"][0]
+        assert entry["summary"].startswith("Batch-updated Mode")
+        assert entry["changes"]["rf_range_matching"] == {"old": False, "new": True}
+
+    # And it rolls up into the owning Emitter's Audit tab too.
+    rollup = editor_client.get("/audit-log", params={"emitter_id": emitter_id, "action": "update"}).json()
+    assert rollup["total"] == 2
+
+
 def test_batch_edit_requires_fields(editor_client):
     ctx = _setup_emitter(editor_client)
     resp = editor_client.post(

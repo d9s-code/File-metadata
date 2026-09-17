@@ -163,6 +163,8 @@ class AuditEntityType(str, enum.Enum):
     emitter_note = "emitter_note"
     ew_group = "ew_group"
     function_group = "function_group"
+    ambiguity_finding = "ambiguity_finding"
+    customer = "customer"
     source = "source"
     source_note = "source_note"
     source_group = "source_group"
