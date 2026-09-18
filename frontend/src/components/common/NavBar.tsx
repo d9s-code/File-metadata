@@ -9,7 +9,7 @@ export function NavBar() {
   return (
     <nav className="navbar">
       <div className="navbar-brand">
-        <Link to="/dashboard">RF Emitter Profile Manager</Link>
+        <Link to="/dashboard">PRS Emitter Repo</Link>
       </div>
       {user && (
         <div className="navbar-links">
