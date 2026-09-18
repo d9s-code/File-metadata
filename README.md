@@ -80,7 +80,7 @@ Backend: http://localhost:8000 · Frontend dev server: http://localhost:5173
 ## Docker Compose (closer to the offline deployment shape)
 
 ```bash
-cp .env.example .env   # at repo root: set POSTGRES_PASSWORD and JWT_SECRET
+cp .env.example .env   # at repo root: set POSTGRES_PASSWORD, JWT_SECRET, and ADMIN_PASSWORD
 docker compose up --build
 ```
 
@@ -88,6 +88,11 @@ docker compose up --build
 named volumes (`pg_data` vs `backup_data`). On a real deployment, map those to genuinely
 separate physical disks — the whole point of the separation is that one disk failing must
 not be able to take out both the live database and its backups.
+
+There is no self-service register form, so the backend bootstraps an initial admin user
+(`ADMIN_USERNAME` / `ADMIN_PASSWORD` from `.env`, defaulting to username `admin`) on every
+startup, via `scripts/create_admin.py` — it no-ops once that user already exists. Log in with
+those credentials at `http://localhost:5173` and create additional users from there.
 
 ## Backups
 

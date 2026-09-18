@@ -28,12 +28,17 @@ services:
       CORS_ORIGINS: '["http://localhost:5173"]'
       COOKIE_SECURE: "false"
       BACKUP_DIR: /backups
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
     volumes:
       - backup_data:/backups
     ports:
       - "8000:8000"
+    # create_admin.py no-ops if the user already exists, so this is safe
+    # to run on every container start/restart — there is no register form,
+    # so this is the only way to get a first user into a fresh database.
     command: >
-      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+      sh -c "alembic upgrade head && python scripts/create_admin.py \"$$ADMIN_USERNAME\" \"$$ADMIN_PASSWORD\" && uvicorn app.main:app --host 0.0.0.0 --port 8000"
 
   frontend:
     build: ./frontend
