@@ -18,8 +18,12 @@ fi
 docker load -i "$tar_file"
 
 echo
-echo "Images loaded. Next:"
-echo "  cp .env.example .env   # if not already done; fill in the secrets"
-echo "  docker compose up -d   # do NOT pass --build: the images are already"
-echo "                         # loaded locally, and building here would try"
-echo "                         # to reach the internet and fail."
+echo "Images loaded. Next, if not already done:"
+echo "  - Make sure the 'web' Docker network Traefik uses already exists"
+echo "    here (it's external, so compose won't create it for you)."
+echo "  - Make sure docker-compose.yml's DATABASE_URL points at a"
+echo "    role/database that actually exists on your Postgres 18 instance,"
+echo "    and that the backend joins whatever network it's reachable on."
+echo "  - docker compose up -d   # do NOT pass --build: the images are"
+echo "                           # already loaded locally, and building"
+echo "                           # here would try to reach the internet."

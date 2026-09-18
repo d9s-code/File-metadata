@@ -77,52 +77,74 @@ npm run dev
 
 Backend: http://localhost:8000 · Frontend dev server: http://localhost:5173
 
-## Docker Compose (on a machine with internet access)
+## Docker Compose
 
+This app is deployed behind an existing Traefik reverse proxy at `prs.app`, and connects to
+an existing Postgres 18 instance rather than running its own — `docker-compose.yml` only
+defines the `backend` and `frontend` services. Before running it:
+
+- Edit `DATABASE_URL` in `docker-compose.yml` to point at a role/database created on that
+  Postgres 18 instance (see below), and add the backend to whatever Docker network reaches
+  it (the `# TODO` comments in the file mark exactly where).
+- Replace `JWT_SECRET` and `ADMIN_PASSWORD` with real values (`openssl rand -hex 32` for the
+  former) — don't ship the placeholders.
+- Make sure the external `web` Docker network (the one Traefik itself watches) already
+  exists on this host; compose doesn't create external networks for you.
+- If the hostname isn't actually `prs.app`, update the `Host(...)` rule in both services'
+  Traefik labels, and `VITE_API_BASE_URL` in the frontend's build args to match.
+
+Config here is intentionally hardcoded into `docker-compose.yml` rather than read from a
+`.env` file, to match how the rest of this server's stacks are set up — which also means:
+don't commit real secret values into this file if the repo is tracked anywhere shared.
+
+Create the database/role on the existing Postgres instance first, e.g.:
+```sql
+CREATE ROLE rf_app WITH LOGIN PASSWORD 'CHANGE_ME';
+CREATE DATABASE rf_emitter_db OWNER rf_app;
+```
+
+Then:
 ```bash
-cp .env.example .env   # at repo root: set POSTGRES_PASSWORD, JWT_SECRET, and ADMIN_PASSWORD
 docker compose up --build
 ```
 
-`docker-compose.yml` deliberately puts Postgres data and database backups in **separate**
-named volumes (`pg_data` vs `backup_data`). On a real deployment, map those to genuinely
-separate physical disks — the whole point of the separation is that one disk failing must
-not be able to take out both the live database and its backups.
-
 There is no self-service register form, so the backend bootstraps an initial admin user
-(`ADMIN_USERNAME` / `ADMIN_PASSWORD` from `.env`, defaulting to username `admin`) on every
-startup, via `scripts/create_admin.py` — it no-ops once that user already exists. Log in with
-those credentials and create additional users from there.
+(`ADMIN_USERNAME` / `ADMIN_PASSWORD`, defaulting to username `admin`) on every startup, via
+`scripts/create_admin.py` — it no-ops once that user already exists. Log in with those
+credentials at `https://prs.app` and create additional users from there.
+
+Database backups (`backend/scripts/backup_db.py`) still write to the `backup_data` volume,
+separate from wherever the Postgres 18 instance itself stores its data — keep that separation
+on different physical disks if that instance doesn't already handle it elsewhere.
 
 ## Offline / air-gapped server deployment
 
 The app itself makes no outbound network calls at runtime, but building the images does
 (base images from Docker Hub, plus `pip`/`npm`/`apt` packages) — so the images must be built
 on a machine **with** internet access and carried over to the offline server, rather than
-built there.
+built there. Postgres isn't part of this: it's an existing instance already running on that
+server, so there's no database image to build or transfer.
 
-1. On a machine with internet access, clone/copy this repo and set `.env` at the repo root
-   (`cp .env.example .env`). Set `VITE_API_BASE_URL` and `CORS_ORIGINS` to how users will
-   actually reach the offline server (its real hostname or IP) — `VITE_API_BASE_URL` gets
-   baked into the frontend's built JS at image-build time, so it can't be fixed later just by
-   editing `.env` on the server; the image would need rebuilding.
+1. On a machine with internet access, clone/copy this repo. Make the edits described above
+   (`DATABASE_URL`, `JWT_SECRET`, `ADMIN_PASSWORD`, hostname) directly in `docker-compose.yml`
+   first — in particular, `VITE_API_BASE_URL` gets baked into the frontend's built JS at
+   image-build time, so it can't be fixed later on the server without rebuilding.
    ```bash
    ./scripts/offline/build-images.sh
    ```
-   This builds the backend/frontend images, pulls `postgres:16`, and writes
-   `rf-emitter-images.tar`.
-2. Copy the whole repo directory (including `rf-emitter-images.tar`, `docker-compose.yml`,
-   and your filled-in `.env`) to the offline server — USB drive, `scp` over a jump host,
-   whatever transfer path that network allows.
-3. On the offline server:
+   This builds the backend/frontend images and writes `rf-emitter-images.tar`.
+2. Copy the whole repo directory (including `rf-emitter-images.tar` and your edited
+   `docker-compose.yml`) to the offline server — USB drive, `scp` over a jump host, whatever
+   transfer path that network allows.
+3. On the offline server, confirm the `web` network exists and the role/database above has
+   been created on the Postgres 18 instance, then:
    ```bash
    ./scripts/offline/load-images.sh
    docker compose up -d
    ```
    Do **not** pass `--build` — the images are already loaded locally under the tags
-   `docker-compose.yml` expects (`rf-emitter-backend:latest`, `rf-emitter-frontend:latest`,
-   `postgres:16`), so plain `docker compose up` uses them directly without touching the
-   network.
+   `docker-compose.yml` expects (`rf-emitter-backend:latest`, `rf-emitter-frontend:latest`),
+   so plain `docker compose up` uses them directly without touching the network.
 
 To ship a code change afterwards: rebuild and re-save on the connected machine, then repeat
 steps 2–3 on the server (`docker load` overwrites the existing image tags; `docker compose up

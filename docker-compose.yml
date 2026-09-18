@@ -1,21 +1,4 @@
 services:
-  postgres:
-    image: postgres:16
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: rf_app
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
-      POSTGRES_DB: rf_emitter_db
-    volumes:
-      - pg_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U rf_app -d rf_emitter_db"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   backend:
     build: ./backend
     # Fixed, predictable tag so the offline build/load scripts (see
@@ -23,47 +6,80 @@ services:
     # by name instead of guessing compose's auto-generated project tag.
     image: rf-emitter-backend:latest
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
+    # TODO: point this at your existing Postgres 18 container once you've
+    # added it below (copied from one of your other stacks), e.g.:
+    #   depends_on:
+    #     my-postgres:
+    #       condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+psycopg2://rf_app:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/rf_emitter_db
-      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
-      # The origin the browser loads the frontend from — must match how
-      # users actually reach this server (its hostname/IP), not localhost,
-      # once this isn't running on a laptop next to the browser.
-      CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:5173"]}
-      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      # TODO: replace with the role/database you create on the existing
+      # Postgres 18 instance, and its container/service name as the host
+      # (must be reachable on whatever network you join below).
+      DATABASE_URL: postgresql+psycopg2://CHANGE_ME_USER:CHANGE_ME_PASSWORD@CHANGE_ME_POSTGRES_HOST:5432/CHANGE_ME_DB
+      # Real secret — generate with `openssl rand -hex 32`, don't ship the
+      # placeholder. Since this file is hardcoded (not .env-driven), be
+      # careful not to commit the real value if this repo is tracked in git.
+      JWT_SECRET: CHANGE_ME_generate_with_openssl_rand_hex_32
+      CORS_ORIGINS: '["https://prs.app"]'
+      # true: Traefik terminates TLS in front of this with your AD-issued
+      # cert, so the browser only ever sees HTTPS.
+      COOKIE_SECURE: "true"
       BACKUP_DIR: /backups
-      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: CHANGE_ME
     volumes:
       - backup_data:/backups
-    ports:
-      - "8000:8000"
+    networks:
+      - web
+      # TODO: also join whatever network your existing Postgres container
+      # is on, if it's different from `web`.
     # create_admin.py no-ops if the user already exists, so this is safe
     # to run on every container start/restart — there is no register form,
     # so this is the only way to get a first user into a fresh database.
     command: >
       sh -c "alembic upgrade head && python scripts/create_admin.py \"$$ADMIN_USERNAME\" \"$$ADMIN_PASSWORD\" && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    labels:
+      traefik.enable: "true"
+      # More specific than the frontend's bare Host() rule below, so
+      # Traefik should already prefer this for /api/* — priority is set
+      # explicitly anyway since routing-by-rule-length can surprise you.
+      traefik.http.routers.rf-emitter-backend.rule: Host(`prs.app`) && PathPrefix(`/api`)
+      traefik.http.routers.rf-emitter-backend.entrypoints: websecure
+      traefik.http.routers.rf-emitter-backend.tls: "true"
+      traefik.http.routers.rf-emitter-backend.priority: "10"
+      # FastAPI's routes aren't mounted under /api, so strip it before
+      # Traefik forwards the request.
+      traefik.http.routers.rf-emitter-backend.middlewares: rf-emitter-strip-api
+      traefik.http.middlewares.rf-emitter-strip-api.stripprefix.prefixes: /api
+      traefik.http.services.rf-emitter-backend.loadbalancer.server.port: "8000"
 
   frontend:
     build:
       context: ./frontend
       args:
-        # Vite bakes this into the built JS at image-build time, so it must
-        # already be the server's real address — it can't be changed later
-        # by an env var at container start, only by rebuilding the image.
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+        # Vite bakes this into the built JS at image-build time — same
+        # origin/path as the Traefik rule above, so the browser's fetches
+        # to /api/* get routed to the backend without needing CORS at all.
+        VITE_API_BASE_URL: https://prs.app/api
     image: rf-emitter-frontend:latest
     restart: unless-stopped
     depends_on:
       - backend
-    ports:
-      - "5173:80"
+    networks:
+      - web
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.rf-emitter-frontend.rule: Host(`prs.app`)
+      traefik.http.routers.rf-emitter-frontend.entrypoints: websecure
+      traefik.http.routers.rf-emitter-frontend.tls: "true"
+      traefik.http.routers.rf-emitter-frontend.priority: "1"
+      traefik.http.services.rf-emitter-frontend.loadbalancer.server.port: "80"
+
+networks:
+  web:
+    external: true
 
 volumes:
-  pg_data:
-  # Deliberately a separate named volume from pg_data (see plan's Backup &
-  # Restore section: backups must not share a disk with the live DB).
+  # Only backups live in a compose-managed volume now — the database
+  # itself is the existing Postgres 18 instance, managed elsewhere.
   backup_data:
