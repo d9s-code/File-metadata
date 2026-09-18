@@ -176,6 +176,18 @@ Restore is deliberately a CLI-only, confirmation-required runbook rather than a 
 button, since it overwrites live data. See `docs/FEATURES.md#backup--restore` for the
 full retention/verification story.
 
+## Database migrations
+
+`alembic/versions/` holds a single baseline migration, not an incremental history — a
+prior migration that created the core tables was lost from the repo at some point, leaving
+`alembic upgrade head` unable to bootstrap a genuinely fresh database (every existing dev/test
+database had those tables already, so this went unnoticed). The current baseline was
+regenerated from the live SQLAlchemy models (`alembic revision --autogenerate` against an
+empty database) and verified to produce an exact match to `app/models/` with no drift
+(`alembic check`). If any other database out there is still stamped partway through the old
+migration chain, point it at the new baseline with `alembic stamp d68a4d14b7c2` instead of
+running `upgrade head` from wherever it was.
+
 ## Tests
 
 ```bash
