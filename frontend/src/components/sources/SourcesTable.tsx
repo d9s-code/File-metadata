@@ -13,6 +13,7 @@ import { ElementsPanel } from "./ElementsPanel";
 import { ParameterSequencesPanel } from "./ParameterSequencesPanel";
 import { CartesianProductButton } from "./CartesianProductButton";
 import { SourceForm } from "./SourceForm";
+import { SourceBatchAddModal } from "./SourceBatchAddModal";
 import { RequireRole } from "../../auth/RequireAuth";
 import { ApiRequestError } from "../../api/client";
 import { EmptyState } from "../common/EmptyState";
@@ -109,7 +110,32 @@ export function SourcesTable({
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isElementsCollapsed, setIsElementsCollapsed] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [showBatchAdd, setShowBatchAdd] = useState(false);
   const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(sources, compareSources);
+
+  const sourceNameById = useMemo(() => Object.fromEntries(sources.map((s) => [s.id, s.name])), [sources]);
+
+  function toggleSelected(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAllInGroup(ids: string[]) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      const allSelected = ids.every((id) => next.has(id));
+      for (const id of ids) {
+        if (allSelected) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
+  }
 
   const modeCountBySource = useMemo(() => {
     const counts = new Map<string, number>();
@@ -158,6 +184,23 @@ export function SourcesTable({
   return (
     <section className="card">
       <h4>Sources</h4>
+      <RequireRole minimum="editor">
+        <div className="action-bar">
+          <button
+            className="accent-button"
+            disabled={!canEdit || selected.size === 0}
+            title={selected.size === 0 ? "Select one or more Sources below first" : editTitle}
+            onClick={() => setShowBatchAdd(true)}
+          >
+            Batch Add{selected.size > 0 ? ` to ${selected.size} Source${selected.size === 1 ? "" : "s"}` : ""}
+          </button>
+          {selected.size > 0 && (
+            <button className="icon-button" onClick={() => setSelected(new Set())}>
+              Clear selection
+            </button>
+          )}
+        </div>
+      </RequireRole>
       {sources.length === 0 ? (
         <EmptyState
           icon="◇"
@@ -180,6 +223,17 @@ export function SourcesTable({
                 <table className="data-table">
                   <thead>
                     <tr>
+                      <th>
+                        <input
+                          type="checkbox"
+                          checked={section.items.every((s) => selected.has(s.id))}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            toggleSelectAllInGroup(section.items.map((s) => s.id));
+                          }}
+                          title="Select all Sources in this group"
+                        />
+                      </th>
                       <SortableColumnHeader label="Name" columnKey="name" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
                       <SortableColumnHeader
                         label="Description"
@@ -226,6 +280,9 @@ export function SourcesTable({
                     {section.items.map((s) => (
                       <Fragment key={s.id}>
                         <tr>
+                          <td>
+                            <input type="checkbox" checked={selected.has(s.id)} onChange={() => toggleSelected(s.id)} />
+                          </td>
                           <td>
                             {s.name}
                             {s.status !== "approved" && (
@@ -293,7 +350,7 @@ export function SourcesTable({
                         </tr>
                         {expandedId === s.id && (
                           <tr>
-                            <td colSpan={8}>
+                            <td colSpan={9}>
                               <div className="source-detail">
                                 <h5 className="mt-0">Analyst notes</h5>
                                 <SourceNotesEditor emitterId={emitterId} source={s} />
@@ -347,6 +404,18 @@ export function SourcesTable({
           </button>
         )}
       </RequireRole>
+      {showBatchAdd && (
+        <SourceBatchAddModal
+          emitterId={emitterId}
+          sourceIds={[...selected]}
+          sourceNameById={sourceNameById}
+          onClose={() => setShowBatchAdd(false)}
+          onDone={() => {
+            setShowBatchAdd(false);
+            setSelected(new Set());
+          }}
+        />
+      )}
       {dialog}
     </section>
   );

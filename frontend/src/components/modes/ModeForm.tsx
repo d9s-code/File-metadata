@@ -15,6 +15,7 @@ export function ModeForm({
   functionGroups,
   defaultEwGroupId,
   fixedDerivedFromTestRecordId,
+  fixedDerivedFromInterceptEntryId,
   onStage,
   observedValueOptions,
   initialData,
@@ -28,6 +29,10 @@ export function ModeForm({
   /** When set, this Mode is always linked as derived from this one Test
    * Record — the usual "is this test-derived?" toggle/picker is hidden. */
   fixedDerivedFromTestRecordId?: string;
+  /** When set, this Mode is always linked as derived from this one Intercept
+   * Entry — same effect as fixedDerivedFromTestRecordId, for the "Create
+   * Mode from this Entry" action on an Intercept's detail page. */
+  fixedDerivedFromInterceptEntryId?: string;
   /** When set, submitting doesn't POST immediately — it hands the built
    * payload (plus the chosen EW Group, a call param separate from
    * ModeCreateInput) up to the caller to create later, e.g. once a Test
@@ -227,6 +232,7 @@ export function ModeForm({
         await createMode.mutateAsync({
           ...payload,
           derived_from_test_record_ids: fixedDerivedFromTestRecordId ? [fixedDerivedFromTestRecordId] : [...derivedFrom],
+          derived_from_intercept_entry_ids: fixedDerivedFromInterceptEntryId ? [fixedDerivedFromInterceptEntryId] : [],
         });
       }
       onClose?.();
@@ -450,7 +456,7 @@ export function ModeForm({
         </label>
       </div>
 
-      {!fixedDerivedFromTestRecordId && !onStage && (
+      {!fixedDerivedFromTestRecordId && !fixedDerivedFromInterceptEntryId && !onStage && (
         <div>
           {showDerivedFrom ? (
             <>

@@ -19,9 +19,10 @@ const TOC: TocNode[] = [
         title: "Emitter detail",
         children: [
           { id: "emitter-modes-tab", title: "Modes tab" },
+          { id: "emitter-sources", title: "EW Groups & Sources tab" },
+          { id: "emitter-intercepts-tab", title: "Intercepts tab" },
           { id: "emitter-testing-tab", title: "Test History tab (the workbench)" },
           { id: "emitter-audit-tab", title: "Audit tab" },
-          { id: "emitter-sources", title: "EW Groups & Sources setup" },
         ],
       },
       { id: "emitter-versions", title: "Version history" },
@@ -45,6 +46,13 @@ const TOC: TocNode[] = [
       { id: "mdf-versions", title: "Version history & XML export" },
       { id: "mdf-ambiguity", title: "Ambiguity check" },
     ],
+  },
+  { id: "source-groups", title: "Source Groups" },
+  { id: "customers", title: "Customers" },
+  {
+    id: "intercepts",
+    title: "Intercepts",
+    children: [{ id: "intercept-detail", title: "Intercept detail" }],
   },
   { id: "audit-log", title: "Audit Log" },
 ];
@@ -176,10 +184,12 @@ export function HelpPage() {
         <div className="help-subsection" id="emitter-detail">
           <h3>Emitter detail</h3>
           <p>
-            An Emitter's page has three tabs — <strong>Modes</strong>, <strong>Test History</strong>, and{" "}
-            <strong>Audit</strong> — plus links to its <strong>Version history</strong> and{" "}
-            <strong>Ambiguity check</strong> above them. Below the title, a summary line repeats the same
-            RF/PW/PRI/Scan ranges and Modes-passing count shown on the list page, for this one Emitter.
+            An Emitter's page has five tabs — <strong>Modes</strong>, <strong>EW Groups &amp; Sources</strong>,{" "}
+            <strong>Intercepts</strong>, <strong>Test History</strong>, and <strong>Audit</strong> — plus
+            links to its <strong>Version history</strong> and <strong>Ambiguity check</strong> above them.
+            Below the title, a summary line repeats the same RF/PW/PRI/Scan ranges and Modes-passing count
+            shown on the list page, for this one Emitter. On first load, a brand-new Emitter with no EW
+            Groups or Sources yet opens straight to the EW Groups & Sources tab instead of Modes.
           </p>
           <p>
             Status moves <strong>In progress</strong> → <strong>Testing</strong> →{" "}
@@ -221,14 +231,23 @@ export function HelpPage() {
             </p>
             <p>
               A Mode whose parameters came from a test finding rather than its Source carries a{" "}
-              <span className="test-derived-badge">Test-Derived</span> badge — click it to jump to the
-              test record that produced it.
+              <span className="test-derived-badge">Test-Derived</span> badge; one derived from a logged{" "}
+              <strong>Intercept</strong> entry instead carries an{" "}
+              <span className="test-derived-badge">Intercept-Derived</span> badge. Either one is a link —
+              click it to jump to the record that produced it.
             </p>
             <p>
               Every field — metadata (name, notes, EW Group) and the actual line values (RF/PW/PRI/deltas)
               alike — edits in place immediately, the same way everything else in the app works. The only
               gate is holding the Emitter's <strong>checkout</strong> (see below): with it, click{" "}
               <strong>Edit</strong> on a Mode's row to change its line right there.
+            </p>
+            <p>
+              Tick a Mode's checkbox (or several) to reveal a <strong>Batch Edit</strong> button for
+              applying the same field, delta, or range-shift change to all of them at once — muted until at
+              least one Mode is selected. A <strong>Collapse generation batches</strong> toggle folds every
+              Mode a single Cartesian Product run created into one expandable summary row, so a run that
+              produced 20+ Modes doesn't clutter the table.
             </p>
           </div>
 
@@ -309,25 +328,32 @@ export function HelpPage() {
           </div>
 
           <div className="help-subsection" id="emitter-sources">
-            <h4>EW Groups & Sources setup</h4>
+            <h4>EW Groups & Sources tab</h4>
             <p>
-              A collapsible panel below the Modes table. <strong>EW Groups</strong> are the operational
-              buckets (scan range + threat priority) Modes are organized under. <strong>Sources</strong>{" "}
-              record where a parameter set came from — a datasheet, a lab measurement — and hold the
-              RF/PW/PRI/Scan <strong>Elements</strong> you build Modes from (min/max, optional jitter and a
-              tolerance <strong>delta</strong>, or a stagger sequence for PRI).
+              <strong>EW Groups</strong> are the operational buckets (scan range + threat priority) Modes
+              are organized under; <strong>Function Groups</strong> are a second, independent way to group
+              Modes (e.g. by radar function) alongside their EW Group. <strong>Sources</strong> record
+              where a parameter set came from — a datasheet, a lab measurement — and hold the RF/PW/PRI/Scan{" "}
+              <strong>Elements</strong> you build Modes from (min/max, optional jitter and a tolerance{" "}
+              <strong>delta</strong>, or a stagger sequence for PRI).
             </p>
             <p>
               An Element can carry a <strong>measurement variant</strong> — <em>typical</em>,{" "}
-              <em>discrete</em>, <em>most probable</em>, or <em>extreme</em> — shown as a{" "}
-              <span className="hint-text">[variant]</span> tag before its label, when a parametric set
-              distinguishes between them rather than giving one plain value.
+              <em>discrete</em>, <em>most probable</em>, <em>extreme</em>, <em>intercept</em>, or{" "}
+              <em>analysis</em> — shown as a <span className="hint-text">[variant]</span> tag before its
+              label. The <em>analysis</em> variant means the value came from further analysis rather than a
+              direct reading, and requires a note explaining how it was derived.
             </p>
             <p>
               A <strong>Parameter Sequence</strong> is a further step beyond a single Element: an ordered,
               multi-parameter "dwell & switcher" pattern where each step can set any combination of
-              RF/PW/PRI/Scan (and how long to dwell there) — read-only for now, shown as a small table per
-              sequence with a blank cell wherever that step didn't set that parameter.
+              RF/PW/PRI/Scan (and how long to dwell there), shown as a small table per sequence with a
+              blank cell wherever that step didn't set that parameter.
+            </p>
+            <p>
+              Tick one or more Sources' checkboxes to reveal a <strong>Batch Add</strong> button — muted
+              until at least one is selected — for adding the same new Element or Sequence to every
+              selected Source at once, instead of repeating the same entry by hand on each one.
             </p>
             <p>
               A Source that came from an <strong>import</strong> (see below) starts out{" "}
@@ -345,8 +371,19 @@ export function HelpPage() {
               Sources appearing at once with the same document behind them is expected, not a duplicate.
             </p>
             <p className="hint-text">
-              Also here: <strong>Cartesian Product</strong>, which combines chosen RF/PW/PRI Elements into
-              every possible Mode in one step, instead of typing each Mode's line by hand.
+              Also here: <strong>Cartesian Product</strong>, which combines chosen RF/PW/PRI Elements (and
+              individually-selected Parameter Sequence steps, each with its own optional delta override)
+              into every possible Mode in one step, instead of typing each Mode's line by hand. Each of its
+              RF/PW/PRI columns sorts independently.
+            </p>
+          </div>
+
+          <div className="help-subsection" id="emitter-intercepts-tab">
+            <h4>Intercepts tab</h4>
+            <p>
+              This Emitter's logged real-world signal intercepts — see <strong>Intercepts</strong> below for
+              what an Intercept is and how it's built. <strong>+ Add Intercept</strong> here pre-fills the
+              new Intercept's Emitter; click one to open its detail page.
             </p>
           </div>
         </div>
@@ -417,15 +454,23 @@ export function HelpPage() {
       <div className="card" id="mdfs">
         <h2>MDFs</h2>
         <p>
-          The MDFs list (top nav) shows every Mission Data File with its current status — an MDF bundles
-          the Platforms relevant to a mission or exercise.
+          The MDFs list (top nav) shows every Mission Data File — its name, how many Platforms it has
+          pinned, release date, status, and Customer — an MDF bundles the Platforms relevant to a mission
+          or exercise. Every column is sortable, and the toolbar filters by name and Customer.
         </p>
 
         <div className="help-subsection" id="mdf-detail">
           <h3>MDF detail</h3>
           <p>
-            Pin and unpin Platforms, and edit the MDF's own metadata. Status moves{" "}
-            draft → pending review → approved → released → deprecated.
+            Pin and unpin Platforms, and edit the MDF's own metadata — name, description, notes, release
+            date (defaults to today when creating one, but overwritable), and <strong>Customer</strong>{" "}
+            (picked from the <strong>Customers</strong> list below, so filtering stays consistent). Status
+            moves draft → pending review → approved → released → deprecated.
+          </p>
+          <p>
+            A <strong>Release notes</strong> panel below the title works the same way as an Emitter's
+            Analyst notes — an append-only, timestamped log, separate from the single editable "Notes"
+            field in the edit form.
           </p>
         </div>
 
@@ -443,6 +488,59 @@ export function HelpPage() {
           <p>
             Works the same way as an Emitter's, but across every Mode reachable through every Platform
             pinned to this MDF — see "Ambiguity check" above.
+          </p>
+        </div>
+      </div>
+
+      <div className="card" id="source-groups">
+        <h2>Source Groups</h2>
+        <p>
+          A Source Group is a named, cross-Emitter bucket of Sources — useful for keeping related datasheets
+          or lab-measurement Sources together regardless of which Emitter they end up feeding. The list
+          shows each group's Source count, its aggregate RF/PW/PRI range across every Source in it, and when
+          it was last touched. A Source is put into a group from the Source's own edit form.
+        </p>
+      </div>
+
+      <div className="card" id="customers">
+        <h2>Customers</h2>
+        <p>
+          Customers are who an MDF is delivered to — a small, flat, globally-shared list (just a name) kept
+          separate from free-typed text so the MDF overview can sort/filter by Customer without drifting on
+          inconsistent spelling. Add one here, then pick it from an MDF's edit form.
+        </p>
+      </div>
+
+      <div className="card" id="intercepts">
+        <h2>Intercepts</h2>
+        <p>
+          A place to log real-world signal intercepts — searchable globally here, and scoped to one Emitter
+          on that Emitter's own Intercepts tab. An Intercept is a <strong>container</strong> (name,
+          description, and its own append-only Analyst notes feed) holding one or more logged{" "}
+          <strong>entries</strong> — the actual observations, taken over time.
+        </p>
+        <p>
+          Each entry records RF, PW, and PRI as an optional min, optional max, and a required mean.
+          Pulse-train character depends on the entry's type: a <strong>Fixed</strong> entry gets a single
+          flat jitter mean; a <strong>Stagger</strong> entry gets an ordered list of stagger values instead
+          (and its PRI mean field is read as the stagger frame-time mean). Each entry also has its own
+          short note, separate from the container's Analyst notes.
+        </p>
+
+        <div className="help-subsection" id="intercept-detail">
+          <h3>Intercept detail</h3>
+          <p>
+            Edit the Intercept's name/description, add/delete entries, and add Analyst notes for the whole
+            Intercept. <strong>Delete Intercept</strong> (here or from the list) removes it along with all
+            its entries and notes — any Mode already created from one of its entries is unaffected, it just
+            loses that provenance link.
+          </p>
+          <p>
+            Each entry's <strong>Create Mode from this Entry</strong> button opens the normal Mode form
+            pre-filled with that entry's RF/PW/PRI values (you still pick the EW Group and Source, since an
+            Intercept isn't tied to either) — the resulting Mode carries an{" "}
+            <span className="test-derived-badge">Intercept-Derived</span> badge back to it, the same idea as
+            a Test-Derived Mode.
           </p>
         </div>
       </div>

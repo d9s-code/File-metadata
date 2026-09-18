@@ -102,6 +102,41 @@ def test_create_element_requires_delta_on_stagger_pri(editor_client, emitter_ctx
     assert resp.status_code == 422
 
 
+def test_analysis_variant_requires_a_note(editor_client, emitter_ctx):
+    resp = editor_client.post(
+        _elements_url(emitter_ctx),
+        json={"element_type": "rf", "variant": "analysis", "value_min": 2900, "value_max": 3100},
+    )
+    assert resp.status_code == 422, resp.text
+
+    resp = editor_client.post(
+        _elements_url(emitter_ctx),
+        json={
+            "element_type": "rf",
+            "variant": "analysis",
+            "value_min": 2900,
+            "value_max": 3100,
+            "details": "Derived from RF sweep analysis on 2026-09-18",
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["variant"] == "analysis"
+
+
+def test_analysis_variant_rejects_blank_note(editor_client, emitter_ctx):
+    resp = editor_client.post(
+        _elements_url(emitter_ctx),
+        json={
+            "element_type": "rf",
+            "variant": "analysis",
+            "value_min": 2900,
+            "value_max": 3100,
+            "details": "   ",
+        },
+    )
+    assert resp.status_code == 422, resp.text
+
+
 def test_element_response_includes_engineered_range(editor_client, emitter_ctx):
     element = editor_client.post(
         _elements_url(emitter_ctx),
@@ -532,6 +567,72 @@ def test_cartesian_product_pri_only_sequence_step_has_no_rf_pw_delta(editor_clie
     assert line["pri_min_us"] == 750
     assert line["rf_delta"] is None
     assert line["pw_delta"] is None
+
+
+def test_cartesian_product_step_delta_override_takes_precedence_over_sequence_delta(editor_client, emitter_ctx):
+    seq = editor_client.post(
+        _sequences_url(emitter_ctx),
+        json={
+            "label": "Sweep",
+            "steps": [{"order": 0, "rf_mhz": 3000, "pw_us": 1.0, "pri_us": 800}],
+            "rf_delta": 10,
+            "pw_delta": 0.1,
+            "pri_delta": 5,
+        },
+    ).json()
+
+    resp = editor_client.post(
+        f"{_elements_url(emitter_ctx)}/cartesian-product",
+        json={
+            "ew_group_id": emitter_ctx["ew_group"]["id"],
+            "rf_element_ids": [],
+            "pw_element_ids": [],
+            "pri_element_ids": [],
+            "sequence_steps": [
+                {"sequence_id": seq["id"], "order": 0, "rf_delta": 25, "pw_delta": 0.5, "pri_delta": 15}
+            ],
+            "name_prefix": "StepOverride",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+    modes = editor_client.get(f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes").json()
+    [mode] = [m for m in modes if m["name"].startswith("StepOverride")]
+    line = mode["line"]
+    assert line["rf_delta"] == 25
+    assert line["pw_delta"] == 0.5
+    assert line["pri_delta"] == 15
+
+
+def test_cartesian_product_step_without_override_falls_back_to_sequence_delta(editor_client, emitter_ctx):
+    seq = editor_client.post(
+        _sequences_url(emitter_ctx),
+        json={
+            "label": "Sweep 2",
+            "steps": [{"order": 0, "rf_mhz": 3000, "pri_us": 800}],
+            "rf_delta": 10,
+            "pri_delta": 5,
+        },
+    ).json()
+
+    resp = editor_client.post(
+        f"{_elements_url(emitter_ctx)}/cartesian-product",
+        json={
+            "ew_group_id": emitter_ctx["ew_group"]["id"],
+            "rf_element_ids": [],
+            "pw_element_ids": [],
+            "pri_element_ids": [],
+            "sequence_steps": [{"sequence_id": seq["id"], "order": 0}],
+            "name_prefix": "StepNoOverride",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+    modes = editor_client.get(f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes").json()
+    [mode] = [m for m in modes if m["name"].startswith("StepNoOverride")]
+    line = mode["line"]
+    assert line["rf_delta"] == 10
+    assert line["pri_delta"] == 5
 
 
 def test_cartesian_product_unknown_sequence_step_order_rejected(editor_client, emitter_ctx):

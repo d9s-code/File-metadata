@@ -10,6 +10,7 @@ export interface ModeCreateInput {
   line: ModeLineFields;
   function_group_id?: string | null;
   derived_from_test_record_ids?: string[];
+  derived_from_intercept_entry_ids?: string[];
 }
 
 export interface ModeUpdateInput {
@@ -20,6 +21,7 @@ export interface ModeUpdateInput {
   function_group_id?: string | null;
   line?: ModeLineFields;
   derived_from_test_record_ids?: string[];
+  derived_from_intercept_entry_ids?: string[];
 }
 
 export interface BatchModeFieldEdit {
@@ -45,6 +47,7 @@ export interface ModeBatchEditInput {
   mode_ids: string[];
   fields: BatchModeFieldEdit;
   derived_from_test_record_ids?: string[];
+  derived_from_intercept_entry_ids?: string[];
   shift_reason?: string;
 }
 

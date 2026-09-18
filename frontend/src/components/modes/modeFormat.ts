@@ -1,4 +1,5 @@
 import type { EwGroup, FunctionGroup, Mode, Source } from "../../types/domain";
+import { naturalCompare } from "../common/sortUtils";
 
 export function formatPri(mode: Mode): string {
   const line = mode.line;
@@ -184,6 +185,37 @@ function sortValue(
   }
 }
 
+export type DisplayRow = { type: "mode"; mode: Mode } | { type: "batch"; batchId: string; modes: Mode[] };
+
+/** Groups a (already sorted/filtered) Modes list for display — when
+ * `collapseBatches` is true, every generation batch with 2+ Modes in the
+ * list becomes a single "batch" row (in the position of its first member,
+ * carrying every member regardless of where the others land in sort order)
+ * instead of N individual rows; a lone Mode from a batch, or any Mode with
+ * no batch, renders normally. */
+export function groupModesForDisplay(modes: Mode[], collapseBatches: boolean): DisplayRow[] {
+  if (!collapseBatches) return modes.map((mode) => ({ type: "mode", mode }));
+
+  const countByBatch = new Map<string, number>();
+  for (const m of modes) {
+    if (m.generation_batch_id) countByBatch.set(m.generation_batch_id, (countByBatch.get(m.generation_batch_id) ?? 0) + 1);
+  }
+
+  const rows: DisplayRow[] = [];
+  const emittedBatches = new Set<string>();
+  for (const m of modes) {
+    const batchId = m.generation_batch_id;
+    if (batchId && (countByBatch.get(batchId) ?? 0) >= 2) {
+      if (emittedBatches.has(batchId)) continue;
+      emittedBatches.add(batchId);
+      rows.push({ type: "batch", batchId, modes: modes.filter((mm) => mm.generation_batch_id === batchId) });
+    } else {
+      rows.push({ type: "mode", mode: m });
+    }
+  }
+  return rows;
+}
+
 export function compareModes(
   a: Mode,
   b: Mode,
@@ -199,6 +231,10 @@ export function compareModes(
   if (av == null && bv == null) return 0;
   if (av == null) return 1;
   if (bv == null) return -1;
+  // String fields (name, ew_group, source, ...) use numeric-aware collation so
+  // "Mode 2" sorts before "Mode 10" instead of after it; numeric fields (rf_min,
+  // pw_min, ...) are unaffected and keep plain numeric comparison.
+  if (typeof av === "string" && typeof bv === "string") return naturalCompare(av, bv, dir);
   const cmp = av < bv ? -1 : av > bv ? 1 : 0;
   return dir === "asc" ? cmp : -cmp;
 }

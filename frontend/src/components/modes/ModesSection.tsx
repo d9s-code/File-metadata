@@ -17,12 +17,21 @@ import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 
 const VIEW_STORAGE_KEY = "modesView";
+const COLLAPSE_BATCHES_STORAGE_KEY = "modesCollapseBatches";
 
 function readStoredView(): ModesView {
   try {
     return localStorage.getItem(VIEW_STORAGE_KEY) === "cards" ? "cards" : "table";
   } catch {
     return "table";
+  }
+}
+
+function readStoredCollapseBatches(): boolean {
+  try {
+    return localStorage.getItem(COLLAPSE_BATCHES_STORAGE_KEY) === "true";
+  } catch {
+    return false;
   }
 }
 
@@ -67,6 +76,7 @@ export function ModesSection({
   const [lastTestedFrom, setLastTestedFrom] = useState("");
   const [lastTestedTo, setLastTestedTo] = useState("");
   const [showEngineered, setShowEngineered] = useState(false);
+  const [collapseBatches, setCollapseBatches] = useState(readStoredCollapseBatches);
   const { data: emitter } = useEmitter(emitterId);
   const { canEdit } = useEmitterCheckoutState(emitter);
 
@@ -77,6 +87,14 @@ export function ModesSection({
       // localStorage unavailable — the view choice just won't persist.
     }
   }, [view]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(COLLAPSE_BATCHES_STORAGE_KEY, String(collapseBatches));
+    } catch {
+      // localStorage unavailable — the choice just won't persist.
+    }
+  }, [collapseBatches]);
 
   useEffect(() => {
     setSelected((prev) => {
@@ -188,6 +206,18 @@ export function ModesSection({
     });
   }
 
+  function toggleSelectBatch(modeIds: string[]) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      const allSelected = modeIds.every((id) => next.has(id));
+      for (const id of modeIds) {
+        if (allSelected) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
+  }
+
   const selectedBatch = (batches ?? []).find((b) => b.id === batchFilter);
 
   async function handleDeleteBatch() {
@@ -216,6 +246,14 @@ export function ModesSection({
             onChange={(e) => setShowEngineered(e.target.checked)}
           />
           Show engineered values
+        </label>
+        <label className="inline-field-label" title="Show all Modes from one Cartesian Product run as a single collapsible row instead of one row each">
+          <input
+            type="checkbox"
+            checked={collapseBatches}
+            onChange={(e) => setCollapseBatches(e.target.checked)}
+          />
+          Collapse generation batches
         </label>
         <ModesViewToggle view={view} onChange={setView} />
       </div>
@@ -270,16 +308,21 @@ export function ModesSection({
             </button>
           </RequireRole>
         )}
-        {selected.size > 0 && (
-          <RequireRole minimum="editor">
-            <button className="accent-button" disabled={!canEdit} onClick={() => setShowBatchEdit(true)}>
-              Batch Edit ({selected.size})
-            </button>
+        <RequireRole minimum="editor">
+          <button
+            className="accent-button"
+            disabled={!canEdit || selected.size === 0}
+            title={selected.size === 0 ? "Select one or more Modes below first" : undefined}
+            onClick={() => setShowBatchEdit(true)}
+          >
+            Batch Edit{selected.size > 0 ? ` (${selected.size})` : ""}
+          </button>
+          {selected.size > 0 && (
             <button className="link-button" onClick={() => setSelected(new Set())}>
               Clear selection
             </button>
-          </RequireRole>
-        )}
+          )}
+        </RequireRole>
       </div>
 
       {showMoreFilters && (
@@ -360,6 +403,8 @@ export function ModesSection({
         <ModesTable
           emitterId={emitterId}
           modes={sorted}
+          batches={batches ?? []}
+          collapseBatches={collapseBatches}
           ewGroupsById={ewGroupsById}
           sourcesById={sourcesById}
           functionGroupsById={functionGroupsById}
@@ -371,18 +416,22 @@ export function ModesSection({
           selected={selected}
           onToggleSelect={toggleSelect}
           onToggleSelectAll={toggleSelectAll}
+          onToggleSelectBatch={toggleSelectBatch}
           showEngineered={showEngineered}
         />
       ) : (
         <ModesCardGrid
           emitterId={emitterId}
           modes={sorted}
+          batches={batches ?? []}
+          collapseBatches={collapseBatches}
           ewGroupsById={ewGroupsById}
           sourcesById={sourcesById}
           functionGroupsById={functionGroupsById}
           onDelete={handleDelete}
           selected={selected}
           onToggleSelect={toggleSelect}
+          onToggleSelectBatch={toggleSelectBatch}
           showEngineered={showEngineered}
         />
       )}

@@ -8,6 +8,7 @@ from app.dsl.renderer import render_mode_line
 from app.models.mode import Mode, ModeElement, ModeGenerationBatch, ModeLine
 from app.models.parameter_sequence import ParameterSequence
 from app.models.source import Source
+from app.schemas.mode_element import SequenceStepSelection
 from app.services.audit_service import _json_safe, record_audit
 
 # ModeLine columns that aren't part of the rendered DSL line text — mirrors
@@ -49,12 +50,14 @@ def _dsl_kwargs(line_kwargs: dict) -> dict:
 
 
 def _fetch_selected_steps(
-    db: Session, source_id: UUID, sequence_steps: list[tuple[UUID, int]]
-) -> list[tuple[ParameterSequence, dict]]:
+    db: Session, source_id: UUID, sequence_steps: list[SequenceStepSelection]
+) -> list[tuple[ParameterSequence, dict, SequenceStepSelection]]:
     """Resolves (sequence_id, order) selections into their real (sequence,
-    step) pairs, in the order given. Raises if a sequence id is unknown,
-    doesn't belong to this Source, or doesn't have a step at that order."""
-    sequence_ids = {sid for sid, _ in sequence_steps}
+    step) pairs, in the order given, alongside the original selection (which
+    may carry a per-step delta override for this run). Raises if a sequence
+    id is unknown, doesn't belong to this Source, or doesn't have a step at
+    that order."""
+    sequence_ids = {s.sequence_id for s in sequence_steps}
     sequences = db.query(ParameterSequence).filter(ParameterSequence.id.in_(sequence_ids)).all()
     by_id = {s.id: s for s in sequences}
     missing = sequence_ids - set(by_id)
@@ -64,13 +67,13 @@ def _fetch_selected_steps(
         if seq.source_id != source_id:
             raise CartesianProductError(f"Sequence {seq.id} does not belong to this Source")
 
-    resolved: list[tuple[ParameterSequence, dict]] = []
-    for sid, order in sequence_steps:
-        seq = by_id[sid]
-        step = next((s for s in seq.steps if s.get("order") == order), None)
+    resolved: list[tuple[ParameterSequence, dict, SequenceStepSelection]] = []
+    for selection in sequence_steps:
+        seq = by_id[selection.sequence_id]
+        step = next((s for s in seq.steps if s.get("order") == selection.order), None)
         if step is None:
-            raise CartesianProductError(f"Sequence {sid} has no step at order {order}")
-        resolved.append((seq, step))
+            raise CartesianProductError(f"Sequence {selection.sequence_id} has no step at order {selection.order}")
+        resolved.append((seq, step, selection))
     return resolved
 
 
@@ -82,7 +85,7 @@ def run_cartesian_product(
     rf_element_ids: list[UUID],
     pw_element_ids: list[UUID],
     pri_element_ids: list[UUID],
-    sequence_steps: list[tuple[UUID, int]] | None = None,
+    sequence_steps: list[SequenceStepSelection] | None = None,
     name_prefix: str,
     created_by: UUID | None = None,
     batch_note: str | None = None,
@@ -109,9 +112,9 @@ def run_cartesian_product(
     # per run — selecting steps disables PRI Element selection, same as the
     # old whole-sequence behavior did.
     if selected_steps:
-        pri_axis: list[tuple[ModeElement | None, ParameterSequence | None, dict | None]] = [
-            (None, seq, step) for seq, step in selected_steps
-        ]
+        pri_axis: list[
+            tuple[ModeElement | None, ParameterSequence | None, dict | None, SequenceStepSelection | None]
+        ] = [(None, seq, step, selection) for seq, step, selection in selected_steps]
     else:
         pri_elements = _fetch_elements(db, source.id, pri_element_ids, ElementType.pri)
         is_stagger = [bool(e.stagger_values) for e in pri_elements]
@@ -120,7 +123,7 @@ def run_cartesian_product(
                 "PRI elements chosen for one cartesian-product run must be all Fixed-style ranges "
                 "or all Stagger sequences, not a mix"
             )
-        pri_axis = [(pri_el, None, None) for pri_el in pri_elements]
+        pri_axis = [(pri_el, None, None, None) for pri_el in pri_elements]
 
     batch = ModeGenerationBatch(
         ew_group_id=ew_group_id, source_id=source.id, name_prefix=name_prefix, created_by=created_by
@@ -181,7 +184,7 @@ def run_cartesian_product(
         created.append(mode)
         return mode
 
-    for pri_el, seq, step in pri_axis:
+    for pri_el, seq, step, selection in pri_axis:
         pri_type = PriType.stagger if (pri_el and pri_el.stagger_values) else PriType.fixed
 
         for rf_el in rf_elements:
@@ -230,11 +233,18 @@ def run_cartesian_product(
                     step_jitter_min = step.get("jitter_min_us")
                     step_jitter_max = step.get("jitter_max_us")
 
+                    # A per-step override (this run only) takes precedence
+                    # over the sequence's own stored delta, which stays the
+                    # default when no override is given.
+                    step_rf_delta = selection.rf_delta if selection.rf_delta is not None else seq.rf_delta
+                    step_pw_delta = selection.pw_delta if selection.pw_delta is not None else seq.pw_delta
+                    step_pri_delta = selection.pri_delta if selection.pri_delta is not None else seq.pri_delta
+
                     if step_pri_us is not None:
                         step_line_kwargs["pri_min_us"] = float(step_pri_us)
                         step_line_kwargs["pri_max_us"] = float(step_pri_us)
-                        if seq.pri_delta is not None:
-                            step_line_kwargs["pri_delta"] = seq.pri_delta
+                        if step_pri_delta is not None:
+                            step_line_kwargs["pri_delta"] = step_pri_delta
                     else:
                         step_line_kwargs["pri_min_us"] = 0.0
                         step_line_kwargs["pri_max_us"] = 0.0
@@ -245,14 +255,14 @@ def run_cartesian_product(
                     if step.get("rf_mhz") is not None:
                         step_line_kwargs["rf_min_mhz"] = float(step["rf_mhz"])
                         step_line_kwargs["rf_max_mhz"] = float(step["rf_mhz"])
-                        if seq.rf_delta is not None:
-                            step_line_kwargs["rf_delta"] = seq.rf_delta
+                        if step_rf_delta is not None:
+                            step_line_kwargs["rf_delta"] = step_rf_delta
 
                     if step.get("pw_us") is not None:
                         step_line_kwargs["pw_min_us"] = float(step["pw_us"])
                         step_line_kwargs["pw_max_us"] = float(step["pw_us"])
-                        if seq.pw_delta is not None:
-                            step_line_kwargs["pw_delta"] = seq.pw_delta
+                        if step_pw_delta is not None:
+                            step_line_kwargs["pw_delta"] = step_pw_delta
 
                     _create_mode(PriType.fixed, step_line_kwargs)
                 else:

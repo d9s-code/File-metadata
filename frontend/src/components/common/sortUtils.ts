@@ -10,6 +10,17 @@ export function compareNullable<V>(av: V | null | undefined, bv: V | null | unde
   return dir === "asc" ? cmp : -cmp;
 }
 
+/** Numeric-aware string compare — "Mode 2" sorts before "Mode 10" instead of
+ * after it, unlike plain lexicographic comparison (where '1' < '2' char by
+ * char). Case-insensitive via `sensitivity: "base"`. */
+export function naturalCompare(a: string, b: string, dir: SortDirection): number {
+  const cmp = a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+  return dir === "asc" ? cmp : -cmp;
+}
+
 export function compareStrings(a: string | null | undefined, b: string | null | undefined, dir: SortDirection): number {
-  return compareNullable(a?.toLowerCase(), b?.toLowerCase(), dir);
+  if (a == null && b == null) return 0;
+  if (a == null) return 1;
+  if (b == null) return -1;
+  return naturalCompare(a, b, dir);
 }

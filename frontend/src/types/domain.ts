@@ -10,7 +10,7 @@ export type TestResult = "pass" | "fail" | "partial" | "inconclusive";
 export type PriType = "fixed" | "stagger" | "cw" | "xlet";
 
 export type ElementType = "rf" | "pw" | "pri" | "scan";
-export type ElementVariant = "typical" | "discrete" | "most_probable" | "extreme" | "intercept" | "other";
+export type ElementVariant = "typical" | "discrete" | "most_probable" | "extreme" | "intercept" | "analysis" | "other";
 export type SourceStatus = "approved" | "pending_review" | "rejected";
 
 export interface User {
@@ -53,6 +53,14 @@ export interface EmitterNote {
 }
 
 export interface SourceNote {
+  id: string;
+  author_id: string | null;
+  author_username: string | null;
+  body: string;
+  created_at: string;
+}
+
+export interface MdfNote {
   id: string;
   author_id: string | null;
   author_username: string | null;
@@ -190,6 +198,63 @@ export interface TestRecordBrief {
   test_date: string;
 }
 
+export interface InterceptEntryFields {
+  rf_min_mhz?: number | null;
+  rf_max_mhz?: number | null;
+  rf_mean_mhz: number;
+  pw_min_us?: number | null;
+  pw_max_us?: number | null;
+  pw_mean_us: number;
+  /** Literal PRI mean when pri_type is fixed; the stagger frame-time mean
+   * (same field, contextual meaning) when pri_type is stagger. */
+  pri_min_us?: number | null;
+  pri_max_us?: number | null;
+  pri_mean_us: number;
+  /** Fixed only — a single flat mean, not a min/max jitter bound. */
+  jitter_mean_us?: number | null;
+  /** Stagger only (ordered). */
+  stagger_values?: number[] | null;
+  notes?: string | null;
+}
+
+export interface InterceptEntry extends InterceptEntryFields {
+  id: string;
+  intercept_id: string;
+  pri_type: PriType;
+  created_at: string;
+  /** Modes this entry was used to derive — traceability in the entry ->
+   * Mode direction. */
+  derived_mode_ids: string[];
+}
+
+export interface InterceptEntryBrief {
+  id: string;
+  intercept_id: string;
+  pri_type: PriType;
+  created_at: string;
+  rf_mean_mhz: number;
+  pw_mean_us: number;
+  pri_mean_us: number;
+}
+
+export interface InterceptNote {
+  id: string;
+  author_id: string | null;
+  author_username: string | null;
+  body: string;
+  created_at: string;
+}
+
+export interface Intercept {
+  id: string;
+  emitter_id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+  entry_count: number;
+}
+
 export interface Mode {
   id: string;
   ew_group_id: string;
@@ -211,6 +276,10 @@ export interface Mode {
    * Mode that came from a Source instead). Computed on read; only populated
    * on list endpoints — see backend mode_test_status_service. */
   derived_from_test_records: TestRecordBrief[];
+  /** Intercept Entry/Entries this Mode's values were pre-filled from (empty
+   * for a Mode that came from a Source or a test instead). Computed on read;
+   * only populated on list endpoints. */
+  derived_from_intercepts: InterceptEntryBrief[];
 }
 
 export interface ModeGenerationBatch {

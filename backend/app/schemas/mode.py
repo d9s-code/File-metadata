@@ -4,6 +4,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, computed_field, field_validator, model_validator
 
 from app.core.enums import PriType, TestResult, TestType
+from app.schemas.intercept import InterceptEntryBrief
 from app.services.delta import apply_delta
 from app.services.frametime_service import compute_frametime_us
 
@@ -129,6 +130,9 @@ class ModeCreate(BaseModel):
     # Test Record(s) whose findings explain this Mode's values, for a Mode
     # that didn't come from the Source's data (see TestRecordModeLinkType).
     derived_from_test_record_ids: list[UUID] = []
+    # Intercept Entry/Entries this Mode's values were pre-filled from — same
+    # provenance idea as derived_from_test_record_ids, see InterceptEntryMode.
+    derived_from_intercept_entry_ids: list[UUID] = []
 
     @model_validator(mode="after")
     def check_pri_type(self) -> "ModeCreate":
@@ -157,6 +161,7 @@ class ModeUpdate(BaseModel):
     # Test Record(s) whose findings explain this Mode's (possibly just-edited)
     # values — same meaning as ModeCreate.derived_from_test_record_ids.
     derived_from_test_record_ids: list[UUID] = []
+    derived_from_intercept_entry_ids: list[UUID] = []
 
 
 class BatchModeFieldEdit(BaseModel):
@@ -223,6 +228,7 @@ class ModeBatchEditRequest(BaseModel):
     # Test Record(s) whose findings explain this batch's values — applied to
     # every affected Mode, same meaning as ModeUpdate.derived_from_test_record_ids.
     derived_from_test_record_ids: list[UUID] = []
+    derived_from_intercept_entry_ids: list[UUID] = []
 
     @model_validator(mode="after")
     def check_non_empty(self) -> "ModeBatchEditRequest":
@@ -332,6 +338,7 @@ class ModeOut(BaseModel):
     last_test_result: TestResult | None = None
     last_test_record_id: UUID | None = None
     derived_from_test_records: list[TestRecordBrief] = []
+    derived_from_intercepts: list[InterceptEntryBrief] = []
 
 
 class ModeGenerationBatchOut(BaseModel):

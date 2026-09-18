@@ -44,6 +44,12 @@ export function NavBar() {
             Customers
           </NavLink>
           <NavLink
+            to="/intercepts"
+            className={({ isActive }) => (isActive ? "navbar-link-active" : undefined)}
+          >
+            Intercepts
+          </NavLink>
+          <NavLink
             to="/audit-log"
             className={({ isActive }) => (isActive ? "navbar-link-active" : undefined)}
           >

@@ -43,6 +43,7 @@ class ElementVariant(str, enum.Enum):
     most_probable = "most_probable"
     extreme = "extreme"
     intercept = "intercept"
+    analysis = "analysis"
     other = "other"
 
 
@@ -165,6 +166,9 @@ class AuditEntityType(str, enum.Enum):
     function_group = "function_group"
     ambiguity_finding = "ambiguity_finding"
     customer = "customer"
+    intercept = "intercept"
+    intercept_entry = "intercept_entry"
+    intercept_note = "intercept_note"
     source = "source"
     source_note = "source_note"
     source_group = "source_group"
@@ -175,6 +179,7 @@ class AuditEntityType(str, enum.Enum):
     platform_link = "platform_link"
     mdf = "mdf"
     mdf_link = "mdf_link"
+    mdf_note = "mdf_note"
     test_record = "test_record"
     import_batch = "import_batch"
     parameter_sequence = "parameter_sequence"

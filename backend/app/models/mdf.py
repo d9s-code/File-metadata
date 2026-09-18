@@ -36,6 +36,12 @@ class Mdf(UUIDPkMixin, TimestampMixin, Base):
     )
 
     links: Mapped[list["MdfPlatformLink"]] = relationship(back_populates="mdf", cascade="all, delete-orphan")
+    # Named analyst_notes (not notes) — Mdf.notes is a separate, pre-existing
+    # flat/overwritable field; this is the newer append-only commentary feed,
+    # same shape as Emitter/Source/Intercept's own notes feed.
+    analyst_notes: Mapped[list["MdfNote"]] = relationship(  # noqa: F821
+        back_populates="mdf", cascade="all, delete-orphan", order_by="MdfNote.created_at.desc()"
+    )
     versions: Mapped[list["MdfVersion"]] = relationship(
         back_populates="mdf", cascade="all, delete-orphan", order_by="MdfVersion.version_number"
     )

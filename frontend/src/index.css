@@ -1825,6 +1825,14 @@ span.test-derived-badge {
   color: var(--text);
 }
 
+.batch-summary-row {
+  background: var(--bg);
+  font-weight: 600;
+}
+.batch-summary-row td {
+  border-bottom: 1px solid var(--border);
+}
+
 .dsl-editor {
   display: flex;
   flex-direction: column;

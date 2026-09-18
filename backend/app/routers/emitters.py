@@ -413,6 +413,7 @@ def batch_edit_modes(
         db,
         planned=planned,
         derived_from_test_record_ids=payload.derived_from_test_record_ids,
+        derived_from_intercept_entry_ids=payload.derived_from_intercept_entry_ids,
         actor_id=user.id,
         emitter_id=emitter_id,
         shift_reason=payload.shift_reason,

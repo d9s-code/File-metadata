@@ -13,6 +13,7 @@ from app.routers import (
     ew_groups,
     function_groups,
     imports,
+    intercepts,
     mdfs,
     modes,
     platforms,
@@ -43,6 +44,7 @@ app.include_router(sources.router)
 app.include_router(source_groups.router)
 app.include_router(customers.router)
 app.include_router(imports.router)
+app.include_router(intercepts.router)
 app.include_router(modes.router)
 app.include_router(dsl.router)
 app.include_router(mdfs.router)

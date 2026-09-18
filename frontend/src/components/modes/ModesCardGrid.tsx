@@ -1,14 +1,16 @@
 import { useState } from "react";
-import type { EwGroup, FunctionGroup, Mode, Source } from "../../types/domain";
+import type { EwGroup, FunctionGroup, Mode, ModeGenerationBatch, Source } from "../../types/domain";
 import { HoverInfo } from "../common/InfoPopover";
 import { RequireRole } from "../../auth/RequireAuth";
 import { EwGroupHoverDetail, ModeHoverDetail, SourceHoverDetail, StaggerSequenceBox } from "./ModeHoverDetails";
 import { TestDerivedBadge } from "./TestDerivedBadge";
+import { InterceptDerivedBadge } from "./InterceptDerivedBadge";
 import { LastTestedCell } from "./LastTestedCell";
 import { ModeEditForm } from "./ModeEditForm";
 import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 import {
+  groupModesForDisplay,
   jitterOrFrameTimeDisplay,
   priDisplay,
   pwDisplay,
@@ -19,32 +21,47 @@ import {
 export function ModesCardGrid({
   emitterId,
   modes,
+  batches,
+  collapseBatches,
   ewGroupsById,
   sourcesById,
   functionGroupsById,
   onDelete,
   selected,
   onToggleSelect,
+  onToggleSelectBatch,
   showEngineered,
 }: {
   emitterId: string;
   modes: Mode[];
+  batches: ModeGenerationBatch[];
+  collapseBatches: boolean;
   ewGroupsById: Record<string, EwGroup>;
   sourcesById: Record<string, Source>;
   functionGroupsById: Record<string, FunctionGroup>;
   onDelete: (modeId: string, ewGroupId: string, name: string) => void;
   selected: Set<string>;
   onToggleSelect: (modeId: string) => void;
+  onToggleSelectBatch: (modeIds: string[]) => void;
   showEngineered: boolean;
 }) {
   const [editingModeId, setEditingModeId] = useState<string | null>(null);
+  const [expandedBatchIds, setExpandedBatchIds] = useState<Set<string>>(new Set());
   const { data: emitter } = useEmitter(emitterId);
   const { canEdit } = useEmitterCheckoutState(emitter);
   const editTitle = canEdit ? undefined : "Start editing this Emitter first";
+  const batchNameById = Object.fromEntries(batches.map((b) => [b.id, b.name_prefix]));
 
-  return (
-    <div className="mode-card-grid">
-      {modes.map((m) => {
+  function toggleExpandBatch(batchId: string) {
+    setExpandedBatchIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(batchId)) next.delete(batchId);
+      else next.add(batchId);
+      return next;
+    });
+  }
+
+  function renderModeCard(m: Mode) {
         const ewGroup = ewGroupsById[m.ew_group_id];
         const source = sourcesById[m.source_id];
         const rf = rfDisplay(m, showEngineered);
@@ -77,6 +94,7 @@ export function ModesCardGrid({
                   <ModeHoverDetail mode={m} source={source} />
                 </HoverInfo>
                 <TestDerivedBadge emitterId={emitterId} records={m.derived_from_test_records} />
+                <InterceptDerivedBadge intercepts={m.derived_from_intercepts} />
               </strong>
               <RequireRole minimum="editor">
                 <button
@@ -228,6 +246,40 @@ export function ModesCardGrid({
                 </dd>
               </div>
             </dl>
+          </div>
+        );
+  }
+
+  const displayRows = groupModesForDisplay(modes, collapseBatches);
+
+  return (
+    <div className="mode-card-grid">
+      {displayRows.map((row) => {
+        if (row.type === "mode") return renderModeCard(row.mode);
+
+        const isExpanded = expandedBatchIds.has(row.batchId);
+        const batchIds = row.modes.map((m) => m.id);
+        const allSelected = batchIds.every((id) => selected.has(id));
+        const someSelected = batchIds.some((id) => selected.has(id));
+        return (
+          <div key={row.batchId} className="mode-card-grid-batch">
+            <div className="mode-card batch-summary-row">
+              <div className="mode-card-header">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  ref={(el) => {
+                    if (el) el.indeterminate = !allSelected && someSelected;
+                  }}
+                  onChange={() => onToggleSelectBatch(batchIds)}
+                  aria-label={`Select all Modes in batch ${batchNameById[row.batchId] ?? row.batchId}`}
+                />
+                <button type="button" className="link-button" onClick={() => toggleExpandBatch(row.batchId)}>
+                  {isExpanded ? "▼" : "▶"} {batchNameById[row.batchId] ?? "Generation batch"} — {row.modes.length} Modes
+                </button>
+              </div>
+            </div>
+            {isExpanded && row.modes.map((m) => renderModeCard(m))}
           </div>
         );
       })}

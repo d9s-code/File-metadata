@@ -30,6 +30,7 @@ const VARIANT_STYLES: Record<string, { label: string; bg: string; fg: string; bo
   most_probable: { label: "most-probable", bg: "#7c2d12", fg: "#fed7aa", border: "#ea580c" },
   extreme: { label: "extreme", bg: "var(--badge-red-bg)", fg: "var(--badge-red-fg)", border: "var(--badge-red-fg)" },
   intercept: { label: "intercept", bg: "#0f766e", fg: "#ccfbf1", border: "#14b8a6" },
+  analysis: { label: "analysis", bg: "#4c1d95", fg: "#ddd6fe", border: "#7c3aed" },
   other: { label: "other", bg: "#4b5563", fg: "#f3f4f6", border: "#374151" },
 };
 
@@ -104,6 +105,7 @@ function ElementForm({ emitterId, sourceId }: { emitterId: string; sourceId: str
         <option value="most_probable">most-probable</option>
         <option value="extreme">extreme</option>
         <option value="intercept">intercept</option>
+        <option value="analysis">analysis</option>
         <option value="other">other</option>
       </select>
       {elementType === "pri" && (
@@ -139,7 +141,13 @@ function ElementForm({ emitterId, sourceId }: { emitterId: string; sourceId: str
           )}
         </>
       )}
-      <input placeholder="Notes" value={details} onChange={(e) => setDetails(e.target.value)} />
+      <input
+        placeholder={variant === "analysis" ? "Notes (required — how was this derived?)" : "Notes"}
+        value={details}
+        onChange={(e) => setDetails(e.target.value)}
+        required={variant === "analysis"}
+        title={variant === "analysis" ? "The 'analysis' variant requires a note explaining how this value was derived" : undefined}
+      />
       <button type="submit" disabled={createElement.isPending}>
         Add Element
       </button>

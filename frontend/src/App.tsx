@@ -17,6 +17,8 @@ import { MdfVersionHistoryPage } from "./pages/MdfVersionHistoryPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { SourceGroupsPage } from "./pages/SourceGroupsPage";
 import { CustomersPage } from "./pages/CustomersPage";
+import { InterceptsPage } from "./pages/InterceptsPage";
+import { InterceptDetailPage } from "./pages/InterceptDetailPage";
 import { AmbiguityDashboardPage } from "./pages/AmbiguityDashboardPage";
 import { AuditLogPage } from "./pages/AuditLogPage";
 import { HelpPage } from "./pages/HelpPage";
@@ -133,6 +135,22 @@ export default function App() {
                 element={
                   <RequireAuth>
                     <CustomersPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/intercepts"
+                element={
+                  <RequireAuth>
+                    <InterceptsPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/intercepts/:interceptId"
+                element={
+                  <RequireAuth>
+                    <InterceptDetailPage />
                   </RequireAuth>
                 }
               />

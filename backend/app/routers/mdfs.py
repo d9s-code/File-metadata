@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.csrf import verify_csrf
 from app.core.enums import MDF_STATUS_TRANSITIONS, AuditAction, AuditEntityType, MdfStatus, Role
@@ -13,9 +13,11 @@ from app.database import get_db
 from app.deps import require_role
 from app.models.customer import Customer
 from app.models.mdf import Mdf, MdfPlatformLink, MdfVersion
+from app.models.mdf_note import MdfNote
 from app.models.platform import PlatformVersion
 from app.schemas.emitter_version import CommitVersionRequest, DiffOut, StatusTransitionRequest
 from app.schemas.mdf import MdfCreate, MdfLinkCreate, MdfLinkOut, MdfOut, MdfReadinessOut, MdfUpdate
+from app.schemas.mdf_note import MdfNoteCreate, MdfNoteOut
 from app.schemas.mdf_version import MdfStatusTransitionOut, MdfVersionDetailOut, MdfVersionOut
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.prs_export.packager import build_mdf_export_zip
@@ -190,6 +192,74 @@ def restore_mdf(
         ) from exc
     db.refresh(mdf)
     return _attach_platforms_count(db, mdf)
+
+
+@router.get("/{mdf_id}/notes", response_model=list[MdfNoteOut])
+def list_mdf_notes(
+    mdf_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
+) -> list[MdfNote]:
+    """Newest-first analyst commentary log — see MdfNote."""
+    _get_mdf_or_404(db, mdf_id)
+    return (
+        db.query(MdfNote)
+        .options(joinedload(MdfNote.author))
+        .filter(MdfNote.mdf_id == mdf_id)
+        .order_by(MdfNote.created_at.desc())
+        .all()
+    )
+
+
+@router.post(
+    "/{mdf_id}/notes",
+    response_model=MdfNoteOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(verify_csrf)],
+)
+def create_mdf_note(
+    mdf_id: UUID,
+    payload: MdfNoteCreate,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+) -> MdfNote:
+    mdf = _get_mdf_or_404(db, mdf_id)
+    note = MdfNote(mdf_id=mdf_id, author_id=user.id, body=payload.body)
+    db.add(note)
+    db.flush()
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.create,
+        entity_type=AuditEntityType.mdf_note.value,
+        entity_id=note.id,
+        summary=f"Added a note to MDF '{mdf.name}'",
+    )
+    db.commit()
+    db.refresh(note)
+    return note
+
+
+@router.delete("/{mdf_id}/notes/{note_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(verify_csrf)])
+def delete_mdf_note(
+    mdf_id: UUID,
+    note_id: UUID,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+) -> None:
+    mdf = _get_mdf_or_404(db, mdf_id)
+    note = db.get(MdfNote, note_id)
+    if note is None or note.mdf_id != mdf_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Note not found")
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.delete,
+        entity_type=AuditEntityType.mdf_note.value,
+        entity_id=note.id,
+        summary=f"Deleted a note from MDF '{mdf.name}'",
+        changes=snapshot(note, ["body"]),
+    )
+    db.delete(note)
+    db.commit()
 
 
 @router.get("/{mdf_id}/links", response_model=list[MdfLinkOut])

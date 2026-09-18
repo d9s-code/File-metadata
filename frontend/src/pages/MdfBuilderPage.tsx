@@ -4,6 +4,7 @@ import { useMdf, useMdfLinks, useUpdateMdf } from "../state/hooks/useMdfs";
 import { useMdfVersions } from "../state/hooks/useMdfVersions";
 import { usePlatforms } from "../state/hooks/usePlatforms";
 import { useCustomers } from "../state/hooks/useCustomers";
+import { useCreateMdfNote, useDeleteMdfNote, useMdfNotes } from "../state/hooks/useMdfNotes";
 import { MdfLinkTable } from "../components/mdf/MdfLinkTable";
 import { PlatformVersionPicker } from "../components/mdf/PlatformVersionPicker";
 import { MdfStatusTransitionControls } from "../components/mdf/MdfStatusTransitionControls";
@@ -14,6 +15,7 @@ import { EntityAuditTrail } from "../components/audit/EntityAuditTrail";
 import { RequireRole } from "../auth/RequireAuth";
 import { LoadingState } from "../components/common/LoadingState";
 import { Modal } from "../components/common/Modal";
+import { NotesFeed } from "../components/common/NotesFeed";
 
 type Tab = "platforms" | "tests" | "audit";
 
@@ -33,6 +35,9 @@ export function MdfBuilderPage() {
   const { data: versions } = useMdfVersions(mdfId ?? "");
   const { data: customers } = useCustomers();
   const { mutate: updateMdf, isPending: isUpdating } = useUpdateMdf();
+  const { data: mdfNotes, isLoading: notesLoading } = useMdfNotes(mdfId ?? "");
+  const { mutateAsync: createMdfNote, isPending: isAddingNote } = useCreateMdfNote(mdfId ?? "");
+  const { mutateAsync: deleteMdfNote } = useDeleteMdfNote(mdfId ?? "");
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
@@ -88,6 +93,19 @@ export function MdfBuilderPage() {
         {latestVersion && <ExportPrsButton kind="mdf" id={mdf.id} versionNumber={latestVersion.version_number} />}
       </div>
       {mdf.description && <p className="muted">{mdf.description}</p>}
+      {mdf.notes && <p className="muted">{mdf.notes}</p>}
+
+      <section className="card">
+        <h4>Release notes</h4>
+        <NotesFeed
+          notes={mdfNotes}
+          isLoading={notesLoading}
+          placeholder="What's changed in this release of the MDF."
+          onAdd={(body) => createMdfNote(body)}
+          isAdding={isAddingNote}
+          onDelete={(noteId) => deleteMdfNote(noteId)}
+        />
+      </section>
 
       {isEditing && (
         <Modal title="Edit MDF Details" onClose={handleCancelEdit} wide>

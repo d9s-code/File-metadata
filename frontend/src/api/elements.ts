@@ -18,6 +18,11 @@ export interface ModeElementInput {
 export interface SequenceStepSelection {
   sequence_id: string;
   order: number;
+  /** Per-step, run-only delta override — takes precedence over the
+   * sequence's own stored delta for this run only. */
+  rf_delta?: number;
+  pw_delta?: number;
+  pri_delta?: number;
 }
 
 export interface CartesianProductInput {

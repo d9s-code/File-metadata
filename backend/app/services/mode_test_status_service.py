@@ -5,8 +5,10 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.enums import TestRecordModeLinkType, TestResult
+from app.models.intercept import InterceptEntry, InterceptEntryMode
 from app.models.mode import Mode
 from app.models.test_record import TestRecord, TestRecordMode
+from app.schemas.intercept import InterceptEntryBrief
 from app.schemas.mode import ModeOut, TestRecordBrief
 
 
@@ -58,6 +60,25 @@ def get_test_derivations(db: Session, mode_ids: list[UUID]) -> dict[UUID, list[T
     return derivations
 
 
+def get_intercept_derivations(db: Session, mode_ids: list[UUID]) -> dict[UUID, list[InterceptEntryBrief]]:
+    """For each given Mode id, the Intercept Entry/Entries it was pre-filled
+    from — the provenance an "Intercept-Derived" badge in the UI points at.
+    """
+    if not mode_ids:
+        return {}
+    rows = (
+        db.query(InterceptEntryMode.mode_id, InterceptEntry)
+        .join(InterceptEntry, InterceptEntryMode.intercept_entry_id == InterceptEntry.id)
+        .filter(InterceptEntryMode.mode_id.in_(mode_ids))
+        .order_by(InterceptEntry.created_at.desc())
+        .all()
+    )
+    derivations: dict[UUID, list[InterceptEntryBrief]] = {}
+    for mode_id, entry in rows:
+        derivations.setdefault(mode_id, []).append(InterceptEntryBrief.model_validate(entry))
+    return derivations
+
+
 def attach_mode_extras(db: Session, modes: list[Mode]) -> list[ModeOut]:
     """Builds ModeOut list with the read-computed extras (last test status,
     test-derivation provenance) attached — the one place both Mode list
@@ -67,11 +88,13 @@ def attach_mode_extras(db: Session, modes: list[Mode]) -> list[ModeOut]:
     mode_ids = [m.id for m in modes]
     test_status = get_last_test_status(db, mode_ids)
     derivations = get_test_derivations(db, mode_ids)
+    intercept_derivations = get_intercept_derivations(db, mode_ids)
     results = []
     for m in modes:
         out = ModeOut.model_validate(m)
         if m.id in test_status:
             out.last_tested_at, out.last_test_result, out.last_test_record_id = test_status[m.id]
         out.derived_from_test_records = derivations.get(m.id, [])
+        out.derived_from_intercepts = intercept_derivations.get(m.id, [])
         results.append(out)
     return results

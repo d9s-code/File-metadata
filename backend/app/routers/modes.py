@@ -11,6 +11,7 @@ from app.dsl.exceptions import DslSyntaxError
 from app.dsl.renderer import render_mode_line
 from app.models.ew_group import EwGroup
 from app.models.function_group import FunctionGroup
+from app.models.intercept import InterceptEntry, InterceptEntryMode
 from app.models.mode import Mode, ModeLine
 from app.models.source import Source
 from app.models.test_record import TestRecord, TestRecordMode
@@ -67,6 +68,19 @@ def _link_derived_test_records(db: Session, *, mode_id: UUID, test_record_ids: l
         db.add(TestRecordMode(test_record_id=test_record_id, mode_id=mode_id, link_type=TestRecordModeLinkType.derived))
 
 
+def _link_derived_intercept_entries(db: Session, *, mode_id: UUID, intercept_entry_ids: list[UUID]) -> None:
+    if not intercept_entry_ids:
+        return
+    found_ids = {
+        e.id for e in db.query(InterceptEntry.id).filter(InterceptEntry.id.in_(intercept_entry_ids)).all()
+    }
+    missing = set(intercept_entry_ids) - found_ids
+    if missing:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Unknown intercept entry id(s): {missing}")
+    for intercept_entry_id in intercept_entry_ids:
+        db.add(InterceptEntryMode(intercept_entry_id=intercept_entry_id, mode_id=mode_id))
+
+
 @router.get("", response_model=list[ModeOut])
 def list_modes(
     ew_group_id: UUID,
@@ -120,6 +134,9 @@ def create_mode(
     line = ModeLine(mode_id=mode.id, dsl_text=dsl_text, **line_fields)
     db.add(line)
     _link_derived_test_records(db, mode_id=mode.id, test_record_ids=payload.derived_from_test_record_ids)
+    _link_derived_intercept_entries(
+        db, mode_id=mode.id, intercept_entry_ids=payload.derived_from_intercept_entry_ids
+    )
     summary = f"Created Mode '{mode.name}'"
     if payload.derived_from_test_record_ids:
         summary += f" (test-derived, {len(payload.derived_from_test_record_ids)} test record(s))"
@@ -231,6 +248,9 @@ def update_mode(
             mode.line.dsl_text = None
 
     _link_derived_test_records(db, mode_id=mode.id, test_record_ids=payload.derived_from_test_record_ids)
+    _link_derived_intercept_entries(
+        db, mode_id=mode.id, intercept_entry_ids=payload.derived_from_intercept_entry_ids
+    )
 
     record_audit(
         db,

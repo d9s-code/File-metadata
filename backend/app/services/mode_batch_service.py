@@ -18,6 +18,7 @@ from app.dsl.exceptions import DslSyntaxError
 from app.dsl.renderer import render_mode_line
 from app.models.ew_group import EwGroup
 from app.models.function_group import FunctionGroup
+from app.models.intercept import InterceptEntry, InterceptEntryMode
 from app.models.mode import Mode
 from app.models.test_record import TestRecord, TestRecordMode
 from app.schemas.mode import (
@@ -156,6 +157,7 @@ def apply_batch_edit(
     *,
     planned: list[PlannedModeEdit],
     derived_from_test_record_ids: list[UUID],
+    derived_from_intercept_entry_ids: list[UUID] = [],
     actor_id: UUID | None,
     emitter_id: UUID,
     shift_reason: str | None = None,
@@ -165,6 +167,14 @@ def apply_batch_edit(
         missing = set(derived_from_test_record_ids) - found_ids
         if missing:
             raise HTTPException(status.HTTP_404_NOT_FOUND, f"Unknown test record id(s): {missing}")
+    if derived_from_intercept_entry_ids:
+        found_ids = {
+            e.id
+            for e in db.query(InterceptEntry.id).filter(InterceptEntry.id.in_(derived_from_intercept_entry_ids)).all()
+        }
+        missing = set(derived_from_intercept_entry_ids) - found_ids
+        if missing:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, f"Unknown intercept entry id(s): {missing}")
 
     updated_ids: list[UUID] = []
     for item in planned:
@@ -183,6 +193,8 @@ def apply_batch_edit(
             db.add(
                 TestRecordMode(test_record_id=test_record_id, mode_id=mode.id, link_type=TestRecordModeLinkType.derived)
             )
+        for intercept_entry_id in derived_from_intercept_entry_ids:
+            db.add(InterceptEntryMode(intercept_entry_id=intercept_entry_id, mode_id=mode.id))
 
         summary = f"Batch-updated Mode '{mode.name}'"
         if shift_reason:

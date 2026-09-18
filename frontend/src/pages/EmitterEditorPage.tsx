@@ -10,6 +10,7 @@ import { EwGroupsTable } from "../components/ewGroups/EwGroupsTable";
 import { FunctionGroupsTable } from "../components/functionGroups/FunctionGroupsTable";
 import { SourcesTable } from "../components/sources/SourcesTable";
 import { ModesSection } from "../components/modes/ModesSection";
+import { EmitterIntercepts } from "../components/intercepts/EmitterIntercepts";
 import { StatusTransitionControls } from "../components/versioning/StatusTransitionControls";
 import { CheckoutBanner } from "../components/versioning/CheckoutBanner";
 import { EmitterTestHistory } from "../components/testing/EmitterTestHistory";
@@ -21,7 +22,7 @@ import { emitterStatusLabel } from "../components/common/emitterStatusLabel";
 import { JsonImportModal } from "../components/common/JsonImportModal";
 import { useQueryClient } from "@tanstack/react-query";
 
-type Tab = "modes" | "tests" | "audit";
+type Tab = "modes" | "setup" | "intercepts" | "tests" | "audit";
 
 export function EmitterEditorPage() {
   const { emitterId } = useParams<{ emitterId: string }>();
@@ -51,21 +52,20 @@ export function EmitterEditorPage() {
   const [editDescription, setEditDescription] = useState("");
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
-  // Auto-expand the setup panel once, only if setup looks incomplete on first load — never
-  // force it open/closed again afterward, so it doesn't snap shut on the user mid-interaction
-  // the moment they finish adding the first EW Group/Source.
+  // Auto-switch to the Setup tab once, only if setup looks incomplete on first load — never
+  // force a tab switch again afterward, so it doesn't yank the user away mid-interaction the
+  // moment they finish adding the first EW Group/Source.
   const [showReworkNote, setShowReworkNote] = useState(false);
-  const [setupOpen, setSetupOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const autoOpenDecided = useRef(false);
   useEffect(() => {
     if (!ewGroupsLoading && !sourcesLoading && !autoOpenDecided.current) {
       autoOpenDecided.current = true;
-      if ((ewGroups ?? []).length === 0 || (sources ?? []).length === 0) {
-        setSetupOpen(true);
+      if (searchParams.get("tab") !== "tests" && ((ewGroups ?? []).length === 0 || (sources ?? []).length === 0)) {
+        setTab("setup");
       }
     }
-  }, [ewGroupsLoading, sourcesLoading, ewGroups, sources]);
+  }, [ewGroupsLoading, sourcesLoading, ewGroups, sources, searchParams]);
 
   if (isLoading || !emitter) return <LoadingState label="Loading emitter…" />;
 
@@ -270,6 +270,12 @@ export function EmitterEditorPage() {
         <button className={tab === "modes" ? "tab active" : "tab"} onClick={() => setTab("modes")}>
           Modes
         </button>
+        <button className={tab === "setup" ? "tab active" : "tab"} onClick={() => setTab("setup")}>
+          EW Groups & Sources
+        </button>
+        <button className={tab === "intercepts" ? "tab active" : "tab"} onClick={() => setTab("intercepts")}>
+          Intercepts
+        </button>
         <button className={tab === "tests" ? "tab active" : "tab"} onClick={() => setTab("tests")}>
           Test History
         </button>
@@ -278,10 +284,9 @@ export function EmitterEditorPage() {
         </button>
       </div>
 
-      {/* All three tabs stay mounted — only visibility toggles (`hidden`, not a
-          JSX conditional) — so switching tabs never unmounts/resets a Mode
-          search filter or an in-progress "New Test" form the user hasn't
-          saved yet. */}
+      {/* All tabs stay mounted — only visibility toggles (`hidden`, not a JSX
+          conditional) — so switching tabs never unmounts/resets a Mode search
+          filter or an in-progress "New Test" form the user hasn't saved yet. */}
       <div hidden={tab !== "modes"}>
         <ModesSection
           emitterId={emitter.id}
@@ -289,25 +294,22 @@ export function EmitterEditorPage() {
           sources={sources ?? []}
           functionGroups={functionGroups ?? []}
         />
-        <details
-          className="setup-collapse"
-          open={setupOpen}
-          onToggle={(e) => setSetupOpen(e.currentTarget.open)}
-        >
-          <summary>EW Groups & Sources setup</summary>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 1rem" }}>
-            <h5 style={{ margin: 0 }}>Setup</h5>
-            <button
-              className="button"
-              onClick={() => setIsImportModalOpen(true)}
-            >
-              Import JSON
-            </button>
-          </div>
-          <EwGroupsTable emitterId={emitter.id} ewGroups={ewGroups ?? []} />
-          <FunctionGroupsTable emitterId={emitter.id} functionGroups={functionGroups ?? []} />
-          <SourcesTable emitterId={emitter.id} sources={sources ?? []} ewGroups={ewGroups ?? []} />
-        </details>
+      </div>
+
+      <div hidden={tab !== "setup"}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h4 style={{ margin: 0 }}>EW Groups & Sources</h4>
+          <button className="button" onClick={() => setIsImportModalOpen(true)}>
+            Import JSON
+          </button>
+        </div>
+        <EwGroupsTable emitterId={emitter.id} ewGroups={ewGroups ?? []} />
+        <FunctionGroupsTable emitterId={emitter.id} functionGroups={functionGroups ?? []} />
+        <SourcesTable emitterId={emitter.id} sources={sources ?? []} ewGroups={ewGroups ?? []} />
+      </div>
+
+      <div hidden={tab !== "intercepts"}>
+        <EmitterIntercepts emitterId={emitter.id} />
       </div>
 
       <div hidden={tab !== "tests"}>

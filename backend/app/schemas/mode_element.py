@@ -44,6 +44,8 @@ class ModeElementCreate(BaseModel):
             raise ValueError("jitter_min must be <= jitter_max")
         if self.delta is not None and self.delta < 0:
             raise ValueError("delta must be >= 0")
+        if self.variant == ElementVariant.analysis and not (self.details and self.details.strip()):
+            raise ValueError("Selecting the 'analysis' variant requires a note in Details")
         return self
 
 
@@ -86,6 +88,12 @@ class ModeElementOut(ModeElementCreate):
 class SequenceStepSelection(BaseModel):
     sequence_id: UUID
     order: int
+    # Per-step, run-only delta override — takes precedence over the
+    # sequence's own stored rf_delta/pw_delta/pri_delta for this step, for
+    # this run only (mirrors rf/pw/pri_delta_overrides on Elements below).
+    rf_delta: float | None = None
+    pw_delta: float | None = None
+    pri_delta: float | None = None
 
 
 class CartesianProductRequest(BaseModel):

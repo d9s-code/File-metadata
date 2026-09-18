@@ -577,7 +577,7 @@ def cartesian_product(
             rf_element_ids=payload.rf_element_ids,
             pw_element_ids=payload.pw_element_ids,
             pri_element_ids=payload.pri_element_ids,
-            sequence_steps=[(s.sequence_id, s.order) for s in payload.sequence_steps] if payload.sequence_steps else None,
+            sequence_steps=payload.sequence_steps or None,
             name_prefix=payload.name_prefix,
             created_by=user.id,
             batch_note=payload.batch_note,
