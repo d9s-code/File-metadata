@@ -77,7 +77,7 @@ npm run dev
 
 Backend: http://localhost:8000 · Frontend dev server: http://localhost:5173
 
-## Docker Compose (closer to the offline deployment shape)
+## Docker Compose (on a machine with internet access)
 
 ```bash
 cp .env.example .env   # at repo root: set POSTGRES_PASSWORD, JWT_SECRET, and ADMIN_PASSWORD
@@ -92,7 +92,41 @@ not be able to take out both the live database and its backups.
 There is no self-service register form, so the backend bootstraps an initial admin user
 (`ADMIN_USERNAME` / `ADMIN_PASSWORD` from `.env`, defaulting to username `admin`) on every
 startup, via `scripts/create_admin.py` — it no-ops once that user already exists. Log in with
-those credentials at `http://localhost:5173` and create additional users from there.
+those credentials and create additional users from there.
+
+## Offline / air-gapped server deployment
+
+The app itself makes no outbound network calls at runtime, but building the images does
+(base images from Docker Hub, plus `pip`/`npm`/`apt` packages) — so the images must be built
+on a machine **with** internet access and carried over to the offline server, rather than
+built there.
+
+1. On a machine with internet access, clone/copy this repo and set `.env` at the repo root
+   (`cp .env.example .env`). Set `VITE_API_BASE_URL` and `CORS_ORIGINS` to how users will
+   actually reach the offline server (its real hostname or IP) — `VITE_API_BASE_URL` gets
+   baked into the frontend's built JS at image-build time, so it can't be fixed later just by
+   editing `.env` on the server; the image would need rebuilding.
+   ```bash
+   ./scripts/offline/build-images.sh
+   ```
+   This builds the backend/frontend images, pulls `postgres:16`, and writes
+   `rf-emitter-images.tar`.
+2. Copy the whole repo directory (including `rf-emitter-images.tar`, `docker-compose.yml`,
+   and your filled-in `.env`) to the offline server — USB drive, `scp` over a jump host,
+   whatever transfer path that network allows.
+3. On the offline server:
+   ```bash
+   ./scripts/offline/load-images.sh
+   docker compose up -d
+   ```
+   Do **not** pass `--build` — the images are already loaded locally under the tags
+   `docker-compose.yml` expects (`rf-emitter-backend:latest`, `rf-emitter-frontend:latest`,
+   `postgres:16`), so plain `docker compose up` uses them directly without touching the
+   network.
+
+To ship a code change afterwards: rebuild and re-save on the connected machine, then repeat
+steps 2–3 on the server (`docker load` overwrites the existing image tags; `docker compose up
+-d` recreates any changed containers).
 
 ## Backups
 

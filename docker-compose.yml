@@ -18,6 +18,10 @@ services:
 
   backend:
     build: ./backend
+    # Fixed, predictable tag so the offline build/load scripts (see
+    # scripts/offline/) can `docker save`/`docker load` this exact image
+    # by name instead of guessing compose's auto-generated project tag.
+    image: rf-emitter-backend:latest
     restart: unless-stopped
     depends_on:
       postgres:
@@ -25,8 +29,11 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://rf_app:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/rf_emitter_db
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
-      CORS_ORIGINS: '["http://localhost:5173"]'
-      COOKIE_SECURE: "false"
+      # The origin the browser loads the frontend from — must match how
+      # users actually reach this server (its hostname/IP), not localhost,
+      # once this isn't running on a laptop next to the browser.
+      CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:5173"]}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
       BACKUP_DIR: /backups
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
@@ -41,7 +48,14 @@ services:
       sh -c "alembic upgrade head && python scripts/create_admin.py \"$$ADMIN_USERNAME\" \"$$ADMIN_PASSWORD\" && uvicorn app.main:app --host 0.0.0.0 --port 8000"
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        # Vite bakes this into the built JS at image-build time, so it must
+        # already be the server's real address — it can't be changed later
+        # by an env var at container start, only by rebuilding the image.
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+    image: rf-emitter-frontend:latest
     restart: unless-stopped
     depends_on:
       - backend
