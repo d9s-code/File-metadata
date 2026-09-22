@@ -1966,6 +1966,25 @@ span.test-derived-badge {
   color: var(--muted);
   font-weight: 600;
 }
+
+/* The Emitter-level headline — "did we correctly recognize this Emitter
+   against a simulated signal" — deliberately the first thing under the
+   checkout banner, ahead of the RF/PW/PRI summary row. */
+.validation-headline {
+  font-weight: 600;
+  margin: 0.25rem 0 0.75rem 0;
+}
+
+/* Collapsed by default once Test Lines make per-Mode results a secondary,
+   opt-in detail rather than the primary way to log a test. */
+.mode-legacy-section {
+  margin-top: 0.75rem;
+}
+.mode-legacy-section > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--muted);
+}
 .live-diff-panel {
   padding: 0.6rem 0.75rem;
   margin: -0.5rem 0 0.75rem 0;

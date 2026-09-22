@@ -89,6 +89,12 @@ export interface Emitter {
   forked_from_version_id: string | null;
   forked_at_version_number: number | null;
   summary: EmitterSummary;
+  /** Headline validation state — the most recent Test Record that assessed
+   * this Emitter's Test Lines (simulated-signal intercept correctness).
+   * Null until at least one Test Line has been logged against. */
+  last_validated_at: string | null;
+  last_validated_result: TestResult | null;
+  last_validated_test_record_id: string | null;
 }
 
 export interface EwGroup {

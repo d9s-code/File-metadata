@@ -181,6 +181,7 @@ class AuditEntityType(str, enum.Enum):
     mdf_link = "mdf_link"
     mdf_note = "mdf_note"
     test_record = "test_record"
+    test_line = "test_line"
     import_batch = "import_batch"
     parameter_sequence = "parameter_sequence"
     user = "user"

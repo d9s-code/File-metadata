@@ -19,6 +19,7 @@ from app.routers import (
     platforms,
     source_groups,
     sources,
+    test_lines,
     test_records,
     trash,
     users,
@@ -50,6 +51,7 @@ app.include_router(dsl.router)
 app.include_router(mdfs.router)
 app.include_router(test_records.emitter_router)
 app.include_router(test_records.mdf_router)
+app.include_router(test_lines.router)
 app.include_router(dashboard.router)
 app.include_router(ambiguity.router)
 app.include_router(audit_log.router)

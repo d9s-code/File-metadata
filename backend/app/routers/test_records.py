@@ -11,13 +11,15 @@ from app.models.emitter import Emitter
 from app.models.emitter_version import EmitterVersion
 from app.models.mdf import Mdf, MdfVersion
 from app.models.mode import Mode
-from app.models.test_record import TestRecord, TestRecordFunctionGroup, TestRecordMode
+from app.models.test_line import TestLine
+from app.models.test_record import TestRecord, TestRecordFunctionGroup, TestRecordLine, TestRecordMode
 from app.schemas.test_record import TestRecordCreate, TestRecordOut
 from app.services.audit_service import record_audit
 from app.services.test_result_service import compute_overall_result
 
 _MODES_EAGER_LOAD = joinedload(TestRecord.modes).joinedload(TestRecordMode.mode)
 _FUNCTION_GROUPS_EAGER_LOAD = joinedload(TestRecord.function_groups).joinedload(TestRecordFunctionGroup.function_group)
+_LINES_EAGER_LOAD = joinedload(TestRecord.lines).joinedload(TestRecordLine.test_line)
 
 emitter_router = APIRouter(prefix="/emitters/{emitter_id}/test-records", tags=["test-records"])
 mdf_router = APIRouter(prefix="/mdfs/{mdf_id}/test-records", tags=["test-records"])
@@ -56,6 +58,23 @@ def _create_test_record(
         if missing:
             raise HTTPException(status.HTTP_404_NOT_FOUND, f"Unknown mode id(s): {missing}")
 
+    if payload.line_results:
+        if emitter_id is None:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "line_results requires an Emitter-scoped test")
+        line_ids = [lr.test_line_id for lr in payload.line_results]
+        found_line_ids = {
+            tl.id for tl in db.query(TestLine.id).filter(TestLine.id.in_(line_ids), TestLine.emitter_id == emitter_id).all()
+        }
+        missing_lines = set(line_ids) - found_line_ids
+        if missing_lines:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, f"Unknown test line id(s) for this Emitter: {missing_lines}")
+        detected_mode_ids = {lr.detected_as_mode_id for lr in payload.line_results if lr.detected_as_mode_id is not None}
+        if detected_mode_ids:
+            found_detected = {m.id for m in db.query(Mode.id).filter(Mode.id.in_(detected_mode_ids)).all()}
+            missing_detected = detected_mode_ids - found_detected
+            if missing_detected:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, f"Unknown mode id(s): {missing_detected}")
+
     if payload.retests_test_record_id is not None:
         retested = db.get(TestRecord, payload.retests_test_record_id)
         if retested is None:
@@ -65,9 +84,17 @@ def _create_test_record(
                 status.HTTP_422_UNPROCESSABLE_ENTITY, "retests_test_record_id must belong to the same scope"
             )
 
-    overall_result = (
-        compute_overall_result([mr.result for mr in payload.mode_results]) if payload.mode_results else payload.result
-    )
+    # Precedence: an Emitter test's overall result is the intercept-correctness
+    # verdict (line_results) whenever any lines were assessed — that's the
+    # simulation-centric headline this whole feature exists for — falling back
+    # to the per-Mode worst-of, then the manual result, only when there's
+    # nothing to derive it from.
+    if payload.line_results:
+        overall_result = compute_overall_result([lr.outcome for lr in payload.line_results])
+    elif payload.mode_results:
+        overall_result = compute_overall_result([mr.result for mr in payload.mode_results])
+    else:
+        overall_result = payload.result
     assert overall_result is not None  # guaranteed by TestRecordCreate.check_result
 
     record = TestRecord(
@@ -86,6 +113,16 @@ def _create_test_record(
     )
     db.add(record)
     db.flush()
+    for lr in payload.line_results:
+        db.add(
+            TestRecordLine(
+                test_record_id=record.id,
+                test_line_id=lr.test_line_id,
+                outcome=lr.outcome,
+                detected_as_mode_id=lr.detected_as_mode_id,
+                notes=lr.notes,
+            )
+        )
     for mr in payload.mode_results:
         db.add(
             TestRecordMode(
@@ -129,7 +166,7 @@ def _create_test_record(
     db.commit()
     return (
         db.query(TestRecord)
-        .options(_MODES_EAGER_LOAD, _FUNCTION_GROUPS_EAGER_LOAD)
+        .options(_MODES_EAGER_LOAD, _FUNCTION_GROUPS_EAGER_LOAD, _LINES_EAGER_LOAD)
         .filter(TestRecord.id == record.id)
         .one()
     )
@@ -143,7 +180,7 @@ def list_emitter_test_records(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Emitter not found")
     return (
         db.query(TestRecord)
-        .options(_MODES_EAGER_LOAD, _FUNCTION_GROUPS_EAGER_LOAD)
+        .options(_MODES_EAGER_LOAD, _FUNCTION_GROUPS_EAGER_LOAD, _LINES_EAGER_LOAD)
         .filter(TestRecord.scope_type == TestScopeType.emitter, TestRecord.scope_id == emitter_id)
         .order_by(TestRecord.test_date.desc())
         .all()
@@ -181,7 +218,7 @@ def list_mdf_test_records(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "MDF not found")
     return (
         db.query(TestRecord)
-        .options(_MODES_EAGER_LOAD, _FUNCTION_GROUPS_EAGER_LOAD)
+        .options(_MODES_EAGER_LOAD, _FUNCTION_GROUPS_EAGER_LOAD, _LINES_EAGER_LOAD)
         .filter(TestRecord.scope_type == TestScopeType.mdf, TestRecord.scope_id == mdf_id)
         .order_by(TestRecord.test_date.desc())
         .all()

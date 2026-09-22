@@ -60,6 +60,17 @@ class TestRecordModeResultIn(BaseModel):
         return cleaned or None
 
 
+class TestRecordLineResultIn(BaseModel):
+    test_line_id: UUID
+    # Reuses TestResult: pass = correctly intercepted, partial = misclassified
+    # (see detected_as_mode_id), fail = missed entirely, inconclusive =
+    # couldn't be assessed this run.
+    outcome: TestResult
+    # Only meaningful when outcome == partial — what it was recognized as instead.
+    detected_as_mode_id: UUID | None = None
+    notes: str | None = None
+
+
 class TestRecordCreate(BaseModel):
     test_type: TestType
     title: str
@@ -68,12 +79,20 @@ class TestRecordCreate(BaseModel):
     # Required for a Simulation test — when the simulation model/scenario itself
     # was built, as distinct from test_date (when the run happened against it).
     simulation_created_date: date | None = None
-    # Per-Mode outcome — the whole-test `result` is derived from these (see
-    # app.services.test_result_service), not picked independently.
+    # Per-Test-Line outcome — whether the simulated signal each line describes
+    # was intercepted the way it was expected to be. When given (Emitter scope
+    # only), this is what the whole-test `result` derives from — see
+    # _create_test_record's precedence. The simulation-centric counterpart to
+    # mode_results below.
+    line_results: list[TestRecordLineResultIn] = []
+    # Per-Mode outcome — kept for lab-bench/live-range/field-exercise style
+    # tests (and MDF scope, which has no Test Lines) where "how did our own
+    # Mode behave" is what's being logged rather than intercept correctness.
+    # Used to derive `result` only when line_results is empty.
     mode_results: list[TestRecordModeResultIn] = []
-    # Only used (and required) when mode_results is empty — e.g. an MDF-scoped
-    # test, or an Emitter test not tied to any specific Mode — where there's
-    # nothing to derive an overall result from.
+    # Only used (and required) when neither line_results nor mode_results is
+    # given — e.g. an MDF-scoped test, or an Emitter test not tied to any
+    # specific Mode/Line — where there's nothing to derive an overall result from.
     result: TestResult | None = None
     # Optional pointer to an earlier test record this one re-runs, e.g. after a
     # fix — must belong to the same scope (checked in the router).
@@ -92,8 +111,8 @@ class TestRecordCreate(BaseModel):
 
     @model_validator(mode="after")
     def check_result(self) -> "TestRecordCreate":
-        if not self.mode_results and self.result is None:
-            raise ValueError("result is required when no per-Mode results are given")
+        if not self.line_results and not self.mode_results and self.result is None:
+            raise ValueError("result is required when no per-Line or per-Mode results are given")
         return self
 
 
@@ -117,6 +136,16 @@ class TestRecordFunctionGroupOut(BaseModel):
     override_result: TestResult | None = None
 
 
+class TestRecordLineOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    test_line_id: UUID
+    test_line_label: str = Field(validation_alias=AliasPath("test_line", "label"))
+    outcome: TestResult
+    detected_as_mode_id: UUID | None = None
+    notes: str | None = None
+
+
 class TestRecordOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -136,3 +165,4 @@ class TestRecordOut(BaseModel):
     retests_test_record_id: UUID | None = None
     modes: list[TestRecordModeOut] = []
     function_groups: list[TestRecordFunctionGroupOut] = []
+    lines: list[TestRecordLineOut] = []

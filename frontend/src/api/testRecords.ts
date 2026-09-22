@@ -35,6 +35,15 @@ export interface TestRecordFunctionGroupResult {
   override_result: TestResult | null;
 }
 
+export interface TestRecordLineResult {
+  test_line_id: string;
+  test_line_label: string;
+  /** pass = correctly intercepted, partial = misclassified, fail = missed, inconclusive = couldn't be assessed. */
+  outcome: TestResult;
+  detected_as_mode_id: string | null;
+  notes: string | null;
+}
+
 export interface TestRecord {
   id: string;
   scope_type: "emitter" | "mdf";
@@ -52,6 +61,7 @@ export interface TestRecord {
   retests_test_record_id: string | null;
   modes: TestRecordModeLink[];
   function_groups: TestRecordFunctionGroupResult[];
+  lines: TestRecordLineResult[];
 }
 
 export interface TestRecordModeResultInput {
@@ -61,15 +71,26 @@ export interface TestRecordModeResultInput {
   observed_values?: ObservedValues[];
 }
 
+export interface TestRecordLineResultInput {
+  test_line_id: string;
+  outcome: TestResult;
+  detected_as_mode_id?: string;
+  notes?: string;
+}
+
 export interface TestRecordInput {
   test_type: TestType;
   title: string;
   notes?: string;
   test_date: string;
   simulation_created_date?: string;
-  /** Per-Mode outcome — the whole-test result is derived from these. */
+  /** Per-Test-Line intercept-correctness outcome — when given, this is what the
+   * whole-test result derives from (see backend precedence). */
+  line_results?: TestRecordLineResultInput[];
+  /** Per-Mode outcome — the whole-test result is derived from these only when
+   * line_results is empty. */
   mode_results?: TestRecordModeResultInput[];
-  /** Only used (and required) when mode_results is empty. */
+  /** Only used (and required) when neither line_results nor mode_results is given. */
   result?: TestResult;
   /** Optional pointer to an earlier test record this one re-runs. */
   retests_test_record_id?: string;

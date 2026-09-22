@@ -1,6 +1,12 @@
 import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { ObservedValues, TestRecord, TestRecordInput, TestRecordModeLink } from "../../api/testRecords";
+import type {
+  ObservedValues,
+  TestRecord,
+  TestRecordInput,
+  TestRecordLineResult,
+  TestRecordModeLink,
+} from "../../api/testRecords";
 import { modesApi, type ModeCreateInput } from "../../api/modes";
 import type { EwGroup, FunctionGroup, Source, TestResult, TestType } from "../../types/domain";
 import { RequireRole } from "../../auth/RequireAuth";
@@ -9,6 +15,7 @@ import { useConfirmDialog } from "../common/ConfirmDialog";
 import { ModeForm } from "../modes/ModeForm";
 import { HoverInfo } from "../common/InfoPopover";
 import { ModeResultsPicker, type ModeOption, type ModeResultEntry } from "./ModeResultsPicker";
+import { LineResultsPicker, type LineResultEntry, type TestLineOption } from "./LineResultsPicker";
 import { computeOverallResult } from "./modeResultAggregate";
 import { SortableColumnHeader } from "../common/SortableColumnHeader";
 import { useSortableTable } from "../common/useSortableTable";
@@ -40,6 +47,52 @@ function compareRecords(a: TestRecord, b: TestRecord, key: RecordSortKey, dir: "
   }
 }
 
+function initialLineEntries(lines: TestLineOption[]): Record<string, LineResultEntry> {
+  // Mirrors initialModeEntries: a run is assumed to intercept every current
+  // Test Line correctly unless told otherwise.
+  return Object.fromEntries(
+    lines.map((l) => [l.id, { included: true, outcome: "pass" as TestResult, detectedAsModeId: "", notes: "" }]),
+  );
+}
+
+function lineEntriesFromPreviousTest(previous: TestRecord, lines: TestLineOption[]): Record<string, LineResultEntry> {
+  const byLineId = new Map(previous.lines.map((l) => [l.test_line_id, l]));
+  return Object.fromEntries(
+    lines.map((l) => {
+      const prior = byLineId.get(l.id);
+      return [
+        l.id,
+        {
+          included: true,
+          outcome: prior?.outcome ?? "pass",
+          detectedAsModeId: prior?.detected_as_mode_id ?? "",
+          notes: "",
+        } as LineResultEntry,
+      ];
+    }),
+  );
+}
+
+/** Rolled-up counts for a record's Test Line list — mirrors summarizeModeLinks. */
+function summarizeLineLinks(lines: TestRecordLineResult[]) {
+  const counts: Partial<Record<TestResult, number>> = {};
+  for (const l of lines) counts[l.outcome] = (counts[l.outcome] ?? 0) + 1;
+  return counts;
+}
+
+function outcomeShortLabel(o: TestResult): string {
+  switch (o) {
+    case "pass":
+      return "correct";
+    case "partial":
+      return "misclassified";
+    case "fail":
+      return "missed";
+    case "inconclusive":
+      return "inconclusive";
+  }
+}
+
 function entriesFromPreviousTest(previous: TestRecord, modes: ModeOption[]): Record<string, ModeResultEntry> {
   // Only "exercised" links carry a result to copy forward — "derived" links
   // are Modes the test produced, not ones it tested. Notes/observed values
@@ -54,15 +107,22 @@ function entriesFromPreviousTest(previous: TestRecord, modes: ModeOption[]): Rec
   );
 }
 
-function initialModeEntries(modes: ModeOption[]): Record<string, ModeResultEntry> {
+function initialModeEntries(modes: ModeOption[], defaultIncluded: boolean): Record<string, ModeResultEntry> {
   // A test run is assumed to exercise every current Mode, all passing, unless
   // told otherwise — with 70+ Modes on some Emitters, requiring an editor to
   // individually check/fill each one would make logging a test painful.
   // Default to "all included, all pass" and let them flip the few that
   // weren't covered or didn't pass. observedValues starts with one blank set
   // — the picker's "+ Add another observed value" appends more as needed.
+  // defaultIncluded is false whenever this Emitter has Test Lines: per-Mode
+  // logging is then a secondary, opt-in section (see the collapsed
+  // mode-legacy-section below), and submitting an "all Modes pass" result
+  // nobody actually reviewed just because the section exists would be wrong.
   return Object.fromEntries(
-    modes.map((m) => [m.id, { included: true, result: "pass" as TestResult, notes: "", observedValues: [{}] }]),
+    modes.map((m) => [
+      m.id,
+      { included: defaultIncluded, result: "pass" as TestResult, notes: "", observedValues: [{}] },
+    ]),
   );
 }
 
@@ -115,6 +175,7 @@ export function TestHistoryView({
   onDelete,
   creating,
   availableModes,
+  availableLines,
   emitterId,
   ewGroups,
   sources,
@@ -128,6 +189,11 @@ export function TestHistoryView({
   /** Modes the "log test" form can link this record to. Omitted where there's no
    * direct Emitter scope to draw a Mode list from (e.g. MDF-scoped tests). */
   availableModes?: ModeOption[];
+  /** Test Lines (simulated-signal reference rows) the "log test" form can be
+   * checked against — omitted for MDF-scoped tests, which have no Test Lines.
+   * When present and non-empty, this is the primary, simulation-centric way
+   * to log a test; per-Mode results become an optional secondary section. */
+  availableLines?: TestLineOption[];
   /** Emitter scope needed to offer "+ Add Mode from this test" — omitted for
    * MDF-scoped test records, which have no single Emitter to attach a new
    * Mode to. */
@@ -149,6 +215,7 @@ export function TestHistoryView({
   const [copyFromId, setCopyFromId] = useState("");
   const [notes, setNotes] = useState("");
   const [modeEntries, setModeEntries] = useState<Record<string, ModeResultEntry>>({});
+  const [lineEntries, setLineEntries] = useState<Record<string, LineResultEntry>>({});
   const [functionGroupOverrides, setFunctionGroupOverrides] = useState<Record<string, TestResult | "">>({});
   const [error, setError] = useState<string | null>(null);
   const [addingModeForRecordId, setAddingModeForRecordId] = useState<string | null>(null);
@@ -189,6 +256,7 @@ export function TestHistoryView({
   const { canEdit } = useEmitterCheckoutState(emitterForCheckout);
   const canAddModeFromTest = !!(emitterId && ewGroups && sources && canEdit);
   const hasModes = !!(availableModes && availableModes.length > 0);
+  const hasLines = !!(availableLines && availableLines.length > 0);
   const {
     sorted: sortedRecords,
     sortKey: recordSortKey,
@@ -198,13 +266,28 @@ export function TestHistoryView({
   } = useSortableTable(records, compareRecords);
 
   useEffect(() => {
-    setModeEntries(initialModeEntries(availableModes ?? []));
-  }, [availableModes]);
+    setModeEntries(initialModeEntries(availableModes ?? [], !hasLines));
+  }, [availableModes, hasLines]);
+
+  useEffect(() => {
+    setLineEntries(initialLineEntries(availableLines ?? []));
+  }, [availableLines]);
 
   const includedResults = Object.values(modeEntries)
     .filter((e) => e.included)
     .map((e) => e.result);
-  const derivedResult = hasModes ? computeOverallResult(includedResults) : null;
+  const derivedModeResult = hasModes ? computeOverallResult(includedResults) : null;
+
+  const includedLineOutcomes = Object.values(lineEntries)
+    .filter((e) => e.included)
+    .map((e) => e.outcome);
+  const derivedLineResult = hasLines ? computeOverallResult(includedLineOutcomes) : null;
+
+  // Backend precedence: an Emitter's overall result comes from Test-Line
+  // outcomes whenever any are logged, falling back to per-Mode results —
+  // mirror that here so the "derived overall result" hint never disagrees
+  // with what actually gets saved.
+  const derivedResult = derivedLineResult ?? derivedModeResult;
 
   // Live-computed worst-of-N per represented Function Group, from the exact
   // same in-progress modeEntries the overall result derives from — the
@@ -252,7 +335,8 @@ export function TestHistoryView({
     setRetestsId("");
     setCopyFromId("");
     setNotes("");
-    setModeEntries(initialModeEntries(availableModes ?? []));
+    setModeEntries(initialModeEntries(availableModes ?? [], !hasLines));
+    setLineEntries(initialLineEntries(availableLines ?? []));
     setFunctionGroupOverrides({});
     setStagingKeys([]);
     setStagedModes([]);
@@ -261,7 +345,10 @@ export function TestHistoryView({
   function handleCopyFromChange(id: string) {
     setCopyFromId(id);
     const previous = records.find((r) => r.id === id);
-    if (previous) setModeEntries(entriesFromPreviousTest(previous, availableModes ?? []));
+    if (previous) {
+      setModeEntries(entriesFromPreviousTest(previous, availableModes ?? []));
+      setLineEntries(lineEntriesFromPreviousTest(previous, availableLines ?? []));
+    }
   }
 
   // One-click shortcut for a failed/partial test: opens the New Test form
@@ -274,6 +361,7 @@ export function TestHistoryView({
     setRetestsId(r.id);
     setCopyFromId(r.id);
     setModeEntries(entriesFromPreviousTest(r, availableModes ?? []));
+    setLineEntries(lineEntriesFromPreviousTest(r, availableLines ?? []));
   }
 
   function addStaged(key: string, ewGroupId: string, input: ModeCreateInput) {
@@ -300,19 +388,30 @@ export function TestHistoryView({
           observed_values: nonEmptySets.length ? nonEmptySets : undefined,
         };
       });
-    // A Mode result set is required to derive an overall result UNLESS
-    // there's a manual result to fall back on — which the form always
-    // offers once no Mode is included (see the `includedResults.length ===
-    // 0` selector below), whether that's because this Emitter has no Modes
-    // yet, or because this test is purely about a newly staged Mode with
-    // nothing existing being (re)tested right now.
-    if (hasModes && modeResults.length === 0 && stagedModes.length === 0) {
-      setError("Include at least one Mode, stage a new one, or pick a manual result below.");
+    const lineResults = Object.entries(lineEntries)
+      .filter(([, entry]) => entry.included)
+      .map(([test_line_id, entry]) => ({
+        test_line_id,
+        outcome: entry.outcome,
+        detected_as_mode_id: entry.outcome === "partial" && entry.detectedAsModeId ? entry.detectedAsModeId : undefined,
+        notes: entry.notes || undefined,
+      }));
+    // A Test-Line or Mode result set is required to derive an overall result
+    // UNLESS there's a manual result to fall back on — which the form always
+    // offers once nothing is included (see the manual-result selector below),
+    // whether that's because this Emitter has no Lines/Modes yet, or because
+    // this test is purely about a newly staged Mode with nothing existing
+    // being (re)tested right now.
+    const nothingToSubmit =
+      (!hasLines || lineResults.length === 0) && (!hasModes || (modeResults.length === 0 && stagedModes.length === 0));
+    if ((hasLines || hasModes) && nothingToSubmit) {
+      setError("Include at least one Test Line or Mode, stage a new Mode, or pick a manual result below.");
       return;
     }
     const overrides = Object.fromEntries(
       Object.entries(functionGroupOverrides).filter(([, v]) => v !== ""),
     ) as Record<string, TestResult>;
+    const hasDerivableResult = lineResults.length > 0 || modeResults.length > 0;
     let record: TestRecord;
     try {
       record = await onCreate({
@@ -321,8 +420,9 @@ export function TestHistoryView({
         test_date: testDate,
         simulation_created_date: simulationCreatedDate || undefined,
         notes: notes || undefined,
+        line_results: lineResults.length > 0 ? lineResults : undefined,
         mode_results: modeResults.length > 0 ? modeResults : undefined,
-        result: modeResults.length > 0 ? undefined : manualResult,
+        result: hasDerivableResult ? undefined : manualResult,
         retests_test_record_id: retestsId || undefined,
         function_group_overrides: Object.keys(overrides).length ? overrides : undefined,
       });
@@ -415,6 +515,7 @@ export function TestHistoryView({
                 onSort={onSortRecords}
                 onClear={onClearRecordSort}
               />
+              <th>Test Lines</th>
               <th>Modes</th>
               <th>Notes</th>
               <th></th>
@@ -448,6 +549,52 @@ export function TestHistoryView({
                         </span>
                       ) : null;
                     })()}
+                </td>
+                <td>
+                  {r.lines.length > 0 ? (
+                    (() => {
+                      const isExpanded = r.lines.length <= 3 || expandedModeRows.has(r.id);
+                      const summary = summarizeLineLinks(r.lines);
+                      return (
+                        <>
+                          {r.lines.length > 3 && (
+                            <button
+                              type="button"
+                              className="link-button mode-summary-toggle"
+                              onClick={() => toggleModeRow(r.id)}
+                            >
+                              {isExpanded ? "▾" : "▸"} {r.lines.length} Line{r.lines.length === 1 ? "" : "s"}
+                            </button>
+                          )}
+                          <span className="test-record-mode-summary">
+                            {RESULT_ORDER.filter((res) => summary[res]).map((res) => (
+                              <span key={res} className={`test-result-badge test-result-${res}`}>
+                                {summary[res]}
+                              </span>
+                            ))}
+                          </span>
+                          {isExpanded && (
+                            <ul className="test-record-mode-list">
+                              {r.lines.map((l) => (
+                                <li key={l.test_line_id}>
+                                  {l.notes ? (
+                                    <HoverInfo label={l.test_line_label}>{l.notes}</HoverInfo>
+                                  ) : (
+                                    l.test_line_label
+                                  )}
+                                  <span className={`test-result-badge test-result-${l.outcome}`}>
+                                    {outcomeShortLabel(l.outcome)}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </>
+                      );
+                    })()
+                  ) : (
+                    "—"
+                  )}
                 </td>
                 <td>
                   {r.modes.length > 0 ? (
@@ -560,7 +707,7 @@ export function TestHistoryView({
               </tr>
               {addingModeForRecordId === r.id && canAddModeFromTest && (
                 <tr>
-                  <td colSpan={8}>
+                  <td colSpan={9}>
                     <p className="hint-text">
                       New Mode, same tools as usual — automatically linked as derived from "{r.title}".
                     </p>
@@ -617,11 +764,15 @@ export function TestHistoryView({
                   }
                 />
               </label>
-              {(!hasModes || includedResults.length === 0) && (
+              {(!hasLines || includedLineOutcomes.length === 0) && (!hasModes || includedResults.length === 0) && (
                 <select
                   value={manualResult}
                   onChange={(e) => setManualResult(e.target.value as TestResult)}
-                  title={hasModes ? "No Mode is included above — used as this test's overall result instead" : undefined}
+                  title={
+                    hasLines || hasModes
+                      ? "Nothing is included above — used as this test's overall result instead"
+                      : undefined
+                  }
                 >
                   {TEST_RESULTS.map((r) => (
                     <option key={r} value={r}>
@@ -644,13 +795,13 @@ export function TestHistoryView({
                   ))}
                 </select>
               </label>
-              {hasModes && (
+              {(hasLines || hasModes) && (
                 <label className="inline-date-label">
-                  Start from a previous test's Mode selection (optional)
+                  Start from a previous test's selection (optional)
                   <select value={copyFromId} onChange={(e) => handleCopyFromChange(e.target.value)}>
                     <option value="">—</option>
                     {records
-                      .filter((r) => r.modes.length > 0)
+                      .filter((r) => r.lines.length > 0 || r.modes.length > 0)
                       .map((r) => (
                         <option key={r.id} value={r.id}>
                           {r.title} — {r.test_date}
@@ -671,23 +822,46 @@ export function TestHistoryView({
               />
             </label>
 
-            {hasModes && (
+            {hasLines && (
               <>
-                <ModeResultsPicker
-                  modes={availableModes ?? []}
-                  entries={modeEntries}
-                  onChange={(modeId, entry) => setModeEntries((prev) => ({ ...prev, [modeId]: entry }))}
-                  functionGroups={functionGroups}
+                <p className="param-row-label">Simulated Signal Results</p>
+                <LineResultsPicker
+                  lines={availableLines ?? []}
+                  entries={lineEntries}
+                  onChange={(lineId, entry) => setLineEntries((prev) => ({ ...prev, [lineId]: entry }))}
+                  modes={availableModes}
                 />
                 <p className="hint-text">
                   Derived overall result:{" "}
                   {derivedResult ? (
                     <span className={`test-result-badge test-result-${derivedResult}`}>{derivedResult}</span>
                   ) : (
-                    "— include at least one Mode, or use the manual result above"
+                    "— include at least one Test Line, or use the manual result above"
                   )}
                 </p>
               </>
+            )}
+
+            {hasModes && (
+              <details className="mode-legacy-section" open={!hasLines}>
+                <summary>Per-Mode results {hasLines ? "(optional)" : ""}</summary>
+                <ModeResultsPicker
+                  modes={availableModes ?? []}
+                  entries={modeEntries}
+                  onChange={(modeId, entry) => setModeEntries((prev) => ({ ...prev, [modeId]: entry }))}
+                  functionGroups={functionGroups}
+                />
+                {!hasLines && (
+                  <p className="hint-text">
+                    Derived overall result:{" "}
+                    {derivedResult ? (
+                      <span className={`test-result-badge test-result-${derivedResult}`}>{derivedResult}</span>
+                    ) : (
+                      "— include at least one Mode, or use the manual result above"
+                    )}
+                  </p>
+                )}
+              </details>
             )}
 
             {representedFunctionGroups.length > 0 && (

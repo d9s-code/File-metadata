@@ -50,6 +50,9 @@ class TestRecord(UUIDPkMixin, TimestampMixin, Base):
     function_groups: Mapped[list["TestRecordFunctionGroup"]] = relationship(
         back_populates="test_record", cascade="all, delete-orphan"
     )
+    lines: Mapped[list["TestRecordLine"]] = relationship(
+        back_populates="test_record", cascade="all, delete-orphan"
+    )
 
 
 class TestRecordMode(UUIDPkMixin, Base):
@@ -116,3 +119,40 @@ class TestRecordFunctionGroup(UUIDPkMixin, Base):
 
     test_record: Mapped["TestRecord"] = relationship(back_populates="function_groups")
     function_group: Mapped["FunctionGroup"] = relationship()  # noqa: F821
+
+
+class TestRecordLine(UUIDPkMixin, Base):
+    """One Test Line's outcome within a specific Test Record — whether the
+    simulated signal it describes was intercepted the way it was expected to
+    be. This is the simulation-centric counterpart to TestRecordMode: instead
+    of "how did our own Mode X behave", it asks "did we correctly recognize
+    the threat this line represents". `outcome` reuses TestResult rather than
+    a bespoke enum so the existing worst-of aggregation, badges, and CSS
+    already used everywhere else for TestResult apply here unchanged: pass =
+    correctly intercepted, partial = misclassified (recognized as *something*,
+    just not the right thing — see detected_as_mode_id), fail = missed
+    entirely, inconclusive = couldn't be assessed this run.
+    """
+
+    __tablename__ = "test_record_lines"
+
+    test_record_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("test_records.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    # CASCADE: mirrors TestRecordMode.mode_id — a Test Line being deleted just
+    # drops it from any run's results; the run itself survives.
+    test_line_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("test_lines.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    outcome: Mapped[TestResult] = mapped_column(nullable=False)
+    # Only meaningful when outcome == partial (misclassified) — which Mode it
+    # was actually recognized as instead. SET NULL: same traceability-only
+    # reasoning as TestLine.expected_mode_id.
+    detected_as_mode_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("modes.id", ondelete="SET NULL"), nullable=True
+    )
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    test_record: Mapped["TestRecord"] = relationship(back_populates="lines")
+    test_line: Mapped["TestLine"] = relationship()  # noqa: F821
+    detected_as_mode: Mapped["Mode"] = relationship()  # noqa: F821

@@ -9,6 +9,7 @@ from app.models.ew_group import EwGroup
 from app.models.mode import Mode, ModeLine
 from app.models.user import User
 from app.schemas.emitter import EmitterOut, EmitterSummary
+from app.services.emitter_validation_service import get_last_validation
 from app.services.mode_test_status_service import get_last_test_status
 
 
@@ -124,6 +125,7 @@ def attach_emitter_summaries(db: Session, emitters: list[Emitter]) -> list[Emitt
     mode_test_status_service.attach_mode_extras.
     """
     summaries = compute_emitter_summaries(db, [e.id for e in emitters])
+    validations = get_last_validation(db, [e.id for e in emitters])
     holder_ids = {e.checked_out_by_id for e in emitters if e.checked_out_by_id is not None}
     usernames = dict(db.query(User.id, User.username).filter(User.id.in_(holder_ids)).all()) if holder_ids else {}
     results = []
@@ -132,5 +134,7 @@ def attach_emitter_summaries(db: Session, emitters: list[Emitter]) -> list[Emitt
         out.summary = summaries.get(e.id, EmitterSummary())
         if e.checked_out_by_id is not None:
             out.checked_out_by_username = usernames.get(e.checked_out_by_id)
+        if e.id in validations:
+            out.last_validated_at, out.last_validated_result, out.last_validated_test_record_id = validations[e.id]
         results.append(out)
     return results

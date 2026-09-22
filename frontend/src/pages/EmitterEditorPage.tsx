@@ -195,6 +195,28 @@ export function EmitterEditorPage() {
 
       <CheckoutBanner emitter={emitter} />
 
+      <p className="validation-headline">
+        Last validated against simulation:{" "}
+        {emitter.last_validated_at ? (
+          <>
+            {emitter.last_validated_at}{" "}
+            <span className={`test-result-badge test-result-${emitter.last_validated_result}`}>
+              {emitter.last_validated_result}
+            </span>{" "}
+            <button type="button" className="link-button" onClick={() => setTab("tests")}>
+              view
+            </button>
+          </>
+        ) : (
+          <>
+            not yet —{" "}
+            <button type="button" className="link-button" onClick={() => setTab("tests")}>
+              import Test Lines and log a test
+            </button>
+          </>
+        )}
+      </p>
+
       {emitter.forked_from_emitter_id && (
         <p className="hint-text">
           Forked from <Link to={`/emitters/${emitter.forked_from_emitter_id}`}>an earlier Emitter</Link>.

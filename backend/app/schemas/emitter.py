@@ -1,9 +1,9 @@
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
-from app.core.enums import EmitterStatus
+from app.core.enums import EmitterStatus, TestResult
 
 
 class EmitterCreate(BaseModel):
@@ -83,3 +83,11 @@ class EmitterOut(BaseModel):
     # refuses to revert to one directly (see that endpoint's docstring).
     forked_at_version_number: int | None = None
     summary: EmitterSummary = EmitterSummary()
+    # Populated by attach_emitter_summaries — the Emitter-level headline: the
+    # most recent Test Record that assessed this Emitter's Test Lines
+    # (simulated-signal intercept correctness), replacing per-Mode "last
+    # tested" as the primary read of this Emitter's validated state. None
+    # until at least one Test Line has been logged against.
+    last_validated_at: date | None = None
+    last_validated_result: TestResult | None = None
+    last_validated_test_record_id: UUID | None = None
