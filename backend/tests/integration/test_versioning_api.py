@@ -78,6 +78,25 @@ def test_diff_shows_added_mode_not_spurious_field_noise(editor_client, emitter_c
     assert entry["kind"] == "added"
 
 
+def test_live_diff_shows_mode_added_inside_a_brand_new_ew_group(editor_client, emitter_ctx):
+    # Regression test: _diff_modes was only ever called for EW Groups
+    # present in both snapshots, so a Mode created inside a brand-new
+    # (uncommitted) EW Group was never itemized — only "EW Group Added" was.
+    emitter_id = emitter_ctx["emitter"]["id"]
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "v1"})
+
+    new_group = editor_client.post(f"/emitters/{emitter_id}/ew-groups", json={"name": "New Group"}).json()
+    editor_client.post(
+        f"/ew-groups/{new_group['id']}/modes",
+        json={"source_id": emitter_ctx["source"]["id"], "name": "New Mode", "pri_type": "fixed", "line": FIXED_LINE},
+    )
+
+    diff = editor_client.get(f"/emitters/{emitter_id}/diff/live").json()
+    scopes = {(e["scope"], e["kind"]) for e in diff["entries"]}
+    assert ("EW Group 'New Group'", "added") in scopes
+    assert ("Mode 'New Mode'", "added") in scopes
+
+
 def test_diff_against_specific_version(editor_client, emitter_ctx):
     emitter_id = emitter_ctx["emitter"]["id"]
     editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "test"})  # v1
@@ -98,10 +117,13 @@ def test_diff_with_no_prior_version_is_400(editor_client, emitter_ctx):
     assert resp.status_code == 400
 
 
-def test_live_diff_is_404_before_any_commit(editor_client, emitter_ctx):
+def test_live_diff_before_any_commit_shows_everything_as_added(editor_client, emitter_ctx):
     emitter_id = emitter_ctx["emitter"]["id"]
     resp = editor_client.get(f"/emitters/{emitter_id}/diff/live")
-    assert resp.status_code == 404
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["identical"] is False
+    assert any(e["scope"] == "Emitter" and e["label"] == "Name" for e in body["entries"])
 
 
 def test_live_diff_shows_uncommitted_change_and_clears_after_commit(editor_client, emitter_ctx):

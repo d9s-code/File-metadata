@@ -101,9 +101,14 @@ def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict) -> dict:
     for group_id, g in new_groups.items():
         if group_id not in old_groups:
             entries.append(_entry(f"EW Group '{g['name']}'", "Added", "added"))
+            # The group itself is reported above, but Modes created inside a
+            # brand-new group are otherwise never itemized individually —
+            # matching how a Mode added to an already-existing group is.
+            _diff_modes(entries, [], g.get("modes", []))
     for group_id, g in old_groups.items():
         if group_id not in new_groups:
             entries.append(_entry(f"EW Group '{g['name']}'", "Removed", "removed"))
+            _diff_modes(entries, g.get("modes", []), [])
     for group_id in set(old_groups) & set(new_groups):
         og, ng = old_groups[group_id], new_groups[group_id]
         _diff_fields(entries, f"EW Group '{ng['name']}'", og, ng, EW_GROUP_FIELD_LABELS)
