@@ -715,6 +715,23 @@ label {
   gap: 0.2rem;
 }
 
+.test-history-toolbar {
+  gap: 0.75rem;
+  margin-bottom: 0.4rem;
+}
+
+.mode-summary-toggle {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+}
+
+.test-record-mode-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+}
+
 .test-record-function-group-badges {
   display: flex;
   flex-wrap: wrap;

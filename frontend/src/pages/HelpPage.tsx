@@ -254,7 +254,11 @@ export function HelpPage() {
           <div className="help-subsection" id="emitter-testing-tab">
             <h4>Test History tab (the workbench)</h4>
             <p>
-              Logs lab-bench validation runs. Click <strong>+ New Test</strong> to open the workbench:
+              Logs lab-bench validation runs. Each row's Modes column stays compact by default — past 3
+              Modes it collapses to result counts (e.g. "65 pass · 3 fail · 2 partial") behind a
+              click-to-expand toggle, rather than listing every Mode inline. <strong>Expand all</strong> /{" "}
+              <strong>Collapse all</strong> above the table toggles every row at once. Click{" "}
+              <strong>+ New Test</strong> to open the workbench:
             </p>
             <ul>
               <li>

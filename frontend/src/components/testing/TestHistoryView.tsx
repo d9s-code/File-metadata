@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { ObservedValues, TestRecord, TestRecordInput } from "../../api/testRecords";
+import type { ObservedValues, TestRecord, TestRecordInput, TestRecordModeLink } from "../../api/testRecords";
 import { modesApi, type ModeCreateInput } from "../../api/modes";
 import type { EwGroup, FunctionGroup, Source, TestResult, TestType } from "../../types/domain";
 import { RequireRole } from "../../auth/RequireAuth";
@@ -88,6 +88,25 @@ function formatObservedValues(sets: ObservedValues[] | null): string | null {
   return `Observed: ${formatted.map((s, i) => `(${i + 1}) ${s}`).join("; ")}`;
 }
 
+const RESULT_ORDER: TestResult[] = ["pass", "fail", "partial", "inconclusive"];
+
+/** Rolled-up counts for a record's Mode list, so the table can show "68
+ * pass, 2 fail" instead of a 70-line list by default — with 70+ Modes on
+ * some Emitters, most tests exercise nearly all of them, which used to make
+ * every row balloon to match the tallest one. */
+function summarizeModeLinks(modes: TestRecordModeLink[]) {
+  const counts: Partial<Record<TestResult, number>> = {};
+  let derived = 0;
+  for (const m of modes) {
+    if (m.link_type === "derived") {
+      derived += 1;
+      continue;
+    }
+    if (m.result) counts[m.result] = (counts[m.result] ?? 0) + 1;
+  }
+  return { counts, derived };
+}
+
 export function TestHistoryView({
   records,
   onCreate,
@@ -141,6 +160,20 @@ export function TestHistoryView({
   const { confirmDelete, dialog } = useConfirmDialog();
   const highlightedRowRef = useRef<HTMLTableRowElement>(null);
   const qc = useQueryClient();
+  // Per-record Mode-list expansion — collapsed by default (see
+  // summarizeModeLinks); ids present here show the full per-Mode breakdown.
+  const [expandedModeRows, setExpandedModeRows] = useState<Set<string>>(new Set());
+  function toggleModeRow(id: string) {
+    setExpandedModeRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
 
   useEffect(() => {
     if (highlightId) highlightedRowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -316,6 +349,19 @@ export function TestHistoryView({
       {records.length === 0 ? (
         <p className="hint-text">No tests logged yet.</p>
       ) : (
+        <>
+        <div className="form-row test-history-toolbar">
+          <button
+            type="button"
+            className="link-button"
+            onClick={() => setExpandedModeRows(new Set(sortedRecords.map((r) => r.id)))}
+          >
+            Expand all
+          </button>
+          <button type="button" className="link-button" onClick={() => setExpandedModeRows(new Set())}>
+            Collapse all
+          </button>
+        </div>
         <table className="data-table">
           <thead>
             <tr>
@@ -397,30 +443,62 @@ export function TestHistoryView({
                 </td>
                 <td>
                   {r.modes.length > 0 ? (
-                    <ul className="test-record-mode-list">
-                      {r.modes.map((m) => {
-                        const observed = formatObservedValues(m.observed_values);
-                        return (
-                          <li key={m.mode_id}>
-                            {m.notes || observed ? (
-                              <HoverInfo label={m.mode_name}>
-                                {m.notes}
-                                {m.notes && observed && <br />}
-                                {observed}
-                              </HoverInfo>
-                            ) : (
-                              m.mode_name
+                    (() => {
+                      // Nothing to compact below a handful of Modes — skip
+                      // straight to the full list rather than adding a
+                      // pointless extra click.
+                      const isExpanded = r.modes.length <= 3 || expandedModeRows.has(r.id);
+                      const summary = summarizeModeLinks(r.modes);
+                      return (
+                        <>
+                          {r.modes.length > 3 && (
+                            <button
+                              type="button"
+                              className="link-button mode-summary-toggle"
+                              onClick={() => toggleModeRow(r.id)}
+                            >
+                              {isExpanded ? "▾" : "▸"} {r.modes.length} Mode{r.modes.length === 1 ? "" : "s"}
+                            </button>
+                          )}
+                          <span className="test-record-mode-summary">
+                            {RESULT_ORDER.filter((res) => summary.counts[res]).map((res) => (
+                              <span key={res} className={`test-result-badge test-result-${res}`}>
+                                {summary.counts[res]} {res}
+                              </span>
+                            ))}
+                            {summary.derived > 0 && (
+                              <span className="test-result-badge test-result-derived">{summary.derived} derived</span>
                             )}
-                            {m.result && (
-                              <span className={`test-result-badge test-result-${m.result}`}>{m.result}</span>
-                            )}
-                            {m.link_type === "derived" && (
-                              <span className="test-result-badge test-result-derived">derived</span>
-                            )}
-                          </li>
-                        );
-                      })}
-                    </ul>
+                          </span>
+                          {isExpanded && (
+                            <ul className="test-record-mode-list">
+                              {r.modes.map((m) => {
+                                const observed = formatObservedValues(m.observed_values);
+                                return (
+                                  <li key={m.mode_id}>
+                                    {m.notes || observed ? (
+                                      <HoverInfo label={m.mode_name}>
+                                        {m.notes}
+                                        {m.notes && observed && <br />}
+                                        {observed}
+                                      </HoverInfo>
+                                    ) : (
+                                      m.mode_name
+                                    )}
+                                    {m.result && (
+                                      <span className={`test-result-badge test-result-${m.result}`}>{m.result}</span>
+                                    )}
+                                    {m.link_type === "derived" && (
+                                      <span className="test-result-badge test-result-derived">derived</span>
+                                    )}
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          )}
+                        </>
+                      );
+                    })()
                   ) : (
                     "—"
                   )}
@@ -492,6 +570,7 @@ export function TestHistoryView({
             ))}
           </tbody>
         </table>
+        </>
       )}
       <RequireRole minimum="editor">
         {!showForm ? (
