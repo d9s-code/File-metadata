@@ -18,6 +18,12 @@ class TestLineImportRequest(BaseModel):
     batch_label: str | None = None
 
 
+class TestLineUpdate(BaseModel):
+    label: str | None = None
+    expected_mode_id: UUID | None = None
+    expected_parameters: dict | None = None
+
+
 class TestLineOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -31,3 +37,4 @@ class TestLineOut(BaseModel):
     expected_parameters: dict | None = None
     import_batch_label: str | None = None
     created_at: datetime
+    updated_at: datetime

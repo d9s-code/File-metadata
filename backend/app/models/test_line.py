@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import ForeignKey, Text
+from sqlalchemy import ForeignKey, Integer, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -40,5 +40,11 @@ class TestLine(UUIDPkMixin, TimestampMixin, Base):
     imported_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
+    # Display order within this Emitter's Test Lines, assigned sequentially at
+    # import time. Rows imported in the same request share the same
+    # transaction-time created_at (Postgres's now() doesn't advance within a
+    # transaction), so created_at alone can't preserve the order they were
+    # pasted in — this can.
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
 
     expected_mode: Mapped["Mode"] = relationship()  # noqa: F821

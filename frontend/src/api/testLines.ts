@@ -10,6 +10,7 @@ export interface TestLine {
   expected_parameters: Record<string, unknown> | null;
   import_batch_label: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 export interface TestLineCreateInput {
@@ -23,9 +24,17 @@ export interface TestLineImportInput {
   batch_label?: string;
 }
 
+export interface TestLineUpdateInput {
+  label?: string;
+  expected_mode_id?: string | null;
+  expected_parameters?: Record<string, unknown> | null;
+}
+
 export const testLinesApi = {
   listForEmitter: (emitterId: string) => api.get<TestLine[]>(`/emitters/${emitterId}/test-lines`),
   import: (emitterId: string, input: TestLineImportInput) =>
     api.post<TestLine[]>(`/emitters/${emitterId}/test-lines/import`, input),
+  update: (emitterId: string, id: string, input: TestLineUpdateInput) =>
+    api.patch<TestLine>(`/emitters/${emitterId}/test-lines/${id}`, input),
   delete: (emitterId: string, id: string) => api.delete<void>(`/emitters/${emitterId}/test-lines/${id}`),
 };

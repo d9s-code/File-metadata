@@ -87,6 +87,71 @@ def test_delete_test_line(editor_client, emitter_with_mode):
     assert editor_client.get(f"/emitters/{emitter_id}/test-lines").json() == []
 
 
+def test_update_test_line_label_and_mode(editor_client, emitter_with_mode):
+    emitter_id = emitter_with_mode["emitter"]["id"]
+    mode_id = emitter_with_mode["mode"]["id"]
+    line = editor_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"lines": [{"label": "X"}]}).json()[0]
+    original_updated_at = line["updated_at"]
+
+    resp = editor_client.patch(
+        f"/emitters/{emitter_id}/test-lines/{line['id']}",
+        json={"label": "Renamed line", "expected_mode_id": mode_id},
+    )
+    assert resp.status_code == 200, resp.text
+    updated = resp.json()
+    assert updated["label"] == "Renamed line"
+    assert updated["expected_mode_id"] == mode_id
+    assert updated["expected_mode_name"] == "Mode 1"
+    assert updated["updated_at"] != original_updated_at
+
+    listed = editor_client.get(f"/emitters/{emitter_id}/test-lines").json()[0]
+    assert listed["label"] == "Renamed line"
+
+
+def test_update_test_line_can_clear_expected_mode(editor_client, emitter_with_mode):
+    emitter_id = emitter_with_mode["emitter"]["id"]
+    mode_id = emitter_with_mode["mode"]["id"]
+    line = editor_client.post(
+        f"/emitters/{emitter_id}/test-lines/import", json={"lines": [{"label": "X", "expected_mode_id": mode_id}]}
+    ).json()[0]
+    resp = editor_client.patch(f"/emitters/{emitter_id}/test-lines/{line['id']}", json={"expected_mode_id": None})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["expected_mode_id"] is None
+
+
+def test_update_test_line_rejects_unknown_mode(editor_client, emitter_with_mode):
+    emitter_id = emitter_with_mode["emitter"]["id"]
+    line = editor_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"lines": [{"label": "X"}]}).json()[0]
+    resp = editor_client.patch(
+        f"/emitters/{emitter_id}/test-lines/{line['id']}",
+        json={"expected_mode_id": "00000000-0000-0000-0000-000000000000"},
+    )
+    assert resp.status_code == 404
+
+
+def test_update_test_line_is_audited(editor_client, emitter_with_mode):
+    emitter_id = emitter_with_mode["emitter"]["id"]
+    line = editor_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"lines": [{"label": "X"}]}).json()[0]
+    editor_client.patch(f"/emitters/{emitter_id}/test-lines/{line['id']}", json={"label": "Y"})
+    audit = editor_client.get("/audit-log", params={"emitter_id": emitter_id, "entity_type": "test_line"}).json()
+    update_entries = [e for e in audit["items"] if e["action"] == "update"]
+    assert len(update_entries) == 1
+    assert update_entries[0]["changes"]["label"] == {"old": "X", "new": "Y"}
+
+
+def test_import_test_lines_is_audited_under_emitter_rollup(editor_client, emitter_with_mode):
+    # This is what backs the "why don't imports show up" question: they ARE
+    # recorded, just under the Audit tab (rolled up by emitter_id) rather
+    # than in the versioned-Emitter diff — Test Lines aren't part of that
+    # snapshot, same as Test Records.
+    emitter_id = emitter_with_mode["emitter"]["id"]
+    editor_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"lines": [{"label": "X"}, {"label": "Y"}]})
+    audit = editor_client.get("/audit-log", params={"emitter_id": emitter_id, "entity_type": "test_line"}).json()
+    create_entries = [e for e in audit["items"] if e["action"] == "create"]
+    assert len(create_entries) == 1
+    assert "2 Test Line" in create_entries[0]["summary"]
+
+
 def test_import_and_delete_do_not_require_checkout(editor_client, emitter_with_mode):
     # Test Lines are reference data for testing, like Test Records/Analyst
     # Notes — deliberately not gated on the Emitter's checkout lock. Mode

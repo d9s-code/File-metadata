@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import type { TestLine, TestLineCreateInput } from "../../api/testLines";
-import { useDeleteTestLine, useImportTestLines } from "../../state/hooks/useTestLines";
+import { useDeleteTestLine, useImportTestLines, useUpdateTestLine } from "../../state/hooks/useTestLines";
 import { ApiRequestError } from "../../api/client";
 import { RequireRole } from "../../auth/RequireAuth";
 import { useConfirmDialog } from "../common/ConfirmDialog";
@@ -10,24 +10,64 @@ interface ModeOption {
   name: string;
 }
 
-/** Parses one line of the paste box: "label" or "label | expected mode name".
- * The mode name (if given) is matched case-insensitively against this
- * Emitter's current Modes — unmatched names still import fine, just without
- * an expected_mode_id, since a Test Line predates the Mode it's about. */
-function parseRows(text: string, modes: ModeOption[]): { input: TestLineCreateInput; unmatchedModeName: string | null }[] {
+interface ParsedRow {
+  input: TestLineCreateInput;
+  unmatchedModeName: string | null;
+}
+
+/**
+ * Parses a pasted table. Auto-detects the delimiter: tab when present (a
+ * direct copy-paste from Excel/Sheets), otherwise "|" (quick manual typing).
+ * A first row starting with "label" is treated as a header and names the
+ * rest of the columns; without one, two columns is the classic shorthand
+ * "label | expected mode name", but three or more is treated as an
+ * unlabeled table — we don't guess which column might be a Mode name, so
+ * every column past the first becomes extra reference detail instead.
+ */
+function parseTable(text: string, modes: ModeOption[]): ParsedRow[] {
   const byName = new Map(modes.map((m) => [m.name.toLowerCase(), m.id]));
-  return text
+  const rawLines = text
     .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [label, modeName] = line.split("|").map((s) => s.trim());
-      if (!modeName) return { input: { label }, unmatchedModeName: null };
+    .map((l) => l.replace(/\r$/, ""))
+    .filter((l) => l.trim().length > 0);
+  if (rawLines.length === 0) return [];
+
+  const delimiter = rawLines.some((l) => l.includes("\t")) ? "\t" : "|";
+  let rows = rawLines.map((l) => l.split(delimiter).map((c) => c.trim()));
+
+  let headers: string[] | null = null;
+  if (rows[0][0]?.toLowerCase() === "label") {
+    headers = rows[0];
+    rows = rows.slice(1);
+  }
+
+  const modeColIndex = headers
+    ? headers.findIndex((h, i) => i > 0 && h.toLowerCase().includes("mode"))
+    : rows.every((r) => r.length <= 2)
+      ? 1
+      : -1;
+
+  return rows
+    .filter((cols) => cols[0])
+    .map((cols) => {
+      const label = cols[0];
+      const extras: Record<string, string> = {};
+      cols.forEach((val, i) => {
+        if (i === 0 || i === modeColIndex || !val) return;
+        extras[headers?.[i] || `column_${i + 1}`] = val;
+      });
+      const expected_parameters = Object.keys(extras).length > 0 ? extras : undefined;
+      const modeName = modeColIndex >= 0 ? cols[modeColIndex] : undefined;
+      if (!modeName) return { input: { label, expected_parameters }, unmatchedModeName: null };
       const modeId = byName.get(modeName.toLowerCase());
       return modeId
-        ? { input: { label, expected_mode_id: modeId }, unmatchedModeName: null }
-        : { input: { label }, unmatchedModeName: modeName };
+        ? { input: { label, expected_mode_id: modeId, expected_parameters }, unmatchedModeName: null }
+        : { input: { label, expected_parameters }, unmatchedModeName: modeName };
     });
+}
+
+function formatEditedAt(iso: string): string {
+  return new Date(iso).toLocaleString();
 }
 
 /** The reference table a Test Run is checked against — imported once,
@@ -47,7 +87,11 @@ export function TestLinesPanel({
   const [pasteText, setPasteText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [unmatchedWarning, setUnmatchedWarning] = useState<string[] | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editLabel, setEditLabel] = useState("");
+  const [editModeId, setEditModeId] = useState("");
   const importLines = useImportTestLines(emitterId);
+  const updateLine = useUpdateTestLine(emitterId);
   const deleteLine = useDeleteTestLine(emitterId);
   const { confirmDelete, dialog } = useConfirmDialog();
 
@@ -55,9 +99,9 @@ export function TestLinesPanel({
     e.preventDefault();
     setError(null);
     setUnmatchedWarning(null);
-    const parsed = parseRows(pasteText, modes);
+    const parsed = parseTable(pasteText, modes);
     if (parsed.length === 0) {
-      setError("Paste at least one line.");
+      setError("Paste at least one row.");
       return;
     }
     try {
@@ -73,6 +117,22 @@ export function TestLinesPanel({
     setShowForm(false);
   }
 
+  function startEdit(l: TestLine) {
+    setEditingId(l.id);
+    setEditLabel(l.label);
+    setEditModeId(l.expected_mode_id ?? "");
+  }
+
+  async function handleSaveEdit(id: string) {
+    setError(null);
+    try {
+      await updateLine.mutateAsync({ id, input: { label: editLabel, expected_mode_id: editModeId || null } });
+      setEditingId(null);
+    } catch (err) {
+      setError(err instanceof ApiRequestError ? err.message : "Failed to save");
+    }
+  }
+
   async function handleDelete(id: string, label: string) {
     if (await confirmDelete(`Delete test line "${label}"? Existing test results referencing it are kept.`)) {
       await deleteLine.mutateAsync(id);
@@ -85,7 +145,9 @@ export function TestLinesPanel({
       <p className="hint-text">
         The simulated-signal reference table a Test Run is checked against — imported once, reused across runs. Each
         line is a claim about what the simulator presents ("Threat 3, high-PRF search"), not a description of this
-        Emitter's own Modes.
+        Emitter's own Modes. Imports, edits and deletes are logged in the Audit tab, but Test Lines aren't part of
+        this Emitter's own versioned definition — like Test Records, they won't show up in "View changes since last
+        save".
       </p>
 
       {lines.length === 0 ? (
@@ -97,24 +159,61 @@ export function TestLinesPanel({
               <th>Label</th>
               <th>Expected Mode</th>
               <th>Batch</th>
+              <th>Last edited</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {lines.map((l) => (
-              <tr key={l.id}>
-                <td>{l.label}</td>
-                <td>{l.expected_mode_name ?? "—"}</td>
-                <td>{l.import_batch_label ?? "—"}</td>
-                <td>
-                  <RequireRole minimum="editor">
-                    <button className="link-button link-button-danger" onClick={() => void handleDelete(l.id, l.label)}>
-                      Delete
+            {lines.map((l) =>
+              editingId === l.id ? (
+                <tr key={l.id}>
+                  <td>
+                    <input value={editLabel} onChange={(e) => setEditLabel(e.target.value)} />
+                  </td>
+                  <td>
+                    <select value={editModeId} onChange={(e) => setEditModeId(e.target.value)}>
+                      <option value="">—</option>
+                      {modes.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>{l.import_batch_label ?? "—"}</td>
+                  <td>{formatEditedAt(l.updated_at)}</td>
+                  <td>
+                    <button
+                      className="link-button"
+                      disabled={updateLine.isPending || !editLabel.trim()}
+                      onClick={() => void handleSaveEdit(l.id)}
+                    >
+                      Save
+                    </button>{" "}
+                    <button className="link-button" onClick={() => setEditingId(null)}>
+                      Cancel
                     </button>
-                  </RequireRole>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                </tr>
+              ) : (
+                <tr key={l.id}>
+                  <td>{l.label}</td>
+                  <td>{l.expected_mode_name ?? "—"}</td>
+                  <td>{l.import_batch_label ?? "—"}</td>
+                  <td>{formatEditedAt(l.updated_at)}</td>
+                  <td>
+                    <RequireRole minimum="editor">
+                      <button className="link-button" onClick={() => startEdit(l)}>
+                        Edit
+                      </button>{" "}
+                      <button className="link-button link-button-danger" onClick={() => void handleDelete(l.id, l.label)}>
+                        Delete
+                      </button>
+                    </RequireRole>
+                  </td>
+                </tr>
+              ),
+            )}
           </tbody>
         </table>
       )}
@@ -131,7 +230,9 @@ export function TestLinesPanel({
               <input value={batchLabel} onChange={(e) => setBatchLabel(e.target.value)} />
             </label>
             <label>
-              Paste rows — one per line: <code>label</code> or <code>label | expected mode name</code>
+              Paste rows — select cells in Excel/Sheets and paste directly (tab-separated), or type{" "}
+              <code>label | expected mode name</code> one per line. A first row starting with "label" is read as a
+              header naming the columns (e.g. <code>label, expected mode, frequency</code>).
               <textarea
                 placeholder={"Threat 3, high-PRF search\nThreat 3, low-PRF search | LPRF Search"}
                 value={pasteText}

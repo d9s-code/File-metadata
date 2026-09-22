@@ -12,6 +12,7 @@ const ENTITY_TYPE_LABELS: Record<string, string> = {
   mdf: "MDFs",
   mdf_link: "MDF Links",
   test_record: "Test Records",
+  test_line: "Test Lines",
   user: "Users",
   auth: "Auth",
 };
