@@ -214,6 +214,19 @@ button:disabled {
 .link-button:active:not(:disabled) {
   transform: none;
 }
+/* Semantic color variants — layered on top of .link-button so every
+ * destructive/constructive text action reads the same way everywhere in the
+ * app, instead of every link-styled button looking identical regardless of
+ * what it actually does. */
+.link-button-danger {
+  color: var(--error);
+}
+.link-button-accent {
+  color: var(--accent);
+}
+.link-button-success {
+  color: var(--badge-green-fg);
+}
 
 .icon-button {
   background: none;
