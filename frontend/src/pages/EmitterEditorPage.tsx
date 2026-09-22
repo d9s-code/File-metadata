@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useEmitter, useUpdateEmitter } from "../state/hooks/useEmitters";
+import { useEmitterCheckoutState } from "../state/hooks/useEmitterCheckout";
 import { useEwGroups } from "../state/hooks/useEwGroups";
 import { useFunctionGroups } from "../state/hooks/useFunctionGroups";
 import { useSources } from "../state/hooks/useSources";
@@ -37,6 +38,7 @@ export function EmitterEditorPage() {
     if (searchParams.get("tab") === "tests") setTab("tests");
   }, [searchParams]);
   const { data: emitter, isLoading } = useEmitter(emitterId);
+  const { canEdit } = useEmitterCheckoutState(emitter);
   const { data: ewGroups, isLoading: ewGroupsLoading } = useEwGroups(emitterId ?? "");
   const { data: functionGroups } = useFunctionGroups(emitterId ?? "");
   const { data: sources, isLoading: sourcesLoading } = useSources(emitterId ?? "");
@@ -124,7 +126,12 @@ export function EmitterEditorPage() {
         <StatusTransitionControls emitterId={emitter.id} status={emitter.status} />
         <Link to={`/emitters/${emitter.id}/versions`}>Version history</Link>
         <Link to={`/ambiguity/emitter/${emitter.id}`}>Ambiguity check</Link>
-        <button className="button secondary small" onClick={handleStartEdit}>
+        <button
+          className="button secondary small"
+          disabled={!canEdit}
+          title={canEdit ? undefined : "Start editing this Emitter first"}
+          onClick={handleStartEdit}
+        >
           Edit Name/Designation/Description
         </button>
         <button className="button secondary small" onClick={handleExportXml}>
