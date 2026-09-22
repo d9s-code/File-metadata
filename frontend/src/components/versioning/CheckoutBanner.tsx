@@ -96,7 +96,7 @@ export function CheckoutBanner({ emitter }: { emitter: Emitter }) {
         <>
           <span className="checkout-badge checkout-badge-mine">You&rsquo;re editing this Emitter</span>
           <button
-            className="link-button"
+            className="link-button link-button-danger"
             disabled={discard.isPending || !hasCommittedVersion}
             title={!hasCommittedVersion ? "No committed version to discard back to yet" : undefined}
             onClick={() => void handleDiscard()}

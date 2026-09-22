@@ -112,7 +112,7 @@ export function ParameterSequencesPanel({ emitterId, sourceId }: { emitterId: st
               {seq.variant && <span className="hint-text"> [{seq.variant.replace("_", " ")}]</span>}
             </h5>
             <button
-              className="link-button"
+              className="link-button link-button-danger"
               onClick={() => void handleDeleteSequence(seq.id, seq.label || "unnamed")}
               disabled={deleteSequence.isPending}
             >
@@ -140,8 +140,8 @@ export function ParameterSequencesPanel({ emitterId, sourceId }: { emitterId: st
                     <td key={c.key}>{step[c.key] ?? "—"}</td>
                   ))}
                   <td>
-                    <button 
-                      className="link-button" 
+                    <button
+                      className="link-button link-button-danger"
                       onClick={() => void handleDeleteStep(seq.id, step.order)}
                       disabled={deleteStep.isPending}
                     >

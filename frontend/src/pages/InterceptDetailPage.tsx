@@ -211,7 +211,7 @@ function EntryRow({
             >
               {showCreateMode ? "Cancel" : "Create Mode from this Entry"}
             </button>{" "}
-            <button className="link-button" onClick={() => onDelete(entry)}>
+            <button className="link-button link-button-danger" onClick={() => onDelete(entry)}>
               Delete
             </button>
           </RequireRole>

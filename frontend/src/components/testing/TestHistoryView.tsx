@@ -544,7 +544,7 @@ export function TestHistoryView({
                         </button>{" "}
                       </>
                     )}
-                    <button className="link-button" onClick={() => void handleDelete(r.id, r.title)}>
+                    <button className="link-button link-button-danger" onClick={() => void handleDelete(r.id, r.title)}>
                       Delete
                     </button>
                   </RequireRole>
@@ -720,7 +720,7 @@ export function TestHistoryView({
                 {stagedModes.map((s) => (
                   <p key={s.key}>
                     Staged: {s.input.name}{" "}
-                    <button type="button" className="link-button" onClick={() => removeStaged(s.key)}>
+                    <button type="button" className="link-button link-button-danger" onClick={() => removeStaged(s.key)}>
                       Remove
                     </button>
                   </p>

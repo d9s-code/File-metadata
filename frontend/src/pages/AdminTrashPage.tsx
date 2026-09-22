@@ -98,7 +98,7 @@ export function AdminTrashPage() {
                   <button className="icon-button" onClick={() => void handleRestore(item)}>
                     Restore
                   </button>{" "}
-                  <button className="link-button" onClick={() => void handlePurge(item)}>
+                  <button className="link-button link-button-danger" onClick={() => void handlePurge(item)}>
                     Delete forever
                   </button>
                 </td>

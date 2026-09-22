@@ -70,7 +70,7 @@ export function CustomersPage() {
                       <button className="link-button" onClick={() => setEditingCustomer(c)}>
                         Edit
                       </button>{" "}
-                      <button className="link-button" onClick={() => void handleDelete(c)}>
+                      <button className="link-button link-button-danger" onClick={() => void handleDelete(c)}>
                         Delete
                       </button>
                     </RequireRole>

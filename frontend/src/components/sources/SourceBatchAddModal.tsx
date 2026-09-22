@@ -328,7 +328,7 @@ export function SourceBatchAddModal({
                       />
                     </td>
                     <td>
-                      <button type="button" className="link-button" onClick={() => removeStep(index)}>
+                      <button type="button" className="link-button link-button-danger" onClick={() => removeStep(index)}>
                         Remove
                       </button>
                     </td>

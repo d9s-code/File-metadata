@@ -400,7 +400,7 @@ export function ModeResultsPicker({
                     <p className="hint-text">{set.pri_type.toUpperCase()}: no further PRI value to record.</p>
                   )}
 
-                  <button type="button" className="link-button" onClick={() => removeObservedSet(soleId, setIndex)}>
+                  <button type="button" className="link-button link-button-danger" onClick={() => removeObservedSet(soleId, setIndex)}>
                     Remove this set
                   </button>
                 </div>

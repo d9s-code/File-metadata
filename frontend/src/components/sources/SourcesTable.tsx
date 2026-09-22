@@ -314,7 +314,7 @@ export function SourcesTable({
                               {s.status === "pending_review" && (
                                 <>
                                   <button
-                                    className="link-button"
+                                    className="link-button link-button-success"
                                     disabled={!canEdit || approveSource.isPending}
                                     title={editTitle}
                                     onClick={() => void approveSource.mutateAsync(s.id)}
@@ -322,7 +322,7 @@ export function SourcesTable({
                                     Approve
                                   </button>{" "}
                                   <button
-                                    className="link-button"
+                                    className="link-button link-button-danger"
                                     disabled={!canEdit || rejectSource.isPending}
                                     title={editTitle}
                                     onClick={() => void rejectSource.mutateAsync(s.id)}
@@ -342,7 +342,7 @@ export function SourcesTable({
                               >
                                 Edit
                               </button>{" "}
-                              <button className="link-button" disabled={!canEdit} title={editTitle} onClick={() => void handleDelete(s)}>
+                              <button className="link-button link-button-danger" disabled={!canEdit} title={editTitle} onClick={() => void handleDelete(s)}>
                                 Delete
                               </button>
                             </RequireRole>

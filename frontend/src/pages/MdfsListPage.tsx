@@ -184,7 +184,7 @@ export function MdfsListPage() {
                 <td>{m.customer_id ? customersById[m.customer_id]?.name ?? "—" : "—"}</td>
                 <td>
                   <RequireRole minimum="editor">
-                    <button className="link-button" onClick={() => void handleDelete(m)}>
+                    <button className="link-button link-button-danger" onClick={() => void handleDelete(m)}>
                       Delete
                     </button>
                   </RequireRole>

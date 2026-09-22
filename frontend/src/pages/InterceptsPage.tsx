@@ -224,7 +224,7 @@ export function InterceptsPage() {
                 <td>{new Date(i.created_at).toLocaleDateString()}</td>
                 <td>
                   <RequireRole minimum="editor">
-                    <button className="link-button" onClick={() => void handleDelete(i)}>
+                    <button className="link-button link-button-danger" onClick={() => void handleDelete(i)}>
                       Delete
                     </button>
                   </RequireRole>

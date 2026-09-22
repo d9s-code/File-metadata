@@ -137,7 +137,7 @@ export function SourceGroupsPage() {
                       <button className="link-button" onClick={() => setEditingId(g.id)}>
                         Edit
                       </button>{" "}
-                      <button className="link-button" onClick={() => void handleDelete(g)}>
+                      <button className="link-button link-button-danger" onClick={() => void handleDelete(g)}>
                         Delete
                       </button>
                     </RequireRole>

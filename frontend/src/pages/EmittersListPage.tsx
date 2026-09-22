@@ -294,7 +294,7 @@ export function EmittersListPage() {
                 </td>
                 <td>
                   <RequireRole minimum="editor">
-                    <button className="link-button" onClick={() => void handleDelete(e)}>
+                    <button className="link-button link-button-danger" onClick={() => void handleDelete(e)}>
                       Delete
                     </button>
                   </RequireRole>

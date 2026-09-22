@@ -70,7 +70,7 @@ export function FunctionGroupsTable({ emitterId, functionGroups }: { emitterId: 
                     <button className="link-button" disabled={!canEdit} title={editTitle} onClick={() => setEditingGroup(g)}>
                       Edit
                     </button>
-                    <button className="link-button" disabled={!canEdit} title={editTitle} onClick={() => void handleDelete(g)}>
+                    <button className="link-button link-button-danger" disabled={!canEdit} title={editTitle} onClick={() => void handleDelete(g)}>
                       Delete
                     </button>
                   </RequireRole>

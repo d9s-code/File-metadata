@@ -102,7 +102,7 @@ export function PlatformsListPage() {
                 <td>{p.description ?? "—"}</td>
                 <td>
                   <RequireRole minimum="editor">
-                    <button className="link-button" onClick={() => void handleDelete(p)}>
+                    <button className="link-button link-button-danger" onClick={() => void handleDelete(p)}>
                       Delete
                     </button>
                   </RequireRole>

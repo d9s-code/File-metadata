@@ -68,7 +68,7 @@ export function NotesFeed({
                   <span>{n.author_username ?? "system"}</span>
                   <span className="hint-text">{new Date(n.created_at).toLocaleString()}</span>
                   <RequireRole minimum="editor">
-                    <button type="button" className="link-button" onClick={() => void handleDelete(n.id)}>
+                    <button type="button" className="link-button link-button-danger" onClick={() => void handleDelete(n.id)}>
                       Delete
                     </button>
                   </RequireRole>
