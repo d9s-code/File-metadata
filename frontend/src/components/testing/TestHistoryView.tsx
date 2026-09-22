@@ -259,8 +259,14 @@ export function TestHistoryView({
           observed_values: nonEmptySets.length ? nonEmptySets : undefined,
         };
       });
-    if (hasModes && modeResults.length === 0) {
-      setError("Include at least one Mode, or this can't derive an overall result.");
+    // A Mode result set is required to derive an overall result UNLESS
+    // there's a manual result to fall back on — which the form always
+    // offers once no Mode is included (see the `includedResults.length ===
+    // 0` selector below), whether that's because this Emitter has no Modes
+    // yet, or because this test is purely about a newly staged Mode with
+    // nothing existing being (re)tested right now.
+    if (hasModes && modeResults.length === 0 && stagedModes.length === 0) {
+      setError("Include at least one Mode, stage a new one, or pick a manual result below.");
       return;
     }
     const overrides = Object.fromEntries(
@@ -274,8 +280,8 @@ export function TestHistoryView({
         test_date: testDate,
         simulation_created_date: simulationCreatedDate || undefined,
         notes: notes || undefined,
-        mode_results: hasModes ? modeResults : undefined,
-        result: hasModes ? undefined : manualResult,
+        mode_results: modeResults.length > 0 ? modeResults : undefined,
+        result: modeResults.length > 0 ? undefined : manualResult,
         retests_test_record_id: retestsId || undefined,
         function_group_overrides: Object.keys(overrides).length ? overrides : undefined,
       });
@@ -524,8 +530,12 @@ export function TestHistoryView({
                   }
                 />
               </label>
-              {!hasModes && (
-                <select value={manualResult} onChange={(e) => setManualResult(e.target.value as TestResult)}>
+              {(!hasModes || includedResults.length === 0) && (
+                <select
+                  value={manualResult}
+                  onChange={(e) => setManualResult(e.target.value as TestResult)}
+                  title={hasModes ? "No Mode is included above — used as this test's overall result instead" : undefined}
+                >
                   {TEST_RESULTS.map((r) => (
                     <option key={r} value={r}>
                       {r}
@@ -587,7 +597,7 @@ export function TestHistoryView({
                   {derivedResult ? (
                     <span className={`test-result-badge test-result-${derivedResult}`}>{derivedResult}</span>
                   ) : (
-                    "— include at least one Mode"
+                    "— include at least one Mode, or use the manual result above"
                   )}
                 </p>
               </>
