@@ -18,13 +18,15 @@ interface ParsedRow {
 /**
  * Parses a pasted table. Auto-detects the delimiter: tab when present (a
  * direct copy-paste from Excel/Sheets), otherwise "|" (quick manual typing).
- * A first row starting with "label" is treated as a header and names the
- * rest of the columns; without one, two columns is the classic shorthand
- * "label | expected mode name", but three or more is treated as an
- * unlabeled table — we don't guess which column might be a Mode name, so
+ * Column 1 of every data row is always the label — that's positional, never
+ * inferred from a header's wording. `hasHeaderRow` (an explicit checkbox,
+ * not guessed from the text) says whether row 1 is itself data or a row of
+ * column names for columns 2+; without one, two columns is the classic
+ * shorthand "label | expected mode name", but three or more is treated as
+ * an unlabeled table — we don't guess which column might be a Mode name, so
  * every column past the first becomes extra reference detail instead.
  */
-function parseTable(text: string, modes: ModeOption[]): ParsedRow[] {
+function parseTable(text: string, modes: ModeOption[], hasHeaderRow: boolean): ParsedRow[] {
   const byName = new Map(modes.map((m) => [m.name.toLowerCase(), m.id]));
   const rawLines = text
     .split("\n")
@@ -36,7 +38,7 @@ function parseTable(text: string, modes: ModeOption[]): ParsedRow[] {
   let rows = rawLines.map((l) => l.split(delimiter).map((c) => c.trim()));
 
   let headers: string[] | null = null;
-  if (rows[0][0]?.toLowerCase() === "label") {
+  if (hasHeaderRow && rows.length > 0) {
     headers = rows[0];
     rows = rows.slice(1);
   }
@@ -85,6 +87,7 @@ export function TestLinesPanel({
   const [showForm, setShowForm] = useState(false);
   const [batchLabel, setBatchLabel] = useState("");
   const [pasteText, setPasteText] = useState("");
+  const [hasHeaderRow, setHasHeaderRow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [unmatchedWarning, setUnmatchedWarning] = useState<string[] | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -99,7 +102,7 @@ export function TestLinesPanel({
     e.preventDefault();
     setError(null);
     setUnmatchedWarning(null);
-    const parsed = parseTable(pasteText, modes);
+    const parsed = parseTable(pasteText, modes, hasHeaderRow);
     if (parsed.length === 0) {
       setError("Paste at least one row.");
       return;
@@ -229,10 +232,14 @@ export function TestLinesPanel({
               Batch label (optional) — e.g. a filename or "2026-09 threat table"
               <input value={batchLabel} onChange={(e) => setBatchLabel(e.target.value)} />
             </label>
+            <label className="checkbox-label">
+              <input type="checkbox" checked={hasHeaderRow} onChange={(e) => setHasHeaderRow(e.target.checked)} />
+              First row is a header (names the other columns — column 1 is always the label either way)
+            </label>
             <label>
               Paste rows — select cells in Excel/Sheets and paste directly (tab-separated), or type{" "}
-              <code>label | expected mode name</code> one per line. A first row starting with "label" is read as a
-              header naming the columns (e.g. <code>label, expected mode, frequency</code>).
+              <code>label | expected mode name</code> one per line. Column 1 of each row is always the label; if a
+              column is named something with "mode" in it, that column links to an existing Mode by name.
               <textarea
                 placeholder={"Threat 3, high-PRF search\nThreat 3, low-PRF search | LPRF Search"}
                 value={pasteText}
