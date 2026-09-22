@@ -201,14 +201,18 @@ button:disabled {
 .link-button {
   background: none;
   color: var(--primary);
-  padding: 0;
-  font-size: 0.85rem;
+  border: 1px solid var(--border);
+  padding: 0.1rem 0.45rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
   box-shadow: none;
-  font-weight: 400;
+  font-weight: 500;
+  line-height: 1.4;
 }
 .link-button:hover {
-  background: none;
-  text-decoration: underline;
+  background: var(--hover-bg);
+  border-color: var(--primary);
+  text-decoration: none;
   box-shadow: none;
 }
 .link-button:active:not(:disabled) {
@@ -217,15 +221,31 @@ button:disabled {
 /* Semantic color variants — layered on top of .link-button so every
  * destructive/constructive text action reads the same way everywhere in the
  * app, instead of every link-styled button looking identical regardless of
- * what it actually does. */
+ * what it actually does. Border tints along with the text so the action
+ * reads as a small colored button, not just colored text. */
 .link-button-danger {
   color: var(--error);
+  border-color: color-mix(in srgb, var(--error) 45%, var(--border));
+}
+.link-button-danger:hover {
+  border-color: var(--error);
+  background: var(--badge-red-bg);
 }
 .link-button-accent {
   color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+.link-button-accent:hover {
+  border-color: var(--accent);
+  background: var(--badge-blue-bg);
 }
 .link-button-success {
   color: var(--badge-green-fg);
+  border-color: color-mix(in srgb, var(--badge-green-fg) 45%, var(--border));
+}
+.link-button-success:hover {
+  border-color: var(--badge-green-fg);
+  background: var(--badge-green-bg);
 }
 
 .icon-button {
