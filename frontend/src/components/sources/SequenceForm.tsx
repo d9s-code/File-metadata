@@ -11,7 +11,7 @@ interface StepState {
   dwell_s?: number | null;
 }
 
-export function SequenceForm({ emitterId, sourceId }: { emitterId: string; sourceId: string }) {
+export function SequenceForm({ emitterId, sourceId, canEdit }: { emitterId: string; sourceId: string; canEdit: boolean }) {
   const createSequence = useCreateParameterSequence(emitterId, sourceId);
   const [label, setLabel] = useState("");
   const [steps, setSteps] = useState<StepState[]>([{
@@ -161,9 +161,10 @@ export function SequenceForm({ emitterId, sourceId }: { emitterId: string; sourc
           </button>
           {error && <div className="error-text">{error}</div>}
         </div>
-        <button 
-          type="submit" 
-          disabled={createSequence.isPending}
+        <button
+          type="submit"
+          disabled={createSequence.isPending || !canEdit}
+          title={canEdit ? undefined : "Start editing this Emitter first"}
           className="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700 disabled:opacity-50"
         >
           {createSequence.isPending ? "Creating..." : "Create Sequence"}

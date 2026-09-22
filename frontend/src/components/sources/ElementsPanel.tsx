@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from "react";
 import type { ElementType, ElementVariant, ModeElement } from "../../types/domain";
 import { useCreateElement, useDeleteElement, useElements } from "../../state/hooks/useElements";
+import { useEmitter } from "../../state/hooks/useEmitters";
+import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 import { FrametimeBadge } from "./FrametimeBadge";
 import { ApiRequestError } from "../../api/client";
 import { RequireRole } from "../../auth/RequireAuth";
@@ -34,7 +36,7 @@ const VARIANT_STYLES: Record<string, { label: string; bg: string; fg: string; bo
   other: { label: "other", bg: "#4b5563", fg: "#f3f4f6", border: "#374151" },
 };
 
-function ElementForm({ emitterId, sourceId }: { emitterId: string; sourceId: string }) {
+function ElementForm({ emitterId, sourceId, canEdit }: { emitterId: string; sourceId: string; canEdit: boolean }) {
   const createElement = useCreateElement(emitterId, sourceId);
   const [elementType, setElementType] = useState<ElementType>("rf");
   const [variant, setVariant] = useState<ElementVariant>("typical");
@@ -148,7 +150,11 @@ function ElementForm({ emitterId, sourceId }: { emitterId: string; sourceId: str
         required={variant === "analysis"}
         title={variant === "analysis" ? "The 'analysis' variant requires a note explaining how this value was derived" : undefined}
       />
-      <button type="submit" disabled={createElement.isPending}>
+      <button
+        type="submit"
+        disabled={createElement.isPending || !canEdit}
+        title={canEdit ? undefined : "Start editing this Emitter first"}
+      >
         Add Element
       </button>
       {error && <div className="error-text">{error}</div>}
@@ -167,6 +173,8 @@ export function ElementsPanel({
 }) {
   const { data: elements } = useElements(emitterId, sourceId);
   const deleteElement = useDeleteElement(emitterId, sourceId);
+  const { data: emitter } = useEmitter(emitterId);
+  const { canEdit } = useEmitterCheckoutState(emitter);
   const { confirmDelete, dialog } = useConfirmDialog();
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [hoveredGroups, setHoveredGroups] = useState<Set<string>>(new Set());
@@ -375,6 +383,8 @@ export function ElementsPanel({
                                         <button
                                           key={id}
                                           className="text-red-600 hover:text-red-800 text-xs font-medium ml-2"
+                                          disabled={!canEdit}
+                                          title={canEdit ? undefined : "Start editing this Emitter first"}
                                           onClick={() => void handleDelete(id)}
                                         >
                                           Delete
@@ -423,9 +433,9 @@ export function ElementsPanel({
             </div>
             <RequireRole minimum="editor">
               {creationMode === "element" ? (
-                <ElementForm emitterId={emitterId} sourceId={sourceId} />
+                <ElementForm emitterId={emitterId} sourceId={sourceId} canEdit={canEdit} />
               ) : (
-                <SequenceForm emitterId={emitterId} sourceId={sourceId} />
+                <SequenceForm emitterId={emitterId} sourceId={sourceId} canEdit={canEdit} />
               )}
             </RequireRole>
           </div>

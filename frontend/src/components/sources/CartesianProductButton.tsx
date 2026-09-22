@@ -8,6 +8,8 @@ import { groupElements } from "./elementMerge";
 import { SortableColumnHeader } from "../common/SortableColumnHeader";
 import { useSortableTable } from "../common/useSortableTable";
 import { compareNullable, compareStrings } from "../common/sortUtils";
+import { useEmitter } from "../../state/hooks/useEmitters";
+import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 
 type CheckboxItem = { id: string; label: string; variants?: (ElementVariant | undefined)[]; sortValue?: number | null };
 type ItemSortKey = "label" | "value";
@@ -196,6 +198,8 @@ export function CartesianProductButton({
 }) {
   const { data: elements } = useElements(emitterId, sourceId);
   const cartesianProduct = useCartesianProduct(emitterId, sourceId);
+  const { data: emitter } = useEmitter(emitterId);
+  const { canEdit } = useEmitterCheckoutState(emitter);
 
   const { data: sequences, isLoading: isSeqLoading } = useQuery({
     queryKey: ["sequences", emitterId, sourceId],
@@ -579,7 +583,11 @@ export function CartesianProductButton({
           onChange={(e) => setBatchNote(e.target.value)}
           rows={2}
         />
-        <button onClick={() => void handleRun()} disabled={cartesianProduct.isPending}>
+        <button
+          onClick={() => void handleRun()}
+          disabled={cartesianProduct.isPending || !canEdit}
+          title={canEdit ? undefined : "Start editing this Emitter first"}
+        >
           Generate Modes
         </button>
       </div>

@@ -7,6 +7,8 @@ import {
   useUpdateParameterSequence,
 } from "../../state/hooks/useParameterSequences";
 import { useConfirmDialog } from "../common/ConfirmDialog";
+import { useEmitter } from "../../state/hooks/useEmitters";
+import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 
 const STEP_COLUMNS: { key: "rf_mhz" | "pw_us" | "pri_us" | "dwell_s"; label: string }[] = [
   { key: "rf_mhz", label: "RF (MHz)" },
@@ -25,10 +27,12 @@ function SequenceDeltaEditor({
   emitterId,
   sourceId,
   sequence,
+  canEdit,
 }: {
   emitterId: string;
   sourceId: string;
   sequence: ParameterSequence;
+  canEdit: boolean;
 }) {
   const updateSequence = useUpdateParameterSequence(emitterId, sourceId);
   const [rfDelta, setRfDelta] = useState(sequence.rf_delta?.toString() ?? "");
@@ -50,6 +54,8 @@ function SequenceDeltaEditor({
           step="any"
           min="0"
           value={rfDelta}
+          disabled={!canEdit}
+          title={canEdit ? undefined : "Start editing this Emitter first"}
           onChange={(e) => setRfDelta(e.target.value)}
           onBlur={() => commit("rf_delta", rfDelta)}
         />
@@ -61,6 +67,8 @@ function SequenceDeltaEditor({
           step="any"
           min="0"
           value={pwDelta}
+          disabled={!canEdit}
+          title={canEdit ? undefined : "Start editing this Emitter first"}
           onChange={(e) => setPwDelta(e.target.value)}
           onBlur={() => commit("pw_delta", pwDelta)}
         />
@@ -72,6 +80,8 @@ function SequenceDeltaEditor({
           step="any"
           min="0"
           value={priDelta}
+          disabled={!canEdit}
+          title={canEdit ? undefined : "Start editing this Emitter first"}
           onChange={(e) => setPriDelta(e.target.value)}
           onBlur={() => commit("pri_delta", priDelta)}
         />
@@ -85,6 +95,8 @@ export function ParameterSequencesPanel({ emitterId, sourceId }: { emitterId: st
   const deleteSequence = useDeleteParameterSequence(emitterId, sourceId);
   const deleteStep = useDeleteParameterSequenceStep(emitterId, sourceId);
   const { confirmDelete, dialog } = useConfirmDialog();
+  const { data: emitter } = useEmitter(emitterId);
+  const { canEdit } = useEmitterCheckoutState(emitter);
 
   if (!sequences || sequences.length === 0) {
     return <p className="hint-text">None.</p>;
@@ -114,13 +126,14 @@ export function ParameterSequencesPanel({ emitterId, sourceId }: { emitterId: st
             <button
               className="link-button link-button-danger"
               onClick={() => void handleDeleteSequence(seq.id, seq.label || "unnamed")}
-              disabled={deleteSequence.isPending}
+              disabled={deleteSequence.isPending || !canEdit}
+              title={canEdit ? undefined : "Start editing this Emitter first"}
             >
               Delete Sequence
             </button>
           </div>
           {!isPriOnlySequence(seq) && (
-            <SequenceDeltaEditor emitterId={emitterId} sourceId={sourceId} sequence={seq} />
+            <SequenceDeltaEditor emitterId={emitterId} sourceId={sourceId} sequence={seq} canEdit={canEdit} />
           )}
           <table className="data-table">
             <thead>
@@ -143,7 +156,8 @@ export function ParameterSequencesPanel({ emitterId, sourceId }: { emitterId: st
                     <button
                       className="link-button link-button-danger"
                       onClick={() => void handleDeleteStep(seq.id, step.order)}
-                      disabled={deleteStep.isPending}
+                      disabled={deleteStep.isPending || !canEdit}
+                      title={canEdit ? undefined : "Start editing this Emitter first"}
                     >
                       Delete
                     </button>

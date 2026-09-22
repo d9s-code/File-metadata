@@ -4,6 +4,8 @@ import { ApiRequestError } from "../../api/client";
 import type { EmitterStatus } from "../../types/domain";
 import { emitterStatusLabel } from "../common/emitterStatusLabel";
 import { RequireRole } from "../../auth/RequireAuth";
+import { useEmitter } from "../../state/hooks/useEmitters";
+import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 
 const EMITTER_TRANSITIONS: Record<EmitterStatus, EmitterStatus[]> = {
   draft: ["in_review"],
@@ -27,6 +29,8 @@ function noteLabel(next: EmitterStatus): string {
 
 export function StatusTransitionControls({ emitterId, status }: { emitterId: string; status: EmitterStatus }) {
   const transition = useTransitionEmitterStatus(emitterId);
+  const { data: emitter } = useEmitter(emitterId);
+  const { canEdit } = useEmitterCheckoutState(emitter);
   const [error, setError] = useState<string | null>(null);
   const [pendingNext, setPendingNext] = useState<EmitterStatus | null>(null);
   const [note, setNote] = useState("");
@@ -59,7 +63,8 @@ export function StatusTransitionControls({ emitterId, status }: { emitterId: str
             key={next}
             className="status-transition-button"
             onClick={() => handleClick(next)}
-            disabled={transition.isPending}
+            disabled={transition.isPending || !canEdit}
+            title={canEdit ? undefined : "Start editing this Emitter first"}
           >
             Move to {emitterStatusLabel(next)}
           </button>
@@ -90,7 +95,8 @@ export function StatusTransitionControls({ emitterId, status }: { emitterId: str
             </button>
             <button
               type="button"
-              disabled={!note.trim() || transition.isPending}
+              disabled={!note.trim() || transition.isPending || !canEdit}
+              title={canEdit ? undefined : "Start editing this Emitter first"}
               onClick={() => void handleTransition(pendingNext, note.trim())}
             >
               Confirm
