@@ -221,7 +221,9 @@ def update_mode(
     if mode is None or mode.ew_group_id != ew_group_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Mode not found")
 
-    data = payload.model_dump(exclude_unset=True, exclude={"line", "derived_from_test_record_ids"})
+    data = payload.model_dump(
+        exclude_unset=True, exclude={"line", "derived_from_test_record_ids", "derived_from_intercept_entry_ids"}
+    )
     if "ew_group_id" in data:
         new_ew_group = db.get(EwGroup, data["ew_group_id"])
         if new_ew_group is None:
@@ -230,6 +232,15 @@ def update_mode(
             raise HTTPException(
                 status.HTTP_422_UNPROCESSABLE_ENTITY,
                 "Target EW Group must belong to the same Emitter as the Mode's Source",
+            )
+    if "source_id" in data:
+        new_source = db.get(Source, data["source_id"])
+        if new_source is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Target Source not found")
+        if new_source.emitter_id != mode.source.emitter_id:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "Target Source must belong to the same Emitter as the Mode",
             )
     if "function_group_id" in data:
         _check_function_group(db, function_group_id=data["function_group_id"], emitter_id=mode.source.emitter_id)

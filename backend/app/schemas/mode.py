@@ -175,6 +175,7 @@ class BatchModeFieldEdit(BaseModel):
     """
 
     ew_group_id: UUID | None = None
+    source_id: UUID | None = None
     function_group_id: UUID | None = None
     notes: str | None = None
     rf_range_matching: bool | None = None

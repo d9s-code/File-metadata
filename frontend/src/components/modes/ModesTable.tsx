@@ -247,6 +247,7 @@ export function ModesTable({
                       emitterId={emitterId}
                       mode={m}
                       functionGroups={Object.values(functionGroupsById)}
+                      sources={Object.values(sourcesById)}
                       onDone={() => setEditingModeId(null)}
                     />
                   </td>

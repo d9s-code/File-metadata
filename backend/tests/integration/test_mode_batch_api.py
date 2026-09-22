@@ -105,6 +105,38 @@ def test_batch_field_edit_reassigns_ew_group(editor_client):
     assert modes[ctx["fixed_mode"]["id"]]["ew_group_id"] == ctx["other_group"]["id"]
 
 
+def test_batch_field_edit_reassigns_source(editor_client):
+    ctx = _setup_emitter(editor_client)
+    emitter_id = ctx["emitter"]["id"]
+    other_source = editor_client.post(
+        f"/emitters/{emitter_id}/sources", json={"name": "Source C", "source_date": "2025-02-01"}
+    ).json()
+    resp = editor_client.post(
+        f"/emitters/{emitter_id}/modes/batch-edit",
+        json={"mode_ids": [ctx["fixed_mode"]["id"], ctx["cw_mode"]["id"]], "fields": {"source_id": other_source["id"]}},
+    )
+    assert resp.status_code == 200, resp.text
+    modes = {m["id"]: m for m in editor_client.get(f"/emitters/{emitter_id}/modes").json()}
+    assert modes[ctx["fixed_mode"]["id"]]["source_id"] == other_source["id"]
+    assert modes[ctx["cw_mode"]["id"]]["source_id"] == other_source["id"]
+    # Untouched mode stays on the original Source.
+    assert modes[ctx["stagger_mode"]["id"]]["source_id"] == ctx["source"]["id"]
+
+
+def test_batch_edit_source_from_another_emitter_is_404(editor_client):
+    ctx = _setup_emitter(editor_client)
+    emitter_id = ctx["emitter"]["id"]
+    other_emitter = editor_client.post("/emitters", json={"name": "Foreign Emitter"}).json()
+    other_source = editor_client.post(
+        f"/emitters/{other_emitter['id']}/sources", json={"name": "Foreign Source", "source_date": "2025-01-01"}
+    ).json()
+    resp = editor_client.post(
+        f"/emitters/{emitter_id}/modes/batch-edit",
+        json={"mode_ids": [ctx["fixed_mode"]["id"]], "fields": {"source_id": other_source["id"]}},
+    )
+    assert resp.status_code == 404
+
+
 def test_batch_edit_rejects_whole_batch_on_any_invalid_result(editor_client):
     ctx = _setup_emitter(editor_client)
     emitter_id = ctx["emitter"]["id"]

@@ -8,6 +8,7 @@ import { ModesCardGrid } from "./ModesCardGrid";
 import { ModesViewToggle, type ModesView } from "./ModesViewToggle";
 import { ModeForm } from "./ModeForm";
 import { BatchEditModal } from "./BatchEditModal";
+import { PrsImportModal } from "./PrsImportModal";
 import { compareModes, rangeOverlaps, searchableText, type ModeSortKey, type SortDir } from "./modeFormat";
 import type { PriType } from "../../types/domain";
 import { RequireRole } from "../../auth/RequireAuth";
@@ -62,6 +63,7 @@ export function ModesSection({
   const [showForm, setShowForm] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showBatchEdit, setShowBatchEdit] = useState(false);
+  const [showPrsImport, setShowPrsImport] = useState(false);
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [rfMin, setRfMin] = useState("");
   const [rfMax, setRfMax] = useState("");
@@ -322,6 +324,14 @@ export function ModesSection({
               Clear selection
             </button>
           )}
+          <button
+            className="icon-button"
+            disabled={!canEdit}
+            title={canEdit ? undefined : "Start editing this Emitter first"}
+            onClick={() => setShowPrsImport(true)}
+          >
+            Import from PRS
+          </button>
         </RequireRole>
       </div>
 
@@ -465,11 +475,20 @@ export function ModesSection({
           modeIds={[...selected]}
           ewGroups={ewGroups}
           functionGroups={functionGroups}
+          sources={sources}
           onClose={() => setShowBatchEdit(false)}
           onDone={() => {
             setShowBatchEdit(false);
             setSelected(new Set());
           }}
+        />
+      )}
+      {showPrsImport && (
+        <PrsImportModal
+          emitterId={emitterId}
+          sources={sources}
+          onClose={() => setShowPrsImport(false)}
+          onDone={() => setShowPrsImport(false)}
         />
       )}
       {dialog}

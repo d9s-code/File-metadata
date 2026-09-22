@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Modal } from "../common/Modal";
 import { useBatchEditModes } from "../../state/hooks/useModes";
 import { ApiRequestError } from "../../api/client";
-import type { EwGroup, FunctionGroup } from "../../types/domain";
+import type { EwGroup, FunctionGroup, Source } from "../../types/domain";
 import type { BatchModeFieldEdit, ModeBatchEditError } from "../../api/modes";
 
 type TriState = "" | "true" | "false";
@@ -20,6 +20,7 @@ export function BatchEditModal({
   modeIds,
   ewGroups,
   functionGroups,
+  sources,
   onClose,
   onDone,
 }: {
@@ -27,12 +28,14 @@ export function BatchEditModal({
   modeIds: string[];
   ewGroups: EwGroup[];
   functionGroups?: FunctionGroup[];
+  sources?: Source[];
   onClose: () => void;
   onDone: () => void;
 }) {
   const batchEdit = useBatchEditModes(emitterId);
 
   const [ewGroupId, setEwGroupId] = useState("");
+  const [sourceId, setSourceId] = useState("");
   const [functionGroupId, setFunctionGroupId] = useState("");
   const [notes, setNotes] = useState("");
   const [rfRangeMatching, setRfRangeMatching] = useState<TriState>("");
@@ -65,6 +68,7 @@ export function BatchEditModal({
   function buildFields(): BatchModeFieldEdit {
     const fields: BatchModeFieldEdit = {};
     if (ewGroupId) fields.ew_group_id = ewGroupId;
+    if (sourceId) fields.source_id = sourceId;
     if (functionGroupId) fields.function_group_id = functionGroupId;
     if (notes.trim() !== "") fields.notes = notes;
     const rfRM = triStateToBool(rfRangeMatching);
@@ -151,6 +155,19 @@ export function BatchEditModal({
               Notes (overwrites all selected)
               <input value={notes} onChange={(e) => setNotes(e.target.value)} />
             </label>
+            {sources && sources.length > 0 && (
+              <label>
+                Source
+                <select value={sourceId} onChange={(e) => setSourceId(e.target.value)}>
+                  <option value="">— leave unchanged —</option>
+                  {sources.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label>
               Function Group
               <select value={functionGroupId} onChange={(e) => setFunctionGroupId(e.target.value)}>

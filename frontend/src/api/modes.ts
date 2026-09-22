@@ -18,6 +18,7 @@ export interface ModeUpdateInput {
   notes?: string | null;
   sort_order?: number;
   ew_group_id?: string;
+  source_id?: string;
   function_group_id?: string | null;
   line?: ModeLineFields;
   derived_from_test_record_ids?: string[];
@@ -26,6 +27,7 @@ export interface ModeUpdateInput {
 
 export interface BatchModeFieldEdit {
   ew_group_id?: string;
+  source_id?: string;
   function_group_id?: string | null;
   notes?: string;
   rf_range_matching?: boolean;

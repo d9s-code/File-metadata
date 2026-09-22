@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useUpdateMode } from "../../state/hooks/useModes";
 import { ApiRequestError } from "../../api/client";
-import type { FunctionGroup, Mode } from "../../types/domain";
+import type { FunctionGroup, Mode, Source } from "../../types/domain";
 import { DerivedFromPicker } from "./DerivedFromPicker";
 
 /** Edits an existing Mode's line in place — pri_type is fixed at creation
@@ -11,16 +11,19 @@ export function ModeEditForm({
   emitterId,
   mode,
   functionGroups,
+  sources,
   onDone,
 }: {
   emitterId: string;
   mode: Mode;
   functionGroups?: FunctionGroup[];
+  sources?: Source[];
   onDone: () => void;
 }) {
   const updateMode = useUpdateMode(emitterId);
   const line = mode.line;
   const priType = mode.pri_type;
+  const [sourceId, setSourceId] = useState(mode.source_id);
   const [rfMin, setRfMin] = useState(String(line?.rf_min_mhz ?? ""));
   const [rfMax, setRfMax] = useState(String(line?.rf_max_mhz ?? ""));
   const [rfDelta, setRfDelta] = useState(String(line?.rf_delta ?? ""));
@@ -59,6 +62,7 @@ export function ModeEditForm({
         modeId: mode.id,
         input: {
           notes: notes.trim() || null,
+          source_id: sourceId !== mode.source_id ? sourceId : undefined,
           function_group_id: functionGroupId || null,
           line: {
             rf_min_mhz: Number(rfMin),
@@ -213,6 +217,18 @@ export function ModeEditForm({
             ))}
           </select>
         </label>
+        {sources && sources.length > 0 && (
+          <label>
+            Source
+            <select value={sourceId} onChange={(e) => setSourceId(e.target.value)}>
+              {sources.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
 
       <div>

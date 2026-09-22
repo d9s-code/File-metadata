@@ -20,6 +20,7 @@ from app.models.ew_group import EwGroup
 from app.models.function_group import FunctionGroup
 from app.models.intercept import InterceptEntry, InterceptEntryMode
 from app.models.mode import Mode
+from app.models.source import Source
 from app.models.test_record import TestRecord, TestRecordMode
 from app.schemas.mode import (
     BatchModeFieldEdit,
@@ -51,7 +52,7 @@ _LINE_FIELD_KEYS = {
     "pri_delta",
     "frame_time_delta_us",
 }
-_METADATA_FIELD_KEYS = {"ew_group_id", "function_group_id", "notes"}
+_METADATA_FIELD_KEYS = {"ew_group_id", "source_id", "function_group_id", "notes"}
 
 # Each *_shift field is applied to exactly one bound, independently of its
 # pair — e.g. rf_min_shift never touches rf_max_mhz. A shift on a bound the
@@ -121,6 +122,11 @@ def plan_batch_edit(
         target = db.get(EwGroup, field_data["ew_group_id"])
         if target is None or target.emitter_id != emitter_id:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Target EW Group not found in this Emitter")
+
+    if "source_id" in field_data:
+        target_source = db.get(Source, field_data["source_id"])
+        if target_source is None or target_source.emitter_id != emitter_id:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Target Source not found in this Emitter")
 
     if field_data.get("function_group_id") is not None:
         target_fg = db.get(FunctionGroup, field_data["function_group_id"])

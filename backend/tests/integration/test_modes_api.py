@@ -139,6 +139,69 @@ def test_mode_rejects_source_from_a_different_emitter(editor_client, emitter_ctx
     assert resp.status_code == 422
 
 
+def test_update_mode_source_within_same_emitter_succeeds(editor_client, emitter_ctx):
+    mode = editor_client.post(
+        f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes",
+        json={"source_id": emitter_ctx["source"]["id"], "name": "Reassign Me", "pri_type": "fixed", "line": FIXED_LINE},
+    ).json()
+    other_source = editor_client.post(
+        f"/emitters/{emitter_ctx['emitter']['id']}/sources",
+        json={"name": "ELINT 002", "source_date": "2025-02-01"},
+    ).json()
+
+    resp = editor_client.patch(
+        f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes/{mode['id']}", json={"source_id": other_source["id"]}
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["source_id"] == other_source["id"]
+
+
+def test_update_mode_rejects_source_from_a_different_emitter(editor_client, emitter_ctx):
+    # PATCH previously had no cross-Emitter check at all — a Mode's source_id
+    # could be silently reassigned to any Source anywhere, unlike create's
+    # 422. This is the same guard, just on the update path.
+    mode = editor_client.post(
+        f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes",
+        json={"source_id": emitter_ctx["source"]["id"], "name": "Stay Put", "pri_type": "fixed", "line": FIXED_LINE},
+    ).json()
+    other_emitter = editor_client.post("/emitters", json={"name": "Yet Another Emitter"}).json()
+    other_source = editor_client.post(
+        f"/emitters/{other_emitter['id']}/sources", json={"name": "Foreign Source", "source_date": "2025-01-01"}
+    ).json()
+
+    resp = editor_client.patch(
+        f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes/{mode['id']}", json={"source_id": other_source["id"]}
+    )
+    assert resp.status_code == 422
+    assert editor_client.get(f"/emitters/{emitter_ctx['emitter']['id']}/modes").json()[0]["source_id"] == emitter_ctx["source"]["id"]
+
+
+def test_update_mode_rejects_unknown_source(editor_client, emitter_ctx):
+    mode = editor_client.post(
+        f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes",
+        json={"source_id": emitter_ctx["source"]["id"], "name": "Stay Put 2", "pri_type": "fixed", "line": FIXED_LINE},
+    ).json()
+    resp = editor_client.patch(
+        f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes/{mode['id']}",
+        json={"source_id": "00000000-0000-0000-0000-000000000000"},
+    )
+    assert resp.status_code == 404
+
+
+def test_update_mode_with_derived_from_intercept_entry_ids_does_not_500(editor_client, emitter_ctx):
+    # Regression: derived_from_intercept_entry_ids wasn't excluded from the
+    # generic setattr batch, so passing it here used to raise AttributeError.
+    mode = editor_client.post(
+        f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes",
+        json={"source_id": emitter_ctx["source"]["id"], "name": "Intercept Link", "pri_type": "fixed", "line": FIXED_LINE},
+    ).json()
+    resp = editor_client.patch(
+        f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes/{mode['id']}",
+        json={"notes": "unrelated edit", "derived_from_intercept_entry_ids": []},
+    )
+    assert resp.status_code == 200, resp.text
+
+
 def test_list_emitter_modes_spans_all_ew_groups(editor_client, emitter_ctx):
     other_group = editor_client.post(
         f"/emitters/{emitter_ctx['emitter']['id']}/ew-groups", json={"name": "Search Group"}
