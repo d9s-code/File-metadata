@@ -51,9 +51,16 @@ def test_fork_creates_independent_emitter_with_fresh_ids(editor_client):
     assert forked_modes[0]["id"] != ctx["mode"]["id"]
     assert forked_modes[0]["name"] == "Mode F"
 
+    # The forked Emitter's history isn't blank: version 1 is copied in
+    # verbatim from the source (same version_number/summary), and the fork
+    # itself becomes version 2 — a continuous lineage, not a fresh start.
+    assert forked["forked_at_version_number"] == 1
     forked_versions = editor_client.get(f"/emitters/{forked['id']}/versions").json()
-    assert len(forked_versions) == 1
+    assert len(forked_versions) == 2
     assert forked_versions[0]["version_number"] == 1
+    assert forked_versions[0]["change_summary"] == "v1"
+    assert forked_versions[1]["version_number"] == 2
+    assert "Forked from" in forked_versions[1]["change_summary"]
 
 
 def test_fork_does_not_require_source_emitter_checkout(editor_client, admin_client):

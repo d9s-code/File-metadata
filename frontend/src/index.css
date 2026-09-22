@@ -1978,6 +1978,15 @@ span.test-derived-badge {
   color: var(--muted);
   font-size: 0.75rem;
 }
+.version-badge {
+  display: inline-block;
+  align-self: flex-start;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  background: var(--badge-neutral-bg);
+  color: var(--badge-neutral-fg);
+}
 
 .diff-section {
   margin-bottom: 1rem;

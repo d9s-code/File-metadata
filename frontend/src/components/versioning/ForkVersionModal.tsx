@@ -34,7 +34,8 @@ export function ForkVersionModal({
       <form onSubmit={handleSubmit}>
         <p className="hint-text">
           Creates a brand-new, fully independent Emitter seeded from this version — editing it never affects the
-          original.
+          original. Its version history up to this point comes along too (viewable and diffable), with the fork
+          itself recorded as the next entry.
         </p>
         <div className="form-row">
           <input

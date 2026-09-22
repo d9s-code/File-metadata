@@ -585,16 +585,15 @@ def diff_emitter_live_state(
 ) -> EmitterDiffOut:
     """Diffs the Emitter's current live state against its latest committed
     version — what a Discard would throw away, or a Commit would capture.
-    404 if nothing has been committed yet (there's no baseline to diff
-    against).
+    Before the first commit there's no baseline, so everything live is
+    reported as newly added rather than 404ing — that's exactly what the
+    first Commit would capture.
     """
     emitter = _get_emitter_or_404(db, emitter_id)
     versions = list_versions(db, spec=_VERSION_SPEC, entity_id=emitter_id)
-    if not versions:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "No committed version to diff against yet")
-    latest = versions[-1]
+    baseline = versions[-1].snapshot if versions else {}
     live_snapshot = build_emitter_snapshot(emitter)
-    return EmitterDiffOut(**compute_emitter_diff(latest.snapshot, live_snapshot))
+    return EmitterDiffOut(**compute_emitter_diff(baseline, live_snapshot))
 
 
 @router.post(
@@ -617,6 +616,12 @@ def revert_emitter_version(
     target = get_version(db, spec=_VERSION_SPEC, entity_id=emitter_id, version_number=version_number)
     if target is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Version not found")
+    if emitter.forked_at_version_number is not None and version_number <= emitter.forked_at_version_number:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "This version predates the fork — its rows belong to the original Emitter, not this one, "
+            "so it can't be reverted to directly. Fork from it again instead if you need its content.",
+        )
     try:
         checkout_service.start_checkout(emitter, user.id)
     except checkout_service.AlreadyCheckedOutBySomeoneElse as exc:
@@ -656,6 +661,14 @@ def fork_emitter_version(
     Emitter — new UUIDs throughout, starting at status Draft, auto-checked-
     out to the requester. The source Emitter is untouched and doesn't need
     to be checked out.
+
+    The new Emitter's version history isn't blank: every version up to and
+    including the one forked from is copied in verbatim (same numbers,
+    snapshots, summaries, timestamps), so its history reads as a continuous
+    lineage rather than starting over. Those copied versions still carry the
+    *source* Emitter's row ids inside their snapshots, though, so they can be
+    viewed/diffed but not reverted to directly — see forked_at_version_number
+    and revert_emitter_version's guard below.
     """
     source_emitter = _get_emitter_or_404(db, emitter_id)
     source_version = get_version(db, spec=_VERSION_SPEC, entity_id=emitter_id, version_number=version_number)
@@ -669,7 +682,24 @@ def fork_emitter_version(
     )
     new_emitter.forked_from_emitter_id = source_emitter.id
     new_emitter.forked_from_version_id = source_version.id
+    new_emitter.forked_at_version_number = version_number
     checkout_service.start_checkout(new_emitter, user.id)
+    db.flush()
+
+    prior_versions = [
+        v for v in list_versions(db, spec=_VERSION_SPEC, entity_id=source_emitter.id) if v.version_number <= version_number
+    ]
+    for v in prior_versions:
+        db.add(
+            EmitterVersion(
+                emitter_id=new_emitter.id,
+                version_number=v.version_number,
+                snapshot=v.snapshot,
+                change_summary=v.change_summary,
+                created_by=v.created_by,
+                created_at=v.created_at,
+            )
+        )
     db.flush()
 
     fork_summary = f"Forked from Emitter '{source_emitter.name}' version {version_number}"

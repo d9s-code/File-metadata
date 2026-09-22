@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 from app.core.enums import ElementType, EmitterStatus, PriType
 from app.models.emitter import Emitter
 from app.models.ew_group import EwGroup
+from app.models.function_group import FunctionGroup
 from app.models.mode import Mode, ModeElement, ModeLine
 from app.models.source import Source
 
@@ -129,6 +130,21 @@ def _reconcile_elements(db: Session, source: Source, element_snaps: list[dict]) 
             db.delete(element)
 
 
+def _resolve_function_group_id(db: Session, emitter_id: uuid.UUID, raw_id: str | None) -> uuid.UUID | None:
+    """FunctionGroups aren't part of the versioned snapshot tree themselves
+    (only their id/name are recorded on each Mode), so a target snapshot's
+    function_group_id may reference a group since deleted — fall back to
+    None rather than let a stale FK 500 the request.
+    """
+    if raw_id is None:
+        return None
+    fg_id = uuid.UUID(raw_id)
+    fg = db.get(FunctionGroup, fg_id)
+    if fg is None or fg.emitter_id != emitter_id:
+        return None
+    return fg_id
+
+
 def _reconcile_modes(db: Session, group: EwGroup, *, mode_snaps: list[dict]) -> None:
     live = {str(m.id): m for m in group.modes}
     for m_snap in mode_snaps:
@@ -149,6 +165,7 @@ def _reconcile_modes(db: Session, group: EwGroup, *, mode_snaps: list[dict]) -> 
         mode.pri_type = PriType(m_snap["pri_type"])
         mode.notes = m_snap.get("notes")
         mode.sort_order = m_snap.get("sort_order", 0)
+        mode.function_group_id = _resolve_function_group_id(db, group.emitter_id, m_snap.get("function_group_id"))
         _reconcile_mode_line(db, mode, m_snap.get("line"))
 
 
@@ -225,6 +242,21 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
                 )
             )
 
+    # FunctionGroups aren't part of the snapshot tree as their own entities —
+    # each Mode only records the id/name of the group it belonged to — so
+    # fidelity here means recreating one new FunctionGroup per distinct
+    # (id, name) referenced, rather than copying rows that were never
+    # snapshotted in the first place.
+    function_group_id_map: dict[str, uuid.UUID] = {}
+    for g_snap in source_snapshot.get("ew_groups", []):
+        for m_snap in g_snap.get("modes", []):
+            old_fg_id = m_snap.get("function_group_id")
+            if old_fg_id is not None and old_fg_id not in function_group_id_map:
+                new_fg = FunctionGroup(emitter_id=new_emitter.id, name=m_snap.get("function_group_name") or "Unnamed")
+                db.add(new_fg)
+                db.flush()
+                function_group_id_map[old_fg_id] = new_fg.id
+
     for g_snap in source_snapshot.get("ew_groups", []):
         new_group = EwGroup(
             emitter_id=new_emitter.id,
@@ -245,6 +277,7 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
                 pri_type=PriType(m_snap["pri_type"]),
                 notes=m_snap.get("notes"),
                 sort_order=m_snap.get("sort_order", 0),
+                function_group_id=function_group_id_map.get(m_snap.get("function_group_id")),
             )
             db.add(new_mode)
             db.flush()

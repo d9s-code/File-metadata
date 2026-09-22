@@ -87,6 +87,7 @@ export interface Emitter {
   checked_out_at: string | null;
   forked_from_emitter_id: string | null;
   forked_from_version_id: string | null;
+  forked_at_version_number: number | null;
   summary: EmitterSummary;
 }
 

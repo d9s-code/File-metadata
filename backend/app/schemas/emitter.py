@@ -78,4 +78,8 @@ class EmitterOut(BaseModel):
     checked_out_at: datetime | None = None
     forked_from_emitter_id: UUID | None = None
     forked_from_version_id: UUID | None = None
+    # Versions at or below this number were copied in from the source
+    # Emitter at fork time — viewable/diffable, but revert_emitter_version
+    # refuses to revert to one directly (see that endpoint's docstring).
+    forked_at_version_number: int | None = None
     summary: EmitterSummary = EmitterSummary()

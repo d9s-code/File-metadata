@@ -50,6 +50,14 @@ class Emitter(UUIDPkMixin, TimestampMixin, Base):
     # intermittent, ~50% flaky, not caught by a single test run. This column
     # is a soft/display-only reference, like AuditLog.emitter_id.
     forked_from_version_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    # Set only on a forked Emitter: the highest version_number that was
+    # copied in from the source Emitter's history (see fork_emitter_version).
+    # Versions at or below this number carry EW-Group/Source/Mode ids that
+    # belong to the *source* Emitter's rows, not this one's — reverting to
+    # one directly would try to recreate rows under ids that either don't
+    # exist here or collide with the source Emitter's still-live ones, so
+    # revert_emitter_version refuses any version_number <= this.
+    forked_at_version_number: Mapped[int | None] = mapped_column(nullable=True)
 
     ew_groups: Mapped[list["EwGroup"]] = relationship(
         back_populates="emitter", cascade="all, delete-orphan", order_by="EwGroup.sort_order"

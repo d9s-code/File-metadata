@@ -159,3 +159,48 @@ def test_discard_with_no_committed_version_is_409(editor_client):
     emitter = editor_client.post("/emitters", json={"name": "No Commit Discard Emitter"}).json()
     resp = editor_client.post(f"/emitters/{emitter['id']}/discard")
     assert resp.status_code == 409
+
+
+def test_discard_reverts_an_uncommitted_function_group_assignment(editor_client):
+    # Regression test: reconcile_emitter_to_snapshot used to leave
+    # Mode.function_group_id untouched entirely, so a batch-edit assignment
+    # survived both discard and revert instead of being rolled back with
+    # everything else.
+    ctx = _setup_emitter_with_two_versions(editor_client)
+    emitter_id = ctx["emitter"]["id"]
+    mode_id = ctx["mode"]["id"]
+
+    fg = editor_client.post(f"/emitters/{emitter_id}/function-groups", json={"name": "FG"}).json()
+    editor_client.post(
+        f"/emitters/{emitter_id}/modes/batch-edit",
+        json={"mode_ids": [mode_id], "fields": {"function_group_id": fg["id"]}},
+    )
+    modes = editor_client.get(f"/emitters/{emitter_id}/modes").json()
+    assert modes[0]["function_group_id"] == fg["id"]
+
+    resp = editor_client.post(f"/emitters/{emitter_id}/discard")
+    assert resp.status_code == 200, resp.text
+
+    modes = editor_client.get(f"/emitters/{emitter_id}/modes").json()
+    assert modes[0]["function_group_id"] is None
+
+
+def test_revert_to_pre_fork_version_is_409(editor_client):
+    ctx = _setup_emitter_with_two_versions(editor_client)
+    emitter_id = ctx["emitter"]["id"]
+
+    forked = editor_client.post(
+        f"/emitters/{emitter_id}/versions/2/fork", json={"new_name": "Revert-Blocked Fork"}
+    ).json()
+    forked_id = forked["id"]
+    assert forked["forked_at_version_number"] == 2
+
+    # Version 1 was copied in from the source Emitter — its EW-Group/Source/
+    # Mode ids belong to the source's still-live rows, not this fork's.
+    resp = editor_client.post(f"/emitters/{forked_id}/versions/1/revert")
+    assert resp.status_code == 409
+
+    # The fork's own commit (version 3: 1 and 2 copied, then the fork
+    # itself) is a real version of this Emitter and reverts normally.
+    resp = editor_client.post(f"/emitters/{forked_id}/versions/3/revert")
+    assert resp.status_code == 200, resp.text

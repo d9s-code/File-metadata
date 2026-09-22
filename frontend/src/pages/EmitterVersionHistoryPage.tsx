@@ -31,6 +31,10 @@ export function EmitterVersionHistoryPage() {
 
   const { data: diff, isLoading: diffLoading } = useEmitterVersionDiff(emitterId ?? "", selected ?? 0);
 
+  const forkBoundary = emitter?.forked_at_version_number ?? null;
+  const isPreFork = forkBoundary != null && selected != null && selected <= forkBoundary;
+  const isForkPoint = forkBoundary != null && selected === forkBoundary + 1;
+
   async function handleCommit() {
     setError(null);
     if (!changeSummary.trim()) {
@@ -86,17 +90,28 @@ export function EmitterVersionHistoryPage() {
       <div className="version-history-layout">
         <div className="card">
           <h4>Versions</h4>
-          <VersionList versions={versions ?? []} selected={selected} onSelect={setSelected} />
+          <VersionList versions={versions ?? []} selected={selected} onSelect={setSelected} forkBoundary={forkBoundary} />
         </div>
         <div className="card">
           <h4>{selected ? `Diff: v${selected - 1} → v${selected}` : "Select a version to view its diff"}</h4>
           {selected === 1 && <p className="hint-text">This is the first committed version — no prior version to diff against.</p>}
+          {isForkPoint && (
+            <p className="hint-text">
+              This version is where the fork happened — every EW Group/Source/Mode got a fresh id here, so this
+              diff shows a full replacement rather than the (likely small) actual change.
+            </p>
+          )}
           {selected != null && selected > 1 && diffLoading && <p>Loading diff…</p>}
           {selected != null && selected > 1 && diff && <EmitterDiffViewer diff={diff} />}
           {selected != null && (
             <RequireRole minimum="editor">
               <div className="form-row">
-                <button className="link-button" disabled={revertVersion.isPending} onClick={() => void handleRevert()}>
+                <button
+                  className="link-button"
+                  disabled={revertVersion.isPending || isPreFork}
+                  title={isPreFork ? "This version predates the fork — fork from it again instead of reverting to it" : undefined}
+                  onClick={() => void handleRevert()}
+                >
                   Revert to this version
                 </button>
                 <button className="link-button" onClick={() => setShowForkModal(true)}>
