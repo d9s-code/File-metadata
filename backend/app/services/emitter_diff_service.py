@@ -3,8 +3,9 @@
 path-based `app.services.diffing.compute_diff` (built for arbitrary nested
 JSON, including Platform/MDF snapshots that embed full Emitter snapshots
 inside them), this walks the Emitter snapshot's own known shape and matches
-EW Groups/Sources/Modes by the id a snapshot already preserves, so a Mode
-that moved position in its list is never mistaken for two different Modes.
+EW Groups/Sources/Modes/Test Lines by the id a snapshot already preserves, so
+a Mode that moved position in its list is never mistaken for two different
+Modes.
 Every entry names the actual Mode/EW Group/Source and a human field label —
 never a raw DeepDiff path like `['ew_groups'][0]['modes'][1]['line']['rf_max_mhz']`.
 """
@@ -28,6 +29,12 @@ SOURCE_FIELD_LABELS = {
     "name": "Name",
     "description": "Description",
     "source_date": "Source Date",
+}
+
+TEST_LINE_FIELD_LABELS = {
+    "label": "Label",
+    "expected_mode_name": "Expected Mode",
+    "expected_parameters": "Expected Parameters",
 }
 
 MODE_FIELD_LABELS = {
@@ -125,5 +132,17 @@ def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict) -> dict:
     for source_id in set(old_sources) & set(new_sources):
         os_, ns = old_sources[source_id], new_sources[source_id]
         _diff_fields(entries, f"Source '{ns['name']}'", os_, ns, SOURCE_FIELD_LABELS)
+
+    old_lines = {tl["id"]: tl for tl in old_snapshot.get("test_lines", [])}
+    new_lines = {tl["id"]: tl for tl in new_snapshot.get("test_lines", [])}
+    for line_id, tl in new_lines.items():
+        if line_id not in old_lines:
+            entries.append(_entry(f"Test Line '{tl['label']}'", "Added", "added"))
+    for line_id, tl in old_lines.items():
+        if line_id not in new_lines:
+            entries.append(_entry(f"Test Line '{tl['label']}'", "Removed", "removed"))
+    for line_id in set(old_lines) & set(new_lines):
+        ol, nl = old_lines[line_id], new_lines[line_id]
+        _diff_fields(entries, f"Test Line '{nl['label']}'", ol, nl, TEST_LINE_FIELD_LABELS)
 
     return {"entries": entries, "identical": not entries}

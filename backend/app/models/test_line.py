@@ -47,4 +47,5 @@ class TestLine(UUIDPkMixin, TimestampMixin, Base):
     # pasted in — this can.
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
 
+    emitter: Mapped["Emitter"] = relationship(back_populates="test_lines")  # noqa: F821
     expected_mode: Mapped["Mode"] = relationship()  # noqa: F821

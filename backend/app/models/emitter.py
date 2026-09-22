@@ -79,3 +79,6 @@ class Emitter(UUIDPkMixin, TimestampMixin, Base):
     intercepts: Mapped[list["Intercept"]] = relationship(  # noqa: F821
         back_populates="emitter", cascade="all, delete-orphan"
     )
+    test_lines: Mapped[list["TestLine"]] = relationship(  # noqa: F821
+        back_populates="emitter", cascade="all, delete-orphan", order_by="TestLine.sort_order"
+    )

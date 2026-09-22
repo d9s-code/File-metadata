@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from "react";
 import type { TestLine, TestLineCreateInput } from "../../api/testLines";
 import { useDeleteTestLine, useImportTestLines, useUpdateTestLine } from "../../state/hooks/useTestLines";
+import { useEmitter } from "../../state/hooks/useEmitters";
+import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 import { ApiRequestError } from "../../api/client";
 import { RequireRole } from "../../auth/RequireAuth";
 import { useConfirmDialog } from "../common/ConfirmDialog";
@@ -97,6 +99,8 @@ export function TestLinesPanel({
   const updateLine = useUpdateTestLine(emitterId);
   const deleteLine = useDeleteTestLine(emitterId);
   const { confirmDelete, dialog } = useConfirmDialog();
+  const { data: emitter } = useEmitter(emitterId);
+  const { canEdit } = useEmitterCheckoutState(emitter);
 
   async function handleImport(e: FormEvent) {
     e.preventDefault();
@@ -148,10 +152,13 @@ export function TestLinesPanel({
       <p className="hint-text">
         The simulated-signal reference table a Test Run is checked against — imported once, reused across runs. Each
         line is a claim about what the simulator presents ("Threat 3, high-PRF search"), not a description of this
-        Emitter's own Modes. Imports, edits and deletes are logged in the Audit tab, but Test Lines aren't part of
-        this Emitter's own versioned definition — like Test Records, they won't show up in "View changes since last
-        save".
+        Emitter's own Modes. Test Lines are part of this Emitter's own versioned definition — importing, editing or
+        deleting one requires holding the checkout lock, shows up in "View changes since last save", and only
+        becomes permanent once committed.
       </p>
+      {!canEdit && (
+        <p className="hint-text">Start editing this Emitter to import, edit, or delete Test Lines.</p>
+      )}
 
       {lines.length === 0 ? (
         <p className="hint-text">No Test Lines imported yet.</p>
@@ -206,10 +213,14 @@ export function TestLinesPanel({
                   <td>{formatEditedAt(l.updated_at)}</td>
                   <td>
                     <RequireRole minimum="editor">
-                      <button className="link-button" onClick={() => startEdit(l)}>
+                      <button className="link-button" disabled={!canEdit} onClick={() => startEdit(l)}>
                         Edit
                       </button>{" "}
-                      <button className="link-button link-button-danger" onClick={() => void handleDelete(l.id, l.label)}>
+                      <button
+                        className="link-button link-button-danger"
+                        disabled={!canEdit}
+                        onClick={() => void handleDelete(l.id, l.label)}
+                      >
                         Delete
                       </button>
                     </RequireRole>
@@ -223,7 +234,7 @@ export function TestLinesPanel({
 
       <RequireRole minimum="editor">
         {!showForm ? (
-          <button className="icon-button" onClick={() => setShowForm(true)}>
+          <button className="icon-button" disabled={!canEdit} onClick={() => setShowForm(true)}>
             + Import Test Lines
           </button>
         ) : (
@@ -248,7 +259,7 @@ export function TestLinesPanel({
               />
             </label>
             <div className="form-row">
-              <button type="submit" disabled={importLines.isPending}>
+              <button type="submit" disabled={importLines.isPending || !canEdit}>
                 Import
               </button>
               <button type="button" className="icon-button" onClick={() => setShowForm(false)}>

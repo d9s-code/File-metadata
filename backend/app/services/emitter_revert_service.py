@@ -4,13 +4,13 @@ uncommitted changes" (discard is just "reconcile to the *latest* commit"),
 plus the row-cloning behind "fork".
 
 A committed snapshot (see snapshots.py::build_emitter_snapshot) preserves the
-live UUID of every EwGroup/Source/Mode/ModeElement, so reconciliation can
-match by id instead of guessing from names: a row whose id is still in the
-target snapshot gets its fields overwritten in place (preserving its id, and
-therefore any TestRecordMode FK pointing at a surviving Mode); a row absent
-from the target snapshot gets deleted — the same cascade delete_mode already
-does today with zero safety checks, so this introduces no new class of data
-loss, just a bulk version of it.
+live UUID of every EwGroup/Source/Mode/ModeElement/TestLine, so reconciliation
+can match by id instead of guessing from names: a row whose id is still in
+the target snapshot gets its fields overwritten in place (preserving its id,
+and therefore any TestRecordMode/TestRecordLine FK pointing at a surviving
+Mode/TestLine); a row absent from the target snapshot gets deleted — the
+same cascade delete_mode already does today with zero safety checks, so this
+introduces no new class of data loss, just a bulk version of it.
 
 Note on fidelity: a snapshot only captures the fields snapshots.py chooses to
 capture (e.g. EwGroup.scan_delta and ModeElement.variant/delta/details are
@@ -31,6 +31,7 @@ from app.models.ew_group import EwGroup
 from app.models.function_group import FunctionGroup
 from app.models.mode import Mode, ModeElement, ModeLine
 from app.models.source import Source
+from app.models.test_line import TestLine
 
 
 def _num(value):
@@ -103,6 +104,14 @@ def reconcile_emitter_to_snapshot(db: Session, emitter: Emitter, snapshot: dict)
     for source_id, source in live_sources.items():
         if source_id not in target_source_ids:
             db.delete(source)
+
+    # target_mode_ids (computed above) is exactly the set of Modes this
+    # snapshot's reconciliation guarantees exist, so a Test Line's
+    # expected_mode_id — always captured from the same snapshot as the Mode
+    # it points at — resolves against it directly rather than a live query
+    # that could race the pending group/source deletes above (not yet
+    # flushed at this point).
+    _reconcile_test_lines(db, emitter, snapshot.get("test_lines", []), valid_mode_ids=target_mode_ids)
 
     db.flush()
 
@@ -200,11 +209,35 @@ def _reconcile_mode_line(db: Session, mode: Mode, line_snap: dict | None) -> Non
     line.dsl_text = line_snap.get("dsl_text")
 
 
+def _reconcile_test_lines(
+    db: Session, emitter: Emitter, line_snaps: list[dict], *, valid_mode_ids: set[str]
+) -> None:
+    live = {str(tl.id): tl for tl in emitter.test_lines}
+    target_ids = {tl["id"] for tl in line_snaps}
+    for tl_snap in line_snaps:
+        line = live.get(tl_snap["id"])
+        if line is None:
+            line = TestLine(id=uuid.UUID(tl_snap["id"]), emitter_id=emitter.id, label=tl_snap["label"])
+            db.add(line)
+        line.label = tl_snap["label"]
+        raw_mode_id = tl_snap.get("expected_mode_id")
+        # Falls back to None rather than a stale FK — same defensive
+        # reasoning as _resolve_function_group_id, in case a Test Line ever
+        # ends up referencing a Mode outside this Emitter's own snapshot.
+        line.expected_mode_id = uuid.UUID(raw_mode_id) if raw_mode_id in valid_mode_ids else None
+        line.expected_parameters = tl_snap.get("expected_parameters")
+        line.sort_order = tl_snap.get("sort_order", 0)
+    for line_id, line in live.items():
+        if line_id not in target_ids:
+            db.delete(line)
+
+
 def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, created_by: uuid.UUID | None) -> Emitter:
     """Rebuilds a committed snapshot as a brand-new, fully independent
     Emitter — fresh UUIDs throughout (it must coexist with the source
-    Emitter's still-live rows), remapping Mode.source_id via an
-    old-id -> new-id map. Caller is responsible for flush/snapshot/commit.
+    Emitter's still-live rows), remapping Mode.source_id and TestLine's
+    expected_mode_id via id maps built as each row is recreated. Caller is
+    responsible for flush/snapshot/commit.
     """
     new_emitter = Emitter(
         name=new_name,
@@ -257,6 +290,7 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
                 db.flush()
                 function_group_id_map[old_fg_id] = new_fg.id
 
+    mode_id_map: dict[str, uuid.UUID] = {}
     for g_snap in source_snapshot.get("ew_groups", []):
         new_group = EwGroup(
             emitter_id=new_emitter.id,
@@ -281,6 +315,7 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
             )
             db.add(new_mode)
             db.flush()
+            mode_id_map[m_snap["id"]] = new_mode.id
             line_snap = m_snap.get("line")
             if line_snap is not None:
                 db.add(
@@ -306,6 +341,18 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
                         dsl_text=line_snap.get("dsl_text"),
                     )
                 )
+
+    for tl_snap in source_snapshot.get("test_lines", []):
+        raw_mode_id = tl_snap.get("expected_mode_id")
+        db.add(
+            TestLine(
+                emitter_id=new_emitter.id,
+                label=tl_snap["label"],
+                expected_mode_id=mode_id_map.get(raw_mode_id) if raw_mode_id else None,
+                expected_parameters=tl_snap.get("expected_parameters"),
+                sort_order=tl_snap.get("sort_order", 0),
+            )
+        )
 
     db.flush()
     return new_emitter

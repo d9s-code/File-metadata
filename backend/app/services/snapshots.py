@@ -7,6 +7,7 @@ from app.models.emitter import Emitter
 from app.models.mdf import Mdf
 from app.models.mode import Mode, ModeElement
 from app.models.platform import Platform
+from app.models.test_line import TestLine
 
 
 def _num(value):
@@ -68,6 +69,17 @@ def _mode_dict(mode: Mode) -> dict:
     }
 
 
+def _test_line_dict(tl: TestLine) -> dict:
+    return {
+        "id": str(tl.id),
+        "label": tl.label,
+        "expected_mode_id": str(tl.expected_mode_id) if tl.expected_mode_id else None,
+        "expected_mode_name": tl.expected_mode.name if tl.expected_mode else None,
+        "expected_parameters": tl.expected_parameters,
+        "sort_order": tl.sort_order,
+    }
+
+
 def build_emitter_snapshot(emitter: Emitter) -> dict:
     return {
         "id": str(emitter.id),
@@ -98,6 +110,7 @@ def build_emitter_snapshot(emitter: Emitter) -> dict:
             }
             for s in sorted(emitter.sources, key=lambda s: s.name)
         ],
+        "test_lines": [_test_line_dict(tl) for tl in sorted(emitter.test_lines, key=lambda tl: tl.sort_order)],
     }
 
 

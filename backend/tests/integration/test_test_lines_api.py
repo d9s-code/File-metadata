@@ -140,10 +140,6 @@ def test_update_test_line_is_audited(editor_client, emitter_with_mode):
 
 
 def test_import_test_lines_is_audited_under_emitter_rollup(editor_client, emitter_with_mode):
-    # This is what backs the "why don't imports show up" question: they ARE
-    # recorded, just under the Audit tab (rolled up by emitter_id) rather
-    # than in the versioned-Emitter diff — Test Lines aren't part of that
-    # snapshot, same as Test Records.
     emitter_id = emitter_with_mode["emitter"]["id"]
     editor_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"lines": [{"label": "X"}, {"label": "Y"}]})
     audit = editor_client.get("/audit-log", params={"emitter_id": emitter_id, "entity_type": "test_line"}).json()
@@ -152,16 +148,118 @@ def test_import_test_lines_is_audited_under_emitter_rollup(editor_client, emitte
     assert "2 Test Line" in create_entries[0]["summary"]
 
 
-def test_import_and_delete_do_not_require_checkout(editor_client, emitter_with_mode):
-    # Test Lines are reference data for testing, like Test Records/Analyst
-    # Notes — deliberately not gated on the Emitter's checkout lock. Mode
-    # creation in the fixture left this Emitter checked out; release it
-    # first to prove importing doesn't need that lock re-taken.
+def test_import_update_delete_require_checkout(editor_client, admin_client, emitter_with_mode):
+    # Test Lines are part of the Emitter's own versioned definition — same
+    # checkout gate as a Mode or Source. Release the checkout (the fixture's
+    # own Mode creation left it held by editor_client) and confirm every
+    # mutating endpoint now 409s instead of succeeding.
     emitter_id = emitter_with_mode["emitter"]["id"]
+    line = editor_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"lines": [{"label": "X"}]}).json()[0]
     editor_client.delete(f"/emitters/{emitter_id}/checkout")
     assert editor_client.get(f"/emitters/{emitter_id}").json()["checked_out_by_id"] is None
-    resp = editor_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"lines": [{"label": "X"}]})
-    assert resp.status_code == 201
+
+    resp = editor_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"lines": [{"label": "Y"}]})
+    assert resp.status_code == 409
+
+    resp = editor_client.patch(f"/emitters/{emitter_id}/test-lines/{line['id']}", json={"label": "Z"})
+    assert resp.status_code == 409
+
+    resp = editor_client.delete(f"/emitters/{emitter_id}/test-lines/{line['id']}")
+    assert resp.status_code == 409
+
+    # Listing stays read-only/unaffected by checkout.
+    assert editor_client.get(f"/emitters/{emitter_id}/test-lines").json()[0]["label"] == "X"
+
+
+def test_import_rejects_mode_from_another_emitter(editor_client, emitter_with_mode):
+    emitter_id = emitter_with_mode["emitter"]["id"]
+    other = editor_client.post("/emitters", json={"name": "Other Owning Emitter"}).json()
+    other_ew_group = editor_client.post(f"/emitters/{other['id']}/ew-groups", json={"name": "Group B"}).json()
+    other_source = editor_client.post(
+        f"/emitters/{other['id']}/sources", json={"name": "Source B", "source_date": "2025-01-01"}
+    ).json()
+    other_mode = editor_client.post(
+        f"/ew-groups/{other_ew_group['id']}/modes",
+        json={"source_id": other_source["id"], "name": "Other Mode", "pri_type": "fixed", "line": FIXED_LINE},
+    ).json()
+    resp = editor_client.post(
+        f"/emitters/{emitter_id}/test-lines/import",
+        json={"lines": [{"label": "X", "expected_mode_id": other_mode["id"]}]},
+    )
+    assert resp.status_code == 404
+
+
+def test_test_lines_show_in_live_diff_and_clear_after_commit(editor_client, emitter_with_mode):
+    emitter_id = emitter_with_mode["emitter"]["id"]
+    before = editor_client.get(f"/emitters/{emitter_id}/diff/live").json()
+    assert not any("Test Line" in e["scope"] for e in before["entries"])
+
+    editor_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"lines": [{"label": "Threat X"}]})
+    dirty = editor_client.get(f"/emitters/{emitter_id}/diff/live").json()
+    matches = [e for e in dirty["entries"] if e["scope"] == "Test Line 'Threat X'"]
+    assert len(matches) == 1
+    assert matches[0]["kind"] == "added"
+
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "commit test line"})
+    clean = editor_client.get(f"/emitters/{emitter_id}/diff/live").json()
+    assert not any("Test Line" in e["scope"] for e in clean["entries"])
+
+    version_number = editor_client.get(f"/emitters/{emitter_id}/versions").json()[-1]["version_number"]
+    version = editor_client.get(f"/emitters/{emitter_id}/versions/{version_number}").json()
+    assert version["snapshot"]["test_lines"][0]["label"] == "Threat X"
+
+
+def test_revert_restores_test_lines_and_drops_uncommitted_ones(editor_client, emitter_with_mode):
+    emitter_id = emitter_with_mode["emitter"]["id"]
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "v1: no lines"})
+
+    editor_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"lines": [{"label": "Only in v2"}]})
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "v2: one line"})
+
+    resp = editor_client.post(f"/emitters/{emitter_id}/versions/1/revert")
+    assert resp.status_code == 200, resp.text
+    assert editor_client.get(f"/emitters/{emitter_id}/test-lines").json() == []
+
+
+def test_revert_preserves_test_line_id_and_restores_edited_label(editor_client, emitter_with_mode):
+    emitter_id = emitter_with_mode["emitter"]["id"]
+    line = editor_client.post(
+        f"/emitters/{emitter_id}/test-lines/import", json={"lines": [{"label": "Original label"}]}
+    ).json()[0]
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "v1: original label"})
+
+    editor_client.patch(f"/emitters/{emitter_id}/test-lines/{line['id']}", json={"label": "Edited label"})
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "v2: edited label"})
+
+    resp = editor_client.post(f"/emitters/{emitter_id}/versions/1/revert")
+    assert resp.status_code == 200, resp.text
+    restored = editor_client.get(f"/emitters/{emitter_id}/test-lines").json()
+    assert len(restored) == 1
+    assert restored[0]["id"] == line["id"]
+    assert restored[0]["label"] == "Original label"
+
+
+def test_fork_copies_test_lines_with_remapped_expected_mode(editor_client, emitter_with_mode):
+    emitter_id = emitter_with_mode["emitter"]["id"]
+    mode_id = emitter_with_mode["mode"]["id"]
+    editor_client.post(
+        f"/emitters/{emitter_id}/test-lines/import",
+        json={"lines": [{"label": "Forked line", "expected_mode_id": mode_id}]},
+    )
+    version = editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "v1"}).json()
+
+    resp = editor_client.post(
+        f"/emitters/{emitter_id}/versions/{version['version_number']}/fork", json={"new_name": "Forked Sim Emitter"}
+    )
+    assert resp.status_code == 201, resp.text
+    forked = resp.json()
+
+    forked_lines = editor_client.get(f"/emitters/{forked['id']}/test-lines").json()
+    assert len(forked_lines) == 1
+    assert forked_lines[0]["label"] == "Forked line"
+    assert forked_lines[0]["expected_mode_id"] != mode_id  # fresh id, not the source Emitter's
+    forked_modes = editor_client.get(f"/emitters/{forked['id']}/modes").json()
+    assert forked_lines[0]["expected_mode_id"] == forked_modes[0]["id"]
 
 
 def _import_lines(client, emitter_id, labels):
