@@ -19,6 +19,7 @@ export function ModeForm({
   onStage,
   observedValueOptions,
   initialData,
+  duplicateFrom,
   onClose,
 }: {
   emitterId: string;
@@ -50,6 +51,12 @@ export function ModeForm({
    * other Mode. */
   observedValueOptions?: { modeName: string; values: ObservedValues }[];
   initialData?: Mode;
+  /** Pre-fills every field from an existing Mode's line the same way
+   * initialData does, except Name (left blank — two Modes can't share one)
+   * and it never switches this form into edit mode: submitting always
+   * creates a new Mode, it just starts from a known-good line instead of
+   * a blank one. */
+  duplicateFrom?: Mode;
   onClose?: () => void;
 }) {
   const [ewGroupId, setEwGroupId] = useState(defaultEwGroupId || ewGroups[0]?.id || "");
@@ -83,44 +90,50 @@ export function ModeForm({
   const updateMode = useUpdateMode(emitterId);
 
   useEffect(() => {
-    if (initialData) {
-      setEwGroupId(initialData.ew_group_id);
-      setSourceId(initialData.source_id);
-      setName(initialData.name);
-      setPriType(initialData.pri_type);
-      setNotes(initialData.notes || "");
-      setFunctionGroupId(initialData.function_group_id ?? "");
-      
-      if (initialData.line) {
-        setRfMin(String(initialData.line.rf_min_mhz));
-        setRfMax(String(initialData.line.rf_max_mhz));
-        setRfDelta(String(initialData.line.rf_delta));
-        setPwMin(String(initialData.line.pw_min_us));
-        setPwMax(String(initialData.line.pw_max_us));
-        setPwDelta(String(initialData.line.pw_delta));
-        setRfRangeMatching(initialData.line.rf_range_matching);
-        setPwRangeMatching(initialData.line.pw_range_matching);
-        setPriRangeMatching(initialData.line.pri_range_matching);
+    const source = initialData ?? duplicateFrom;
+    if (source) {
+      setEwGroupId(source.ew_group_id);
+      setSourceId(source.source_id);
+      // A duplicate can't start with the original's name — two Modes can't
+      // share one, and leaving it blank forces picking a real one rather
+      // than silently failing on submit with an unexplained name clash.
+      setName(initialData ? source.name : "");
+      setPriType(source.pri_type);
+      setNotes(source.notes || "");
+      setFunctionGroupId(source.function_group_id ?? "");
 
-        if (initialData.pri_type === "fixed") {
-          setPriMin(String(initialData.line.pri_min_us ?? ""));
-          setPriMax(String(initialData.line.pri_max_us ?? ""));
-          setPriDelta(String(initialData.line.pri_delta ?? ""));
-          setJitterMin(String(initialData.line.jitter_min_us ?? ""));
-          setJitterMax(String(initialData.line.jitter_max_us ?? ""));
-        } else if (initialData.pri_type === "stagger" && initialData.line.pri_stagger_values_us) {
-          setStaggerValues(initialData.line.pri_stagger_values_us.join(", "));
+      if (source.line) {
+        setRfMin(String(source.line.rf_min_mhz));
+        setRfMax(String(source.line.rf_max_mhz));
+        setRfDelta(String(source.line.rf_delta));
+        setPwMin(String(source.line.pw_min_us));
+        setPwMax(String(source.line.pw_max_us));
+        setPwDelta(String(source.line.pw_delta));
+        setRfRangeMatching(source.line.rf_range_matching);
+        setPwRangeMatching(source.line.pw_range_matching);
+        setPriRangeMatching(source.line.pri_range_matching);
+
+        if (source.pri_type === "fixed") {
+          setPriMin(String(source.line.pri_min_us ?? ""));
+          setPriMax(String(source.line.pri_max_us ?? ""));
+          setPriDelta(String(source.line.pri_delta ?? ""));
+          setJitterMin(String(source.line.jitter_min_us ?? ""));
+          setJitterMax(String(source.line.jitter_max_us ?? ""));
+        } else if (source.pri_type === "stagger" && source.line.pri_stagger_values_us) {
+          setStaggerValues(source.line.pri_stagger_values_us.join(", "));
         }
-        if (initialData.line.frame_time_delta_us) {
-          setFrameTimeDelta(String(initialData.line.frame_time_delta_us));
+        if (source.line.frame_time_delta_us) {
+          setFrameTimeDelta(String(source.line.frame_time_delta_us));
         }
       }
 
-      if (initialData.derived_from_test_records) {
+      // Provenance isn't copied for a duplicate — it wasn't independently
+      // derived from that test/intercept, it's a copy of a Mode that was.
+      if (initialData?.derived_from_test_records) {
         setDerivedFrom(new Set(initialData.derived_from_test_records.map((r) => r.id)));
       }
     }
-  }, [initialData, ewGroups, sources]);
+  }, [initialData, duplicateFrom, ewGroups, sources]);
 
   useEffect(() => {
     if (!observedValueOptions?.length) return;

@@ -1922,6 +1922,30 @@ span.test-derived-badge {
 .checkout-badge-mine {
   color: var(--primary);
 }
+
+/* Shown only while a fresh Emitter is missing a Source, EW Group, or Mode —
+   a live "what's left before you can test this" readout, gone entirely
+   once all three exist so it never lingers as clutter. */
+.setup-progress-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card-bg);
+  font-size: 0.85rem;
+}
+.setup-step-done {
+  color: var(--badge-green-fg);
+  font-weight: 600;
+}
+.setup-step-todo {
+  color: var(--muted);
+  font-weight: 600;
+}
 .live-diff-panel {
   padding: 0.6rem 0.75rem;
   margin: -0.5rem 0 0.75rem 0;

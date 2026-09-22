@@ -20,6 +20,7 @@ import { TestDerivedBadge } from "./TestDerivedBadge";
 import { InterceptDerivedBadge } from "./InterceptDerivedBadge";
 import { LastTestedCell } from "./LastTestedCell";
 import { ModeEditForm } from "./ModeEditForm";
+import { ModeForm } from "./ModeForm";
 
 export function ModesTable({
   emitterId,
@@ -59,6 +60,7 @@ export function ModesTable({
   showEngineered: boolean;
 }) {
   const [editingModeId, setEditingModeId] = useState<string | null>(null);
+  const [duplicatingModeId, setDuplicatingModeId] = useState<string | null>(null);
   const [expandedBatchIds, setExpandedBatchIds] = useState<Set<string>>(new Set());
   const { data: emitter } = useEmitter(emitterId);
   const { canEdit } = useEmitterCheckoutState(emitter);
@@ -219,7 +221,15 @@ export function ModesTable({
                         {editingModeId === m.id ? "Cancel edit" : "Edit"}
                       </button>{" "}
                       <button
-                        className="link-button"
+                        className="link-button link-button-accent"
+                        disabled={!canEdit}
+                        title={editTitle ?? "Start a new Mode pre-filled with this one's line — pick a name and adjust what's different"}
+                        onClick={() => setDuplicatingModeId(duplicatingModeId === m.id ? null : m.id)}
+                      >
+                        {duplicatingModeId === m.id ? "Cancel duplicate" : "Duplicate"}
+                      </button>{" "}
+                      <button
+                        className="link-button link-button-danger"
                         disabled={!canEdit}
                         title={editTitle}
                         onClick={() => onDelete(m.id, m.ew_group_id, m.name)}
@@ -238,6 +248,20 @@ export function ModesTable({
                       mode={m}
                       functionGroups={Object.values(functionGroupsById)}
                       onDone={() => setEditingModeId(null)}
+                    />
+                  </td>
+                </tr>
+              )}
+              {duplicatingModeId === m.id && canEdit && (
+                <tr>
+                  <td colSpan={17}>
+                    <ModeForm
+                      emitterId={emitterId}
+                      ewGroups={Object.values(ewGroupsById)}
+                      sources={Object.values(sourcesById)}
+                      functionGroups={Object.values(functionGroupsById)}
+                      duplicateFrom={m}
+                      onClose={() => setDuplicatingModeId(null)}
                     />
                   </td>
                 </tr>

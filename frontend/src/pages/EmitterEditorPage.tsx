@@ -71,6 +71,14 @@ export function EmitterEditorPage() {
 
   if (isLoading || !emitter) return <LoadingState label="Loading emitter…" />;
 
+  // Only shown while genuinely incomplete — once there's at least one
+  // Source, one EW Group, and one Mode, this disappears entirely rather
+  // than lingering as clutter on a mature Emitter.
+  const sourceCount = sources?.length ?? 0;
+  const ewGroupCount = ewGroups?.length ?? 0;
+  const modeCount = emitter.summary.mode_count;
+  const setupIncomplete = sourceCount === 0 || ewGroupCount === 0 || modeCount === 0;
+
   const handleStartEdit = () => {
     setEditName(emitter.name);
     setEditDesignation(emitter.designation ?? "");
@@ -191,6 +199,30 @@ export function EmitterEditorPage() {
         <p className="hint-text">
           Forked from <Link to={`/emitters/${emitter.forked_from_emitter_id}`}>an earlier Emitter</Link>.
         </p>
+      )}
+
+      {!ewGroupsLoading && !sourcesLoading && setupIncomplete && (
+        <div className="setup-progress-banner">
+          <span className={sourceCount > 0 ? "setup-step-done" : "setup-step-todo"}>
+            {sourceCount > 0 ? "✓" : "○"} {sourceCount} Source{sourceCount === 1 ? "" : "s"}
+          </span>
+          <span className={ewGroupCount > 0 ? "setup-step-done" : "setup-step-todo"}>
+            {ewGroupCount > 0 ? "✓" : "○"} {ewGroupCount} EW Group{ewGroupCount === 1 ? "" : "s"}
+          </span>
+          <span className={modeCount > 0 ? "setup-step-done" : "setup-step-todo"}>
+            {modeCount > 0 ? "✓" : "○"} {modeCount} Mode{modeCount === 1 ? "" : "s"}
+          </span>
+          {" — "}
+          {sourceCount === 0 || ewGroupCount === 0 ? (
+            <button type="button" className="link-button" onClick={() => setTab("setup")}>
+              set up EW Groups & Sources before testing anything
+            </button>
+          ) : (
+            <button type="button" className="link-button" onClick={() => setTab("modes")}>
+              add a Mode to start testing
+            </button>
+          )}
+        </div>
       )}
 
       {!isEditing && (

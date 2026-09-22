@@ -7,6 +7,7 @@ import { TestDerivedBadge } from "./TestDerivedBadge";
 import { InterceptDerivedBadge } from "./InterceptDerivedBadge";
 import { LastTestedCell } from "./LastTestedCell";
 import { ModeEditForm } from "./ModeEditForm";
+import { ModeForm } from "./ModeForm";
 import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 import {
@@ -46,6 +47,7 @@ export function ModesCardGrid({
   showEngineered: boolean;
 }) {
   const [editingModeId, setEditingModeId] = useState<string | null>(null);
+  const [duplicatingModeId, setDuplicatingModeId] = useState<string | null>(null);
   const [expandedBatchIds, setExpandedBatchIds] = useState<Set<string>>(new Set());
   const { data: emitter } = useEmitter(emitterId);
   const { canEdit } = useEmitterCheckoutState(emitter);
@@ -80,6 +82,20 @@ export function ModesCardGrid({
             </div>
           );
         }
+        if (duplicatingModeId === m.id && canEdit) {
+          return (
+            <div key={m.id} className="mode-card mode-card-editing">
+              <ModeForm
+                emitterId={emitterId}
+                ewGroups={Object.values(ewGroupsById)}
+                sources={Object.values(sourcesById)}
+                functionGroups={Object.values(functionGroupsById)}
+                duplicateFrom={m}
+                onClose={() => setDuplicatingModeId(null)}
+              />
+            </div>
+          );
+        }
         return (
           <div key={m.id} className="mode-card">
             <div className="mode-card-header">
@@ -106,7 +122,15 @@ export function ModesCardGrid({
                   Edit
                 </button>{" "}
                 <button
-                  className="link-button"
+                  className="link-button link-button-accent"
+                  disabled={!canEdit}
+                  title={editTitle ?? "Start a new Mode pre-filled with this one's line — pick a name and adjust what's different"}
+                  onClick={() => setDuplicatingModeId(m.id)}
+                >
+                  Duplicate
+                </button>{" "}
+                <button
+                  className="link-button link-button-danger"
                   disabled={!canEdit}
                   title={editTitle}
                   onClick={() => onDelete(m.id, m.ew_group_id, m.name)}
