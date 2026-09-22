@@ -149,16 +149,7 @@ export function TestLinesPanel({
   return (
     <div className="card">
       <h5>Test Lines</h5>
-      <p className="hint-text">
-        The simulated-signal reference table a Test Run is checked against — imported once, reused across runs. Each
-        line is a claim about what the simulator presents ("Threat 3, high-PRF search"), not a description of this
-        Emitter's own Modes. Test Lines are part of this Emitter's own versioned definition — importing, editing or
-        deleting one requires holding the checkout lock, shows up in "View changes since last save", and only
-        becomes permanent once committed.
-      </p>
-      {!canEdit && (
-        <p className="hint-text">Start editing this Emitter to import, edit, or delete Test Lines.</p>
-      )}
+      {!canEdit && <p className="hint-text">Start editing this Emitter to import, edit, or delete Test Lines.</p>}
 
       {lines.length === 0 ? (
         <p className="hint-text">No Test Lines imported yet.</p>
