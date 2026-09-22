@@ -13,6 +13,8 @@ import { computeOverallResult } from "./modeResultAggregate";
 import { SortableColumnHeader } from "../common/SortableColumnHeader";
 import { useSortableTable } from "../common/useSortableTable";
 import { compareStrings } from "../common/sortUtils";
+import { useEmitter } from "../../state/hooks/useEmitters";
+import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 
 const TEST_RESULTS: TestResult[] = ["pass", "fail", "partial", "inconclusive"];
 const TEST_TYPES: TestType[] = ["simulation", "lab_bench", "live_range", "field_exercise", "intercept"];
@@ -179,7 +181,13 @@ export function TestHistoryView({
     if (highlightId) highlightedRowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [highlightId]);
 
-  const canAddModeFromTest = !!(emitterId && ewGroups && sources);
+  // Both "+ Add Mode from this test" and "+ Stage a new Mode" end up
+  // POSTing a new Mode, which (like any Mode create) requires holding the
+  // Emitter's checkout — gate on canEdit too, not just "is there anywhere
+  // to put it", so this doesn't offer a form that 409s on submit.
+  const { data: emitterForCheckout } = useEmitter(emitterId);
+  const { canEdit } = useEmitterCheckoutState(emitterForCheckout);
+  const canAddModeFromTest = !!(emitterId && ewGroups && sources && canEdit);
   const hasModes = !!(availableModes && availableModes.length > 0);
   const {
     sorted: sortedRecords,
