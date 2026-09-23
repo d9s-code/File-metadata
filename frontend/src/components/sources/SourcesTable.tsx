@@ -215,7 +215,7 @@ export function SourcesTable({
         <EmptyState
           icon="◇"
           title="No Sources yet"
-          message="A Source records where a parameter set came from (a datasheet, a lab measurement) and holds the RF/PW/PRI elements you build Modes from."
+          message="A Source records where a parameter set came from (a datasheet, a lab measurement) and holds the RF/PRI/PW elements you build Modes from."
         />
       ) : (
         sections.map((section) => {

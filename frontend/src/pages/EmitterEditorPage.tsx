@@ -271,7 +271,7 @@ export function EmitterEditorPage() {
       )}
 
       {(emitter.summary.mode_count > 0 || emitter.summary.scan_min != null) && (
-        <div className="emitter-summary-row" title="RF/PW/PRI computed across this Emitter's Modes; Scan across its EW Groups">
+        <div className="emitter-summary-row" title="RF/PRI/PW computed across this Emitter's Modes; Scan across its EW Groups">
           {emitter.summary.rf_min_mhz != null && (
             <span>
               RF <strong>{emitter.summary.rf_min_mhz}–{emitter.summary.rf_max_mhz}</strong> MHz

@@ -80,7 +80,7 @@ export function SourceGroupsPage() {
       </div>
       <p className="hint-text">
         Cross-Emitter labels for categorizing Sources (e.g. "CED", "Intercepts") — see which Sources
-        belong together and what RF/PW/PRI coverage they represent as a whole, regardless of which
+        belong together and what RF/PRI/PW coverage they represent as a whole, regardless of which
         Emitter each one lives under.
       </p>
 

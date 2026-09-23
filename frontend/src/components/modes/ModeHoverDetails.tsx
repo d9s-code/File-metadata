@@ -10,6 +10,10 @@ export function ModeHoverDetail({ mode, source }: { mode: Mode; source?: Source 
     <dl>
       <dt>Notes</dt>
       <dd>{mode.notes ?? "—"}</dd>
+      <dt>Confirmation</dt>
+      <dd>
+        quality {mode.confirmation_quality}% · quantity {mode.confirmation_quantity}
+      </dd>
       <dt>Created</dt>
       <dd>{new Date(mode.created_at).toLocaleString()}</dd>
       <dt>Last updated</dt>
@@ -78,7 +82,8 @@ export function StaggerSequenceBox({ mode }: { mode: Mode }) {
   const contentRef = useRef<HTMLDivElement>(null);
   const pos = useFloatingPosition(triggerRef, contentRef, open);
   const values = mode.line?.pri_stagger_values_us ?? [];
-  const frametime = frameTimeUs(values);
+  const frametime = mode.line?.frame_time_us ?? frameTimeUs(values);
+  const writtenIn = mode.line?.explicit_frame_time_us != null;
   const frameTimeDelta = mode.line?.frame_time_delta_us;
   return (
     <div className="stagger-box">
@@ -95,7 +100,7 @@ export function StaggerSequenceBox({ mode }: { mode: Mode }) {
           <div ref={contentRef} className="stagger-box-content" style={{ top: pos.top, left: pos.left }}>
             [{values.join(", ")}] µs
             <br />
-            Frametime: {frametime} µs
+            Frametime: {frametime} µs{writtenIn && ` (written in; sum is ${frameTimeUs(values)} µs)`}
             {frameTimeDelta != null &&
               ` (engineered: ${mode.line?.engineered_frame_time_min_us}–${mode.line?.engineered_frame_time_max_us}, ±${frameTimeDelta})`}
           </div>,

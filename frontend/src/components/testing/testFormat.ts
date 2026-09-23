@@ -28,16 +28,18 @@ export function nonEmptySets(sets: ObservedValues[] | null | undefined): Observe
 export function formatObservedValueSet(v: ObservedValues): string | null {
   const parts: string[] = [];
   if (v.rf_min_mhz != null || v.rf_max_mhz != null) parts.push(`RF ${v.rf_min_mhz ?? "?"}–${v.rf_max_mhz ?? "?"} MHz`);
-  if (v.pw_min_us != null || v.pw_max_us != null) parts.push(`PW ${v.pw_min_us ?? "?"}–${v.pw_max_us ?? "?"} µs`);
   if (v.pri_type === "fixed" && (v.pri_min_us != null || v.pri_max_us != null)) {
     let pri = `PRI ${v.pri_min_us ?? "?"}–${v.pri_max_us ?? "?"} µs`;
     if (v.jitter_min_us != null || v.jitter_max_us != null) pri += ` (jitter ${v.jitter_min_us ?? "?"}–${v.jitter_max_us ?? "?"})`;
     parts.push(pri);
-  } else if (v.pri_type === "stagger" && v.pri_stagger_values_us?.length) {
-    parts.push(`PRI [${v.pri_stagger_values_us.join(", ")}] µs`);
+  } else if (v.pri_type === "stagger" && (v.pri_stagger_values_us?.length || v.frame_time_us != null)) {
+    let pri = v.pri_stagger_values_us?.length ? `PRI [${v.pri_stagger_values_us.join(", ")}] µs` : "PRI stagger";
+    if (v.frame_time_us != null) pri += ` (frame time ${v.frame_time_us} µs)`;
+    parts.push(pri);
   } else if (v.pri_type === "cw" || v.pri_type === "xlet") {
     parts.push(`PRI ${v.pri_type.toUpperCase()}`);
   }
+  if (v.pw_min_us != null || v.pw_max_us != null) parts.push(`PW ${v.pw_min_us ?? "?"}–${v.pw_max_us ?? "?"} µs`);
   return parts.length ? parts.join(", ") : null;
 }
 

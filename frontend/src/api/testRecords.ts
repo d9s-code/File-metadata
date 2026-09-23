@@ -16,6 +16,8 @@ export interface ObservedValues {
   jitter_max_us?: number;
   /** Stagger only. */
   pri_stagger_values_us?: number[];
+  /** Stagger only — the observed frame time, when it was measured directly. */
+  frame_time_us?: number;
 }
 
 export interface TestRecordModeLink {

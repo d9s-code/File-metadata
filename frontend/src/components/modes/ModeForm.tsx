@@ -1,11 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { frameTimeFromText } from "../common/frameTime";
 import { useCreateMode } from "../../state/hooks/useModes";
 import { ApiRequestError } from "../../api/client";
 import type { EwGroup, FunctionGroup, Mode, PriType, Source } from "../../types/domain";
 import type { ModeCreateInput } from "../../api/modes";
 import type { ObservedValues } from "../../api/testRecords";
 import { DerivedFromPicker } from "./DerivedFromPicker";
+import { FrameTimeInput, useFrameTimeField } from "./FrameTimeInput";
+import { ConfirmationInputs, DEFAULT_CONFIRMATION_QUALITY, DEFAULT_CONFIRMATION_QUANTITY } from "./ConfirmationInputs";
 
 const PRI_TYPES: PriType[] = ["fixed", "stagger", "cw", "xlet"];
 
@@ -42,7 +43,7 @@ export function ModeForm({
    * — a staged Mode is inherently going to be test-derived once attached. */
   onStage?: (ewGroupId: string, input: ModeCreateInput) => void;
   /** Modes with observed values from the test in progress, offered as a
-   * one-click pre-fill for this Mode's RF/PW/PRI min/max. Jitter and stagger
+   * one-click pre-fill for this Mode's RF/PRI/PW min/max. Jitter and stagger
    * are also copied, but only when the observed pri_type matches this
    * form's
    * own selected priType — a stagger sequence observed under one PRI type is
@@ -63,17 +64,22 @@ export function ModeForm({
   const [priType, setPriType] = useState<PriType>("fixed");
   const [rfMin, setRfMin] = useState("");
   const [rfMax, setRfMax] = useState("");
-  const [rfDelta, setRfDelta] = useState("");
+  // Deltas start at 0 — overwrite them when the Source gives a tolerance.
+  const [rfDelta, setRfDelta] = useState("0");
   const [pwMin, setPwMin] = useState("");
   const [pwMax, setPwMax] = useState("");
-  const [pwDelta, setPwDelta] = useState("");
+  const [pwDelta, setPwDelta] = useState("0");
   const [priMin, setPriMin] = useState("");
   const [priMax, setPriMax] = useState("");
-  const [priDelta, setPriDelta] = useState("");
+  const [priDelta, setPriDelta] = useState("0");
   const [jitterMin, setJitterMin] = useState("");
   const [jitterMax, setJitterMax] = useState("");
   const [staggerValues, setStaggerValues] = useState("");
-  const [frameTimeDelta, setFrameTimeDelta] = useState("");
+  const [frameTimeDelta, setFrameTimeDelta] = useState("0");
+  const frameTime = useFrameTimeField(staggerValues);
+  const { load: loadFrameTime } = frameTime;
+  const [confirmationQuality, setConfirmationQuality] = useState(String(DEFAULT_CONFIRMATION_QUALITY));
+  const [confirmationQuantity, setConfirmationQuantity] = useState(String(DEFAULT_CONFIRMATION_QUANTITY));
   const [rfRangeMatching, setRfRangeMatching] = useState(false);
   const [pwRangeMatching, setPwRangeMatching] = useState(false);
   const [priRangeMatching, setPriRangeMatching] = useState(false);
@@ -97,14 +103,16 @@ export function ModeForm({
       setPriType(source.pri_type);
       setNotes(source.notes || "");
       setFunctionGroupId(source.function_group_id ?? "");
+      setConfirmationQuality(String(source.confirmation_quality));
+      setConfirmationQuantity(String(source.confirmation_quantity));
 
       if (source.line) {
         setRfMin(String(source.line.rf_min_mhz));
         setRfMax(String(source.line.rf_max_mhz));
-        setRfDelta(String(source.line.rf_delta));
+        setRfDelta(String(source.line.rf_delta ?? 0));
         setPwMin(String(source.line.pw_min_us));
         setPwMax(String(source.line.pw_max_us));
-        setPwDelta(String(source.line.pw_delta));
+        setPwDelta(String(source.line.pw_delta ?? 0));
         setRfRangeMatching(source.line.rf_range_matching);
         setPwRangeMatching(source.line.pw_range_matching);
         setPriRangeMatching(source.line.pri_range_matching);
@@ -112,20 +120,19 @@ export function ModeForm({
         if (source.pri_type === "fixed") {
           setPriMin(String(source.line.pri_min_us ?? ""));
           setPriMax(String(source.line.pri_max_us ?? ""));
-          setPriDelta(String(source.line.pri_delta ?? ""));
+          setPriDelta(String(source.line.pri_delta ?? 0));
           setJitterMin(String(source.line.jitter_min_us ?? ""));
           setJitterMax(String(source.line.jitter_max_us ?? ""));
         } else if (source.pri_type === "stagger" && source.line.pri_stagger_values_us) {
           setStaggerValues(source.line.pri_stagger_values_us.join(", "));
-        }
-        if (source.line.frame_time_delta_us) {
-          setFrameTimeDelta(String(source.line.frame_time_delta_us));
+          setFrameTimeDelta(String(source.line.frame_time_delta_us ?? 0));
+          loadFrameTime(source.line.explicit_frame_time_us);
         }
       }
       // Provenance isn't copied for a duplicate — it wasn't independently
       // derived from that test/intercept, it's a copy of a Mode that was.
     }
-  }, [duplicateFrom, ewGroups, sources]);
+  }, [duplicateFrom, ewGroups, sources, loadFrameTime]);
 
   useEffect(() => {
     if (!observedValueOptions?.length) return;
@@ -149,11 +156,10 @@ export function ModeForm({
         if (values.jitter_max_us != null) setJitterMax(String(values.jitter_max_us));
       } else if (priType === "stagger" && values.pri_stagger_values_us?.length) {
         setStaggerValues(values.pri_stagger_values_us.join(", "));
+        frameTime.load(values.frame_time_us);
       }
     }
   }
-
-  const suggestedFrameTimeUs = frameTimeFromText(staggerValues);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -191,6 +197,11 @@ export function ModeForm({
               .map(Number)
           : undefined,
       frame_time_delta_us: priType === "stagger" ? Number(frameTimeDelta) : undefined,
+      explicit_frame_time_us: priType === "stagger" ? frameTime.payload() : undefined,
+    };
+    const confirmation = {
+      confirmation_quality: Number(confirmationQuality),
+      confirmation_quantity: Number(confirmationQuantity),
     };
 
     if (onStage) {
@@ -199,6 +210,7 @@ export function ModeForm({
         name,
         pri_type: priType,
         notes: notes || undefined,
+        ...confirmation,
         line: linePayload,
         function_group_id: functionGroupId || null,
       };
@@ -212,6 +224,7 @@ export function ModeForm({
         name,
         pri_type: priType,
         notes: notes || undefined,
+        ...confirmation,
         line: linePayload,
         function_group_id: functionGroupId || null,
       };
@@ -280,18 +293,18 @@ export function ModeForm({
         <label className="checkbox-label">
           <input
             type="checkbox"
-            checked={pwRangeMatching}
-            onChange={(e) => setPwRangeMatching(e.target.checked)}
-          />
-          PW
-        </label>
-        <label className="checkbox-label">
-          <input
-            type="checkbox"
             checked={priRangeMatching}
             onChange={(e) => setPriRangeMatching(e.target.checked)}
           />
           PRI
+        </label>
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={pwRangeMatching}
+            onChange={(e) => setPwRangeMatching(e.target.checked)}
+          />
+          PW
         </label>
       </div>
 
@@ -339,30 +352,6 @@ export function ModeForm({
         </label>
       </div>
 
-      <div className="form-row param-row">
-        <span className="param-row-label">PW</span>
-        <label>
-          min (µs)
-          <input type="number" step="any" value={pwMin} onChange={(e) => setPwMin(e.target.value)} required />
-        </label>
-        <label>
-          max (µs)
-          <input type="number" step="any" value={pwMax} onChange={(e) => setPwMax(e.target.value)} required />
-        </label>
-        <label>
-          delta (±µs)
-          <input
-            type="number"
-            step="any"
-            min="0"
-            value={pwDelta}
-            onChange={(e) => setPwDelta(e.target.value)}
-            title="Symmetric tolerance margin applied to PW min/max to derive the engineered value"
-            required
-          />
-        </label>
-      </div>
-
       {priType === "fixed" && (
         <div className="form-row param-row">
           <span className="param-row-label">PRI</span>
@@ -399,6 +388,7 @@ export function ModeForm({
 
       {priType === "stagger" && (
         <div className="form-row param-row">
+          <span className="param-row-label">PRI</span>
           <label className="wide-label">
             Stagger sequence (comma-separated µs, in order)
             <input
@@ -416,18 +406,47 @@ export function ModeForm({
               min="0"
               value={frameTimeDelta}
               onChange={(e) => setFrameTimeDelta(e.target.value)}
-              title="Symmetric tolerance margin applied to the suggested frame time (sum of the stagger sequence) to derive the engineered min/max"
+              title="Symmetric tolerance margin applied to the frame time to derive the engineered min/max"
               required
             />
           </label>
-          {suggestedFrameTimeUs > 0 && (
-            <span className="hint-text">Suggested frame time: {suggestedFrameTimeUs} µs</span>
-          )}
+          <FrameTimeInput field={frameTime} />
         </div>
       )}
 
       {priType === "cw" && <p className="hint-text">CW: PRI is constant — no value to enter.</p>}
       {priType === "xlet" && <p className="hint-text">Xlet: no fields defined yet.</p>}
+
+      <div className="form-row param-row">
+        <span className="param-row-label">PW</span>
+        <label>
+          min (µs)
+          <input type="number" step="any" value={pwMin} onChange={(e) => setPwMin(e.target.value)} required />
+        </label>
+        <label>
+          max (µs)
+          <input type="number" step="any" value={pwMax} onChange={(e) => setPwMax(e.target.value)} required />
+        </label>
+        <label>
+          delta (±µs)
+          <input
+            type="number"
+            step="any"
+            min="0"
+            value={pwDelta}
+            onChange={(e) => setPwDelta(e.target.value)}
+            title="Symmetric tolerance margin applied to PW min/max to derive the engineered value"
+            required
+          />
+        </label>
+      </div>
+
+      <ConfirmationInputs
+        quality={confirmationQuality}
+        quantity={confirmationQuantity}
+        onQualityChange={setConfirmationQuality}
+        onQuantityChange={setConfirmationQuantity}
+      />
 
       <div className="form-row">
         <label className="wide-label">

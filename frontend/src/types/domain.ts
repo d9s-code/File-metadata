@@ -182,6 +182,9 @@ export interface ModeLineFields {
   jitter_max_us?: number | null;
   pri_stagger_values_us?: number[] | null;
   frame_time_delta_us?: number | null;
+  /** Stagger only — a frame time written in by hand, overriding the sum of
+   * the stagger values. Null means "use the sum". Cut to 3 decimals. */
+  explicit_frame_time_us?: number | null;
   type_data?: Record<string, unknown> | null;
 }
 
@@ -274,6 +277,10 @@ export interface Mode {
   pri_type: PriType;
   notes: string | null;
   sort_order: number;
+  /** 0–100, default 100 — written to the PRS export's ConfirmationQuality. */
+  confirmation_quality: number;
+  /** 1 or more, default 2 — written to the PRS export's ConfirmationQuantity. */
+  confirmation_quantity: number;
   generation_batch_id: string | null;
   function_group_id: string | null;
   created_at: string;

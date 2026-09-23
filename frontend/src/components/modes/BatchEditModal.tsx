@@ -45,6 +45,8 @@ export function BatchEditModal({
   const [pwDelta, setPwDelta] = useState("");
   const [priDelta, setPriDelta] = useState("");
   const [frameTimeDelta, setFrameTimeDelta] = useState("");
+  const [confirmationQuality, setConfirmationQuality] = useState("");
+  const [confirmationQuantity, setConfirmationQuantity] = useState("");
 
   const [rfMinShift, setRfMinShift] = useState("");
   const [rfMaxShift, setRfMaxShift] = useState("");
@@ -71,6 +73,10 @@ export function BatchEditModal({
     if (sourceId) fields.source_id = sourceId;
     if (functionGroupId) fields.function_group_id = functionGroupId;
     if (notes.trim() !== "") fields.notes = notes;
+    const quality = numOrUndefined(confirmationQuality);
+    if (quality !== undefined) fields.confirmation_quality = quality;
+    const quantity = numOrUndefined(confirmationQuantity);
+    if (quantity !== undefined) fields.confirmation_quantity = quantity;
     const rfRM = triStateToBool(rfRangeMatching);
     if (rfRM !== undefined) fields.rf_range_matching = rfRM;
     const pwRM = triStateToBool(pwRangeMatching);
@@ -194,16 +200,16 @@ export function BatchEditModal({
               </select>
             </label>
             <label>
-              PW
-              <select value={pwRangeMatching} onChange={(e) => setPwRangeMatching(e.target.value as TriState)}>
+              PRI
+              <select value={priRangeMatching} onChange={(e) => setPriRangeMatching(e.target.value as TriState)}>
                 <option value="">unchanged</option>
                 <option value="true">on</option>
                 <option value="false">off</option>
               </select>
             </label>
             <label>
-              PRI
-              <select value={priRangeMatching} onChange={(e) => setPriRangeMatching(e.target.value as TriState)}>
+              PW
+              <select value={pwRangeMatching} onChange={(e) => setPwRangeMatching(e.target.value as TriState)}>
                 <option value="">unchanged</option>
                 <option value="true">on</option>
                 <option value="false">off</option>
@@ -220,10 +226,6 @@ export function BatchEditModal({
               <input type="number" step="any" min="0" value={rfDelta} onChange={(e) => setRfDelta(e.target.value)} />
             </label>
             <label>
-              PW (±µs)
-              <input type="number" step="any" min="0" value={pwDelta} onChange={(e) => setPwDelta(e.target.value)} />
-            </label>
-            <label>
               PRI (±µs, Fixed only)
               <input type="number" step="any" min="0" value={priDelta} onChange={(e) => setPriDelta(e.target.value)} />
             </label>
@@ -235,6 +237,37 @@ export function BatchEditModal({
                 min="0"
                 value={frameTimeDelta}
                 onChange={(e) => setFrameTimeDelta(e.target.value)}
+              />
+            </label>
+            <label>
+              PW (±µs)
+              <input type="number" step="any" min="0" value={pwDelta} onChange={(e) => setPwDelta(e.target.value)} />
+            </label>
+          </div>
+        </div>
+
+        <div className="batch-edit-section">
+          <span className="batch-edit-section-label">Confirmation</span>
+          <div className="batch-edit-grid batch-edit-grid-4">
+            <label>
+              Quality (0–100)
+              <input
+                type="number"
+                step="1"
+                min="0"
+                max="100"
+                value={confirmationQuality}
+                onChange={(e) => setConfirmationQuality(e.target.value)}
+              />
+            </label>
+            <label>
+              Quantity
+              <input
+                type="number"
+                step="1"
+                min="1"
+                value={confirmationQuantity}
+                onChange={(e) => setConfirmationQuantity(e.target.value)}
               />
             </label>
           </div>
@@ -256,20 +289,20 @@ export function BatchEditModal({
               <input type="number" step="any" value={rfMaxShift} onChange={(e) => setRfMaxShift(e.target.value)} />
             </label>
             <label>
-              PW min shift (µs)
-              <input type="number" step="any" value={pwMinShift} onChange={(e) => setPwMinShift(e.target.value)} />
-            </label>
-            <label>
-              PW max shift (µs)
-              <input type="number" step="any" value={pwMaxShift} onChange={(e) => setPwMaxShift(e.target.value)} />
-            </label>
-            <label>
               PRI min shift (µs, Fixed only)
               <input type="number" step="any" value={priMinShift} onChange={(e) => setPriMinShift(e.target.value)} />
             </label>
             <label>
               PRI max shift (µs, Fixed only)
               <input type="number" step="any" value={priMaxShift} onChange={(e) => setPriMaxShift(e.target.value)} />
+            </label>
+            <label>
+              PW min shift (µs)
+              <input type="number" step="any" value={pwMinShift} onChange={(e) => setPwMinShift(e.target.value)} />
+            </label>
+            <label>
+              PW max shift (µs)
+              <input type="number" step="any" value={pwMaxShift} onChange={(e) => setPwMaxShift(e.target.value)} />
             </label>
           </div>
           {hasShift && (

@@ -61,19 +61,6 @@ function SequenceDeltaEditor({
         />
       </label>
       <label>
-        PW delta (±µs)
-        <input
-          type="number"
-          step="any"
-          min="0"
-          value={pwDelta}
-          disabled={!canEdit}
-          title={canEdit ? undefined : "Start editing this Emitter first"}
-          onChange={(e) => setPwDelta(e.target.value)}
-          onBlur={() => commit("pw_delta", pwDelta)}
-        />
-      </label>
-      <label>
         PRI delta (±µs)
         <input
           type="number"
@@ -84,6 +71,19 @@ function SequenceDeltaEditor({
           title={canEdit ? undefined : "Start editing this Emitter first"}
           onChange={(e) => setPriDelta(e.target.value)}
           onBlur={() => commit("pri_delta", priDelta)}
+        />
+      </label>
+      <label>
+        PW delta (±µs)
+        <input
+          type="number"
+          step="any"
+          min="0"
+          value={pwDelta}
+          disabled={!canEdit}
+          title={canEdit ? undefined : "Start editing this Emitter first"}
+          onChange={(e) => setPwDelta(e.target.value)}
+          onBlur={() => commit("pw_delta", pwDelta)}
         />
       </label>
     </div>

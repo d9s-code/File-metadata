@@ -91,7 +91,13 @@ Next to any Stagger element or Stagger Mode, a **Frametime badge** shows the sum
 
 A Stagger PRI **element** must carry a **delta** (repurposing the same `delta` field used for RF/PW/Fixed-PRI elsewhere, now meaning a frame-time tolerance rather than a range tolerance) — the app can't compute an engineered frame-time window without it, so it's required, not optional, specifically for Stagger. This is also how frame time flows through the cartesian-product tool: since a Stagger PRI element can't exist without its delta already set, every cartesian-generated Stagger Mode automatically inherits a valid frame-time delta with no separate input needed in the Cartesian Product form itself.
 
-A manually-created or manually-edited Stagger Mode Line carries its own `frame_time_delta_us`, entered directly in the Mode form next to the stagger sequence (which shows a live "Suggested frame time" hint as you type the sequence). The engineered frame-time range (`frame time − delta` to `frame time + delta`) is shown wherever the sequence appears.
+A manually-created or manually-edited Stagger Mode Line carries its own `frame_time_delta_us`, entered directly in the Mode form next to the stagger sequence. The form's **frame time** field follows the sum of the sequence as you type; write a different value into it and the Mode stores that as `explicit_frame_time_us` (cut to 3 decimals), used instead of the sum everywhere (engineered range, both PRS exports). **Use sum** clears it again. The engineered frame-time range (`frame time − delta` to `frame time + delta`) is shown wherever the sequence appears. A PRS import whose `FramePeriod` midpoint differs from the sequence sum restores it as a written-in frame time.
+
+When logging intercepted parameters during a test, a Stagger set can also record the measured frame time.
+
+### Confirmation quality & quantity
+
+Every Mode carries a **Confirmation quality** (0–100, default 100) and a **Confirmation quantity** (1 or more, default 2). Both are set in the Mode form, editable per Mode or with Batch Edit, recorded in the audit trail and version history, and written to the PRS export's `ConfirmationQuality` / `ConfirmationQuantity` elements (which used to be fixed placeholders of 100 and 2).
 
 ### Range Matching
 
@@ -259,6 +265,7 @@ Two things worth knowing:
 - **The XML tag names are placeholders.** Since the target system's real XML Schema (XSD) wasn't available when this was built, all tag-name mapping lives in one file (`backend/app/xml_export/field_mapping.py`). Swapping in the real schema later is a data change to that file, not a rewrite of the export logic.
 - **RF/PW/PRI values exported are already engineered** (raw ± any element delta, applied when the Mode was generated — see [Raw vs. engineered values](#raw-vs-engineered-values)); **EW Group scan range is exported raw**, ignoring `scan_delta`, since scan delta is display-only for v1.
 - **Sanitization**: All exported string values (names, descriptions, etc.) are automatically sanitized to ensure valid XML content.
+- **Confirmation quality/quantity** come from each Mode (see [Confirmation quality & quantity](#confirmation-quality--quantity)); snapshots taken before these fields existed export as 100 and 2.
 - **Not yet exported at all:** per-parameter deltas (`rf_delta`/`pw_delta`/`pri_delta`), `frame_time_delta_us`, Range Matching flags, and EW Group `ageout`. None of these existed when the export mapping was built; whether they belong in the target XML format (and under what tag names) is undecided — see [docs/XML_IMPORT_BRIEF.md](XML_IMPORT_BRIEF.md), which flags this explicitly since it matters for any future import work too.
 
 Export is available from the MDF page (latest committed version) and from the MDF's Version History page (any specific version) — click **Export XML** to download.

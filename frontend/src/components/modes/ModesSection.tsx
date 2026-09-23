@@ -356,11 +356,6 @@ export function ModesSection({
             <input type="number" step="any" placeholder="max" value={rfMax} onChange={(e) => setRfMax(e.target.value)} />
           </label>
           <label>
-            PW (µs)
-            <input type="number" step="any" placeholder="min" value={pwMin} onChange={(e) => setPwMin(e.target.value)} />
-            <input type="number" step="any" placeholder="max" value={pwMax} onChange={(e) => setPwMax(e.target.value)} />
-          </label>
-          <label>
             PRI (µs)
             <input type="number" step="any" placeholder="min" value={priMin} onChange={(e) => setPriMin(e.target.value)} />
             <input type="number" step="any" placeholder="max" value={priMax} onChange={(e) => setPriMax(e.target.value)} />
@@ -375,6 +370,11 @@ export function ModesSection({
               <option value="xlet">Xlet</option>
             </select>
           </label>
+          <label>
+            PW (µs)
+            <input type="number" step="any" placeholder="min" value={pwMin} onChange={(e) => setPwMin(e.target.value)} />
+            <input type="number" step="any" placeholder="max" value={pwMax} onChange={(e) => setPwMax(e.target.value)} />
+          </label>
           <label className="inline-field-label">
             <input
               type="checkbox"
@@ -386,18 +386,18 @@ export function ModesSection({
           <label className="inline-field-label">
             <input
               type="checkbox"
-              checked={pwRangeMatchingOnly}
-              onChange={(e) => setPwRangeMatchingOnly(e.target.checked)}
-            />
-            PW range matching
-          </label>
-          <label className="inline-field-label">
-            <input
-              type="checkbox"
               checked={priRangeMatchingOnly}
               onChange={(e) => setPriRangeMatchingOnly(e.target.checked)}
             />
             PRI range matching
+          </label>
+          <label className="inline-field-label">
+            <input
+              type="checkbox"
+              checked={pwRangeMatchingOnly}
+              onChange={(e) => setPwRangeMatchingOnly(e.target.checked)}
+            />
+            PW range matching
           </label>
           <label>
             Last tested

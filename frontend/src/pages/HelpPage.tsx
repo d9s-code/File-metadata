@@ -123,7 +123,7 @@ export function HelpPage() {
           <div className="card" id="overview">
         <h2>Overview</h2>
         <p>
-          This app tracks RF emitter profiles for EW (electronic warfare) use — the RF/PW/PRI parameters
+          This app tracks RF emitter profiles for EW (electronic warfare) use — the RF/PRI/PW parameters
           that let a receiver recognize a given radar. The core object is a <strong>Mode</strong>: one
           named signal (e.g. "Search Wide", "Track Lock") with a frequency range, pulse width, and PRI
           behavior. Modes are grouped into <strong>EW Groups</strong> under an <strong>Emitter</strong>{" "}
@@ -133,7 +133,7 @@ export function HelpPage() {
         </p>
         <p>
           Every Mode's parameters trace back to a <strong>Source</strong> — a datasheet, test report, or
-          other document — and optionally to individual <strong>Elements</strong>: the raw RF/PW/PRI value
+          other document — and optionally to individual <strong>Elements</strong>: the raw RF/PRI/PW value
           entries extracted from that Source, kept as supporting evidence.
         </p>
       </div>
@@ -174,10 +174,10 @@ export function HelpPage() {
       <div className="card" id="emitters">
         <h2>Emitters</h2>
         <p>
-          The Emitters list (top nav) shows every Emitter with its current status, and RF/PW/PRI/Scan
+          The Emitters list (top nav) shows every Emitter with its current status, and RF/PRI/PW/Scan
           min/max plus a Modes-passing count computed across its Modes — every column is
           sortable, and the toolbar above the table filters by name, designation, or any of those
-          RF/PW/PRI/Scan ranges. <strong>+ Add Emitter</strong> opens a small form as an overlay rather
+          RF/PRI/PW/Scan ranges. <strong>+ Add Emitter</strong> opens a small form as an overlay rather
           than a full page; click a row to open that Emitter.
         </p>
 
@@ -187,7 +187,7 @@ export function HelpPage() {
             An Emitter's page has five tabs — <strong>Modes</strong>, <strong>EW Groups &amp; Sources</strong>,{" "}
             <strong>Intercepts</strong>, <strong>Test History</strong>, and <strong>Audit</strong> — plus
             links to its <strong>Version history</strong> and <strong>Ambiguity check</strong> above them.
-            Below the title, a summary line repeats the same RF/PW/PRI/Scan ranges and Modes-passing count
+            Below the title, a summary line repeats the same RF/PRI/PW/Scan ranges and Modes-passing count
             shown on the list page, for this one Emitter. On first load, a brand-new Emitter with no EW
             Groups or Sources yet opens straight to the EW Groups & Sources tab instead of Modes.
           </p>
@@ -213,7 +213,7 @@ export function HelpPage() {
               Filter by EW Group, Source, or Batch, and search by name. Each Mode row shows:
             </p>
             <ul>
-              <li>RF min/max, PW min/max, PRI type (FIXED / STAGGER / CW / XLET) and its min/max where applicable</li>
+              <li>RF min/max, PRI type (FIXED / STAGGER / CW / XLET) and its min/max where applicable, PW min/max</li>
               <li>
                 <strong>Last Tested</strong> — the date and result of the most recent test that exercised
                 this Mode; click it to jump to that test record
@@ -237,10 +237,18 @@ export function HelpPage() {
               click it to jump to the record that produced it.
             </p>
             <p>
-              Every field — metadata (name, notes, EW Group) and the actual line values (RF/PW/PRI/deltas)
+              Every field — metadata (name, notes, EW Group) and the actual line values (RF/PRI/PW/deltas)
               alike — edits in place immediately, the same way everything else in the app works. The only
               gate is holding the Emitter's <strong>checkout</strong> (see below): with it, click{" "}
               <strong>Edit</strong> on a Mode's row to change its line right there.
+            </p>
+            <p>
+              The Mode form lists RF, then PRI, then PW. Each delta starts at <strong>0</strong> — type a
+              tolerance only where the Source gives one. A Stagger Mode&rsquo;s <strong>frame time</strong>{" "}
+              follows the sum of its sequence until you type your own value; <strong>Use sum</strong> goes
+              back to the sum. Every Mode also carries a <strong>Confirmation quality</strong> (0–100, default
+              100) and <strong>Confirmation quantity</strong> (default 2); both go into the PRS export and
+              can be changed per Mode or with Batch Edit.
             </p>
             <p>
               Tick a Mode's checkbox (or several) to reveal a <strong>Batch Edit</strong> button for
@@ -281,8 +289,9 @@ export function HelpPage() {
                 flag every Mode the system reported under <strong>Intercepted as</strong> — type to search
                 the Emitter&rsquo;s Modes and click (or press Enter) to add as many as apply; the list stays
                 open between picks, and <strong>+ Add all N matches</strong> adds everything the search
-                found — and use <strong>+ Log</strong> to record the intercepted parameters (RF, PW, PRI —
-                more than one set if it was measured more than once).
+                found — and use <strong>+ Log</strong> to record the intercepted parameters (RF, PRI, PW —
+                more than one set if it was measured more than once; a Stagger set can also carry the
+                measured <strong>frame time</strong>).
               </li>
               <li>
                 An intercept run is a table with one row per Mode: tick the Modes that were intercepted, then
@@ -322,7 +331,7 @@ export function HelpPage() {
               <strong>EW Groups</strong> are the operational buckets (scan range + threat priority) Modes
               are organized under; <strong>Function Groups</strong> are a second, independent way to group
               Modes (e.g. by radar function) alongside their EW Group. <strong>Sources</strong> record
-              where a parameter set came from — a datasheet, a lab measurement — and hold the RF/PW/PRI/Scan{" "}
+              where a parameter set came from — a datasheet, a lab measurement — and hold the RF/PRI/PW/Scan{" "}
               <strong>Elements</strong> you build Modes from (min/max, optional jitter and a tolerance{" "}
               <strong>delta</strong>, or a stagger sequence for PRI).
             </p>
@@ -336,7 +345,7 @@ export function HelpPage() {
             <p>
               A <strong>Parameter Sequence</strong> is a further step beyond a single Element: an ordered,
               multi-parameter "dwell & switcher" pattern where each step can set any combination of
-              RF/PW/PRI/Scan (and how long to dwell there), shown as a small table per sequence with a
+              RF/PRI/PW/Scan (and how long to dwell there), shown as a small table per sequence with a
               blank cell wherever that step didn't set that parameter.
             </p>
             <p>
@@ -363,11 +372,11 @@ export function HelpPage() {
               Sources appearing at once with the same document behind them is expected, not a duplicate.
             </p>
             <p className="hint-text">
-              Also here: <strong>Cartesian Product</strong>, which combines chosen RF/PW/PRI Elements (and
+              Also here: <strong>Cartesian Product</strong>, which combines chosen RF/PRI/PW Elements (and
               individually-selected Parameter Sequence steps) into every possible Mode in one step, instead of
               typing each Mode's line by hand. Each selected item gets a <strong>Delta</strong> field that
               starts at 0 — that&rsquo;s exactly the delta the generated Modes get unless you type another
-              value. Each of its RF/PW/PRI columns sorts independently.
+              value. Each of its RF/PRI/PW columns sorts independently.
             </p>
           </div>
 
@@ -409,7 +418,7 @@ export function HelpPage() {
         <div className="help-subsection" id="emitter-ambiguity">
           <h3>Ambiguity check</h3>
           <p>
-            Compares Modes' RF/PW/PRI ranges against each other and flags pairs that overlap closely
+            Compares Modes' RF/PRI/PW ranges against each other and flags pairs that overlap closely
             enough to be confused by a receiver, bucketed by severity. It only ever reads from the
             Emitter's most recently <strong>committed</strong> version — not live drafts — so results stay
             consistent with whatever was actually released.
@@ -490,7 +499,7 @@ export function HelpPage() {
         <p>
           A Source Group is a named, cross-Emitter bucket of Sources — useful for keeping related datasheets
           or lab-measurement Sources together regardless of which Emitter they end up feeding. The list
-          shows each group's Source count, its aggregate RF/PW/PRI range across every Source in it, and when
+          shows each group's Source count, its aggregate RF/PRI/PW range across every Source in it, and when
           it was last touched. A Source is put into a group from the Source's own edit form.
         </p>
       </div>
@@ -513,7 +522,7 @@ export function HelpPage() {
           <strong>entries</strong> — the actual observations, taken over time.
         </p>
         <p>
-          Each entry records RF, PW, and PRI as an optional min, optional max, and a required mean.
+          Each entry records RF, PRI, and PW as an optional min, optional max, and a required mean.
           Pulse-train character depends on the entry's type: a <strong>Fixed</strong> entry gets a single
           flat jitter mean; a <strong>Stagger</strong> entry gets an ordered list of stagger values instead
           (and its PRI mean field is read as the stagger frame-time mean). Each entry also has its own
@@ -530,7 +539,7 @@ export function HelpPage() {
           </p>
           <p>
             Each entry's <strong>Create Mode from this Entry</strong> button opens the normal Mode form
-            pre-filled with that entry's RF/PW/PRI values (you still pick the EW Group and Source, since an
+            pre-filled with that entry's RF/PRI/PW values (you still pick the EW Group and Source, since an
             Intercept isn't tied to either) — the resulting Mode carries an{" "}
             <span className="test-derived-badge">Intercept-Derived</span> badge back to it, the same idea as
             a Test-Derived Mode.

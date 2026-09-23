@@ -426,7 +426,7 @@ export function CartesianProductButton({
     <div className="card cartesian-panel">
       <h5>Cartesian Product</h5>
       <p className="hint-text">
-        Choose RF, PW, and PRI elements to combine — every combination becomes a new Mode.
+        Choose RF, PRI, and PW elements to combine — every combination becomes a new Mode.
       </p>
       <div className="cartesian-columns">
         <div>
@@ -495,8 +495,8 @@ export function CartesianProductButton({
                 <tr>
                   <th>Step</th>
                   <th style={{ width: "6.5rem" }}>RF delta</th>
-                  <th style={{ width: "6.5rem" }}>PW delta</th>
                   <th style={{ width: "6.5rem" }}>PRI delta</th>
+                  <th style={{ width: "6.5rem" }}>PW delta</th>
                 </tr>
               </thead>
               <tbody>
@@ -530,21 +530,6 @@ export function CartesianProductButton({
                         )}
                       </td>
                       <td>
-                        {isSelected && row.hasPw && (
-                          <input
-                            type="number"
-                            min="0"
-                            step="any"
-                            style={{ width: "5.5rem" }}
-                            value={sequencePwDeltaOverrides[row.id] ?? DEFAULT_DELTA}
-                            onChange={(e) =>
-                              setSequencePwDeltaOverrides((prev) => ({ ...prev, [row.id]: e.target.value }))
-                            }
-                            title="± PW delta applied to the generated Modes (0 = none)"
-                          />
-                        )}
-                      </td>
-                      <td>
                         {isSelected && row.hasPri && (
                           <input
                             type="number"
@@ -556,6 +541,21 @@ export function CartesianProductButton({
                               setSequencePriDeltaOverrides((prev) => ({ ...prev, [row.id]: e.target.value }))
                             }
                             title="± PRI delta applied to the generated Modes (0 = none)"
+                          />
+                        )}
+                      </td>
+                      <td>
+                        {isSelected && row.hasPw && (
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            style={{ width: "5.5rem" }}
+                            value={sequencePwDeltaOverrides[row.id] ?? DEFAULT_DELTA}
+                            onChange={(e) =>
+                              setSequencePwDeltaOverrides((prev) => ({ ...prev, [row.id]: e.target.value }))
+                            }
+                            title="± PW delta applied to the generated Modes (0 = none)"
                           />
                         )}
                       </td>

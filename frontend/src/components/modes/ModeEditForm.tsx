@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from "react";
-import { frameTimeFromText } from "../common/frameTime";
 import { useUpdateMode } from "../../state/hooks/useModes";
 import { ApiRequestError } from "../../api/client";
 import type { FunctionGroup, Mode, PriType, Source } from "../../types/domain";
 import { DerivedFromPicker } from "./DerivedFromPicker";
+import { FrameTimeInput, useFrameTimeField } from "./FrameTimeInput";
+import { ConfirmationInputs } from "./ConfirmationInputs";
 
 const PRI_TYPES: PriType[] = ["fixed", "stagger", "cw", "xlet"];
 
@@ -30,27 +31,28 @@ export function ModeEditForm({
   const [sourceId, setSourceId] = useState(mode.source_id);
   const [rfMin, setRfMin] = useState(String(line?.rf_min_mhz ?? ""));
   const [rfMax, setRfMax] = useState(String(line?.rf_max_mhz ?? ""));
-  const [rfDelta, setRfDelta] = useState(String(line?.rf_delta ?? ""));
+  const [rfDelta, setRfDelta] = useState(String(line?.rf_delta ?? 0));
   const [rfRangeMatching, setRfRangeMatching] = useState(line?.rf_range_matching ?? false);
   const [pwMin, setPwMin] = useState(String(line?.pw_min_us ?? ""));
   const [pwMax, setPwMax] = useState(String(line?.pw_max_us ?? ""));
-  const [pwDelta, setPwDelta] = useState(String(line?.pw_delta ?? ""));
+  const [pwDelta, setPwDelta] = useState(String(line?.pw_delta ?? 0));
   const [pwRangeMatching, setPwRangeMatching] = useState(line?.pw_range_matching ?? false);
   const [priRangeMatching, setPriRangeMatching] = useState(line?.pri_range_matching ?? false);
   const [priMin, setPriMin] = useState(String(line?.pri_min_us ?? ""));
   const [priMax, setPriMax] = useState(String(line?.pri_max_us ?? ""));
-  const [priDelta, setPriDelta] = useState(String(line?.pri_delta ?? ""));
+  const [priDelta, setPriDelta] = useState(String(line?.pri_delta ?? 0));
   const [jitterMin, setJitterMin] = useState(String(line?.jitter_min_us ?? ""));
   const [jitterMax, setJitterMax] = useState(String(line?.jitter_max_us ?? ""));
   const [staggerValues, setStaggerValues] = useState(line?.pri_stagger_values_us?.join(", ") ?? "");
-  const [frameTimeDelta, setFrameTimeDelta] = useState(String(line?.frame_time_delta_us ?? ""));
+  const [frameTimeDelta, setFrameTimeDelta] = useState(String(line?.frame_time_delta_us ?? 0));
+  const frameTime = useFrameTimeField(staggerValues, line?.explicit_frame_time_us);
+  const [confirmationQuality, setConfirmationQuality] = useState(String(mode.confirmation_quality));
+  const [confirmationQuantity, setConfirmationQuantity] = useState(String(mode.confirmation_quantity));
   const [notes, setNotes] = useState(mode.notes ?? "");
   const [functionGroupId, setFunctionGroupId] = useState(mode.function_group_id ?? "");
   const [derivedFrom, setDerivedFrom] = useState<Set<string>>(new Set());
   const [showDerivedFrom, setShowDerivedFrom] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const suggestedFrameTimeUs = frameTimeFromText(staggerValues);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -64,6 +66,8 @@ export function ModeEditForm({
           source_id: sourceId !== mode.source_id ? sourceId : undefined,
           function_group_id: functionGroupId || null,
           pri_type: priType !== mode.pri_type ? priType : undefined,
+          confirmation_quality: Number(confirmationQuality),
+          confirmation_quantity: Number(confirmationQuantity),
           line: {
             rf_min_mhz: Number(rfMin),
             rf_max_mhz: Number(rfMax),
@@ -84,6 +88,7 @@ export function ModeEditForm({
                 ? staggerValues.split(",").map((s) => s.trim()).filter(Boolean).map(Number)
                 : undefined,
             frame_time_delta_us: priType === "stagger" ? Number(frameTimeDelta) : undefined,
+            explicit_frame_time_us: priType === "stagger" ? frameTime.payload() : undefined,
           },
           derived_from_test_record_ids: [...derivedFrom],
         },
@@ -121,12 +126,12 @@ export function ModeEditForm({
           RF
         </label>
         <label className="checkbox-label">
-          <input type="checkbox" checked={pwRangeMatching} onChange={(e) => setPwRangeMatching(e.target.checked)} />
-          PW
-        </label>
-        <label className="checkbox-label">
           <input type="checkbox" checked={priRangeMatching} onChange={(e) => setPriRangeMatching(e.target.checked)} />
           PRI
+        </label>
+        <label className="checkbox-label">
+          <input type="checkbox" checked={pwRangeMatching} onChange={(e) => setPwRangeMatching(e.target.checked)} />
+          PW
         </label>
       </div>
 
@@ -143,22 +148,6 @@ export function ModeEditForm({
         <label>
           delta (±MHz)
           <input type="number" step="any" min="0" value={rfDelta} onChange={(e) => setRfDelta(e.target.value)} required />
-        </label>
-      </div>
-
-      <div className="form-row param-row">
-        <span className="param-row-label">PW</span>
-        <label>
-          min (µs)
-          <input type="number" step="any" value={pwMin} onChange={(e) => setPwMin(e.target.value)} required />
-        </label>
-        <label>
-          max (µs)
-          <input type="number" step="any" value={pwMax} onChange={(e) => setPwMax(e.target.value)} required />
-        </label>
-        <label>
-          delta (±µs)
-          <input type="number" step="any" min="0" value={pwDelta} onChange={(e) => setPwDelta(e.target.value)} required />
         </label>
       </div>
 
@@ -190,6 +179,7 @@ export function ModeEditForm({
 
       {priType === "stagger" && (
         <div className="form-row param-row">
+          <span className="param-row-label">PRI</span>
           <label className="wide-label">
             Stagger sequence (comma-separated µs, in order)
             <input value={staggerValues} onChange={(e) => setStaggerValues(e.target.value)} required />
@@ -202,18 +192,39 @@ export function ModeEditForm({
               min="0"
               value={frameTimeDelta}
               onChange={(e) => setFrameTimeDelta(e.target.value)}
-              title="Symmetric tolerance margin applied to the suggested frame time (sum of the stagger sequence) to derive the engineered min/max"
+              title="Symmetric tolerance margin applied to the frame time to derive the engineered min/max"
               required
             />
           </label>
-          {suggestedFrameTimeUs > 0 && (
-            <span className="hint-text">Suggested frame time: {suggestedFrameTimeUs} µs</span>
-          )}
+          <FrameTimeInput field={frameTime} />
         </div>
       )}
 
       {priType === "cw" && <p className="hint-text">CW: PRI is constant — no value to enter.</p>}
       {priType === "xlet" && <p className="hint-text">Xlet: no fields defined yet.</p>}
+
+      <div className="form-row param-row">
+        <span className="param-row-label">PW</span>
+        <label>
+          min (µs)
+          <input type="number" step="any" value={pwMin} onChange={(e) => setPwMin(e.target.value)} required />
+        </label>
+        <label>
+          max (µs)
+          <input type="number" step="any" value={pwMax} onChange={(e) => setPwMax(e.target.value)} required />
+        </label>
+        <label>
+          delta (±µs)
+          <input type="number" step="any" min="0" value={pwDelta} onChange={(e) => setPwDelta(e.target.value)} required />
+        </label>
+      </div>
+
+      <ConfirmationInputs
+        quality={confirmationQuality}
+        quantity={confirmationQuantity}
+        onQualityChange={setConfirmationQuality}
+        onQuantityChange={setConfirmationQuantity}
+      />
 
       <div className="form-row">
         <label className="wide-label">

@@ -11,11 +11,16 @@ type NumericKey =
   | "pri_min_us"
   | "pri_max_us"
   | "jitter_min_us"
-  | "jitter_max_us";
+  | "jitter_max_us"
+  | "frame_time_us";
 
-const BASE_FIELDS: { key: NumericKey; label: string }[] = [
+// Laid out RF, then PRI, then PW — the same order as the Mode forms.
+const RF_FIELDS: { key: NumericKey; label: string }[] = [
   { key: "rf_min_mhz", label: "RF min (MHz)" },
   { key: "rf_max_mhz", label: "RF max (MHz)" },
+];
+
+const PW_FIELDS: { key: NumericKey; label: string }[] = [
   { key: "pw_min_us", label: "PW min (µs)" },
   { key: "pw_max_us", label: "PW max (µs)" },
 ];
@@ -58,6 +63,7 @@ export function ObservedValuesEditor({
       delete next.jitter_min_us;
       delete next.jitter_max_us;
       delete next.pri_stagger_values_us;
+      delete next.frame_time_us;
       if (priType === "") delete next.pri_type;
       else next.pri_type = priType;
       return next;
@@ -84,7 +90,7 @@ export function ObservedValuesEditor({
         <div key={index} className="mode-observed-value-set">
           {sets.length > 1 && <div className="mode-observed-value-set-label">Set {index + 1}</div>}
           <div className="form-row">
-            {BASE_FIELDS.map(({ key, label }) => (
+            {RF_FIELDS.map(({ key, label }) => (
               <label key={key}>
                 {label}
                 <input
@@ -95,6 +101,8 @@ export function ObservedValuesEditor({
                 />
               </label>
             ))}
+          </div>
+          <div className="form-row">
             <label>
               PRI type
               <select value={set.pri_type ?? ""} onChange={(e) => setPriType(index, e.target.value as PriType | "")}>
@@ -106,10 +114,8 @@ export function ObservedValuesEditor({
                 ))}
               </select>
             </label>
-          </div>
-          {set.pri_type === "fixed" && (
-            <div className="form-row">
-              {FIXED_PRI_FIELDS.map(({ key, label }) => (
+            {set.pri_type === "fixed" &&
+              FIXED_PRI_FIELDS.map(({ key, label }) => (
                 <label key={key}>
                   {label}
                   <input
@@ -120,23 +126,46 @@ export function ObservedValuesEditor({
                   />
                 </label>
               ))}
-            </div>
-          )}
-          {set.pri_type === "stagger" && (
-            <div className="form-row">
-              <label className="wide-label">
-                PRI stagger sequence (comma-separated µs, in order)
-                <input
-                  placeholder="800, 850, 900, 780"
-                  value={set.pri_stagger_values_us?.join(", ") ?? ""}
-                  onChange={(e) => setStagger(index, e.target.value)}
-                />
-              </label>
-            </div>
-          )}
+            {set.pri_type === "stagger" && (
+              <>
+                <label className="wide-label">
+                  PRI stagger sequence (comma-separated µs, in order)
+                  <input
+                    placeholder="800, 850, 900, 780"
+                    value={set.pri_stagger_values_us?.join(", ") ?? ""}
+                    onChange={(e) => setStagger(index, e.target.value)}
+                  />
+                </label>
+                <label>
+                  frame time (µs)
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    value={set.frame_time_us ?? ""}
+                    onChange={(e) => setNumber(index, "frame_time_us", e.target.value)}
+                    title="The frame time as measured, if it was — optional"
+                  />
+                </label>
+              </>
+            )}
+          </div>
           {(set.pri_type === "cw" || set.pri_type === "xlet") && (
             <p className="hint-text">{set.pri_type.toUpperCase()}: no further PRI value to record.</p>
           )}
+          <div className="form-row">
+            {PW_FIELDS.map(({ key, label }) => (
+              <label key={key}>
+                {label}
+                <input
+                  type="number"
+                  step="any"
+                  value={set[key] ?? ""}
+                  onChange={(e) => setNumber(index, key, e.target.value)}
+                />
+              </label>
+            ))}
+          </div>
           <button
             type="button"
             className="link-button link-button-danger"

@@ -7,6 +7,8 @@ export interface ModeCreateInput {
   pri_type: PriType;
   notes?: string | null;
   sort_order?: number;
+  confirmation_quality?: number;
+  confirmation_quantity?: number;
   line: ModeLineFields;
   function_group_id?: string | null;
   derived_from_test_record_ids?: string[];
@@ -17,6 +19,8 @@ export interface ModeUpdateInput {
   name?: string;
   notes?: string | null;
   sort_order?: number;
+  confirmation_quality?: number;
+  confirmation_quantity?: number;
   ew_group_id?: string;
   source_id?: string;
   function_group_id?: string | null;
@@ -33,6 +37,8 @@ export interface BatchModeFieldEdit {
   source_id?: string;
   function_group_id?: string | null;
   notes?: string;
+  confirmation_quality?: number;
+  confirmation_quantity?: number;
   rf_range_matching?: boolean;
   pw_range_matching?: boolean;
   pri_range_matching?: boolean;

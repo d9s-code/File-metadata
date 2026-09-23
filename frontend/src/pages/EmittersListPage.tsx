@@ -224,14 +224,14 @@ export function EmittersListPage() {
             <input type="number" step="any" placeholder="max" value={rfMax} onChange={(e) => setRfMax(e.target.value)} />
           </label>
           <label>
-            PW (µs)
-            <input type="number" step="any" placeholder="min" value={pwMin} onChange={(e) => setPwMin(e.target.value)} />
-            <input type="number" step="any" placeholder="max" value={pwMax} onChange={(e) => setPwMax(e.target.value)} />
-          </label>
-          <label>
             PRI (µs)
             <input type="number" step="any" placeholder="min" value={priMin} onChange={(e) => setPriMin(e.target.value)} />
             <input type="number" step="any" placeholder="max" value={priMax} onChange={(e) => setPriMax(e.target.value)} />
+          </label>
+          <label>
+            PW (µs)
+            <input type="number" step="any" placeholder="min" value={pwMin} onChange={(e) => setPwMin(e.target.value)} />
+            <input type="number" step="any" placeholder="max" value={pwMax} onChange={(e) => setPwMax(e.target.value)} />
           </label>
           <label>
             Scan
@@ -243,7 +243,7 @@ export function EmittersListPage() {
           </button>
         </div>
         <p className="hint-text">
-          RF/PW/PRI filters match an Emitter if any of its approved Modes falls within the given range. Scan
+          RF/PRI/PW filters match an Emitter if any of its approved Modes falls within the given range. Scan
           filters match against the Emitter's EW Groups directly.
         </p>
       </div>

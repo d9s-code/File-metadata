@@ -105,18 +105,6 @@ function EntryAddForm({ interceptId }: { interceptId: string }) {
         <input type="number" step="any" value={rfMean} onChange={(e) => setRfMean(e.target.value)} required />
       </label>
       <label>
-        PW min (µs)
-        <input type="number" step="any" value={pwMin} onChange={(e) => setPwMin(e.target.value)} />
-      </label>
-      <label>
-        PW max (µs)
-        <input type="number" step="any" value={pwMax} onChange={(e) => setPwMax(e.target.value)} />
-      </label>
-      <label>
-        PW mean (µs)
-        <input type="number" step="any" value={pwMean} onChange={(e) => setPwMean(e.target.value)} required />
-      </label>
-      <label>
         {priType === "stagger" ? "Frame-time min (µs)" : "PRI min (µs)"}
         <input type="number" step="any" value={priMin} onChange={(e) => setPriMin(e.target.value)} />
       </label>
@@ -144,6 +132,18 @@ function EntryAddForm({ interceptId }: { interceptId: string }) {
           />
         </label>
       )}
+      <label>
+        PW min (µs)
+        <input type="number" step="any" value={pwMin} onChange={(e) => setPwMin(e.target.value)} />
+      </label>
+      <label>
+        PW max (µs)
+        <input type="number" step="any" value={pwMax} onChange={(e) => setPwMax(e.target.value)} />
+      </label>
+      <label>
+        PW mean (µs)
+        <input type="number" step="any" value={pwMean} onChange={(e) => setPwMean(e.target.value)} required />
+      </label>
       <input placeholder="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
       <button type="submit" disabled={createEntry.isPending}>
         Add Entry
@@ -178,9 +178,6 @@ function EntryRow({
         <td>
           {entry.rf_min_mhz ?? "—"} / {entry.rf_max_mhz ?? "—"} / <strong>{entry.rf_mean_mhz}</strong>
         </td>
-        <td>
-          {entry.pw_min_us ?? "—"} / {entry.pw_max_us ?? "—"} / <strong>{entry.pw_mean_us}</strong>
-        </td>
         <td title={`${priLabel} min/max/mean`}>
           {entry.pri_min_us ?? "—"} / {entry.pri_max_us ?? "—"} / <strong>{entry.pri_mean_us}</strong>
         </td>
@@ -192,6 +189,9 @@ function EntryRow({
             : entry.stagger_values && entry.stagger_values.length > 0
               ? `[${entry.stagger_values.join(", ")}] µs`
               : "—"}
+        </td>
+        <td>
+          {entry.pw_min_us ?? "—"} / {entry.pw_max_us ?? "—"} / <strong>{entry.pw_mean_us}</strong>
         </td>
         <td>{entry.notes ?? "—"}</td>
         <td>
@@ -403,9 +403,9 @@ export function InterceptDetailPage() {
               <tr>
                 <th>Type</th>
                 <th>RF min/max/mean</th>
-                <th>PW min/max/mean</th>
                 <th>PRI/Frame-time min/max/mean</th>
                 <th>Jitter / Stagger</th>
+                <th>PW min/max/mean</th>
                 <th>Notes</th>
                 <th>Derived Modes</th>
                 <th></th>

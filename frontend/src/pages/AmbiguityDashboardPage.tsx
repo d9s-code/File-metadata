@@ -172,7 +172,7 @@ export function AmbiguityDashboardPage() {
 
           <div className="card">
             <h4>Ambiguity Matrix</h4>
-            <p className="hint-text">Click a cell to see the pair's RF/PW/PRI comparison and review it below.</p>
+            <p className="hint-text">Click a cell to see the pair's RF/PRI/PW comparison and review it below.</p>
             {scopedFindings.length === 0 ? (
               <p className="hint-text">No findings in this scope.</p>
             ) : (
