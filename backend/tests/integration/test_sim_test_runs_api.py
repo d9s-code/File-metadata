@@ -209,3 +209,39 @@ def test_created_date_is_versioned_and_restored_by_revert(editor_client, sim_emi
     assert editor_client.post(f"/emitters/{eid}/versions/1/revert").status_code in (200, 201)
     restored = next(ln for ln in editor_client.get(f"/emitters/{eid}/test-lines").json() if ln["id"] == line["id"])
     assert restored["created_date"] == "2026-08-01"
+
+
+def test_intercepted_parameters_are_logged_as_means(editor_client, sim_emitter):
+    eid, (l1, l2) = sim_emitter["id"], sim_emitter["lines"]
+    fixed = {"rf_mean_mhz": 2950.5, "pri_type": "fixed", "pri_mean_us": 810, "jitter_mean_us": 4, "pw_mean_us": 0.8}
+    stagger = {"rf_mean_mhz": 3000, "pri_type": "stagger", "pri_stagger_values_us": [100, 150], "frame_time_us": 250, "pw_mean_us": 1}
+    resp = _log_run(
+        editor_client,
+        eid,
+        [
+            {"test_line_id": l1["id"], "outcome": "pass", "observed_values": [fixed]},
+            {"test_line_id": l2["id"], "outcome": "pass", "observed_values": [stagger]},
+        ],
+    )
+    assert resp.status_code == 201, resp.text
+    by_label = {line["test_line_label"]: line["observed_values"] for line in resp.json()["lines"]}
+    assert by_label[l1["label"]] == [fixed]
+    assert by_label[l2["label"]] == [stagger]
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"pri_type": "stagger", "pri_mean_us": 800},
+        {"pri_type": "cw", "jitter_mean_us": 3},
+        {"pri_mean_us": 800},
+        {"pri_type": "stagger", "pri_stagger_values_us": [100, 150], "jitter_mean_us": 2},
+    ],
+)
+def test_pri_and_jitter_means_are_fixed_only(editor_client, sim_emitter, bad):
+    resp = _log_run(
+        editor_client,
+        sim_emitter["id"],
+        [{"test_line_id": sim_emitter["lines"][0]["id"], "outcome": "pass", "observed_values": [bad]}],
+    )
+    assert resp.status_code == 422

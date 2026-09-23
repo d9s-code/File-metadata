@@ -295,9 +295,9 @@ export function HelpPage() {
                 flag every Mode the system reported under <strong>Intercepted as</strong> — type to search
                 the Emitter&rsquo;s Modes and click (or press Enter) to add as many as apply; the list stays
                 open between picks, and <strong>+ Add all N matches</strong> adds everything the search
-                found — and use <strong>+ Log</strong> to record the intercepted parameters (RF, PRI, PW —
-                more than one set if it was measured more than once; a Stagger set can also carry the
-                measured <strong>frame time</strong>).
+                found — and use <strong>+ Log</strong> to record the intercepted parameters as means — RF mean, PRI mean and jitter mean (Fixed), PW
+                mean; a Stagger set takes its sequence and the measured <strong>frame time</strong> instead.
+                Add more than one set if it was measured more than once; each shows on its own line.
               </li>
               <li>
                 An intercept run is a table with one row per Mode: tick the Modes that were intercepted, then
@@ -311,7 +311,10 @@ export function HelpPage() {
               <li>
                 <strong>+ Stage a new Mode</strong> creates a Mode found during the run, linked as{" "}
                 <span className="test-result-badge test-result-derived">derived</span> from it once the run
-                is saved — its line can be pre-filled from any intercepted parameters you logged.
+                is saved — its line can be pre-filled from any intercepted parameters you logged. The same
+                pre-fill is on <strong>+ Add Mode from this test</strong> once the run is saved: pick which
+                logged set to use (each is listed by line, set number and values), and a mean fills both min
+                and max.
               </li>
               <li>
                 Each run has its own page with the full per-line and per-Mode detail, plus{" "}

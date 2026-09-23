@@ -1,7 +1,15 @@
 import { api } from "./client";
 import type { PriType, TestResult, TestType } from "../types/domain";
 
+/** One set of intercepted parameters. Logged as means; the min/max keys are
+ * only on sets logged before that. */
 export interface ObservedValues {
+  rf_mean_mhz?: number;
+  pw_mean_us?: number;
+  /** Fixed only. */
+  pri_mean_us?: number;
+  /** Fixed only. */
+  jitter_mean_us?: number;
   rf_min_mhz?: number;
   rf_max_mhz?: number;
   pw_min_us?: number;

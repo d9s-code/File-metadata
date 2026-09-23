@@ -3,7 +3,7 @@ import { useCreateMode } from "../../state/hooks/useModes";
 import { ApiRequestError } from "../../api/client";
 import type { EwGroup, FunctionGroup, Mode, PriType, Source } from "../../types/domain";
 import type { ModeCreateInput } from "../../api/modes";
-import type { ObservedValues } from "../../api/testRecords";
+import type { ObservedValueOption } from "../testing/testFormat";
 import { DerivedFromPicker } from "./DerivedFromPicker";
 import { FrameTimeInput, useFrameTimeField } from "./FrameTimeInput";
 import { ConfirmationInputs, DEFAULT_CONFIRMATION_QUALITY, DEFAULT_CONFIRMATION_QUANTITY } from "./ConfirmationInputs";
@@ -42,15 +42,12 @@ export function ModeForm({
    * Also hides the derived-from picker, same as fixedDerivedFromTestRecordId
    * — a staged Mode is inherently going to be test-derived once attached. */
   onStage?: (ewGroupId: string, input: ModeCreateInput) => void;
-  /** Modes with observed values from the test in progress, offered as a
-   * one-click pre-fill for this Mode's RF/PRI/PW min/max. Jitter and stagger
-   * are also copied, but only when the observed pri_type matches this
-   * form's
-   * own selected priType — a stagger sequence observed under one PRI type is
-   * meaningless (and rejected by the backend) under a different one. Deltas
-   * are never pre-filled — those follow the same manual-entry rules as any
-   * other Mode. */
-  observedValueOptions?: { modeName: string; values: ObservedValues }[];
+  /** Logged sets of intercepted parameters, one pickable option each, offered
+   * as a one-click pre-fill. A mean fills both min and max; a set with a PRI
+   * type also switches the form to it and fills its PRI values (PRI and
+   * jitter for Fixed, sequence and frame time for Stagger). Deltas are never
+   * pre-filled. */
+  observedValueOptions?: ObservedValueOption[];
   /** Pre-fills every field from an existing Mode's line, except Name (left
    * blank — two Modes can't share one). Submitting still creates a new
    * Mode; it just starts from a known-good line instead of a blank one. */
@@ -72,8 +69,9 @@ export function ModeForm({
   const [priMin, setPriMin] = useState("");
   const [priMax, setPriMax] = useState("");
   const [priDelta, setPriDelta] = useState("0");
-  const [jitterMin, setJitterMin] = useState("");
-  const [jitterMax, setJitterMax] = useState("");
+  // Jitter starts at 0–1 µs, like the deltas start at 0.
+  const [jitterMin, setJitterMin] = useState("0");
+  const [jitterMax, setJitterMax] = useState("1");
   const [staggerValues, setStaggerValues] = useState("");
   const [frameTimeDelta, setFrameTimeDelta] = useState("0");
   const frameTime = useFrameTimeField(staggerValues);
@@ -87,7 +85,7 @@ export function ModeForm({
   const [derivedFrom, setDerivedFrom] = useState<Set<string>>(new Set());
   const [showDerivedFrom, setShowDerivedFrom] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [preFillFrom, setPreFillFrom] = useState(observedValueOptions?.[0]?.modeName ?? "");
+  const [preFillFrom, setPreFillFrom] = useState(observedValueOptions?.[0]?.key ?? "");
 
   const createMode = useCreateMode(ewGroupId, emitterId);
 
@@ -121,8 +119,8 @@ export function ModeForm({
           setPriMin(String(source.line.pri_min_us ?? ""));
           setPriMax(String(source.line.pri_max_us ?? ""));
           setPriDelta(String(source.line.pri_delta ?? 0));
-          setJitterMin(String(source.line.jitter_min_us ?? ""));
-          setJitterMax(String(source.line.jitter_max_us ?? ""));
+          setJitterMin(String(source.line.jitter_min_us ?? 0));
+          setJitterMax(String(source.line.jitter_max_us ?? 1));
         } else if (source.pri_type === "stagger" && source.line.pri_stagger_values_us) {
           setStaggerValues(source.line.pri_stagger_values_us.join(", "));
           setFrameTimeDelta(String(source.line.frame_time_delta_us ?? 0));
@@ -136,25 +134,32 @@ export function ModeForm({
 
   useEffect(() => {
     if (!observedValueOptions?.length) return;
-    if (!observedValueOptions.some((o) => o.modeName === preFillFrom)) {
-      setPreFillFrom(observedValueOptions[0].modeName);
+    if (!observedValueOptions.some((o) => o.key === preFillFrom)) {
+      setPreFillFrom(observedValueOptions[0].key);
     }
   }, [observedValueOptions, preFillFrom]);
 
   function applyPreFill() {
-    const values = observedValueOptions?.find((o) => o.modeName === preFillFrom)?.values;
+    const values = observedValueOptions?.find((o) => o.key === preFillFrom)?.values;
     if (!values) return;
-    if (values.rf_min_mhz != null) setRfMin(String(values.rf_min_mhz));
-    if (values.rf_max_mhz != null) setRfMax(String(values.rf_max_mhz));
-    if (values.pw_min_us != null) setPwMin(String(values.pw_min_us));
-    if (values.pw_max_us != null) setPwMax(String(values.pw_max_us));
-    if (values.pri_type === priType) {
-      if (priType === "fixed") {
-        if (values.pri_min_us != null) setPriMin(String(values.pri_min_us));
-        if (values.pri_max_us != null) setPriMax(String(values.pri_max_us));
-        if (values.jitter_min_us != null) setJitterMin(String(values.jitter_min_us));
-        if (values.jitter_max_us != null) setJitterMax(String(values.jitter_max_us));
-      } else if (priType === "stagger" && values.pri_stagger_values_us?.length) {
+    // A logged mean fills both min and max; sets logged before means were
+    // introduced carry min/max directly.
+    const fill = (mean: number | undefined, min: number | undefined, max: number | undefined,
+                  setMin: (v: string) => void, setMax: (v: string) => void) => {
+      const lo = min ?? mean;
+      const hi = max ?? mean;
+      if (lo != null) setMin(String(lo));
+      if (hi != null) setMax(String(hi));
+    };
+    fill(values.rf_mean_mhz, values.rf_min_mhz, values.rf_max_mhz, setRfMin, setRfMax);
+    fill(values.pw_mean_us, values.pw_min_us, values.pw_max_us, setPwMin, setPwMax);
+    // The chosen set's PRI type wins — its PRI values only make sense under it.
+    if (values.pri_type) {
+      setPriType(values.pri_type);
+      if (values.pri_type === "fixed") {
+        fill(values.pri_mean_us, values.pri_min_us, values.pri_max_us, setPriMin, setPriMax);
+        fill(values.jitter_mean_us, values.jitter_min_us, values.jitter_max_us, setJitterMin, setJitterMax);
+      } else if (values.pri_type === "stagger" && values.pri_stagger_values_us?.length) {
         setStaggerValues(values.pri_stagger_values_us.join(", "));
         frameTime.load(values.frame_time_us);
       }
@@ -315,8 +320,8 @@ export function ModeForm({
             <span className="form-row">
               <select value={preFillFrom} onChange={(e) => setPreFillFrom(e.target.value)}>
                 {observedValueOptions.map((o) => (
-                  <option key={o.modeName} value={o.modeName}>
-                    {o.modeName}
+                  <option key={o.key} value={o.key}>
+                    {o.label}
                   </option>
                 ))}
               </select>

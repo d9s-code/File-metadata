@@ -5,19 +5,28 @@ from pydantic import AliasPath, BaseModel, ConfigDict, Field, field_validator, m
 
 from app.core.enums import PriType, TestRecordModeLinkType, TestResult, TestScopeType, TestType
 
+# Intercepted parameters are logged as means (as measured); the min/max keys
+# remain accepted for sets logged before that.
 _OBSERVED_VALUE_KEYS = {
+    "rf_mean_mhz",
+    "pri_type",
+    "pri_mean_us",
+    "jitter_mean_us",
+    "pri_stagger_values_us",
+    "frame_time_us",
+    "pw_mean_us",
+    # Earlier min/max form.
     "rf_min_mhz",
     "rf_max_mhz",
     "pw_min_us",
     "pw_max_us",
-    "pri_type",
     "pri_min_us",
     "pri_max_us",
     "jitter_min_us",
     "jitter_max_us",
-    "pri_stagger_values_us",
-    "frame_time_us",
 }
+
+_FIXED_ONLY_MEAN_KEYS = ("pri_mean_us", "jitter_mean_us")
 
 
 def _validate_observed_value_set(v: dict) -> dict:
@@ -30,19 +39,22 @@ def _validate_observed_value_set(v: dict) -> dict:
     cleaned = {k: val for k, val in v.items() if val is not None}
     pri_type = cleaned.get("pri_type")
     has_stagger = "pri_stagger_values_us" in cleaned
-    has_jitter = "jitter_min_us" in cleaned or "jitter_max_us" in cleaned
-    has_pri_range = "pri_min_us" in cleaned or "pri_max_us" in cleaned
+    has_jitter = any(k in cleaned for k in ("jitter_min_us", "jitter_max_us", "jitter_mean_us"))
+    has_pri_range = any(k in cleaned for k in ("pri_min_us", "pri_max_us", "pri_mean_us"))
     has_frame_time = "frame_time_us" in cleaned
     if has_stagger and (has_jitter or has_pri_range):
-        raise ValueError("observed_values: pri_stagger_values_us cannot be combined with PRI min/max or jitter")
+        raise ValueError("observed_values: pri_stagger_values_us cannot be combined with a PRI value or jitter")
     if (has_jitter or has_stagger or has_pri_range or has_frame_time) and pri_type is None:
         raise ValueError("observed_values: pri_type is required when PRI/jitter/stagger/frame time values are given")
+    fixed_only = [k for k in _FIXED_ONLY_MEAN_KEYS if k in cleaned]
+    if fixed_only and pri_type != PriType.fixed.value:
+        raise ValueError(f"observed_values: {', '.join(fixed_only)} only applies to a fixed PRI")
     if has_frame_time and pri_type != PriType.stagger.value:
         raise ValueError("observed_values: frame_time_us only applies to a stagger PRI")
     if has_frame_time and cleaned["frame_time_us"] <= 0:
         raise ValueError("observed_values: frame_time_us must be > 0")
     if pri_type == PriType.stagger.value and has_pri_range:
-        raise ValueError("observed_values: pri_type 'stagger' cannot carry pri_min_us/pri_max_us")
+        raise ValueError("observed_values: pri_type 'stagger' cannot carry a PRI value")
     if pri_type in (PriType.cw.value, PriType.xlet.value) and (has_pri_range or has_jitter or has_stagger):
         raise ValueError(f"observed_values: pri_type '{pri_type}' does not carry PRI/jitter/stagger values")
     return cleaned

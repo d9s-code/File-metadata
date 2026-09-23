@@ -50,8 +50,8 @@ export function SourceBatchAddModal({
   const [priShape, setPriShape] = useState<"range" | "stagger">("range");
   const [valueMin, setValueMin] = useState("");
   const [valueMax, setValueMax] = useState("");
-  const [jitterMin, setJitterMin] = useState("");
-  const [jitterMax, setJitterMax] = useState("");
+  const [jitterMin, setJitterMin] = useState("0");
+  const [jitterMax, setJitterMax] = useState("1");
   const [staggerValues, setStaggerValues] = useState("");
   const [label, setLabel] = useState("");
   const [details, setDetails] = useState("");

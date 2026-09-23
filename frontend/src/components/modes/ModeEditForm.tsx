@@ -41,8 +41,8 @@ export function ModeEditForm({
   const [priMin, setPriMin] = useState(String(line?.pri_min_us ?? ""));
   const [priMax, setPriMax] = useState(String(line?.pri_max_us ?? ""));
   const [priDelta, setPriDelta] = useState(String(line?.pri_delta ?? 0));
-  const [jitterMin, setJitterMin] = useState(String(line?.jitter_min_us ?? ""));
-  const [jitterMax, setJitterMax] = useState(String(line?.jitter_max_us ?? ""));
+  const [jitterMin, setJitterMin] = useState(String(line?.jitter_min_us ?? 0));
+  const [jitterMax, setJitterMax] = useState(String(line?.jitter_max_us ?? 1));
   const [staggerValues, setStaggerValues] = useState(line?.pri_stagger_values_us?.join(", ") ?? "");
   const [frameTimeDelta, setFrameTimeDelta] = useState(String(line?.frame_time_delta_us ?? 0));
   const frameTime = useFrameTimeField(staggerValues, line?.explicit_frame_time_us);

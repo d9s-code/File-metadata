@@ -3,33 +3,26 @@ import type { PriType } from "../../types/domain";
 
 const PRI_TYPES: PriType[] = ["fixed", "stagger", "cw", "xlet"];
 
-type NumericKey =
-  | "rf_min_mhz"
-  | "rf_max_mhz"
-  | "pw_min_us"
-  | "pw_max_us"
-  | "pri_min_us"
-  | "pri_max_us"
-  | "jitter_min_us"
-  | "jitter_max_us"
-  | "frame_time_us";
+type NumericKey = "rf_mean_mhz" | "pri_mean_us" | "jitter_mean_us" | "pw_mean_us" | "frame_time_us";
 
-// Laid out RF, then PRI, then PW — the same order as the Mode forms.
-const RF_FIELDS: { key: NumericKey; label: string }[] = [
-  { key: "rf_min_mhz", label: "RF min (MHz)" },
-  { key: "rf_max_mhz", label: "RF max (MHz)" },
-];
-
-const PW_FIELDS: { key: NumericKey; label: string }[] = [
-  { key: "pw_min_us", label: "PW min (µs)" },
-  { key: "pw_max_us", label: "PW max (µs)" },
-];
-
+// Intercepted parameters are logged as means, laid out RF, then PRI, then
+// PW — the same order as the Mode forms.
 const FIXED_PRI_FIELDS: { key: NumericKey; label: string }[] = [
-  { key: "pri_min_us", label: "PRI min (µs)" },
-  { key: "pri_max_us", label: "PRI max (µs)" },
-  { key: "jitter_min_us", label: "jitter min (µs)" },
-  { key: "jitter_max_us", label: "jitter max (µs)" },
+  { key: "pri_mean_us", label: "PRI mean (µs)" },
+  { key: "jitter_mean_us", label: "jitter mean (µs)" },
+];
+
+// Keys of every PRI-type-specific value, including those on sets logged
+// before means were introduced.
+const PRI_SPECIFIC_KEYS: (keyof ObservedValues)[] = [
+  "pri_mean_us",
+  "jitter_mean_us",
+  "pri_min_us",
+  "pri_max_us",
+  "jitter_min_us",
+  "jitter_max_us",
+  "pri_stagger_values_us",
+  "frame_time_us",
 ];
 
 /** Edits zero or more sets of intercepted/observed parameters — one set per
@@ -58,12 +51,7 @@ export function ObservedValuesEditor({
     update(index, (set) => {
       // Values for the previous PRI type would contradict the new one.
       const next: ObservedValues = { ...set };
-      delete next.pri_min_us;
-      delete next.pri_max_us;
-      delete next.jitter_min_us;
-      delete next.jitter_max_us;
-      delete next.pri_stagger_values_us;
-      delete next.frame_time_us;
+      for (const key of PRI_SPECIFIC_KEYS) delete next[key];
       if (priType === "") delete next.pri_type;
       else next.pri_type = priType;
       return next;
@@ -90,17 +78,7 @@ export function ObservedValuesEditor({
         <div key={index} className="mode-observed-value-set">
           {sets.length > 1 && <div className="mode-observed-value-set-label">Set {index + 1}</div>}
           <div className="form-row">
-            {RF_FIELDS.map(({ key, label }) => (
-              <label key={key}>
-                {label}
-                <input
-                  type="number"
-                  step="any"
-                  value={set[key] ?? ""}
-                  onChange={(e) => setNumber(index, key, e.target.value)}
-                />
-              </label>
-            ))}
+            <MeanInput label="RF mean (MHz)" set={set} field="rf_mean_mhz" onChange={(raw) => setNumber(index, "rf_mean_mhz", raw)} />
           </div>
           <div className="form-row">
             <label>
@@ -154,17 +132,7 @@ export function ObservedValuesEditor({
             <p className="hint-text">{set.pri_type.toUpperCase()}: no further PRI value to record.</p>
           )}
           <div className="form-row">
-            {PW_FIELDS.map(({ key, label }) => (
-              <label key={key}>
-                {label}
-                <input
-                  type="number"
-                  step="any"
-                  value={set[key] ?? ""}
-                  onChange={(e) => setNumber(index, key, e.target.value)}
-                />
-              </label>
-            ))}
+            <MeanInput label="PW mean (µs)" set={set} field="pw_mean_us" onChange={(raw) => setNumber(index, "pw_mean_us", raw)} />
           </div>
           <button
             type="button"
@@ -179,5 +147,24 @@ export function ObservedValuesEditor({
         {sets.length === 0 ? "+ Add intercepted parameters" : "+ Add another set"}
       </button>
     </div>
+  );
+}
+
+function MeanInput({
+  label,
+  set,
+  field,
+  onChange,
+}: {
+  label: string;
+  set: ObservedValues;
+  field: NumericKey;
+  onChange: (raw: string) => void;
+}) {
+  return (
+    <label>
+      {label}
+      <input type="number" step="any" value={set[field] ?? ""} onChange={(e) => onChange(e.target.value)} />
+    </label>
   );
 }

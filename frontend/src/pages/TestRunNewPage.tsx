@@ -22,7 +22,7 @@ import {
   InterceptModeResultsTable,
   type InterceptModeEntry,
 } from "../components/testing/InterceptModeResultsTable";
-import { nonEmptySets, TEST_RESULTS, testTypeLabel } from "../components/testing/testFormat";
+import { nonEmptySets, observedValueOptions, TEST_RESULTS, testTypeLabel } from "../components/testing/testFormat";
 
 function todayDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -136,20 +136,14 @@ export function TestRunNewPage() {
   }
   const ratedGroups = (functionGroups ?? []).filter((g) => groupComputed[g.id]);
 
-  const observedValueOptions = [
-    ...includedLines.flatMap(([id, e]) =>
-      nonEmptySets(e.observedValues).map((values, i, all) => ({
-        modeName: `${testLines.find((l) => l.id === id)?.label ?? "SIM line"}${all.length > 1 ? ` (set ${i + 1})` : ""}`,
-        values,
-      })),
-    ),
-    ...includedModes.flatMap(([id, e]) =>
-      nonEmptySets(e.observedValues).map((values, i, all) => ({
-        modeName: `${modes.find((m) => m.id === id)?.name ?? "Mode"}${all.length > 1 ? ` (set ${i + 1})` : ""}`,
-        values,
-      })),
-    ),
-  ];
+  const preFillOptions = observedValueOptions([
+    ...includedLines.map(([id, e]) => ({
+      id,
+      name: testLines.find((l) => l.id === id)?.label ?? "SIM line",
+      sets: e.observedValues,
+    })),
+    ...includedModes.map(([id, e]) => ({ id, name: modes.find((m) => m.id === id)?.name ?? "Mode", sets: e.observedValues })),
+  ]);
 
   function handleCopyFrom(id: string) {
     setCopyFromId(id);
@@ -401,7 +395,7 @@ export function TestRunNewPage() {
                 setStagedModes((prev) => [...prev, { key: k, ewGroupId, input }]);
                 setStagingKeys((keys) => keys.filter((x) => x !== k));
               }}
-              observedValueOptions={observedValueOptions}
+              observedValueOptions={preFillOptions}
             />
           ))}
           <button type="button" className="icon-button" onClick={() => setStagingKeys((keys) => [...keys, crypto.randomUUID()])}>

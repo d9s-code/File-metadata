@@ -10,7 +10,12 @@ import { RequireRole } from "../auth/RequireAuth";
 import { LoadingState } from "../components/common/LoadingState";
 import { useConfirmDialog } from "../components/common/ConfirmDialog";
 import { ModeForm } from "../components/modes/ModeForm";
-import { formatObservedValueLines, lineOutcomeLabel, testTypeLabel } from "../components/testing/testFormat";
+import {
+  formatObservedValueLines,
+  lineOutcomeLabel,
+  observedValueOptions,
+  testTypeLabel,
+} from "../components/testing/testFormat";
 
 function ParamLines({ lines }: { lines: string[] }) {
   if (lines.length === 0) return <>—</>;
@@ -116,6 +121,10 @@ export function TestRunDetailPage() {
               sources={sources ?? []}
               functionGroups={functionGroups}
               fixedDerivedFromTestRecordId={record.id}
+              observedValueOptions={observedValueOptions([
+                ...record.lines.map((l) => ({ id: l.test_line_id, name: l.test_line_label, sets: l.observed_values })),
+                ...record.modes.map((m) => ({ id: m.mode_id, name: m.mode_name, sets: m.observed_values })),
+              ])}
               onClose={() => setAddingMode(false)}
             />
           </div>

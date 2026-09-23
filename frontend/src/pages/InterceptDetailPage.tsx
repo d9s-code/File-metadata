@@ -222,7 +222,7 @@ function EntryRow({
           <td colSpan={8}>
             <p className="hint-text">
               RF/PW/{priLabel} pre-filled from this entry (min/max fall back to the mean when not set).
-              {entry.pri_type === "fixed" && " Jitter min/max aren't pre-filled — this entry only has a flat mean; fill them in manually."}
+              {entry.pri_type === "fixed" && " Jitter min and max both take the entry's jitter mean."}
             </p>
             <ModeForm
               emitterId={emitterId}
@@ -232,7 +232,8 @@ function EntryRow({
               fixedDerivedFromInterceptEntryId={entry.id}
               observedValueOptions={[
                 {
-                  modeName: "This Intercept entry",
+                  key: entry.id,
+                  label: "This Intercept entry",
                   values: {
                     rf_min_mhz: entry.rf_min_mhz ?? entry.rf_mean_mhz,
                     rf_max_mhz: entry.rf_max_mhz ?? entry.rf_mean_mhz,
@@ -241,6 +242,7 @@ function EntryRow({
                     pri_type: entry.pri_type,
                     pri_min_us: entry.pri_type === "fixed" ? (entry.pri_min_us ?? entry.pri_mean_us) : undefined,
                     pri_max_us: entry.pri_type === "fixed" ? (entry.pri_max_us ?? entry.pri_mean_us) : undefined,
+                    jitter_mean_us: entry.pri_type === "fixed" ? (entry.jitter_mean_us ?? undefined) : undefined,
                     pri_stagger_values_us: entry.pri_type === "stagger" ? (entry.stagger_values ?? undefined) : undefined,
                   },
                 },
