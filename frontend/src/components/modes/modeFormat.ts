@@ -91,8 +91,8 @@ export function jitterOrFrameTimeDisplay(mode: Mode, engineered: boolean): Jitte
 export function rangeMatchingTags(mode: Mode): string[] {
   const tags: string[] = [];
   if (mode.line?.rf_range_matching) tags.push("RF");
-  if (mode.line?.pw_range_matching) tags.push("PW");
   if (mode.line?.pri_range_matching) tags.push("PRI");
+  if (mode.line?.pw_range_matching) tags.push("PW");
   return tags;
 }
 
@@ -144,6 +144,8 @@ export type ModeSortKey =
   | "pri_min"
   | "pri_max"
   | "range_matching"
+  | "confirmation_quality"
+  | "confirmation_quantity"
   | "last_tested";
 
 export type SortDir = "asc" | "desc";
@@ -180,6 +182,10 @@ function sortValue(
       return mode.line?.pri_max_us ?? null;
     case "range_matching":
       return rangeMatchingTags(mode).join(",") || null;
+    case "confirmation_quality":
+      return mode.confirmation_quality;
+    case "confirmation_quantity":
+      return mode.confirmation_quantity;
     case "last_tested":
       return mode.last_tested_at;
   }

@@ -1,10 +1,11 @@
-import { Fragment, useState } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import type { EwGroup, FunctionGroup, Mode, ModeGenerationBatch, Source } from "../../types/domain";
 import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 import { HoverInfo } from "../common/InfoPopover";
 import { RequireRole } from "../../auth/RequireAuth";
 import { SortableColumnHeader, type ColumnType } from "../common/SortableColumnHeader";
+import { useColumnVisibility, useColumnVisibilityMenu, type ToggleableColumn } from "../common/ColumnVisibilityMenu";
 import {
   groupModesForDisplay,
   jitterOrFrameTimeDisplay,
@@ -21,6 +22,47 @@ import { InterceptDerivedBadge } from "./InterceptDerivedBadge";
 import { LastTestedCell } from "./LastTestedCell";
 import { ModeEditForm } from "./ModeEditForm";
 import { ModeForm } from "./ModeForm";
+
+type ModeColumnId =
+  | "name"
+  | "rf_min"
+  | "rf_max"
+  | "pri_type"
+  | "pri_min"
+  | "pri_max"
+  | "pw_min"
+  | "pw_max"
+  | "jft_min"
+  | "jft_max"
+  | "range_matching"
+  | "confirmation_quality"
+  | "confirmation_quantity"
+  | "ew_group"
+  | "function_group"
+  | "source"
+  | "last_tested";
+
+/** Every data column, in display order. The selection checkbox and the
+ * actions column are always shown and aren't listed. */
+const MODE_COLUMNS: (ToggleableColumn<ModeColumnId> & { sortKey?: ModeSortKey; type?: ColumnType })[] = [
+  { id: "name", label: "Name", sortKey: "name", hideable: false },
+  { id: "rf_min", label: "RF Min", sortKey: "rf_min", type: "number" },
+  { id: "rf_max", label: "RF Max", sortKey: "rf_max", type: "number" },
+  { id: "pri_type", label: "PRI Type", sortKey: "pri_type" },
+  { id: "pri_min", label: "PRI Min", sortKey: "pri_min", type: "number" },
+  { id: "pri_max", label: "PRI Max", sortKey: "pri_max", type: "number" },
+  { id: "pw_min", label: "PW Min", sortKey: "pw_min", type: "number" },
+  { id: "pw_max", label: "PW Max", sortKey: "pw_max", type: "number" },
+  { id: "jft_min", label: "Jitter/Frametime Min" },
+  { id: "jft_max", label: "Jitter/Frametime Max" },
+  { id: "range_matching", label: "Range Matching", sortKey: "range_matching" },
+  { id: "confirmation_quality", label: "Confirmation Quality", sortKey: "confirmation_quality", type: "number" },
+  { id: "confirmation_quantity", label: "Confirmation Quantity", sortKey: "confirmation_quantity", type: "number" },
+  { id: "ew_group", label: "EW Group", sortKey: "ew_group" },
+  { id: "function_group", label: "Function Group", sortKey: "function_group" },
+  { id: "source", label: "Source", sortKey: "source" },
+  { id: "last_tested", label: "Last Tested", sortKey: "last_tested", type: "date" },
+];
 
 export function ModesTable({
   emitterId,
@@ -66,6 +108,11 @@ export function ModesTable({
   const { canEdit } = useEmitterCheckoutState(emitter);
   const editTitle = canEdit ? undefined : "Start editing this Emitter first";
   const batchNameById = Object.fromEntries(batches.map((b) => [b.id, b.name_prefix]));
+  const columns = useColumnVisibility("modesTable.hiddenColumns", MODE_COLUMNS);
+  const columnMenu = useColumnVisibilityMenu(columns);
+  const visibleColumns = MODE_COLUMNS.filter((c) => columns.isVisible(c.id));
+  // Checkbox + visible data columns + actions.
+  const fullSpan = columns.visibleCount + 2;
 
   function toggleExpandBatch(batchId: string) {
     setExpandedBatchIds((prev) => {
@@ -97,6 +144,138 @@ export function ModesTable({
     const pri = priDisplay(m, showEngineered);
     const jft = jitterOrFrameTimeDisplay(m, showEngineered);
 
+    // Stagger and CW Modes have no PRI min/max; one cell spans whichever of
+    // the two PRI columns are shown.
+    const priSpan = (columns.isVisible("pri_min") ? 1 : 0) + (columns.isVisible("pri_max") ? 1 : 0);
+    const priSpanning =
+      m.pri_type === "stagger" ? (
+        <td colSpan={priSpan}>
+          <StaggerSequenceBox mode={m} />
+        </td>
+      ) : (
+        <td colSpan={priSpan}>{m.pri_type === "cw" ? "CW (constant)" : "—"}</td>
+      );
+    const isFixed = m.pri_type === "fixed";
+
+    const cells: Record<ModeColumnId, () => ReactNode | null> = {
+      name: () => (
+        <td>
+          <HoverInfo label={<>{m.name}{m.notes && " 📝"}</>}>
+            <ModeHoverDetail mode={m} source={sourcesById[m.source_id]} />
+          </HoverInfo>
+          <TestDerivedBadge emitterId={emitterId} records={m.derived_from_test_records} />
+          <InterceptDerivedBadge intercepts={m.derived_from_intercepts} />
+        </td>
+      ),
+      rf_min: () => <td>{rf.min ?? "—"}</td>,
+      rf_max: () => (
+        <td>
+          {rf.max ?? "—"}
+          {!!rf.delta && <span className="jitter-subline">±{rf.delta} MHz delta</span>}
+        </td>
+      ),
+      pri_type: () => <td>{m.pri_type.toUpperCase()}</td>,
+      pri_min: () => (isFixed ? <td>{pri.min ?? "—"}</td> : priSpanning),
+      pri_max: () =>
+        isFixed ? (
+          <td>
+            {pri.max ?? "—"}
+            {!!pri.delta && <span className="jitter-subline">±{pri.delta} µs delta</span>}
+          </td>
+        ) : columns.isVisible("pri_min") ? null : (
+          priSpanning
+        ),
+      pw_min: () => <td>{pw.min ?? "—"}</td>,
+      pw_max: () => (
+        <td>
+          {pw.max ?? "—"}
+          {!!pw.delta && <span className="jitter-subline">±{pw.delta} µs delta</span>}
+        </td>
+      ),
+      jft_min: () => (
+        <td>
+          {jft.label ? (
+            <>
+              {jft.label} {jft.min ?? "—"} µs
+            </>
+          ) : (
+            "—"
+          )}
+        </td>
+      ),
+      jft_max: () => (
+        <td>
+          {jft.label ? (
+            <>
+              {jft.max != null && (
+                <>
+                  {jft.label} {jft.max} µs
+                </>
+              )}
+              {!!jft.delta && <span className="jitter-subline">±{jft.delta} µs delta</span>}
+              {jft.max == null && !jft.delta && "—"}
+            </>
+          ) : (
+            "—"
+          )}
+        </td>
+      ),
+      range_matching: () => (
+        <td>
+          {rangeMatchingTags(m).length > 0 ? (
+            rangeMatchingTags(m).map((tag) => (
+              <span key={tag} className="status-badge range-matching-tag">
+                {tag}
+              </span>
+            ))
+          ) : (
+            <span className="hint-text">—</span>
+          )}
+        </td>
+      ),
+      confirmation_quality: () => <td>{m.confirmation_quality}%</td>,
+      confirmation_quantity: () => <td>{m.confirmation_quantity}</td>,
+      ew_group: () => (
+        <td>
+          {ewGroup ? (
+            <HoverInfo label={ewGroup.name}>
+              <EwGroupHoverDetail ewGroup={ewGroup} />
+            </HoverInfo>
+          ) : (
+            "—"
+          )}
+        </td>
+      ),
+      function_group: () => (
+        <td>{m.function_group_id ? functionGroupsById[m.function_group_id]?.name ?? "—" : "—"}</td>
+      ),
+      source: () => (
+        <td>
+          {source ? (
+            <HoverInfo label={source.name}>
+              <SourceHoverDetail emitterId={emitterId} source={source} />
+            </HoverInfo>
+          ) : (
+            "—"
+          )}
+        </td>
+      ),
+      last_tested: () => (
+        <td>
+          {m.last_tested_at ? (
+            <LastTestedCell
+              emitterId={emitterId}
+              date={m.last_tested_at}
+              result={m.last_test_result}
+              testRecordId={m.last_test_record_id}
+            />
+          ) : (
+            <span className="hint-text">never</span>
+          )}
+        </td>
+      ),
+    };
+
     return (
       <Fragment key={m.id}>
               <tr className={isSelected ? "selected-row" : ""}>
@@ -108,107 +287,10 @@ export function ModesTable({
                     aria-label={`Select ${m.name}`}
                   />
                 </td>
-                <td>
-                  <HoverInfo label={<>{m.name}{m.notes && " 📝"}</>}>
-                    <ModeHoverDetail mode={m} source={sourcesById[m.source_id]} />
-                  </HoverInfo>
-                  <TestDerivedBadge emitterId={emitterId} records={m.derived_from_test_records} />
-                  <InterceptDerivedBadge intercepts={m.derived_from_intercepts} />
-                </td>
-                <td>{rf.min ?? "—"}</td>
-                <td>
-                  {rf.max ?? "—"}
-                  {!!rf.delta && <span className="jitter-subline">±{rf.delta} MHz delta</span>}
-                </td>
-                <td>{m.pri_type.toUpperCase()}</td>
-                {m.pri_type === "stagger" ? (
-                  <td colSpan={2}>
-                    <StaggerSequenceBox mode={m} />
-                  </td>
-                ) : m.pri_type === "fixed" ? (
-                  <>
-                    <td>{pri.min ?? "—"}</td>
-                    <td>
-                      {pri.max ?? "—"}
-                      {!!pri.delta && <span className="jitter-subline">±{pri.delta} µs delta</span>}
-                    </td>
-                  </>
-                ) : (
-                  <td colSpan={2}>{m.pri_type === "cw" ? "CW (constant)" : "—"}</td>
-                )}
-                <td>{pw.min ?? "—"}</td>
-                <td>
-                  {pw.max ?? "—"}
-                  {!!pw.delta && <span className="jitter-subline">±{pw.delta} µs delta</span>}
-                </td>
-                <td>
-                  {jft.label ? (
-                    <>
-                      {jft.label} {jft.min ?? "—"} µs
-                    </>
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td>
-                  {jft.label ? (
-                    <>
-                      {jft.max != null && (
-                        <>
-                          {jft.label} {jft.max} µs
-                        </>
-                      )}
-                      {!!jft.delta && <span className="jitter-subline">±{jft.delta} µs delta</span>}
-                      {jft.max == null && !jft.delta && "—"}
-                    </>
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td>
-                  {rangeMatchingTags(m).length > 0 ? (
-                    rangeMatchingTags(m).map((tag) => (
-                      <span key={tag} className="status-badge range-matching-tag">
-                        {tag}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="hint-text">—</span>
-                  )}
-                </td>
-                <td>
-                  {ewGroup ? (
-                    <HoverInfo label={ewGroup.name}>
-                      <EwGroupHoverDetail ewGroup={ewGroup} />
-                    </HoverInfo>
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td>
-                  {m.function_group_id ? functionGroupsById[m.function_group_id]?.name ?? "—" : "—"}
-                </td>
-                <td>
-                  {source ? (
-                    <HoverInfo label={source.name}>
-                      <SourceHoverDetail emitterId={emitterId} source={source} />
-                    </HoverInfo>
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td>
-                  {m.last_tested_at ? (
-                    <LastTestedCell
-                      emitterId={emitterId}
-                      date={m.last_tested_at}
-                      result={m.last_test_result}
-                      testRecordId={m.last_test_record_id}
-                    />
-                  ) : (
-                    <span className="hint-text">never</span>
-                  )}
-                </td>
+                {visibleColumns.map((c) => {
+                  const content = cells[c.id]();
+                  return content === null ? null : <Fragment key={c.id}>{content}</Fragment>;
+                })}
                 <td>
                   <RequireRole minimum="editor">
                     <div className="flex gap-1">
@@ -242,7 +324,7 @@ export function ModesTable({
               </tr>
               {editingModeId === m.id && canEdit && (
                 <tr>
-                  <td colSpan={17}>
+                  <td colSpan={fullSpan}>
                     <ModeEditForm
                       emitterId={emitterId}
                       mode={m}
@@ -255,7 +337,7 @@ export function ModesTable({
               )}
               {duplicatingModeId === m.id && canEdit && (
                 <tr>
-                  <td colSpan={17}>
+                  <td colSpan={fullSpan}>
                     <ModeForm
                       emitterId={emitterId}
                       ewGroups={Object.values(ewGroupsById)}
@@ -279,7 +361,7 @@ export function ModesTable({
     <div className="matrix-scroll">
       <table className="data-table">
         <thead>
-          <tr>
+          <tr {...columnMenu.openProps}>
             <th>
               <input
                 type="checkbox"
@@ -291,21 +373,13 @@ export function ModesTable({
                 aria-label="Select all"
               />
             </th>
-            {header("Name", "name")}
-            {header("RF Min", "rf_min", "number")}
-            {header("RF Max", "rf_max", "number")}
-            {header("PRI Type", "pri_type")}
-            {header("PRI Min", "pri_min", "number")}
-            {header("PRI Max", "pri_max", "number")}
-            {header("PW Min", "pw_min", "number")}
-            {header("PW Max", "pw_max", "number")}
-            <th>Jitter/Frametime Min</th>
-            <th>Jitter/Frametime Max</th>
-            {header("Range Matching", "range_matching")}
-            {header("EW Group", "ew_group")}
-            {header("Function Group", "function_group")}
-            {header("Source", "source")}
-            {header("Last Tested", "last_tested", "date")}
+            {visibleColumns.map((c) =>
+              c.sortKey ? (
+                <Fragment key={c.id}>{header(c.label, c.sortKey, c.type)}</Fragment>
+              ) : (
+                <th key={c.id}>{c.label}</th>
+              ),
+            )}
             <th className="w-32"></th>
           </tr>
         </thead>
@@ -331,7 +405,7 @@ export function ModesTable({
                       aria-label={`Select all Modes in batch ${batchNameById[row.batchId] ?? row.batchId}`}
                     />
                   </td>
-                  <td colSpan={16}>
+                  <td colSpan={fullSpan - 1}>
                     <button type="button" className="link-button" onClick={() => toggleExpandBatch(row.batchId)}>
                       {isExpanded ? "▼" : "▶"} {batchNameById[row.batchId] ?? "Generation batch"} — {row.modes.length} Modes
                     </button>
@@ -343,6 +417,7 @@ export function ModesTable({
           })}
         </tbody>
       </table>
+      {columnMenu.menu}
     </div>
   );
 }

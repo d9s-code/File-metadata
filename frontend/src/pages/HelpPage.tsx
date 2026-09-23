@@ -226,6 +226,12 @@ export function HelpPage() {
               same way on every table in the app, not just here.
             </p>
             <p>
+              <strong>Right-click</strong> the Modes table&rsquo;s header row to choose which columns show —
+              tick or untick each one, or <strong>Show all columns</strong> to bring them all back. Your choice
+              is remembered in this browser. Confirmation Quality and Confirmation Quantity have their own
+              columns, right after Range Matching.
+            </p>
+            <p>
               Hover a Mode's name to see its notes, when it (and its Source) were last updated, and a
               staleness callout if the Source has changed more recently than the Mode.
             </p>
