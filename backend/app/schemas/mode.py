@@ -157,6 +157,11 @@ class ModeUpdate(BaseModel):
     ew_group_id: UUID | None = None
     source_id: UUID | None = None
     function_group_id: UUID | None = None
+    # Changing this requires `line` in the same request — the old PRI type's
+    # fields (e.g. Fixed's pri_min_us/jitter) are meaningless under a new one
+    # (e.g. Stagger's pri_stagger_values_us), so there's no partial edit that
+    # makes sense here; see update_mode's own check.
+    pri_type: PriType | None = None
     line: ModeLineFields | None = None
     # Test Record(s) whose findings explain this Mode's (possibly just-edited)
     # values — same meaning as ModeCreate.derived_from_test_record_ids.

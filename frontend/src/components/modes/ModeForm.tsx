@@ -230,6 +230,7 @@ export function ModeForm({
             ew_group_id: ewGroupId,
             function_group_id: functionGroupId || null,
             source_id: sourceId,
+            pri_type: priType !== initialData.pri_type ? priType : undefined,
             line: linePayload,
           },
         });

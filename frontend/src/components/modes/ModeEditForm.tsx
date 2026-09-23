@@ -1,12 +1,15 @@
 import { useState, type FormEvent } from "react";
 import { useUpdateMode } from "../../state/hooks/useModes";
 import { ApiRequestError } from "../../api/client";
-import type { FunctionGroup, Mode, Source } from "../../types/domain";
+import type { FunctionGroup, Mode, PriType, Source } from "../../types/domain";
 import { DerivedFromPicker } from "./DerivedFromPicker";
 
-/** Edits an existing Mode's line in place — pri_type is fixed at creation
- * and can't change here (the backend only accepts line edits against the
- * Mode's own existing pri_type). */
+const PRI_TYPES: PriType[] = ["fixed", "stagger", "cw", "xlet"];
+
+/** Edits an existing Mode's line in place, including its PRI type — changing
+ * type always submits a full new line for it (the old type's fields, e.g.
+ * Fixed's jitter, are meaningless under a new one), same as the backend
+ * requires. */
 export function ModeEditForm({
   emitterId,
   mode,
@@ -22,7 +25,7 @@ export function ModeEditForm({
 }) {
   const updateMode = useUpdateMode(emitterId);
   const line = mode.line;
-  const priType = mode.pri_type;
+  const [priType, setPriType] = useState<PriType>(mode.pri_type);
   const [sourceId, setSourceId] = useState(mode.source_id);
   const [rfMin, setRfMin] = useState(String(line?.rf_min_mhz ?? ""));
   const [rfMax, setRfMax] = useState(String(line?.rf_max_mhz ?? ""));
@@ -64,6 +67,7 @@ export function ModeEditForm({
           notes: notes.trim() || null,
           source_id: sourceId !== mode.source_id ? sourceId : undefined,
           function_group_id: functionGroupId || null,
+          pri_type: priType !== mode.pri_type ? priType : undefined,
           line: {
             rf_min_mhz: Number(rfMin),
             rf_max_mhz: Number(rfMax),
@@ -97,8 +101,22 @@ export function ModeEditForm({
   return (
     <form className="card mode-form mode-edit-form" onSubmit={handleSubmit}>
       <p className="hint-text">
-        Editing <strong>{mode.name}</strong>&rsquo;s line ({priType.toUpperCase()}) — takes effect immediately.
+        Editing <strong>{mode.name}</strong>&rsquo;s line — takes effect immediately.
       </p>
+
+      <div className="form-row param-row">
+        <span className="param-row-label">PRI Type</span>
+        <select value={priType} onChange={(e) => setPriType(e.target.value as PriType)}>
+          {PRI_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {t.toUpperCase()}
+            </option>
+          ))}
+        </select>
+        {priType !== mode.pri_type && (
+          <span className="hint-text">Changing PRI type replaces the line below — fill in all of its fields.</span>
+        )}
+      </div>
 
       <div className="form-row param-row">
         <span className="param-row-label">Range matching</span>

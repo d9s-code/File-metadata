@@ -244,11 +244,26 @@ def update_mode(
             )
     if "function_group_id" in data:
         _check_function_group(db, function_group_id=data["function_group_id"], emitter_id=mode.source.emitter_id)
+    if "pri_type" in data and data["pri_type"] != mode.pri_type and payload.line is None:
+        # The old type's PRI fields (e.g. Fixed's jitter) are meaningless
+        # under the new one (e.g. Stagger's sequence) — there's no partial
+        # edit that makes sense, so a type change must supply a full new
+        # line in the same request.
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "Changing pri_type requires a new line in the same request"
+        )
     changes = apply_and_diff(mode, data)
 
     if payload.line is not None:
-        validate_pri_type_fields(mode.pri_type, payload.line)
-        require_manual_deltas(mode.pri_type, payload.line)
+        # Unlike ModeCreate (where this same check runs inside a Pydantic
+        # model_validator and FastAPI auto-converts its ValueError to a 422),
+        # here it's a plain function call after parsing already succeeded —
+        # an invalid line would otherwise propagate as an unhandled 500.
+        try:
+            validate_pri_type_fields(mode.pri_type, payload.line)
+            require_manual_deltas(mode.pri_type, payload.line)
+        except ValueError as exc:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
         line_fields = payload.line.model_dump()
         changes.update(apply_and_diff(mode.line, line_fields))
         try:

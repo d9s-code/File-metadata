@@ -20,6 +20,9 @@ export interface ModeUpdateInput {
   ew_group_id?: string;
   source_id?: string;
   function_group_id?: string | null;
+  /** Changing this requires `line` in the same request — see the backend's
+   * own note on why there's no partial edit across a PRI type change. */
+  pri_type?: PriType;
   line?: ModeLineFields;
   derived_from_test_record_ids?: string[];
   derived_from_intercept_entry_ids?: string[];

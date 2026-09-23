@@ -202,6 +202,68 @@ def test_update_mode_with_derived_from_intercept_entry_ids_does_not_500(editor_c
     assert resp.status_code == 200, resp.text
 
 
+def test_update_mode_can_change_pri_type_with_a_new_line(editor_client, emitter_ctx):
+    mode = editor_client.post(
+        f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes",
+        json={"source_id": emitter_ctx["source"]["id"], "name": "Was Fixed", "pri_type": "fixed", "line": FIXED_LINE},
+    ).json()
+    stagger_line = {
+        "rf_min_mhz": 2900, "rf_max_mhz": 3100, "pw_min_us": 0.5, "pw_max_us": 1.2,
+        "rf_delta": 1, "pw_delta": 0.05,
+        "pri_stagger_values_us": [100, 200, 300], "frame_time_delta_us": 15,
+        "rf_range_matching": False, "pw_range_matching": False, "pri_range_matching": False,
+    }
+    resp = editor_client.patch(
+        f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes/{mode['id']}",
+        json={"pri_type": "stagger", "line": stagger_line},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["pri_type"] == "stagger"
+    assert body["line"]["pri_stagger_values_us"] == [100, 200, 300]
+    assert body["line"]["pri_min_us"] is None  # Fixed-only fields are gone
+
+
+def test_update_mode_pri_type_without_line_is_422(editor_client, emitter_ctx):
+    mode = editor_client.post(
+        f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes",
+        json={"source_id": emitter_ctx["source"]["id"], "name": "Stays Fixed", "pri_type": "fixed", "line": FIXED_LINE},
+    ).json()
+    resp = editor_client.patch(
+        f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes/{mode['id']}", json={"pri_type": "cw"}
+    )
+    assert resp.status_code == 422
+    # Nothing changed.
+    modes = editor_client.get(f"/emitters/{emitter_ctx['emitter']['id']}/modes").json()
+    assert [m for m in modes if m["id"] == mode["id"]][0]["pri_type"] == "fixed"
+
+
+def test_update_mode_pri_type_with_mismatched_line_is_422(editor_client, emitter_ctx):
+    # Says it's switching to CW but still sends Fixed-shaped PRI fields.
+    mode = editor_client.post(
+        f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes",
+        json={"source_id": emitter_ctx["source"]["id"], "name": "Bad Switch", "pri_type": "fixed", "line": FIXED_LINE},
+    ).json()
+    resp = editor_client.patch(
+        f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes/{mode['id']}",
+        json={"pri_type": "cw", "line": FIXED_LINE},
+    )
+    assert resp.status_code == 422
+
+
+def test_update_mode_keeps_same_pri_type_without_requiring_a_line(editor_client, emitter_ctx):
+    mode = editor_client.post(
+        f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes",
+        json={"source_id": emitter_ctx["source"]["id"], "name": "Unchanged Type", "pri_type": "fixed", "line": FIXED_LINE},
+    ).json()
+    resp = editor_client.patch(
+        f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes/{mode['id']}",
+        json={"pri_type": "fixed", "notes": "just a note"},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["notes"] == "just a note"
+
+
 def test_list_emitter_modes_spans_all_ew_groups(editor_client, emitter_ctx):
     other_group = editor_client.post(
         f"/emitters/{emitter_ctx['emitter']['id']}/ew-groups", json={"name": "Search Group"}
