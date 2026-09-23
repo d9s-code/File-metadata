@@ -19,6 +19,7 @@ import { useEmitterCheckoutState } from "../state/hooks/useEmitterCheckout";
 export function EmitterVersionHistoryPage() {
   const { emitterId } = useParams<{ emitterId: string }>();
   const { data: emitter } = useEmitter(emitterId);
+  const { data: forkSource } = useEmitter(emitter?.forked_from_emitter_id ?? undefined);
   const { data: versions } = useEmitterVersions(emitterId ?? "");
   const commitVersion = useCommitEmitterVersion(emitterId ?? "");
   const revertVersion = useRevertEmitterVersion(emitterId ?? "");
@@ -74,6 +75,15 @@ export function EmitterVersionHistoryPage() {
     <div className="page">
       <h1>{emitter.name} — Version History</h1>
       <Link to={`/emitters/${emitter.id}`}>← Back to editor</Link>
+      {emitter.forked_from_emitter_id && (
+        <p className="hint-text">
+          Forked from{" "}
+          <Link to={`/emitters/${emitter.forked_from_emitter_id}/versions`}>
+            {forkSource?.name ?? "an earlier Emitter"}
+          </Link>
+          {forkBoundary != null && ` — versions 1–${forkBoundary} are that Emitter's history, before the fork`}.
+        </p>
+      )}
 
       <RequireRole minimum="editor">
         <div className="card inline-form">

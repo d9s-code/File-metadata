@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useEmitter, useUpdateEmitter } from "../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../state/hooks/useEmitterCheckout";
@@ -53,6 +53,9 @@ export function EmitterEditorPage() {
   const [editDesignation, setEditDesignation] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  // Bumped after "Discard changes" to remount every tab, so open edit forms
+  // and other local state holding discarded values are thrown away too.
+  const [contentVersion, setContentVersion] = useState(0);
 
   // Auto-switch to the Setup tab once, only if setup looks incomplete on first load — never
   // force a tab switch again afterward, so it doesn't yank the user away mid-interaction the
@@ -193,7 +196,7 @@ export function EmitterEditorPage() {
         </Modal>
       )}
 
-      <CheckoutBanner emitter={emitter} />
+      <CheckoutBanner emitter={emitter} onDiscarded={() => setContentVersion((v) => v + 1)} />
 
       <p className="validation-headline">
         Last validated against simulation:{" "}
@@ -216,12 +219,6 @@ export function EmitterEditorPage() {
           </>
         )}
       </p>
-
-      {emitter.forked_from_emitter_id && (
-        <p className="hint-text">
-          Forked from <Link to={`/emitters/${emitter.forked_from_emitter_id}`}>an earlier Emitter</Link>.
-        </p>
-      )}
 
       {!ewGroupsLoading && !sourcesLoading && setupIncomplete && (
         <div className="setup-progress-banner">
@@ -348,6 +345,7 @@ export function EmitterEditorPage() {
       {/* All tabs stay mounted — only visibility toggles (`hidden`, not a JSX
           conditional) — so switching tabs never unmounts/resets a Mode search
           filter or an in-progress "New Test" form the user hasn't saved yet. */}
+      <Fragment key={contentVersion}>
       <div hidden={tab !== "modes"}>
         <ModesSection
           emitterId={emitter.id}
@@ -385,6 +383,7 @@ export function EmitterEditorPage() {
       <div hidden={tab !== "audit"}>
         <EntityAuditTrail entityType="emitter" entityId={emitter.id} emitterId={emitter.id} />
       </div>
+      </Fragment>
 
       {isImportModalOpen && (
         <JsonImportModal

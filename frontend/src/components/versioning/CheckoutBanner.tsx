@@ -14,7 +14,7 @@ import { ApiRequestError } from "../../api/client";
 import { EmitterDiffViewer } from "./EmitterDiffViewer";
 import { Modal } from "../common/Modal";
 
-export function CheckoutBanner({ emitter }: { emitter: Emitter }) {
+export function CheckoutBanner({ emitter, onDiscarded }: { emitter: Emitter; onDiscarded?: () => void }) {
   const { user } = useAuth();
   const { isCheckedOut, isMine, holderUsername, checkedOutAt } = useEmitterCheckoutState(emitter);
   const { data: versions } = useEmitterVersions(emitter.id);
@@ -76,6 +76,7 @@ export function CheckoutBanner({ emitter }: { emitter: Emitter }) {
     setError(null);
     try {
       await discard.mutateAsync();
+      onDiscarded?.();
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : "Failed to discard changes");
     }

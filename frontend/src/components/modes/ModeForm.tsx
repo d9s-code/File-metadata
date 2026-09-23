@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { frameTimeFromText } from "../common/frameTime";
 import { useCreateMode } from "../../state/hooks/useModes";
 import { ApiRequestError } from "../../api/client";
 import type { EwGroup, FunctionGroup, Mode, PriType, Source } from "../../types/domain";
@@ -152,12 +153,7 @@ export function ModeForm({
     }
   }
 
-  const suggestedFrameTimeUs = staggerValues
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .map(Number)
-    .reduce((sum, v) => (Number.isFinite(v) ? sum + v : sum), 0);
+  const suggestedFrameTimeUs = frameTimeFromText(staggerValues);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();

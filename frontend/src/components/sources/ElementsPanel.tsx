@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { frameTimeFromText } from "../common/frameTime";
 import type { ElementType, ElementVariant, ModeElement } from "../../types/domain";
 import { useCreateElement, useDeleteElement, useElements } from "../../state/hooks/useElements";
 import { useEmitter } from "../../state/hooks/useEmitters";
@@ -51,12 +52,7 @@ function ElementForm({ emitterId, sourceId, canEdit }: { emitterId: string; sour
   const [error, setError] = useState<string | null>(null);
 
   const usesStagger = elementType === "pri" && priShape === "stagger";
-  const suggestedFrameTimeUs = staggerValues
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .map(Number)
-    .reduce((sum, v) => (Number.isFinite(v) ? sum + v : sum), 0);
+  const suggestedFrameTimeUs = frameTimeFromText(staggerValues);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();

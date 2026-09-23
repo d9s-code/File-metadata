@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { frameTimeUs } from "../common/frameTime";
 import { createPortal } from "react-dom";
 import type { EwGroup, Mode, Source } from "../../types/domain";
 import { useElements } from "../../state/hooks/useElements";
@@ -77,7 +78,7 @@ export function StaggerSequenceBox({ mode }: { mode: Mode }) {
   const contentRef = useRef<HTMLDivElement>(null);
   const pos = useFloatingPosition(triggerRef, contentRef, open);
   const values = mode.line?.pri_stagger_values_us ?? [];
-  const frametime = values.reduce((sum, v) => sum + v, 0);
+  const frametime = frameTimeUs(values);
   const frameTimeDelta = mode.line?.frame_time_delta_us;
   return (
     <div className="stagger-box">
