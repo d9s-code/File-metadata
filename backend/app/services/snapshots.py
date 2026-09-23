@@ -41,6 +41,8 @@ def _mode_dict(mode: Mode) -> dict:
         "pri_type": mode.pri_type.value,
         "notes": mode.notes,
         "sort_order": mode.sort_order,
+        "confirmation_quality": mode.confirmation_quality,
+        "confirmation_quantity": mode.confirmation_quantity,
         "source_id": str(mode.source_id),
         "source_name": mode.source.name,
         "function_group_id": str(mode.function_group_id) if mode.function_group_id else None,

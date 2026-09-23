@@ -120,6 +120,8 @@ def create_mode(
         pri_type=payload.pri_type,
         notes=payload.notes,
         sort_order=payload.sort_order,
+        confirmation_quality=payload.confirmation_quality,
+        confirmation_quantity=payload.confirmation_quantity,
         function_group_id=payload.function_group_id,
     )
     db.add(mode)
@@ -193,6 +195,8 @@ def create_mode_from_dsl_text(
             notes=payload.notes,
             sort_order=payload.sort_order,
             function_group_id=payload.function_group_id,
+            confirmation_quality=payload.confirmation_quality,
+            confirmation_quantity=payload.confirmation_quantity,
         )
     except DslSyntaxError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
@@ -305,7 +309,11 @@ def delete_mode(
     if mode is None or mode.ew_group_id != ew_group_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Mode not found")
     mode_snapshot = snapshot(
-        mode, ["name", "pri_type", "notes", "sort_order", "source_id", "function_group_id"]
+        mode,
+        [
+            "name", "pri_type", "notes", "sort_order", "source_id", "function_group_id",
+            "confirmation_quality", "confirmation_quantity",
+        ],
     )
     if mode.line is not None:
         mode_snapshot["line"] = snapshot(

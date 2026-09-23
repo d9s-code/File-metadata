@@ -9,6 +9,9 @@ from app.core.enums import ElementType, ElementVariant, PriType
 from app.database import Base
 from app.models.mixins import TimestampMixin, UUIDPkMixin
 
+DEFAULT_CONFIRMATION_QUALITY = 100
+DEFAULT_CONFIRMATION_QUANTITY = 2
+
 
 class Mode(UUIDPkMixin, TimestampMixin, Base):
     __tablename__ = "modes"
@@ -23,6 +26,14 @@ class Mode(UUIDPkMixin, TimestampMixin, Base):
     pri_type: Mapped[PriType] = mapped_column(nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Exported as the Mode's PRS ConfirmationQuality (percent, 0-100) and
+    # ConfirmationQuantity (count).
+    confirmation_quality: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=DEFAULT_CONFIRMATION_QUALITY, server_default=str(DEFAULT_CONFIRMATION_QUALITY)
+    )
+    confirmation_quantity: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=DEFAULT_CONFIRMATION_QUANTITY, server_default=str(DEFAULT_CONFIRMATION_QUANTITY)
+    )
     # Which cartesian-product run (if any) generated this Mode. Nullable — modes created
     # manually or via a typed DSL line have no batch. SET NULL on batch delete since the
     # batch-delete endpoint removes the Modes explicitly rather than relying on cascade.

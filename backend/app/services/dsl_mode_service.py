@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 
 from app.core.enums import ElementType, PriType
 from app.dsl.parser import ParsedModeLine, parse_mode_line
-from app.models.mode import Mode, ModeElement, ModeLine
+from app.models.mode import DEFAULT_CONFIRMATION_QUALITY, DEFAULT_CONFIRMATION_QUANTITY, Mode, ModeElement, ModeLine
 from app.models.source import Source
 
 
@@ -59,6 +59,8 @@ def create_mode_from_dsl(
     notes: str | None = None,
     sort_order: int = 0,
     function_group_id=None,
+    confirmation_quality: int = DEFAULT_CONFIRMATION_QUALITY,
+    confirmation_quantity: int = DEFAULT_CONFIRMATION_QUANTITY,
 ) -> Mode:
     parsed = parse_mode_line(dsl_text)
 
@@ -70,6 +72,8 @@ def create_mode_from_dsl(
         notes=notes,
         sort_order=sort_order,
         function_group_id=function_group_id,
+        confirmation_quality=confirmation_quality,
+        confirmation_quantity=confirmation_quantity,
     )
     db.add(mode)
     db.flush()

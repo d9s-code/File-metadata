@@ -1,12 +1,19 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, computed_field, field_validator, model_validator
+from typing import Annotated
+
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
 
 from app.core.enums import PriType, TestResult, TestType
+from app.models.mode import DEFAULT_CONFIRMATION_QUALITY, DEFAULT_CONFIRMATION_QUANTITY
 from app.schemas.intercept import InterceptEntryBrief
 from app.services.delta import apply_delta
 from app.services.frametime_service import FRAME_TIME_DECIMALS, effective_frametime_us
+
+
+ConfirmationQuality = Annotated[int, Field(ge=0, le=100)]
+ConfirmationQuantity = Annotated[int, Field(ge=1)]
 
 
 def _validate_delta(v: float | None) -> float | None:
@@ -140,6 +147,8 @@ class ModeCreate(BaseModel):
     pri_type: PriType
     notes: str | None = None
     sort_order: int = 0
+    confirmation_quality: ConfirmationQuality = DEFAULT_CONFIRMATION_QUALITY
+    confirmation_quantity: ConfirmationQuantity = DEFAULT_CONFIRMATION_QUANTITY
     line: ModeLineFields
     # Optional — which Function Group this Mode serves, independent of its
     # (required) EW Group.
@@ -164,6 +173,8 @@ class ModeCreateFromDsl(BaseModel):
     dsl_text: str
     notes: str | None = None
     sort_order: int = 0
+    confirmation_quality: ConfirmationQuality = DEFAULT_CONFIRMATION_QUALITY
+    confirmation_quantity: ConfirmationQuantity = DEFAULT_CONFIRMATION_QUANTITY
     function_group_id: UUID | None = None
 
 
@@ -171,6 +182,8 @@ class ModeUpdate(BaseModel):
     name: str | None = None
     notes: str | None = None
     sort_order: int | None = None
+    confirmation_quality: ConfirmationQuality | None = None
+    confirmation_quantity: ConfirmationQuantity | None = None
     ew_group_id: UUID | None = None
     source_id: UUID | None = None
     function_group_id: UUID | None = None
@@ -200,6 +213,8 @@ class BatchModeFieldEdit(BaseModel):
     source_id: UUID | None = None
     function_group_id: UUID | None = None
     notes: str | None = None
+    confirmation_quality: ConfirmationQuality | None = None
+    confirmation_quantity: ConfirmationQuantity | None = None
     rf_range_matching: bool | None = None
     pw_range_matching: bool | None = None
     pri_range_matching: bool | None = None
@@ -347,6 +362,8 @@ class ModeOut(BaseModel):
     pri_type: PriType
     notes: str | None = None
     sort_order: int
+    confirmation_quality: int
+    confirmation_quantity: int
     generation_batch_id: UUID | None = None
     function_group_id: UUID | None = None
     created_at: datetime

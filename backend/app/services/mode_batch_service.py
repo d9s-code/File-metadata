@@ -53,7 +53,14 @@ _LINE_FIELD_KEYS = {
     "pri_delta",
     "frame_time_delta_us",
 }
-_METADATA_FIELD_KEYS = {"ew_group_id", "source_id", "function_group_id", "notes"}
+_METADATA_FIELD_KEYS = {
+    "ew_group_id",
+    "source_id",
+    "function_group_id",
+    "notes",
+    "confirmation_quality",
+    "confirmation_quantity",
+}
 
 # Each *_shift field is applied to exactly one bound, independently of its
 # pair — e.g. rf_min_shift never touches rf_max_mhz. A shift on a bound the

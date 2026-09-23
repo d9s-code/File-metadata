@@ -29,7 +29,13 @@ from app.core.enums import ElementType, EmitterStatus, PriType, SourceStatus
 from app.models.emitter import Emitter
 from app.models.ew_group import EwGroup
 from app.models.function_group import FunctionGroup
-from app.models.mode import Mode, ModeElement, ModeLine
+from app.models.mode import (
+    DEFAULT_CONFIRMATION_QUALITY,
+    DEFAULT_CONFIRMATION_QUANTITY,
+    Mode,
+    ModeElement,
+    ModeLine,
+)
 from app.models.source import Source
 from app.models.test_line import TestLine
 
@@ -181,6 +187,9 @@ def _reconcile_modes(db: Session, group: EwGroup, *, mode_snaps: list[dict]) -> 
         mode.pri_type = PriType(m_snap["pri_type"])
         mode.notes = m_snap.get("notes")
         mode.sort_order = m_snap.get("sort_order", 0)
+        if "confirmation_quality" in m_snap:
+            mode.confirmation_quality = m_snap["confirmation_quality"]
+            mode.confirmation_quantity = m_snap["confirmation_quantity"]
         mode.function_group_id = _resolve_function_group_id(db, group.emitter_id, m_snap.get("function_group_id"))
         _reconcile_mode_line(db, mode, m_snap.get("line"))
 
@@ -324,6 +333,8 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
                 pri_type=PriType(m_snap["pri_type"]),
                 notes=m_snap.get("notes"),
                 sort_order=m_snap.get("sort_order", 0),
+                confirmation_quality=m_snap.get("confirmation_quality", DEFAULT_CONFIRMATION_QUALITY),
+                confirmation_quantity=m_snap.get("confirmation_quantity", DEFAULT_CONFIRMATION_QUANTITY),
                 function_group_id=function_group_id_map.get(m_snap.get("function_group_id")),
             )
             db.add(new_mode)

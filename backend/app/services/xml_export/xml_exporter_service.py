@@ -144,8 +144,8 @@ class XMLExporterService:
                     Frequency=str(bool(line and line.rf_range_matching)).lower(),
                 )
 
-                etree.SubElement(mode_el, "ConfirmationQuality", Value="100", Units="percent")
-                etree.SubElement(mode_el, "ConfirmationQuantity", Value="2", Units="count")
+                etree.SubElement(mode_el, "ConfirmationQuality", Value=str(mode.confirmation_quality), Units="percent")
+                etree.SubElement(mode_el, "ConfirmationQuantity", Value=str(mode.confirmation_quantity), Units="count")
 
                 if mode.line:
                     # Engineered (raw +/- delta) values — a null/zero delta is a

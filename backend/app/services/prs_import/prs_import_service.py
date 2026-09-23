@@ -31,7 +31,7 @@ from app.core.enums import PriType
 from app.dsl.exceptions import DslSyntaxError
 from app.dsl.renderer import render_mode_line
 from app.models.ew_group import EwGroup
-from app.models.mode import Mode, ModeLine
+from app.models.mode import DEFAULT_CONFIRMATION_QUALITY, DEFAULT_CONFIRMATION_QUANTITY, Mode, ModeLine
 from app.schemas.mode import ModeLineFields, require_manual_deltas, validate_pri_type_fields
 from app.services.frametime_service import FRAME_TIME_DECIMALS, compute_frametime_us
 
@@ -90,6 +90,8 @@ class ParsedMode:
     ew_group_name: str
     pri_type: PriType
     line: ParsedModeLine
+    confirmation_quality: float = DEFAULT_CONFIRMATION_QUALITY
+    confirmation_quantity: float = DEFAULT_CONFIRMATION_QUANTITY
 
 
 @dataclass
@@ -191,6 +193,8 @@ def parse_emitter_xml(xml_bytes: bytes) -> ParsedPrsEmitter:
             ew_groups.append(ParsedEwGroup(name=ew_group_name))
 
         range_match_el = mode_el.find("RangeMatch")
+        quality = _float(mode_el.find("ConfirmationQuality"), "Value")
+        quantity = _float(mode_el.find("ConfirmationQuantity"), "Value")
         freq_el = mode_el.find("Frequency")
         pw_el = mode_el.find("PulseWidth")
         pri_el = mode_el.find("PRI")
@@ -237,6 +241,8 @@ def parse_emitter_xml(xml_bytes: bytes) -> ParsedPrsEmitter:
                 ew_group_name=ew_group_name,
                 pri_type=pri_type or PriType.cw,
                 line=line,
+                confirmation_quality=DEFAULT_CONFIRMATION_QUALITY if quality is None else quality,
+                confirmation_quantity=DEFAULT_CONFIRMATION_QUANTITY if quantity is None else quantity,
             )
         )
 
@@ -300,6 +306,14 @@ def _build_line_fields(m: ParsedMode) -> ModeLineFields:
     )
 
 
+def _check_confirmation(m: ParsedMode) -> None:
+    q, n = m.confirmation_quality, m.confirmation_quantity
+    if q != int(q) or not 0 <= q <= 100:
+        raise ValueError(f"ConfirmationQuality must be a whole number from 0 to 100, got {q:g}")
+    if n != int(n) or n < 1:
+        raise ValueError(f"ConfirmationQuantity must be a whole number of 1 or more, got {n:g}")
+
+
 def plan_import(parsed: ParsedPrsEmitter) -> tuple[list[PlannedPrsMode], list[PrsImportIssue]]:
     """Validates every parsed Mode against the same rules a manually-created
     Mode must satisfy — all-or-nothing, matching the JSON importer's own
@@ -318,6 +332,7 @@ def plan_import(parsed: ParsedPrsEmitter) -> tuple[list[PlannedPrsMode], list[Pr
             line_fields = _build_line_fields(m)
             validate_pri_type_fields(m.pri_type, line_fields)
             require_manual_deltas(m.pri_type, line_fields)
+            _check_confirmation(m)
         except (ValidationError, ValueError) as exc:
             issues.append(PrsImportIssue(mode_name=label, error=str(exc)))
             continue
@@ -361,7 +376,14 @@ def commit_import(
     for item in planned:
         m = item.parsed
         group = existing_groups[m.ew_group_name]
-        mode = Mode(ew_group_id=group.id, source_id=source_id, name=m.name, pri_type=m.pri_type)
+        mode = Mode(
+            ew_group_id=group.id,
+            source_id=source_id,
+            name=m.name,
+            pri_type=m.pri_type,
+            confirmation_quality=int(m.confirmation_quality),
+            confirmation_quantity=int(m.confirmation_quantity),
+        )
         db.add(mode)
         db.flush()
 

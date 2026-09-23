@@ -50,7 +50,11 @@ MODE_FIELD_LABELS = {
     "notes": "Notes",
     "source_name": "Source",
     "function_group_name": "Function Group",
+    "confirmation_quality": "Confirmation Quality (%)",
+    "confirmation_quantity": "Confirmation Quantity",
 }
+
+MODE_FIELDS_ADDED_LATER = frozenset({"confirmation_quality", "confirmation_quantity"})
 
 # dsl_text deliberately excluded — it's a rendered cache of these other
 # fields, not independent data; showing it alongside the real field that
@@ -116,7 +120,7 @@ def _diff_modes(entries: list[dict], old_modes: list[dict], new_modes: list[dict
     for mode_id in set(old_by_id) & set(new_by_id):
         om, nm = old_by_id[mode_id], new_by_id[mode_id]
         scope = f"Mode '{nm['name']}'"
-        _diff_fields(entries, scope, om, nm, MODE_FIELD_LABELS)
+        _diff_fields(entries, scope, om, nm, MODE_FIELD_LABELS, MODE_FIELDS_ADDED_LATER)
         _diff_fields(
             entries, scope, om.get("line") or {}, nm.get("line") or {}, MODE_LINE_FIELD_LABELS, MODE_LINE_FIELDS_ADDED_LATER
         )

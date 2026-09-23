@@ -11,6 +11,7 @@ import re
 
 from lxml import etree
 
+from app.models.mode import DEFAULT_CONFIRMATION_QUALITY, DEFAULT_CONFIRMATION_QUANTITY
 from app.services.delta import apply_delta
 from app.services.frametime_service import effective_frametime_us
 from app.services.snapshots import rejected_source_ids
@@ -25,8 +26,6 @@ _PLACEHOLDER_LETHAL_CEILING = 0
 _PLACEHOLDER_LETHAL_POWER = -50
 _PLACEHOLDER_MIN_ERP = 80
 _PLACEHOLDER_MAX_ERP = 80
-_PLACEHOLDER_CONFIRMATION_QUALITY = 100
-_PLACEHOLDER_CONFIRMATION_QUANTITY = 2
 _PLACEHOLDER_HOSTILITY = "UNKNOWN"
 _PLACEHOLDER_BASE = "UNKNOWN"
 
@@ -117,8 +116,11 @@ def _append_mode_element(parent: etree._Element, mode: dict, *, scan_name: str) 
         PulseWidth=_bool_attr(line.get("pw_range_matching")),
         Frequency=_bool_attr(line.get("rf_range_matching")),
     )
-    etree.SubElement(mode_el, "ConfirmationQuality", Value=_num_attr(_PLACEHOLDER_CONFIRMATION_QUALITY), Units="percent")
-    etree.SubElement(mode_el, "ConfirmationQuantity", Value=_num_attr(_PLACEHOLDER_CONFIRMATION_QUANTITY), Units="count")
+    # Snapshots from before these fields existed fall back to the defaults.
+    quality = mode.get("confirmation_quality", DEFAULT_CONFIRMATION_QUALITY)
+    quantity = mode.get("confirmation_quantity", DEFAULT_CONFIRMATION_QUANTITY)
+    etree.SubElement(mode_el, "ConfirmationQuality", Value=_num_attr(quality), Units="percent")
+    etree.SubElement(mode_el, "ConfirmationQuantity", Value=_num_attr(quantity), Units="count")
 
     # Engineered (raw +/- delta) — the PRS format has no raw/delta split of
     # its own, just a single Min/Max pair, so this is the one place that
