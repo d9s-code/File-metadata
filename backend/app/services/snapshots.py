@@ -77,6 +77,7 @@ def _test_line_dict(tl: TestLine) -> dict:
         "expected_mode_id": str(tl.expected_mode_id) if tl.expected_mode_id else None,
         "expected_mode_name": tl.expected_mode.name if tl.expected_mode else None,
         "expected_parameters": tl.expected_parameters,
+        "created_date": tl.created_date.isoformat() if tl.created_date else None,
         "sort_order": tl.sort_order,
     }
 

@@ -42,6 +42,18 @@ def _validate_observed_value_set(v: dict) -> dict:
     return cleaned
 
 
+def _clean_observed_value_sets(v: list[dict] | None) -> list[dict] | None:
+    if v is None:
+        return v
+    cleaned = [_validate_observed_value_set(item) for item in v]
+    cleaned = [c for c in cleaned if c]
+    return cleaned or None
+
+
+# Other TestType values remain only on historical records.
+LOGGABLE_TEST_TYPES = frozenset({TestType.simulation, TestType.intercept})
+
+
 class TestRecordModeResultIn(BaseModel):
     mode_id: UUID
     result: TestResult
@@ -53,22 +65,29 @@ class TestRecordModeResultIn(BaseModel):
     @field_validator("observed_values")
     @classmethod
     def check_observed_values(cls, v: list[dict] | None) -> list[dict] | None:
-        if v is None:
-            return v
-        cleaned = [_validate_observed_value_set(item) for item in v]
-        cleaned = [c for c in cleaned if c]
-        return cleaned or None
+        return _clean_observed_value_sets(v)
 
 
 class TestRecordLineResultIn(BaseModel):
     test_line_id: UUID
-    # Reuses TestResult: pass = correctly intercepted, partial = misclassified
-    # (see detected_as_mode_id), fail = missed entirely, inconclusive =
-    # couldn't be assessed this run.
+    # Reuses TestResult: pass = correctly intercepted, partial = misclassified,
+    # fail = missed entirely, inconclusive = couldn't be assessed this run.
     outcome: TestResult
-    # Only meaningful when outcome == partial — what it was recognized as instead.
-    detected_as_mode_id: UUID | None = None
+    # Which of this Emitter's Modes the system reported for this line — any number.
+    intercepted_mode_ids: list[UUID] = []
     notes: str | None = None
+    # The intercepted parameters — same shape as TestRecordModeResultIn's.
+    observed_values: list[dict] | None = None
+
+    @field_validator("observed_values")
+    @classmethod
+    def check_observed_values(cls, v: list[dict] | None) -> list[dict] | None:
+        return _clean_observed_value_sets(v)
+
+    @field_validator("intercepted_mode_ids")
+    @classmethod
+    def dedupe_modes(cls, v: list[UUID]) -> list[UUID]:
+        return list(dict.fromkeys(v))
 
 
 class TestRecordCreate(BaseModel):
@@ -103,6 +122,13 @@ class TestRecordCreate(BaseModel):
     # A Function Group not present here just gets its computed aggregate.
     function_group_overrides: dict[UUID, TestResult] = {}
 
+    @field_validator("test_type")
+    @classmethod
+    def check_test_type(cls, v: TestType) -> TestType:
+        if v not in LOGGABLE_TEST_TYPES:
+            raise ValueError("Only simulation and intercept tests can be logged")
+        return v
+
     @model_validator(mode="after")
     def check_simulation_date(self) -> "TestRecordCreate":
         if self.test_type == TestType.simulation and self.simulation_created_date is None:
@@ -136,14 +162,22 @@ class TestRecordFunctionGroupOut(BaseModel):
     override_result: TestResult | None = None
 
 
+class InterceptedModeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    mode_id: UUID
+    mode_name: str = Field(validation_alias=AliasPath("mode", "name"))
+
+
 class TestRecordLineOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     test_line_id: UUID
     test_line_label: str = Field(validation_alias=AliasPath("test_line", "label"))
     outcome: TestResult
-    detected_as_mode_id: UUID | None = None
+    intercepted_modes: list[InterceptedModeOut] = []
     notes: str | None = None
+    observed_values: list[dict] | None = None
 
 
 class TestRecordOut(BaseModel):

@@ -1,6 +1,7 @@
 import uuid
+from datetime import date
 
-from sqlalchemy import ForeignKey, Integer, Text
+from sqlalchemy import Date, ForeignKey, Integer, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -37,6 +38,10 @@ class TestLine(UUIDPkMixin, TimestampMixin, Base):
     # Free-text batch label (e.g. a filename or "2026-09 threat table") — for
     # grouping an import's rows in the UI, nothing more.
     import_batch_label: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # When the SIM Test Lines themselves were created in the simulator, typed
+    # in by the user at import time (required there). Null only on lines
+    # imported before this column existed.
+    created_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     imported_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )

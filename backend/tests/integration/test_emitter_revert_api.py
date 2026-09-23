@@ -77,7 +77,7 @@ def test_revert_deletes_mode_not_in_target_and_cascades_test_record(editor_clien
     test_record = editor_client.post(
         f"/emitters/{emitter_id}/test-records",
         json={
-            "test_type": "lab_bench",
+            "test_type": "intercept",
             "title": "Bench check",
             "test_date": "2025-05-01",
             "mode_results": [{"mode_id": mode_id, "result": "pass"}],

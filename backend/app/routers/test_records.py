@@ -10,16 +10,26 @@ from app.deps import require_role
 from app.models.emitter import Emitter
 from app.models.emitter_version import EmitterVersion
 from app.models.mdf import Mdf, MdfVersion
+from app.models.ew_group import EwGroup
 from app.models.mode import Mode
 from app.models.test_line import TestLine
-from app.models.test_record import TestRecord, TestRecordFunctionGroup, TestRecordLine, TestRecordMode
+from app.models.test_record import (
+    TestRecord,
+    TestRecordFunctionGroup,
+    TestRecordLine,
+    TestRecordLineMode,
+    TestRecordMode,
+)
 from app.schemas.test_record import TestRecordCreate, TestRecordOut
 from app.services.audit_service import record_audit
 from app.services.test_result_service import compute_overall_result
 
 _MODES_EAGER_LOAD = joinedload(TestRecord.modes).joinedload(TestRecordMode.mode)
 _FUNCTION_GROUPS_EAGER_LOAD = joinedload(TestRecord.function_groups).joinedload(TestRecordFunctionGroup.function_group)
-_LINES_EAGER_LOAD = joinedload(TestRecord.lines).joinedload(TestRecordLine.test_line)
+_LINES_EAGER_LOAD = joinedload(TestRecord.lines).options(
+    joinedload(TestRecordLine.test_line),
+    joinedload(TestRecordLine.intercepted_modes).joinedload(TestRecordLineMode.mode),
+)
 
 emitter_router = APIRouter(prefix="/emitters/{emitter_id}/test-records", tags=["test-records"])
 mdf_router = APIRouter(prefix="/mdfs/{mdf_id}/test-records", tags=["test-records"])
@@ -68,12 +78,20 @@ def _create_test_record(
         missing_lines = set(line_ids) - found_line_ids
         if missing_lines:
             raise HTTPException(status.HTTP_404_NOT_FOUND, f"Unknown test line id(s) for this Emitter: {missing_lines}")
-        detected_mode_ids = {lr.detected_as_mode_id for lr in payload.line_results if lr.detected_as_mode_id is not None}
-        if detected_mode_ids:
-            found_detected = {m.id for m in db.query(Mode.id).filter(Mode.id.in_(detected_mode_ids)).all()}
-            missing_detected = detected_mode_ids - found_detected
-            if missing_detected:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, f"Unknown mode id(s): {missing_detected}")
+        intercepted_ids = {mid for lr in payload.line_results for mid in lr.intercepted_mode_ids}
+        if intercepted_ids:
+            found_intercepted = {
+                m.id
+                for m in db.query(Mode.id)
+                .join(EwGroup, Mode.ew_group_id == EwGroup.id)
+                .filter(Mode.id.in_(intercepted_ids), EwGroup.emitter_id == emitter_id)
+                .all()
+            }
+            missing_intercepted = intercepted_ids - found_intercepted
+            if missing_intercepted:
+                raise HTTPException(
+                    status.HTTP_404_NOT_FOUND, f"Unknown mode id(s) for this Emitter: {missing_intercepted}"
+                )
 
     if payload.retests_test_record_id is not None:
         retested = db.get(TestRecord, payload.retests_test_record_id)
@@ -119,8 +137,9 @@ def _create_test_record(
                 test_record_id=record.id,
                 test_line_id=lr.test_line_id,
                 outcome=lr.outcome,
-                detected_as_mode_id=lr.detected_as_mode_id,
                 notes=lr.notes,
+                observed_values=lr.observed_values,
+                intercepted_modes=[TestRecordLineMode(mode_id=mid) for mid in lr.intercepted_mode_ids],
             )
         )
     for mr in payload.mode_results:

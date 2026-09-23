@@ -38,7 +38,7 @@ def test_create_test_record_links_modes(editor_client, emitter_with_mode):
     resp = editor_client.post(
         f"/emitters/{emitter_id}/test-records",
         json={
-            "test_type": "lab_bench",
+            "test_type": "intercept",
             "title": "Bench run",
             "test_date": "2026-01-01",
             "mode_results": [{"mode_id": mode_id, "result": "pass"}],
@@ -57,7 +57,7 @@ def test_list_test_records_includes_linked_mode_names(editor_client, emitter_wit
     editor_client.post(
         f"/emitters/{emitter_id}/test-records",
         json={
-            "test_type": "lab_bench",
+            "test_type": "intercept",
             "title": "Sim run",
             "test_date": "2026-01-02",
             "mode_results": [{"mode_id": mode_id, "result": "pass"}],
@@ -77,7 +77,7 @@ def test_create_test_record_rejects_unknown_mode_id(editor_client, emitter_with_
     resp = editor_client.post(
         f"/emitters/{emitter_id}/test-records",
         json={
-            "test_type": "lab_bench",
+            "test_type": "intercept",
             "title": "Sim run",
             "test_date": "2026-01-02",
             "mode_results": [{"mode_id": "00000000-0000-0000-0000-000000000000", "result": "pass"}],
@@ -92,7 +92,7 @@ def test_deleting_a_test_linked_mode_does_not_block_deletion(editor_client, emit
     editor_client.post(
         f"/emitters/{emitter_id}/test-records",
         json={
-            "test_type": "lab_bench",
+            "test_type": "intercept",
             "title": "Bench run",
             "test_date": "2026-01-01",
             "mode_results": [{"mode_id": mode["id"], "result": "pass"}],
@@ -110,7 +110,7 @@ def test_create_test_record_without_modes_still_works(editor_client, emitter_wit
     emitter_id = emitter_with_mode["emitter"]["id"]
     resp = editor_client.post(
         f"/emitters/{emitter_id}/test-records",
-        json={"test_type": "field_exercise", "result": "fail", "title": "Field run", "test_date": "2026-01-03"},
+        json={"test_type": "intercept", "result": "fail", "title": "Field run", "test_date": "2026-01-03"},
     )
     assert resp.status_code == 201, resp.text
     assert resp.json()["modes"] == []
@@ -145,7 +145,7 @@ def test_non_simulation_test_does_not_require_simulation_created_date(editor_cli
     emitter_id = emitter_with_mode["emitter"]["id"]
     resp = editor_client.post(
         f"/emitters/{emitter_id}/test-records",
-        json={"test_type": "lab_bench", "result": "pass", "title": "Bench run", "test_date": "2026-01-02"},
+        json={"test_type": "intercept", "result": "pass", "title": "Bench run", "test_date": "2026-01-02"},
     )
     assert resp.status_code == 201, resp.text
     assert resp.json()["simulation_created_date"] is None
@@ -162,7 +162,7 @@ def test_emitter_modes_list_carries_last_test_status(editor_client, emitter_with
     editor_client.post(
         f"/emitters/{emitter_id}/test-records",
         json={
-            "test_type": "lab_bench",
+            "test_type": "intercept",
             "title": "Bench run",
             "test_date": "2026-01-05",
             "mode_results": [{"mode_id": mode_id, "result": "partial"}],
@@ -176,7 +176,7 @@ def test_emitter_modes_list_carries_last_test_status(editor_client, emitter_with
     editor_client.post(
         f"/emitters/{emitter_id}/test-records",
         json={
-            "test_type": "lab_bench",
+            "test_type": "intercept",
             "title": "Second bench run",
             "test_date": "2026-01-10",
             "mode_results": [{"mode_id": mode_id, "result": "fail"}],

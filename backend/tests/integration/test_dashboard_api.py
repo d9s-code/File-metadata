@@ -107,7 +107,7 @@ def test_dashboard_needs_redo_appears_then_disappears_after_retest(editor_client
     failed = editor_client.post(
         f"/emitters/{emitter['id']}/test-records",
         json={
-            "test_type": "lab_bench",
+            "test_type": "intercept",
             "title": "Failing run",
             "test_date": "2026-01-01",
             "mode_results": [{"mode_id": mode["id"], "result": "fail"}],
@@ -120,7 +120,7 @@ def test_dashboard_needs_redo_appears_then_disappears_after_retest(editor_client
     editor_client.post(
         f"/emitters/{emitter['id']}/test-records",
         json={
-            "test_type": "lab_bench",
+            "test_type": "intercept",
             "title": "Retest",
             "test_date": "2026-01-02",
             "mode_results": [{"mode_id": mode["id"], "result": "pass"}],

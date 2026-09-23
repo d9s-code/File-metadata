@@ -43,6 +43,7 @@ def test_import_test_lines(editor_client, emitter_with_mode):
                 {"label": "Threat 3, low-PRF search"},
             ],
             "batch_label": "2026-09 threat table",
+            "created_date": "2026-09-15",
         },
     )
     assert resp.status_code == 201, resp.text
@@ -60,27 +61,27 @@ def test_import_test_lines_rejects_unknown_mode(editor_client, emitter_with_mode
     emitter_id = emitter_with_mode["emitter"]["id"]
     resp = editor_client.post(
         f"/emitters/{emitter_id}/test-lines/import",
-        json={"lines": [{"label": "X", "expected_mode_id": "00000000-0000-0000-0000-000000000000"}]},
+        json={"created_date": "2026-09-15", "lines": [{"label": "X", "expected_mode_id": "00000000-0000-0000-0000-000000000000"}]},
     )
     assert resp.status_code == 404
 
 
 def test_import_test_lines_rejects_empty_list(editor_client, emitter_with_mode):
     emitter_id = emitter_with_mode["emitter"]["id"]
-    resp = editor_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"lines": []})
+    resp = editor_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"created_date": "2026-09-15", "lines": []})
     assert resp.status_code == 422
 
 
 def test_viewer_cannot_import_test_lines(viewer_client, editor_client, emitter_with_mode):
     emitter_id = emitter_with_mode["emitter"]["id"]
-    resp = viewer_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"lines": [{"label": "X"}]})
+    resp = viewer_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"created_date": "2026-09-15", "lines": [{"label": "X"}]})
     assert resp.status_code == 403
 
 
 def test_delete_test_line(editor_client, emitter_with_mode):
     emitter_id = emitter_with_mode["emitter"]["id"]
     line = editor_client.post(
-        f"/emitters/{emitter_id}/test-lines/import", json={"lines": [{"label": "X"}]}
+        f"/emitters/{emitter_id}/test-lines/import", json={"created_date": "2026-09-15", "lines": [{"label": "X"}]}
     ).json()[0]
     resp = editor_client.delete(f"/emitters/{emitter_id}/test-lines/{line['id']}")
     assert resp.status_code == 204
@@ -90,7 +91,7 @@ def test_delete_test_line(editor_client, emitter_with_mode):
 def test_update_test_line_label_and_mode(editor_client, emitter_with_mode):
     emitter_id = emitter_with_mode["emitter"]["id"]
     mode_id = emitter_with_mode["mode"]["id"]
-    line = editor_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"lines": [{"label": "X"}]}).json()[0]
+    line = editor_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"created_date": "2026-09-15", "lines": [{"label": "X"}]}).json()[0]
     original_updated_at = line["updated_at"]
 
     resp = editor_client.patch(
@@ -112,7 +113,7 @@ def test_update_test_line_can_clear_expected_mode(editor_client, emitter_with_mo
     emitter_id = emitter_with_mode["emitter"]["id"]
     mode_id = emitter_with_mode["mode"]["id"]
     line = editor_client.post(
-        f"/emitters/{emitter_id}/test-lines/import", json={"lines": [{"label": "X", "expected_mode_id": mode_id}]}
+        f"/emitters/{emitter_id}/test-lines/import", json={"created_date": "2026-09-15", "lines": [{"label": "X", "expected_mode_id": mode_id}]}
     ).json()[0]
     resp = editor_client.patch(f"/emitters/{emitter_id}/test-lines/{line['id']}", json={"expected_mode_id": None})
     assert resp.status_code == 200, resp.text
@@ -121,7 +122,7 @@ def test_update_test_line_can_clear_expected_mode(editor_client, emitter_with_mo
 
 def test_update_test_line_rejects_unknown_mode(editor_client, emitter_with_mode):
     emitter_id = emitter_with_mode["emitter"]["id"]
-    line = editor_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"lines": [{"label": "X"}]}).json()[0]
+    line = editor_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"created_date": "2026-09-15", "lines": [{"label": "X"}]}).json()[0]
     resp = editor_client.patch(
         f"/emitters/{emitter_id}/test-lines/{line['id']}",
         json={"expected_mode_id": "00000000-0000-0000-0000-000000000000"},
@@ -131,7 +132,7 @@ def test_update_test_line_rejects_unknown_mode(editor_client, emitter_with_mode)
 
 def test_update_test_line_is_audited(editor_client, emitter_with_mode):
     emitter_id = emitter_with_mode["emitter"]["id"]
-    line = editor_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"lines": [{"label": "X"}]}).json()[0]
+    line = editor_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"created_date": "2026-09-15", "lines": [{"label": "X"}]}).json()[0]
     editor_client.patch(f"/emitters/{emitter_id}/test-lines/{line['id']}", json={"label": "Y"})
     audit = editor_client.get("/audit-log", params={"emitter_id": emitter_id, "entity_type": "test_line"}).json()
     update_entries = [e for e in audit["items"] if e["action"] == "update"]
@@ -141,11 +142,11 @@ def test_update_test_line_is_audited(editor_client, emitter_with_mode):
 
 def test_import_test_lines_is_audited_under_emitter_rollup(editor_client, emitter_with_mode):
     emitter_id = emitter_with_mode["emitter"]["id"]
-    editor_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"lines": [{"label": "X"}, {"label": "Y"}]})
+    editor_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"created_date": "2026-09-15", "lines": [{"label": "X"}, {"label": "Y"}]})
     audit = editor_client.get("/audit-log", params={"emitter_id": emitter_id, "entity_type": "test_line"}).json()
     create_entries = [e for e in audit["items"] if e["action"] == "create"]
     assert len(create_entries) == 1
-    assert "2 Test Line" in create_entries[0]["summary"]
+    assert "2 SIM Test Line" in create_entries[0]["summary"]
 
 
 def test_import_update_delete_require_checkout(editor_client, admin_client, emitter_with_mode):
@@ -154,11 +155,11 @@ def test_import_update_delete_require_checkout(editor_client, admin_client, emit
     # own Mode creation left it held by editor_client) and confirm every
     # mutating endpoint now 409s instead of succeeding.
     emitter_id = emitter_with_mode["emitter"]["id"]
-    line = editor_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"lines": [{"label": "X"}]}).json()[0]
+    line = editor_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"created_date": "2026-09-15", "lines": [{"label": "X"}]}).json()[0]
     editor_client.delete(f"/emitters/{emitter_id}/checkout")
     assert editor_client.get(f"/emitters/{emitter_id}").json()["checked_out_by_id"] is None
 
-    resp = editor_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"lines": [{"label": "Y"}]})
+    resp = editor_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"created_date": "2026-09-15", "lines": [{"label": "Y"}]})
     assert resp.status_code == 409
 
     resp = editor_client.patch(f"/emitters/{emitter_id}/test-lines/{line['id']}", json={"label": "Z"})
@@ -184,7 +185,7 @@ def test_import_rejects_mode_from_another_emitter(editor_client, emitter_with_mo
     ).json()
     resp = editor_client.post(
         f"/emitters/{emitter_id}/test-lines/import",
-        json={"lines": [{"label": "X", "expected_mode_id": other_mode["id"]}]},
+        json={"created_date": "2026-09-15", "lines": [{"label": "X", "expected_mode_id": other_mode["id"]}]},
     )
     assert resp.status_code == 404
 
@@ -194,7 +195,7 @@ def test_test_lines_show_in_live_diff_and_clear_after_commit(editor_client, emit
     before = editor_client.get(f"/emitters/{emitter_id}/diff/live").json()
     assert not any("Test Line" in e["scope"] for e in before["entries"])
 
-    editor_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"lines": [{"label": "Threat X"}]})
+    editor_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"created_date": "2026-09-15", "lines": [{"label": "Threat X"}]})
     dirty = editor_client.get(f"/emitters/{emitter_id}/diff/live").json()
     matches = [e for e in dirty["entries"] if e["scope"] == "Test Line 'Threat X'"]
     assert len(matches) == 1
@@ -213,7 +214,7 @@ def test_revert_restores_test_lines_and_drops_uncommitted_ones(editor_client, em
     emitter_id = emitter_with_mode["emitter"]["id"]
     editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "v1: no lines"})
 
-    editor_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"lines": [{"label": "Only in v2"}]})
+    editor_client.post(f"/emitters/{emitter_id}/test-lines/import", json={"created_date": "2026-09-15", "lines": [{"label": "Only in v2"}]})
     editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "v2: one line"})
 
     resp = editor_client.post(f"/emitters/{emitter_id}/versions/1/revert")
@@ -224,7 +225,7 @@ def test_revert_restores_test_lines_and_drops_uncommitted_ones(editor_client, em
 def test_revert_preserves_test_line_id_and_restores_edited_label(editor_client, emitter_with_mode):
     emitter_id = emitter_with_mode["emitter"]["id"]
     line = editor_client.post(
-        f"/emitters/{emitter_id}/test-lines/import", json={"lines": [{"label": "Original label"}]}
+        f"/emitters/{emitter_id}/test-lines/import", json={"created_date": "2026-09-15", "lines": [{"label": "Original label"}]}
     ).json()[0]
     editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "v1: original label"})
 
@@ -244,7 +245,7 @@ def test_fork_copies_test_lines_with_remapped_expected_mode(editor_client, emitt
     mode_id = emitter_with_mode["mode"]["id"]
     editor_client.post(
         f"/emitters/{emitter_id}/test-lines/import",
-        json={"lines": [{"label": "Forked line", "expected_mode_id": mode_id}]},
+        json={"created_date": "2026-09-15", "lines": [{"label": "Forked line", "expected_mode_id": mode_id}]},
     )
     version = editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "v1"}).json()
 
@@ -263,7 +264,7 @@ def test_fork_copies_test_lines_with_remapped_expected_mode(editor_client, emitt
 
 
 def _import_lines(client, emitter_id, labels):
-    resp = client.post(f"/emitters/{emitter_id}/test-lines/import", json={"lines": [{"label": lbl} for lbl in labels]})
+    resp = client.post(f"/emitters/{emitter_id}/test-lines/import", json={"created_date": "2026-09-15", "lines": [{"label": lbl} for lbl in labels]})
     assert resp.status_code == 201, resp.text
     return resp.json()
 
@@ -280,7 +281,7 @@ def test_create_test_record_with_line_results_derives_worst_of(editor_client, em
             "simulation_created_date": "2026-09-01",
             "line_results": [
                 {"test_line_id": lines[0]["id"], "outcome": "pass"},
-                {"test_line_id": lines[1]["id"], "outcome": "partial", "detected_as_mode_id": emitter_with_mode["mode"]["id"]},
+                {"test_line_id": lines[1]["id"], "outcome": "partial", "intercepted_mode_ids": [emitter_with_mode["mode"]["id"]]},
                 {"test_line_id": lines[2]["id"], "outcome": "pass"},
             ],
         },
@@ -291,7 +292,8 @@ def test_create_test_record_with_line_results_derives_worst_of(editor_client, em
     assert len(record["lines"]) == 3
     by_label = {ln["test_line_label"]: ln for ln in record["lines"]}
     assert by_label["Line B"]["outcome"] == "partial"
-    assert by_label["Line B"]["detected_as_mode_id"] == emitter_with_mode["mode"]["id"]
+    assert [m["mode_id"] for m in by_label["Line B"]["intercepted_modes"]] == [emitter_with_mode["mode"]["id"]]
+    assert by_label["Line B"]["intercepted_modes"][0]["mode_name"] == "Mode 1"
 
 
 def test_line_results_take_precedence_over_mode_results(editor_client, emitter_with_mode):
@@ -301,7 +303,7 @@ def test_line_results_take_precedence_over_mode_results(editor_client, emitter_w
     resp = editor_client.post(
         f"/emitters/{emitter_id}/test-records",
         json={
-            "test_type": "lab_bench",
+            "test_type": "intercept",
             "title": "Mixed test",
             "test_date": "2026-09-22",
             "line_results": [{"test_line_id": lines[0]["id"], "outcome": "pass"}],
@@ -345,21 +347,21 @@ def test_create_test_record_rejects_test_line_from_another_emitter(editor_client
     assert resp.status_code == 404
 
 
-def test_create_test_record_rejects_unknown_detected_as_mode(editor_client, emitter_with_mode):
+def test_create_test_record_rejects_unknown_intercepted_mode(editor_client, emitter_with_mode):
     emitter_id = emitter_with_mode["emitter"]["id"]
     lines = _import_lines(editor_client, emitter_id, ["Line A"])
     resp = editor_client.post(
         f"/emitters/{emitter_id}/test-records",
         json={
             "test_type": "simulation",
-            "title": "Bad detected-as",
+            "title": "Bad intercepted mode",
             "test_date": "2026-09-22",
             "simulation_created_date": "2026-09-01",
             "line_results": [
                 {
                     "test_line_id": lines[0]["id"],
                     "outcome": "partial",
-                    "detected_as_mode_id": "00000000-0000-0000-0000-000000000000",
+                    "intercepted_mode_ids": ["00000000-0000-0000-0000-000000000000"],
                 }
             ],
         },
@@ -421,7 +423,7 @@ def test_emitter_last_validated_reflects_most_recent_line_tested_record(editor_c
     editor_client.post(
         f"/emitters/{emitter_id}/test-records",
         json={
-            "test_type": "lab_bench",
+            "test_type": "intercept",
             "title": "Mode-only test",
             "test_date": "2026-09-20",
             "mode_results": [{"mode_id": emitter_with_mode["mode"]["id"], "result": "fail"}],

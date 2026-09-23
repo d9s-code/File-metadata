@@ -22,5 +22,11 @@ from app.models.source import Source  # noqa: F401
 from app.models.source_group import SourceGroup  # noqa: F401
 from app.models.source_note import SourceNote  # noqa: F401
 from app.models.test_line import TestLine  # noqa: F401
-from app.models.test_record import TestRecord, TestRecordFunctionGroup, TestRecordLine, TestRecordMode  # noqa: F401
+from app.models.test_record import (  # noqa: F401
+    TestRecord,
+    TestRecordFunctionGroup,
+    TestRecordLine,
+    TestRecordLineMode,
+    TestRecordMode,
+)
 from app.models.user import User  # noqa: F401

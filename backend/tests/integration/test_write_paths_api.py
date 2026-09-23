@@ -201,7 +201,7 @@ def test_ew_group_delete_cascades_its_modes(editor_client, emitter, source):
 def test_emitter_test_record_delete(editor_client, emitter):
     base = f"/emitters/{emitter['id']}/test-records"
     record = editor_client.post(
-        base, json={"test_type": "field_exercise", "result": "pass", "title": "Run", "test_date": "2026-01-03"}
+        base, json={"test_type": "intercept", "result": "pass", "title": "Run", "test_date": "2026-01-03"}
     ).json()
     assert editor_client.delete(f"{base}/{record['id']}").status_code == 204
     assert editor_client.get(base).json() == []

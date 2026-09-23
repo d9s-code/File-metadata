@@ -1,7 +1,7 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import Date, ForeignKey, Text
+from sqlalchemy import Date, ForeignKey, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -130,8 +130,11 @@ class TestRecordLine(UUIDPkMixin, Base):
     a bespoke enum so the existing worst-of aggregation, badges, and CSS
     already used everywhere else for TestResult apply here unchanged: pass =
     correctly intercepted, partial = misclassified (recognized as *something*,
-    just not the right thing — see detected_as_mode_id), fail = missed
-    entirely, inconclusive = couldn't be assessed this run.
+    just not the right thing), fail = missed entirely, inconclusive = couldn't
+    be assessed this run. `intercepted_modes` records which of the Emitter's
+    Modes the system actually reported for this line (any number), and
+    `observed_values` what was measured — same shape as
+    TestRecordMode.observed_values.
     """
 
     __tablename__ = "test_record_lines"
@@ -145,14 +148,30 @@ class TestRecordLine(UUIDPkMixin, Base):
         UUID(as_uuid=True), ForeignKey("test_lines.id", ondelete="CASCADE"), nullable=False, index=True
     )
     outcome: Mapped[TestResult] = mapped_column(nullable=False)
-    # Only meaningful when outcome == partial (misclassified) — which Mode it
-    # was actually recognized as instead. SET NULL: same traceability-only
-    # reasoning as TestLine.expected_mode_id.
-    detected_as_mode_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("modes.id", ondelete="SET NULL"), nullable=True
-    )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    observed_values: Mapped[list[dict] | None] = mapped_column(JSONB, nullable=True)
 
     test_record: Mapped["TestRecord"] = relationship(back_populates="lines")
     test_line: Mapped["TestLine"] = relationship()  # noqa: F821
-    detected_as_mode: Mapped["Mode"] = relationship()  # noqa: F821
+    intercepted_modes: Mapped[list["TestRecordLineMode"]] = relationship(
+        back_populates="test_record_line", cascade="all, delete-orphan"
+    )
+
+
+class TestRecordLineMode(UUIDPkMixin, Base):
+    """One Mode the system reported when a SIM Test Line was presented during
+    a test run. CASCADE on the Mode, like TestRecordMode: regenerating Modes
+    must never be blocked by test history, it just drops the flag."""
+
+    __tablename__ = "test_record_line_modes"
+    __table_args__ = (UniqueConstraint("test_record_line_id", "mode_id", name="uq_test_record_line_mode"),)
+
+    test_record_line_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("test_record_lines.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    mode_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("modes.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    test_record_line: Mapped["TestRecordLine"] = relationship(back_populates="intercepted_modes")
+    mode: Mapped["Mode"] = relationship()  # noqa: F821

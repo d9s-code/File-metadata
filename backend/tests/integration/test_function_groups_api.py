@@ -172,7 +172,7 @@ def test_test_record_computes_function_group_rating_with_override(editor_client,
     resp = editor_client.post(
         f"/emitters/{emitter_id}/test-records",
         json={
-            "test_type": "lab_bench",
+            "test_type": "intercept",
             "title": "FG run",
             "test_date": "2026-01-01",
             "mode_results": [
@@ -193,7 +193,7 @@ def test_test_record_computes_function_group_rating_with_override(editor_client,
     resp = editor_client.post(
         f"/emitters/{emitter_id}/test-records",
         json={
-            "test_type": "lab_bench",
+            "test_type": "intercept",
             "title": "FG run 2",
             "test_date": "2026-01-02",
             "mode_results": [
@@ -215,7 +215,7 @@ def test_test_record_without_grouped_modes_has_no_function_groups(editor_client,
     resp = editor_client.post(
         f"/emitters/{emitter_id}/test-records",
         json={
-            "test_type": "lab_bench",
+            "test_type": "intercept",
             "title": "Ungrouped run",
             "test_date": "2026-01-01",
             "mode_results": [{"mode_id": mode1_id, "result": "pass"}],

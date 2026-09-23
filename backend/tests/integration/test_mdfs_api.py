@@ -202,7 +202,7 @@ def test_test_record_pins_to_latest_committed_version(editor_client, platform_wi
     emitter_id = platform_with_version["emitter"]["id"]
     resp = editor_client.post(
         f"/emitters/{emitter_id}/test-records",
-        json={"test_type": "lab_bench", "result": "fail", "title": "Bench check", "test_date": "2025-05-01"},
+        json={"test_type": "intercept", "result": "fail", "title": "Bench check", "test_date": "2025-05-01"},
     )
     assert resp.status_code == 201, resp.text
     body = resp.json()
@@ -214,6 +214,6 @@ def test_viewer_cannot_create_test_record(viewer_client, platform_with_version):
     emitter_id = platform_with_version["emitter"]["id"]
     resp = viewer_client.post(
         f"/emitters/{emitter_id}/test-records",
-        json={"test_type": "lab_bench", "result": "fail", "title": "Bench check", "test_date": "2025-05-01"},
+        json={"test_type": "intercept", "result": "fail", "title": "Bench check", "test_date": "2025-05-01"},
     )
     assert resp.status_code == 403

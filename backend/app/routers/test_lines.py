@@ -12,6 +12,7 @@ from app.models.emitter import Emitter
 from app.models.ew_group import EwGroup
 from app.models.mode import Mode
 from app.models.test_line import TestLine
+from app.models.test_record import TestRecord, TestRecordLine
 from app.schemas.test_line import TestLineImportRequest, TestLineOut, TestLineUpdate
 from app.services.audit_service import apply_and_diff, record_audit
 
@@ -24,10 +25,30 @@ router = APIRouter(prefix="/emitters/{emitter_id}/test-lines", tags=["test-lines
 _EAGER_LOAD = joinedload(TestLine.expected_mode)
 
 
-def _to_out(tl: TestLine) -> TestLineOut:
+def _to_out(tl: TestLine, status_row: tuple | None = None) -> TestLineOut:
     out = TestLineOut.model_validate(tl)
     out.expected_mode_name = tl.expected_mode.name if tl.expected_mode else None
+    if status_row is not None:
+        out.last_tested_at, out.last_test_result, out.last_test_record_id = status_row
     return out
+
+
+def _latest_status_by_line(db: Session, line_ids: list[UUID]) -> dict[UUID, tuple]:
+    """Each line's outcome in the most recent test run that included it
+    (latest test_date, then latest logged)."""
+    if not line_ids:
+        return {}
+    rows = (
+        db.query(TestRecordLine.test_line_id, TestRecord.test_date, TestRecordLine.outcome, TestRecord.id)
+        .join(TestRecord, TestRecordLine.test_record_id == TestRecord.id)
+        .filter(TestRecordLine.test_line_id.in_(line_ids))
+        .order_by(TestRecordLine.test_line_id, TestRecord.test_date.desc(), TestRecord.created_at.desc())
+        .all()
+    )
+    latest: dict[UUID, tuple] = {}
+    for line_id, test_date, outcome, record_id in rows:
+        latest.setdefault(line_id, (test_date, outcome, record_id))
+    return latest
 
 
 def _validate_mode_ids(db: Session, emitter_id: UUID, mode_ids: set[UUID]) -> None:
@@ -56,7 +77,8 @@ def list_test_lines(emitter_id: UUID, db: Session = Depends(get_db), _=Depends(r
         .order_by(TestLine.sort_order.asc(), TestLine.created_at.asc())
         .all()
     )
-    return [_to_out(tl) for tl in lines]
+    statuses = _latest_status_by_line(db, [tl.id for tl in lines])
+    return [_to_out(tl, statuses.get(tl.id)) for tl in lines]
 
 
 @router.post("/import", response_model=list[TestLineOut], status_code=status.HTTP_201_CREATED, dependencies=[Depends(verify_csrf)])
@@ -86,6 +108,7 @@ def import_test_lines(
             expected_mode_id=ln.expected_mode_id,
             expected_parameters=ln.expected_parameters,
             import_batch_label=payload.batch_label,
+            created_date=payload.created_date,
             imported_by=user.id,
             sort_order=next_sort_order + i,
         )
@@ -99,7 +122,7 @@ def import_test_lines(
         action=AuditAction.create,
         entity_type=AuditEntityType.test_line.value,
         entity_id=created[0].id,
-        summary=f"Imported {len(created)} Test Line(s)" + (f" ({payload.batch_label})" if payload.batch_label else ""),
+        summary=f"Imported {len(created)} SIM Test Line(s)" + (f" ({payload.batch_label})" if payload.batch_label else ""),
         changes=payload.model_dump(mode="json"),
         emitter_id=emitter_id,
     )
@@ -139,7 +162,7 @@ def update_test_line(
     )
     db.commit()
     db.refresh(line)
-    return _to_out(line)
+    return _to_out(line, _latest_status_by_line(db, [line.id]).get(line.id))
 
 
 @router.delete("/{test_line_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(verify_csrf)])

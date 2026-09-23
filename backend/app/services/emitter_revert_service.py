@@ -34,6 +34,10 @@ from app.models.source import Source
 from app.models.test_line import TestLine
 
 
+def _date_or_none(value: str | None) -> date | None:
+    return date.fromisoformat(value) if value else None
+
+
 def _num(value):
     return float(value) if value is not None else None
 
@@ -229,6 +233,8 @@ def _reconcile_test_lines(
         # ends up referencing a Mode outside this Emitter's own snapshot.
         line.expected_mode_id = uuid.UUID(raw_mode_id) if raw_mode_id in valid_mode_ids else None
         line.expected_parameters = tl_snap.get("expected_parameters")
+        if "created_date" in tl_snap:
+            line.created_date = _date_or_none(tl_snap["created_date"])
         line.sort_order = tl_snap.get("sort_order", 0)
     for line_id, line in live.items():
         if line_id not in target_ids:
@@ -355,6 +361,7 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
                 label=tl_snap["label"],
                 expected_mode_id=mode_id_map.get(raw_mode_id) if raw_mode_id else None,
                 expected_parameters=tl_snap.get("expected_parameters"),
+                created_date=_date_or_none(tl_snap.get("created_date")),
                 sort_order=tl_snap.get("sort_order", 0),
             )
         )

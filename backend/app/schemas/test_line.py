@@ -1,7 +1,9 @@
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
+
+from app.core.enums import TestResult
 
 
 class TestLineCreate(BaseModel):
@@ -16,12 +18,16 @@ class TestLineCreate(BaseModel):
 class TestLineImportRequest(BaseModel):
     lines: list[TestLineCreate]
     batch_label: str | None = None
+    # When these SIM Test Lines were created in the simulator — typed in by
+    # the user, applied to every line in this import.
+    created_date: date
 
 
 class TestLineUpdate(BaseModel):
     label: str | None = None
     expected_mode_id: UUID | None = None
     expected_parameters: dict | None = None
+    created_date: date | None = None
 
 
 class TestLineOut(BaseModel):
@@ -36,5 +42,11 @@ class TestLineOut(BaseModel):
     expected_mode_name: str | None = None
     expected_parameters: dict | None = None
     import_batch_label: str | None = None
+    created_date: date | None = None
+    # This line's status: its outcome in the most recent test run that
+    # included it. Populated by the router, like expected_mode_name.
+    last_test_result: TestResult | None = None
+    last_tested_at: date | None = None
+    last_test_record_id: UUID | None = None
     created_at: datetime
     updated_at: datetime

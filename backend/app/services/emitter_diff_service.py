@@ -39,7 +39,10 @@ TEST_LINE_FIELD_LABELS = {
     "label": "Label",
     "expected_mode_name": "Expected Mode",
     "expected_parameters": "Expected Parameters",
+    "created_date": "Created",
 }
+
+TEST_LINE_FIELDS_ADDED_LATER = frozenset({"created_date"})
 
 MODE_FIELD_LABELS = {
     "name": "Name",
@@ -160,6 +163,8 @@ def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict) -> dict:
             entries.append(_entry(f"Test Line '{tl['label']}'", "Removed", "removed"))
     for line_id in set(old_lines) & set(new_lines):
         ol, nl = old_lines[line_id], new_lines[line_id]
-        _diff_fields(entries, f"Test Line '{nl['label']}'", ol, nl, TEST_LINE_FIELD_LABELS)
+        _diff_fields(
+            entries, f"Test Line '{nl['label']}'", ol, nl, TEST_LINE_FIELD_LABELS, TEST_LINE_FIELDS_ADDED_LATER
+        )
 
     return {"entries": entries, "identical": not entries}
