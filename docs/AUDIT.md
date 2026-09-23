@@ -2,7 +2,7 @@
 
 Audited at `ccd3eec` on branch `app-audit`. The audit covers security, data integrity, correctness, performance, tests, dependencies, deployment, and repo hygiene.
 
-**Nothing in this report has been changed yet.** Every item is a proposed change. Items marked **Decision** need a product call before they can be implemented.
+**Status:** fixes are on branch `audit-fixes`. Everything below is fixed there except **#6**, the choice between the two PRS exporters. That one needs someone to check the output against a real PRS file; see [Open decision: which PRS export format is correct](#open-decision-which-prs-export-format-is-correct). The findings further down are kept as originally written; the Status column says what changed.
 
 ## How this was checked
 
@@ -15,29 +15,61 @@ Audited at `ccd3eec` on branch `app-audit`. The audit covers security, data inte
 
 ## Summary
 
-| # | Sev | Finding | Proposed change |
-|---|-----|---------|-----------------|
-| 1 | High | Backend dependencies have known CVEs. Multipart-parser DoS bugs can be triggered **without logging in**. | Upgrade `fastapi`/`starlette`, `python-multipart`, `pyjwt`, `lxml`, and `deepdiff`. Cap the upload size. |
-| 2 | High | The app starts with a publicly known JWT secret if none is configured. Compose ships `CHANGE_ME` placeholders for the secret and the admin password. | Refuse to start when the secret or admin password is a default or placeholder value. |
-| 3 | High | Approving or rejecting a Source changes nothing downstream: Modes from rejected Sources are still exported, versioned, and analysed. | **Decision:** what "rejected" and "pending" should exclude. Then filter on it in export, snapshots, and ambiguity runs. |
-| 4 | High | Some Emitter writes skip the checkout lock. Another editor can delete the Emitter, delete a generation batch of Modes, JSON-import Sources, or commit a version while someone else is editing. | Require the checkout on these routes. For delete, allow the lock holder or an Admin. |
-| 5 | Med | Exporting an Emitter or Platform with a non-Latin name returns a 500 error. Names containing `/` create nested folders in the ZIP. | Use an RFC 6266 `filename*=` header, and use `sanitize_filename` for ZIP entry paths. |
-| 6 | Med | Two separate PRS exporters produce different XML for the same data. | Make the live export build a snapshot and reuse `prs_export`. Delete `XMLExporterService`. |
-| 7 | Med | A soft-deleted Emitter still reserves its name for 30 days, and it can still be checked out and edited. | Use a partial unique index on active names only, and return 404 for deleted Emitters on write routes. |
-| 8 | Med | When the session expires after 8 hours, the UI stays "logged in" and every action fails with "Invalid or expired token". | Clear the user and redirect to `/login` on any 401 response. |
-| 9 | Med | Four `async def` routes run blocking database and ZIP work on the event loop. A large export stalls every other request. | Change them to plain `def`, and read the upload with `file.file.read()`. |
-| 10 | Med | About 46 backend routes are never called by a test, including JSON import, Source approve/reject, parameter sequences, source groups, and trash purge. The frontend has no tests. | Add integration tests for the write paths first. |
-| 11 | Low | Hardening gaps: username-only rate limit, no password minimum length, `/docs` is public, the image runs as root with pytest installed, nginx sends no security headers, and a checkout race exists. | See details. |
-| 12 | Low | Repo hygiene: stray debug files, a local Windows config file, and dead code. | Delete them. |
+| # | Sev | Finding | Proposed change | Status |
+|---|-----|---------|-----------------|--------|
+| 1 | High | Backend dependencies have known CVEs. Multipart-parser DoS bugs can be triggered **without logging in**. | Upgrade `fastapi`/`starlette`, `python-multipart`, `pyjwt`, `lxml`, and `deepdiff`. Cap the upload size. | Fixed. All six packages are upgraded, and pip-audit is clean. Uploads are capped at 10 MB in the backend (413) and 20 MB at Traefik. Dev dependencies are in `requirements-dev.txt`. |
+| 2 | High | The app starts with a publicly known JWT secret if none is configured. Compose ships `CHANGE_ME` placeholders for the secret and the admin password. | Refuse to start when the secret or admin password is a default or placeholder value. | Fixed. The backend won't start with a default, `CHANGE_ME`, or short secret unless `APP_ENV=dev`. `create_admin.py` refuses weak passwords. |
+| 3 | High | Approving or rejecting a Source changes nothing downstream: Modes from rejected Sources are still exported, versioned, and analysed. | **Decision:** what "rejected" and "pending" should exclude. Then filter on it in export, snapshots, and ambiguity runs. | Fixed as decided: rejecting requires a reason, and a rejected Source can be approved again later. Its Modes are left out of both exporters and ambiguity checks. The status is versioned. PRS import creates pending Sources. |
+| 4 | High | Some Emitter writes skip the checkout lock. Another editor can delete the Emitter, delete a generation batch of Modes, JSON-import Sources, or commit a version while someone else is editing. | Require the checkout on these routes. For delete, allow the lock holder or an Admin. | Fixed, and the UI disables these actions without the checkout. |
+| 5 | Med | Exporting an Emitter or Platform with a non-Latin name returns a 500 error. Names containing `/` create nested folders in the ZIP. | Use an RFC 6266 `filename*=` header, and use `sanitize_filename` for ZIP entry paths. | Fixed. ZIP entries and `EmitterFile` references now use the same name. |
+| 6 | Med | Two separate PRS exporters produce different XML for the same data. | Make the live export build a snapshot and reuse `prs_export`. Delete `XMLExporterService`. | **Open, needs a decision.** Filename bugs and rejected-Source filtering were fixed in both exporters. |
+| 7 | Med | A soft-deleted Emitter still reserves its name for 30 days, and it can still be checked out and edited. | Use a partial unique index on active names only, and return 404 for deleted Emitters on write routes. | Fixed for Emitters, Platforms, and MDFs. Renaming to a taken name now returns 409 instead of a 500. |
+| 8 | Med | When the session expires after 8 hours, the UI stays "logged in" and every action fails with "Invalid or expired token". | Clear the user and redirect to `/login` on any 401 response. | Fixed. You return to the same page after signing in again. |
+| 9 | Med | Four `async def` routes run blocking database and ZIP work on the event loop. A large export stalls every other request. | Change them to plain `def`, and read the upload with `file.file.read()`. | Fixed. |
+| 10 | Med | About 46 backend routes are never called by a test, including JSON import, Source approve/reject, parameter sequences, source groups, and trash purge. The frontend has no tests. | Add integration tests for the write paths first. | Fixed for the listed paths (51 new backend tests; the suite went from 308 to 359). Added `scripts/smoke_test.py`, a browser smoke test. |
+| 11 | Low | Hardening gaps: username-only rate limit, no password minimum length, `/docs` is public, the image runs as root with pytest installed, nginx sends no security headers, and a checkout race exists. | See details. | Fixed: per-IP limit and constant-time login, 12–72 character passwords, docs only in dev, a non-root image, CSP and other nginx headers, and a row-locked checkout. Token revocation on logout is still out of scope. |
+| 12 | Low | Repo hygiene: stray debug files, a local Windows config file, and dead code. | Delete them. | Fixed. `scripts/verify_export.py`, which called a route that doesn't exist, was also removed. |
 
 **Checked and fine:**
 - Every route requires authentication, apart from `/auth/login`, `/auth/logout`, and `/health`.
 - Every state-changing route checks the CSRF token. The five that don't are read-only: the export, validate, and parse endpoints.
 - Roles and the "active" flag are re-read from the database on every request, not trusted from the token.
-- XXE and entity-expansion ("billion laughs") attacks on the PRS import are rejected by lxml.
+- XXE and entity-expansion ("billion laughs") attacks on the PRS import are rejected by lxml. The parser is now also hardened explicitly.
 - Migrations match the models.
 - The frontend type-checks and lints clean.
 - `npm audit` reports 0 vulnerabilities.
+
+---
+
+## Open decision: which PRS export format is correct
+
+The app has two exporters that write the same PRS format:
+
+| Exporter | Used by | Code |
+|---|---|---|
+| "Export XML" button | the Emitter and Platform pages | `app/services/xml_export/xml_exporter_service.py` |
+| Versioned PRS export | a committed Platform or MDF version | `app/services/prs_export/` |
+
+To compare them, the same Emitter and Platform were exported through both. Their output differs as follows:
+
+| | "Export XML" button | Versioned PRS export |
+|---|---|---|
+| MDF namespace | `urn:com:bae:xml:pfm:library` | `urn:com:bae:prs:pfm:library` |
+| Platform `Base` / `Speed` | `SEA`, 10–1020 knots | `UNKNOWN`, 0–0 kph |
+| Number format | `2899.0000` | `2899` |
+| CW PRI | `<PRI Class="CW"><CW/></PRI>` | `<PRI Class="CW"/>` |
+| `Intrapulse` element position | right after `LethalCeiling` | after the `Scan` elements |
+| Xlet placeholder ranges | `Max="1"` | `Max="0"` |
+| `Scan Period` | widened by the EW Group's `scan_delta` | raw `scan_min`/`scan_max` (version snapshots don't capture `scan_delta`) |
+| Which Emitter data a Platform export uses | the Emitter's **live** state | the Emitter version **pinned** to the Platform |
+| `default_unknown_*.xml` files | referenced by the MDF file, but missing from the ZIP | included |
+
+Evidence in the repo:
+- `prs_export/serializer.py` says its tags and namespace were copied from the target system's own sample files (`Profile_format/`: `Example MDF.xml`, `PRS_FORMAT_EMITTER.xml`). Those files aren't in the repo.
+- `ExportPrsButton.tsx` calls the "Export XML" button a "placeholder" using a "legacy single-file format".
+- On the other hand, the in-app PRS importer was written against the button's output, and that's what the team has been using.
+
+**To decide:** compare either export against one of the real sample files. The MDF namespace and the CW PRI element are the quickest tells. Once the correct format is known, the other exporter can be removed and every export routed through a single serializer.
 
 ---
 

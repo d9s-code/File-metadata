@@ -64,7 +64,7 @@ sudo -u postgres psql -c "CREATE DATABASE rf_emitter_db OWNER rf_app;"
 cd backend
 python -m venv .venv
 .\.venv\Scripts\pip install -r requirements-dev.txt
-cp .env.example .env   # edit DATABASE_URL / JWT_SECRET; set COOKIE_SECURE=false for plain-HTTP local dev
+cp .env.example .env   # edit DATABASE_URL / JWT_SECRET; for local dev set APP_ENV=dev and COOKIE_SECURE=false
 .\.venv\Scripts\python.exe -m alembic upgrade head
 .\.venv\Scripts\python.exe scripts/create_admin.py admin <password>
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
