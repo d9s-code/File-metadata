@@ -278,8 +278,10 @@ export function HelpPage() {
                 <span className="test-result-badge test-result-partial">misclassified</span>,{" "}
                 <span className="test-result-badge test-result-fail">missed</span> or{" "}
                 <span className="test-result-badge test-result-inconclusive">inconclusive</span> where needed,
-                flag every Mode the system reported under <strong>Intercepted as</strong> (as many as
-                apply), and use <strong>+ Log</strong> to record the intercepted parameters (RF, PW, PRI —
+                flag every Mode the system reported under <strong>Intercepted as</strong> — type to search
+                the Emitter&rsquo;s Modes and click (or press Enter) to add as many as apply; the list stays
+                open between picks, and <strong>+ Add all N matches</strong> adds everything the search
+                found — and use <strong>+ Log</strong> to record the intercepted parameters (RF, PW, PRI —
                 more than one set if it was measured more than once).
               </li>
               <li>
