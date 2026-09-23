@@ -73,7 +73,13 @@ def commit_json_import(
         json_data = json.loads(_read_upload(file))
     except (json.JSONDecodeError, UnicodeDecodeError) as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Not a valid JSON file: {exc}") from exc
-    payload = transform_json_to_payload(json_data, override_source_date=source_date)
+    try:
+        payload = transform_json_to_payload(json_data, override_source_date=source_date)
+    except (ValueError, TypeError, KeyError, IndexError, AttributeError) as exc:
+        # ValueError includes pydantic's ValidationError from the payload models.
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, f"JSON file doesn't match the expected import format: {exc}"
+        ) from exc
 
     if group_id is not None and db.get(SourceGroup, group_id) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Source group not found")
