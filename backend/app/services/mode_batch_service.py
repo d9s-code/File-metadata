@@ -38,6 +38,7 @@ _NON_DSL_LINE_FIELDS = {
     "pw_delta",
     "pri_delta",
     "frame_time_delta_us",
+    "explicit_frame_time_us",
     "rf_range_matching",
     "pw_range_matching",
     "pri_range_matching",
@@ -94,6 +95,9 @@ def _current_line_values(mode: Mode) -> dict[str, Any]:
         "jitter_max_us": float(line.jitter_max_us) if line.jitter_max_us is not None else None,
         "pri_stagger_values_us": [float(v) for v in line.pri_stagger_values_us] if line.pri_stagger_values_us else None,
         "frame_time_delta_us": float(line.frame_time_delta_us) if line.frame_time_delta_us is not None else None,
+        "explicit_frame_time_us": (
+            float(line.explicit_frame_time_us) if line.explicit_frame_time_us is not None else None
+        ),
         "type_data": line.type_data,
     }
 

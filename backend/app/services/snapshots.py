@@ -61,6 +61,7 @@ def _mode_dict(mode: Mode) -> dict:
             "pw_delta": _num(line.pw_delta),
             "pri_delta": _num(line.pri_delta),
             "frame_time_delta_us": _num(line.frame_time_delta_us),
+            "explicit_frame_time_us": _num(line.explicit_frame_time_us),
             "rf_range_matching": line.rf_range_matching,
             "pw_range_matching": line.pw_range_matching,
             "pri_range_matching": line.pri_range_matching,

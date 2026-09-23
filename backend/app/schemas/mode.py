@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, computed_field, field_validator, mod
 from app.core.enums import PriType, TestResult, TestType
 from app.schemas.intercept import InterceptEntryBrief
 from app.services.delta import apply_delta
-from app.services.frametime_service import compute_frametime_us
+from app.services.frametime_service import FRAME_TIME_DECIMALS, effective_frametime_us
 
 
 def _validate_delta(v: float | None) -> float | None:
@@ -35,12 +35,23 @@ class ModeLineFields(BaseModel):
     jitter_max_us: float | None = None
     pri_stagger_values_us: list[float] | None = None
     frame_time_delta_us: float | None = None
+    # Stagger only — overrides the sum of pri_stagger_values_us when set.
+    explicit_frame_time_us: float | None = None
     type_data: dict | None = None
 
     _validate_rf_delta = field_validator("rf_delta")(_validate_delta)
     _validate_pw_delta = field_validator("pw_delta")(_validate_delta)
     _validate_pri_delta = field_validator("pri_delta")(_validate_delta)
     _validate_frame_time_delta = field_validator("frame_time_delta_us")(_validate_delta)
+
+    @field_validator("explicit_frame_time_us")
+    @classmethod
+    def check_explicit_frame_time(cls, v: float | None) -> float | None:
+        if v is None:
+            return v
+        if v <= 0:
+            raise ValueError("explicit_frame_time_us must be > 0")
+        return round(v, FRAME_TIME_DECIMALS)
 
     @model_validator(mode="after")
     def check_ranges(self) -> "ModeLineFields":
@@ -70,6 +81,8 @@ def validate_pri_type_fields(pri_type: PriType, fields: ModeLineFields) -> None:
             raise ValueError("Fixed PRI must not set pri_stagger_values_us")
         if fields.frame_time_delta_us is not None:
             raise ValueError("Fixed PRI must not set frame_time_delta_us")
+        if fields.explicit_frame_time_us is not None:
+            raise ValueError("Fixed PRI must not set explicit_frame_time_us")
     elif pri_type == PriType.stagger:
         if not fields.pri_stagger_values_us or len(fields.pri_stagger_values_us) < 1:
             raise ValueError("Stagger PRI requires a non-empty pri_stagger_values_us sequence")
@@ -91,6 +104,8 @@ def validate_pri_type_fields(pri_type: PriType, fields: ModeLineFields) -> None:
             raise ValueError("CW PRI must not set pri_delta")
         if fields.frame_time_delta_us is not None:
             raise ValueError("CW PRI must not set frame_time_delta_us")
+        if fields.explicit_frame_time_us is not None:
+            raise ValueError("CW PRI must not set explicit_frame_time_us")
     elif pri_type == PriType.xlet:
         if any(
             v is not None
@@ -101,6 +116,8 @@ def validate_pri_type_fields(pri_type: PriType, fields: ModeLineFields) -> None:
             raise ValueError("Xlet PRI must not set pri_delta")
         if fields.frame_time_delta_us is not None:
             raise ValueError("Xlet PRI must not set frame_time_delta_us")
+        if fields.explicit_frame_time_us is not None:
+            raise ValueError("Xlet PRI must not set explicit_frame_time_us")
 
 
 def require_manual_deltas(pri_type: PriType, fields: ModeLineFields) -> None:
@@ -307,7 +324,7 @@ class ModeLineOut(ModeLineFields):
     @computed_field
     @property
     def frame_time_us(self) -> float | None:
-        return compute_frametime_us(self.pri_stagger_values_us) if self.pri_stagger_values_us else None
+        return effective_frametime_us(self.pri_stagger_values_us, self.explicit_frame_time_us)
 
     @computed_field
     @property

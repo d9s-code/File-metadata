@@ -209,6 +209,8 @@ def _reconcile_mode_line(db: Session, mode: Mode, line_snap: dict | None) -> Non
     line.pw_delta = _num(line_snap.get("pw_delta"))
     line.pri_delta = _num(line_snap.get("pri_delta"))
     line.frame_time_delta_us = _num(line_snap.get("frame_time_delta_us"))
+    if "explicit_frame_time_us" in line_snap:
+        line.explicit_frame_time_us = _num(line_snap["explicit_frame_time_us"])
     line.rf_range_matching = bool(line_snap.get("rf_range_matching"))
     line.pw_range_matching = bool(line_snap.get("pw_range_matching"))
     line.pri_range_matching = bool(line_snap.get("pri_range_matching"))
@@ -345,6 +347,7 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
                         pw_delta=_num(line_snap.get("pw_delta")),
                         pri_delta=_num(line_snap.get("pri_delta")),
                         frame_time_delta_us=_num(line_snap.get("frame_time_delta_us")),
+                        explicit_frame_time_us=_num(line_snap.get("explicit_frame_time_us")),
                         rf_range_matching=bool(line_snap.get("rf_range_matching")),
                         pw_range_matching=bool(line_snap.get("pw_range_matching")),
                         pri_range_matching=bool(line_snap.get("pri_range_matching")),

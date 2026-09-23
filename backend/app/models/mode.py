@@ -87,6 +87,9 @@ class ModeLine(UUIDPkMixin, Base):
     # pri_stagger_values_us) to derive its engineered min/max — same raw-vs-engineered
     # pattern as rf_delta/pw_delta/pri_delta. Required for stagger PRI, forbidden otherwise.
     frame_time_delta_us: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
+    # Stagger only: a frame time written in by hand, used instead of the sum
+    # of pri_stagger_values_us when set. Null means "use the sum".
+    explicit_frame_time_us: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
 
     # Xlet + future PRI-type fields
     type_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)

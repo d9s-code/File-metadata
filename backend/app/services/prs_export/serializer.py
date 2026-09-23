@@ -12,7 +12,7 @@ import re
 from lxml import etree
 
 from app.services.delta import apply_delta
-from app.services.frametime_service import compute_frametime_us
+from app.services.frametime_service import effective_frametime_us
 from app.services.snapshots import rejected_source_ids
 
 PRS_NAMESPACE = "urn:com:bae:prs:pfm:library"
@@ -143,7 +143,7 @@ def _append_mode_element(parent: etree._Element, mode: dict, *, scan_name: str) 
         etree.SubElement(pri_el, "IntrapulseData", Name="default")
     elif pri_type == "stagger":
         values = line.get("pri_stagger_values_us") or []
-        frame_time = compute_frametime_us(values) if values else 0
+        frame_time = effective_frametime_us(values, line.get("explicit_frame_time_us")) or 0
         ft_min, ft_max = apply_delta(frame_time, frame_time, line.get("frame_time_delta_us"))
         etree.SubElement(pri_el, "FramePeriod", Min=_num_attr(ft_min), Max=_num_attr(ft_max), Units="us")
         stagger_el = etree.SubElement(pri_el, "StaggerLevels", Count=str(len(values)))

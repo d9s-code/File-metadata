@@ -19,6 +19,7 @@ _NON_DSL_LINE_FIELDS = {
     "pw_delta",
     "pri_delta",
     "frame_time_delta_us",
+    "explicit_frame_time_us",
     "rf_range_matching",
     "pw_range_matching",
     "pri_range_matching",

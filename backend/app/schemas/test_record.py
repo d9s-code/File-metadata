@@ -16,6 +16,7 @@ _OBSERVED_VALUE_KEYS = {
     "jitter_min_us",
     "jitter_max_us",
     "pri_stagger_values_us",
+    "frame_time_us",
 }
 
 
@@ -31,10 +32,15 @@ def _validate_observed_value_set(v: dict) -> dict:
     has_stagger = "pri_stagger_values_us" in cleaned
     has_jitter = "jitter_min_us" in cleaned or "jitter_max_us" in cleaned
     has_pri_range = "pri_min_us" in cleaned or "pri_max_us" in cleaned
+    has_frame_time = "frame_time_us" in cleaned
     if has_stagger and (has_jitter or has_pri_range):
         raise ValueError("observed_values: pri_stagger_values_us cannot be combined with PRI min/max or jitter")
-    if (has_jitter or has_stagger or has_pri_range) and pri_type is None:
-        raise ValueError("observed_values: pri_type is required when PRI/jitter/stagger values are given")
+    if (has_jitter or has_stagger or has_pri_range or has_frame_time) and pri_type is None:
+        raise ValueError("observed_values: pri_type is required when PRI/jitter/stagger/frame time values are given")
+    if has_frame_time and pri_type != PriType.stagger.value:
+        raise ValueError("observed_values: frame_time_us only applies to a stagger PRI")
+    if has_frame_time and cleaned["frame_time_us"] <= 0:
+        raise ValueError("observed_values: frame_time_us must be > 0")
     if pri_type == PriType.stagger.value and has_pri_range:
         raise ValueError("observed_values: pri_type 'stagger' cannot carry pri_min_us/pri_max_us")
     if pri_type in (PriType.cw.value, PriType.xlet.value) and (has_pri_range or has_jitter or has_stagger):

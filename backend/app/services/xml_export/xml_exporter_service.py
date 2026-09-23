@@ -13,7 +13,7 @@ from app.models.ew_group import EwGroup
 from app.models.source import Source
 from app.core.enums import SourceStatus
 from app.services.delta import apply_delta
-from app.services.frametime_service import compute_frametime_us
+from app.services.frametime_service import effective_frametime_us
 from app.services.prs_export.serializer import sanitize_filename
 
 
@@ -175,7 +175,7 @@ class XMLExporterService:
                         etree.SubElement(pri_el, "Jitter", Min=jitter_min, Max=jitter_max, Units="us")
                         etree.SubElement(pri_el, "IntrapulseData", Name="default")
                     elif mode.pri_type == PriType.stagger and line.pri_stagger_values_us:
-                        frame_time = compute_frametime_us(line.pri_stagger_values_us)
+                        frame_time = effective_frametime_us(line.pri_stagger_values_us, line.explicit_frame_time_us)
                         ft_min, ft_max = apply_delta(frame_time, frame_time, line.frame_time_delta_us)
                         etree.SubElement(pri_el, "FramePeriod", Min=str(ft_min), Max=str(ft_max), Units="us")
                         stagger = etree.SubElement(pri_el, "StaggerLevels", Count=str(len(line.pri_stagger_values_us)))

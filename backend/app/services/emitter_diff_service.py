@@ -69,10 +69,14 @@ MODE_LINE_FIELD_LABELS = {
     "pw_delta": "PW Delta (±µs)",
     "pri_delta": "PRI Delta (±µs)",
     "frame_time_delta_us": "Frame Time Delta (±µs)",
+    "explicit_frame_time_us": "Frame Time (µs, written in)",
     "rf_range_matching": "RF Range Matching",
     "pw_range_matching": "PW Range Matching",
     "pri_range_matching": "PRI Range Matching",
 }
+
+
+MODE_LINE_FIELDS_ADDED_LATER = frozenset({"explicit_frame_time_us"})
 
 
 def _entry(scope: str, label: str, kind: str, old_value=None, new_value=None) -> dict:
@@ -113,7 +117,9 @@ def _diff_modes(entries: list[dict], old_modes: list[dict], new_modes: list[dict
         om, nm = old_by_id[mode_id], new_by_id[mode_id]
         scope = f"Mode '{nm['name']}'"
         _diff_fields(entries, scope, om, nm, MODE_FIELD_LABELS)
-        _diff_fields(entries, scope, om.get("line") or {}, nm.get("line") or {}, MODE_LINE_FIELD_LABELS)
+        _diff_fields(
+            entries, scope, om.get("line") or {}, nm.get("line") or {}, MODE_LINE_FIELD_LABELS, MODE_LINE_FIELDS_ADDED_LATER
+        )
 
 
 def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict) -> dict:

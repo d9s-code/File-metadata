@@ -33,6 +33,7 @@ from app.dsl.renderer import render_mode_line
 from app.models.ew_group import EwGroup
 from app.models.mode import Mode, ModeLine
 from app.schemas.mode import ModeLineFields, require_manual_deltas, validate_pri_type_fields
+from app.services.frametime_service import FRAME_TIME_DECIMALS, compute_frametime_us
 
 # Kept in sync with the same set in app/routers/modes.py and
 # app/services/mode_batch_service.py — see those modules' own comments.
@@ -42,6 +43,7 @@ _NON_DSL_LINE_FIELDS = {
     "pw_delta",
     "pri_delta",
     "frame_time_delta_us",
+    "explicit_frame_time_us",
     "rf_range_matching",
     "pw_range_matching",
     "pri_range_matching",
@@ -78,6 +80,8 @@ class ParsedModeLine:
     jitter_min_us: float | None = None
     jitter_max_us: float | None = None
     pri_stagger_values_us: list[float] | None = None
+    frame_period_min_us: float | None = None
+    frame_period_max_us: float | None = None
 
 
 @dataclass
@@ -195,6 +199,7 @@ def parse_emitter_xml(xml_bytes: bytes) -> ParsedPrsEmitter:
 
         pri_min = pri_max = jitter_min = jitter_max = None
         stagger_values: list[float] | None = None
+        frame_min = frame_max = None
         if pri_el is not None and pri_type == PriType.fixed:
             simple_el = pri_el.find("SimplePRI")
             jitter_el = pri_el.find("Jitter")
@@ -202,6 +207,8 @@ def parse_emitter_xml(xml_bytes: bytes) -> ParsedPrsEmitter:
             jitter_min = _float(jitter_el, "Min") or 0.0
             jitter_max = _float(jitter_el, "Max") or 0.0
         elif pri_el is not None and pri_type == PriType.stagger:
+            frame_el = pri_el.find("FramePeriod")
+            frame_min, frame_max = _float(frame_el, "Min"), _float(frame_el, "Max")
             levels_el = pri_el.find("StaggerLevels")
             if levels_el is not None:
                 stagger_values = [
@@ -221,6 +228,8 @@ def parse_emitter_xml(xml_bytes: bytes) -> ParsedPrsEmitter:
             jitter_min_us=jitter_min,
             jitter_max_us=jitter_max,
             pri_stagger_values_us=stagger_values,
+            frame_period_min_us=frame_min,
+            frame_period_max_us=frame_max,
         )
         modes.append(
             ParsedMode(
@@ -246,7 +255,26 @@ class PlannedPrsMode:
     line_fields: ModeLineFields
 
 
+def _frame_time_fields(m: ParsedMode) -> tuple[float | None, float | None]:
+    """(explicit_frame_time_us, frame_time_delta_us) that reproduce the file's
+    FramePeriod exactly: its midpoint and half-width. The midpoint is only
+    kept as an explicit frame time when it differs from the sum of the
+    stagger levels, which is what the frame time is by default."""
+    if m.pri_type != PriType.stagger:
+        return None, None
+    lo, hi = m.line.frame_period_min_us, m.line.frame_period_max_us
+    if lo is None or hi is None or hi < lo:
+        return None, 0
+    center = round((lo + hi) / 2, FRAME_TIME_DECIMALS)
+    half_width = round((hi - lo) / 2, 4)
+    levels = m.line.pri_stagger_values_us
+    summed = compute_frametime_us(levels) if levels else None
+    explicit = None if summed is not None and center == summed else center
+    return explicit, half_width
+
+
 def _build_line_fields(m: ParsedMode) -> ModeLineFields:
+    explicit_frame_time, frame_time_delta = _frame_time_fields(m)
     return ModeLineFields(
         rf_min_mhz=m.line.rf_min_mhz,
         rf_max_mhz=m.line.rf_max_mhz,
@@ -260,7 +288,10 @@ def _build_line_fields(m: ParsedMode) -> ModeLineFields:
         rf_delta=0,
         pw_delta=0,
         pri_delta=0 if m.pri_type == PriType.fixed else None,
-        frame_time_delta_us=0 if m.pri_type == PriType.stagger else None,
+        # FramePeriod is the one engineered range that maps back exactly:
+        # stored as a (frame time, ±delta) pair rather than min/max.
+        frame_time_delta_us=frame_time_delta,
+        explicit_frame_time_us=explicit_frame_time,
         pri_min_us=m.line.pri_min_us,
         pri_max_us=m.line.pri_max_us,
         jitter_min_us=m.line.jitter_min_us,
