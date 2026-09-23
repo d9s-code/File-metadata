@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from "react";
 import type { EwGroup, Source } from "../../types/domain";
-import { useApproveSource, useDeleteSource, useRejectSource } from "../../state/hooks/useSources";
+import { useApproveSource, useDeleteSource } from "../../state/hooks/useSources";
 import { useCreateSourceNote, useDeleteSourceNote, useSourceNotes } from "../../state/hooks/useSourceNotes";
 import { useSourceGroups } from "../../state/hooks/useSourceGroups";
 import { useElements } from "../../state/hooks/useElements";
@@ -14,6 +14,7 @@ import { ParameterSequencesPanel } from "./ParameterSequencesPanel";
 import { CartesianProductButton } from "./CartesianProductButton";
 import { SourceForm } from "./SourceForm";
 import { SourceBatchAddModal } from "./SourceBatchAddModal";
+import { RejectSourceModal } from "./RejectSourceModal";
 import { RequireRole } from "../../auth/RequireAuth";
 import { ApiRequestError } from "../../api/client";
 import { EmptyState } from "../common/EmptyState";
@@ -97,7 +98,6 @@ export function SourcesTable({
 }) {
   const deleteSource = useDeleteSource(emitterId);
   const approveSource = useApproveSource(emitterId);
-  const rejectSource = useRejectSource(emitterId);
   const { data: allModes } = useEmitterModes(emitterId);
   const { data: emitter } = useEmitter(emitterId);
   const { sourceGroups } = useSourceGroups();
@@ -108,6 +108,7 @@ export function SourcesTable({
   const [showForm, setShowForm] = useState(false);
   const [editingSource, setEditingSource] = useState<Source | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [rejectingSource, setRejectingSource] = useState<Source | null>(null);
   const [isElementsCollapsed, setIsElementsCollapsed] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -169,6 +170,15 @@ export function SourcesTable({
       else next.add(key);
       return next;
     });
+  }
+
+  async function handleApprove(source: Source) {
+    setDeleteError(null);
+    try {
+      await approveSource.mutateAsync(source.id);
+    } catch (err) {
+      setDeleteError(err instanceof ApiRequestError ? err.message : "Failed to approve source");
+    }
   }
 
   async function handleDelete(source: Source) {
@@ -288,6 +298,9 @@ export function SourcesTable({
                             {s.status !== "approved" && (
                               <span className={`status-badge status-${s.status}`}>{s.status.replace("_", " ")}</span>
                             )}
+                            {s.status === "rejected" && s.rejection_reason && (
+                              <div className="hint-text rejection-reason">Rejected: {s.rejection_reason}</div>
+                            )}
                           </td>
                           <td>{s.rf_legacy_term ?? "—"}</td>
                           <td>{s.pri_legacy_term ?? "—"}</td>
@@ -311,21 +324,25 @@ export function SourcesTable({
                               {expandedId === s.id ? "Hide elements & tools" : "Manage elements & generate modes"}
                             </button>{" "}
                             <RequireRole minimum="editor">
-                              {s.status === "pending_review" && (
+                              {s.status !== "approved" && (
                                 <>
                                   <button
                                     className="link-button link-button-success"
                                     disabled={!canEdit || approveSource.isPending}
                                     title={editTitle}
-                                    onClick={() => void approveSource.mutateAsync(s.id)}
+                                    onClick={() => void handleApprove(s)}
                                   >
                                     Approve
                                   </button>{" "}
+                                </>
+                              )}
+                              {s.status === "pending_review" && (
+                                <>
                                   <button
                                     className="link-button link-button-danger"
-                                    disabled={!canEdit || rejectSource.isPending}
+                                    disabled={!canEdit}
                                     title={editTitle}
-                                    onClick={() => void rejectSource.mutateAsync(s.id)}
+                                    onClick={() => setRejectingSource(s)}
                                   >
                                     Reject
                                   </button>{" "}
@@ -393,6 +410,9 @@ export function SourcesTable({
         })
       )}
       {deleteError && <div className="error-text">{deleteError}</div>}
+      {rejectingSource && (
+        <RejectSourceModal emitterId={emitterId} source={rejectingSource} onClose={() => setRejectingSource(null)} />
+      )}
       <RequireRole minimum="editor">
         {editingSource ? (
           <SourceForm emitterId={emitterId} initialData={editingSource} onClose={() => setEditingSource(null)} />

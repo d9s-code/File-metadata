@@ -29,7 +29,11 @@ SOURCE_FIELD_LABELS = {
     "name": "Name",
     "description": "Description",
     "source_date": "Source Date",
+    "status": "Review Status",
+    "rejection_reason": "Rejection Reason",
 }
+
+SOURCE_FIELDS_ADDED_LATER = frozenset({"status", "rejection_reason"})
 
 TEST_LINE_FIELD_LABELS = {
     "label": "Label",
@@ -72,8 +76,19 @@ def _entry(scope: str, label: str, kind: str, old_value=None, new_value=None) ->
     return {"scope": scope, "label": label, "kind": kind, "old_value": old_value, "new_value": new_value}
 
 
-def _diff_fields(entries: list[dict], scope: str, old: dict, new: dict, labels: dict[str, str]) -> None:
+def _diff_fields(
+    entries: list[dict],
+    scope: str,
+    old: dict,
+    new: dict,
+    labels: dict[str, str],
+    later_added_fields: frozenset[str] = frozenset(),
+) -> None:
     for field, label in labels.items():
+        # Snapshots committed before a field existed simply lack it; that's
+        # not a change the user made.
+        if field in later_added_fields and (field not in old or field not in new):
+            continue
         old_v = old.get(field)
         new_v = new.get(field)
         if old_v != new_v:
@@ -131,7 +146,9 @@ def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict) -> dict:
             entries.append(_entry(f"Source '{s['name']}'", "Removed", "removed"))
     for source_id in set(old_sources) & set(new_sources):
         os_, ns = old_sources[source_id], new_sources[source_id]
-        _diff_fields(entries, f"Source '{ns['name']}'", os_, ns, SOURCE_FIELD_LABELS)
+        _diff_fields(
+            entries, f"Source '{ns['name']}'", os_, ns, SOURCE_FIELD_LABELS, SOURCE_FIELDS_ADDED_LATER
+        )
 
     old_lines = {tl["id"]: tl for tl in old_snapshot.get("test_lines", [])}
     new_lines = {tl["id"]: tl for tl in new_snapshot.get("test_lines", [])}

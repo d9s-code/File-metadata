@@ -45,7 +45,8 @@ export function useApproveSource(emitterId: string) {
 export function useRejectSource(emitterId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (sourceId: string) => sourcesApi.reject(emitterId, sourceId),
+    mutationFn: ({ sourceId, reason }: { sourceId: string; reason: string }) =>
+      sourcesApi.reject(emitterId, sourceId, reason),
     onSuccess: () => qc.invalidateQueries({ queryKey: sourcesKey(emitterId) }),
   });
 }

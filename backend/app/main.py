@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import settings
+from app.config import insecure_setting_problems, settings
 from app.routers import (
     ambiguity,
     audit_log,
@@ -25,7 +25,18 @@ from app.routers import (
     users,
 )
 
-app = FastAPI(title="RF Recognizer Emitter Profile Manager")
+if not settings.is_dev and (problems := insecure_setting_problems(settings)):
+    raise RuntimeError(
+        "Refusing to start: " + "; ".join(problems)
+        + ". Generate a secret with `openssl rand -hex 32`, or set APP_ENV=dev for local development."
+    )
+
+app = FastAPI(
+    title="RF Recognizer Emitter Profile Manager",
+    docs_url="/docs" if settings.is_dev else None,
+    redoc_url="/redoc" if settings.is_dev else None,
+    openapi_url="/openapi.json" if settings.is_dev else None,
+)
 
 app.add_middleware(
     CORSMiddleware,

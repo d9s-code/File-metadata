@@ -7,7 +7,7 @@ import sys
 sys.path.insert(0, ".")
 
 from app.core.enums import Role
-from app.core.security import hash_password
+from app.core.security import hash_password, password_policy_error
 from app.database import SessionLocal
 from app.models.user import User
 
@@ -23,6 +23,9 @@ def main() -> None:
         if db.query(User).filter(User.username == username).first():
             print(f"User '{username}' already exists.")
             return
+        if error := password_policy_error(password):
+            print(f"Refusing to create '{username}': {error}.")
+            raise SystemExit(1)
         user = User(username=username, password_hash=hash_password(password), role=Role.admin)
         db.add(user)
         db.commit()

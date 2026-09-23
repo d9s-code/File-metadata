@@ -407,7 +407,7 @@ def batch_edit_modes(
     _get_emitter_or_404(db, emitter_id)
     planned, errors = plan_batch_edit(db, emitter_id=emitter_id, mode_ids=payload.mode_ids, fields=payload.fields)
     if errors:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=[e.model_dump(mode="json") for e in errors])
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail=[e.model_dump(mode="json") for e in errors])
 
     updated_ids = apply_batch_edit(
         db,
@@ -767,7 +767,7 @@ def transition_emitter_status(
     try:
         new_status = EmitterStatus(payload.new_status)
     except ValueError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"Unknown status '{payload.new_status}'") from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Unknown status '{payload.new_status}'") from exc
 
     try:
         validate_transition(emitter.status.value, new_status.value, EMITTER_STATUS_TRANSITIONS)
@@ -780,7 +780,7 @@ def transition_emitter_status(
     # status flip.
     if emitter.status == EmitterStatus.validated and new_status == EmitterStatus.deprecated and not payload.note:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
             "A note explaining what needs rework is required when moving from Operational to Needs rework",
         )
     # Mirror of the guard above: declaring something Operational is the one
@@ -790,7 +790,7 @@ def transition_emitter_status(
     # note rather than a second prompt.
     if new_status == EmitterStatus.validated and not payload.note:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
             "A message describing what was validated is required when moving to Operational",
         )
 

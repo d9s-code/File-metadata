@@ -109,9 +109,11 @@ async function handleCreate(e: FormEvent) {
             <div className="form-row">
               <input
                 type="password"
-                placeholder="Password"
+                placeholder="Password (12+ characters)"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                minLength={12}
+                maxLength={72}
                 required
               />
             </div>
@@ -209,6 +211,8 @@ async function handleCreate(e: FormEvent) {
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
+                    minLength={12}
+                    maxLength={72}
                     required
                     autoFocus
                   />

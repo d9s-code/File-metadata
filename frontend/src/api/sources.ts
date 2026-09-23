@@ -21,8 +21,8 @@ export const sourcesApi = {
     api.delete<void>(`/emitters/${emitterId}/sources/${sourceId}`),
   approve: (emitterId: string, sourceId: string) =>
     api.post<Source>(`/emitters/${emitterId}/sources/${sourceId}/approve`, {}),
-  reject: (emitterId: string, sourceId: string) =>
-    api.post<Source>(`/emitters/${emitterId}/sources/${sourceId}/reject`, {}),
+  reject: (emitterId: string, sourceId: string, reason: string) =>
+    api.post<Source>(`/emitters/${emitterId}/sources/${sourceId}/reject`, { reason }),
   listParameterSequences: (emitterId: string, sourceId: string) =>
     api.get<ParameterSequence[]>(`/emitters/${emitterId}/sources/${sourceId}/parameter-sequences`),
 

@@ -60,7 +60,7 @@ def _create_test_record(
 
     if payload.line_results:
         if emitter_id is None:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "line_results requires an Emitter-scoped test")
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "line_results requires an Emitter-scoped test")
         line_ids = [lr.test_line_id for lr in payload.line_results]
         found_line_ids = {
             tl.id for tl in db.query(TestLine.id).filter(TestLine.id.in_(line_ids), TestLine.emitter_id == emitter_id).all()
@@ -81,7 +81,7 @@ def _create_test_record(
             raise HTTPException(status.HTTP_404_NOT_FOUND, "retests_test_record_id not found")
         if retested.scope_type != scope_type or retested.scope_id != scope_id:
             raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY, "retests_test_record_id must belong to the same scope"
+                status.HTTP_422_UNPROCESSABLE_CONTENT, "retests_test_record_id must belong to the same scope"
             )
 
     # Precedence: an Emitter test's overall result is the intercept-correctness

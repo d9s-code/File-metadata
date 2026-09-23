@@ -1,12 +1,13 @@
+import json
 from datetime import date
 from uuid import UUID
-from typing import List, Any
 
-from fastapi import APIRouter, Depends, Form, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.core.csrf import verify_csrf
-from app.core.enums import AuditAction, AuditEntityType, Role
+from app.core.enums import AuditAction, AuditEntityType, Role, SourceStatus
 from app.database import get_db
 from app.deps import require_emitter_checkout, require_role
 from app.models.emitter import Emitter
@@ -30,6 +31,16 @@ def _get_emitter_or_404(db: Session, emitter_id: UUID) -> Emitter:
     return emitter
 
 
+def _read_upload(file: UploadFile) -> bytes:
+    content = file.file.read(settings.max_upload_bytes + 1)
+    if len(content) > settings.max_upload_bytes:
+        raise HTTPException(
+            status.HTTP_413_CONTENT_TOO_LARGE,
+            f"File is larger than the {settings.max_upload_bytes // (1024 * 1024)} MB upload limit",
+        )
+    return content
+
+
 @router.post("/validate", response_model=ImportValidationResult)
 def validate_import(
     emitter_id: UUID,
@@ -44,7 +55,7 @@ def validate_import(
 @router.post(
     "/json-import", response_model=ImportCommitResult, status_code=status.HTTP_201_CREATED, dependencies=[Depends(verify_csrf)]
 )
-async def commit_json_import(
+def commit_json_import(
     emitter_id: UUID,
     file: UploadFile = File(...),
     # Manually-entered "Date last updated" — takes precedence over whatever
@@ -56,11 +67,12 @@ async def commit_json_import(
     # new group created automatically for this import batch.
     group_id: UUID | None = Form(None),
     db: Session = Depends(get_db),
-    user=Depends(require_role(Role.editor)),
+    user=Depends(require_emitter_checkout()),
 ) -> ImportCommitResult:
-    import json
-    content = await file.read()
-    json_data = json.loads(content)
+    try:
+        json_data = json.loads(_read_upload(file))
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Not a valid JSON file: {exc}") from exc
     payload = transform_json_to_payload(json_data, override_source_date=source_date)
 
     if group_id is not None and db.get(SourceGroup, group_id) is None:
@@ -69,7 +81,7 @@ async def commit_json_import(
     # Re-use existing logic
     result = validate_import_payload(db, emitter_id=emitter_id, payload=payload)
     if not result.valid:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=[issue.model_dump() for issue in result.issues])
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail=[issue.model_dump() for issue in result.issues])
 
     batch, sources = commit_import_payload(
         db, emitter_id=emitter_id, payload=payload, created_by=user.id, group_id=group_id
@@ -109,7 +121,7 @@ def commit_import(
     emitter_id: UUID,
     payload: ImportPayload,
     db: Session = Depends(get_db),
-    user=Depends(require_role(Role.editor)),
+    user=Depends(require_emitter_checkout()),
 ) -> ImportCommitResult:
     _get_emitter_or_404(db, emitter_id)
 
@@ -118,7 +130,7 @@ def commit_import(
     # source_name introduced by another import in between).
     result = validate_import_payload(db, emitter_id=emitter_id, payload=payload)
     if not result.valid:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=[issue.model_dump() for issue in result.issues])
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail=[issue.model_dump() for issue in result.issues])
 
     batch, sources = commit_import_payload(db, emitter_id=emitter_id, payload=payload, created_by=user.id)
     record_audit(
@@ -155,7 +167,7 @@ def commit_import(
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(verify_csrf)],
 )
-async def commit_prs_import(
+def commit_prs_import(
     emitter_id: UUID,
     file: UploadFile = File(...),
     # Exactly one of these: attach every imported Mode to an existing
@@ -172,15 +184,14 @@ async def commit_prs_import(
 
     if (source_id is None) == (not new_source_name):
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
             "Provide exactly one of source_id (an existing Source) or new_source_name (create one)",
         )
 
-    content = await file.read()
     try:
-        parsed = parse_emitter_xml(content)
+        parsed = parse_emitter_xml(_read_upload(file))
     except PrsXmlParseError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc))
 
     # Validate before touching the DB at all — same all-or-nothing ordering
     # as the JSON importer's validate-then-commit, so a bad file never
@@ -188,17 +199,22 @@ async def commit_prs_import(
     planned, issues = plan_import(parsed)
     if issues:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, detail=[{"mode_name": i.mode_name, "error": i.error} for i in issues]
+            status.HTTP_422_UNPROCESSABLE_CONTENT, detail=[{"mode_name": i.mode_name, "error": i.error} for i in issues]
         )
     if not planned:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "No Modes found in this file")
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "No Modes found in this file")
 
     if source_id is not None:
         source = db.get(Source, source_id)
         if source is None or source.emitter_id != emitter_id:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Source not found in this Emitter")
     else:
-        source = Source(emitter_id=emitter_id, name=new_source_name, source_date=source_date or date.today())
+        source = Source(
+            emitter_id=emitter_id,
+            name=new_source_name,
+            source_date=source_date or date.today(),
+            status=SourceStatus.pending_review,
+        )
         db.add(source)
         db.flush()
 

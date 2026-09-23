@@ -13,6 +13,7 @@ from lxml import etree
 
 from app.services.delta import apply_delta
 from app.services.frametime_service import compute_frametime_us
+from app.services.snapshots import rejected_source_ids
 
 PRS_NAMESPACE = "urn:com:bae:prs:pfm:library"
 
@@ -95,9 +96,11 @@ def build_emitter_element(emitter_snapshot: dict) -> etree._Element:
 
     etree.SubElement(root, "Intrapulse", Name="default", Modulation="Unknown")
 
+    rejected = rejected_source_ids(emitter_snapshot)
     for group in ew_groups:
         for mode in group.get("modes", []):
-            _append_mode_element(root, mode, scan_name=group["name"])
+            if mode["source_id"] not in rejected:
+                _append_mode_element(root, mode, scan_name=group["name"])
 
     etree.SubElement(root, "TacticGroup").text = "None"
     return root

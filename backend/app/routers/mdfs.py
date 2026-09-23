@@ -282,7 +282,7 @@ def pin_platform(
     platform_version = db.get(PlatformVersion, payload.platform_version_id)
     if platform_version is None or platform_version.platform_id != payload.platform_id:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, "platform_version_id must be a committed version of platform_id"
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "platform_version_id must be a committed version of platform_id"
         )
 
     existing = (
@@ -421,7 +421,7 @@ def transition_mdf_status(
     try:
         new_status = MdfStatus(payload.new_status)
     except ValueError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"Unknown status '{payload.new_status}'") from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Unknown status '{payload.new_status}'") from exc
 
     try:
         validate_transition(mdf.status.value, new_status.value, MDF_STATUS_TRANSITIONS)

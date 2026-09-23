@@ -8,6 +8,20 @@ from app.config import settings
 
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+MIN_PASSWORD_LENGTH = 12
+# bcrypt silently ignores everything past 72 bytes.
+MAX_PASSWORD_BYTES = 72
+
+
+def password_policy_error(password: str) -> str | None:
+    if len(password) < MIN_PASSWORD_LENGTH:
+        return f"Password must be at least {MIN_PASSWORD_LENGTH} characters"
+    if len(password.encode("utf-8")) > MAX_PASSWORD_BYTES:
+        return f"Password must be at most {MAX_PASSWORD_BYTES} bytes"
+    if "CHANGE_ME" in password:
+        return "Password is still the CHANGE_ME placeholder"
+    return None
+
 
 def hash_password(password: str) -> str:
     return _pwd_context.hash(password)

@@ -50,7 +50,7 @@ def dsl_parse(payload: DslParseRequest, _=Depends(require_role(Role.viewer))) ->
         parsed = parse_mode_line(payload.text)
         return DslParseResponse(**vars(parsed))
     except DslSyntaxError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
 
 @router.post("/render", response_model=DslRenderResponse)
@@ -59,4 +59,4 @@ def dsl_render(payload: DslRenderRequest, _=Depends(require_role(Role.viewer))) 
         text = render_mode_line(**payload.model_dump())
         return DslRenderResponse(text=text)
     except DslSyntaxError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc

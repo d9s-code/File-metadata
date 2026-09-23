@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from itertools import combinations
 from typing import Any
 
+from app.services.snapshots import rejected_source_ids
+
 DEFAULT_TOLERANCE = {"low_threshold": 30.0, "high_threshold": 70.0, "exact_threshold": 99.0}
 
 
@@ -42,9 +44,10 @@ def flatten_emitter_snapshot(
     out: list[FlatModeLine] = []
     eid = emitter_id or emitter_snapshot["id"]
     ename = emitter_name or emitter_snapshot["name"]
+    rejected = rejected_source_ids(emitter_snapshot)
     for ew_group in emitter_snapshot["ew_groups"]:
         for mode in ew_group["modes"]:
-            if mode["line"] is None:
+            if mode["line"] is None or mode["source_id"] in rejected:
                 continue
             out.append(
                 FlatModeLine(

@@ -26,7 +26,7 @@ from app.schemas.parameter_sequence import (
     ParameterSequenceOut,
     ParameterSequenceUpdate,
 )
-from app.schemas.source import SourceCreate, SourceOut, SourceUpdate
+from app.schemas.source import SourceCreate, SourceOut, SourceRejectRequest, SourceUpdate
 from app.schemas.source_note import SourceNoteCreate, SourceNoteOut
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.cartesian_service import CartesianProductError, run_cartesian_product
@@ -228,20 +228,27 @@ def approve_source(
     user=Depends(require_emitter_checkout()),
 ) -> Source:
     source = _get_source_or_404(db, emitter_id, source_id)
-    if source.status != SourceStatus.pending_review:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            f"Only a pending-review Source can be approved (this one is {source.status.value})",
-        )
+    if source.status == SourceStatus.approved:
+        raise HTTPException(status.HTTP_409_CONFLICT, "This Source is already approved")
+    old_status = source.status
+    old_reason = source.rejection_reason
     source.status = SourceStatus.approved
+    source.rejection_reason = None
+    changes: dict = {"status": {"old": old_status.value, "new": SourceStatus.approved.value}}
+    if old_reason:
+        changes["rejection_reason"] = {"old": old_reason, "new": None}
     record_audit(
         db,
         actor_id=user.id,
         action=AuditAction.status_change,
         entity_type=AuditEntityType.source.value,
         entity_id=source.id,
-        summary=f"Approved imported Source '{source.name}'",
-        changes={"status": {"old": SourceStatus.pending_review.value, "new": SourceStatus.approved.value}},
+        summary=(
+            f"Approved previously rejected Source '{source.name}'"
+            if old_status == SourceStatus.rejected
+            else f"Approved imported Source '{source.name}'"
+        ),
+        changes=changes,
         emitter_id=emitter_id,
     )
     db.commit()
@@ -253,6 +260,7 @@ def approve_source(
 def reject_source(
     emitter_id: UUID,
     source_id: UUID,
+    payload: SourceRejectRequest,
     db: Session = Depends(get_db),
     user=Depends(require_emitter_checkout()),
 ) -> Source:
@@ -263,14 +271,18 @@ def reject_source(
             f"Only a pending-review Source can be rejected (this one is {source.status.value})",
         )
     source.status = SourceStatus.rejected
+    source.rejection_reason = payload.reason
     record_audit(
         db,
         actor_id=user.id,
         action=AuditAction.status_change,
         entity_type=AuditEntityType.source.value,
         entity_id=source.id,
-        summary=f"Rejected imported Source '{source.name}'",
-        changes={"status": {"old": SourceStatus.pending_review.value, "new": SourceStatus.rejected.value}},
+        summary=f"Rejected imported Source '{source.name}': {payload.reason}",
+        changes={
+            "status": {"old": SourceStatus.pending_review.value, "new": SourceStatus.rejected.value},
+            "rejection_reason": {"old": None, "new": payload.reason},
+        },
         emitter_id=emitter_id,
     )
     db.commit()
@@ -541,7 +553,7 @@ def get_frametime(
     if element is None or element.source_id != source_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Element not found")
     if not element.stagger_values:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Frametime only applies to a Stagger PRI element")
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Frametime only applies to a Stagger PRI element")
     return FrametimeResponse(
         element_id=element.id,
         frametime_us=compute_frametime_us(element.stagger_values),
@@ -567,7 +579,7 @@ def cartesian_product(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Target EW Group not found")
     if ew_group.emitter_id != emitter_id:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, "Target EW Group must belong to the same Emitter as the Source"
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "Target EW Group must belong to the same Emitter as the Source"
         )
     try:
         created = run_cartesian_product(
@@ -589,7 +601,7 @@ def cartesian_product(
             pri_range_matching=payload.pri_range_matching,
         )
     except CartesianProductError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     record_audit(
         db,
         actor_id=user.id,

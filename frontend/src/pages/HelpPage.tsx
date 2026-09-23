@@ -364,8 +364,11 @@ export function HelpPage() {
               <span className="status-badge status-pending_review">pending review</span> rather than{" "}
               <span className="status-badge status-approved">approved</span> — an editor reviews its
               Elements and Sequences, then <strong>Approve</strong>s or <strong>Reject</strong>s it via the
-              buttons next to the Source (only shown while it's pending). A manually-created Source is
-              approved immediately; there's nothing to review.
+              buttons next to the Source. Rejecting asks for a reason, which is shown under the Source&rsquo;s
+              name. A <span className="status-badge status-rejected">rejected</span> Source stays in the list,
+              but its Modes are left out of exports and ambiguity checks until someone approves it — the{" "}
+              <strong>Approve</strong> button stays available on rejected Sources for exactly that. A
+              manually-created Source is approved immediately; there&rsquo;s nothing to review.
             </p>
             <p>
               <strong>Import from XML</strong> (in Editorial Tools, currently disabled — "coming soon") is

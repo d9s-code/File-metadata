@@ -12,6 +12,7 @@ from app.models.emitter import Emitter
 from app.models.mode import Mode, ModeLine
 from app.models.ew_group import EwGroup
 from app.models.source import Source
+from app.core.enums import SourceStatus
 from app.services.delta import apply_delta
 from app.services.frametime_service import compute_frametime_us
 
@@ -94,8 +95,9 @@ class XMLExporterService:
         etree.SubElement(root, "Intrapulse", Name="default", Modulation="Unknown")
         
         # 1. Collect all unique EWParameter sets and map them to scans
-        scan_groups = {} 
-        for source in emitter.sources:
+        exported_sources = [s for s in emitter.sources if s.status != SourceStatus.rejected]
+        scan_groups = {}
+        for source in exported_sources:
             for mode in source.modes:
                 scan_name = mode.ew_group.name
                 if scan_name not in scan_groups:
@@ -142,7 +144,7 @@ class XMLExporterService:
             etree.SubElement(scan, "EWParametersRef", SetId=str(set_id))
 
         # 3. Create Modes
-        for source in emitter.sources:
+        for source in exported_sources:
             for mode in source.modes:
                 mode_el = etree.SubElement(root, "Mode", Name=self._sanitize(mode.name))
 

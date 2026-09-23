@@ -124,9 +124,14 @@ def _bool(el, attr: str) -> bool:
     return el is not None and (el.get(attr) or "").strip().lower() == "true"
 
 
+# Explicit rather than relying on lxml's defaults, which have changed across
+# versions: no entity expansion, no DTD or network fetches.
+_SAFE_PARSER = etree.XMLParser(resolve_entities=False, no_network=True, load_dtd=False, huge_tree=False)
+
+
 def parse_emitter_xml(xml_bytes: bytes) -> ParsedPrsEmitter:
     try:
-        root = etree.fromstring(xml_bytes)
+        root = etree.fromstring(xml_bytes, parser=_SAFE_PARSER)
     except etree.XMLSyntaxError as exc:
         raise PrsXmlParseError(f"Not a valid XML file: {exc}") from exc
 

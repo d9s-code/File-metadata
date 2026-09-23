@@ -82,12 +82,12 @@ def test_user_create_and_update_do_not_leak_password_into_audit_changes(admin_cl
     assert resp.status_code == 201, resp.text
     user_id = resp.json()["id"]
 
-    admin_client.patch(f"/users/{user_id}", json={"password": "new-s3cret", "role": "editor"})
+    assert admin_client.patch(f"/users/{user_id}", json={"password": "new-s3cret-password", "role": "editor"}).status_code == 200
 
     log = admin_client.get("/audit-log", params={"entity_type": "user", "entity_id": user_id}).json()
     dump = str(log)
     assert "s3cret-password" not in dump
-    assert "new-s3cret" not in dump
+    assert "new-s3cret-password" not in dump
     update_entry = next(e for e in log["items"] if e["action"] == "update")
     assert update_entry["changes"]["password"] == "changed"
     assert update_entry["changes"]["role"]["new"] == "editor"

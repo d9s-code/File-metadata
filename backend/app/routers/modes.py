@@ -107,7 +107,7 @@ def create_mode(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Source not found")
     if source.emitter_id != ew_group.emitter_id:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
             "Source and EW Group must belong to the same Emitter",
         )
     _check_function_group(db, function_group_id=payload.function_group_id, emitter_id=ew_group.emitter_id)
@@ -178,7 +178,7 @@ def create_mode_from_dsl_text(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Source not found")
     if source.emitter_id != ew_group.emitter_id:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
             "Source and EW Group must belong to the same Emitter",
         )
     _check_function_group(db, function_group_id=payload.function_group_id, emitter_id=ew_group.emitter_id)
@@ -194,7 +194,7 @@ def create_mode_from_dsl_text(
             function_group_id=payload.function_group_id,
         )
     except DslSyntaxError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     record_audit(
         db,
         actor_id=user.id,
@@ -230,7 +230,7 @@ def update_mode(
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Target EW Group not found")
         if new_ew_group.emitter_id != mode.source.emitter_id:
             raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
                 "Target EW Group must belong to the same Emitter as the Mode's Source",
             )
     if "source_id" in data:
@@ -239,7 +239,7 @@ def update_mode(
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Target Source not found")
         if new_source.emitter_id != mode.source.emitter_id:
             raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
                 "Target Source must belong to the same Emitter as the Mode",
             )
     if "function_group_id" in data:
@@ -250,7 +250,7 @@ def update_mode(
         # edit that makes sense, so a type change must supply a full new
         # line in the same request.
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, "Changing pri_type requires a new line in the same request"
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "Changing pri_type requires a new line in the same request"
         )
     changes = apply_and_diff(mode, data)
 
@@ -263,7 +263,7 @@ def update_mode(
             validate_pri_type_fields(mode.pri_type, payload.line)
             require_manual_deltas(mode.pri_type, payload.line)
         except ValueError as exc:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc))
         line_fields = payload.line.model_dump()
         changes.update(apply_and_diff(mode.line, line_fields))
         try:

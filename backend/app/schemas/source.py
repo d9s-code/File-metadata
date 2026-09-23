@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.enums import SourceStatus
 
@@ -38,7 +38,14 @@ class SourceOut(BaseModel):
     source_type: str | None = None
     source_date: date
     status: SourceStatus
+    rejection_reason: str | None = None
     import_batch_id: UUID | None = None
     group_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class SourceRejectRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    reason: str = Field(min_length=1, max_length=2000)

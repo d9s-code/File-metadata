@@ -69,7 +69,7 @@ def import_test_lines(
     if db.get(Emitter, emitter_id) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Emitter not found")
     if not payload.lines:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "At least one line is required")
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "At least one line is required")
 
     mode_ids = {ln.expected_mode_id for ln in payload.lines if ln.expected_mode_id is not None}
     _validate_mode_ids(db, emitter_id, mode_ids)

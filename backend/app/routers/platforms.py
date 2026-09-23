@@ -201,7 +201,7 @@ def pin_emitter(
     emitter_version = db.get(EmitterVersion, payload.emitter_version_id)
     if emitter_version is None or emitter_version.emitter_id != payload.emitter_id:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, "emitter_version_id must be a committed version of emitter_id"
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "emitter_version_id must be a committed version of emitter_id"
         )
 
     existing = (

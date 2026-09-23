@@ -135,6 +135,7 @@ export interface Source {
   source_type: string | null;
   source_date: string;
   status: SourceStatus;
+  rejection_reason: string | null;
   import_batch_id: string | null;
   group_id: string | null;
   created_at: string;

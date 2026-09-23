@@ -1,4 +1,5 @@
 import os
+import secrets
 
 os.environ["DATABASE_URL"] = (
     # An isolated schema, not "public" — this is the same physical database
@@ -7,6 +8,7 @@ os.environ["DATABASE_URL"] = (
     "postgresql+psycopg2://rf_app:rf_app_dev_pw@localhost:5432/rf_emitter_test?options=-csearch_path%3Dv2_test"
 )
 os.environ["COOKIE_SECURE"] = "false"
+os.environ["JWT_SECRET"] = secrets.token_hex(32)
 
 import pytest
 from fastapi.testclient import TestClient

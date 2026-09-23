@@ -49,8 +49,11 @@ services:
       traefik.http.routers.rf-emitter-backend.priority: "10"
       # FastAPI's routes aren't mounted under /api, so strip it before
       # Traefik forwards the request.
-      traefik.http.routers.rf-emitter-backend.middlewares: rf-emitter-strip-api
+      traefik.http.routers.rf-emitter-backend.middlewares: rf-emitter-strip-api,rf-emitter-body-limit
       traefik.http.middlewares.rf-emitter-strip-api.stripprefix.prefixes: /api
+      # Rejects oversized bodies before they reach the backend; the backend's
+      # own MAX_UPLOAD_BYTES (10 MB) is the per-file limit behind this.
+      traefik.http.middlewares.rf-emitter-body-limit.buffering.maxRequestBodyBytes: "20971520"
       traefik.http.services.rf-emitter-backend.loadbalancer.server.port: "8000"
 
   frontend:
