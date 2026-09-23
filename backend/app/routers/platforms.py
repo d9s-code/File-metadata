@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.csrf import verify_csrf
+from app.core.downloads import attachment_disposition
 from app.core.enums import AuditAction, AuditEntityType, Role
 from app.database import get_db
 from app.deps import require_role
@@ -18,6 +19,7 @@ from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.prs_export.packager import build_platform_export_zip
 from app.services.snapshots import build_platform_snapshot
 from app.services.versioning_service import VersionSpec, commit_version, diff_versions, get_version, list_versions
+from app.services.prs_export.serializer import sanitize_filename
 from app.services.xml_export.xml_exporter_service import XMLExporterService
 from fastapi import Response
 
@@ -337,7 +339,7 @@ def diff_platform_version(
 
 
 @router.post("/{platform_id}/export/xml")
-async def export_platform_xml(
+def export_platform_xml(
     platform_id: UUID,
     db: Session = Depends(get_db),
     _=Depends(require_role(Role.viewer)),
@@ -346,13 +348,13 @@ async def export_platform_xml(
     platform = _get_platform_or_404(db, platform_id)
     exporter = XMLExporterService(db)
     
-    zip_buffer = await exporter.export_platform_to_zip(platform_id)
+    zip_buffer = exporter.export_platform_to_zip(platform_id)
     
     return Response(
         content=zip_buffer.getvalue(),
         media_type="application/zip",
         headers={
-            "Content-Disposition": f"attachment; filename={platform.name}_xml_export.zip"
+            "Content-Disposition": attachment_disposition(f"{sanitize_filename(platform.name)}_xml_export.zip")
         }
     )
 

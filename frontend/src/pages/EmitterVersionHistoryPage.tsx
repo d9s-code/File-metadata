@@ -14,6 +14,7 @@ import { RequireRole } from "../auth/RequireAuth";
 import { ApiRequestError } from "../api/client";
 import { LoadingState } from "../components/common/LoadingState";
 import { useConfirmDialog } from "../components/common/ConfirmDialog";
+import { useEmitterCheckoutState } from "../state/hooks/useEmitterCheckout";
 
 export function EmitterVersionHistoryPage() {
   const { emitterId } = useParams<{ emitterId: string }>();
@@ -28,6 +29,7 @@ export function EmitterVersionHistoryPage() {
   const [error, setError] = useState<string | null>(null);
   const [showForkModal, setShowForkModal] = useState(false);
   const { confirmDelete, dialog } = useConfirmDialog();
+  const { canEdit } = useEmitterCheckoutState(emitter);
 
   const { data: diff, isLoading: diffLoading } = useEmitterVersionDiff(emitterId ?? "", selected ?? 0);
 
@@ -80,7 +82,11 @@ export function EmitterVersionHistoryPage() {
             value={changeSummary}
             onChange={(e) => setChangeSummary(e.target.value)}
           />
-          <button onClick={() => void handleCommit()} disabled={commitVersion.isPending || !changeSummary.trim()}>
+          <button
+            onClick={() => void handleCommit()}
+            disabled={!canEdit || commitVersion.isPending || !changeSummary.trim()}
+            title={canEdit ? undefined : "Start editing this Emitter first"}
+          >
             Commit Version
           </button>
         </div>

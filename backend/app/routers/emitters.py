@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.csrf import verify_csrf
+from app.core.downloads import attachment_disposition
 from app.core.enums import EMITTER_STATUS_TRANSITIONS, AuditAction, AuditEntityType, EmitterStatus, Role
 from app.database import get_db
 from app.deps import require_emitter_checkout, require_role
@@ -35,6 +36,7 @@ from app.services.mode_test_status_service import attach_mode_extras
 from app.services.snapshots import build_emitter_snapshot
 from app.services.status_service import InvalidStatusTransition, validate_transition
 from app.services.versioning_service import VersionSpec, commit_version, get_version, list_versions
+from app.services.prs_export.serializer import sanitize_filename
 from app.services.xml_export.xml_exporter_service import XMLExporterService
 from fastapi import Response
 
@@ -137,6 +139,12 @@ def delete_emitter(
     emitter = db.get(Emitter, emitter_id)
     if emitter is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Emitter not found")
+    held_by_someone_else = emitter.checked_out_by_id is not None and emitter.checked_out_by_id != user.id
+    if held_by_someone_else and user.role != Role.admin:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "This Emitter is checked out by another user — only they or an Admin can delete it",
+        )
     if hard:
         if user.role != Role.admin:
             raise HTTPException(status.HTTP_403_FORBIDDEN, "Hard delete requires admin role")
@@ -154,6 +162,7 @@ def delete_emitter(
     else:
         emitter.is_deleted = True
         emitter.deleted_at = datetime.now(timezone.utc)
+        checkout_service.release_checkout(emitter)
         record_audit(
             db,
             actor_id=user.id,
@@ -454,7 +463,7 @@ def list_generation_batches(
     dependencies=[Depends(verify_csrf)],
 )
 def delete_generation_batch(
-    emitter_id: UUID, batch_id: UUID, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))
+    emitter_id: UUID, batch_id: UUID, db: Session = Depends(get_db), user=Depends(require_emitter_checkout())
 ) -> None:
     """Deletes every Mode this batch generated (cascading their ModeLines), then the batch."""
     _get_emitter_or_404(db, emitter_id)
@@ -512,7 +521,7 @@ def commit_emitter_version(
     emitter_id: UUID,
     payload: CommitEmitterVersionRequest,
     db: Session = Depends(get_db),
-    user=Depends(require_role(Role.editor)),
+    user=Depends(require_emitter_checkout()),
 ) -> EmitterVersion:
     emitter = _get_emitter_or_404(db, emitter_id)
     snapshot = build_emitter_snapshot(emitter)
@@ -736,7 +745,7 @@ def fork_emitter_version(
 
 
 @router.post("/{emitter_id}/export/xml")
-async def export_emitter_xml(
+def export_emitter_xml(
     emitter_id: UUID,
     db: Session = Depends(get_db),
     _=Depends(require_role(Role.viewer)),
@@ -745,13 +754,13 @@ async def export_emitter_xml(
     emitter = _get_emitter_or_404(db, emitter_id)
     exporter = XMLExporterService(db)
 
-    zip_buffer = await exporter.export_emitter_to_zip(emitter_id)
+    zip_buffer = exporter.export_emitter_to_zip(emitter_id)
 
     return Response(
         content=zip_buffer.getvalue(),
         media_type="application/zip",
         headers={
-            "Content-Disposition": f"attachment; filename={emitter.name}_xml_export.zip"
+            "Content-Disposition": attachment_disposition(f"{sanitize_filename(emitter.name)}_xml_export.zip")
         }
     )
 

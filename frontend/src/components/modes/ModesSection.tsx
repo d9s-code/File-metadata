@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { ApiRequestError } from "../../api/client";
 import type { EwGroup, FunctionGroup, Source } from "../../types/domain";
 import { useDeleteMode, useEmitterModes } from "../../state/hooks/useModes";
 import { useDeleteBatch, useEmitterBatches } from "../../state/hooks/useModeBatches";
@@ -51,6 +52,7 @@ export function ModesSection({
   const { data: batches } = useEmitterBatches(emitterId);
   const deleteMode = useDeleteMode(emitterId);
   const deleteBatch = useDeleteBatch(emitterId);
+  const [batchDeleteError, setBatchDeleteError] = useState<string | null>(null);
   const { confirmDelete, dialog } = useConfirmDialog();
   const [view, setView] = useState<ModesView>(readStoredView);
   const [ewGroupFilter, setEwGroupFilter] = useState("");
@@ -224,13 +226,18 @@ export function ModesSection({
 
   async function handleDeleteBatch() {
     if (!selectedBatch) return;
+    setBatchDeleteError(null);
     if (
       await confirmDelete(
         `Delete this generation batch ("${selectedBatch.name_prefix}") and all ${selectedBatch.mode_count} Mode(s) it created?`,
       )
     ) {
-      await deleteBatch.mutateAsync(selectedBatch.id);
-      setBatchFilter("");
+      try {
+        await deleteBatch.mutateAsync(selectedBatch.id);
+        setBatchFilter("");
+      } catch (err) {
+        setBatchDeleteError(err instanceof ApiRequestError ? err.message : "Failed to delete batch");
+      }
     }
   }
 
@@ -305,11 +312,17 @@ export function ModesSection({
         </button>
         {selectedBatch && (
           <RequireRole minimum="editor">
-            <button className="icon-button" onClick={() => void handleDeleteBatch()}>
+            <button
+              className="icon-button"
+              onClick={() => void handleDeleteBatch()}
+              disabled={!canEdit}
+              title={canEdit ? undefined : "Start editing this Emitter first"}
+            >
               Delete this batch ({selectedBatch.mode_count})
             </button>
           </RequireRole>
         )}
+        {batchDeleteError && <span className="error-text">{batchDeleteError}</span>}
         <RequireRole minimum="editor">
           <button
             className="accent-button"

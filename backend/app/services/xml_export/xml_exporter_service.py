@@ -7,7 +7,6 @@ from lxml import etree
 from sqlalchemy.orm import Session
 
 from app.models.platform import Platform, PlatformEmitterLink
-from app.models.mdf import Mdf
 from app.models.emitter import Emitter
 from app.models.mode import Mode, ModeLine
 from app.models.ew_group import EwGroup
@@ -15,6 +14,7 @@ from app.models.source import Source
 from app.core.enums import SourceStatus
 from app.services.delta import apply_delta
 from app.services.frametime_service import compute_frametime_us
+from app.services.prs_export.serializer import sanitize_filename
 
 
 class XMLExporterService:
@@ -26,7 +26,7 @@ class XMLExporterService:
             return ""
         return value.replace(" ", "_")
 
-    async def export_platform_to_zip(self, platform_id: uuid.UUID) -> io.BytesIO:
+    def export_platform_to_zip(self, platform_id: uuid.UUID) -> io.BytesIO:
         platform = self.db.query(Platform).filter(Platform.id == platform_id).first()
         if not platform:
             raise ValueError(f"Platform with ID {platform_id} not found")
@@ -38,37 +38,20 @@ class XMLExporterService:
             for link in platform.links:
                 emitter = link.emitter
                 emitter_xml = self._generate_emitter_xml(emitter)
-                zip_file.writestr(f"emitters/{emitter.name}.xml", xml_decl + etree.tostring(emitter_xml, encoding="utf-8", xml_declaration=False, pretty_print=True, method="xml"))
+                zip_file.writestr(f"emitters/{sanitize_filename(emitter.name)}.xml", xml_decl + etree.tostring(emitter_xml, encoding="utf-8", xml_declaration=False, pretty_print=True, method="xml"))
 
             # 2. Generate Platform XML
             platform_xml = self._generate_platform_xml(platform)
-            zip_file.writestr(f"platforms/{platform.name}.xml", xml_decl + etree.tostring(platform_xml, encoding="utf-8", xml_declaration=False, pretty_print=True, method="xml"))
+            zip_file.writestr(f"platforms/{sanitize_filename(platform.name)}.xml", xml_decl + etree.tostring(platform_xml, encoding="utf-8", xml_declaration=False, pretty_print=True, method="xml"))
 
             # 3. Generate Root MDF XML (for a single platform export)
             mdf_xml = self._generate_mdf_xml(platform)
-            zip_file.writestr(f"{self._sanitize(platform.name)}_mdf.xml", xml_decl + etree.tostring(mdf_xml, encoding="utf-8", xml_declaration=False, pretty_print=True, method="xml"))
+            zip_file.writestr(f"{sanitize_filename(platform.name)}_mdf.xml", xml_decl + etree.tostring(mdf_xml, encoding="utf-8", xml_declaration=False, pretty_print=True, method="xml"))
 
         zip_buffer.seek(0)
         return zip_buffer
 
-    async def export_mdf_to_zip(self, mdf_id: uuid.UUID) -> io.BytesIO:
-        mdf = self.db.query(MDF).filter(MDF.id == mdf_id).first()
-        if not mdf:
-            raise ValueError(f"MDF with ID {mdf_id} not found")
-
-        zip_buffer = io.BytesIO()
-        with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
-            # MDF export logic would traverse the MDF's pinned platforms
-            # For brevity in this initial implementation, I'll focus on the platform/emitter structure
-            # and assume the MDF logic follows a similar pattern.
-            
-            # (Implementation details for MDF traversal...)
-            pass
-
-        zip_buffer.seek(0)
-        return zip_buffer
-
-    async def export_emitter_to_zip(self, emitter_id: uuid.UUID) -> io.BytesIO:
+    def export_emitter_to_zip(self, emitter_id: uuid.UUID) -> io.BytesIO:
         emitter = self.db.query(Emitter).filter(Emitter.id == emitter_id).first()
         if not emitter:
             raise ValueError(f"Emitter with ID {emitter_id} not found")
@@ -78,7 +61,7 @@ class XMLExporterService:
         with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
             # 1. Generate Emitter XML
             emitter_xml = self._generate_emitter_xml(emitter)
-            zip_file.writestr(f"emitters/{self._sanitize(emitter.name)}.xml", xml_decl + etree.tostring(emitter_xml, encoding="utf-8", xml_declaration=False, pretty_print=True, method="xml"))
+            zip_file.writestr(f"emitters/{sanitize_filename(emitter.name)}.xml", xml_decl + etree.tostring(emitter_xml, encoding="utf-8", xml_declaration=False, pretty_print=True, method="xml"))
 
         zip_buffer.seek(0)
         return zip_buffer
@@ -226,7 +209,7 @@ class XMLExporterService:
         for link in platform.links:
             emitter = link.emitter
             emitter_file_el = etree.SubElement(config, "EmitterFile", Count="1")
-            emitter_file_el.text = f"emitters\\{self._sanitize(emitter.name)}.xml"
+            emitter_file_el.text = f"emitters\\{sanitize_filename(emitter.name)}.xml"
             
         return root
 

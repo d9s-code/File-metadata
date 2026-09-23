@@ -78,6 +78,7 @@ export function EmittersListPage() {
   const [designation, setDesignation] = useState("");
   const [description, setDescription] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const [nameFilter, setNameFilter] = useState("");
   const [designationFilter, setDesignationFilter] = useState("");
@@ -130,8 +131,13 @@ export function EmittersListPage() {
   }
 
   async function handleDelete(emitter: Emitter) {
+    setDeleteError(null);
     if (await confirmDelete(`Delete Emitter "${emitter.name}"? It can be restored from Recently Deleted for 30 days.`)) {
-      await deleteEmitter.mutateAsync({ id: emitter.id });
+      try {
+        await deleteEmitter.mutateAsync({ id: emitter.id });
+      } catch (err) {
+        setDeleteError(err instanceof ApiRequestError ? err.message : "Failed to delete emitter");
+      }
     }
   }
 
@@ -196,6 +202,7 @@ export function EmittersListPage() {
       )}
 
       {error && <div className="error-text">{(error as Error).message}</div>}
+      {deleteError && <div className="error-text">{deleteError}</div>}
 
       <div className="card">
         <div className="modes-toolbar-row">
