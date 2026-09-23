@@ -81,7 +81,11 @@ export function EmitterVersionHistoryPage() {
           <Link to={`/emitters/${emitter.forked_from_emitter_id}/versions`}>
             {forkSource?.name ?? "an earlier Emitter"}
           </Link>
-          {forkBoundary != null && ` — versions 1–${forkBoundary} are that Emitter's history, before the fork`}.
+          {forkBoundary != null &&
+            (forkBoundary === 1
+              ? " — version 1 is that Emitter's history, before the fork"
+              : ` — versions 1–${forkBoundary} are that Emitter's history, before the fork`)}
+          .
         </p>
       )}
 

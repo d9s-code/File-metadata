@@ -188,12 +188,12 @@ If either check turns up something, you'll see the warnings in a confirmation pr
 
 ## 8. Test Tracking
 
-A **Test Record** logs real-world validation — a simulation run, lab bench check, live range test, or field exercise — against either an Emitter or an MDF. Each record captures:
+A **Test Record** (a test run) logs validation against either an Emitter or an MDF. New runs are one of two types:
 
-- Test type (simulation / lab bench / live range / field exercise)
-- Result (pass / fail / partial / inconclusive)
-- Title, notes, and the date tested
-- Optionally, which specific Modes were exercised
+- **Simulation** — checked against the Emitter's **SIM Test Lines**, the simulated signals imported (with the date they were created in the simulator) on the Test History tab. Each line in the run gets an outcome (correct / misclassified / missed / inconclusive), any number of **intercepted Modes** (what the system reported for it), and optionally the **intercepted parameters** (RF, PW, PRI) that were measured.
+- **Intercept** — a real-world intercept, checked against the Emitter's own Modes: each intercepted Mode gets a result, intercepted parameters and notes.
+
+Older lab bench, live range and field exercise records stay in the history but can't be logged any more. Every run also records a title, notes, test date and an overall result that is derived from its lines or Modes (worst one wins). Each run has its own page, and each SIM Test Line shows its status: its outcome and date in the most recent run that included it.
 
 A test record automatically pins to whichever version of the Emitter or MDF was the latest *committed* one at the moment you logged it — so your test history stays accurate to what was actually tested, even as the draft keeps changing afterward.
 

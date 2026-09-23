@@ -1,62 +1,42 @@
-import {
-  useCreateEmitterTestRecord,
-  useDeleteEmitterTestRecord,
-  useEmitterTestRecords,
-} from "../../state/hooks/useTestRecords";
-import { useEmitterModes } from "../../state/hooks/useModes";
+import { Link, useNavigate } from "react-router-dom";
+import { useDeleteEmitterTestRecord, useEmitterTestRecords } from "../../state/hooks/useTestRecords";
 import { useEmitterTestLines } from "../../state/hooks/useTestLines";
-import { TestHistoryView } from "./TestHistoryView";
-import { TestLinesPanel } from "./TestLinesPanel";
-import type { EwGroup, FunctionGroup, Source } from "../../types/domain";
+import { RequireRole } from "../../auth/RequireAuth";
+import { SimTestLinesPanel } from "./SimTestLinesPanel";
+import { TestRecordsTable } from "./TestRecordsTable";
 
 export function EmitterTestHistory({
   emitterId,
-  ewGroups,
-  sources,
-  functionGroups,
   highlightTestRecordId,
 }: {
   emitterId: string;
-  ewGroups: EwGroup[];
-  sources: Source[];
-  functionGroups?: FunctionGroup[];
   highlightTestRecordId?: string;
 }) {
   const { data: records } = useEmitterTestRecords(emitterId);
-  const { data: modes } = useEmitterModes(emitterId);
   const { data: testLines } = useEmitterTestLines(emitterId);
-  const create = useCreateEmitterTestRecord(emitterId);
   const del = useDeleteEmitterTestRecord(emitterId);
-
-  const modeOptions = (modes ?? []).map((m) => ({
-    id: m.id,
-    name: m.name,
-    last_tested_at: m.last_tested_at,
-    last_test_result: m.last_test_result,
-    function_group_id: m.function_group_id,
-  }));
+  const navigate = useNavigate();
 
   return (
     <div>
-      <TestLinesPanel emitterId={emitterId} lines={testLines ?? []} modes={modeOptions} />
-      <TestHistoryView
-        records={records ?? []}
-        onCreate={(input) => create.mutateAsync(input)}
-        onDelete={(id) => del.mutateAsync(id)}
-        creating={create.isPending}
-        availableModes={modeOptions}
-        availableLines={(testLines ?? []).map((l) => ({
-          id: l.id,
-          label: l.label,
-          expected_mode_id: l.expected_mode_id,
-          expected_mode_name: l.expected_mode_name,
-        }))}
-        emitterId={emitterId}
-        ewGroups={ewGroups}
-        sources={sources}
-        functionGroups={functionGroups}
-        highlightId={highlightTestRecordId}
-      />
+      <SimTestLinesPanel emitterId={emitterId} lines={testLines ?? []} />
+      <div className="card">
+        <div className="section-header-row">
+          <h5>Test runs</h5>
+          <RequireRole minimum="editor">
+            <Link className="link-as-button accent-button" to={`/emitters/${emitterId}/tests/new`}>
+              + New Test Run
+            </Link>
+          </RequireRole>
+        </div>
+        <TestRecordsTable
+          records={records ?? []}
+          emitterId={emitterId}
+          onDelete={(id) => del.mutateAsync(id)}
+          onRedo={(r) => navigate(`/emitters/${emitterId}/tests/new?retest=${r.id}`)}
+          highlightId={highlightTestRecordId}
+        />
+      </div>
     </div>
   );
 }

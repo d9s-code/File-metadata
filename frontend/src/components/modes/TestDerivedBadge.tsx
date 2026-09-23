@@ -3,7 +3,7 @@ import type { TestRecordBrief } from "../../types/domain";
 import { HoverInfo } from "../common/InfoPopover";
 
 export function testLink(emitterId: string, recordId: string) {
-  return `/emitters/${emitterId}?tab=tests&testRecord=${recordId}`;
+  return `/emitters/${emitterId}/tests/${recordId}`;
 }
 
 export function mdfTestLink(mdfId: string, recordId: string) {

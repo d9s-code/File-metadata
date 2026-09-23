@@ -21,7 +21,7 @@ const TOC: TocNode[] = [
           { id: "emitter-modes-tab", title: "Modes tab" },
           { id: "emitter-sources", title: "EW Groups & Sources tab" },
           { id: "emitter-intercepts-tab", title: "Intercepts tab" },
-          { id: "emitter-testing-tab", title: "Test History tab (the workbench)" },
+          { id: "emitter-testing-tab", title: "Test History tab" },
           { id: "emitter-audit-tab", title: "Audit tab" },
         ],
       },
@@ -252,71 +252,54 @@ export function HelpPage() {
           </div>
 
           <div className="help-subsection" id="emitter-testing-tab">
-            <h4>Test History tab (the workbench)</h4>
+            <h4>Test History tab</h4>
             <p>
-              Logs lab-bench validation runs. Each row's Modes column stays compact by default — past 3
-              Modes it collapses to result counts (e.g. "65 pass · 3 fail · 2 partial") behind a
-              click-to-expand toggle, rather than listing every Mode inline. <strong>Expand all</strong> /{" "}
-              <strong>Collapse all</strong> above the table toggles every row at once. Click{" "}
-              <strong>+ New Test</strong> to open the workbench:
+              Two parts: the <strong>SIM Test Lines</strong> this Emitter is checked against, and the list of
+              logged <strong>test runs</strong>.
             </p>
             <ul>
               <li>
-                Every current Mode defaults to{" "}
-                <span className="test-result-badge test-result-pass">pass</span>, included in the test —
-                with 70+ Modes on some Emitters, you only need to touch the few that actually need a
-                different result. Click one or more Mode chips, then apply a{" "}
-                <span className="test-result-badge test-result-fail">fail</span>/
-                <span className="test-result-badge test-result-partial">partial</span>/
-                <span className="test-result-badge test-result-inconclusive">inconclusive</span> result
-                and notes to the selection, or exclude them from the test entirely.
+                <strong>SIM Test Lines</strong> are imported by pasting rows from a spreadsheet, together with
+                the (required) date the lines were created in the simulator. Each line shows a{" "}
+                <strong>Status</strong> — its outcome in the most recent run that included it, linking to that
+                run — and the date it was <strong>last tested</strong>. Click the heading to collapse the
+                table; the choice is remembered.
               </li>
               <li>
-                The chip grid can be narrowed by Result or a "not tested since" date — useful once an
-                Emitter has 70+ Modes. Narrowing only changes which chips are <em>visible</em>; a chip you
-                already flagged stays included in the test even while filtered out of view.
+                <strong>+ New Test Run</strong> opens a separate page. Pick the type:{" "}
+                <strong>simulation</strong> (checked against the SIM Test Lines) or{" "}
+                <strong>intercept</strong> (a real-world intercept, checked against the Emitter&rsquo;s own
+                Modes). Older lab-bench, live-range and field-exercise records stay in the history, but new
+                runs are one of these two.
               </li>
               <li>
-                Selecting exactly one Mode also reveals an <strong>observed values</strong> panel — what
-                was actually measured, for recording an anomaly or seeding a new Mode from it. It's
-                PRI-type aware (jitter min/max for FIXED, a stagger sequence for STAGGER, nothing extra for
-                CW/XLET), and <strong>+ Add another observed value</strong> lets you record more than one
-                distinct measurement set against the same Mode in one test.
+                A simulation run is a table with one row per SIM Test Line. Every line starts included and{" "}
+                <span className="test-result-badge test-result-pass">correct</span>; change the outcome to{" "}
+                <span className="test-result-badge test-result-partial">misclassified</span>,{" "}
+                <span className="test-result-badge test-result-fail">missed</span> or{" "}
+                <span className="test-result-badge test-result-inconclusive">inconclusive</span> where needed,
+                flag every Mode the system reported under <strong>Intercepted as</strong> (as many as
+                apply), and use <strong>+ Log</strong> to record the intercepted parameters (RF, PW, PRI —
+                more than one set if it was measured more than once).
               </li>
               <li>
-                A failed or partial test's row in the history table gets a <strong>Redo test</strong>{" "}
-                button — one click opens a new test already set up as a retest of it (title, "This is a
-                retest of…" link, and Mode selection all pre-filled), instead of setting those up by hand.
+                An intercept run is a table with one row per Mode: tick the Modes that were intercepted, then
+                give each a result, intercepted parameters and notes. Function Group ratings are computed
+                from these and can be overridden.
               </li>
               <li>
-                The test's overall result is always <strong>derived</strong> from the per-Mode results,
-                never picked independently — a test can't be marked pass while a Mode inside it failed.
+                The run&rsquo;s overall result is always <strong>derived</strong> from the included rows
+                (worst one wins); it can only be set by hand when nothing is included.
               </li>
               <li>
-                <strong>+ Stage a new Mode</strong> lets you create a new Mode while still filling out the
-                test, using the same form as normal Mode creation. It's automatically linked as{" "}
-                <span className="test-result-badge test-result-derived">derived</span> from this test once
-                the test saves — this is what puts the Test-Derived badge on a Mode. If you flagged
-                observed values on another Mode in this same test, a "Pre-fill from observed values"
-                control can copy its RF/PW (and PRI, for FIXED-type Modes) straight into the new Mode's
-                line — deltas and jitter still need to be entered manually, same as any other Mode.
+                <strong>+ Stage a new Mode</strong> creates a Mode found during the run, linked as{" "}
+                <span className="test-result-badge test-result-derived">derived</span> from it once the run
+                is saved — its line can be pre-filled from any intercepted parameters you logged.
               </li>
               <li>
-                <strong>This is a retest of…</strong> links a new test record back to an earlier one (e.g.
-                after a fix) and shows the before/after outcome inline — for example: "Retest of:
-                Mixed-result run <span className="test-result-badge test-result-fail">fail</span> →{" "}
-                <span className="test-result-badge test-result-pass">pass</span>".
-              </li>
-              <li>
-                <strong>Start from a previous test's Mode selection</strong> pre-populates the chip grid
-                from an earlier test's results — handy for routine repeat testing of the same Mode set.
-                Notes and observed values are never carried forward, only which Modes were flagged and what
-                they scored.
-              </li>
-              <li>
-                For a Simulation-type test, a <strong>Sim created</strong> date (when the simulation
-                artifact itself was generated, as opposed to when the test was logged) is its own column in
-                the history table — sortable separately from the test date.
+                Each run has its own page with the full per-line and per-Mode detail, plus{" "}
+                <strong>+ Add Mode from this test</strong>. A failed or partial run gets a{" "}
+                <strong>Redo test</strong> button that starts a new run pre-filled as a retest of it.
               </li>
             </ul>
           </div>

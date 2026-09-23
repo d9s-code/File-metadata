@@ -4,7 +4,10 @@ export type EmitterStatus = "draft" | "in_review" | "validated" | "deprecated";
 
 export type MdfStatus = "draft" | "pending_review" | "approved" | "released" | "deprecated";
 
+/** lab_bench/live_range/field_exercise only appear on older records — new tests are simulation or intercept. */
 export type TestType = "simulation" | "lab_bench" | "live_range" | "field_exercise" | "intercept";
+export const LOGGABLE_TEST_TYPES = ["simulation", "intercept"] as const;
+export type LoggableTestType = (typeof LOGGABLE_TEST_TYPES)[number];
 export type TestResult = "pass" | "fail" | "partial" | "inconclusive";
 
 export type PriType = "fixed" | "stagger" | "cw" | "xlet";

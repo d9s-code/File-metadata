@@ -214,7 +214,7 @@ export function EmitterEditorPage() {
           <>
             not yet —{" "}
             <button type="button" className="link-button" onClick={() => setTab("tests")}>
-              import Test Lines and log a test
+              import SIM Test Lines and log a test
             </button>
           </>
         )}
@@ -372,13 +372,7 @@ export function EmitterEditorPage() {
       </div>
 
       <div hidden={tab !== "tests"}>
-        <EmitterTestHistory
-          emitterId={emitter.id}
-          ewGroups={ewGroups ?? []}
-          sources={sources ?? []}
-          functionGroups={functionGroups ?? []}
-          highlightTestRecordId={highlightTestRecordId}
-        />
+        <EmitterTestHistory emitterId={emitter.id} highlightTestRecordId={highlightTestRecordId} />
       </div>
       <div hidden={tab !== "audit"}>
         <EntityAuditTrail entityType="emitter" entityId={emitter.id} emitterId={emitter.id} />

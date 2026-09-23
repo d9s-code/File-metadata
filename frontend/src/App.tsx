@@ -8,6 +8,8 @@ import { LoginPage } from "./pages/LoginPage";
 import { EmittersListPage } from "./pages/EmittersListPage";
 import { EmitterEditorPage } from "./pages/EmitterEditorPage";
 import { EmitterVersionHistoryPage } from "./pages/EmitterVersionHistoryPage";
+import { TestRunNewPage } from "./pages/TestRunNewPage";
+import { TestRunDetailPage } from "./pages/TestRunDetailPage";
 import { PlatformsListPage } from "./pages/PlatformsListPage";
 import { PlatformBuilderPage } from "./pages/PlatformBuilderPage";
 import { PlatformVersionHistoryPage } from "./pages/PlatformVersionHistoryPage";
@@ -63,6 +65,22 @@ export default function App() {
                 element={
                   <RequireAuth>
                     <EmitterEditorPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/emitters/:emitterId/tests/new"
+                element={
+                  <RequireAuth>
+                    <TestRunNewPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/emitters/:emitterId/tests/:testRecordId"
+                element={
+                  <RequireAuth>
+                    <TestRunDetailPage />
                   </RequireAuth>
                 }
               />

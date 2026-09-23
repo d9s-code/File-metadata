@@ -40,8 +40,11 @@ export interface TestRecordLineResult {
   test_line_label: string;
   /** pass = correctly intercepted, partial = misclassified, fail = missed, inconclusive = couldn't be assessed. */
   outcome: TestResult;
-  detected_as_mode_id: string | null;
+  /** The Emitter's Modes the system reported for this line — any number. */
+  intercepted_modes: { mode_id: string; mode_name: string }[];
   notes: string | null;
+  /** Intercepted parameters — zero or more sets. */
+  observed_values: ObservedValues[] | null;
 }
 
 export interface TestRecord {
@@ -74,8 +77,9 @@ export interface TestRecordModeResultInput {
 export interface TestRecordLineResultInput {
   test_line_id: string;
   outcome: TestResult;
-  detected_as_mode_id?: string;
+  intercepted_mode_ids?: string[];
   notes?: string;
+  observed_values?: ObservedValues[];
 }
 
 export interface TestRecordInput {
