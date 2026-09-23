@@ -79,7 +79,7 @@ def get_mdf(mdf_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(
 def create_mdf(
     payload: MdfCreate, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))
 ) -> Mdf:
-    if db.query(Mdf).filter(Mdf.name == payload.name).first() is not None:
+    if db.query(Mdf).filter(Mdf.name == payload.name, Mdf.is_deleted.is_(False)).first() is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, "MDF name already exists")
     _check_customer(db, payload.customer_id)
     mdf = Mdf(
@@ -124,7 +124,11 @@ def update_mdf(
         summary=f"Updated MDF '{mdf.name}'",
         changes=changes,
     )
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "MDF name already exists") from exc
     db.refresh(mdf)
     return _attach_platforms_count(db, mdf)
 

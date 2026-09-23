@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useCreateMode, useUpdateMode } from "../../state/hooks/useModes";
+import { useCreateMode } from "../../state/hooks/useModes";
 import { ApiRequestError } from "../../api/client";
 import type { EwGroup, FunctionGroup, Mode, PriType, Source } from "../../types/domain";
 import type { ModeCreateInput } from "../../api/modes";
@@ -18,7 +18,6 @@ export function ModeForm({
   fixedDerivedFromInterceptEntryId,
   onStage,
   observedValueOptions,
-  initialData,
   duplicateFrom,
   onClose,
 }: {
@@ -50,12 +49,9 @@ export function ModeForm({
    * are never pre-filled — those follow the same manual-entry rules as any
    * other Mode. */
   observedValueOptions?: { modeName: string; values: ObservedValues }[];
-  initialData?: Mode;
-  /** Pre-fills every field from an existing Mode's line the same way
-   * initialData does, except Name (left blank — two Modes can't share one)
-   * and it never switches this form into edit mode: submitting always
-   * creates a new Mode, it just starts from a known-good line instead of
-   * a blank one. */
+  /** Pre-fills every field from an existing Mode's line, except Name (left
+   * blank — two Modes can't share one). Submitting still creates a new
+   * Mode; it just starts from a known-good line instead of a blank one. */
   duplicateFrom?: Mode;
   onClose?: () => void;
 }) {
@@ -87,17 +83,16 @@ export function ModeForm({
   const [preFillFrom, setPreFillFrom] = useState(observedValueOptions?.[0]?.modeName ?? "");
 
   const createMode = useCreateMode(ewGroupId, emitterId);
-  const updateMode = useUpdateMode(emitterId);
 
   useEffect(() => {
-    const source = initialData ?? duplicateFrom;
+    const source = duplicateFrom;
     if (source) {
       setEwGroupId(source.ew_group_id);
       setSourceId(source.source_id);
       // A duplicate can't start with the original's name — two Modes can't
       // share one, and leaving it blank forces picking a real one rather
       // than silently failing on submit with an unexplained name clash.
-      setName(initialData ? source.name : "");
+      setName("");
       setPriType(source.pri_type);
       setNotes(source.notes || "");
       setFunctionGroupId(source.function_group_id ?? "");
@@ -126,14 +121,10 @@ export function ModeForm({
           setFrameTimeDelta(String(source.line.frame_time_delta_us));
         }
       }
-
       // Provenance isn't copied for a duplicate — it wasn't independently
       // derived from that test/intercept, it's a copy of a Mode that was.
-      if (initialData?.derived_from_test_records) {
-        setDerivedFrom(new Set(initialData.derived_from_test_records.map((r) => r.id)));
-      }
     }
-  }, [initialData, duplicateFrom, ewGroups, sources]);
+  }, [duplicateFrom, ewGroups, sources]);
 
   useEffect(() => {
     if (!observedValueOptions?.length) return;
@@ -220,35 +211,19 @@ export function ModeForm({
     }
 
     try {
-      if (initialData) {
-        await updateMode.mutateAsync({
-          ewGroupId,
-          modeId: initialData.id,
-          input: {
-            name,
-            notes: notes || undefined,
-            ew_group_id: ewGroupId,
-            function_group_id: functionGroupId || null,
-            source_id: sourceId,
-            pri_type: priType !== initialData.pri_type ? priType : undefined,
-            line: linePayload,
-          },
-        });
-      } else {
-        const payload: ModeCreateInput = {
-          source_id: sourceId,
-          name,
-          pri_type: priType,
-          notes: notes || undefined,
-          line: linePayload,
-          function_group_id: functionGroupId || null,
-        };
-        await createMode.mutateAsync({
-          ...payload,
-          derived_from_test_record_ids: fixedDerivedFromTestRecordId ? [fixedDerivedFromTestRecordId] : [...derivedFrom],
-          derived_from_intercept_entry_ids: fixedDerivedFromInterceptEntryId ? [fixedDerivedFromInterceptEntryId] : [],
-        });
-      }
+      const payload: ModeCreateInput = {
+        source_id: sourceId,
+        name,
+        pri_type: priType,
+        notes: notes || undefined,
+        line: linePayload,
+        function_group_id: functionGroupId || null,
+      };
+      await createMode.mutateAsync({
+        ...payload,
+        derived_from_test_record_ids: fixedDerivedFromTestRecordId ? [fixedDerivedFromTestRecordId] : [...derivedFrom],
+        derived_from_intercept_entry_ids: fixedDerivedFromInterceptEntryId ? [fixedDerivedFromInterceptEntryId] : [],
+      });
       onClose?.();
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : "Failed to save Mode");
@@ -486,8 +461,8 @@ export function ModeForm({
       )}
 
       <div className="form-row">
-        <button type="submit" disabled={!onStage && (initialData ? updateMode.isPending : createMode.isPending)}>
-          {onStage ? "Stage this Mode" : (initialData ? "Update Mode" : "Add Mode")}
+        <button type="submit" disabled={!onStage && createMode.isPending}>
+          {onStage ? "Stage this Mode" : "Add Mode"}
         </button>
         {onClose && (
           <button type="button" className="icon-button" onClick={() => onClose()}>

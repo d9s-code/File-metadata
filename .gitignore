@@ -21,3 +21,7 @@ frontend/.vite/
 # Backups / dumps (never commit real backup files)
 *.dump
 /backups/
+
+# Local-only files
+*.log
+.claude/launch.json

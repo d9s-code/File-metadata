@@ -1,5 +1,9 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
+/** Fired when a logged-in request comes back 401 (the session cookie
+ * expired or was revoked), so the auth layer can send the user to /login. */
+export const SESSION_EXPIRED_EVENT = "auth:session-expired";
+
 function readCookie(name: string): string | null {
   const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
   return match ? decodeURIComponent(match[1]) : null;
@@ -46,6 +50,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     headers,
     credentials: "include",
   });
+
+  if (resp.status === 401 && !path.startsWith("/auth/")) {
+    window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+  }
 
   if (!resp.ok) {
     let message = resp.statusText;

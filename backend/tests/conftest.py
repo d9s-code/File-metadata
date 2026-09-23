@@ -34,6 +34,16 @@ def _create_schema():
     Base.metadata.drop_all(bind=engine)
 
 
+@pytest.fixture(autouse=True)
+def _reset_login_rate_limits():
+    # The limiter is process-global and every TestClient shares one fake IP.
+    from app.core.rate_limit import _failures
+
+    _failures.clear()
+    yield
+    _failures.clear()
+
+
 @pytest.fixture()
 def db_session():
     # Each test gets its own Session; routes are free to call db.commit() as

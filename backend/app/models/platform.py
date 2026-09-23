@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, func, Index, Integer, String, text, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -16,7 +16,13 @@ class Platform(UUIDPkMixin, TimestampMixin, Base):
 
     __tablename__ = "platforms"
 
-    name: Mapped[str] = mapped_column(String(200), unique=True, nullable=False, index=True)
+    # Unique among live rows only, so a soft-deleted row doesn't hold its
+    # name hostage until it's purged.
+    __table_args__ = (
+        Index("uq_platforms_name_active", "name", unique=True, postgresql_where=text("NOT is_deleted")),
+    )
+
+    name: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

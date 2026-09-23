@@ -36,8 +36,12 @@ services:
     # create_admin.py no-ops if the user already exists, so this is safe
     # to run on every container start/restart — there is no register form,
     # so this is the only way to get a first user into a fresh database.
+    # It refuses a CHANGE_ME or short password when creating that user.
+    # --proxy-headers: the login rate limiter keys on the client IP, which
+    # only Traefik's X-Forwarded-For carries. Trusting it from any source is
+    # safe only because this service publishes no ports of its own.
     command: >
-      sh -c "alembic upgrade head && python scripts/create_admin.py \"$$ADMIN_USERNAME\" \"$$ADMIN_PASSWORD\" && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+      sh -c "alembic upgrade head && python scripts/create_admin.py \"$$ADMIN_USERNAME\" \"$$ADMIN_PASSWORD\" && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"
     labels:
       traefik.enable: "true"
       # More specific than the frontend's bare Host() rule below, so

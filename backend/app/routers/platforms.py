@@ -56,7 +56,7 @@ def get_platform(
 def create_platform(
     payload: PlatformCreate, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))
 ) -> Platform:
-    if db.query(Platform).filter(Platform.name == payload.name).first() is not None:
+    if db.query(Platform).filter(Platform.name == payload.name, Platform.is_deleted.is_(False)).first() is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, "Platform name already exists")
     platform = Platform(name=payload.name, description=payload.description, created_by=user.id)
     db.add(platform)
@@ -105,7 +105,11 @@ def update_platform(
         summary=f"Updated Platform '{platform.name}'",
         changes=changes,
     )
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "Platform name already exists") from exc
     db.refresh(platform)
     return platform
 

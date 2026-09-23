@@ -3,6 +3,9 @@ import time
 from fastapi import HTTPException, status
 
 MAX_FAILURES = 5
+# Per client IP, across all usernames — catches password spraying, which the
+# per-username limit can't. Generous, since an office behind one NAT shares an IP.
+MAX_FAILURES_PER_IP = 30
 WINDOW_SECONDS = 15 * 60
 
 # In-memory, per-process. Fine for this app's single-worker deployment
@@ -20,10 +23,18 @@ def _prune(key: str, now: float) -> list[float]:
     return attempts
 
 
-def check_login_rate_limit(key: str) -> None:
+def user_key(username: str) -> str:
+    return f"user:{username}"
+
+
+def ip_key(ip: str) -> str:
+    return f"ip:{ip}"
+
+
+def check_login_rate_limit(key: str, max_failures: int = MAX_FAILURES) -> None:
     now = time.monotonic()
     attempts = _prune(key, now)
-    if len(attempts) >= MAX_FAILURES:
+    if len(attempts) >= max_failures:
         retry_after = int(WINDOW_SECONDS - (now - attempts[0])) + 1
         raise HTTPException(
             status.HTTP_429_TOO_MANY_REQUESTS,

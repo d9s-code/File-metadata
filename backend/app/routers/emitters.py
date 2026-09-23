@@ -45,6 +45,10 @@ router = APIRouter(prefix="/emitters", tags=["emitters"])
 _VERSION_SPEC = VersionSpec(version_model=EmitterVersion, entity_fk_field="emitter_id")
 
 
+def _active_name_taken(db: Session, name: str) -> bool:
+    return db.query(Emitter).filter(Emitter.name == name, Emitter.is_deleted.is_(False)).first() is not None
+
+
 @router.get("", response_model=list[EmitterOut])
 def list_emitters(
     include_deleted: bool = False,
@@ -77,7 +81,7 @@ def get_emitter(
 def create_emitter(
     payload: EmitterCreate, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))
 ) -> Emitter:
-    if db.query(Emitter).filter(Emitter.name == payload.name).first() is not None:
+    if _active_name_taken(db, payload.name):
         raise HTTPException(status.HTTP_409_CONFLICT, "Emitter name already exists")
     emitter = Emitter(
         name=payload.name,
@@ -124,7 +128,11 @@ def update_emitter(
         changes=changes,
         emitter_id=emitter.id,
     )
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "Emitter name already exists") from exc
     db.refresh(emitter)
     return emitter
 
@@ -213,6 +221,17 @@ def _get_emitter_or_404(db: Session, emitter_id: UUID) -> Emitter:
     return emitter
 
 
+def _lock_emitter_for_checkout(db: Session, emitter_id: UUID) -> Emitter:
+    """Row-locks the Emitter so two simultaneous checkouts can't both see it
+    as free; the second waits for the first to commit, then gets a 409."""
+    emitter = db.get(Emitter, emitter_id, with_for_update=True, populate_existing=True)
+    if emitter is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Emitter not found")
+    if emitter.is_deleted:
+        raise HTTPException(status.HTTP_409_CONFLICT, "This Emitter is deleted — restore it before editing")
+    return emitter
+
+
 @router.post("/{emitter_id}/checkout", response_model=EmitterOut, dependencies=[Depends(verify_csrf)])
 def checkout_emitter(
     emitter_id: UUID,
@@ -223,7 +242,7 @@ def checkout_emitter(
     of its EW Groups/Sources/Modes/Elements. Idempotent if you already hold
     it; 409s if someone else does.
     """
-    emitter = _get_emitter_or_404(db, emitter_id)
+    emitter = _lock_emitter_for_checkout(db, emitter_id)
     try:
         checkout_service.start_checkout(emitter, user.id)
     except checkout_service.AlreadyCheckedOutBySomeoneElse as exc:
@@ -621,7 +640,7 @@ def revert_emitter_version(
     this behaves like `git revert`, not `git reset`. Claims the checkout if
     it's free; 409s if someone else already holds it.
     """
-    emitter = _get_emitter_or_404(db, emitter_id)
+    emitter = _lock_emitter_for_checkout(db, emitter_id)
     target = get_version(db, spec=_VERSION_SPEC, entity_id=emitter_id, version_number=version_number)
     if target is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Version not found")
@@ -683,7 +702,7 @@ def fork_emitter_version(
     source_version = get_version(db, spec=_VERSION_SPEC, entity_id=emitter_id, version_number=version_number)
     if source_version is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Version not found")
-    if db.query(Emitter).filter(Emitter.name == payload.new_name).first() is not None:
+    if _active_name_taken(db, payload.new_name):
         raise HTTPException(status.HTTP_409_CONFLICT, "Emitter name already exists")
 
     new_emitter = build_forked_emitter(

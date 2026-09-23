@@ -2,14 +2,21 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 import jwt
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core.csrf import CSRF_COOKIE_NAME, generate_csrf_token
 from app.core.enums import AuditAction, AuditEntityType
-from app.core.rate_limit import check_login_rate_limit, clear_login_failures, record_login_failure
-from app.core.security import create_access_token, decode_access_token, verify_password
+from app.core.rate_limit import (
+    MAX_FAILURES_PER_IP,
+    check_login_rate_limit,
+    clear_login_failures,
+    ip_key,
+    record_login_failure,
+    user_key,
+)
+from app.core.security import create_access_token, decode_access_token, hash_password, verify_password
 from app.database import get_db
 from app.deps import get_current_user
 from app.models.user import User
@@ -20,14 +27,22 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 _COOKIE_MAX_AGE = settings.jwt_expire_minutes * 60
 
+# Checked against when the username doesn't exist, so an unknown username
+# takes as long to reject as a wrong password (no timing-based enumeration).
+_DUMMY_PASSWORD_HASH = hash_password("dummy-password-for-timing")
+
 
 @router.post("/login", response_model=UserOut)
-def login(payload: LoginRequest, response: Response, db: Session = Depends(get_db)) -> User:
-    check_login_rate_limit(payload.username)
+def login(payload: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)) -> User:
+    client_ip = ip_key(request.client.host if request.client else "unknown")
+    check_login_rate_limit(user_key(payload.username))
+    check_login_rate_limit(client_ip, max_failures=MAX_FAILURES_PER_IP)
 
     user = db.query(User).filter(User.username == payload.username).first()
-    if user is None or not user.is_active or not verify_password(payload.password, user.password_hash):
-        record_login_failure(payload.username)
+    password_ok = verify_password(payload.password, user.password_hash if user else _DUMMY_PASSWORD_HASH)
+    if user is None or not user.is_active or not password_ok:
+        record_login_failure(user_key(payload.username))
+        record_login_failure(client_ip)
         record_audit(
             db,
             actor_id=user.id if user else None,
@@ -39,7 +54,9 @@ def login(payload: LoginRequest, response: Response, db: Session = Depends(get_d
         db.commit()
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid username or password")
 
-    clear_login_failures(payload.username)
+    # Only the username's counter: clearing the IP's would let one valid
+    # account reset the spraying limit for every other guess from that IP.
+    clear_login_failures(user_key(payload.username))
     user.last_login_at = datetime.now(timezone.utc)
     record_audit(
         db,

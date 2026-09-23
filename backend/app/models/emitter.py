@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, text, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -13,7 +13,13 @@ from app.models.mixins import TimestampMixin, UUIDPkMixin
 class Emitter(UUIDPkMixin, TimestampMixin, Base):
     __tablename__ = "emitters"
 
-    name: Mapped[str] = mapped_column(String(200), unique=True, nullable=False, index=True)
+    # Unique among live rows only, so a soft-deleted row doesn't hold its
+    # name hostage until it's purged.
+    __table_args__ = (
+        Index("uq_emitters_name_active", "name", unique=True, postgresql_where=text("NOT is_deleted")),
+    )
+
+    name: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
     designation: Mapped[str | None] = mapped_column(String(200), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[EmitterStatus] = mapped_column(nullable=False, default=EmitterStatus.draft)

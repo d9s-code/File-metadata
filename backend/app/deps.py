@@ -63,7 +63,7 @@ def require_emitter_checkout(emitter_id_param: str = "emitter_id"):
         user: User = Depends(require_role(Role.editor)),
     ) -> User:
         emitter = db.get(Emitter, UUID(request.path_params[emitter_id_param]))
-        if emitter is None:
+        if emitter is None or emitter.is_deleted:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Emitter not found")
         try:
             checkout_service.assert_checked_out_by(emitter, user.id)
@@ -88,6 +88,8 @@ def require_ew_group_checkout():
         if ew_group is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "EW Group not found")
         emitter = db.get(Emitter, ew_group.emitter_id)
+        if emitter.is_deleted:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Emitter not found")
         try:
             checkout_service.assert_checked_out_by(emitter, user.id)
         except checkout_service.NotCheckedOutByUser:

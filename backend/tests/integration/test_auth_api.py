@@ -46,7 +46,7 @@ def test_me_requires_authentication(client: TestClient):
 
 def test_repeated_failed_logins_are_rate_limited(client: TestClient, db_session):
     _make_user(db_session, "ratelimited", "correctpass123")
-    _failures.pop("ratelimited", None)
+    _failures.pop("user:ratelimited", None)
 
     for _ in range(5):
         resp = client.post("/auth/login", json={"username": "ratelimited", "password": "wrongpass"})
@@ -59,12 +59,12 @@ def test_repeated_failed_logins_are_rate_limited(client: TestClient, db_session)
     still_locked_resp = client.post("/auth/login", json={"username": "ratelimited", "password": "correctpass123"})
     assert still_locked_resp.status_code == 429
 
-    _failures.pop("ratelimited", None)
+    _failures.pop("user:ratelimited", None)
 
 
 def test_successful_login_clears_failure_count(client: TestClient, db_session):
     _make_user(db_session, "resetcounter", "correctpass123")
-    _failures.pop("resetcounter", None)
+    _failures.pop("user:resetcounter", None)
 
     for _ in range(3):
         resp = client.post("/auth/login", json={"username": "resetcounter", "password": "wrongpass"})
@@ -72,4 +72,23 @@ def test_successful_login_clears_failure_count(client: TestClient, db_session):
 
     ok_resp = client.post("/auth/login", json={"username": "resetcounter", "password": "correctpass123"})
     assert ok_resp.status_code == 200
-    assert "resetcounter" not in _failures
+    assert "user:resetcounter" not in _failures
+
+
+def test_failed_logins_across_usernames_are_rate_limited_per_ip(client: TestClient, monkeypatch):
+    from app.core import rate_limit
+
+    monkeypatch.setattr("app.routers.auth.MAX_FAILURES_PER_IP", 3)
+    for i in range(3):
+        resp = client.post("/auth/login", json={"username": f"spray{i}", "password": "wrongpass"})
+        assert resp.status_code == 401
+    resp = client.post("/auth/login", json={"username": "spray-next", "password": "wrongpass"})
+    assert resp.status_code == 429
+    assert rate_limit._failures.get("user:spray-next") is None
+
+
+def test_username_cannot_poison_an_ip_bucket(client: TestClient):
+    from app.core import rate_limit
+
+    client.post("/auth/login", json={"username": "ip:10.9.9.9", "password": "wrongpass"})
+    assert "ip:10.9.9.9" not in rate_limit._failures
