@@ -362,9 +362,10 @@ export function HelpPage() {
             </p>
             <p className="hint-text">
               Also here: <strong>Cartesian Product</strong>, which combines chosen RF/PW/PRI Elements (and
-              individually-selected Parameter Sequence steps, each with its own optional delta override)
-              into every possible Mode in one step, instead of typing each Mode's line by hand. Each of its
-              RF/PW/PRI columns sorts independently.
+              individually-selected Parameter Sequence steps) into every possible Mode in one step, instead of
+              typing each Mode's line by hand. Each selected item gets a <strong>Delta</strong> field that
+              starts at 0 — that&rsquo;s exactly the delta the generated Modes get unless you type another
+              value. Each of its RF/PW/PRI columns sorts independently.
             </p>
           </div>
 

@@ -11,6 +11,8 @@ import { compareNullable, compareStrings } from "../common/sortUtils";
 import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 
+const DEFAULT_DELTA = "0";
+
 type CheckboxItem = { id: string; label: string; variants?: (ElementVariant | undefined)[]; sortValue?: number | null };
 type ItemSortKey = "label" | "value";
 
@@ -47,7 +49,6 @@ function CheckboxList({
   showVariant = false,
   deltaOverrides,
   onDeltaChange,
-  elementDeltaById,
   sortKey,
   sortDir,
   onSort,
@@ -57,12 +58,9 @@ function CheckboxList({
   selected: Set<string>;
   onToggle: (id: string) => void;
   showVariant?: boolean;
-  /** Per-element delta override, keyed by element id — only rendered when both this and onDeltaChange are given. */
+  /** Per-element delta for this run, keyed by element id — only rendered when both this and onDeltaChange are given. */
   deltaOverrides?: Record<string, string>;
   onDeltaChange?: (id: string, value: string) => void;
-  /** The element's own stored delta, shown as the input's placeholder so it's
-   * clear what "leave blank" means (use the element's own value, if any). */
-  elementDeltaById?: Record<string, number | null>;
   sortKey?: ItemSortKey | null;
   sortDir?: "asc" | "desc";
   onSort?: (key: ItemSortKey, dir: "asc" | "desc") => void;
@@ -90,7 +88,7 @@ function CheckboxList({
               ) : (
                 <th className="px-2 py-1">Label</th>
               )}
-              {showDelta && <th className="px-2 py-1 w-28">Delta override</th>}
+              {showDelta && <th className="px-2 py-1 w-28">Delta</th>}
               <th className="px-2 py-1 w-10"></th>
             </tr>
           </thead>
@@ -147,12 +145,9 @@ function CheckboxList({
                         min="0"
                         step="any"
                         style={{ width: "5.5rem" }}
-                        value={deltaOverrides?.[item.id] ?? ""}
+                        value={deltaOverrides?.[item.id] ?? DEFAULT_DELTA}
                         onChange={(e) => onDeltaChange?.(item.id, e.target.value)}
-                        placeholder={
-                          elementDeltaById?.[item.id] != null ? `${elementDeltaById[item.id]}` : "none"
-                        }
-                        title="Leave blank to use this element's own delta (if any)"
+                        title="± delta applied to the generated Modes (0 = none)"
                       />
                     )}
                   </td>
@@ -213,10 +208,8 @@ export function CartesianProductButton({
   const [rfDeltaOverrides, setRfDeltaOverrides] = useState<Record<string, string>>({});
   const [pwDeltaOverrides, setPwDeltaOverrides] = useState<Record<string, string>>({});
   const [priDeltaOverrides, setPriDeltaOverrides] = useState<Record<string, string>>({});
-  // Per-step (composite `${sequenceId}:${order}` id) delta overrides — same
-  // "leave blank to use the default" pattern as the element overrides above,
-  // just falling back to the sequence's own stored delta instead of an
-  // element's.
+  // Per-step (composite `${sequenceId}:${order}` id) deltas — same as the
+  // element deltas above.
   const [sequenceRfDeltaOverrides, setSequenceRfDeltaOverrides] = useState<Record<string, string>>({});
   const [sequencePwDeltaOverrides, setSequencePwDeltaOverrides] = useState<Record<string, string>>({});
   const [sequencePriDeltaOverrides, setSequencePriDeltaOverrides] = useState<Record<string, string>>({});
@@ -345,8 +338,7 @@ export function CartesianProductButton({
   // Individually selectable (sequence, step) pairs — a whole sequence is no
   // longer a single checkbox, so multi-step sequences don't force every step
   // to be used at once. Each row also carries which bounds it actually sets
-  // (for conditionally showing a delta-override input) and the sequence's
-  // own delta values (shown as each override's placeholder).
+  // (for conditionally showing a delta input).
   const sequenceStepRows = (sequences ?? []).flatMap((s) =>
     s.steps.map((step) => ({
       id: `${s.id}:${step.order}`,
@@ -354,26 +346,27 @@ export function CartesianProductButton({
       hasRf: step.rf_mhz != null,
       hasPw: step.pw_us != null,
       hasPri: step.pri_us != null,
-      sequenceRfDelta: s.rf_delta,
-      sequencePwDelta: s.pw_delta,
-      sequencePriDelta: s.pri_delta,
     })),
   );
 
-  const elementDeltaById = Object.fromEntries((elements ?? []).map((e) => [e.id, e.delta]));
-
-  function toOverridePayload(overrides: Record<string, string>): Record<string, number> | undefined {
-    const entries = Object.entries(overrides)
-      .map(([id, v]) => [id, Number(v)] as const)
-      .filter(([, v]) => v !== null && !Number.isNaN(v) && Number.isFinite(v) && v >= 0);
-    return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+  // Every selected item's delta is sent explicitly — 0 unless typed — so
+  // what the field shows is exactly what the generated Modes get. A cleared
+  // field counts as 0; anything else that isn't a number >= 0 is rejected.
+  function deltaFor(overrides: Record<string, string>, id: string): number | null {
+    const raw = (overrides[id] ?? DEFAULT_DELTA).trim();
+    if (raw === "") return 0;
+    const n = Number(raw);
+    return Number.isFinite(n) && n >= 0 ? n : null;
   }
 
-  function toSingleOverride(overrides: Record<string, string>, id: string): number | undefined {
-    const raw = overrides[id];
-    if (raw === undefined || raw.trim() === "") return undefined;
-    const n = Number(raw);
-    return !Number.isNaN(n) && Number.isFinite(n) && n >= 0 ? n : undefined;
+  function deltasFor(selected: Set<string>, overrides: Record<string, string>): Record<string, number> | null {
+    const out: Record<string, number> = {};
+    for (const id of selected) {
+      const d = deltaFor(overrides, id);
+      if (d === null) return null;
+      out[id] = d;
+    }
+    return out;
   }
 
   async function handleRun() {
@@ -383,27 +376,42 @@ export function CartesianProductButton({
       setError("Choose a target EW Group first.");
       return;
     }
+    const rfDeltas = deltasFor(rfSelected, rfDeltaOverrides);
+    const pwDeltas = deltasFor(pwSelected, pwDeltaOverrides);
+    const priDeltas = deltasFor(priSelected, priDeltaOverrides);
+    const steps = [...sequenceSelected].map((id) => {
+      const sep = id.lastIndexOf(":");
+      const row = sequenceStepRows.find((r) => r.id === id);
+      return {
+        sequence_id: id.slice(0, sep),
+        order: Number(id.slice(sep + 1)),
+        rf_delta: row?.hasRf ? deltaFor(sequenceRfDeltaOverrides, id) : undefined,
+        pw_delta: row?.hasPw ? deltaFor(sequencePwDeltaOverrides, id) : undefined,
+        pri_delta: row?.hasPri ? deltaFor(sequencePriDeltaOverrides, id) : undefined,
+      };
+    });
+    const badStep = steps.some((st) => st.rf_delta === null || st.pw_delta === null || st.pri_delta === null);
+    if (!rfDeltas || !pwDeltas || !priDeltas || badStep) {
+      setError("Every delta must be a number of 0 or more.");
+      return;
+    }
     try {
       const res = await cartesianProduct.mutateAsync({
         ew_group_id: ewGroupId,
         rf_element_ids: [...rfSelected],
         pw_element_ids: [...pwSelected],
         pri_element_ids: [...priSelected],
-        sequence_steps: [...sequenceSelected].map((id) => {
-          const sep = id.lastIndexOf(":");
-          return {
-            sequence_id: id.slice(0, sep),
-            order: Number(id.slice(sep + 1)),
-            rf_delta: toSingleOverride(sequenceRfDeltaOverrides, id),
-            pw_delta: toSingleOverride(sequencePwDeltaOverrides, id),
-            pri_delta: toSingleOverride(sequencePriDeltaOverrides, id),
-          };
-        }),
+        sequence_steps: steps.map((st) => ({
+          ...st,
+          rf_delta: st.rf_delta ?? undefined,
+          pw_delta: st.pw_delta ?? undefined,
+          pri_delta: st.pri_delta ?? undefined,
+        })),
         name_prefix: namePrefix,
         batch_note: batchNote || undefined,
-        rf_delta_overrides: toOverridePayload(rfDeltaOverrides),
-        pw_delta_overrides: toOverridePayload(pwDeltaOverrides),
-        pri_delta_overrides: toOverridePayload(priDeltaOverrides),
+        rf_delta_overrides: rfDeltas,
+        pw_delta_overrides: pwDeltas,
+        pri_delta_overrides: priDeltas,
         rf_range_matching: rfRangeMatching,
         pw_range_matching: pwRangeMatching,
         pri_range_matching: priRangeMatching,
@@ -433,7 +441,6 @@ export function CartesianProductButton({
             showVariant={true}
             deltaOverrides={rfDeltaOverrides}
             onDeltaChange={(id, value) => setRfDeltaOverrides((prev) => ({ ...prev, [id]: value }))}
-            elementDeltaById={elementDeltaById}
             sortKey={rfSort.sortKey}
             sortDir={rfSort.sortDir}
             onSort={rfSort.onSort}
@@ -452,7 +459,6 @@ export function CartesianProductButton({
             showVariant={true}
             deltaOverrides={priDeltaOverrides}
             onDeltaChange={(id, value) => setPriDeltaOverrides((prev) => ({ ...prev, [id]: value }))}
-            elementDeltaById={elementDeltaById}
             sortKey={priSort.sortKey}
             sortDir={priSort.sortDir}
             onSort={priSort.onSort}
@@ -471,7 +477,6 @@ export function CartesianProductButton({
             showVariant={true}
             deltaOverrides={pwDeltaOverrides}
             onDeltaChange={(id, value) => setPwDeltaOverrides((prev) => ({ ...prev, [id]: value }))}
-            elementDeltaById={elementDeltaById}
             sortKey={pwSort.sortKey}
             sortDir={pwSort.sortDir}
             onSort={pwSort.onSort}
@@ -516,12 +521,11 @@ export function CartesianProductButton({
                             min="0"
                             step="any"
                             style={{ width: "5.5rem" }}
-                            value={sequenceRfDeltaOverrides[row.id] ?? ""}
+                            value={sequenceRfDeltaOverrides[row.id] ?? DEFAULT_DELTA}
                             onChange={(e) =>
                               setSequenceRfDeltaOverrides((prev) => ({ ...prev, [row.id]: e.target.value }))
                             }
-                            placeholder={row.sequenceRfDelta != null ? `${row.sequenceRfDelta}` : "none"}
-                            title="Leave blank to use this sequence's own RF delta (if any)"
+                            title="± RF delta applied to the generated Modes (0 = none)"
                           />
                         )}
                       </td>
@@ -532,12 +536,11 @@ export function CartesianProductButton({
                             min="0"
                             step="any"
                             style={{ width: "5.5rem" }}
-                            value={sequencePwDeltaOverrides[row.id] ?? ""}
+                            value={sequencePwDeltaOverrides[row.id] ?? DEFAULT_DELTA}
                             onChange={(e) =>
                               setSequencePwDeltaOverrides((prev) => ({ ...prev, [row.id]: e.target.value }))
                             }
-                            placeholder={row.sequencePwDelta != null ? `${row.sequencePwDelta}` : "none"}
-                            title="Leave blank to use this sequence's own PW delta (if any)"
+                            title="± PW delta applied to the generated Modes (0 = none)"
                           />
                         )}
                       </td>
@@ -548,12 +551,11 @@ export function CartesianProductButton({
                             min="0"
                             step="any"
                             style={{ width: "5.5rem" }}
-                            value={sequencePriDeltaOverrides[row.id] ?? ""}
+                            value={sequencePriDeltaOverrides[row.id] ?? DEFAULT_DELTA}
                             onChange={(e) =>
                               setSequencePriDeltaOverrides((prev) => ({ ...prev, [row.id]: e.target.value }))
                             }
-                            placeholder={row.sequencePriDelta != null ? `${row.sequencePriDelta}` : "none"}
-                            title="Leave blank to use this sequence's own PRI delta (if any)"
+                            title="± PRI delta applied to the generated Modes (0 = none)"
                           />
                         )}
                       </td>
