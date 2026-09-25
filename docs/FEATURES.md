@@ -207,10 +207,20 @@ A test record automatically pins to whichever version of the Emitter or MDF was 
 
 ## 9. Dashboard
 
-The **Dashboard** is the landing page after login: status-count tiles for all Emitters and MDFs at a glance, plus a **Needs Attention** panel that surfaces:
+The **Dashboard** is the landing page after login. It is built around SIM Test Lines — whether each Emitter is recognized correctly against simulated signals — rather than per-Mode pass rates:
 
-- Emitter drafts that haven't been committed in over a week
-- Any MDF with open readiness warnings (unvalidated referenced emitters, or no passing test on file)
+- **Emitters / MDFs** — counts per lifecycle stage.
+- **Simulation Validation** — every SIM Test Line's latest outcome across all Emitters (correct, misclassified, missed, inconclusive, untested) as one bar, and how many Emitters had every line correct in their latest run.
+- **Needs Attention**, grouped by kind:
+  - SIM Test Lines missed or misclassified in their latest run
+  - an Emitter in Testing that was never checked against a simulation
+  - an Emitter whose content was committed after its last simulation run was logged (status changes alone don't count)
+  - Emitters needing rework, and Sources awaiting review
+  - Emitters in progress with no commit for over a week
+  - MDFs with open readiness warnings
+- **Emitters by SIM Test Line status** — one row per Emitter, worst first, searchable and filterable, scrolling inside a fixed height.
+- **Test Runs** — the latest runs with their line outcomes, plus failed/partial runs with no retest on file.
+- **Recent Activity** — the last entries from the Audit Log.
 
 ---
 

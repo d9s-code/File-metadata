@@ -164,11 +164,37 @@ export function HelpPage() {
       <div className="card" id="dashboard">
         <h2>Dashboard</h2>
         <p>
-          The landing page after login. Shows status tiles for Emitters and MDFs (counts by lifecycle
-          stage) plus a <strong>Needs Attention</strong> list — things like an MDF with no platforms
-          pinned yet, or no passing test on file. Click any item to jump straight to it. This is the best
-          place to start when you're not sure where something stands.
+          The landing page after login, and the best place to start when you&rsquo;re not sure where
+          something stands:
         </p>
+        <ul>
+          <li>
+            <strong>Emitters</strong> and <strong>MDFs</strong> — how many are at each lifecycle stage.
+          </li>
+          <li>
+            <strong>Simulation Validation</strong> — every SIM Test Line&rsquo;s latest outcome across all
+            Emitters (correct, misclassified, missed, inconclusive, untested), and how many Emitters had
+            every line correct in their latest run.
+          </li>
+          <li>
+            <strong>Needs Attention</strong> — grouped: SIM Test Lines missed or misclassified in their latest
+            run, an Emitter in Testing that was never checked against a simulation, an Emitter changed after
+            its last simulation test, Emitters needing rework, Sources awaiting review, stalled Emitters and
+            MDF readiness warnings. Click any item to jump straight to it.
+          </li>
+          <li>
+            <strong>Emitters by SIM Test Line status</strong> — one row per Emitter, worst first, with a
+            search box and a filter (needing a look / with SIM Test Lines / all). It scrolls inside a fixed
+            height, so it stays compact however many Emitters there are.
+          </li>
+          <li>
+            <strong>Test Runs</strong> — the latest runs with their line outcomes, and failed or partial runs
+            that still need a redo.
+          </li>
+          <li>
+            <strong>Recent Activity</strong> — the last few entries from the Audit Log.
+          </li>
+        </ul>
       </div>
 
       <div className="card" id="emitters">

@@ -12,9 +12,9 @@ from app.models.emitter import Emitter
 from app.models.ew_group import EwGroup
 from app.models.mode import Mode
 from app.models.test_line import TestLine
-from app.models.test_record import TestRecord, TestRecordLine
 from app.schemas.test_line import TestLineImportRequest, TestLineOut, TestLineUpdate
 from app.services.audit_service import apply_and_diff, record_audit
+from app.services.test_line_status_service import latest_line_outcomes
 
 # Test Lines are part of the Emitter's own versioned definition (see
 # snapshots.py::build_emitter_snapshot) — importing, editing or removing one
@@ -31,24 +31,6 @@ def _to_out(tl: TestLine, status_row: tuple | None = None) -> TestLineOut:
     if status_row is not None:
         out.last_tested_at, out.last_test_result, out.last_test_record_id = status_row
     return out
-
-
-def _latest_status_by_line(db: Session, line_ids: list[UUID]) -> dict[UUID, tuple]:
-    """Each line's outcome in the most recent test run that included it
-    (latest test_date, then latest logged)."""
-    if not line_ids:
-        return {}
-    rows = (
-        db.query(TestRecordLine.test_line_id, TestRecord.test_date, TestRecordLine.outcome, TestRecord.id)
-        .join(TestRecord, TestRecordLine.test_record_id == TestRecord.id)
-        .filter(TestRecordLine.test_line_id.in_(line_ids))
-        .order_by(TestRecordLine.test_line_id, TestRecord.test_date.desc(), TestRecord.created_at.desc())
-        .all()
-    )
-    latest: dict[UUID, tuple] = {}
-    for line_id, test_date, outcome, record_id in rows:
-        latest.setdefault(line_id, (test_date, outcome, record_id))
-    return latest
 
 
 def _validate_mode_ids(db: Session, emitter_id: UUID, mode_ids: set[UUID]) -> None:
@@ -77,7 +59,7 @@ def list_test_lines(emitter_id: UUID, db: Session = Depends(get_db), _=Depends(r
         .order_by(TestLine.sort_order.asc(), TestLine.created_at.asc())
         .all()
     )
-    statuses = _latest_status_by_line(db, [tl.id for tl in lines])
+    statuses = latest_line_outcomes(db, [tl.id for tl in lines])
     return [_to_out(tl, statuses.get(tl.id)) for tl in lines]
 
 
@@ -162,7 +144,7 @@ def update_test_line(
     )
     db.commit()
     db.refresh(line)
-    return _to_out(line, _latest_status_by_line(db, [line.id]).get(line.id))
+    return _to_out(line, latest_line_outcomes(db, [line.id]).get(line.id))
 
 
 @router.delete("/{test_line_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(verify_csrf)])

@@ -1329,6 +1329,104 @@ label {
   max-height: 220px;
   overflow-y: auto;
 }
+/* Cards that grow with the data scroll inside a fixed height instead. */
+.dashboard-table-tall {
+  max-height: 22rem;
+}
+.dashboard-scroll-body {
+  max-height: 22rem;
+  overflow-y: auto;
+}
+.dashboard-wide {
+  grid-column: span 2;
+}
+@media (max-width: 760px) {
+  .dashboard-wide {
+    grid-column: auto;
+  }
+}
+.dashboard-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+.dashboard-card-header h4 {
+  margin: 0;
+}
+.dashboard-card-tools {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.dashboard-card-tools input {
+  width: 12rem;
+}
+.dashboard-card-footer {
+  margin: 0.4rem 0 0;
+}
+.dashboard-subheading {
+  margin-top: 0.9rem;
+}
+.data-table td.nowrap {
+  white-space: nowrap;
+}
+.attention-group + .attention-group {
+  margin-top: 0.6rem;
+}
+.attention-group h5 {
+  margin: 0 0 0.3rem;
+}
+
+/* SIM Test Line outcomes as one stacked bar. Colours match the outcome
+   badges: correct / misclassified / missed / inconclusive / untested. */
+.sim-headline {
+  margin: 0 0 0.6rem;
+}
+.sim-bar {
+  display: flex;
+  height: 0.6rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--hover-bg);
+  border: 1px solid var(--border);
+}
+.sim-bar-segment {
+  height: 100%;
+}
+.sim-pass { background: #10b981; }
+.sim-partial { background: #f59e0b; }
+.sim-fail { background: #ef4444; }
+.sim-inconclusive { background: #9ca3af; }
+.sim-untested { background: var(--hover-bg); }
+.sim-legend {
+  list-style: none;
+  margin: 0.6rem 0 0.4rem;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  font-size: 0.85rem;
+}
+.sim-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.sim-legend-swatch {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 2px;
+  border: 1px solid var(--border);
+}
+.sim-lines-cell {
+  min-width: 14rem;
+}
+.sim-lines-cell .sim-bar {
+  margin-bottom: 0.2rem;
+}
 .dashboard-table-scroll table {
   margin-bottom: 0;
 }
@@ -1368,25 +1466,6 @@ label {
   flex-wrap: wrap;
 }
 
-.modes-passing-bars {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-.modes-passing-bars li {
-  display: grid;
-  grid-template-columns: minmax(100px, 160px) 1fr auto;
-  align-items: center;
-  gap: 0.6rem;
-}
-.modes-passing-bar-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .progress-bar-track {
   background: var(--hover-bg);
   border-radius: 999px;

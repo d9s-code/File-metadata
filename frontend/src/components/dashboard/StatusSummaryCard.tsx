@@ -1,5 +1,4 @@
 import { StatusTiles } from "./StatusTiles";
-import { StatusDistributionChart } from "./StatusDistributionChart";
 
 export function StatusSummaryCard({
   title,
@@ -13,10 +12,7 @@ export function StatusSummaryCard({
   return (
     <div className="card status-tiles">
       <h4>{title}</h4>
-      <div className="status-summary-row">
-        <StatusTiles counts={counts} labelFor={labelFor} />
-        <StatusDistributionChart counts={counts} labelFor={labelFor} />
-      </div>
+      <StatusTiles counts={counts} labelFor={labelFor} />
     </div>
   );
 }

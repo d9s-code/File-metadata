@@ -1,22 +1,26 @@
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import Date, cast, func
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
-from app.core.enums import AuditAction, EmitterStatus, MdfStatus, SourceStatus, TestResult
+from app.core.enums import EmitterStatus, MdfStatus, SourceStatus, TestResult
 from app.models.audit_log import AuditLog
 from app.models.emitter import Emitter
 from app.models.emitter_version import EmitterVersion
 from app.models.mdf import Mdf
 from app.models.source import Source
-from app.models.test_record import TestRecord
+from app.models.test_line import TestLine
+from app.models.test_record import TestRecord, TestRecordLine
 from app.schemas.audit_log import AuditLogOut
-from app.services.emitter_summary_service import compute_emitter_summaries
+from app.services.emitter_validation_service import get_last_validation
 from app.services.readiness_service import compute_mdf_readiness_warnings
+from app.services.test_line_status_service import latest_line_outcomes
 
 STALE_DRAFT_DAYS = 7
-ACTIVITY_TREND_DAYS = 21
 RECENT_ACTIVITY_LIMIT = 10
+RECENT_TEST_RUNS_LIMIT = 8
+# A SIM Test Line's latest outcome, or "untested" when no run included it yet.
+SIM_OUTCOME_KEYS = tuple(r.value for r in TestResult) + ("untested",)
 
 
 def _compute_status_counts(db: Session) -> tuple[dict[str, int], dict[str, int]]:
@@ -38,7 +42,7 @@ def _compute_status_counts(db: Session) -> tuple[dict[str, int], dict[str, int]]
     return emitter_counts, mdf_counts
 
 
-def _compute_needs_attention(db: Session) -> list[dict]:
+def _compute_needs_attention(db: Session, sim_rows: list[dict]) -> list[dict]:
     needs_attention: list[dict] = []
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=STALE_DRAFT_DAYS)
@@ -60,6 +64,7 @@ def _compute_needs_attention(db: Session) -> list[dict]:
                     "message": f"Emitter '{emitter.name}' has been in progress with no commit for {days} days.",
                     "entity_type": "emitter",
                     "entity_id": str(emitter.id),
+                    "category": "stale",
                 }
             )
 
@@ -72,8 +77,10 @@ def _compute_needs_attention(db: Session) -> list[dict]:
         else:
             message = f"Emitter '{emitter.name}' needs rework."
         needs_attention.append(
-            {"message": message, "entity_type": "emitter", "entity_id": str(emitter.id)}
+            {"message": message, "entity_type": "emitter", "entity_id": str(emitter.id), "category": "rework"}
         )
+
+    needs_attention.extend(_sim_attention_items(sim_rows))
 
     active_mdfs = (
         db.query(Mdf)
@@ -88,6 +95,7 @@ def _compute_needs_attention(db: Session) -> list[dict]:
                     "message": f"MDF '{mdf.name}': {w}",
                     "entity_type": "mdf",
                     "entity_id": str(mdf.id),
+                    "category": "mdf",
                 }
             )
 
@@ -115,19 +123,130 @@ def _compute_pending_approvals(db: Session) -> list[dict]:
     return pending
 
 
-def _compute_modes_passing_totals(db: Session) -> tuple[int, int]:
-    emitter_ids = [row[0] for row in db.query(Emitter.id).filter(Emitter.is_deleted.is_(False)).all()]
-    summaries = compute_emitter_summaries(db, emitter_ids)
-    modes_total = sum(s.mode_count for s in summaries.values())
-    modes_passing_total = sum(s.modes_passing for s in summaries.values())
-    return modes_passing_total, modes_total
+def _compute_emitter_sim_status(db: Session) -> list[dict]:
+    """One row per Emitter: how its SIM Test Lines did in their latest run,
+    and when it was last validated against a simulation."""
+    emitters = db.query(Emitter).filter(Emitter.is_deleted.is_(False)).order_by(Emitter.name).all()
+    ids = [e.id for e in emitters]
+    if not ids:
+        return []
+    lines = db.query(TestLine.id, TestLine.emitter_id).filter(TestLine.emitter_id.in_(ids)).all()
+    outcomes = latest_line_outcomes(db, [line_id for line_id, _ in lines])
+    validations = get_last_validation(db, ids)
+    # When each validating run was logged — a commit after that is a change
+    # the run didn't see. (Its test_date can be earlier than when it was
+    # logged, so it would wrongly flag commits made before logging.)
+    logged_at = dict(
+        db.query(TestRecord.id, TestRecord.created_at)
+        .filter(TestRecord.id.in_([v[2] for v in validations.values()]))
+        .all()
+    )
+    # Last commit that changed content — a status change commits a version
+    # too, but moving to Testing after a run doesn't make the run stale.
+    last_change = dict(
+        db.query(EmitterVersion.emitter_id, func.max(EmitterVersion.created_at))
+        .filter(EmitterVersion.emitter_id.in_(ids), ~EmitterVersion.change_summary.like("Status: %"))
+        .group_by(EmitterVersion.emitter_id)
+        .all()
+    )
+
+    counts = {e.id: dict.fromkeys(SIM_OUTCOME_KEYS, 0) for e in emitters}
+    for line_id, emitter_id in lines:
+        latest = outcomes.get(line_id)
+        counts[emitter_id][latest[1].value if latest else "untested"] += 1
+
+    rows = []
+    for e in emitters:
+        validated = validations.get(e.id)
+        changed = last_change.get(e.id)
+        rows.append(
+            {
+                "emitter_id": str(e.id),
+                "name": e.name,
+                "status": e.status.value,
+                "line_count": sum(counts[e.id].values()),
+                "line_outcomes": counts[e.id],
+                "last_validated_at": validated[0].isoformat() if validated else None,
+                "last_validated_result": validated[1].value if validated else None,
+                "last_validated_test_record_id": str(validated[2]) if validated else None,
+                "changed_since_validation": bool(validated and changed and changed > logged_at[validated[2]]),
+            }
+        )
+    return rows
 
 
-def _compute_test_result_counts(db: Session) -> dict[str, int]:
-    counts = {r.value: 0 for r in TestResult}
-    for result_value, count in db.query(TestRecord.result, func.count()).group_by(TestRecord.result).all():
-        counts[result_value.value] = count
-    return counts
+def _sim_attention_items(sim_rows: list[dict]) -> list[dict]:
+    items: list[dict] = []
+    for row in sim_rows:
+        link = {"entity_type": "emitter", "entity_id": row["emitter_id"]}
+        name = row["name"]
+        wrong = row["line_outcomes"]["fail"] + row["line_outcomes"]["partial"]
+        if wrong:
+            noun = "SIM Test Line was" if wrong == 1 else "SIM Test Lines were"
+            items.append(
+                {**link, "category": "sim", "message": f"Emitter '{name}': {wrong} {noun} missed or misclassified in the latest run."}
+            )
+        if row["status"] == EmitterStatus.in_review.value and row["last_validated_at"] is None:
+            items.append(
+                {**link, "category": "sim", "message": f"Emitter '{name}' is in Testing but hasn't been checked against a simulation yet."}
+            )
+        if row["changed_since_validation"] and row["status"] in (EmitterStatus.in_review.value, EmitterStatus.validated.value):
+            items.append(
+                {
+                    **link,
+                    "category": "sim",
+                    "message": f"Emitter '{name}' was changed after its last simulation test ({row['last_validated_at']}).",
+                }
+            )
+    return items
+
+
+def _owner_names(db: Session, records: list[TestRecord]) -> tuple[dict, dict]:
+    emitter_ids = {r.scope_id for r in records if r.scope_type.value == "emitter"}
+    mdf_ids = {r.scope_id for r in records if r.scope_type.value == "mdf"}
+    emitter_names = dict(
+        db.query(Emitter.id, Emitter.name).filter(Emitter.id.in_(emitter_ids), Emitter.is_deleted.is_(False)).all()
+    )
+    mdf_names = dict(db.query(Mdf.id, Mdf.name).filter(Mdf.id.in_(mdf_ids), Mdf.is_deleted.is_(False)).all())
+    return emitter_names, mdf_names
+
+
+def _compute_recent_test_runs(db: Session, limit: int = RECENT_TEST_RUNS_LIMIT) -> list[dict]:
+    records = (
+        db.query(TestRecord).order_by(TestRecord.test_date.desc(), TestRecord.created_at.desc()).limit(limit * 3).all()
+    )
+    emitter_names, mdf_names = _owner_names(db, records)
+    line_counts: dict = {}
+    for record_id, outcome, count in (
+        db.query(TestRecordLine.test_record_id, TestRecordLine.outcome, func.count())
+        .filter(TestRecordLine.test_record_id.in_([r.id for r in records]))
+        .group_by(TestRecordLine.test_record_id, TestRecordLine.outcome)
+        .all()
+    ):
+        line_counts.setdefault(record_id, dict.fromkeys((t.value for t in TestResult), 0))[outcome.value] = count
+
+    runs: list[dict] = []
+    for r in records:
+        is_emitter = r.scope_type.value == "emitter"
+        owner_name = emitter_names.get(r.scope_id) if is_emitter else mdf_names.get(r.scope_id)
+        if owner_name is None:
+            continue  # its Emitter/MDF was deleted
+        runs.append(
+            {
+                "entity_type": "emitter" if is_emitter else "mdf",
+                "entity_id": str(r.scope_id),
+                "entity_name": owner_name,
+                "test_record_id": str(r.id),
+                "title": r.title,
+                "test_type": r.test_type.value,
+                "result": r.result.value,
+                "test_date": r.test_date.isoformat(),
+                "line_outcomes": line_counts.get(r.id),
+            }
+        )
+        if len(runs) == limit:
+            break
+    return runs
 
 
 def _compute_needs_redo(db: Session) -> list[dict]:
@@ -143,10 +262,7 @@ def _compute_needs_redo(db: Session) -> list[dict]:
     if not records:
         return []
 
-    emitter_ids = {r.scope_id for r in records if r.scope_type.value == "emitter"}
-    mdf_ids = {r.scope_id for r in records if r.scope_type.value == "mdf"}
-    emitter_names = dict(db.query(Emitter.id, Emitter.name).filter(Emitter.id.in_(emitter_ids)).all())
-    mdf_names = dict(db.query(Mdf.id, Mdf.name).filter(Mdf.id.in_(mdf_ids)).all())
+    emitter_names, mdf_names = _owner_names(db, records)
 
     needs_redo: list[dict] = []
     for r in records:
@@ -179,36 +295,22 @@ def _compute_recent_activity(db: Session, limit: int = RECENT_ACTIVITY_LIMIT) ->
     return [AuditLogOut.model_validate(r) for r in rows]
 
 
-def compute_activity_trend(db: Session, days: int = ACTIVITY_TREND_DAYS, action: AuditAction | None = None) -> list[dict]:
-    today = datetime.now(timezone.utc).date()
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days - 1)
-    query = db.query(cast(AuditLog.created_at, Date).label("day"), func.count()).filter(
-        AuditLog.created_at >= cutoff
-    )
-    if action is not None:
-        query = query.filter(AuditLog.action == action)
-    rows = query.group_by("day").all()
-    counts_by_day = {day.isoformat(): count for day, count in rows}
-    trend = []
-    for i in range(days - 1, -1, -1):
-        d = (today - timedelta(days=i)).isoformat()
-        trend.append({"date": d, "count": counts_by_day.get(d, 0)})
-    return trend
-
-
 def compute_dashboard(db: Session) -> dict:
     emitter_counts, mdf_counts = _compute_status_counts(db)
-    modes_passing_total, modes_total = _compute_modes_passing_totals(db)
+    sim_rows = _compute_emitter_sim_status(db)
+    sim_line_counts = dict.fromkeys(SIM_OUTCOME_KEYS, 0)
+    for row in sim_rows:
+        for key, count in row["line_outcomes"].items():
+            sim_line_counts[key] += count
 
     return {
         "emitter_status_counts": emitter_counts,
         "mdf_status_counts": mdf_counts,
-        "needs_attention": _compute_needs_attention(db),
+        "needs_attention": _compute_needs_attention(db, sim_rows),
         "pending_approvals": _compute_pending_approvals(db),
-        "modes_passing_total": modes_passing_total,
-        "modes_total": modes_total,
-        "test_result_counts": _compute_test_result_counts(db),
+        "sim_line_counts": sim_line_counts,
+        "emitter_sim_status": sim_rows,
+        "recent_test_runs": _compute_recent_test_runs(db),
         "needs_redo": _compute_needs_redo(db),
         "recent_activity": _compute_recent_activity(db),
-        "activity_trend": compute_activity_trend(db),
     }

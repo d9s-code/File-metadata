@@ -13,7 +13,7 @@ function compactWhen(iso: string): string {
 
 export function RecentActivityCard({ entries }: { entries: AuditLogEntry[] }) {
   return (
-    <div className="card">
+    <div className="card dashboard-wide">
       <h4>Recent Activity</h4>
       {entries.length === 0 ? (
         <EmptyState icon="—" title="Nothing yet" message="No activity has been logged." />
@@ -31,7 +31,7 @@ export function RecentActivityCard({ entries }: { entries: AuditLogEntry[] }) {
             <tbody>
               {entries.map((e) => (
                 <tr key={e.id}>
-                  <td>{compactWhen(e.created_at)}</td>
+                  <td className="nowrap">{compactWhen(e.created_at)}</td>
                   <td>{e.actor_username ?? <span className="hint-text">system</span>}</td>
                   <td>
                     <span className={`audit-action-badge audit-action-${e.action}`}>{actionLabel(e.action)}</span>

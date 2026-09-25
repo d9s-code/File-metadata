@@ -1,10 +1,11 @@
 import { api } from "./client";
-import type { AuditLogEntry } from "../types/domain";
+import type { AuditLogEntry, EmitterStatus, TestResult, TestType } from "../types/domain";
 
 export interface NeedsAttentionItem {
   message: string;
   entity_type: "emitter" | "mdf";
   entity_id: string;
+  category: "stale" | "rework" | "sim" | "mdf";
 }
 
 export interface PendingApprovalItem {
@@ -23,9 +24,33 @@ export interface NeedsRedoTestItem {
   test_date: string;
 }
 
-export interface ActivityTrendPoint {
-  date: string;
-  count: number;
+/** Latest outcome per SIM Test Line: pass / partial / fail / inconclusive,
+ * plus untested for a line no run included yet. */
+export type SimOutcomeCounts = Record<"pass" | "partial" | "fail" | "inconclusive" | "untested", number>;
+
+export interface EmitterSimStatus {
+  emitter_id: string;
+  name: string;
+  status: EmitterStatus;
+  line_count: number;
+  line_outcomes: SimOutcomeCounts;
+  last_validated_at: string | null;
+  last_validated_result: TestResult | null;
+  last_validated_test_record_id: string | null;
+  /** Content was committed after the last simulation test. */
+  changed_since_validation: boolean;
+}
+
+export interface RecentTestRun {
+  entity_type: "emitter" | "mdf";
+  entity_id: string;
+  entity_name: string;
+  test_record_id: string;
+  title: string;
+  test_type: TestType;
+  result: TestResult;
+  test_date: string;
+  line_outcomes: Record<TestResult, number> | null;
 }
 
 export interface Dashboard {
@@ -33,16 +58,13 @@ export interface Dashboard {
   mdf_status_counts: Record<string, number>;
   needs_attention: NeedsAttentionItem[];
   pending_approvals: PendingApprovalItem[];
-  modes_passing_total: number;
-  modes_total: number;
-  test_result_counts: Record<string, number>;
+  sim_line_counts: SimOutcomeCounts;
+  emitter_sim_status: EmitterSimStatus[];
+  recent_test_runs: RecentTestRun[];
   needs_redo: NeedsRedoTestItem[];
   recent_activity: AuditLogEntry[];
-  activity_trend: ActivityTrendPoint[];
 }
 
 export const dashboardApi = {
   get: () => api.get<Dashboard>("/dashboard"),
-  activityTrend: (action?: string) =>
-    api.get<ActivityTrendPoint[]>(`/dashboard/activity-trend${action ? `?action=${action}` : ""}`),
 };
