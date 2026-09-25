@@ -30,6 +30,16 @@ class CartesianProductError(ValueError):
     pass
 
 
+
+def _step_range(step: dict, point: str, lo: str, hi: str) -> tuple[float, float] | None:
+    """A sequence step's (min, max) for one parameter: its stored range, or
+    its single value as min == max; None when the step doesn't set it."""
+    if step.get(lo) is not None and step.get(hi) is not None:
+        return float(step[lo]), float(step[hi])
+    if step.get(point) is not None:
+        return float(step[point]), float(step[point])
+    return None
+
 def _fetch_elements(db: Session, source_id: UUID, ids: list[UUID], expected_type: ElementType) -> list[ModeElement]:
     if not ids:
         raise CartesianProductError(f"At least one {expected_type.value} element must be chosen")
@@ -226,11 +236,12 @@ def run_cartesian_product(
 
                 if step is not None:
                     # A single selected step always becomes exactly one
-                    # Fixed-PRI Mode — a point value (min == max) if the step
-                    # sets pri_us, degenerate 0.0/0.0 otherwise (matching the
-                    # element-less-PRI fallback this already had).
+                    # Fixed-PRI Mode — the step's PRI range, or a point value
+                    # (min == max) if it sets pri_us, degenerate 0.0/0.0
+                    # otherwise (matching the element-less-PRI fallback this
+                    # already had). RF and PW work the same way.
                     step_line_kwargs = base_line_kwargs.copy()
-                    step_pri_us = step.get("pri_us")
+                    step_pri = _step_range(step, "pri_us", "pri_min_us", "pri_max_us")
                     step_jitter_min = step.get("jitter_min_us")
                     step_jitter_max = step.get("jitter_max_us")
 
@@ -241,9 +252,8 @@ def run_cartesian_product(
                     step_pw_delta = selection.pw_delta if selection.pw_delta is not None else seq.pw_delta
                     step_pri_delta = selection.pri_delta if selection.pri_delta is not None else seq.pri_delta
 
-                    if step_pri_us is not None:
-                        step_line_kwargs["pri_min_us"] = float(step_pri_us)
-                        step_line_kwargs["pri_max_us"] = float(step_pri_us)
+                    if step_pri is not None:
+                        step_line_kwargs["pri_min_us"], step_line_kwargs["pri_max_us"] = step_pri
                         if step_pri_delta is not None:
                             step_line_kwargs["pri_delta"] = step_pri_delta
                     else:
@@ -253,15 +263,15 @@ def run_cartesian_product(
                     step_line_kwargs["jitter_min_us"] = float(step_jitter_min) if step_jitter_min is not None else 0.0
                     step_line_kwargs["jitter_max_us"] = float(step_jitter_max) if step_jitter_max is not None else 1.0
 
-                    if step.get("rf_mhz") is not None:
-                        step_line_kwargs["rf_min_mhz"] = float(step["rf_mhz"])
-                        step_line_kwargs["rf_max_mhz"] = float(step["rf_mhz"])
+                    step_rf = _step_range(step, "rf_mhz", "rf_min_mhz", "rf_max_mhz")
+                    if step_rf is not None:
+                        step_line_kwargs["rf_min_mhz"], step_line_kwargs["rf_max_mhz"] = step_rf
                         if step_rf_delta is not None:
                             step_line_kwargs["rf_delta"] = step_rf_delta
 
-                    if step.get("pw_us") is not None:
-                        step_line_kwargs["pw_min_us"] = float(step["pw_us"])
-                        step_line_kwargs["pw_max_us"] = float(step["pw_us"])
+                    step_pw = _step_range(step, "pw_us", "pw_min_us", "pw_max_us")
+                    if step_pw is not None:
+                        step_line_kwargs["pw_min_us"], step_line_kwargs["pw_max_us"] = step_pw
                         if step_pw_delta is not None:
                             step_line_kwargs["pw_delta"] = step_pw_delta
 

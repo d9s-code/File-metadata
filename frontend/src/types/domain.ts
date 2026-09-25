@@ -337,6 +337,14 @@ export interface ParameterSequenceStep {
   pri_us?: number | null;
   scan_value?: number | null;
   dwell_s?: number | null;
+  /** A range instead of the single value above — kept by a JSON import of a
+   * sequence that mixes parameter types. */
+  rf_min_mhz?: number | null;
+  rf_max_mhz?: number | null;
+  pw_min_us?: number | null;
+  pw_max_us?: number | null;
+  pri_min_us?: number | null;
+  pri_max_us?: number | null;
 }
 
 export interface ParameterSequence {

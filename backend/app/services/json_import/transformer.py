@@ -20,6 +20,25 @@ def _parse_date_last_updated(raw: str | None) -> date | None:
         return None
 
 
+# JSON step key(s) -> (single-value field, range min field, range max field).
+_STEP_JSON_KEYS: dict[str, tuple[str, str, str]] = {
+    "pri-value": ("pri_us", "pri_min_us", "pri_max_us"),
+    "rf-value": ("rf_mhz", "rf_min_mhz", "rf_max_mhz"),
+    "pw-value": ("pw_us", "pw_min_us", "pw_max_us"),
+}
+
+
+def _json_range(step: dict, key: str) -> tuple[float, float] | None:
+    """A step's {"min", "max"} for one parameter, as floats. PW may come in
+    as "pd-value" (pulse duration)."""
+    value = step.get(key)
+    if value is None and key == "pw-value":
+        value = step.get("pd-value")
+    if not isinstance(value, dict) or "min" not in value or "max" not in value:
+        return None
+    return float(value["min"]), float(value["max"])
+
+
 def transform_json_to_payload(
     json_data: List[Dict[str, Any]], *, override_source_date: date | None = None
 ) -> ImportPayload:
@@ -73,35 +92,30 @@ def transform_json_to_payload(
                 else:
                     steps_to_process = []
 
+                steps_to_process = [step for step in steps_to_process if isinstance(step, dict)]
+                # A sequence that steps through more than one parameter type
+                # (e.g. RF and PRI together) keeps each step's min/max; a
+                # single-parameter one keeps one value per step.
+                present = {key for step in steps_to_process for key in _STEP_JSON_KEYS if _json_range(step, key)}
+                keep_ranges = len(present) > 1
+
                 for step in steps_to_process:
-                    if not isinstance(step, dict):
-                        continue
-                    step_data = {"order": int(step.get("step-num", 0))}
-                    
-                    # Handle PRI
-                    if "pri-value" in step:
-                        pv = step["pri-value"]
-                        if "min" in pv and "max" in pv:
-                            v_min = float(pv["min"])
-                            v_max = float(pv["max"])
-                            if abs(v_min - v_max) < 0.001:
-                                step_data["pri_us"] = v_min
-                            else:
-                                step_data["pri_us"] = (v_min + v_max) / 2
-                    
-                    # Support for other potential sequence step params if present
-                    if "rf-value" in step:
-                        pv = step["rf-value"]
-                        if "min" in pv and "max" in pv:
-                            step_data["rf_mhz"] = (float(pv["min"]) + float(pv["max"])) / 2
-                    
-                    if "pw-value" in step or "pd-value" in step:
-                        pv = step.get("pw-value") or step.get("pd-value")
-                        if pv and "min" in pv and "max" in pv:
-                            step_data["pw_us"] = (float(pv["min"]) + float(pv["max"])) / 2
+                    step_data: dict[str, Any] = {"order": int(step.get("step-num", 0))}
+                    for key, (point_field, min_field, max_field) in _STEP_JSON_KEYS.items():
+                        rng = _json_range(step, key)
+                        if rng is None:
+                            continue
+                        v_min, v_max = rng
+                        if abs(v_min - v_max) < 0.001:
+                            step_data[point_field] = v_min
+                        elif keep_ranges:
+                            step_data[min_field] = v_min
+                            step_data[max_field] = v_max
+                        else:
+                            step_data[point_field] = (v_min + v_max) / 2
 
                     steps.append(ParameterSequenceStepIn(**step_data))
-                
+
                 sequences.append(ParameterSequenceCreate(
                     label=group.get("name"),
                     steps=steps,

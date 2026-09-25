@@ -9,18 +9,19 @@ import {
 import { useConfirmDialog } from "../common/ConfirmDialog";
 import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
+import { stepHas, stepValueText, type StepParam } from "./sequenceStep";
 
-const STEP_COLUMNS: { key: "rf_mhz" | "pw_us" | "pri_us" | "dwell_s"; label: string }[] = [
-  { key: "rf_mhz", label: "RF (MHz)" },
-  { key: "pri_us", label: "PRI (us)" },
-  { key: "pw_us", label: "PW (us)" },
-  { key: "dwell_s", label: "Dwell (pulses)" },
+
+const STEP_COLUMNS: { param: StepParam; label: string }[] = [
+  { param: "rf", label: "RF (MHz)" },
+  { param: "pri", label: "PRI (us)" },
+  { param: "pw", label: "PW (us)" },
 ];
 
 /** A sequence with no step touching rf_mhz/pw_us — delta override doesn't
  * apply to it (every value it can contribute is a PRI point value). */
 function isPriOnlySequence(seq: ParameterSequence): boolean {
-  return seq.steps.every((s) => s.rf_mhz == null && s.pw_us == null);
+  return seq.steps.every((s) => !stepHas(s, "rf") && !stepHas(s, "pw"));
 }
 
 function SequenceDeltaEditor({
@@ -140,8 +141,9 @@ export function ParameterSequencesPanel({ emitterId, sourceId }: { emitterId: st
               <tr>
                 <th>Order</th>
                 {STEP_COLUMNS.map((c) => (
-                  <th key={c.key}>{c.label}</th>
+                  <th key={c.param}>{c.label}</th>
                 ))}
+                <th>Dwell (pulses)</th>
                 <th>Action</th>
               </tr>
             </thead>
@@ -150,8 +152,9 @@ export function ParameterSequencesPanel({ emitterId, sourceId }: { emitterId: st
                 <tr key={step.order}>
                   <td>{step.order}</td>
                   {STEP_COLUMNS.map((c) => (
-                    <td key={c.key}>{step[c.key] ?? "—"}</td>
+                    <td key={c.param}>{stepValueText(step, c.param) ?? "—"}</td>
                   ))}
+                  <td>{step.dwell_s ?? "—"}</td>
                   <td>
                     <button
                       className="link-button link-button-danger"
