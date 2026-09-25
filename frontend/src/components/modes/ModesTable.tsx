@@ -291,7 +291,7 @@ export function ModesTable({
                   const content = cells[c.id]();
                   return content === null ? null : <Fragment key={c.id}>{content}</Fragment>;
                 })}
-                <td>
+                <td className="sticky-end">
                   <RequireRole minimum="editor">
                     <div className="flex gap-1">
                       <button
@@ -380,7 +380,7 @@ export function ModesTable({
                 <th key={c.id}>{c.label}</th>
               ),
             )}
-            <th className="w-32"></th>
+            <th className="sticky-end" aria-label="Actions"></th>
           </tr>
         </thead>
         <tbody>

@@ -87,7 +87,7 @@ export function SequenceForm({ emitterId, sourceId, canEdit }: { emitterId: stri
       </div>
 
       <div className="overflow-x-auto border border-gray-200 rounded-lg">
-        <table className="w-full text-left border-collapse text-sm">
+        <table className="data-table">
           <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 text-xs uppercase font-medium">
             <tr>
               <th className="px-2 py-2 w-16 text-center">Order</th>

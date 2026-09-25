@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import type { EwGroup, ElementVariant } from "../../types/domain";
+import type { EwGroup, ElementVariant, ParameterSequenceStep } from "../../types/domain";
 import { useCartesianProduct, useElements } from "../../state/hooks/useElements";
 import { ApiRequestError } from "../../api/client";
 import { useQuery } from "@tanstack/react-query";
 import { sourcesApi } from "../../api/sources";
 import { groupElements } from "./elementMerge";
+import { stepHas, stepValueText } from "./sequenceStep";
 import { SortableColumnHeader } from "../common/SortableColumnHeader";
 import { useSortableTable } from "../common/useSortableTable";
 import { compareNullable, compareStrings } from "../common/sortUtils";
@@ -72,7 +73,7 @@ function CheckboxList({
   if (showVariant) {
     return (
       <div className="overflow-x-auto border border-gray-200 rounded-lg">
-        <table className="w-full text-left border-collapse text-sm">
+        <table className="data-table">
           <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 text-xs uppercase font-medium">
             <tr>
               <th className="px-2 py-1 w-24">Variant</th>
@@ -327,11 +328,12 @@ export function CartesianProductButton({
   const pwItems = pwSort.sortKey ? pwSort.sorted : defaultVariantSort(pwItemsUnsorted);
   const priItems = priSort.sortKey ? priSort.sorted : defaultVariantSort(priItemsUnsorted);
 
-  function stepLabel(step: { rf_mhz?: number | null; pw_us?: number | null; pri_us?: number | null }): string {
+  function stepLabel(step: ParameterSequenceStep): string {
     const parts: string[] = [];
-    if (step.rf_mhz != null) parts.push(`RF ${step.rf_mhz}`);
-    if (step.pw_us != null) parts.push(`PW ${step.pw_us}`);
-    if (step.pri_us != null) parts.push(`PRI ${step.pri_us}`);
+    for (const [param, name] of [["rf", "RF"], ["pri", "PRI"], ["pw", "PW"]] as const) {
+      const text = stepValueText(step, param);
+      if (text != null) parts.push(`${name} ${text}`);
+    }
     return parts.join(", ") || "—";
   }
 
@@ -343,9 +345,9 @@ export function CartesianProductButton({
     s.steps.map((step) => ({
       id: `${s.id}:${step.order}`,
       label: `${s.label ?? "Sequence"} · step ${step.order}: ${stepLabel(step)}`,
-      hasRf: step.rf_mhz != null,
-      hasPw: step.pw_us != null,
-      hasPri: step.pri_us != null,
+      hasRf: stepHas(step, "rf"),
+      hasPw: stepHas(step, "pw"),
+      hasPri: stepHas(step, "pri"),
     })),
   );
 

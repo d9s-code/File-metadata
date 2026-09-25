@@ -286,6 +286,9 @@ button:disabled {
 .info-popover-content {
   position: fixed;
   z-index: 1000;
+  /* Read-only: it closes as soon as the pointer leaves its trigger, so it
+     must never catch a click meant for whatever it covers. */
+  pointer-events: none;
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -1053,6 +1056,53 @@ label {
 }
 .data-table tbody tr:last-child td {
   border-bottom: none;
+}
+
+/* Vertical grid lines between columns, alongside the row lines above. */
+.data-table th + th,
+.data-table td + td {
+  border-left: 1px solid var(--border);
+}
+
+/* Long text wraps inside a capped width instead of stretching its column
+   until the rest of the table is pushed out of reach. Full-width rows
+   (inline edit forms) are exempt. */
+.data-table th,
+.data-table td:not([colspan]) {
+  max-width: 24rem;
+  overflow-wrap: break-word;
+}
+/* Inside a horizontal scroller, columns keep their natural width (never
+   squeezed, so nothing breaks letter by letter) and the scroller takes up
+   any excess — which also makes it safe to break an unspaced name (e.g. a
+   120-character Mode name) mid-word at the cap. */
+.matrix-scroll > .data-table {
+  width: max-content;
+  min-width: 100%;
+}
+.matrix-scroll > .data-table td:not([colspan]) {
+  overflow-wrap: anywhere;
+}
+/* Scrolling a cell into view (keyboard focus, links) stops short of the
+   pinned right-hand column instead of leaving the cell underneath it. */
+.matrix-scroll:has(.sticky-end) {
+  scroll-padding-inline-end: 11rem;
+}
+
+/* A column pinned to the right edge of a horizontally scrolling table, so
+   its controls stay reachable however wide the table gets. */
+.data-table .sticky-end {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background: var(--card-bg);
+  box-shadow: -6px 0 8px -6px rgba(0, 0, 0, 0.18);
+}
+.data-table tbody tr:nth-child(even) > .sticky-end {
+  background: var(--bg);
+}
+.data-table tbody tr:hover > .sticky-end {
+  background: var(--hover-bg);
 }
 
 .status-badge {
