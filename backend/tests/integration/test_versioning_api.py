@@ -149,11 +149,19 @@ def test_status_transition_commits_a_version(editor_client, emitter_ctx):
     assert resp.status_code == 200, resp.text
     version = resp.json()
     assert version["version_number"] == 1
-    assert "draft" in version["change_summary"]
-    assert "in_review" in version["change_summary"]
+    # Written with the names people see, not the stored values.
+    assert version["change_summary"] == "Status: In progress → Testing"
 
     emitter = editor_client.get(f"/emitters/{emitter_id}").json()
     assert emitter["status"] == "in_review"
+
+
+def test_status_change_shows_status_names_in_the_version_diff(editor_client, emitter_ctx):
+    emitter_id = emitter_ctx["emitter"]["id"]
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "v1"})
+    editor_client.post(f"/emitters/{emitter_id}/status", json={"new_status": "in_review"})
+    entries = editor_client.get(f"/emitters/{emitter_id}/versions/2/diff").json()["entries"]
+    assert [(e["old_value"], e["new_value"]) for e in entries if e["label"] == "Status"] == [("In progress", "Testing")]
 
 
 def test_status_transition_rejects_illegal_jump(editor_client, emitter_ctx):
@@ -161,6 +169,7 @@ def test_status_transition_rejects_illegal_jump(editor_client, emitter_ctx):
     # draft -> validated is not a legal direct transition (must pass through in_review)
     resp = editor_client.post(f"/emitters/{emitter_id}/status", json={"new_status": "validated"})
     assert resp.status_code == 409
+    assert resp.json()["detail"] == "Cannot move from 'In progress' to 'Operational'"
 
 
 def test_status_transition_rejects_unknown_status(editor_client, emitter_ctx):

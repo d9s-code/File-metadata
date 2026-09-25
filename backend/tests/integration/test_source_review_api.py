@@ -134,8 +134,8 @@ def test_version_diff_shows_review_status_change(editor_client, review_ctx):
     editor_client.post(f"/emitters/{eid}/versions", json={"change_summary": "after"})
     entries = editor_client.get(f"/emitters/{eid}/versions/2/diff").json()["entries"]
     by_field = {e["label"]: e for e in entries if e["scope"] == "Source 'Imported'"}
-    assert by_field["Review Status"]["old_value"] == "pending_review"
-    assert by_field["Review Status"]["new_value"] == "rejected"
+    assert by_field["Review Status"]["old_value"] == "Pending review"
+    assert by_field["Review Status"]["new_value"] == "Rejected"
     assert by_field["Rejection Reason"]["new_value"] == "Duplicate of an older report"
 
 

@@ -33,7 +33,9 @@ def test_status_transition_writes_a_status_change_entry(editor_client):
     resp = editor_client.get("/audit-log", params={"entity_type": "emitter", "action": "status_change"})
     items = [e for e in resp.json()["items"] if e["entity_id"] == emitter["id"]]
     assert len(items) == 1
-    assert "draft" in items[0]["summary"] and "in_review" in items[0]["summary"]
+    assert "Status: In progress → Testing" in items[0]["summary"]
+    # The raw change keeps the stored values; the UI names them.
+    assert items[0]["changes"]["status"] == {"old": "draft", "new": "in_review"}
 
 
 def test_deleting_a_mode_writes_an_entry(editor_client):

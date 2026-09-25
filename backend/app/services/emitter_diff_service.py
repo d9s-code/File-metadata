@@ -10,6 +10,8 @@ Every entry names the actual Mode/EW Group/Source and a human field label —
 never a raw DeepDiff path like `['ew_groups'][0]['modes'][1]['line']['rf_max_mhz']`.
 """
 
+from app.core.enums import EMITTER_STATUS_LABELS
+
 EMITTER_FIELD_LABELS = {
     "name": "Name",
     "designation": "Designation",
@@ -34,6 +36,12 @@ SOURCE_FIELD_LABELS = {
 }
 
 SOURCE_FIELDS_ADDED_LATER = frozenset({"status", "rejection_reason"})
+
+# Stored status values shown by the name a person knows them by.
+EMITTER_VALUE_LABELS = {"status": EMITTER_STATUS_LABELS}
+SOURCE_VALUE_LABELS = {
+    "status": {"approved": "Approved", "pending_review": "Pending review", "rejected": "Rejected"},
+}
 
 TEST_LINE_FIELD_LABELS = {
     "label": "Label",
@@ -94,6 +102,7 @@ def _diff_fields(
     new: dict,
     labels: dict[str, str],
     later_added_fields: frozenset[str] = frozenset(),
+    value_labels: dict[str, dict[str, str]] | None = None,
 ) -> None:
     for field, label in labels.items():
         # Snapshots committed before a field existed simply lack it; that's
@@ -103,7 +112,8 @@ def _diff_fields(
         old_v = old.get(field)
         new_v = new.get(field)
         if old_v != new_v:
-            entries.append(_entry(scope, label, "changed", old_v, new_v))
+            names = (value_labels or {}).get(field, {})
+            entries.append(_entry(scope, label, "changed", names.get(old_v, old_v), names.get(new_v, new_v)))
 
 
 def _diff_modes(entries: list[dict], old_modes: list[dict], new_modes: list[dict]) -> None:
@@ -129,7 +139,9 @@ def _diff_modes(entries: list[dict], old_modes: list[dict], new_modes: list[dict
 def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict) -> dict:
     entries: list[dict] = []
 
-    _diff_fields(entries, "Emitter", old_snapshot, new_snapshot, EMITTER_FIELD_LABELS)
+    _diff_fields(
+        entries, "Emitter", old_snapshot, new_snapshot, EMITTER_FIELD_LABELS, value_labels=EMITTER_VALUE_LABELS
+    )
 
     old_groups = {g["id"]: g for g in old_snapshot.get("ew_groups", [])}
     new_groups = {g["id"]: g for g in new_snapshot.get("ew_groups", [])}
@@ -160,7 +172,13 @@ def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict) -> dict:
     for source_id in set(old_sources) & set(new_sources):
         os_, ns = old_sources[source_id], new_sources[source_id]
         _diff_fields(
-            entries, f"Source '{ns['name']}'", os_, ns, SOURCE_FIELD_LABELS, SOURCE_FIELDS_ADDED_LATER
+            entries,
+            f"Source '{ns['name']}'",
+            os_,
+            ns,
+            SOURCE_FIELD_LABELS,
+            SOURCE_FIELDS_ADDED_LATER,
+            value_labels=SOURCE_VALUE_LABELS,
         )
 
     old_lines = {tl["id"]: tl for tl in old_snapshot.get("test_lines", [])}

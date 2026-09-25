@@ -7,7 +7,14 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.csrf import verify_csrf
 from app.core.downloads import attachment_disposition
-from app.core.enums import EMITTER_STATUS_TRANSITIONS, AuditAction, AuditEntityType, EmitterStatus, Role
+from app.core.enums import (
+    EMITTER_STATUS_TRANSITIONS,
+    AuditAction,
+    AuditEntityType,
+    EmitterStatus,
+    Role,
+    emitter_status_label,
+)
 from app.database import get_db
 from app.deps import require_emitter_checkout, require_role
 from app.models.emitter import Emitter
@@ -804,7 +811,10 @@ def transition_emitter_status(
     try:
         validate_transition(emitter.status.value, new_status.value, EMITTER_STATUS_TRANSITIONS)
     except InvalidStatusTransition as exc:
-        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Cannot move from '{emitter_status_label(emitter.status.value)}' to '{emitter_status_label(new_status.value)}'",
+        ) from exc
 
     # Operational -> Needs rework is a claim that something concrete is
     # wrong with previously-validated data — require the note explaining
@@ -834,7 +844,7 @@ def transition_emitter_status(
     emitter.status = new_status
     db.flush()
 
-    summary = f"Status: {old_status} → {new_status.value}"
+    summary = f"Status: {emitter_status_label(old_status)} → {emitter_status_label(new_status.value)}"
     if payload.note:
         summary += f" — {payload.note}"
 

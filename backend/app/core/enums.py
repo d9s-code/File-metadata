@@ -54,6 +54,20 @@ class EmitterStatus(str, enum.Enum):
     deprecated = "deprecated"
 
 
+# What each status is called wherever a person reads it. The stored values
+# predate these names and stay as they are (DB, API, CSS classes).
+EMITTER_STATUS_LABELS: dict[str, str] = {
+    EmitterStatus.draft.value: "In progress",
+    EmitterStatus.in_review.value: "Testing",
+    EmitterStatus.validated.value: "Operational",
+    EmitterStatus.deprecated.value: "Needs rework",
+}
+
+
+def emitter_status_label(value: str) -> str:
+    return EMITTER_STATUS_LABELS.get(value, value)
+
+
 EMITTER_STATUS_TRANSITIONS: dict[EmitterStatus, list[EmitterStatus]] = {
     EmitterStatus.draft: [EmitterStatus.in_review],
     EmitterStatus.in_review: [EmitterStatus.validated, EmitterStatus.draft],

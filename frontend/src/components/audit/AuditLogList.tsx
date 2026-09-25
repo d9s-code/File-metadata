@@ -20,9 +20,9 @@ function compareEntries(a: AuditLogEntry, b: AuditLogEntry, key: AuditSortKey, d
   }
 }
 
-function ChangesToggle({ changes }: { changes: Record<string, unknown> | null }) {
+function ChangesToggle({ changes, entityType }: { changes: Record<string, unknown> | null; entityType: string }) {
   const [open, setOpen] = useState(false);
-  const rows = formatChanges(changes);
+  const rows = formatChanges(changes, entityType);
   if (rows.length === 0) return <span className="hint-text">—</span>;
   return (
     <div>
@@ -108,7 +108,7 @@ export function AuditLogList({
             {showEntityType && <td>{entityTypeLabel(e.entity_type)}</td>}
             <td>{e.summary}</td>
             <td>
-              <ChangesToggle changes={e.changes} />
+              <ChangesToggle changes={e.changes} entityType={e.entity_type} />
             </td>
           </tr>
         ))}

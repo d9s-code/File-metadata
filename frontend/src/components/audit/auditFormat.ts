@@ -1,3 +1,4 @@
+import { EMITTER_STATUS_LABEL } from "../common/emitterStatusLabel";
 import type { AuditAction } from "../../types/domain";
 
 const ENTITY_TYPE_LABELS: Record<string, string> = {
@@ -95,18 +96,28 @@ function isOldNewShape(value: unknown): value is { old: unknown; new: unknown } 
  * updates/status-changes (rendered as a from/to diff), or a bare value for
  * creates (rendered as new-only, since there's no "before").
  */
-export function formatChanges(changes: Record<string, unknown> | null): ChangeRow[] {
+export function formatChanges(changes: Record<string, unknown> | null, entityType?: string): ChangeRow[] {
   if (!changes) return [];
+  const names = (entityType && VALUE_LABELS[entityType]) || {};
+  const show = (field: string, v: unknown) =>
+    typeof v === "string" && names[field]?.[v] ? names[field][v] : formatChangeValue(v);
   return Object.entries(changes).map(([field, value]) => {
     if (isOldNewShape(value)) {
       return {
         field,
         label: humanizeField(field),
         hasOld: true,
-        oldDisplay: formatChangeValue(value.old),
-        newDisplay: formatChangeValue(value.new),
+        oldDisplay: show(field, value.old),
+        newDisplay: show(field, value.new),
       };
     }
-    return { field, label: humanizeField(field), hasOld: false, oldDisplay: "", newDisplay: formatChangeValue(value) };
+    return { field, label: humanizeField(field), hasOld: false, oldDisplay: "", newDisplay: show(field, value) };
   });
 }
+
+// Stored values shown by the name a person knows them by, per entity type
+// and field.
+const VALUE_LABELS: Record<string, Record<string, Record<string, string>>> = {
+  emitter: { status: EMITTER_STATUS_LABEL },
+  source: { status: { approved: "Approved", pending_review: "Pending review", rejected: "Rejected" } },
+};
