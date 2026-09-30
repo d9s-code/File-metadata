@@ -62,8 +62,12 @@ class ParameterSequenceCreate(BaseModel):
         if not self.steps:
             raise ValueError("A parameter sequence needs at least one step")
         orders = [s.order for s in self.steps]
-        if len(set(orders)) != len(orders):
-            raise ValueError("Step 'order' values must be unique within a sequence")
+        repeated = sorted({o for o in orders if orders.count(o) > 1})
+        if repeated:
+            label = f"Sequence '{self.label}'" if self.label else "A sequence"
+            raise ValueError(
+                f"{label} has more than one step numbered {', '.join(map(str, repeated))} — step numbers must be unique"
+            )
         return self
 
 

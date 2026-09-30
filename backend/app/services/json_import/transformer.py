@@ -39,6 +39,71 @@ def _json_range(step: dict, key: str) -> tuple[float, float] | None:
     return float(value["min"]), float(value["max"])
 
 
+def _step_number(step: dict) -> int | None:
+    """A step's "step-num" as a whole number ("7" and "7.0" both give 7);
+    None when it's missing or isn't a whole number."""
+    raw = step.get("step-num")
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return None
+    return int(value) if value.is_integer() else None
+
+
+def _number_steps(entries: list[tuple[dict, dict]]) -> list[tuple[int, dict]]:
+    """Gives each parsed step entry its step number, merging entries that
+    share one. `entries` are (raw step, {json key: (min, max)}) in file order.
+
+    - Every entry numbered, each parameter at most once per number: entries
+      with the same number are one step, split across rows (e.g. a row for
+      its PRI, another for its RF) — merged.
+    - Otherwise the numbers don't identify steps (missing, not whole
+      numbers, restarting, or a parameter repeated under one number): steps
+      are numbered by their position in the file instead.
+    """
+    numbers = [_step_number(raw) for raw, _ in entries]
+    if all(n is not None for n in numbers):
+        merged: dict[int, dict] = {}
+        conflict = False
+        for n, (_, params) in zip(numbers, entries):
+            step = merged.setdefault(n, {})
+            if step.keys() & params.keys():
+                conflict = True
+                break
+            step.update(params)
+        if not conflict:
+            return sorted(merged.items())
+    return [(position, params) for position, (_, params) in enumerate(entries, start=1)]
+
+
+def _sequence_steps(raw_steps: list[dict]) -> list[ParameterSequenceStepIn]:
+    entries = [(raw, {key: rng for key in _STEP_JSON_KEYS if (rng := _json_range(raw, key))}) for raw in raw_steps]
+    # A row with no RF/PRI/PW value carries nothing to import.
+    entries = [(raw, params) for raw, params in entries if params]
+    numbered = _number_steps(entries)
+
+    # A sequence that steps through more than one parameter type (e.g. RF
+    # and PRI together) keeps each step's min/max; a single-parameter one
+    # keeps one value per step.
+    present = {key for _, params in numbered for key in params}
+    keep_ranges = len(present) > 1
+
+    steps = []
+    for order, params in numbered:
+        step_data: dict[str, Any] = {"order": order}
+        for key, (v_min, v_max) in params.items():
+            point_field, min_field, max_field = _STEP_JSON_KEYS[key]
+            if abs(v_min - v_max) < 0.001:
+                step_data[point_field] = v_min
+            elif keep_ranges:
+                step_data[min_field] = v_min
+                step_data[max_field] = v_max
+            else:
+                step_data[point_field] = (v_min + v_max) / 2
+        steps.append(ParameterSequenceStepIn(**step_data))
+    return steps
+
+
 def transform_json_to_payload(
     json_data: List[Dict[str, Any]], *, override_source_date: date | None = None
 ) -> ImportPayload:
@@ -92,29 +157,7 @@ def transform_json_to_payload(
                 else:
                     steps_to_process = []
 
-                steps_to_process = [step for step in steps_to_process if isinstance(step, dict)]
-                # A sequence that steps through more than one parameter type
-                # (e.g. RF and PRI together) keeps each step's min/max; a
-                # single-parameter one keeps one value per step.
-                present = {key for step in steps_to_process for key in _STEP_JSON_KEYS if _json_range(step, key)}
-                keep_ranges = len(present) > 1
-
-                for step in steps_to_process:
-                    step_data: dict[str, Any] = {"order": int(step.get("step-num", 0))}
-                    for key, (point_field, min_field, max_field) in _STEP_JSON_KEYS.items():
-                        rng = _json_range(step, key)
-                        if rng is None:
-                            continue
-                        v_min, v_max = rng
-                        if abs(v_min - v_max) < 0.001:
-                            step_data[point_field] = v_min
-                        elif keep_ranges:
-                            step_data[min_field] = v_min
-                            step_data[max_field] = v_max
-                        else:
-                            step_data[point_field] = (v_min + v_max) / 2
-
-                    steps.append(ParameterSequenceStepIn(**step_data))
+                steps = _sequence_steps([step for step in steps_to_process if isinstance(step, dict)])
 
                 sequences.append(ParameterSequenceCreate(
                     label=group.get("name"),
