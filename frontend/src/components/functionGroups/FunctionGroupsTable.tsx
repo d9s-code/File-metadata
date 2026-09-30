@@ -44,9 +44,22 @@ export function FunctionGroupsTable({ emitterId, functionGroups }: { emitterId: 
 
   return (
     <section className="card">
-      <h4>Function Groups</h4>
+      <div className="card-header">
+        <h4>Function Groups</h4>
+        <RequireRole minimum="editor">
+          <button
+            className="button secondary small"
+            disabled={!canEdit || showForm || !!editingGroup}
+            title={editTitle}
+            onClick={() => setShowForm(true)}
+          >
+            + Add Function Group
+          </button>
+        </RequireRole>
+      </div>
       {functionGroups.length === 0 ? (
         <EmptyState
+          compact
           icon="◈"
           title="No Function Groups yet"
           message="A Function Group organizes Modes by what they do (e.g. Search, Track, Guidance) — independent of EW Group, and used to structure testing."
@@ -85,11 +98,7 @@ export function FunctionGroupsTable({ emitterId, functionGroups }: { emitterId: 
           <FunctionGroupForm emitterId={emitterId} initialData={editingGroup} onClose={() => setEditingGroup(null)} />
         ) : showForm ? (
           <FunctionGroupForm emitterId={emitterId} onClose={() => setShowForm(false)} />
-        ) : (
-          <button className="icon-button" disabled={!canEdit} title={editTitle} onClick={() => setShowForm(true)}>
-            + Add Function Group
-          </button>
-        )}
+        ) : null}
       </RequireRole>
       {dialog}
     </section>

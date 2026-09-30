@@ -1,4 +1,6 @@
 import { Fragment, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { JsonImportModal } from "../common/JsonImportModal";
 import type { EwGroup, Source } from "../../types/domain";
 import { useApproveSource, useDeleteSource } from "../../state/hooks/useSources";
 import { useCreateSourceNote, useDeleteSourceNote, useSourceNotes } from "../../state/hooks/useSourceNotes";
@@ -87,6 +89,54 @@ function SourceNotesEditor({ emitterId, source }: { emitterId: string; source: S
   );
 }
 
+type SourceDetailTab = "elements" | "sequences" | "generate" | "notes";
+
+/** An opened Source, as tabs rather than one long stack: its Elements, its
+ * Parameter Sequences, Cartesian Product (generate Modes), and its notes
+ * with the Modes built from it. */
+function SourceDetailTabs({ emitterId, source, ewGroups }: { emitterId: string; source: Source; ewGroups: EwGroup[] }) {
+  const [tab, setTab] = useState<SourceDetailTab>("elements");
+  const tabs: [SourceDetailTab, string][] = [
+    ["elements", "Elements"],
+    ["sequences", "Sequences"],
+    ["generate", "Generate Modes"],
+    ["notes", "Notes & coverage"],
+  ];
+  return (
+    <>
+      <div className="sub-tab-bar" role="tablist" aria-label={`${source.name} details`}>
+        {tabs.map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={tab === key}
+            className={tab === key ? "sub-tab active" : "sub-tab"}
+            onClick={() => setTab(key)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {tab === "elements" && <ElementsPanel emitterId={emitterId} sourceId={source.id} />}
+      {tab === "sequences" && <ParameterSequencesPanel emitterId={emitterId} sourceId={source.id} />}
+      {tab === "generate" && (
+        <RequireRole minimum="editor">
+          <CartesianProductButton emitterId={emitterId} sourceId={source.id} ewGroups={ewGroups} />
+        </RequireRole>
+      )}
+      {tab === "notes" && (
+        <>
+          <h5 className="mt-0">Analyst notes</h5>
+          <SourceNotesEditor emitterId={emitterId} source={source} />
+          <h5 className="mt-4">Coverage — Modes built from this Source</h5>
+          <SourceCoverage emitterId={emitterId} sourceId={source.id} />
+        </>
+      )}
+    </>
+  );
+}
+
 export function SourcesTable({
   emitterId,
   sources,
@@ -109,7 +159,8 @@ export function SourcesTable({
   const [editingSource, setEditingSource] = useState<Source | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [rejectingSource, setRejectingSource] = useState<Source | null>(null);
-  const [isElementsCollapsed, setIsElementsCollapsed] = useState(false);
+  const [showJsonImport, setShowJsonImport] = useState(false);
+  const queryClient = useQueryClient();
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showBatchAdd, setShowBatchAdd] = useState(false);
@@ -193,23 +244,48 @@ export function SourcesTable({
 
   return (
     <section className="card">
-      <h4>Sources</h4>
-      <RequireRole minimum="editor">
-        <div className="action-bar">
-          <button
-            className="accent-button"
-            disabled={!canEdit || selected.size === 0}
-            title={selected.size === 0 ? "Select one or more Sources below first" : editTitle}
-            onClick={() => setShowBatchAdd(true)}
-          >
-            Batch Add{selected.size > 0 ? ` to ${selected.size} Source${selected.size === 1 ? "" : "s"}` : ""}
-          </button>
-          {selected.size > 0 && (
-            <button className="icon-button" onClick={() => setSelected(new Set())}>
-              Clear selection
+      <div className="card-header">
+        <h4>Sources</h4>
+        <RequireRole minimum="editor">
+          <div className="section-actions">
+            <button
+              className="button secondary small"
+              disabled={!canEdit || showForm || !!editingSource}
+              title={editTitle}
+              onClick={() => setShowForm(true)}
+            >
+              + Add Source
             </button>
-          )}
-        </div>
+            <button
+              className="button secondary small"
+              disabled={!canEdit}
+              title={canEdit ? "Import Sources, Elements and sequences from a JSON file" : editTitle}
+              onClick={() => setShowJsonImport(true)}
+            >
+              Import JSON
+            </button>
+            <button
+              className="button secondary small"
+              disabled={!canEdit || selected.size === 0}
+              title={!canEdit ? editTitle : selected.size === 0 ? "Select one or more Sources below first" : undefined}
+              onClick={() => setShowBatchAdd(true)}
+            >
+              Batch Add{selected.size > 0 ? ` to ${selected.size} Source${selected.size === 1 ? "" : "s"}` : ""}
+            </button>
+            {selected.size > 0 && (
+              <button className="link-button" onClick={() => setSelected(new Set())}>
+                Clear selection
+              </button>
+            )}
+          </div>
+        </RequireRole>
+      </div>
+      <RequireRole minimum="editor">
+        {editingSource ? (
+          <SourceForm emitterId={emitterId} initialData={editingSource} onClose={() => setEditingSource(null)} />
+        ) : showForm ? (
+          <SourceForm emitterId={emitterId} onClose={() => setShowForm(false)} />
+        ) : null}
       </RequireRole>
       {sources.length === 0 ? (
         <EmptyState
@@ -321,7 +397,7 @@ export function SourcesTable({
                               className="link-button"
                               onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}
                             >
-                              {expandedId === s.id ? "Hide elements & tools" : "Manage elements & generate modes"}
+                              {expandedId === s.id ? "Close ▴" : "Open ▾"}
                             </button>{" "}
                             <RequireRole minimum="editor">
                               {s.status !== "approved" && (
@@ -369,33 +445,7 @@ export function SourcesTable({
                           <tr>
                             <td colSpan={9}>
                               <div className="source-detail">
-                                <h5 className="mt-0">Analyst notes</h5>
-                                <SourceNotesEditor emitterId={emitterId} source={s} />
-
-                                <h5 className="mt-4">Coverage — Modes built from this Source</h5>
-                                <SourceCoverage emitterId={emitterId} sourceId={s.id} />
-
-                                <div className="mb-4 mt-4">
-                                  <button
-                                    onClick={() => setIsElementsCollapsed(!isElementsCollapsed)}
-                                    className="text-sm text-blue-600 hover:underline"
-                                  >
-                                    {isElementsCollapsed ? "Show elements & sequences" : "Hide elements & sequences"}
-                                  </button>
-                                </div>
-                                {!isElementsCollapsed && (
-                                  <>
-                                    <ElementsPanel emitterId={emitterId} sourceId={s.id} />
-                                    <h5 className="mt-4">Parameter Sequences</h5>
-                                    <ParameterSequencesPanel emitterId={emitterId} sourceId={s.id} />
-                                  </>
-                                )}
-                                <RequireRole minimum="editor">
-                                  <h5 className="mt-4">Editorial Tools</h5>
-                                  <div className="action-bar">
-                                    <CartesianProductButton emitterId={emitterId} sourceId={s.id} ewGroups={ewGroups} />
-                                  </div>
-                                </RequireRole>
+                                <SourceDetailTabs emitterId={emitterId} source={s} ewGroups={ewGroups} />
                               </div>
                             </td>
                           </tr>
@@ -413,17 +463,13 @@ export function SourcesTable({
       {rejectingSource && (
         <RejectSourceModal emitterId={emitterId} source={rejectingSource} onClose={() => setRejectingSource(null)} />
       )}
-      <RequireRole minimum="editor">
-        {editingSource ? (
-          <SourceForm emitterId={emitterId} initialData={editingSource} onClose={() => setEditingSource(null)} />
-        ) : showForm ? (
-          <SourceForm emitterId={emitterId} onClose={() => setShowForm(false)} />
-        ) : (
-          <button className="icon-button" disabled={!canEdit} title={editTitle} onClick={() => setShowForm(true)}>
-            + Add Source
-          </button>
-        )}
-      </RequireRole>
+      {showJsonImport && (
+        <JsonImportModal
+          emitterId={emitterId}
+          onClose={() => setShowJsonImport(false)}
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: ["sources", emitterId] })}
+        />
+      )}
       {showBatchAdd && (
         <SourceBatchAddModal
           emitterId={emitterId}

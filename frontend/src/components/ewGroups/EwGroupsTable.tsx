@@ -49,9 +49,22 @@ export function EwGroupsTable({ emitterId, ewGroups }: { emitterId: string; ewGr
 
   return (
     <section className="card">
-      <h4>EW Groups</h4>
+      <div className="card-header">
+        <h4>EW Groups</h4>
+        <RequireRole minimum="editor">
+          <button
+            className="button secondary small"
+            disabled={!canEdit || showForm || !!editingGroup}
+            title={editTitle}
+            onClick={() => setShowForm(true)}
+          >
+            + Add EW Group
+          </button>
+        </RequireRole>
+      </div>
       {ewGroups.length === 0 ? (
         <EmptyState
+          compact
           icon="◇"
           title="No EW Groups yet"
           message="An EW Group is an operational bucket (scan range + threat priority) that Modes are organized under."
@@ -96,7 +109,7 @@ export function EwGroupsTable({ emitterId, ewGroups }: { emitterId: string; ewGr
               <tr key={g.id}>
                 <td>{g.name}</td>
                 <td>
-                  {g.scan_min ?? "—"}–{g.scan_max ?? "—"}
+                  {g.scan_min == null && g.scan_max == null ? "—" : `${g.scan_min ?? "?"}–${g.scan_max ?? "?"}`}
                   {g.scan_delta != null && (
                     <span className="hint-text">
                       {" "}
@@ -130,11 +143,7 @@ export function EwGroupsTable({ emitterId, ewGroups }: { emitterId: string; ewGr
           />
         ) : showForm ? (
           <EwGroupForm emitterId={emitterId} onClose={() => setShowForm(false)} />
-        ) : (
-          <button className="icon-button" disabled={!canEdit} title={editTitle} onClick={() => setShowForm(true)}>
-            + Add EW Group
-          </button>
-        )}
+        ) : null}
       </RequireRole>
       {dialog}
     </section>

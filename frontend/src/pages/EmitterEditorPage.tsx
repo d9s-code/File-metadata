@@ -22,8 +22,6 @@ import { LoadingState } from "../components/common/LoadingState";
 import { Modal } from "../components/common/Modal";
 import { NotesFeed } from "../components/common/NotesFeed";
 import { emitterStatusLabel } from "../components/common/emitterStatusLabel";
-import { JsonImportModal } from "../components/common/JsonImportModal";
-import { useQueryClient } from "@tanstack/react-query";
 
 type Tab = "modes" | "setup" | "intercepts" | "tests" | "audit";
 
@@ -44,7 +42,6 @@ export function EmitterEditorPage() {
   const { data: ewGroups, isLoading: ewGroupsLoading } = useEwGroups(emitterId ?? "");
   const { data: functionGroups } = useFunctionGroups(emitterId ?? "");
   const { data: sources, isLoading: sourcesLoading } = useSources(emitterId ?? "");
-  const queryClient = useQueryClient();
   const { mutate: updateEmitter, isPending: isUpdating } = useUpdateEmitter();
   const { data: emitterNotes, isLoading: notesLoading } = useEmitterNotes(emitterId ?? "");
   const { mutateAsync: createEmitterNote, isPending: isAddingNote } = useCreateEmitterNote(emitterId ?? "");
@@ -54,7 +51,6 @@ export function EmitterEditorPage() {
   const [editName, setEditName] = useState("");
   const [editDesignation, setEditDesignation] = useState("");
   const [editDescription, setEditDescription] = useState("");
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   // Bumped after "Discard changes" to remount every tab, so open edit forms
   // and other local state holding discarded values are thrown away too.
   const [contentVersion, setContentVersion] = useState(0);
@@ -277,7 +273,7 @@ export function EmitterEditorPage() {
           Modes
         </button>
         <button className={tab === "setup" ? "tab active" : "tab"} onClick={() => setTab("setup")}>
-          EW Groups & Sources
+          Groups & Sources
         </button>
         <button className={tab === "intercepts" ? "tab active" : "tab"} onClick={() => setTab("intercepts")}>
           Intercepts
@@ -304,17 +300,6 @@ export function EmitterEditorPage() {
       </div>
 
       <div hidden={tab !== "setup"}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h4 style={{ margin: 0 }}>EW Groups & Sources</h4>
-          <button
-            className="button"
-            onClick={() => setIsImportModalOpen(true)}
-            disabled={!canEdit}
-            title={canEdit ? undefined : "Start editing this Emitter first"}
-          >
-            Import JSON
-          </button>
-        </div>
         <EwGroupsTable emitterId={emitter.id} ewGroups={ewGroups ?? []} />
         <FunctionGroupsTable emitterId={emitter.id} functionGroups={functionGroups ?? []} />
         <SourcesTable emitterId={emitter.id} sources={sources ?? []} ewGroups={ewGroups ?? []} />
@@ -332,15 +317,6 @@ export function EmitterEditorPage() {
       </div>
       </Fragment>
 
-      {isImportModalOpen && (
-        <JsonImportModal
-          emitterId={emitter.id}
-          onClose={() => setIsImportModalOpen(false)}
-          onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ["sources", emitter.id] });
-          }}
-        />
-      )}
     </div>
   );
 }

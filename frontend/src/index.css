@@ -2925,3 +2925,52 @@ fieldset.edit-lock:disabled * {
 .mode-card-tested {
   margin-left: auto;
 }
+
+/* A card's title with its actions on the same line, actions right. */
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+.card-header h4 {
+  margin: 0;
+}
+.empty-state-compact {
+  margin: 0.25rem 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.empty-state-compact strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Tabs inside an opened Source. */
+.sub-tab-bar {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.75rem;
+}
+.sub-tab {
+  background: none;
+  color: var(--muted);
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0.4rem 0.8rem;
+  font-weight: 600;
+}
+.sub-tab:hover {
+  background: var(--hover-bg);
+  color: var(--text);
+  box-shadow: none;
+}
+.sub-tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
