@@ -427,20 +427,20 @@ export function HelpPage() {
         </div>
 
         <div className="help-subsection" id="emitter-versions">
-          <h3>Editing lock, Commit, Discard, Revert & Fork</h3>
+          <h3>Editing, Save version, Discard, Revert & Fork</h3>
           <p>
             Editing an Emitter (or any of its EW Groups/Sources/Modes/Elements) requires holding its{" "}
-            <strong>checkout</strong> first — a banner above the tabs shows whether it's free, held by you,
-            or held by someone else, with a <strong>Start Editing</strong> button when it's free. This
-            stops two people from editing the same Emitter at once; an Admin can force-release a stale
-            lock. A brand-new Emitter is auto-checked-out to whoever created it.
+            <strong>checkout</strong> first — press <strong>Start editing</strong> in the Emitter's header.
+            Until then every editing control is faded out. This stops two people from editing the same
+            Emitter at once; the header shows who holds it, and an Admin can force-release a stale lock. A
+            brand-new Emitter is auto-checked-out to whoever created it.
           </p>
           <p>
-            <strong>Commit Version</strong> takes an immutable snapshot of the Emitter's current state and
-            requires a short message describing what changed. <strong>Discard changes</strong> (shown while
-            you hold the checkout) throws away everything since the last commit, resetting live data back
-            to it. The page also shows a diff between any two versions, called out field-by-field rather
-            than as a raw JSON dump.
+            <strong>Save version</strong> takes an immutable snapshot of the Emitter's current state, with a
+            short message describing what changed, and ends your editing session. <strong>Discard</strong>{" "}
+            throws away everything since the last saved version. Version History opens on the newest
+            version and shows what changed field-by-field; pick another version under{" "}
+            <strong>Compare with</strong> to diff any two.
           </p>
           <p>
             <strong>Revert to this version</strong> resets live data to match an older committed version

@@ -78,7 +78,7 @@ function RunSummary({
       <span className="hint-text">
         {versionNumber != null ? (
           <>
-            tested against <Link to={`/emitters/${emitterId}/versions?v=${versionNumber}`}>version {versionNumber}</Link>
+            tested against <Link to={`/emitters/${emitterId}/versions?version=${versionNumber}`}>version {versionNumber}</Link>
           </>
         ) : (
           "tested before the Emitter had a saved version"

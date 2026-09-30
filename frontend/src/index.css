@@ -1053,10 +1053,10 @@ label {
   font-size: 0.88rem;
 }
 
+/* Mixed case, not uppercase: uppercasing turns "µs" into "ΜS", which reads
+   as milliseconds — and sortable headers (buttons) were never uppercased. */
 .data-table th {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  font-size: 0.78rem;
   color: var(--muted);
   font-weight: 600;
   border-bottom: 1px solid var(--border);
@@ -1741,6 +1741,42 @@ tr.matrix-group-boundary td {
   gap: 0.75rem;
   font-size: 0.9rem;
 }
+.navbar-menu-toggle {
+  display: none;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  font-size: 0.85rem;
+  padding: 0.3rem 0.65rem;
+}
+.navbar-menu-toggle:hover {
+  background: var(--hover-bg);
+}
+/* Nine-plus links don't fit next to the brand and user controls on a
+   narrow window: fold them behind a Menu button, opening as a row below. */
+@media (max-width: 1100px) {
+  .navbar {
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+  }
+  .navbar-menu-toggle {
+    display: inline-block;
+  }
+  .navbar-user {
+    margin-left: auto;
+  }
+  .navbar-links {
+    display: none;
+    order: 10;
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    padding-top: 0.35rem;
+    border-top: 1px solid var(--border);
+  }
+  .navbar-links.open {
+    display: flex;
+  }
+}
 
 .theme-toggle {
   display: inline-flex;
@@ -2210,6 +2246,7 @@ span.test-derived-badge {
 }
 
 .version-history-layout {
+  margin-top: 0.75rem;
   display: grid;
   grid-template-columns: 320px 1fr;
   gap: 1rem;
@@ -3000,4 +3037,10 @@ fieldset.edit-lock:disabled * {
 }
 .run-summary .test-result-badge {
   margin-right: 0.25rem;
+}
+
+label.inline-label {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
 }

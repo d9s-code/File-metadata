@@ -25,8 +25,9 @@ export function EditModeControls({
 }: {
   emitter: Emitter;
   onDiscarded?: () => void;
-  showingChanges: boolean;
-  onToggleChanges: () => void;
+  showingChanges?: boolean;
+  /** Leave out to hide the Changes toggle (e.g. where there's no panel to show them in). */
+  onToggleChanges?: () => void;
 }) {
   const { user } = useAuth();
   const { isCheckedOut, isMine, holderUsername, checkedOutAt } = useEmitterCheckoutState(emitter);
@@ -102,7 +103,7 @@ export function EditModeControls({
       ) : isMine ? (
         <>
           <span className="checkout-badge checkout-badge-mine">✎ Editing</span>
-          {hasCommittedVersion && (
+          {hasCommittedVersion && onToggleChanges && (
             <button type="button" className="link-button" onClick={onToggleChanges} aria-expanded={showingChanges}>
               {showingChanges ? "Hide changes" : "Changes"}
             </button>

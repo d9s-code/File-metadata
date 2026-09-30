@@ -1,10 +1,30 @@
-import { Link, NavLink } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { RequireRole } from "../../auth/RequireAuth";
 import { ThemeToggle } from "./ThemeToggle";
 
+const LINKS: { to: string; label: string }[] = [
+  { to: "/dashboard", label: "Dashboard" },
+  { to: "/emitters", label: "Emitters" },
+  { to: "/platforms", label: "Platforms" },
+  { to: "/mdfs", label: "MDFs" },
+  { to: "/source-groups", label: "Source Groups" },
+  { to: "/customers", label: "Customers" },
+  { to: "/intercepts", label: "Intercepts" },
+  { to: "/audit-log", label: "Audit Log" },
+  { to: "/help", label: "Help" },
+];
+
+const linkClass = ({ isActive }: { isActive: boolean }) =>
+  isActive ? "navbar-link-active" : undefined;
+
 export function NavBar() {
   const { user, logout } = useAuth();
+  // On narrow windows the links fold behind a Menu button.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const { pathname } = useLocation();
+  useEffect(() => setMenuOpen(false), [pathname]);
 
   return (
     <nav className="navbar">
@@ -12,63 +32,35 @@ export function NavBar() {
         <Link to="/dashboard">PRS Emitter Repo</Link>
       </div>
       {user && (
-        <div className="navbar-links">
-          <NavLink to="/dashboard" className={({ isActive }) => (isActive ? "navbar-link-active" : undefined)}>
-            Dashboard
-          </NavLink>
-          <NavLink
-            to="/emitters"
-            className={({ isActive }) => (isActive ? "navbar-link-active" : undefined)}
-          >
-            Emitters
-          </NavLink>
-          <NavLink
-            to="/platforms"
-            className={({ isActive }) => (isActive ? "navbar-link-active" : undefined)}
-          >
-            Platforms
-          </NavLink>
-          <NavLink to="/mdfs" className={({ isActive }) => (isActive ? "navbar-link-active" : undefined)}>
-            MDFs
-          </NavLink>
-          <NavLink
-            to="/source-groups"
-            className={({ isActive }) => (isActive ? "navbar-link-active" : undefined)}
-          >
-            Source Groups
-          </NavLink>
-          <NavLink
-            to="/customers"
-            className={({ isActive }) => (isActive ? "navbar-link-active" : undefined)}
-          >
-            Customers
-          </NavLink>
-          <NavLink
-            to="/intercepts"
-            className={({ isActive }) => (isActive ? "navbar-link-active" : undefined)}
-          >
-            Intercepts
-          </NavLink>
-          <NavLink
-            to="/audit-log"
-            className={({ isActive }) => (isActive ? "navbar-link-active" : undefined)}
-          >
-            Audit Log
-          </NavLink>
-          <NavLink to="/help" className={({ isActive }) => (isActive ? "navbar-link-active" : undefined)}>
-            Help
-          </NavLink>
+        <button
+          type="button"
+          className="navbar-menu-toggle"
+          aria-expanded={menuOpen}
+          aria-controls="navbar-links"
+          onClick={() => setMenuOpen((v) => !v)}
+        >
+          {menuOpen ? "✕ Close" : "☰ Menu"}
+        </button>
+      )}
+      {user ? (
+        <div
+          id="navbar-links"
+          className={menuOpen ? "navbar-links open" : "navbar-links"}
+        >
+          {LINKS.map((l) => (
+            <NavLink key={l.to} to={l.to} className={linkClass}>
+              {l.label}
+            </NavLink>
+          ))}
           <RequireRole minimum="admin">
-            <NavLink
-              to="/admin/users"
-              className={({ isActive }) => (isActive ? "navbar-link-active" : undefined)}
-            >
+            <NavLink to="/admin/users" className={linkClass}>
               Admin
             </NavLink>
           </RequireRole>
         </div>
+      ) : (
+        <div className="navbar-links" />
       )}
-      {!user && <div className="navbar-links" />}
       <div className="navbar-user">
         <ThemeToggle />
         {user && (
