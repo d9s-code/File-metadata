@@ -422,7 +422,23 @@ button:disabled {
   gap: 0.75rem;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 0.75rem;
+}
+.toolbar-filters,
+.toolbar-view,
+.section-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.section-count {
+  font-size: 0.8rem;
+  font-weight: normal;
+  text-transform: none;
+  letter-spacing: 0;
+  margin-left: 0.25rem;
 }
 .modes-toolbar-row input[type="text"],
 .modes-toolbar-row input[type="search"] {
@@ -1086,7 +1102,7 @@ label {
 /* Scrolling a cell into view (keyboard focus, links) stops short of the
    pinned right-hand column instead of leaving the cell underneath it. */
 .matrix-scroll:has(.sticky-end) {
-  scroll-padding-inline-end: 11rem;
+  scroll-padding-inline-end: 3.5rem;
 }
 
 /* A column pinned to the right edge of a horizontally scrolling table, so
@@ -2721,26 +2737,15 @@ fieldset.edit-lock:disabled * {
 }
 
 /* --- "More" menu ------------------------------------------------------ */
-.menu-button {
-  position: relative;
-  display: inline-block;
-}
 .menu-button-list {
-  position: absolute;
-  top: calc(100% + 4px);
-  z-index: 50;
+  position: fixed;
+  z-index: 1000;
   min-width: 15rem;
   padding: 0.3rem 0;
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-lg);
-}
-.menu-align-right {
-  right: 0;
-}
-.menu-align-left {
-  left: 0;
 }
 .menu-button-item {
   display: block;
@@ -2844,4 +2849,79 @@ fieldset.edit-lock:disabled * {
 }
 .summary-bad {
   color: var(--error);
+}
+
+/* The Modes table scrolls inside the viewport's height, so its header row
+   stays pinned and its horizontal scrollbar is always in reach — not at the
+   bottom of a 60-row table. */
+.matrix-scroll.modes-scroll {
+  max-height: calc(100vh - 10rem);
+  overflow: auto;
+}
+.modes-scroll > .data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--card-bg);
+}
+.modes-scroll > .data-table thead th.sticky-end {
+  z-index: 3;
+}
+.data-table .row-actions {
+  width: 1%;
+  text-align: center;
+}
+.row-menu-button {
+  background: none;
+  color: var(--text);
+  border: 1px solid transparent;
+  box-shadow: none;
+  padding: 0.1rem 0.55rem;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+.row-menu-button:hover,
+.row-menu-button[aria-expanded="true"] {
+  background: var(--hover-bg);
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+/* Compact Mode cards: name, tags, then one line each for RF, PRI and PW. */
+.mode-card-header strong {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.mode-card-params {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.75rem;
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+}
+.mode-card-params dt {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  align-self: center;
+}
+.mode-card-params dd {
+  margin: 0;
+}
+.mode-card-pri-type {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.mode-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--border);
+  padding-top: 0.4rem;
+  font-size: 0.82rem;
+}
+.mode-card-tested {
+  margin-left: auto;
 }

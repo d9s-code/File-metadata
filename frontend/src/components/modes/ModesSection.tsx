@@ -247,106 +247,131 @@ export function ModesSection({
   return (
     <section className="card">
       <div className="modes-section-header">
-        <h4>Modes</h4>
-        <label className="inline-field-label" title="Show each parameter's engineered (raw ± delta) value directly, instead of the raw value with its delta shown separately">
-          <input
-            type="checkbox"
-            checked={showEngineered}
-            onChange={(e) => setShowEngineered(e.target.checked)}
-          />
-          Show engineered values
-        </label>
-        <label className="inline-field-label" title="Show all Modes from one Cartesian Product run as a single collapsible row instead of one row each">
-          <input
-            type="checkbox"
-            checked={collapseBatches}
-            onChange={(e) => setCollapseBatches(e.target.checked)}
-          />
-          Collapse generation batches
-        </label>
-        <ModesViewToggle view={view} onChange={setView} />
+        <h4>
+          Modes{" "}
+          <span className="hint-text section-count">
+            {modes ? (sorted.length === modes.length ? modes.length : `${sorted.length} of ${modes.length} shown`) : ""}
+          </span>
+        </h4>
+        <RequireRole minimum="editor">
+          <div className="section-actions">
+            <button
+              className="button primary"
+              disabled={!canAddMode}
+              title={!hasSetup ? "Add a Source and an EW Group first" : canEdit ? undefined : "Start editing this Emitter first"}
+              onClick={() => setShowForm(true)}
+            >
+              + Add Mode
+            </button>
+            <button
+              className="button secondary"
+              disabled={!canEdit || selected.size === 0}
+              title={!canEdit ? "Start editing this Emitter first" : selected.size === 0 ? "Select one or more Modes below first" : undefined}
+              onClick={() => setShowBatchEdit(true)}
+            >
+              Batch Edit{selected.size > 0 ? ` (${selected.size})` : ""}
+            </button>
+            {selected.size > 0 && (
+              <button className="link-button" onClick={() => setSelected(new Set())}>
+                Clear selection
+              </button>
+            )}
+            <button
+              className="button secondary"
+              disabled={!canEdit}
+              title={canEdit ? undefined : "Start editing this Emitter first"}
+              onClick={() => setShowPrsImport(true)}
+            >
+              Import from PRS
+            </button>
+          </div>
+        </RequireRole>
       </div>
 
       <div className="modes-toolbar-row">
-        <input
-          type="text"
-          placeholder="Search modes…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <select value={ewGroupFilter} onChange={(e) => setEwGroupFilter(e.target.value)}>
-          <option value="">All EW Groups</option>
-          {ewGroups.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.name}
-            </option>
-          ))}
-        </select>
-        <select value={functionGroupFilter} onChange={(e) => setFunctionGroupFilter(e.target.value)}>
-          <option value="">All Function Groups</option>
-          {functionGroups.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.name}
-            </option>
-          ))}
-        </select>
-        <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)}>
-          <option value="">All Sources</option>
-          {sources.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-        <select value={batchFilter} onChange={(e) => setBatchFilter(e.target.value)}>
-          <option value="">All Batches</option>
-          {(batches ?? []).map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.name_prefix} — {b.mode_count} modes — {new Date(b.created_at).toLocaleDateString()}
-            </option>
-          ))}
-        </select>
-        <button type="button" className="link-button" onClick={() => setShowMoreFilters((v) => !v)}>
-          {showMoreFilters ? "Hide filters" : "More filters"}
-          {activeMoreFiltersCount > 0 ? ` (${activeMoreFiltersCount})` : ""}
-        </button>
-        {selectedBatch && (
-          <RequireRole minimum="editor">
-            <button
-              className="icon-button"
-              onClick={() => void handleDeleteBatch()}
-              disabled={!canEdit}
-              title={canEdit ? undefined : "Start editing this Emitter first"}
-            >
-              Delete this batch ({selectedBatch.mode_count})
-            </button>
-          </RequireRole>
-        )}
-        {batchDeleteError && <span className="error-text">{batchDeleteError}</span>}
-        <RequireRole minimum="editor">
-          <button
-            className="accent-button"
-            disabled={!canEdit || selected.size === 0}
-            title={selected.size === 0 ? "Select one or more Modes below first" : undefined}
-            onClick={() => setShowBatchEdit(true)}
-          >
-            Batch Edit{selected.size > 0 ? ` (${selected.size})` : ""}
+        <div className="toolbar-filters">
+          <input
+            type="search"
+            placeholder="Search modes…"
+            aria-label="Search modes"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <select value={ewGroupFilter} onChange={(e) => setEwGroupFilter(e.target.value)}>
+            <option value="">All EW Groups</option>
+            {ewGroups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+          <select value={functionGroupFilter} onChange={(e) => setFunctionGroupFilter(e.target.value)}>
+            <option value="">All Function Groups</option>
+            {functionGroups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+          <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)}>
+            <option value="">All Sources</option>
+            {sources.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+          <select value={batchFilter} onChange={(e) => setBatchFilter(e.target.value)}>
+            <option value="">All Batches</option>
+            {(batches ?? []).map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name_prefix} — {b.mode_count} modes — {new Date(b.created_at).toLocaleDateString()}
+              </option>
+            ))}
+          </select>
+          <button type="button" className="link-button" onClick={() => setShowMoreFilters((v) => !v)}>
+            {showMoreFilters ? "Hide filters" : "More filters"}
+            {activeMoreFiltersCount > 0 ? ` (${activeMoreFiltersCount})` : ""}
           </button>
-          {selected.size > 0 && (
-            <button className="link-button" onClick={() => setSelected(new Set())}>
-              Clear selection
-            </button>
+          {selectedBatch && (
+            <RequireRole minimum="editor">
+              <button
+                className="icon-button"
+                onClick={() => void handleDeleteBatch()}
+                disabled={!canEdit}
+                title={canEdit ? undefined : "Start editing this Emitter first"}
+              >
+                Delete this batch ({selectedBatch.mode_count})
+              </button>
+            </RequireRole>
           )}
-          <button
-            className="icon-button"
-            disabled={!canEdit}
-            title={canEdit ? undefined : "Start editing this Emitter first"}
-            onClick={() => setShowPrsImport(true)}
-          >
-            Import from PRS
-          </button>
-        </RequireRole>
+          {batchDeleteError && <span className="error-text">{batchDeleteError}</span>}
+        </div>
+        <div className="toolbar-view">
+          <label className="inline-field-label" title="Show each parameter's engineered (raw ± delta) value directly, instead of the raw value">
+            <input type="checkbox" checked={showEngineered} onChange={(e) => setShowEngineered(e.target.checked)} />
+            Engineered values
+          </label>
+          <label className="inline-field-label" title="Show all Modes from one Cartesian Product run as a single collapsible row instead of one row each">
+            <input type="checkbox" checked={collapseBatches} onChange={(e) => setCollapseBatches(e.target.checked)} />
+            Collapse batches
+          </label>
+          <ModesViewToggle view={view} onChange={setView} />
+        </div>
       </div>
+
+      <RequireRole minimum="editor">
+        {showForm && canAddMode && (
+          <ModeForm
+            emitterId={emitterId}
+            ewGroups={ewGroups}
+            sources={sources}
+            functionGroups={functionGroups}
+            defaultEwGroupId={ewGroupFilter}
+            onClose={() => setShowForm(false)}
+          />
+        )}
+      </RequireRole>
 
       {showMoreFilters && (
         <div className="modes-toolbar-row">
@@ -459,29 +484,6 @@ export function ModesSection({
         />
       )}
 
-      <RequireRole minimum="editor">
-        {!hasSetup ? (
-          <p className="hint-text">Add a Source and an EW Group first.</p>
-        ) : showForm && canAddMode ? (
-          <ModeForm
-            emitterId={emitterId}
-            ewGroups={ewGroups}
-            sources={sources}
-            functionGroups={functionGroups}
-            defaultEwGroupId={ewGroupFilter}
-            onClose={() => setShowForm(false)}
-          />
-        ) : (
-          <button
-            className="icon-button"
-            disabled={!canEdit}
-            title={canEdit ? undefined : "Start editing this Emitter first"}
-            onClick={() => setShowForm(true)}
-          >
-            + Add Mode
-          </button>
-        )}
-      </RequireRole>
       {showBatchEdit && (
         <BatchEditModal
           emitterId={emitterId}

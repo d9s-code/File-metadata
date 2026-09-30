@@ -22,6 +22,7 @@ import { InterceptDerivedBadge } from "./InterceptDerivedBadge";
 import { LastTestedCell } from "./LastTestedCell";
 import { ModeEditForm } from "./ModeEditForm";
 import { ModeForm } from "./ModeForm";
+import { MenuButton } from "../common/MenuButton";
 
 type ModeColumnId =
   | "name"
@@ -32,8 +33,11 @@ type ModeColumnId =
   | "pri_max"
   | "pw_min"
   | "pw_max"
-  | "jft_min"
-  | "jft_max"
+  | "rf_delta"
+  | "pri_delta"
+  | "pw_delta"
+  | "jitter"
+  | "frame_time"
   | "range_matching"
   | "confirmation_quality"
   | "confirmation_quantity"
@@ -48,13 +52,16 @@ const MODE_COLUMNS: (ToggleableColumn<ModeColumnId> & { sortKey?: ModeSortKey; t
   { id: "name", label: "Name", sortKey: "name", hideable: false },
   { id: "rf_min", label: "RF Min", sortKey: "rf_min", type: "number" },
   { id: "rf_max", label: "RF Max", sortKey: "rf_max", type: "number" },
+  { id: "rf_delta", label: "RF Δ", defaultHidden: true },
   { id: "pri_type", label: "PRI Type", sortKey: "pri_type" },
   { id: "pri_min", label: "PRI Min", sortKey: "pri_min", type: "number" },
   { id: "pri_max", label: "PRI Max", sortKey: "pri_max", type: "number" },
+  { id: "pri_delta", label: "PRI Δ", defaultHidden: true },
+  { id: "jitter", label: "Jitter (µs)" },
+  { id: "frame_time", label: "Frame time (µs)" },
   { id: "pw_min", label: "PW Min", sortKey: "pw_min", type: "number" },
   { id: "pw_max", label: "PW Max", sortKey: "pw_max", type: "number" },
-  { id: "jft_min", label: "Jitter/Frametime Min" },
-  { id: "jft_max", label: "Jitter/Frametime Max" },
+  { id: "pw_delta", label: "PW Δ", defaultHidden: true },
   { id: "range_matching", label: "Range Matching", sortKey: "range_matching" },
   { id: "confirmation_quality", label: "Confirmation Quality", sortKey: "confirmation_quality", type: "number" },
   { id: "confirmation_quantity", label: "Confirmation Quantity", sortKey: "confirmation_quantity", type: "number" },
@@ -63,6 +70,16 @@ const MODE_COLUMNS: (ToggleableColumn<ModeColumnId> & { sortKey?: ModeSortKey; t
   { id: "source", label: "Source", sortKey: "source" },
   { id: "last_tested", label: "Last Tested", sortKey: "last_tested", type: "date" },
 ];
+
+function rangeText(min: number | null, max: number | null): string {
+  if (min == null && max == null) return "—";
+  if (max == null || min === max) return String(min ?? max);
+  return `${min}–${max}`;
+}
+
+function deltaText(delta: number | null | undefined): string {
+  return delta == null ? "—" : `±${delta}`;
+}
 
 export function ModesTable({
   emitterId,
@@ -168,57 +185,20 @@ export function ModesTable({
         </td>
       ),
       rf_min: () => <td>{rf.min ?? "—"}</td>,
-      rf_max: () => (
-        <td>
-          {rf.max ?? "—"}
-          {!!rf.delta && <span className="jitter-subline">±{rf.delta} MHz delta</span>}
-        </td>
-      ),
+      rf_max: () => <td>{rf.max ?? "—"}</td>,
+      rf_delta: () => <td>{deltaText(m.line?.rf_delta)}</td>,
       pri_type: () => <td>{m.pri_type.toUpperCase()}</td>,
       pri_min: () => (isFixed ? <td>{pri.min ?? "—"}</td> : priSpanning),
-      pri_max: () =>
-        isFixed ? (
-          <td>
-            {pri.max ?? "—"}
-            {!!pri.delta && <span className="jitter-subline">±{pri.delta} µs delta</span>}
-          </td>
-        ) : columns.isVisible("pri_min") ? null : (
-          priSpanning
-        ),
+      pri_max: () => (isFixed ? <td>{pri.max ?? "—"}</td> : columns.isVisible("pri_min") ? null : priSpanning),
+      pri_delta: () => <td>{deltaText(m.pri_type === "stagger" ? m.line?.frame_time_delta_us : m.line?.pri_delta)}</td>,
       pw_min: () => <td>{pw.min ?? "—"}</td>,
-      pw_max: () => (
-        <td>
-          {pw.max ?? "—"}
-          {!!pw.delta && <span className="jitter-subline">±{pw.delta} µs delta</span>}
-        </td>
+      pw_max: () => <td>{pw.max ?? "—"}</td>,
+      pw_delta: () => <td>{deltaText(m.line?.pw_delta)}</td>,
+      jitter: () => (
+        <td>{jft.label === "jitter" ? rangeText(jft.min, jft.max) : <span className="hint-text">—</span>}</td>
       ),
-      jft_min: () => (
-        <td>
-          {jft.label ? (
-            <>
-              {jft.label} {jft.min ?? "—"} µs
-            </>
-          ) : (
-            "—"
-          )}
-        </td>
-      ),
-      jft_max: () => (
-        <td>
-          {jft.label ? (
-            <>
-              {jft.max != null && (
-                <>
-                  {jft.label} {jft.max} µs
-                </>
-              )}
-              {!!jft.delta && <span className="jitter-subline">±{jft.delta} µs delta</span>}
-              {jft.max == null && !jft.delta && "—"}
-            </>
-          ) : (
-            "—"
-          )}
-        </td>
+      frame_time: () => (
+        <td>{jft.label === "frametime" ? rangeText(jft.min, jft.max) : <span className="hint-text">—</span>}</td>
       ),
       range_matching: () => (
         <td>
@@ -291,34 +271,34 @@ export function ModesTable({
                   const content = cells[c.id]();
                   return content === null ? null : <Fragment key={c.id}>{content}</Fragment>;
                 })}
-                <td className="sticky-end">
+                <td className="sticky-end row-actions">
                   <RequireRole minimum="editor">
-                    <div className="flex gap-1">
-                      <button
-                        className="link-button"
-                        disabled={!canEdit}
-                        title={editTitle}
-                        onClick={() => setEditingModeId(editingModeId === m.id ? null : m.id)}
-                      >
-                        {editingModeId === m.id ? "Cancel edit" : "Edit"}
-                      </button>{" "}
-                      <button
-                        className="link-button link-button-accent"
-                        disabled={!canEdit}
-                        title={editTitle ?? "Start a new Mode pre-filled with this one's line — pick a name and adjust what's different"}
-                        onClick={() => setDuplicatingModeId(duplicatingModeId === m.id ? null : m.id)}
-                      >
-                        {duplicatingModeId === m.id ? "Cancel duplicate" : "Duplicate"}
-                      </button>{" "}
-                      <button
-                        className="link-button link-button-danger"
-                        disabled={!canEdit}
-                        title={editTitle}
-                        onClick={() => onDelete(m.id, m.ew_group_id, m.name)}
-                      >
-                        Delete
-                      </button>
-                    </div>
+                    <MenuButton
+                      label="⋯"
+                      className="row-menu-button"
+                      ariaLabel={`Actions for ${m.name}`}
+                      items={[
+                        {
+                          label: editingModeId === m.id ? "Cancel edit" : "Edit",
+                          onSelect: () => setEditingModeId(editingModeId === m.id ? null : m.id),
+                          disabled: !canEdit,
+                          title: editTitle,
+                        },
+                        {
+                          label: duplicatingModeId === m.id ? "Cancel duplicate" : "Duplicate",
+                          onSelect: () => setDuplicatingModeId(duplicatingModeId === m.id ? null : m.id),
+                          disabled: !canEdit,
+                          title: editTitle ?? "Start a new Mode pre-filled with this one's line",
+                        },
+                        {
+                          label: "Delete",
+                          onSelect: () => onDelete(m.id, m.ew_group_id, m.name),
+                          disabled: !canEdit,
+                          title: editTitle,
+                          danger: true,
+                        },
+                      ]}
+                    />
                   </RequireRole>
                 </td>
               </tr>
@@ -358,7 +338,7 @@ export function ModesTable({
   const someVisibleSelected = modes.some((m) => selected.has(m.id));
 
   return (
-    <div className="matrix-scroll">
+    <div className="matrix-scroll modes-scroll">
       <table className="data-table">
         <thead>
           <tr {...columnMenu.openProps}>
@@ -380,7 +360,7 @@ export function ModesTable({
                 <th key={c.id}>{c.label}</th>
               ),
             )}
-            <th className="sticky-end" aria-label="Actions"></th>
+            <th className="sticky-end row-actions" aria-label="Actions"></th>
           </tr>
         </thead>
         <tbody>

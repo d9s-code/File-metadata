@@ -6,47 +6,59 @@ export interface ToggleableColumn<Id extends string> {
   label: string;
   /** False for a column that must always show (e.g. Name). */
   hideable?: boolean;
+  /** Starts hidden until someone ticks it. */
+  defaultHidden?: boolean;
 }
 
 const VIEWPORT_MARGIN = 8;
 
-function readHidden(storageKey: string): string[] {
+/** Stored choices: column id -> shown. Older versions stored an array of
+ * hidden ids, which still reads correctly. */
+function readChoices(storageKey: string): Record<string, boolean> {
   try {
     const raw = localStorage.getItem(storageKey);
-    const parsed: unknown = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : [];
+    const parsed: unknown = raw ? JSON.parse(raw) : {};
+    if (Array.isArray(parsed)) {
+      return Object.fromEntries(parsed.filter((v): v is string => typeof v === "string").map((id) => [id, false]));
+    }
+    if (parsed && typeof parsed === "object") {
+      return Object.fromEntries(Object.entries(parsed).filter(([, v]) => typeof v === "boolean")) as Record<string, boolean>;
+    }
   } catch {
-    return [];
+    // Unreadable or unavailable storage — fall back to the defaults.
   }
+  return {};
 }
 
-/** Which columns of a table are shown. Stores the *hidden* ones, so a column
- * added later shows up by default. Remembered per browser. */
+/** Which columns of a table are shown. Only choices the user made are
+ * stored, so a column added later gets its own default. Remembered per
+ * browser. */
 export function useColumnVisibility<Id extends string>(storageKey: string, columns: ToggleableColumn<Id>[]) {
-  const [hidden, setHidden] = useState<Set<string>>(() => new Set(readHidden(storageKey)));
+  const [choices, setChoices] = useState<Record<string, boolean>>(() => readChoices(storageKey));
 
-  function save(next: Set<string>) {
-    setHidden(next);
+  function save(next: Record<string, boolean>) {
+    setChoices(next);
     try {
-      localStorage.setItem(storageKey, JSON.stringify([...next]));
+      localStorage.setItem(storageKey, JSON.stringify(next));
     } catch {
       // Storage unavailable (private window etc.) — the choice just won't persist.
     }
   }
 
-  const isVisible = (id: Id) => !hidden.has(id);
+  const isVisible = (id: Id) => {
+    const column = columns.find((c) => c.id === id);
+    if (column?.hideable === false) return true;
+    return choices[id] ?? !column?.defaultHidden;
+  };
   return {
     columns,
     isVisible,
     visibleCount: columns.filter((c) => isVisible(c.id)).length,
     toggle(id: Id) {
-      const next = new Set(hidden);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      save(next);
+      save({ ...choices, [id]: !isVisible(id) });
     },
     showAll() {
-      save(new Set());
+      save(Object.fromEntries(columns.map((c) => [c.id, true])));
     },
   };
 }

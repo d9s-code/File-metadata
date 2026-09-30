@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { MenuButton } from "../common/MenuButton";
 import type { EwGroup, FunctionGroup, Mode, ModeGenerationBatch, Source } from "../../types/domain";
 import { HoverInfo } from "../common/InfoPopover";
 import { RequireRole } from "../../auth/RequireAuth";
@@ -18,6 +19,12 @@ import {
   rangeMatchingTags,
   rfDisplay,
 } from "./modeFormat";
+
+function span(min: number | null, max: number | null): string {
+  if (min == null && max == null) return "—";
+  if (max == null || min === max) return String(min ?? max);
+  return `${min}–${max}`;
+}
 
 export function ModesCardGrid({
   emitterId,
@@ -114,30 +121,27 @@ export function ModesCardGrid({
                 <InterceptDerivedBadge intercepts={m.derived_from_intercepts} />
               </strong>
               <RequireRole minimum="editor">
-                <button
-                  className="link-button"
-                  disabled={!canEdit}
-                  title={editTitle}
-                  onClick={() => setEditingModeId(m.id)}
-                >
-                  Edit
-                </button>{" "}
-                <button
-                  className="link-button link-button-accent"
-                  disabled={!canEdit}
-                  title={editTitle ?? "Start a new Mode pre-filled with this one's line — pick a name and adjust what's different"}
-                  onClick={() => setDuplicatingModeId(m.id)}
-                >
-                  Duplicate
-                </button>{" "}
-                <button
-                  className="link-button link-button-danger"
-                  disabled={!canEdit}
-                  title={editTitle}
-                  onClick={() => onDelete(m.id, m.ew_group_id, m.name)}
-                >
-                  Delete
-                </button>
+                <MenuButton
+                  label="⋯"
+                  className="row-menu-button"
+                  ariaLabel={`Actions for ${m.name}`}
+                  items={[
+                    { label: "Edit", onSelect: () => setEditingModeId(m.id), disabled: !canEdit, title: editTitle },
+                    {
+                      label: "Duplicate",
+                      onSelect: () => setDuplicatingModeId(m.id),
+                      disabled: !canEdit,
+                      title: editTitle ?? "Start a new Mode pre-filled with this one's line",
+                    },
+                    {
+                      label: "Delete",
+                      onSelect: () => onDelete(m.id, m.ew_group_id, m.name),
+                      disabled: !canEdit,
+                      title: editTitle,
+                      danger: true,
+                    },
+                  ]}
+                />
               </RequireRole>
             </div>
             <div className="mode-card-badges">
@@ -163,114 +167,60 @@ export function ModesCardGrid({
                 <span className="status-badge">{functionGroupsById[m.function_group_id]?.name ?? "—"}</span>
               )}
             </div>
-            <dl className="mode-card-fields">
-              <div>
-                <dt>RF Min (MHz)</dt>
-                <dd>{rf.min ?? "—"}</dd>
-              </div>
-              <div>
-                <dt>RF Max (MHz)</dt>
-                <dd>
-                  {rf.max ?? "—"}
-                  {!!rf.delta && <span className="jitter-subline">±{rf.delta} MHz delta</span>}
-                </dd>
-              </div>
-              <div>
-                <dt>PW Min (µs)</dt>
-                <dd>{pw.min ?? "—"}</dd>
-              </div>
-              <div>
-                <dt>PW Max (µs)</dt>
-                <dd>
-                  {pw.max ?? "—"}
-                  {!!pw.delta && <span className="jitter-subline">±{pw.delta} µs delta</span>}
-                </dd>
-              </div>
-              <div>
-                <dt>PRI Type</dt>
-                <dd>{m.pri_type.toUpperCase()}</dd>
-              </div>
-              {m.pri_type === "stagger" ? (
-                <div>
-                  <dt>PRI</dt>
-                  <dd>
+            <dl className="mode-card-params">
+              <dt>RF</dt>
+              <dd>
+                {span(rf.min, rf.max)} <span className="hint-text">MHz</span>
+                {!!rf.delta && <span className="hint-text"> ±{rf.delta}</span>}
+              </dd>
+              <dt>PRI</dt>
+              <dd>
+                <span className="mode-card-pri-type">{m.pri_type.toUpperCase()}</span>{" "}
+                {m.pri_type === "fixed" ? (
+                  <>
+                    {span(pri.min, pri.max)} <span className="hint-text">µs</span>
+                    {!!pri.delta && <span className="hint-text"> ±{pri.delta}</span>}
+                    {jft.label === "jitter" && <span className="hint-text"> · jitter {span(jft.min, jft.max)}</span>}
+                  </>
+                ) : m.pri_type === "stagger" ? (
+                  <>
                     <StaggerSequenceBox mode={m} />
-                  </dd>
-                </div>
-              ) : m.pri_type === "fixed" ? (
-                <>
-                  <div>
-                    <dt>PRI Min (µs)</dt>
-                    <dd>{pri.min ?? "—"}</dd>
-                  </div>
-                  <div>
-                    <dt>PRI Max (µs)</dt>
-                    <dd>
-                      {pri.max ?? "—"}
-                      {!!pri.delta && <span className="jitter-subline">±{pri.delta} µs delta</span>}
-                    </dd>
-                  </div>
-                </>
-              ) : (
-                <div>
-                  <dt>PRI</dt>
-                  <dd>{m.pri_type === "cw" ? "CW (constant)" : "—"}</dd>
-                </div>
-              )}
-              <div>
-                <dt>Jitter/Frametime Min (µs)</dt>
-                <dd>
-                  {jft.label ? (
-                    <>
-                      {jft.label} {jft.min ?? "—"} µs
-                    </>
-                  ) : (
-                    "—"
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt>Jitter/Frametime Max (µs)</dt>
-                <dd>
-                  {jft.label && jft.max != null && (
-                    <>
-                      {jft.label} {jft.max} µs
-                    </>
-                  )}
-                  {!!jft.delta && <span className="jitter-subline">±{jft.delta} µs delta</span>}
-                  {!jft.label || (jft.max == null && !jft.delta) ? "—" : null}
-                </dd>
-              </div>
-              <div>
-                <dt>Range Matching</dt>
-                <dd>
-                  {rangeMatchingTags(m).length > 0 ? (
-                    rangeMatchingTags(m).map((tag) => (
-                      <span key={tag} className="status-badge range-matching-tag">
-                        {tag}
+                    {jft.label === "frametime" && (
+                      <span className="hint-text">
+                        {" "}
+                        · frame time {span(jft.min, jft.max)} µs{jft.delta ? ` ±${jft.delta}` : ""}
                       </span>
-                    ))
-                  ) : (
-                    <span className="hint-text">—</span>
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt>Last Tested</dt>
-                <dd>
-                  {m.last_tested_at ? (
-                    <LastTestedCell
-                      emitterId={emitterId}
-                      date={m.last_tested_at}
-                      result={m.last_test_result}
-                      testRecordId={m.last_test_record_id}
-                    />
-                  ) : (
-                    <span className="hint-text">never</span>
-                  )}
-                </dd>
-              </div>
+                    )}
+                  </>
+                ) : m.pri_type === "cw" ? (
+                  <span className="hint-text">constant</span>
+                ) : null}
+              </dd>
+              <dt>PW</dt>
+              <dd>
+                {span(pw.min, pw.max)} <span className="hint-text">µs</span>
+                {!!pw.delta && <span className="hint-text"> ±{pw.delta}</span>}
+              </dd>
             </dl>
+            <div className="mode-card-footer">
+              {rangeMatchingTags(m).map((tag) => (
+                <span key={tag} className="status-badge range-matching-tag" title="Range matching">
+                  {tag}
+                </span>
+              ))}
+              <span className="mode-card-tested">
+                {m.last_tested_at ? (
+                  <LastTestedCell
+                    emitterId={emitterId}
+                    date={m.last_tested_at}
+                    result={m.last_test_result}
+                    testRecordId={m.last_test_record_id}
+                  />
+                ) : (
+                  <span className="hint-text">never tested</span>
+                )}
+              </span>
+            </div>
           </div>
         );
   }
