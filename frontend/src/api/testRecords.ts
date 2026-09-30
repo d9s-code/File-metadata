@@ -70,6 +70,8 @@ export interface TestRecord {
   tested_by: string | null;
   test_date: string;
   simulation_created_date: string | null;
+  /** "Manual", or a value written in; null on runs logged before dwell existed. */
+  dwell: string | null;
   created_at: string;
   retests_test_record_id: string | null;
   modes: TestRecordModeLink[];
@@ -98,6 +100,8 @@ export interface TestRecordInput {
   notes?: string;
   test_date: string;
   simulation_created_date?: string;
+  /** "Manual", or a value written in (e.g. "50 ms"). */
+  dwell?: string;
   /** Per-Test-Line intercept-correctness outcome — when given, this is what the
    * whole-test result derives from (see backend precedence). */
   line_results?: TestRecordLineResultInput[];

@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { DwellInput, MANUAL_DWELL } from "./DwellInput";
 import { useCreateMdfTestRecord, useDeleteMdfTestRecord, useMdfTestRecords } from "../../state/hooks/useTestRecords";
 import { LOGGABLE_TEST_TYPES, type LoggableTestType, type TestResult } from "../../types/domain";
 import { ApiRequestError } from "../../api/client";
@@ -21,6 +22,7 @@ export function MdfTestHistory({ mdfId, highlightTestRecordId }: { mdfId: string
   const [testType, setTestType] = useState<LoggableTestType>("simulation");
   const [testDate, setTestDate] = useState(todayDate());
   const [simCreatedDate, setSimCreatedDate] = useState("");
+  const [dwell, setDwell] = useState(MANUAL_DWELL);
   const [result, setResult] = useState<TestResult>("pass");
   const [retestsId, setRetestsId] = useState("");
   const [notes, setNotes] = useState("");
@@ -35,6 +37,7 @@ export function MdfTestHistory({ mdfId, highlightTestRecordId }: { mdfId: string
         title,
         test_date: testDate,
         simulation_created_date: simCreatedDate || undefined,
+        dwell: dwell.trim() || undefined,
         result,
         notes: notes.trim() || undefined,
         retests_test_record_id: retestsId || undefined,
@@ -95,6 +98,7 @@ export function MdfTestHistory({ mdfId, highlightTestRecordId }: { mdfId: string
                   required={testType === "simulation"}
                 />
               </label>
+              <DwellInput value={dwell} onChange={setDwell} />
               <label className="inline-date-label">
                 Result
                 <select value={result} onChange={(e) => setResult(e.target.value as TestResult)}>

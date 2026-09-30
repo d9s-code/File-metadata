@@ -1,7 +1,7 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import Date, ForeignKey, Text, UniqueConstraint
+from sqlalchemy import Date, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -38,6 +38,9 @@ class TestRecord(UUIDPkMixin, TimestampMixin, Base):
     # simulation model/scenario itself was built, as distinct from test_date (when
     # the test run happened against it).
     simulation_created_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # The dwell the whole run used: "Manual", or whatever value was written in
+    # (e.g. "50 ms"). Free text — a run-level setting like test_date.
+    dwell: Mapped[str | None] = mapped_column(String(100), nullable=True)
     # Optional pointer to an earlier test record this one re-runs. SET NULL (not
     # CASCADE): deleting the earlier test should drop the pointer, not the retest.
     retests_test_record_id: Mapped[uuid.UUID | None] = mapped_column(

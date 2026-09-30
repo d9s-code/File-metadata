@@ -126,6 +126,7 @@ def _create_test_record(
         notes=payload.notes,
         test_date=payload.test_date,
         simulation_created_date=payload.simulation_created_date,
+        dwell=payload.dwell,
         retests_test_record_id=payload.retests_test_record_id,
         tested_by=tested_by,
     )

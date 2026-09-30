@@ -23,6 +23,7 @@ import {
   type InterceptModeEntry,
 } from "../components/testing/InterceptModeResultsTable";
 import { nonEmptySets, observedValueOptions, TEST_RESULTS, testTypeLabel } from "../components/testing/testFormat";
+import { DwellInput, MANUAL_DWELL } from "../components/testing/DwellInput";
 
 function todayDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -75,6 +76,7 @@ export function TestRunNewPage() {
   const [testDate, setTestDate] = useState(todayDate());
   const [simCreatedDate, setSimCreatedDate] = useState("");
   const [interceptDate, setInterceptDate] = useState("");
+  const [dwell, setDwell] = useState(MANUAL_DWELL);
   const [retestsId, setRetestsId] = useState("");
   const [copyFromId, setCopyFromId] = useState("");
   const [notes, setNotes] = useState("");
@@ -151,6 +153,7 @@ export function TestRunNewPage() {
     if (!previous) return;
     setLineEntries(lineEntriesFrom(previous, lineIds));
     setModeEntries(modeEntriesFrom(previous));
+    if (previous.dwell) setDwell(previous.dwell);
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -185,6 +188,7 @@ export function TestRunNewPage() {
         test_date: testDate,
         // One column holds both: when the simulation was built, or when the intercept happened.
         simulation_created_date: (isSimulation ? simCreatedDate : interceptDate) || undefined,
+        dwell: dwell.trim() || undefined,
         notes: notes.trim() || undefined,
         line_results: lineResults.length ? lineResults : undefined,
         mode_results: modeResults.length ? modeResults : undefined,
@@ -248,6 +252,7 @@ export function TestRunNewPage() {
                 title={isSimulation ? "Defaults to the newest SIM Test Line's created date" : undefined}
               />
             </label>
+            <DwellInput value={dwell} onChange={setDwell} />
           </div>
           <div className="form-row">
             <label>

@@ -76,6 +76,7 @@ export function TestRunDetailPage() {
         <span className={`test-result-badge test-result-${record.result}`}>{record.result}</span>
         <span>{testTypeLabel(record.test_type)} test</span>
         <span>tested {record.test_date}</span>
+        {record.dwell && <span>dwell {record.dwell}</span>}
         {record.simulation_created_date && (
           <span>
             {record.test_type === "intercept" ? "intercepted" : "simulation created"} {record.simulation_created_date}

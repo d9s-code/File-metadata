@@ -2711,3 +2711,11 @@ fieldset.edit-lock:disabled * {
 .sequence-summary {
   margin: 0.25rem 0 0.5rem;
 }
+
+.dwell-input {
+  display: flex;
+  gap: 0.35rem;
+}
+.dwell-input input {
+  width: 8rem;
+}

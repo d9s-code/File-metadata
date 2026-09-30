@@ -310,7 +310,8 @@ export function HelpPage() {
                 <strong>simulation</strong> (checked against the SIM Test Lines) or{" "}
                 <strong>intercept</strong> (a real-world intercept, checked against the Emitter&rsquo;s own
                 Modes). Older lab-bench, live-range and field-exercise records stay in the history, but new
-                runs are one of these two.
+                runs are one of these two. Set the run&rsquo;s <strong>Dwell</strong> next to its dates: leave it on
+                Manual, or pick Value and write one in (e.g. 50 ms); it applies to the whole run.
               </li>
               <li>
                 A simulation run is a table with one row per SIM Test Line. Every line starts included and{" "}

@@ -9,7 +9,7 @@ import { useSortableTable } from "../common/useSortableTable";
 import { compareStrings } from "../common/sortUtils";
 import { lineOutcomeLabel, TEST_RESULTS, testTypeLabel } from "./testFormat";
 
-type SortKey = "date" | "sim_created" | "type" | "result" | "title";
+type SortKey = "date" | "sim_created" | "dwell" | "type" | "result" | "title";
 
 function compareRecords(a: TestRecord, b: TestRecord, key: SortKey, dir: "asc" | "desc"): number {
   switch (key) {
@@ -17,6 +17,8 @@ function compareRecords(a: TestRecord, b: TestRecord, key: SortKey, dir: "asc" |
       return compareStrings(a.test_date, b.test_date, dir);
     case "sim_created":
       return compareStrings(a.simulation_created_date, b.simulation_created_date, dir);
+    case "dwell":
+      return compareStrings(a.dwell, b.dwell, dir);
     case "type":
       return compareStrings(a.test_type, b.test_type, dir);
     case "result":
@@ -95,6 +97,7 @@ export function TestRecordsTable({
           <tr>
             {header("Date", "date", "date")}
             {header("Sim created", "sim_created", "date")}
+            {header("Dwell", "dwell")}
             {header("Type", "type")}
             {header("Result", "result")}
             {header("Title", "title")}
@@ -116,6 +119,7 @@ export function TestRecordsTable({
               >
                 <td>{r.test_date}</td>
                 <td>{r.simulation_created_date ?? "—"}</td>
+                <td>{r.dwell ?? "—"}</td>
                 <td>{testTypeLabel(r.test_type)}</td>
                 <td>
                   <span className={`test-result-badge test-result-${r.result}`}>{r.result}</span>

@@ -245,3 +245,25 @@ def test_pri_and_jitter_means_are_fixed_only(editor_client, sim_emitter, bad):
         [{"test_line_id": sim_emitter["lines"][0]["id"], "outcome": "pass", "observed_values": [bad]}],
     )
     assert resp.status_code == 422
+
+
+# --- Dwell -------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("given", "stored"),
+    [("manual", "Manual"), ("MANUAL", "Manual"), ("  50 ms ", "50 ms"), ("", None), (None, None)],
+)
+def test_a_run_records_its_dwell(editor_client, sim_emitter, given, stored):
+    line = sim_emitter["lines"][0]
+    resp = _log_run(editor_client, sim_emitter["id"], [{"test_line_id": line["id"], "outcome": "pass"}], dwell=given)
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["dwell"] == stored
+    listed = editor_client.get(f"/emitters/{sim_emitter['id']}/test-records").json()
+    assert listed[0]["dwell"] == stored
+
+
+def test_dwell_is_at_most_100_characters(editor_client, sim_emitter):
+    line = sim_emitter["lines"][0]
+    resp = _log_run(editor_client, sim_emitter["id"], [{"test_line_id": line["id"], "outcome": "pass"}], dwell="x" * 101)
+    assert resp.status_code == 422

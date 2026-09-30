@@ -116,6 +116,9 @@ class TestRecordCreate(BaseModel):
     # Required for a Simulation test — when the simulation model/scenario itself
     # was built, as distinct from test_date (when the run happened against it).
     simulation_created_date: date | None = None
+    # "Manual", or a value written in (e.g. "50 ms") — the dwell the whole run
+    # used. Optional; blank means not recorded.
+    dwell: str | None = Field(default=None, max_length=100)
     # Per-Test-Line outcome — whether the simulated signal each line describes
     # was intercepted the way it was expected to be. When given (Emitter scope
     # only), this is what the whole-test `result` derives from — see
@@ -146,6 +149,14 @@ class TestRecordCreate(BaseModel):
         if v not in LOGGABLE_TEST_TYPES:
             raise ValueError("Only simulation and intercept tests can be logged")
         return v
+
+    @field_validator("dwell")
+    @classmethod
+    def normalize_dwell(cls, v: str | None) -> str | None:
+        if v is None or not v.strip():
+            return None
+        v = v.strip()
+        return "Manual" if v.lower() == "manual" else v
 
     @model_validator(mode="after")
     def check_simulation_date(self) -> "TestRecordCreate":
@@ -213,6 +224,7 @@ class TestRecordOut(BaseModel):
     tested_by: UUID | None = None
     test_date: date
     simulation_created_date: date | None = None
+    dwell: str | None = None
     created_at: datetime
     retests_test_record_id: UUID | None = None
     modes: list[TestRecordModeOut] = []
