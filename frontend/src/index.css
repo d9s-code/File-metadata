@@ -2652,3 +2652,19 @@ a.link-as-button.accent-button:hover {
 .column-menu-reset {
   margin: 0.35rem 0.75rem 0.15rem;
 }
+
+/* Wraps an editing form: while the Emitter isn't being edited the whole
+   form — every input, toggle and button — is disabled and faded, not just
+   its final submit button. */
+fieldset.edit-lock {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+fieldset.edit-lock:disabled {
+  opacity: 0.55;
+}
+fieldset.edit-lock:disabled * {
+  cursor: not-allowed;
+}

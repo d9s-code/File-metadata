@@ -400,7 +400,11 @@ export function ElementsPanel({
               );
             })}
           </div>
-          <div className="pt-2 border-t border-gray-200">
+          <fieldset
+            className="pt-2 border-t border-gray-200 edit-lock"
+            disabled={!canEdit}
+            title={canEdit ? undefined : "Start editing this Emitter first"}
+          >
             <div className="flex items-center justify-between mb-2 px-1">
               <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg" style={{ display: 'flex', gap: '8px' }}>
                 <button
@@ -434,7 +438,7 @@ export function ElementsPanel({
                 <SequenceForm emitterId={emitterId} sourceId={sourceId} canEdit={canEdit} />
               )}
             </RequireRole>
-          </div>
+          </fieldset>
         </>
       )}
       {dialog}

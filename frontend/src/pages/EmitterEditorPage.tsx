@@ -358,7 +358,12 @@ export function EmitterEditorPage() {
       <div hidden={tab !== "setup"}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h4 style={{ margin: 0 }}>EW Groups & Sources</h4>
-          <button className="button" onClick={() => setIsImportModalOpen(true)}>
+          <button
+            className="button"
+            onClick={() => setIsImportModalOpen(true)}
+            disabled={!canEdit}
+            title={canEdit ? undefined : "Start editing this Emitter first"}
+          >
             Import JSON
           </button>
         </div>

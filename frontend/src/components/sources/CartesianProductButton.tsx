@@ -429,172 +429,179 @@ export function CartesianProductButton({
       <h5>Cartesian Product</h5>
       <p className="hint-text">
         Choose RF, PRI, and PW elements to combine — every combination becomes a new Mode.
+        {!canEdit && " Start editing this Emitter to use it."}
       </p>
-      <div className="cartesian-columns">
-        <div>
-          <strong>RF</strong> <label className="checkbox-label" style={{ display: "inline-flex", width: "auto" }}>
-            <input type="checkbox" checked={rfRangeMatching} onChange={(e) => setRfRangeMatching(e.target.checked)} />
-            Range matching
-          </label>
-          <CheckboxList
-            items={rfItems}
-            selected={rfSelected}
-            onToggle={(id) => setRfSelected((s) => toggle(s, id))}
-            showVariant={true}
-            deltaOverrides={rfDeltaOverrides}
-            onDeltaChange={(id, value) => setRfDeltaOverrides((prev) => ({ ...prev, [id]: value }))}
-            sortKey={rfSort.sortKey}
-            sortDir={rfSort.sortDir}
-            onSort={rfSort.onSort}
-            onClear={rfSort.onClear}
-          />
+      <fieldset
+        className="edit-lock"
+        disabled={!canEdit}
+        title={canEdit ? undefined : "Start editing this Emitter first"}
+      >
+        <div className="cartesian-columns">
+          <div>
+            <strong>RF</strong> <label className="checkbox-label" style={{ display: "inline-flex", width: "auto" }}>
+              <input type="checkbox" checked={rfRangeMatching} onChange={(e) => setRfRangeMatching(e.target.checked)} />
+              Range matching
+            </label>
+            <CheckboxList
+              items={rfItems}
+              selected={rfSelected}
+              onToggle={(id) => setRfSelected((s) => toggle(s, id))}
+              showVariant={true}
+              deltaOverrides={rfDeltaOverrides}
+              onDeltaChange={(id, value) => setRfDeltaOverrides((prev) => ({ ...prev, [id]: value }))}
+              sortKey={rfSort.sortKey}
+              sortDir={rfSort.sortDir}
+              onSort={rfSort.onSort}
+              onClear={rfSort.onClear}
+            />
+          </div>
+          <div>
+            <strong>PRI</strong> <label className="checkbox-label" style={{ display: "inline-flex", width: "auto" }}>
+              <input type="checkbox" checked={priRangeMatching} onChange={(e) => setPriRangeMatching(e.target.checked)} />
+              Range matching
+            </label>
+            <CheckboxList
+              items={priItems}
+              selected={priSelected}
+              onToggle={(id) => setPriSelected((s) => toggle(s, id))}
+              showVariant={true}
+              deltaOverrides={priDeltaOverrides}
+              onDeltaChange={(id, value) => setPriDeltaOverrides((prev) => ({ ...prev, [id]: value }))}
+              sortKey={priSort.sortKey}
+              sortDir={priSort.sortDir}
+              onSort={priSort.onSort}
+              onClear={priSort.onClear}
+            />
+          </div>
+          <div>
+            <strong>PW</strong> <label className="checkbox-label" style={{ display: "inline-flex", width: "auto" }}>
+              <input type="checkbox" checked={pwRangeMatching} onChange={(e) => setPwRangeMatching(e.target.checked)} />
+              Range matching
+            </label>
+            <CheckboxList
+              items={pwItems}
+              selected={pwSelected}
+              onToggle={(id) => setPwSelected((s) => toggle(s, id))}
+              showVariant={true}
+              deltaOverrides={pwDeltaOverrides}
+              onDeltaChange={(id, value) => setPwDeltaOverrides((prev) => ({ ...prev, [id]: value }))}
+              sortKey={pwSort.sortKey}
+              sortDir={pwSort.sortDir}
+              onSort={pwSort.onSort}
+              onClear={pwSort.onClear}
+            />
+          </div>
+          <div>
+            <strong>Sequences</strong>
+            {isSeqLoading ? (
+              <p className="hint-text">Loading sequences...</p>
+            ) : sequenceStepRows.length === 0 ? (
+              <p className="hint-text">No items available.</p>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Step</th>
+                    <th style={{ width: "6.5rem" }}>RF delta</th>
+                    <th style={{ width: "6.5rem" }}>PRI delta</th>
+                    <th style={{ width: "6.5rem" }}>PW delta</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sequenceStepRows.map((row) => {
+                    const isSelected = sequenceSelected.has(row.id);
+                    return (
+                      <tr key={row.id}>
+                        <td>
+                          <label className="checkbox-label">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => setSequenceSelected((s) => toggle(s, row.id))}
+                            />
+                            {row.label}
+                          </label>
+                        </td>
+                        <td>
+                          {isSelected && row.hasRf && (
+                            <input
+                              type="number"
+                              min="0"
+                              step="any"
+                              style={{ width: "5.5rem" }}
+                              value={sequenceRfDeltaOverrides[row.id] ?? DEFAULT_DELTA}
+                              onChange={(e) =>
+                                setSequenceRfDeltaOverrides((prev) => ({ ...prev, [row.id]: e.target.value }))
+                              }
+                              title="± RF delta applied to the generated Modes (0 = none)"
+                            />
+                          )}
+                        </td>
+                        <td>
+                          {isSelected && row.hasPri && (
+                            <input
+                              type="number"
+                              min="0"
+                              step="any"
+                              style={{ width: "5.5rem" }}
+                              value={sequencePriDeltaOverrides[row.id] ?? DEFAULT_DELTA}
+                              onChange={(e) =>
+                                setSequencePriDeltaOverrides((prev) => ({ ...prev, [row.id]: e.target.value }))
+                              }
+                              title="± PRI delta applied to the generated Modes (0 = none)"
+                            />
+                          )}
+                        </td>
+                        <td>
+                          {isSelected && row.hasPw && (
+                            <input
+                              type="number"
+                              min="0"
+                              step="any"
+                              style={{ width: "5.5rem" }}
+                              value={sequencePwDeltaOverrides[row.id] ?? DEFAULT_DELTA}
+                              onChange={(e) =>
+                                setSequencePwDeltaOverrides((prev) => ({ ...prev, [row.id]: e.target.value }))
+                              }
+                              title="± PW delta applied to the generated Modes (0 = none)"
+                            />
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
-        <div>
-          <strong>PRI</strong> <label className="checkbox-label" style={{ display: "inline-flex", width: "auto" }}>
-            <input type="checkbox" checked={priRangeMatching} onChange={(e) => setPriRangeMatching(e.target.checked)} />
-            Range matching
-          </label>
-          <CheckboxList
-            items={priItems}
-            selected={priSelected}
-            onToggle={(id) => setPriSelected((s) => toggle(s, id))}
-            showVariant={true}
-            deltaOverrides={priDeltaOverrides}
-            onDeltaChange={(id, value) => setPriDeltaOverrides((prev) => ({ ...prev, [id]: value }))}
-            sortKey={priSort.sortKey}
-            sortDir={priSort.sortDir}
-            onSort={priSort.onSort}
-            onClear={priSort.onClear}
-          />
-        </div>
-        <div>
-          <strong>PW</strong> <label className="checkbox-label" style={{ display: "inline-flex", width: "auto" }}>
-            <input type="checkbox" checked={pwRangeMatching} onChange={(e) => setPwRangeMatching(e.target.checked)} />
-            Range matching
-          </label>
-          <CheckboxList
-            items={pwItems}
-            selected={pwSelected}
-            onToggle={(id) => setPwSelected((s) => toggle(s, id))}
-            showVariant={true}
-            deltaOverrides={pwDeltaOverrides}
-            onDeltaChange={(id, value) => setPwDeltaOverrides((prev) => ({ ...prev, [id]: value }))}
-            sortKey={pwSort.sortKey}
-            sortDir={pwSort.sortDir}
-            onSort={pwSort.onSort}
-            onClear={pwSort.onClear}
-          />
-        </div>
-        <div>
-          <strong>Sequences</strong>
-          {isSeqLoading ? (
-            <p className="hint-text">Loading sequences...</p>
-          ) : sequenceStepRows.length === 0 ? (
-            <p className="hint-text">No items available.</p>
-          ) : (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Step</th>
-                  <th style={{ width: "6.5rem" }}>RF delta</th>
-                  <th style={{ width: "6.5rem" }}>PRI delta</th>
-                  <th style={{ width: "6.5rem" }}>PW delta</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sequenceStepRows.map((row) => {
-                  const isSelected = sequenceSelected.has(row.id);
-                  return (
-                    <tr key={row.id}>
-                      <td>
-                        <label className="checkbox-label">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => setSequenceSelected((s) => toggle(s, row.id))}
-                          />
-                          {row.label}
-                        </label>
-                      </td>
-                      <td>
-                        {isSelected && row.hasRf && (
-                          <input
-                            type="number"
-                            min="0"
-                            step="any"
-                            style={{ width: "5.5rem" }}
-                            value={sequenceRfDeltaOverrides[row.id] ?? DEFAULT_DELTA}
-                            onChange={(e) =>
-                              setSequenceRfDeltaOverrides((prev) => ({ ...prev, [row.id]: e.target.value }))
-                            }
-                            title="± RF delta applied to the generated Modes (0 = none)"
-                          />
-                        )}
-                      </td>
-                      <td>
-                        {isSelected && row.hasPri && (
-                          <input
-                            type="number"
-                            min="0"
-                            step="any"
-                            style={{ width: "5.5rem" }}
-                            value={sequencePriDeltaOverrides[row.id] ?? DEFAULT_DELTA}
-                            onChange={(e) =>
-                              setSequencePriDeltaOverrides((prev) => ({ ...prev, [row.id]: e.target.value }))
-                            }
-                            title="± PRI delta applied to the generated Modes (0 = none)"
-                          />
-                        )}
-                      </td>
-                      <td>
-                        {isSelected && row.hasPw && (
-                          <input
-                            type="number"
-                            min="0"
-                            step="any"
-                            style={{ width: "5.5rem" }}
-                            value={sequencePwDeltaOverrides[row.id] ?? DEFAULT_DELTA}
-                            onChange={(e) =>
-                              setSequencePwDeltaOverrides((prev) => ({ ...prev, [row.id]: e.target.value }))
-                            }
-                            title="± PW delta applied to the generated Modes (0 = none)"
-                          />
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-      <div className="form-row">
-        <select value={ewGroupId} onChange={(e) => setEwGroupId(e.target.value)}>
-          <option value="" disabled>
-            Target EW Group…
-          </option>
-          {ewGroups.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.name}
+        <div className="form-row">
+          <select value={ewGroupId} onChange={(e) => setEwGroupId(e.target.value)}>
+            <option value="" disabled>
+              Target EW Group…
             </option>
-          ))}
-        </select>
-        <input placeholder="Name prefix" value={namePrefix} onChange={(e) => setNamePrefix(e.target.value)} />
-        <textarea
-          placeholder="Batch note (optional)..."
-          value={batchNote}
-          onChange={(e) => setBatchNote(e.target.value)}
-          rows={2}
-        />
-        <button
-          onClick={() => void handleRun()}
-          disabled={cartesianProduct.isPending || !canEdit}
-          title={canEdit ? undefined : "Start editing this Emitter first"}
-        >
-          Generate Modes
-        </button>
-      </div>
+            {ewGroups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+          <input placeholder="Name prefix" value={namePrefix} onChange={(e) => setNamePrefix(e.target.value)} />
+          <textarea
+            placeholder="Batch note (optional)..."
+            value={batchNote}
+            onChange={(e) => setBatchNote(e.target.value)}
+            rows={2}
+          />
+          <button
+            onClick={() => void handleRun()}
+            disabled={cartesianProduct.isPending || !canEdit}
+            title={canEdit ? undefined : "Start editing this Emitter first"}
+          >
+            Generate Modes
+          </button>
+        </div>
+      </fieldset>
       {result && <p className="hint-text">{result}</p>}
       {error && <div className="error-text">{error}</div>}
     </div>
