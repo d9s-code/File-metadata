@@ -96,11 +96,13 @@ type SourceDetailTab = "elements" | "sequences" | "generate" | "notes";
  * with the Modes built from it. */
 function SourceDetailTabs({ emitterId, source, ewGroups }: { emitterId: string; source: Source; ewGroups: EwGroup[] }) {
   const [tab, setTab] = useState<SourceDetailTab>("elements");
+  const { data: notes } = useSourceNotes(emitterId, source.id);
+  const noteCount = notes?.length ?? 0;
   const tabs: [SourceDetailTab, string][] = [
     ["elements", "Elements"],
     ["sequences", "Sequences"],
     ["generate", "Generate Modes"],
-    ["notes", "Notes & coverage"],
+    ["notes", noteCount > 0 ? `Analyst notes (${noteCount}) & coverage` : "Analyst notes & coverage"],
   ];
   return (
     <>

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import type { Emitter } from "../../types/domain";
+import type { Emitter, EmitterNote } from "../../types/domain";
 import { useEmitterTestLines } from "../../state/hooks/useTestLines";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 
@@ -24,9 +24,19 @@ function Range({ label, min, max, engMin, engMax, unit }: {
   );
 }
 
-function SummaryItem({ label, title, children }: { label: string; title?: string; children: ReactNode }) {
+function SummaryItem({
+  label,
+  title,
+  className,
+  children,
+}: {
+  label: string;
+  title?: string;
+  className?: string;
+  children: ReactNode;
+}) {
   return (
-    <div className="summary-item" title={title}>
+    <div className={className ? `summary-item ${className}` : "summary-item"} title={title}>
       <span className="summary-label">{label}</span>
       <span className="summary-value">{children}</span>
     </div>
@@ -35,16 +45,16 @@ function SummaryItem({ label, title, children }: { label: string; title?: string
 
 /** One row with what matters about an Emitter at a glance: how it did
  * against simulation, how many Modes it has, its RF/PRI/PW/Scan ranges and
- * its notes. */
+ * its analyst notes. */
 export function EmitterSummaryStrip({
   emitter,
-  notesCount,
+  notes,
   notesOpen,
   onToggleNotes,
   onOpenTests,
 }: {
   emitter: Emitter;
-  notesCount: number;
+  notes: EmitterNote[];
   notesOpen: boolean;
   onToggleNotes: () => void;
   onOpenTests: () => void;
@@ -52,6 +62,7 @@ export function EmitterSummaryStrip({
   const { data: lines } = useEmitterTestLines(emitter.id);
   const { canEdit } = useEmitterCheckoutState(emitter);
   const s = emitter.summary;
+  const latestNote = notes.reduce<EmitterNote | null>((a, n) => (!a || n.created_at > a.created_at ? n : a), null);
 
   const total = lines?.length ?? 0;
   const correct = (lines ?? []).filter((l) => l.last_test_result === "pass").length;
@@ -106,9 +117,20 @@ export function EmitterSummaryStrip({
           </strong>
         </SummaryItem>
       )}
-      <SummaryItem label="Notes">
+      <SummaryItem label="Analyst notes" className="summary-notes">
         <button type="button" className="summary-link" onClick={onToggleNotes} aria-expanded={notesOpen}>
-          {notesCount > 0 ? <strong>{notesCount}</strong> : "none"} {notesOpen ? "▴" : "▾"}
+          {latestNote ? (
+            <>
+              <span className="summary-note-preview">“{latestNote.body}”</span>{" "}
+              <span className="hint-text">
+                — {latestNote.author_username ?? "unknown"}, {new Date(latestNote.created_at).toLocaleDateString()}
+                {notes.length > 1 ? ` · ${notes.length} notes` : ""}
+              </span>
+            </>
+          ) : (
+            <span className="hint-text">None yet — add one</span>
+          )}{" "}
+          {notesOpen ? "▴" : "▾"}
         </button>
       </SummaryItem>
     </div>

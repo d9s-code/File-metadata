@@ -165,7 +165,7 @@ export function EmitterEditorPage() {
         {emitter.description && <p className="muted emitter-description">{emitter.description}</p>}
         <EmitterSummaryStrip
           emitter={emitter}
-          notesCount={emitterNotes?.length ?? 0}
+          notes={emitterNotes ?? []}
           notesOpen={notesOpen}
           onToggleNotes={() => setNotesOpen((v) => !v)}
           onOpenTests={() => setTab("tests")}
