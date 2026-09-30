@@ -96,5 +96,10 @@ export const api = {
       method: "PATCH",
       body: body as BodyInit,
     }),
+  put: <T>(path: string, body?: unknown) =>
+    request<T>(path, {
+      method: "PUT",
+      body: body as BodyInit,
+    }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };

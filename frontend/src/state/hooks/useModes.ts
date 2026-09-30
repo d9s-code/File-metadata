@@ -22,6 +22,8 @@ export function useEmitterModes(emitterId: string) {
   return useQuery({
     queryKey: emitterModesKey(emitterId),
     queryFn: () => modesApi.listByEmitter(emitterId),
+    // Callers pass "" until they know the Emitter (e.g. an Intercept still loading).
+    enabled: !!emitterId,
   });
 }
 
@@ -31,6 +33,9 @@ function invalidateModes(qc: ReturnType<typeof useQueryClient>, ewGroupId: strin
   // A Mode edit changes what the live-vs-last-commit diff would show, so an
   // open "View changes since last save" panel must refetch too.
   qc.invalidateQueries({ queryKey: emitterVersionsKey(emitterId) });
+  // An Intercept entry lists the Modes created from it, and is matched
+  // against the Emitter's Modes.
+  qc.invalidateQueries({ queryKey: ["intercept-entries"] });
 }
 
 export function useCreateMode(ewGroupId: string, emitterId: string) {

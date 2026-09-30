@@ -3084,3 +3084,70 @@ label.inline-label {
   align-items: center;
   gap: 0.4rem;
 }
+
+/* Intercepts */
+.entry-type-toggle {
+  align-self: flex-start;
+}
+.entry-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.6rem 0.75rem;
+  align-items: end;
+}
+/* Three min/max pairs: one row when there's room, one pair per row when not. */
+.entry-form-grid.ranges {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+@media (max-width: 760px) {
+  .entry-form-grid.ranges {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.entry-form .link-button {
+  align-self: flex-start;
+}
+label.grow {
+  flex: 1 1 14rem;
+}
+.match-badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+.match-yes { background: var(--badge-green-bg); color: var(--badge-green-fg); }
+.match-near { background: var(--badge-amber-bg); color: var(--badge-amber-fg); }
+.match-none { background: var(--badge-red-bg); color: var(--badge-red-fg); }
+.match-counts {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.entry-match-near {
+  margin: 0.25rem 0 0;
+  padding-left: 1rem;
+  font-size: 0.85rem;
+}
+.cell-subline {
+  font-size: 0.8rem;
+  max-width: 48ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.intercept-meta {
+  margin: 0 0 0.35rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.data-table.intercept-entries td {
+  vertical-align: top;
+}
+.data-table.intercept-entries .entry-notes {
+  max-width: 28ch;
+}
+.data-table tbody tr.entry-unmatched > td:first-child {
+  box-shadow: inset 3px 0 0 var(--badge-red-fg);
+}

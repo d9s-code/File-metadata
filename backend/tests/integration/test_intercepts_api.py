@@ -271,3 +271,83 @@ def test_deleting_an_intercept_writes_a_snapshot_of_what_was_deleted(editor_clie
     ).json()
     assert log["total"] == 1, log
     assert log["items"][0]["changes"]["name"] == "Snapshot Intercept"
+
+
+def test_intercept_recording_date_and_collector_round_trip(editor_client, emitter_ctx):
+    emitter_id = emitter_ctx["emitter"]["id"]
+    older = editor_client.post(
+        "/intercepts",
+        json={"emitter_id": emitter_id, "name": "Older", "intercepted_on": "2026-03-01", "collected_by": "P-8A ESM"},
+    )
+    assert older.status_code == 201, older.text
+    assert older.json()["intercepted_on"] == "2026-03-01"
+    assert older.json()["collected_by"] == "P-8A ESM"
+    editor_client.post("/intercepts", json={"emitter_id": emitter_id, "name": "Undated"})
+    newer = editor_client.post(
+        "/intercepts", json={"emitter_id": emitter_id, "name": "Newer", "intercepted_on": "2026-08-14"}
+    ).json()
+
+    # Newest recording first, undated last.
+    names = [i["name"] for i in editor_client.get("/intercepts", params={"emitter_id": emitter_id}).json()]
+    assert names == ["Newer", "Older", "Undated"]
+
+    resp = editor_client.patch(f"/intercepts/{newer['id']}", json={"intercepted_on": None, "collected_by": "Ground site"})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["intercepted_on"] is None
+    assert resp.json()["collected_by"] == "Ground site"
+
+
+def test_replace_entry_keeps_id_and_derived_mode_link(editor_client, emitter_ctx):
+    intercept = _create_intercept(editor_client, emitter_ctx["emitter"]["id"])
+    entry = editor_client.post(f"/intercepts/{intercept['id']}/entries", json=FIXED_ENTRY).json()
+    mode = editor_client.post(
+        f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes",
+        json={
+            "source_id": emitter_ctx["source"]["id"],
+            "name": "From Intercept",
+            "pri_type": "fixed",
+            "line": MODE_LINE,
+            "derived_from_intercept_entry_ids": [entry["id"]],
+        },
+    ).json()
+
+    # Switching fixed -> stagger replaces the whole entry: jitter goes away.
+    resp = editor_client.put(f"/intercepts/{intercept['id']}/entries/{entry['id']}", json=STAGGER_ENTRY)
+    assert resp.status_code == 200, resp.text
+    updated = resp.json()
+    assert updated["id"] == entry["id"]
+    assert updated["pri_type"] == "stagger"
+    assert updated["jitter_mean_us"] is None
+    assert updated["stagger_values"] == [800, 850, 900, 780]
+    assert updated["derived_mode_ids"] == [mode["id"]]
+
+    audit = editor_client.get("/audit-log", params={"entity_id": entry["id"], "action": "update"})
+    assert audit.status_code == 200, audit.text
+    [change] = audit.json()["items"]
+    assert change["changes"]["pri_type"] == {"old": "fixed", "new": "stagger"}
+
+
+def test_replace_entry_validates_and_checks_parent(viewer_client, editor_client, emitter_ctx):
+    intercept_a = _create_intercept(editor_client, emitter_ctx["emitter"]["id"], name="A")
+    intercept_b = _create_intercept(editor_client, emitter_ctx["emitter"]["id"], name="B")
+    entry = editor_client.post(f"/intercepts/{intercept_a['id']}/entries", json=FIXED_ENTRY).json()
+
+    no_jitter = {k: v for k, v in FIXED_ENTRY.items() if k != "jitter_mean_us"}
+    assert editor_client.put(f"/intercepts/{intercept_a['id']}/entries/{entry['id']}", json=no_jitter).status_code == 422
+    assert editor_client.put(f"/intercepts/{intercept_b['id']}/entries/{entry['id']}", json=FIXED_ENTRY).status_code == 404
+    assert viewer_client.put(f"/intercepts/{intercept_a['id']}/entries/{entry['id']}", json=FIXED_ENTRY).status_code == 403
+
+
+def test_list_every_entry_on_an_emitter(editor_client, emitter_ctx):
+    emitter_id = emitter_ctx["emitter"]["id"]
+    other_emitter = editor_client.post("/emitters", json={"name": "Other Entries Emitter"}).json()
+    a = _create_intercept(editor_client, emitter_id, name="A")
+    b = _create_intercept(editor_client, emitter_id, name="B")
+    elsewhere = _create_intercept(editor_client, other_emitter["id"], name="Elsewhere")
+    editor_client.post(f"/intercepts/{a['id']}/entries", json=FIXED_ENTRY)
+    editor_client.post(f"/intercepts/{b['id']}/entries", json=STAGGER_ENTRY)
+    editor_client.post(f"/intercepts/{elsewhere['id']}/entries", json=FIXED_ENTRY)
+
+    resp = editor_client.get("/intercepts/entries", params={"emitter_id": emitter_id})
+    assert resp.status_code == 200, resp.text
+    assert sorted(e["intercept_id"] for e in resp.json()) == sorted([a["id"], b["id"]])

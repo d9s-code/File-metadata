@@ -1,87 +1,110 @@
-import { useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
-import { useCreateIntercept, useIntercepts } from "../../state/hooks/useIntercepts";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useEmitterInterceptEntries, useIntercepts } from "../../state/hooks/useIntercepts";
+import { useEmitterModes } from "../../state/hooks/useModes";
 import { RequireRole } from "../../auth/RequireAuth";
-import { ApiRequestError } from "../../api/client";
 import { LoadingState } from "../common/LoadingState";
 import { EmptyState } from "../common/EmptyState";
+import { InterceptFormModal } from "./InterceptFormModal";
+import { MatchCounts } from "./EntryMatchCell";
+import { countMatches } from "./interceptMatch";
+import { formatDay } from "./interceptFormat";
+import type { InterceptEntry } from "../../types/domain";
 
 export function EmitterIntercepts({ emitterId }: { emitterId: string }) {
   const { data: intercepts, isLoading } = useIntercepts({ emitterId });
-  const createIntercept = useCreateIntercept();
-  const [showForm, setShowForm] = useState(false);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const { data: entries } = useEmitterInterceptEntries(emitterId);
+  const { data: modes } = useEmitterModes(emitterId);
+  const [showAdd, setShowAdd] = useState(false);
+  const navigate = useNavigate();
 
-  async function handleCreate(e: FormEvent) {
-    e.preventDefault();
-    setError(null);
-    try {
-      await createIntercept.mutateAsync({ emitter_id: emitterId, name, description: description || undefined });
-      setName("");
-      setDescription("");
-      setShowForm(false);
-    } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : "Failed to create Intercept");
-    }
+  const entriesByIntercept = new Map<string, InterceptEntry[]>();
+  for (const e of entries ?? []) {
+    const list = entriesByIntercept.get(e.intercept_id) ?? [];
+    list.push(e);
+    entriesByIntercept.set(e.intercept_id, list);
   }
+  const ready = entries != null && modes != null;
+  const total = ready ? countMatches(entries, modes) : null;
+  const unmatched = total ? total.none + total.near : 0;
 
   return (
     <section className="card">
-      <h4>Intercepts</h4>
-      <p className="hint-text">Real-world signal intercepts logged against this Emitter.</p>
+      <div className="card-header">
+        <h4>
+          Intercepts <span className="section-count">{intercepts?.length ?? 0}</span>
+        </h4>
+        <RequireRole minimum="editor">
+          <button type="button" className="button secondary small" onClick={() => setShowAdd(true)}>
+            + Add Intercept
+          </button>
+        </RequireRole>
+      </div>
+      <p className="hint-text">
+        Real-world recordings of this Emitter. Each entry is checked against the Modes&apos; engineered RF, PRI and PW
+        ranges.
+        {total && unmatched > 0 && (
+          <>
+            {" "}
+            <strong className="summary-bad">
+              {unmatched} {unmatched === 1 ? "entry doesn't" : "entries don't"} match a Mode
+            </strong>
+            {total.near > 0 && ` (${total.near} near miss${total.near === 1 ? "" : "es"})`}.
+          </>
+        )}
+        {total && unmatched === 0 && (entries?.length ?? 0) > 0 && (
+          <>
+            {" "}
+            <span className="summary-good">Every entry matches a Mode.</span>
+          </>
+        )}
+      </p>
 
       {isLoading ? (
         <LoadingState label="Loading intercepts…" />
       ) : !intercepts || intercepts.length === 0 ? (
-        <EmptyState icon="◇" title="No Intercepts yet" message="Log a real-world signal intercept — add one below." />
+        <EmptyState compact title="No Intercepts yet" message="Add one to log a real-world recording of this Emitter." />
       ) : (
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Entries</th>
-              <th>Created</th>
-            </tr>
-          </thead>
-          <tbody>
-            {intercepts.map((i) => (
-              <tr key={i.id}>
-                <td>
-                  <Link to={`/intercepts/${i.id}`}>{i.name}</Link>
-                </td>
-                <td>{i.entry_count}</td>
-                <td>{new Date(i.created_at).toLocaleDateString()}</td>
+        <div className="matrix-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Recorded</th>
+                <th>Collected by</th>
+                <th>Entries</th>
+                <th>Match against Modes</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {intercepts.map((i) => {
+                const own = entriesByIntercept.get(i.id) ?? [];
+                return (
+                  <tr key={i.id}>
+                    <td>
+                      <Link to={`/intercepts/${i.id}`}>{i.name}</Link>
+                      {i.description && <div className="hint-text cell-subline">{i.description}</div>}
+                    </td>
+                    <td title={`Logged ${new Date(i.created_at).toLocaleString()}`}>
+                      {formatDay(i.intercepted_on) ?? <span className="hint-text">—</span>}
+                    </td>
+                    <td>{i.collected_by ?? <span className="hint-text">—</span>}</td>
+                    <td>{i.entry_count}</td>
+                    <td>{ready ? <MatchCounts counts={countMatches(own, modes)} /> : <span className="hint-text">…</span>}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
-
-      <RequireRole minimum="editor">
-        {showForm ? (
-          <form className="card inline-form" onSubmit={handleCreate}>
-            <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
-            <input
-              placeholder="Description (optional)"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-            <button type="submit" disabled={createIntercept.isPending}>
-              Add Intercept
-            </button>
-            <button type="button" className="icon-button" onClick={() => setShowForm(false)}>
-              Cancel
-            </button>
-            {error && <div className="error-text">{error}</div>}
-          </form>
-        ) : (
-          <button className="icon-button" onClick={() => setShowForm(true)}>
-            + Add Intercept
-          </button>
-        )}
-      </RequireRole>
+      {showAdd && (
+        <InterceptFormModal
+          emitterId={emitterId}
+          onClose={() => setShowAdd(false)}
+          onSaved={(saved) => navigate(`/intercepts/${saved.id}`)}
+        />
+      )}
     </section>
   );
 }

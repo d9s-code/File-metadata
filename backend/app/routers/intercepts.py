@@ -73,7 +73,7 @@ def list_intercepts(
         db.query(Intercept, func.count(InterceptEntry.id).label("entry_count"))
         .outerjoin(InterceptEntry, InterceptEntry.intercept_id == Intercept.id)
         .group_by(Intercept.id)
-        .order_by(Intercept.name)
+        .order_by(Intercept.intercepted_on.desc().nulls_last(), Intercept.name)
     )
     if emitter_id is not None:
         query = query.filter(Intercept.emitter_id == emitter_id)
@@ -84,6 +84,23 @@ def list_intercepts(
         intercept.entry_count = entry_count
         results.append(intercept)
     return results
+
+
+@router.get("/entries", response_model=list[InterceptEntryOut])
+def list_emitter_intercept_entries(
+    emitter_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
+) -> list[InterceptEntryOut]:
+    """Every entry of every Intercept on one Emitter — what the Emitter's
+    Intercepts tab needs to say how many entries match a Mode, in one call.
+    Declared before /{intercept_id} so "entries" isn't read as an id."""
+    entries = (
+        db.query(InterceptEntry)
+        .join(Intercept, Intercept.id == InterceptEntry.intercept_id)
+        .filter(Intercept.emitter_id == emitter_id)
+        .order_by(InterceptEntry.created_at.desc())
+        .all()
+    )
+    return _attach_derived_mode_ids(db, entries)
 
 
 @router.get("/{intercept_id}", response_model=InterceptOut)
@@ -98,7 +115,7 @@ def create_intercept(
     payload: InterceptCreate, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))
 ) -> Intercept:
     _check_emitter(db, payload.emitter_id)
-    intercept = Intercept(emitter_id=payload.emitter_id, name=payload.name, description=payload.description)
+    intercept = Intercept(**payload.model_dump())
     db.add(intercept)
     db.flush()
     record_audit(
@@ -152,7 +169,7 @@ def delete_intercept(
         entity_type=AuditEntityType.intercept.value,
         entity_id=intercept.id,
         summary=f"Deleted Intercept '{intercept.name}'",
-        changes=snapshot(intercept, ["name", "description", "emitter_id"]),
+        changes=snapshot(intercept, ["name", "description", "intercepted_on", "collected_by", "emitter_id"]),
         emitter_id=intercept.emitter_id,
     )
     db.delete(intercept)
@@ -311,6 +328,40 @@ def bulk_create_intercept_entries(
     for entry in entries:
         db.refresh(entry)
     return _attach_derived_mode_ids(db, entries)
+
+
+@router.put(
+    "/{intercept_id}/entries/{entry_id}", response_model=InterceptEntryOut, dependencies=[Depends(verify_csrf)]
+)
+def replace_intercept_entry(
+    intercept_id: UUID,
+    entry_id: UUID,
+    payload: InterceptEntryCreate,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+) -> InterceptEntryOut:
+    """Corrects an entry in place — the whole entry is sent again and
+    validated like a new one, so a switch between fixed and stagger can't
+    leave the other type's fields behind. Keeps the entry's id, and with it
+    the link to any Mode created from it."""
+    intercept = _get_intercept_or_404(db, intercept_id)
+    entry = db.get(InterceptEntry, entry_id)
+    if entry is None or entry.intercept_id != intercept_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Entry not found")
+    changes = apply_and_diff(entry, payload.model_dump())
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.update,
+        entity_type=AuditEntityType.intercept_entry.value,
+        entity_id=entry.id,
+        summary=f"Updated an entry on Intercept '{intercept.name}'",
+        changes=changes,
+        emitter_id=intercept.emitter_id,
+    )
+    db.commit()
+    db.refresh(entry)
+    return _attach_derived_mode_ids(db, [entry])[0]
 
 
 @router.delete(

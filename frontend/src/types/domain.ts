@@ -264,6 +264,11 @@ export interface Intercept {
   emitter_id: string;
   name: string;
   description: string | null;
+  /** When the signal was recorded (YYYY-MM-DD) — created_at is only when it
+   * was logged here. Null on Intercepts logged before this existed. */
+  intercepted_on: string | null;
+  /** Who/what recorded it, free text (e.g. "P-8A / ESM suite"). */
+  collected_by: string | null;
   created_at: string;
   updated_at: string;
   entry_count: number;

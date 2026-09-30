@@ -42,11 +42,15 @@ export function ModesSection({
   ewGroups,
   sources,
   functionGroups,
+  linkedModeName,
 }: {
   emitterId: string;
   ewGroups: EwGroup[];
   sources: Source[];
   functionGroups: FunctionGroup[];
+  /** From a ?mode=… link (e.g. an Intercept entry's match): start with the
+   * list searched to that Mode. */
+  linkedModeName?: string;
 }) {
   const { data: modes, isLoading } = useEmitterModes(emitterId);
   const { data: batches } = useEmitterBatches(emitterId);
@@ -59,7 +63,11 @@ export function ModesSection({
   const [functionGroupFilter, setFunctionGroupFilter] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
   const [batchFilter, setBatchFilter] = useState("");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(linkedModeName ?? "");
+  // A later link to another Mode while this page is already open.
+  useEffect(() => {
+    if (linkedModeName) setSearch(linkedModeName);
+  }, [linkedModeName]);
   const [sortKey, setSortKey] = useState<ModeSortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [showForm, setShowForm] = useState(false);

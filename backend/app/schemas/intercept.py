@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import AliasPath, BaseModel, ConfigDict, Field, model_validator
@@ -106,11 +106,15 @@ class InterceptCreate(BaseModel):
     emitter_id: UUID
     name: str
     description: str | None = None
+    intercepted_on: date | None = None
+    collected_by: str | None = Field(default=None, max_length=200)
 
 
 class InterceptUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
+    intercepted_on: date | None = None
+    collected_by: str | None = Field(default=None, max_length=200)
 
 
 class InterceptOut(BaseModel):
@@ -120,6 +124,8 @@ class InterceptOut(BaseModel):
     emitter_id: UUID
     name: str
     description: str | None = None
+    intercepted_on: date | None = None
+    collected_by: str | None = None
     created_at: datetime
     updated_at: datetime
     entry_count: int = 0

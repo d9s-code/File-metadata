@@ -61,6 +61,17 @@ export function useDeleteIntercept() {
   });
 }
 
+/** Every entry of every Intercept on one Emitter — for the Emitter's
+ * Intercepts tab. Shares the "intercept-entries" prefix, so any entry
+ * change refreshes it too. */
+export function useEmitterInterceptEntries(emitterId: string) {
+  return useQuery({
+    queryKey: ["intercept-entries", "emitter", emitterId],
+    queryFn: () => interceptsApi.listEmitterEntries(emitterId),
+    enabled: !!emitterId,
+  });
+}
+
 export function useInterceptEntries(interceptId: string) {
   return useQuery({
     queryKey: interceptEntriesKey(interceptId),
@@ -74,7 +85,7 @@ export function useCreateInterceptEntry(interceptId: string) {
   return useMutation({
     mutationFn: (input: InterceptEntryInput) => interceptsApi.createEntry(interceptId, input),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: interceptEntriesKey(interceptId) });
+      qc.invalidateQueries({ queryKey: ["intercept-entries"] });
       qc.invalidateQueries({ queryKey: interceptKey(interceptId) });
       qc.invalidateQueries({ queryKey: ["intercepts"] });
     },
@@ -86,9 +97,22 @@ export function useDeleteInterceptEntry(interceptId: string) {
   return useMutation({
     mutationFn: (entryId: string) => interceptsApi.deleteEntry(interceptId, entryId),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: interceptEntriesKey(interceptId) });
+      qc.invalidateQueries({ queryKey: ["intercept-entries"] });
       qc.invalidateQueries({ queryKey: interceptKey(interceptId) });
       qc.invalidateQueries({ queryKey: ["intercepts"] });
+    },
+  });
+}
+
+export function useReplaceInterceptEntry(interceptId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ entryId, input }: { entryId: string; input: InterceptEntryInput }) =>
+      interceptsApi.replaceEntry(interceptId, entryId, input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["intercept-entries"] });
+      // A Mode created from this entry shows its values as provenance.
+      qc.invalidateQueries({ queryKey: ["modes"] });
     },
   });
 }

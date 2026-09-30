@@ -24,6 +24,13 @@ import { NotesFeed } from "../components/common/NotesFeed";
 import { emitterStatusLabel } from "../components/common/emitterStatusLabel";
 
 type Tab = "modes" | "setup" | "intercepts" | "tests" | "audit";
+const TABS: readonly Tab[] = ["modes", "setup", "intercepts", "tests", "audit"];
+
+/** The tab a link asks for with ?tab=…, if it names one. */
+function linkedTab(params: URLSearchParams): Tab | null {
+  const t = params.get("tab");
+  return TABS.includes(t as Tab) ? (t as Tab) : null;
+}
 
 /** Whether the Analyst notes card is open — open unless this browser's user
  * closed it, remembered across Emitters and visits. */
@@ -46,14 +53,15 @@ function saveNotesOpen(open: boolean) {
 export function EmitterEditorPage() {
   const { emitterId } = useParams<{ emitterId: string }>();
   const [searchParams] = useSearchParams();
-  const [tab, setTab] = useState<Tab>(searchParams.get("tab") === "tests" ? "tests" : "modes");
+  const [tab, setTab] = useState<Tab>(linkedTab(searchParams) ?? "modes");
   const highlightTestRecordId = searchParams.get("testRecord") ?? undefined;
 
   // useState's initializer only runs on mount, but a Test-Derived badge links
   // to ?tab=tests while already on this page (same route, no remount) — so
   // react to the param changing too, not just its value at mount time.
   useEffect(() => {
-    if (searchParams.get("tab") === "tests") setTab("tests");
+    const linked = linkedTab(searchParams);
+    if (linked) setTab(linked);
   }, [searchParams]);
   const { data: emitter, isLoading } = useEmitter(emitterId);
   const { canEdit, isMine } = useEmitterCheckoutState(emitter);
@@ -87,7 +95,7 @@ export function EmitterEditorPage() {
   useEffect(() => {
     if (!ewGroupsLoading && !sourcesLoading && !autoOpenDecided.current) {
       autoOpenDecided.current = true;
-      if (searchParams.get("tab") !== "tests" && ((ewGroups ?? []).length === 0 || (sources ?? []).length === 0)) {
+      if (!linkedTab(searchParams) && ((ewGroups ?? []).length === 0 || (sources ?? []).length === 0)) {
         setTab("setup");
       }
     }
@@ -323,6 +331,7 @@ export function EmitterEditorPage() {
           ewGroups={ewGroups ?? []}
           sources={sources ?? []}
           functionGroups={functionGroups ?? []}
+          linkedModeName={searchParams.get("mode") ?? undefined}
         />
       </div>
 

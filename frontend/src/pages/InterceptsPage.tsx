@@ -1,33 +1,29 @@
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useEmitters } from "../state/hooks/useEmitters";
-import { useCreateIntercept, useDeleteIntercept, useIntercepts } from "../state/hooks/useIntercepts";
+import { useDeleteIntercept, useIntercepts } from "../state/hooks/useIntercepts";
 import { RequireRole } from "../auth/RequireAuth";
 import { ApiRequestError } from "../api/client";
 import { LoadingState } from "../components/common/LoadingState";
 import { EmptyState } from "../components/common/EmptyState";
-import { Modal } from "../components/common/Modal";
+import { InterceptFormModal } from "../components/intercepts/InterceptFormModal";
+import { formatDay } from "../components/intercepts/interceptFormat";
 import { useConfirmDialog } from "../components/common/ConfirmDialog";
 import { SortableColumnHeader } from "../components/common/SortableColumnHeader";
 import { useSortableTable } from "../components/common/useSortableTable";
 import { compareNullable, compareStrings } from "../components/common/sortUtils";
 import type { Intercept } from "../types/domain";
 
-type InterceptSortKey = "name" | "emitter" | "entry_count" | "created_at";
+type InterceptSortKey = "name" | "emitter" | "intercepted_on" | "collected_by" | "entry_count" | "created_at";
 
 export function InterceptsPage() {
   const { data: emitters } = useEmitters();
   const { data: intercepts, isLoading, error } = useIntercepts();
-  const createIntercept = useCreateIntercept();
   const deleteIntercept = useDeleteIntercept();
   const navigate = useNavigate();
   const { confirmDelete, dialog } = useConfirmDialog();
 
   const [showAddModal, setShowAddModal] = useState(false);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [formEmitterId, setFormEmitterId] = useState("");
-  const [formError, setFormError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const [nameFilter, setNameFilter] = useState("");
@@ -41,6 +37,10 @@ export function InterceptsPage() {
         return compareStrings(a.name, b.name, dir);
       case "emitter":
         return compareStrings(emitterNameById[a.emitter_id] ?? "", emitterNameById[b.emitter_id] ?? "", dir);
+      case "intercepted_on":
+        return compareNullable(a.intercepted_on, b.intercepted_on, dir);
+      case "collected_by":
+        return compareNullable(a.collected_by, b.collected_by, dir);
       case "entry_count":
         return compareNullable(a.entry_count, b.entry_count, dir);
       case "created_at":
@@ -50,7 +50,8 @@ export function InterceptsPage() {
 
   const filtered = (intercepts ?? []).filter((i) => {
     const nameQ = nameFilter.trim().toLowerCase();
-    if (nameQ && !i.name.toLowerCase().includes(nameQ)) return false;
+    if (nameQ && ![i.name, i.collected_by ?? "", i.description ?? ""].some((t) => t.toLowerCase().includes(nameQ)))
+      return false;
     if (emitterFilter && i.emitter_id !== emitterFilter) return false;
     return true;
   });
@@ -74,29 +75,6 @@ export function InterceptsPage() {
     setEmitterFilter("");
   }
 
-  async function handleCreate(e: FormEvent) {
-    e.preventDefault();
-    setFormError(null);
-    if (!formEmitterId) {
-      setFormError("Choose an Emitter.");
-      return;
-    }
-    try {
-      const intercept = await createIntercept.mutateAsync({
-        emitter_id: formEmitterId,
-        name,
-        description: description || undefined,
-      });
-      setName("");
-      setDescription("");
-      setFormEmitterId("");
-      setShowAddModal(false);
-      navigate(`/intercepts/${intercept.id}`);
-    } catch (err) {
-      setFormError(err instanceof ApiRequestError ? err.message : "Failed to create Intercept");
-    }
-  }
-
   async function handleDelete(intercept: Intercept) {
     setDeleteError(null);
     if (
@@ -117,7 +95,9 @@ export function InterceptsPage() {
       <div className="page-header-row">
         <h1>Intercepts</h1>
         <RequireRole minimum="editor">
-          <button onClick={() => setShowAddModal(true)}>+ Add Intercept</button>
+          <button className="button primary" onClick={() => setShowAddModal(true)}>
+            + Add Intercept
+          </button>
         </RequireRole>
       </div>
       <p className="hint-text">
@@ -126,40 +106,11 @@ export function InterceptsPage() {
       </p>
 
       {showAddModal && (
-        <Modal title="Add Intercept" onClose={() => setShowAddModal(false)}>
-          <form onSubmit={handleCreate}>
-            <div className="form-row">
-              <select value={formEmitterId} onChange={(e) => setFormEmitterId(e.target.value)} required>
-                <option value="" disabled>
-                  Select Emitter…
-                </option>
-                {(emitters ?? []).map((em) => (
-                  <option key={em.id} value={em.id}>
-                    {em.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="form-row">
-              <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
-            </div>
-            <div className="form-row">
-              <label className="wide-label">
-                Description (optional)
-                <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
-              </label>
-            </div>
-            {formError && <div className="error-text">{formError}</div>}
-            <div className="modal-actions">
-              <button type="button" className="icon-button" onClick={() => setShowAddModal(false)}>
-                Cancel
-              </button>
-              <button type="submit" disabled={createIntercept.isPending}>
-                Add Intercept
-              </button>
-            </div>
-          </form>
-        </Modal>
+        <InterceptFormModal
+          emitters={emitters}
+          onClose={() => setShowAddModal(false)}
+          onSaved={(saved) => navigate(`/intercepts/${saved.id}`)}
+        />
       )}
 
       {error && <div className="error-text">{(error as Error).message}</div>}
@@ -168,7 +119,7 @@ export function InterceptsPage() {
         <div className="modes-toolbar-row">
           <input
             type="text"
-            placeholder="Filter by name…"
+            placeholder="Filter by name, collector or description…"
             value={nameFilter}
             onChange={(e) => setNameFilter(e.target.value)}
           />
@@ -202,8 +153,10 @@ export function InterceptsPage() {
             <tr>
               {header("Name", "name")}
               {header("Emitter", "emitter")}
+              {header("Recorded", "intercepted_on", "date")}
+              {header("Collected by", "collected_by")}
               {header("Entries", "entry_count", "number")}
-              {header("Created", "created_at", "date")}
+              {header("Logged", "created_at", "date")}
               <th></th>
             </tr>
           </thead>
@@ -220,6 +173,8 @@ export function InterceptsPage() {
                     "—"
                   )}
                 </td>
+                <td>{formatDay(i.intercepted_on) ?? <span className="hint-text">—</span>}</td>
+                <td>{i.collected_by ?? <span className="hint-text">—</span>}</td>
                 <td>{i.entry_count}</td>
                 <td>{new Date(i.created_at).toLocaleDateString()}</td>
                 <td>

@@ -15,6 +15,13 @@ export function RequireAuth({ children }: { children: ReactNode }) {
 
 const ROLE_RANK: Record<string, number> = { viewer: 0, editor: 1, admin: 2 };
 
+/** Whether the signed-in user has at least this role — for logic that
+ * RequireRole (which only hides elements) can't express. */
+export function useHasRole(minimum: "editor" | "admin"): boolean {
+  const { user } = useAuth();
+  return !!user && ROLE_RANK[user.role] >= ROLE_RANK[minimum];
+}
+
 export function RequireRole({ minimum, children }: { minimum: "editor" | "admin"; children: ReactNode }) {
   const { user } = useAuth();
   if (!user || ROLE_RANK[user.role] < ROLE_RANK[minimum]) return null;

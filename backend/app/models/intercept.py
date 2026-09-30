@@ -1,7 +1,7 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import ARRAY, DateTime, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import ARRAY, Date, DateTime, ForeignKey, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -23,6 +23,11 @@ class Intercept(UUIDPkMixin, TimestampMixin, Base):
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # When the signal was actually recorded — created_at is only when it was
+    # logged here. Null on Intercepts logged before this existed.
+    intercepted_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # Who/what recorded it, free text (e.g. "P-8A / ESM suite").
+    collected_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     emitter: Mapped["Emitter"] = relationship(back_populates="intercepts")  # noqa: F821
     entries: Mapped[list["InterceptEntry"]] = relationship(

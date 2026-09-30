@@ -420,8 +420,10 @@ export function HelpPage() {
             <h4>Intercepts tab</h4>
             <p>
               This Emitter's logged real-world signal intercepts — see <strong>Intercepts</strong> below for
-              what an Intercept is and how it's built. <strong>+ Add Intercept</strong> here pre-fills the
-              new Intercept's Emitter; click one to open its detail page.
+              what an Intercept is and how it's built. Each row shows when it was recorded, who collected it,
+              and how its entries compare with this Emitter's Modes; the line above the table totals the
+              entries that don't match a Mode. <strong>+ Add Intercept</strong> here pre-fills the new
+              Intercept's Emitter; click one to open its detail page.
             </p>
           </div>
         </div>
@@ -553,30 +555,43 @@ export function HelpPage() {
         <h2>Intercepts</h2>
         <p>
           A place to log real-world signal intercepts — searchable globally here, and scoped to one Emitter
-          on that Emitter's own Intercepts tab. An Intercept is a <strong>container</strong> (name,
-          description, and its own append-only Analyst notes feed) holding one or more logged{" "}
+          on that Emitter's own Intercepts tab. An Intercept is a <strong>container</strong> (name, the date
+          the signal was recorded, who or what collected it, a description, and its own append-only Analyst
+          notes feed) holding one or more logged{" "}
           <strong>entries</strong> — the actual observations, taken over time.
         </p>
         <p>
-          Each entry records RF, PRI, and PW as an optional min, optional max, and a required mean.
+          Each entry records RF, PRI, and PW as a required mean, with an optional measured min and max.
           Pulse-train character depends on the entry's type: a <strong>Fixed</strong> entry gets a single
           flat jitter mean; a <strong>Stagger</strong> entry gets an ordered list of stagger values instead
-          (and its PRI mean field is read as the stagger frame-time mean). Each entry also has its own
+          (and its PRI mean field is read as the stagger frame-time mean — left blank, it's the sum of the
+          stagger values). Each entry also has its own
           short note, separate from the container's Analyst notes.
         </p>
 
         <div className="help-subsection" id="intercept-detail">
           <h3>Intercept detail</h3>
           <p>
-            Edit the Intercept's name/description, add/delete entries, and add Analyst notes for the whole
-            Intercept. <strong>Delete Intercept</strong> (here or from the list) removes it along with all
+            <strong>+ Add entry</strong> adds a reading; each entry's <strong>⋯</strong> menu edits or
+            deletes it, and <strong>More ▾</strong> edits the Intercept's name, date and description.
+            Editing an entry keeps its link to any Mode created from it. <strong>Delete Intercept</strong>{" "}
+            (under More, or from the list) removes it along with all
             its entries and notes — any Mode already created from one of its entries is unaffected, it just
             loses that provenance link.
           </p>
           <p>
-            Each entry's <strong>Create Mode from this Entry</strong> button opens the normal Mode form
-            pre-filled with that entry's RF/PRI/PW values (you still pick the EW Group and Source, since an
-            Intercept isn't tied to either) — the resulting Mode carries an{" "}
+            Every entry is <strong>matched</strong> against the Emitter's Modes of the same PRI type: it
+            matches a Mode when its RF, PRI (frame time for a stagger) and PW means all fall inside that
+            Mode's engineered range — the range the system recognises. A <strong>near miss</strong> is
+            outside on exactly one of the three, and says which and by how much;{" "}
+            <strong>No matching Mode</strong> means neither, and is the cue to create one. Jitter isn't
+            compared. Click a Mode's name to open the Modes tab filtered to it.
+          </p>
+          <p>
+            <strong>Create Mode from this entry</strong> (in the entry's ⋯ menu, once you're editing the
+            Emitter) opens the normal Mode form already filled in with that entry's RF/PRI/PW values (you
+            still pick the EW Group and Source, since an Intercept isn't tied to either) — the resulting
+            Mode is listed under the entry's <strong>Modes created</strong> and carries an{" "}
             <span className="test-derived-badge">Intercept-Derived</span> badge back to it, the same idea as
             a Test-Derived Mode.
           </p>

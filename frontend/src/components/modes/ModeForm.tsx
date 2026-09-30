@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useCreateMode } from "../../state/hooks/useModes";
 import { ApiRequestError } from "../../api/client";
 import type { EwGroup, FunctionGroup, Mode, PriType, Source } from "../../types/domain";
@@ -20,6 +20,7 @@ export function ModeForm({
   fixedDerivedFromInterceptEntryId,
   onStage,
   observedValueOptions,
+  prefillOnOpen = false,
   duplicateFrom,
   onClose,
 }: {
@@ -48,6 +49,9 @@ export function ModeForm({
    * jitter for Fixed, sequence and frame time for Stagger). Deltas are never
    * pre-filled. */
   observedValueOptions?: ObservedValueOption[];
+  /** Apply the first observed-values option as soon as the form opens —
+   * for a form opened from one specific set (e.g. an Intercept entry). */
+  prefillOnOpen?: boolean;
   /** Pre-fills every field from an existing Mode's line, except Name (left
    * blank — two Modes can't share one). Submitting still creates a new
    * Mode; it just starts from a known-good line instead of a blank one. */
@@ -139,8 +143,8 @@ export function ModeForm({
     }
   }, [observedValueOptions, preFillFrom]);
 
-  function applyPreFill() {
-    const values = observedValueOptions?.find((o) => o.key === preFillFrom)?.values;
+  function applyPreFill(key = preFillFrom) {
+    const values = observedValueOptions?.find((o) => o.key === key)?.values;
     if (!values) return;
     // A logged mean fills both min and max; sets logged before means were
     // introduced carry min/max directly.
@@ -165,6 +169,15 @@ export function ModeForm({
       }
     }
   }
+
+  const prefilledOnOpen = useRef(false);
+  useEffect(() => {
+    if (!prefillOnOpen || prefilledOnOpen.current || !observedValueOptions?.length) return;
+    prefilledOnOpen.current = true;
+    applyPreFill(observedValueOptions[0].key);
+    // Once, on open — later edits to the options shouldn't overwrite what's typed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefillOnOpen, observedValueOptions]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -325,7 +338,7 @@ export function ModeForm({
                   </option>
                 ))}
               </select>
-              <button type="button" className="link-button" onClick={applyPreFill}>
+              <button type="button" className="link-button" onClick={() => applyPreFill()}>
                 Pre-fill
               </button>
             </span>

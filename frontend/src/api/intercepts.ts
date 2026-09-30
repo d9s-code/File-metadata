@@ -5,11 +5,15 @@ export interface InterceptInput {
   emitter_id: string;
   name: string;
   description?: string | null;
+  intercepted_on?: string | null;
+  collected_by?: string | null;
 }
 
 export interface InterceptUpdateInput {
   name?: string;
   description?: string | null;
+  intercepted_on?: string | null;
+  collected_by?: string | null;
 }
 
 export interface InterceptEntryInput extends InterceptEntryFields {
@@ -30,6 +34,12 @@ export const interceptsApi = {
     api.patch<Intercept>(`/intercepts/${interceptId}`, input),
   delete: (interceptId: string) => api.delete<void>(`/intercepts/${interceptId}`),
   listEntries: (interceptId: string) => api.get<InterceptEntry[]>(`/intercepts/${interceptId}/entries`),
+  /** Every entry of every Intercept on one Emitter. */
+  listEmitterEntries: (emitterId: string) =>
+    api.get<InterceptEntry[]>(`/intercepts/entries?emitter_id=${encodeURIComponent(emitterId)}`),
+  /** Replaces an entry in place (same id, so a Mode created from it stays linked). */
+  replaceEntry: (interceptId: string, entryId: string, input: InterceptEntryInput) =>
+    api.put<InterceptEntry>(`/intercepts/${interceptId}/entries/${entryId}`, input),
   createEntry: (interceptId: string, input: InterceptEntryInput) =>
     api.post<InterceptEntry>(`/intercepts/${interceptId}/entries`, input),
   deleteEntry: (interceptId: string, entryId: string) =>
