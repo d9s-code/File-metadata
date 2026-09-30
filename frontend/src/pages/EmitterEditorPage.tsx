@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useEmitter, useUpdateEmitter } from "../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../state/hooks/useEmitterCheckout";
 import { useEwGroups } from "../state/hooks/useEwGroups";
@@ -13,7 +13,9 @@ import { SourcesTable } from "../components/sources/SourcesTable";
 import { ModesSection } from "../components/modes/ModesSection";
 import { EmitterIntercepts } from "../components/intercepts/EmitterIntercepts";
 import { StatusTransitionControls } from "../components/versioning/StatusTransitionControls";
-import { CheckoutBanner } from "../components/versioning/CheckoutBanner";
+import { EditModeControls, LiveDiffPanel } from "../components/versioning/EditModeControls";
+import { EmitterSummaryStrip } from "../components/emitters/EmitterSummaryStrip";
+import { MenuButton } from "../components/common/MenuButton";
 import { EmitterTestHistory } from "../components/testing/EmitterTestHistory";
 import { EntityAuditTrail } from "../components/audit/EntityAuditTrail";
 import { LoadingState } from "../components/common/LoadingState";
@@ -38,7 +40,7 @@ export function EmitterEditorPage() {
     if (searchParams.get("tab") === "tests") setTab("tests");
   }, [searchParams]);
   const { data: emitter, isLoading } = useEmitter(emitterId);
-  const { canEdit } = useEmitterCheckoutState(emitter);
+  const { canEdit, isMine } = useEmitterCheckoutState(emitter);
   const { data: ewGroups, isLoading: ewGroupsLoading } = useEwGroups(emitterId ?? "");
   const { data: functionGroups } = useFunctionGroups(emitterId ?? "");
   const { data: sources, isLoading: sourcesLoading } = useSources(emitterId ?? "");
@@ -62,6 +64,7 @@ export function EmitterEditorPage() {
   // moment they finish adding the first EW Group/Source.
   const [showReworkNote, setShowReworkNote] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
+  const [showChanges, setShowChanges] = useState(false);
   const autoOpenDecided = useRef(false);
   useEffect(() => {
     if (!ewGroupsLoading && !sourcesLoading && !autoOpenDecided.current) {
@@ -124,32 +127,54 @@ export function EmitterEditorPage() {
 
   return (
     <div className="page">
-      <h1>
-        {emitter.name} {emitter.designation && <span className="muted">({emitter.designation})</span>}
-      </h1>
-      <div className="status-row">
-        <span className={`status-badge status-${emitter.status}`}>{emitterStatusLabel(emitter.status)}</span>
-        {emitter.status === "deprecated" && emitter.rework_note && (
-          <button className="rework-note-button" onClick={() => setShowReworkNote(true)}>
-            ⚠ View rework note
-          </button>
-        )}
-        <StatusTransitionControls emitterId={emitter.id} status={emitter.status} />
-        <Link to={`/emitters/${emitter.id}/versions`}>Version history</Link>
-        <Link to={`/ambiguity/emitter/${emitter.id}`}>Ambiguity check</Link>
-        <button
-          className="button secondary small"
-          disabled={!canEdit}
-          title={canEdit ? undefined : "Start editing this Emitter first"}
-          onClick={handleStartEdit}
-        >
-          Edit Name/Designation/Description
-        </button>
-        <button className="button secondary small" onClick={handleExportXml}>
-          Export XML
-        </button>
+      <div className={isMine ? "emitter-header editing" : "emitter-header"}>
+        <div className="emitter-title-row">
+          <h1>
+            {emitter.name} {emitter.designation && <span className="muted">({emitter.designation})</span>}
+          </h1>
+          <div className="emitter-actions">
+            <EditModeControls
+              emitter={emitter}
+              onDiscarded={() => setContentVersion((v) => v + 1)}
+              showingChanges={showChanges}
+              onToggleChanges={() => setShowChanges((v) => !v)}
+            />
+            <button className="button secondary" onClick={handleExportXml}>
+              Export XML
+            </button>
+            <MenuButton
+              label="More ▾"
+              items={[
+                { label: "Version history", to: `/emitters/${emitter.id}/versions` },
+                { label: "Ambiguity check", to: `/ambiguity/emitter/${emitter.id}` },
+                {
+                  label: "Edit name, designation & description",
+                  onSelect: handleStartEdit,
+                  disabled: !canEdit,
+                  title: canEdit ? undefined : "Start editing this Emitter first",
+                },
+              ]}
+            />
+          </div>
+        </div>
+        <div className="status-row">
+          <span className={`status-badge status-${emitter.status}`}>{emitterStatusLabel(emitter.status)}</span>
+          {emitter.status === "deprecated" && emitter.rework_note && (
+            <button className="rework-note-button" onClick={() => setShowReworkNote(true)}>
+              ⚠ View rework note
+            </button>
+          )}
+          <StatusTransitionControls emitterId={emitter.id} status={emitter.status} />
+        </div>
+        {emitter.description && <p className="muted emitter-description">{emitter.description}</p>}
+        <EmitterSummaryStrip
+          emitter={emitter}
+          notesCount={emitterNotes?.length ?? 0}
+          notesOpen={notesOpen}
+          onToggleNotes={() => setNotesOpen((v) => !v)}
+          onOpenTests={() => setTab("tests")}
+        />
       </div>
-      {emitter.description && <p className="muted">{emitter.description}</p>}
 
       {isEditing && (
         <Modal title="Edit Name/Designation/Description" onClose={handleCancelEdit} wide>
@@ -196,29 +221,11 @@ export function EmitterEditorPage() {
         </Modal>
       )}
 
-      <CheckoutBanner emitter={emitter} onDiscarded={() => setContentVersion((v) => v + 1)} />
-
-      <p className="validation-headline">
-        Last validated against simulation:{" "}
-        {emitter.last_validated_at ? (
-          <>
-            {emitter.last_validated_at}{" "}
-            <span className={`test-result-badge test-result-${emitter.last_validated_result}`}>
-              {emitter.last_validated_result}
-            </span>{" "}
-            <button type="button" className="link-button" onClick={() => setTab("tests")}>
-              view
-            </button>
-          </>
-        ) : (
-          <>
-            not yet —{" "}
-            <button type="button" className="link-button" onClick={() => setTab("tests")}>
-              import SIM Test Lines and log a test
-            </button>
-          </>
-        )}
-      </p>
+      {showReworkNote && (
+        <Modal title="Needs rework" onClose={() => setShowReworkNote(false)}>
+          <p>{emitter.rework_note}</p>
+        </Modal>
+      )}
 
       {!ewGroupsLoading && !sourcesLoading && setupIncomplete && (
         <div className="setup-progress-banner">
@@ -244,83 +251,24 @@ export function EmitterEditorPage() {
         </div>
       )}
 
-      {!isEditing && (
-        <details
-          className="setup-collapse"
-          open={notesOpen}
-          onToggle={(e) => setNotesOpen(e.currentTarget.open)}
-        >
-          <summary>Analyst notes{emitterNotes && emitterNotes.length > 0 ? ` (${emitterNotes.length})` : ""}</summary>
-          <div className="card">
-            <NotesFeed
-              notes={emitterNotes}
-              isLoading={notesLoading}
-              placeholder="Your own running notes/observations about this Emitter — separate from the description."
-              onAdd={(body) => createEmitterNote(body)}
-              isAdding={isAddingNote}
-              onDelete={(noteId) => deleteEmitterNote(noteId)}
-            />
-          </div>
-        </details>
+      {notesOpen && (
+        <div className="card">
+          <h4>Analyst notes</h4>
+          <NotesFeed
+            notes={emitterNotes}
+            isLoading={notesLoading}
+            placeholder="Your own running notes/observations about this Emitter — separate from the description."
+            onAdd={(body) => createEmitterNote(body)}
+            isAdding={isAddingNote}
+            onDelete={(noteId) => deleteEmitterNote(noteId)}
+          />
+        </div>
       )}
 
-      {showReworkNote && (
-        <Modal title="Needs rework" onClose={() => setShowReworkNote(false)}>
-          <p>{emitter.rework_note}</p>
-        </Modal>
-      )}
-
-      {(emitter.summary.mode_count > 0 || emitter.summary.scan_min != null) && (
-        <div className="emitter-summary-row" title="RF/PRI/PW computed across this Emitter's Modes; Scan across its EW Groups">
-          {emitter.summary.rf_min_mhz != null && (
-            <span>
-              RF <strong>{emitter.summary.rf_min_mhz}–{emitter.summary.rf_max_mhz}</strong> MHz
-              {(emitter.summary.engineered_rf_min_mhz !== emitter.summary.rf_min_mhz ||
-                emitter.summary.engineered_rf_max_mhz !== emitter.summary.rf_max_mhz) && (
-                <span className="hint-text">
-                  {" "}
-                  · engineered: {emitter.summary.engineered_rf_min_mhz}–{emitter.summary.engineered_rf_max_mhz}
-                </span>
-              )}
-            </span>
-          )}
-          {emitter.summary.pw_min_us != null && (
-            <span>
-              PW <strong>{emitter.summary.pw_min_us}–{emitter.summary.pw_max_us}</strong> µs
-              {(emitter.summary.engineered_pw_min_us !== emitter.summary.pw_min_us ||
-                emitter.summary.engineered_pw_max_us !== emitter.summary.pw_max_us) && (
-                <span className="hint-text">
-                  {" "}
-                  · engineered: {emitter.summary.engineered_pw_min_us}–{emitter.summary.engineered_pw_max_us}
-                </span>
-              )}
-            </span>
-          )}
-          {emitter.summary.pri_min_us != null && (
-            <span>
-              PRI <strong>{emitter.summary.pri_min_us}–{emitter.summary.pri_max_us}</strong> µs
-              {(emitter.summary.engineered_pri_min_us !== emitter.summary.pri_min_us ||
-                emitter.summary.engineered_pri_max_us !== emitter.summary.pri_max_us) && (
-                <span className="hint-text">
-                  {" "}
-                  · engineered: {emitter.summary.engineered_pri_min_us}–{emitter.summary.engineered_pri_max_us}
-                </span>
-              )}
-            </span>
-          )}
-          {emitter.summary.scan_min != null && (
-            <span>
-              Scan <strong>{emitter.summary.scan_min}–{emitter.summary.scan_max}</strong>
-            </span>
-          )}
-          {emitter.summary.mode_count > 0 && (
-            <span>
-              <strong>
-                {emitter.summary.modes_passing} / {emitter.summary.mode_count}
-              </strong>{" "}
-              Modes passing their last test
-            </span>
-          )}
+      {isMine && showChanges && (
+        <div className="card">
+          <h4>Changes since the last saved version</h4>
+          <LiveDiffPanel emitterId={emitter.id} />
         </div>
       )}
 

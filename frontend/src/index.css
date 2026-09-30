@@ -2065,18 +2065,6 @@ span.test-derived-badge {
   gap: 1rem;
   margin: 0.4rem 0 0.75rem 0;
 }
-.emitter-summary-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem 1.25rem;
-  font-size: 0.85rem;
-  color: var(--muted);
-  margin-bottom: 0.75rem;
-}
-.emitter-summary-row strong {
-  color: var(--text);
-}
-
 .checkout-banner {
   display: flex;
   flex-wrap: wrap;
@@ -2134,14 +2122,6 @@ span.test-derived-badge {
   font-weight: 600;
 }
 
-/* The Emitter-level headline — "did we correctly recognize this Emitter
-   against a simulated signal" — deliberately the first thing under the
-   checkout banner, ahead of the RF/PW/PRI summary row. */
-.validation-headline {
-  font-weight: 600;
-  margin: 0.25rem 0 0.75rem 0;
-}
-
 /* Collapsed by default once Test Lines make per-Mode results a secondary,
    opt-in detail rather than the primary way to log a test. */
 .mode-legacy-section {
@@ -2153,12 +2133,6 @@ span.test-derived-badge {
   color: var(--muted);
 }
 .live-diff-panel {
-  padding: 0.6rem 0.75rem;
-  margin: -0.5rem 0 0.75rem 0;
-  border: 1px solid var(--border);
-  border-top: none;
-  border-radius: 0 0 6px 6px;
-  background: var(--card-bg);
   max-height: 320px;
   overflow-y: auto;
 }
@@ -2718,4 +2692,156 @@ fieldset.edit-lock:disabled * {
 }
 .dwell-input input {
   width: 8rem;
+}
+
+/* --- Buttons: primary (solid), secondary (outlined), danger-outline ---- */
+.button.secondary {
+  background: var(--card-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+.button.secondary:hover:not(:disabled) {
+  background: var(--hover-bg);
+  border-color: var(--primary);
+}
+.button.danger-outline {
+  background: var(--card-bg);
+  color: var(--error);
+  border: 1px solid color-mix(in srgb, var(--error) 45%, var(--border));
+  box-shadow: none;
+}
+.button.danger-outline:hover:not(:disabled) {
+  background: var(--badge-red-bg);
+  border-color: var(--error);
+}
+.button.small {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.8rem;
+}
+
+/* --- "More" menu ------------------------------------------------------ */
+.menu-button {
+  position: relative;
+  display: inline-block;
+}
+.menu-button-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  z-index: 50;
+  min-width: 15rem;
+  padding: 0.3rem 0;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+}
+.menu-align-right {
+  right: 0;
+}
+.menu-align-left {
+  left: 0;
+}
+.menu-button-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.4rem 0.8rem;
+  background: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: normal;
+  text-decoration: none;
+}
+.menu-button-item:hover:not(:disabled) {
+  background: var(--hover-bg);
+  box-shadow: none;
+  text-decoration: none;
+}
+.menu-button-item:disabled {
+  color: var(--muted);
+}
+.menu-button-item.danger {
+  color: var(--error);
+}
+
+/* --- Emitter page header --------------------------------------------- */
+.emitter-header {
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.25rem;
+}
+/* While you hold the checkout the header carries a blue edge, so edit mode
+   is obvious at a glance. */
+.emitter-header.editing {
+  border-left: 4px solid var(--primary);
+  padding-left: 0.75rem;
+  margin-left: calc(-0.75rem - 4px);
+}
+.emitter-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.emitter-title-row h1 {
+  margin: 0;
+}
+.emitter-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.emitter-description {
+  margin: 0 0 0.6rem;
+}
+.emitter-summary-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.75rem;
+  padding: 0.6rem 0.9rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.summary-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.summary-value {
+  font-size: 0.92rem;
+}
+.summary-link {
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: normal;
+  text-align: left;
+}
+.summary-link:hover {
+  background: none;
+  box-shadow: none;
+  text-decoration: underline;
+}
+.summary-good {
+  color: var(--badge-green-fg);
+}
+.summary-bad {
+  color: var(--error);
 }

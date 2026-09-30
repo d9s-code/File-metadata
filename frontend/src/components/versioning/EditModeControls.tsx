@@ -14,7 +14,20 @@ import { ApiRequestError } from "../../api/client";
 import { EmitterDiffViewer } from "./EmitterDiffViewer";
 import { Modal } from "../common/Modal";
 
-export function CheckoutBanner({ emitter, onDiscarded }: { emitter: Emitter; onDiscarded?: () => void }) {
+/** The Emitter's edit-mode controls, for the page header: Start editing
+ * when nobody holds the checkout; Save version / Discard (and a link to the
+ * changes so far) while you do; who holds it otherwise. */
+export function EditModeControls({
+  emitter,
+  onDiscarded,
+  showingChanges,
+  onToggleChanges,
+}: {
+  emitter: Emitter;
+  onDiscarded?: () => void;
+  showingChanges: boolean;
+  onToggleChanges: () => void;
+}) {
   const { user } = useAuth();
   const { isCheckedOut, isMine, holderUsername, checkedOutAt } = useEmitterCheckoutState(emitter);
   const { data: versions } = useEmitterVersions(emitter.id);
@@ -24,7 +37,6 @@ export function CheckoutBanner({ emitter, onDiscarded }: { emitter: Emitter; onD
   const discard = useDiscardEmitterChanges(emitter.id);
   const { confirmDelete, dialog } = useConfirmDialog();
   const [error, setError] = useState<string | null>(null);
-  const [showDiff, setShowDiff] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [changeSummary, setChangeSummary] = useState("");
 
@@ -46,10 +58,9 @@ export function CheckoutBanner({ emitter, onDiscarded }: { emitter: Emitter; onD
     setShowSaveModal(true);
   }
 
-  // "Save" commits a real, named version (so it shows up in Version History
+  // Saving commits a real, named version (so it shows up in Version History
   // with a summary an editor can later revert to) and only then releases the
-  // checkout — a bare check-in used to release the lock with no durable
-  // record of what changed and no way to roll back to that point.
+  // checkout.
   async function handleSaveAndCheckin() {
     if (!changeSummary.trim()) return;
     setError(null);
@@ -72,7 +83,7 @@ export function CheckoutBanner({ emitter, onDiscarded }: { emitter: Emitter; onD
   }
 
   async function handleDiscard() {
-    if (!(await confirmDelete("Discard uncommitted changes and revert to the latest committed version?"))) return;
+    if (!(await confirmDelete("Discard unsaved changes and go back to the last saved version?"))) return;
     setError(null);
     try {
       await discard.mutateAsync();
@@ -84,41 +95,40 @@ export function CheckoutBanner({ emitter, onDiscarded }: { emitter: Emitter; onD
 
   return (
     <RequireRole minimum="editor">
-    <div className="checkout-banner-wrap">
-    <div className={isMine ? "checkout-banner checkout-banner-editing" : "checkout-banner"}>
       {!isCheckedOut ? (
-        <>
-          <span className="hint-text">Not currently being edited.</span>
-          <button className="icon-button" disabled={checkout.isPending} onClick={() => void handleCheckout()}>
-            Start Editing
-          </button>
-        </>
+        <button className="button primary" disabled={checkout.isPending} onClick={() => void handleCheckout()}>
+          Start editing
+        </button>
       ) : isMine ? (
         <>
-          <span className="checkout-badge checkout-badge-mine">You&rsquo;re editing this Emitter</span>
+          <span className="checkout-badge checkout-badge-mine">✎ Editing</span>
+          {hasCommittedVersion && (
+            <button type="button" className="link-button" onClick={onToggleChanges} aria-expanded={showingChanges}>
+              {showingChanges ? "Hide changes" : "Changes"}
+            </button>
+          )}
           <button
-            className="link-button link-button-danger"
+            className="button danger-outline"
             disabled={discard.isPending || !hasCommittedVersion}
-            title={!hasCommittedVersion ? "No committed version to discard back to yet" : undefined}
+            title={!hasCommittedVersion ? "No saved version to go back to yet" : undefined}
             onClick={() => void handleDiscard()}
           >
-            Discard changes
+            Discard
           </button>
-          <button className="link-button" disabled={checkin.isPending || commitVersion.isPending} onClick={handleOpenSave}>
-            Save
+          <button className="button primary" disabled={checkin.isPending || commitVersion.isPending} onClick={handleOpenSave}>
+            Save version
           </button>
         </>
       ) : (
         <>
-          <span className="checkout-badge">
-            Checked out by {holderUsername ?? "another user"}
-            {checkedOutAt ? ` since ${new Date(checkedOutAt).toLocaleString()}` : ""}
+          <span className="checkout-badge" title={checkedOutAt ? `Since ${new Date(checkedOutAt).toLocaleString()}` : undefined}>
+            Being edited by {holderUsername ?? "another user"}
           </span>
           {isAdmin && (
             <button
               className="link-button"
               disabled={checkin.isPending}
-              title="Releases the lock without committing a version — whatever the other editor had live stays live, uncommitted. Use this to unstick an abandoned checkout, not as a substitute for Save."
+              title="Releases the lock without saving a version — whatever the other editor had live stays live, unsaved. Use this to unstick an abandoned checkout."
               onClick={() => void handleForceRelease()}
             >
               Force release
@@ -126,54 +136,46 @@ export function CheckoutBanner({ emitter, onDiscarded }: { emitter: Emitter; onD
           )}
         </>
       )}
-      {isMine && hasCommittedVersion && (
-        <button className="link-button" onClick={() => setShowDiff((v) => !v)}>
-          {showDiff ? "Hide changes" : "View changes since last save"}
-        </button>
-      )}
       {error && <span className="error-text">{error}</span>}
       {dialog}
-    </div>
-    {isMine && showDiff && <LiveDiffPanel emitterId={emitter.id} />}
-    {showSaveModal && (
-      <Modal title="Save — commit a version" onClose={() => setShowSaveModal(false)} wide>
-        <p className="hint-text">
-          Saving commits a new, permanent version of this Emitter — it shows up in Version History with your
-          summary below and can be reverted to later. This is what makes your changes recoverable.
-        </p>
-        <LiveDiffPanel emitterId={emitter.id} />
-        <label>
-          What changed? (required)
-          <textarea
-            className="edit-input"
-            rows={3}
-            value={changeSummary}
-            onChange={(e) => setChangeSummary(e.target.value)}
-            placeholder="e.g. Added Track Mode 2, widened RF range on Mode 1 per updated ELINT report"
-            autoFocus
-          />
-        </label>
-        <div className="edit-actions">
-          <button
-            className="button primary"
-            onClick={() => void handleSaveAndCheckin()}
-            disabled={commitVersion.isPending || checkin.isPending || !changeSummary.trim()}
-          >
-            {commitVersion.isPending || checkin.isPending ? "Saving…" : "Save"}
-          </button>
-          <button className="button" onClick={() => setShowSaveModal(false)} disabled={commitVersion.isPending || checkin.isPending}>
-            Cancel
-          </button>
-        </div>
-        {error && <div className="error-text">{error}</div>}
-      </Modal>
-    )}
-    </div>
+      {showSaveModal && (
+        <Modal title="Save version" onClose={() => setShowSaveModal(false)} wide>
+          <p className="hint-text">
+            Saving creates a new, permanent version of this Emitter — it shows up in Version History with your
+            summary below and can be reverted to later — and ends your editing session.
+          </p>
+          <LiveDiffPanel emitterId={emitter.id} />
+          <label>
+            What changed? (required)
+            <textarea
+              className="edit-input"
+              rows={3}
+              value={changeSummary}
+              onChange={(e) => setChangeSummary(e.target.value)}
+              placeholder="e.g. Added Track Mode 2, widened RF range on Mode 1 per updated ELINT report"
+              autoFocus
+            />
+          </label>
+          <div className="edit-actions">
+            <button
+              className="button primary"
+              onClick={() => void handleSaveAndCheckin()}
+              disabled={commitVersion.isPending || checkin.isPending || !changeSummary.trim()}
+            >
+              {commitVersion.isPending || checkin.isPending ? "Saving…" : "Save version"}
+            </button>
+            <button className="button" onClick={() => setShowSaveModal(false)} disabled={commitVersion.isPending || checkin.isPending}>
+              Cancel
+            </button>
+          </div>
+          {error && <div className="error-text">{error}</div>}
+        </Modal>
+      )}
     </RequireRole>
   );
 }
 
-function LiveDiffPanel({ emitterId }: { emitterId: string }) {
+export function LiveDiffPanel({ emitterId }: { emitterId: string }) {
   const { data: diff, isLoading } = useEmitterLiveDiff(emitterId);
   return (
     <div className="live-diff-panel">
