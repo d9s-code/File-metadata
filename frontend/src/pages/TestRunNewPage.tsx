@@ -376,7 +376,7 @@ export function TestRunNewPage() {
         )}
 
         <div className="form-row">
-          <button type="submit" className="accent-button" disabled={create.isPending}>
+          <button type="submit" disabled={create.isPending}>
             {create.isPending ? "Logging…" : "Log test run"}
           </button>
           <Link to={`/emitters/${emitterId}?tab=tests`}>Cancel</Link>

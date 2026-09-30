@@ -10,9 +10,13 @@ import { RequireRole } from "../auth/RequireAuth";
 import { LoadingState } from "../components/common/LoadingState";
 import { useConfirmDialog } from "../components/common/ConfirmDialog";
 import { ModeForm } from "../components/modes/ModeForm";
+import { useEmitterVersions } from "../state/hooks/useEmitterVersions";
+import type { TestRecord } from "../api/testRecords";
+import type { TestResult } from "../types/domain";
 import {
   formatObservedValueLines,
   lineOutcomeLabel,
+  TEST_RESULTS,
   observedValueOptions,
   testTypeLabel,
 } from "../components/testing/testFormat";
@@ -30,6 +34,60 @@ function ParamLines({ lines }: { lines: string[] }) {
   );
 }
 
+function countOf<T>(items: T[], key: (item: T) => TestResult | null): [TestResult, number][] {
+  return TEST_RESULTS.map((r) => [r, items.filter((i) => key(i) === r).length] as [TestResult, number]).filter(([, n]) => n > 0);
+}
+
+/** One line under the title: how the run came out, counted, and which
+ * saved version of the Emitter it tested. */
+function RunSummary({
+  record,
+  exercised,
+  emitterId,
+  versionNumber,
+}: {
+  record: TestRecord;
+  exercised: TestRecord["modes"];
+  emitterId: string;
+  versionNumber: number | null;
+}) {
+  const lineCounts = countOf(record.lines, (l) => l.outcome);
+  const modeCounts = countOf(exercised, (m) => m.result);
+  return (
+    <p className="run-summary">
+      {lineCounts.length > 0 && (
+        <span>
+          <strong>{record.lines.length}</strong> SIM Test Line{record.lines.length === 1 ? "" : "s"}:{" "}
+          {lineCounts.map(([r, n]) => (
+            <span key={r} className={`test-result-badge test-result-${r}`}>
+              {n} {lineOutcomeLabel(r)}
+            </span>
+          ))}
+        </span>
+      )}
+      {modeCounts.length > 0 && (
+        <span>
+          <strong>{exercised.length}</strong> Mode{exercised.length === 1 ? "" : "s"}:{" "}
+          {modeCounts.map(([r, n]) => (
+            <span key={r} className={`test-result-badge test-result-${r}`}>
+              {n} {r}
+            </span>
+          ))}
+        </span>
+      )}
+      <span className="hint-text">
+        {versionNumber != null ? (
+          <>
+            tested against <Link to={`/emitters/${emitterId}/versions?v=${versionNumber}`}>version {versionNumber}</Link>
+          </>
+        ) : (
+          "tested before the Emitter had a saved version"
+        )}
+      </span>
+    </p>
+  );
+}
+
 export function TestRunDetailPage() {
   const { emitterId = "", testRecordId = "" } = useParams<{ emitterId: string; testRecordId: string }>();
   const navigate = useNavigate();
@@ -42,6 +100,7 @@ export function TestRunDetailPage() {
   const { data: sources } = useSources(emitterId);
   const { data: functionGroups } = useFunctionGroups(emitterId);
   const del = useDeleteEmitterTestRecord(emitterId);
+  const { data: versions } = useEmitterVersions(emitterId);
   const { confirmDelete, dialog } = useConfirmDialog();
   const [addingMode, setAddingMode] = useState(false);
 
@@ -61,6 +120,7 @@ export function TestRunDetailPage() {
   const exercised = record.modes.filter((m) => m.link_type === "exercised");
   const derivedModes = record.modes.filter((m) => m.link_type === "derived");
   const canAddMode = canEdit && (ewGroups?.length ?? 0) > 0 && (sources?.length ?? 0) > 0;
+  const versionNumber = versions?.find((v) => v.id === record.emitter_version_id)?.version_number ?? null;
 
   async function handleDelete() {
     if (!record || !(await confirmDelete(`Delete the test record "${record.title}"?`))) return;
@@ -89,6 +149,7 @@ export function TestRunDetailPage() {
           </span>
         )}
       </div>
+      <RunSummary record={record} exercised={exercised} emitterId={emitterId} versionNumber={versionNumber} />
       {record.notes && <p className="muted">{record.notes}</p>}
       {stagedModeFailures && stagedModeFailures.length > 0 && (
         <div className="error-text">

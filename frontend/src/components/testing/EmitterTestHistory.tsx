@@ -21,10 +21,12 @@ export function EmitterTestHistory({
     <div>
       <SimTestLinesPanel emitterId={emitterId} lines={testLines ?? []} />
       <div className="card">
-        <div className="section-header-row">
-          <h5>Test runs</h5>
+        <div className="card-header">
+          <h4>
+            Test runs <span className="hint-text section-count">{records?.length ?? ""}</span>
+          </h4>
           <RequireRole minimum="editor">
-            <Link className="link-as-button accent-button" to={`/emitters/${emitterId}/tests/new`}>
+            <Link className="link-as-button" to={`/emitters/${emitterId}/tests/new`}>
               + New Test Run
             </Link>
           </RequireRole>
