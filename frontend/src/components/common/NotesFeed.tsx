@@ -1,10 +1,42 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { EmitterNote, SourceNote } from "../../types/domain";
 import { RequireRole } from "../../auth/RequireAuth";
 import { useConfirmDialog } from "./ConfirmDialog";
 import { ApiRequestError } from "../../api/client";
 
 type NoteEntry = EmitterNote | SourceNote;
+
+/** A note's text, cut to a few lines (see .notes-feed-body) with a Show more
+ * toggle when it's longer than that — so one long note can't push the rest
+ * of the page down. */
+function NoteBody({ body }: { body: string }) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || expanded) return;
+    const measure = () => setOverflows(el.scrollHeight > el.clientHeight + 1);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [body, expanded]);
+
+  return (
+    <>
+      <p ref={ref} className={expanded ? "notes-feed-body" : "notes-feed-body clamped"}>
+        {body}
+      </p>
+      {(overflows || expanded) && (
+        <button type="button" className="link-button" onClick={() => setExpanded((v) => !v)}>
+          {expanded ? "Show less" : "Show more"}
+        </button>
+      )}
+    </>
+  );
+}
 
 /** Append-only analyst-commentary feed, shared by the Emitter and Source
  * editor views. Newest entry first; adding never touches an earlier entry —
@@ -61,7 +93,7 @@ export function NotesFeed({
         <p className="hint-text">No notes yet.</p>
       ) : (
         <>
-          <ul className="notes-feed-list">
+          <ul className={showAll ? "notes-feed-list all" : "notes-feed-list"}>
             {(visibleNotes ?? []).map((n) => (
               <li key={n.id} className="notes-feed-entry">
                 <div className="notes-feed-meta">
@@ -73,7 +105,7 @@ export function NotesFeed({
                     </button>
                   </RequireRole>
                 </div>
-                <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{n.body}</p>
+                <NoteBody body={n.body} />
               </li>
             ))}
           </ul>

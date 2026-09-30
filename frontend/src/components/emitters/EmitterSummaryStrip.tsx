@@ -119,7 +119,11 @@ export function EmitterSummaryStrip({
       )}
       <SummaryItem label="Analyst notes" className="summary-notes">
         <button type="button" className="summary-link" onClick={onToggleNotes} aria-expanded={notesOpen}>
-          {latestNote ? (
+          {notesOpen ? (
+            <span className="hint-text">
+              {notes.length === 0 ? "None yet" : `${notes.length} note${notes.length === 1 ? "" : "s"}`} · hide
+            </span>
+          ) : latestNote ? (
             <>
               <span className="summary-note-preview">“{latestNote.body}”</span>{" "}
               <span className="hint-text">

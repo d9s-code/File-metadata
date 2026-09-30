@@ -2433,6 +2433,25 @@ span.test-derived-badge {
   flex-direction: column;
   gap: 0.5rem;
 }
+/* Every earlier note shown: cap the height and scroll inside, so a long
+   history doesn't push the tabs off the screen. */
+.notes-feed-list.all {
+  max-height: 26rem;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+.notes-feed-body {
+  white-space: pre-wrap;
+  margin: 0;
+  overflow-wrap: break-word;
+}
+.notes-feed-body.clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  overflow: hidden;
+}
 .notes-feed-entry {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);

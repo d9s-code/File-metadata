@@ -25,6 +25,24 @@ import { emitterStatusLabel } from "../components/common/emitterStatusLabel";
 
 type Tab = "modes" | "setup" | "intercepts" | "tests" | "audit";
 
+/** Whether the Analyst notes card is open — open unless this browser's user
+ * closed it, remembered across Emitters and visits. */
+const NOTES_OPEN_KEY = "emitter-analyst-notes-open";
+function readNotesOpen(): boolean {
+  try {
+    return localStorage.getItem(NOTES_OPEN_KEY) !== "false";
+  } catch {
+    return true;
+  }
+}
+function saveNotesOpen(open: boolean) {
+  try {
+    localStorage.setItem(NOTES_OPEN_KEY, String(open));
+  } catch {
+    // Storage unavailable (private window etc.) — the choice just won't persist.
+  }
+}
+
 export function EmitterEditorPage() {
   const { emitterId } = useParams<{ emitterId: string }>();
   const [searchParams] = useSearchParams();
@@ -59,7 +77,11 @@ export function EmitterEditorPage() {
   // force a tab switch again afterward, so it doesn't yank the user away mid-interaction the
   // moment they finish adding the first EW Group/Source.
   const [showReworkNote, setShowReworkNote] = useState(false);
-  const [notesOpen, setNotesOpen] = useState(false);
+  const [notesOpen, setNotesOpenState] = useState(readNotesOpen);
+  function setNotesOpen(open: boolean) {
+    setNotesOpenState(open);
+    saveNotesOpen(open);
+  }
   const [showChanges, setShowChanges] = useState(false);
   const autoOpenDecided = useRef(false);
   useEffect(() => {
@@ -167,7 +189,7 @@ export function EmitterEditorPage() {
           emitter={emitter}
           notes={emitterNotes ?? []}
           notesOpen={notesOpen}
-          onToggleNotes={() => setNotesOpen((v) => !v)}
+          onToggleNotes={() => setNotesOpen(!notesOpen)}
           onOpenTests={() => setTab("tests")}
         />
       </div>
@@ -249,7 +271,12 @@ export function EmitterEditorPage() {
 
       {notesOpen && (
         <div className="card">
-          <h4>Analyst notes</h4>
+          <div className="card-header">
+            <h4>Analyst notes</h4>
+            <button type="button" className="link-button" onClick={() => setNotesOpen(false)}>
+              Hide
+            </button>
+          </div>
           <NotesFeed
             notes={emitterNotes}
             isLoading={notesLoading}
