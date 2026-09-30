@@ -1313,16 +1313,49 @@ label {
   letter-spacing: -0.02em;
 }
 
+/* A fixed column count rather than "as many as fit": the wide cards below
+   span a set number of columns, which only lines up when the count is
+   known — auto-fill left holes at 1920px. */
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.75rem;
   align-items: stretch;
 }
 .dashboard-grid > .card {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  min-width: 0;
+  margin-bottom: 0;
+}
+.dashboard-full {
+  grid-column: 1 / -1;
+}
+@media (max-width: 1150px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.lifecycle-card .status-tile-row {
+  gap: 0.9rem 1.1rem;
+}
+.lifecycle-card .status-tile-count {
+  font-size: 1.5rem;
+}
+.lifecycle-card h4 a {
+  color: inherit;
+  text-decoration: none;
+}
+.lifecycle-card h4 a:hover {
+  text-decoration: underline;
+}
+.lifecycle-second {
+  margin-top: 1rem;
 }
 
 .dashboard-table-scroll {
@@ -1334,7 +1367,7 @@ label {
   max-height: 22rem;
 }
 .dashboard-scroll-body {
-  max-height: 22rem;
+  max-height: 17rem;
   overflow-y: auto;
 }
 .dashboard-wide {
@@ -1343,6 +1376,13 @@ label {
 @media (max-width: 760px) {
   .dashboard-wide {
     grid-column: auto;
+  }
+}
+@media (min-width: 1151px) {
+  /* The Emitter table and Test Runs share a row: keep both to the same
+     scroll height so neither card runs long. */
+  .dashboard-wide .dashboard-table-tall {
+    max-height: 31rem;
   }
 }
 .dashboard-card-header {
@@ -1491,8 +1531,6 @@ label {
   flex-direction: column;
   gap: 0.35rem;
   font-size: 0.9rem;
-  max-height: 220px;
-  overflow-y: auto;
 }
 .attention-item {
   display: block;

@@ -13,7 +13,7 @@ function compactWhen(iso: string): string {
 
 export function RecentActivityCard({ entries }: { entries: AuditLogEntry[] }) {
   return (
-    <div className="card dashboard-wide">
+    <div className="card dashboard-full">
       <h4>Recent Activity</h4>
       {entries.length === 0 ? (
         <EmptyState icon="—" title="Nothing yet" message="No activity has been logged." />
