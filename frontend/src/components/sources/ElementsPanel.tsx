@@ -224,7 +224,8 @@ export function ElementsPanel({
       : [...groups].sort((a, b) => {
           const orderA = a.members[0].variant ? VARIANT_ORDER[a.members[0].variant] ?? 99 : 99;
           const orderB = b.members[0].variant ? VARIANT_ORDER[b.members[0].variant] ?? 99 : 99;
-          return orderA - orderB;
+          // Then by value, so a long list reads low to high.
+          return orderA - orderB || (a.value_min ?? Infinity) - (b.value_min ?? Infinity);
         });
     return { type: t, groups: sorted };
   });
@@ -304,7 +305,7 @@ export function ElementsPanel({
                       {groups.length === 0 ? (
                         <p className="hint-text">None yet.</p>
                       ) : (
-                        <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                        <div className="long-list-scroll">
                           <table className="data-table">
                             <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 text-xs uppercase font-medium">
                               <tr>

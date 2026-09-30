@@ -86,7 +86,7 @@ export function SequenceForm({ emitterId, sourceId, canEdit }: { emitterId: stri
         </div>
       </div>
 
-      <div className="overflow-x-auto border border-gray-200 rounded-lg">
+      <div className="long-list-scroll">
         <table className="data-table">
           <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 text-xs uppercase font-medium">
             <tr>

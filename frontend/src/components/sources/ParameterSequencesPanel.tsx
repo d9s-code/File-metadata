@@ -9,7 +9,7 @@ import {
 import { useConfirmDialog } from "../common/ConfirmDialog";
 import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
-import { stepHas, stepValueText, type StepParam } from "./sequenceStep";
+import { sequenceRangeSummary, stepHas, stepValueText, type StepParam } from "./sequenceStep";
 
 
 const STEP_COLUMNS: { param: StepParam; label: string }[] = [
@@ -91,6 +91,75 @@ function SequenceDeltaEditor({
   );
 }
 
+/** Sequences with more steps than this start collapsed to a summary. */
+const STEPS_OPEN_LIMIT = 10;
+
+function SequenceSteps({
+  steps,
+  canEdit,
+  deleting,
+  onDeleteStep,
+}: {
+  steps: ParameterSequence["steps"];
+  canEdit: boolean;
+  deleting: boolean;
+  onDeleteStep: (order: number) => void;
+}) {
+  const [open, setOpen] = useState(steps.length <= STEPS_OPEN_LIMIT);
+  return (
+    <>
+      <p className="sequence-summary hint-text">
+        {steps.length} step{steps.length === 1 ? "" : "s"} · {sequenceRangeSummary(steps) || "no values"}
+        {steps.length > STEPS_OPEN_LIMIT && (
+          <>
+            {" "}
+            <button type="button" className="link-button" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+              {open ? "Hide steps" : "Show steps"}
+            </button>
+          </>
+        )}
+      </p>
+      {open && (
+        <div className="long-list-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Order</th>
+                {STEP_COLUMNS.map((c) => (
+                  <th key={c.param}>{c.label}</th>
+                ))}
+                <th>Dwell (pulses)</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {steps.map((step) => (
+                <tr key={step.order}>
+                  <td>{step.order}</td>
+                  {STEP_COLUMNS.map((c) => (
+                    <td key={c.param}>{stepValueText(step, c.param) ?? "—"}</td>
+                  ))}
+                  <td>{step.dwell_s ?? "—"}</td>
+                  <td>
+                    <button
+                      className="link-button link-button-danger"
+                      onClick={() => onDeleteStep(step.order)}
+                      disabled={deleting || !canEdit}
+                      title={canEdit ? undefined : "Start editing this Emitter first"}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
+}
+
 export function ParameterSequencesPanel({ emitterId, sourceId }: { emitterId: string; sourceId: string }) {
   const { data: sequences } = useParameterSequences(emitterId, sourceId);
   const deleteSequence = useDeleteParameterSequence(emitterId, sourceId);
@@ -136,39 +205,12 @@ export function ParameterSequencesPanel({ emitterId, sourceId }: { emitterId: st
           {!isPriOnlySequence(seq) && (
             <SequenceDeltaEditor emitterId={emitterId} sourceId={sourceId} sequence={seq} canEdit={canEdit} />
           )}
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Order</th>
-                {STEP_COLUMNS.map((c) => (
-                  <th key={c.param}>{c.label}</th>
-                ))}
-                <th>Dwell (pulses)</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {seq.steps.map((step) => (
-                <tr key={step.order}>
-                  <td>{step.order}</td>
-                  {STEP_COLUMNS.map((c) => (
-                    <td key={c.param}>{stepValueText(step, c.param) ?? "—"}</td>
-                  ))}
-                  <td>{step.dwell_s ?? "—"}</td>
-                  <td>
-                    <button
-                      className="link-button link-button-danger"
-                      onClick={() => void handleDeleteStep(seq.id, step.order)}
-                      disabled={deleteStep.isPending || !canEdit}
-                      title={canEdit ? undefined : "Start editing this Emitter first"}
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <SequenceSteps
+            steps={seq.steps}
+            canEdit={canEdit}
+            deleting={deleteStep.isPending}
+            onDeleteStep={(order) => void handleDeleteStep(seq.id, order)}
+          />
         </div>
       ))}
       {dialog}

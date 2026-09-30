@@ -43,6 +43,33 @@ const VARIANT_ORDER: Record<string, number> = {
   extreme: 3,
 };
 
+/** "3 of 60 selected · Select all · Clear" above a long pick list. */
+function SelectionBar({
+  total,
+  selected,
+  onAll,
+  onNone,
+}: {
+  total: number;
+  selected: number;
+  onAll: () => void;
+  onNone: () => void;
+}) {
+  return (
+    <div className="selection-bar">
+      <span className="hint-text">
+        {selected} of {total} selected
+      </span>
+      <button type="button" className="link-button" onClick={onAll} disabled={selected === total}>
+        Select all
+      </button>
+      <button type="button" className="link-button" onClick={onNone} disabled={selected === 0}>
+        Clear
+      </button>
+    </div>
+  );
+}
+
 function CheckboxList({
   items,
   selected,
@@ -54,10 +81,13 @@ function CheckboxList({
   sortDir,
   onSort,
   onClear,
+  onSetSelected,
 }: {
   items: CheckboxItem[];
   selected: Set<string>;
   onToggle: (id: string) => void;
+  /** Replaces the whole selection — drives the "Select all" / "Clear" bar. */
+  onSetSelected?: (ids: Set<string>) => void;
   showVariant?: boolean;
   /** Per-element delta for this run, keyed by element id — only rendered when both this and onDeltaChange are given. */
   deltaOverrides?: Record<string, string>;
@@ -69,10 +99,21 @@ function CheckboxList({
 }) {
   if (items.length === 0) return <p className="hint-text">No items available.</p>;
   const showDelta = !!(deltaOverrides && onDeltaChange);
+  const selectedHere = items.filter((i) => selected.has(i.id)).length;
+  const selectionBar = onSetSelected && items.length > 1 && (
+    <SelectionBar
+      total={items.length}
+      selected={selectedHere}
+      onAll={() => onSetSelected(new Set([...selected, ...items.map((i) => i.id)]))}
+      onNone={() => onSetSelected(new Set([...selected].filter((id) => !items.some((i) => i.id === id))))}
+    />
+  );
 
   if (showVariant) {
     return (
-      <div className="overflow-x-auto border border-gray-200 rounded-lg">
+      <>
+      {selectionBar}
+      <div className="long-list-scroll">
         <table className="data-table">
           <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 text-xs uppercase font-medium">
             <tr>
@@ -159,6 +200,7 @@ function CheckboxList({
           </tbody>
         </table>
       </div>
+      </>
     );
   }
 
@@ -181,6 +223,140 @@ function toggle(set: Set<string>, id: string): Set<string> {
   if (next.has(id)) next.delete(id);
   else next.add(id);
   return next;
+}
+
+interface SequenceStepRow {
+  id: string;
+  sequenceId: string;
+  label: string;
+  hasRf: boolean;
+  hasPw: boolean;
+  hasPri: boolean;
+}
+
+/** Sequences with more steps than this start collapsed. */
+const SEQUENCE_OPEN_LIMIT = 8;
+
+function DeltaInput({
+  param,
+  value,
+  onChange,
+}: {
+  param: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <input
+      type="number"
+      min="0"
+      step="any"
+      style={{ width: "5.5rem" }}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      title={`± ${param} delta applied to the generated Modes (0 = none)`}
+      aria-label={`${param} delta`}
+    />
+  );
+}
+
+/** One sequence's steps as a collapsible, scrolling pick list, so a
+ * 60-step sequence doesn't push the rest of the panel off screen. */
+function SequenceStepGroup({
+  label,
+  rows,
+  selected,
+  onSetSelected,
+  rfDeltas,
+  priDeltas,
+  pwDeltas,
+  onRfDelta,
+  onPriDelta,
+  onPwDelta,
+}: {
+  label: string;
+  rows: SequenceStepRow[];
+  selected: Set<string>;
+  onSetSelected: (ids: Set<string>) => void;
+  rfDeltas: Record<string, string>;
+  priDeltas: Record<string, string>;
+  pwDeltas: Record<string, string>;
+  onRfDelta: (id: string, v: string) => void;
+  onPriDelta: (id: string, v: string) => void;
+  onPwDelta: (id: string, v: string) => void;
+}) {
+  const [open, setOpen] = useState(rows.length <= SEQUENCE_OPEN_LIMIT);
+  const selectedHere = rows.filter((r) => selected.has(r.id)).length;
+
+  function toggleRow(id: string) {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    onSetSelected(next);
+  }
+
+  return (
+    <div className="sequence-step-group">
+      <div className="sequence-step-group-header">
+        <button type="button" className="link-button" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+          {open ? "▾" : "▸"} {label}
+        </button>
+        <span className="hint-text">
+          {rows.length} step{rows.length === 1 ? "" : "s"}
+        </span>
+        <SelectionBar
+          total={rows.length}
+          selected={selectedHere}
+          onAll={() => onSetSelected(new Set([...selected, ...rows.map((r) => r.id)]))}
+          onNone={() => onSetSelected(new Set([...selected].filter((id) => !rows.some((r) => r.id === id))))}
+        />
+      </div>
+      {open && (
+        <div className="long-list-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Step</th>
+                <th style={{ width: "6.5rem" }}>RF delta</th>
+                <th style={{ width: "6.5rem" }}>PRI delta</th>
+                <th style={{ width: "6.5rem" }}>PW delta</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => {
+                const isSelected = selected.has(row.id);
+                return (
+                  <tr key={row.id}>
+                    <td>
+                      <label className="checkbox-label">
+                        <input type="checkbox" checked={isSelected} onChange={() => toggleRow(row.id)} />
+                        {row.label}
+                      </label>
+                    </td>
+                    <td>
+                      {isSelected && row.hasRf && (
+                        <DeltaInput param="RF" value={rfDeltas[row.id] ?? DEFAULT_DELTA} onChange={(v) => onRfDelta(row.id, v)} />
+                      )}
+                    </td>
+                    <td>
+                      {isSelected && row.hasPri && (
+                        <DeltaInput param="PRI" value={priDeltas[row.id] ?? DEFAULT_DELTA} onChange={(v) => onPriDelta(row.id, v)} />
+                      )}
+                    </td>
+                    <td>
+                      {isSelected && row.hasPw && (
+                        <DeltaInput param="PW" value={pwDeltas[row.id] ?? DEFAULT_DELTA} onChange={(v) => onPwDelta(row.id, v)} />
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function CartesianProductButton({
@@ -277,7 +453,8 @@ export function CartesianProductButton({
     return [...items].sort((a, b) => {
       const orderA = a.variants?.[0] ? VARIANT_ORDER[a.variants[0]] ?? 99 : 99;
       const orderB = b.variants?.[0] ? VARIANT_ORDER[b.variants[0]] ?? 99 : 99;
-      return orderA - orderB;
+      // Then by value, so a long list reads low to high.
+      return orderA - orderB || compareNullable(a.sortValue, b.sortValue, "asc");
     });
   }
 
@@ -344,7 +521,8 @@ export function CartesianProductButton({
   const sequenceStepRows = (sequences ?? []).flatMap((s) =>
     s.steps.map((step) => ({
       id: `${s.id}:${step.order}`,
-      label: `${s.label ?? "Sequence"} · step ${step.order}: ${stepLabel(step)}`,
+      sequenceId: s.id,
+      label: `step ${step.order}: ${stepLabel(step)}`,
       hasRf: stepHas(step, "rf"),
       hasPw: stepHas(step, "pw"),
       hasPri: stepHas(step, "pri"),
@@ -446,6 +624,7 @@ export function CartesianProductButton({
               items={rfItems}
               selected={rfSelected}
               onToggle={(id) => setRfSelected((s) => toggle(s, id))}
+              onSetSelected={setRfSelected}
               showVariant={true}
               deltaOverrides={rfDeltaOverrides}
               onDeltaChange={(id, value) => setRfDeltaOverrides((prev) => ({ ...prev, [id]: value }))}
@@ -464,6 +643,7 @@ export function CartesianProductButton({
               items={priItems}
               selected={priSelected}
               onToggle={(id) => setPriSelected((s) => toggle(s, id))}
+              onSetSelected={setPriSelected}
               showVariant={true}
               deltaOverrides={priDeltaOverrides}
               onDeltaChange={(id, value) => setPriDeltaOverrides((prev) => ({ ...prev, [id]: value }))}
@@ -482,6 +662,7 @@ export function CartesianProductButton({
               items={pwItems}
               selected={pwSelected}
               onToggle={(id) => setPwSelected((s) => toggle(s, id))}
+              onSetSelected={setPwSelected}
               showVariant={true}
               deltaOverrides={pwDeltaOverrides}
               onDeltaChange={(id, value) => setPwDeltaOverrides((prev) => ({ ...prev, [id]: value }))}
@@ -491,89 +672,32 @@ export function CartesianProductButton({
               onClear={pwSort.onClear}
             />
           </div>
-          <div>
-            <strong>Sequences</strong>
-            {isSeqLoading ? (
-              <p className="hint-text">Loading sequences...</p>
-            ) : sequenceStepRows.length === 0 ? (
-              <p className="hint-text">No items available.</p>
-            ) : (
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Step</th>
-                    <th style={{ width: "6.5rem" }}>RF delta</th>
-                    <th style={{ width: "6.5rem" }}>PRI delta</th>
-                    <th style={{ width: "6.5rem" }}>PW delta</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sequenceStepRows.map((row) => {
-                    const isSelected = sequenceSelected.has(row.id);
-                    return (
-                      <tr key={row.id}>
-                        <td>
-                          <label className="checkbox-label">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => setSequenceSelected((s) => toggle(s, row.id))}
-                            />
-                            {row.label}
-                          </label>
-                        </td>
-                        <td>
-                          {isSelected && row.hasRf && (
-                            <input
-                              type="number"
-                              min="0"
-                              step="any"
-                              style={{ width: "5.5rem" }}
-                              value={sequenceRfDeltaOverrides[row.id] ?? DEFAULT_DELTA}
-                              onChange={(e) =>
-                                setSequenceRfDeltaOverrides((prev) => ({ ...prev, [row.id]: e.target.value }))
-                              }
-                              title="± RF delta applied to the generated Modes (0 = none)"
-                            />
-                          )}
-                        </td>
-                        <td>
-                          {isSelected && row.hasPri && (
-                            <input
-                              type="number"
-                              min="0"
-                              step="any"
-                              style={{ width: "5.5rem" }}
-                              value={sequencePriDeltaOverrides[row.id] ?? DEFAULT_DELTA}
-                              onChange={(e) =>
-                                setSequencePriDeltaOverrides((prev) => ({ ...prev, [row.id]: e.target.value }))
-                              }
-                              title="± PRI delta applied to the generated Modes (0 = none)"
-                            />
-                          )}
-                        </td>
-                        <td>
-                          {isSelected && row.hasPw && (
-                            <input
-                              type="number"
-                              min="0"
-                              step="any"
-                              style={{ width: "5.5rem" }}
-                              value={sequencePwDeltaOverrides[row.id] ?? DEFAULT_DELTA}
-                              onChange={(e) =>
-                                setSequencePwDeltaOverrides((prev) => ({ ...prev, [row.id]: e.target.value }))
-                              }
-                              title="± PW delta applied to the generated Modes (0 = none)"
-                            />
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
+        </div>
+        <div className="cartesian-sequences">
+          <strong>Sequences</strong>
+          {isSeqLoading ? (
+            <p className="hint-text">Loading sequences...</p>
+          ) : sequenceStepRows.length === 0 ? (
+            <p className="hint-text">No items available.</p>
+          ) : (
+            (sequences ?? [])
+              .filter((seq) => seq.steps.length > 0)
+              .map((seq) => (
+                <SequenceStepGroup
+                  key={seq.id}
+                  label={seq.label ?? "Sequence"}
+                  rows={sequenceStepRows.filter((r) => r.sequenceId === seq.id)}
+                  selected={sequenceSelected}
+                  onSetSelected={setSequenceSelected}
+                  rfDeltas={sequenceRfDeltaOverrides}
+                  priDeltas={sequencePriDeltaOverrides}
+                  pwDeltas={sequencePwDeltaOverrides}
+                  onRfDelta={(id, v) => setSequenceRfDeltaOverrides((prev) => ({ ...prev, [id]: v }))}
+                  onPriDelta={(id, v) => setSequencePriDeltaOverrides((prev) => ({ ...prev, [id]: v }))}
+                  onPwDelta={(id, v) => setSequencePwDeltaOverrides((prev) => ({ ...prev, [id]: v }))}
+                />
+              ))
+          )}
         </div>
         <div className="form-row">
           <select value={ewGroupId} onChange={(e) => setEwGroupId(e.target.value)}>

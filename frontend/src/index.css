@@ -2023,7 +2023,7 @@ span.test-derived-badge {
 }
 .cartesian-columns {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1rem;
   margin: 0.75rem 0;
 }
@@ -2667,4 +2667,47 @@ fieldset.edit-lock:disabled {
 }
 fieldset.edit-lock:disabled * {
   cursor: not-allowed;
+}
+
+/* A pick list or table that can run to 60+ rows: it scrolls inside a
+   capped height, header pinned, instead of pushing the page down. */
+.long-list-scroll {
+  max-height: 18rem;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.long-list-scroll .data-table {
+  margin-bottom: 0;
+}
+.long-list-scroll .data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--card-bg);
+}
+.selection-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.25rem 0;
+  font-size: 0.85rem;
+}
+.cartesian-sequences {
+  margin: 0.75rem 0;
+}
+.sequence-step-group {
+  margin-top: 0.4rem;
+}
+.sequence-step-group-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.sequence-step-group-header .selection-bar {
+  margin: 0;
+}
+.sequence-summary {
+  margin: 0.25rem 0 0.5rem;
 }
