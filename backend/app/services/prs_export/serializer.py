@@ -62,9 +62,6 @@ def _num_attr(value: float | int | None, default: float | int = 0) -> str:
 def build_emitter_element(emitter_snapshot: dict) -> etree._Element:
     root = etree.Element("Emitter", Name=_sanitize(emitter_snapshot["name"]))
 
-    elnot = etree.SubElement(root, "ELNOT")
-    elnot.text = _sanitize(emitter_snapshot.get("designation") or emitter_snapshot.get("description"))
-
     etree.SubElement(root, "OwnShip", Flag="false")
     etree.SubElement(root, "LethalCeiling", Value=_num_attr(_PLACEHOLDER_LETHAL_CEILING), Units="feet")
 

@@ -38,7 +38,7 @@ This document outlines the testing strategy and specific test cases for the RF E
 - [ ] **Hierarchy Integrity**: Verify exported XML correctly traverses Platforms $\rightarrow$ Emitters $\rightarrow$ Modes.
 - [ ] **Data Accuracy**: Verify engineered values (raw $\pm$ delta) are exported, not raw values.
 - [ ] **Sanitization**: Attempt to name an Emitter with XML-breaking characters (e.g., `<`, `>`, `&`) and verify the export remains valid.
-- [ ] **PRI/ELNOT Accuracy**: Verify `PRI` class attributes and `ELNOT` designation fields are correctly represented.
+- [ ] **PRI Accuracy**: Verify `PRI` class attributes are correctly represented.
 
 ### 3.5 Ambiguity Checks
 - [ ] **Overlap Detection**: Test edge cases of RF, PW, and PRI overlaps (exact match, partial overlap, no overlap).

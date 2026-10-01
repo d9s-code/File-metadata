@@ -70,9 +70,6 @@ class XMLExporterService:
         root = etree.Element("Emitter", Name=self._sanitize(emitter.name))
         
         # Metadata
-        elnot = etree.SubElement(root, "ELNOT")
-        elnot.text = self._sanitize(emitter.designation or emitter.description)
-        
         own_ship = etree.SubElement(root, "OwnShip", Flag="false")
         lethal_ceiling = etree.SubElement(root, "LethalCeiling", Value="0", Units="feet")
         etree.SubElement(root, "Intrapulse", Name="default", Modulation="Unknown")

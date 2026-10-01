@@ -30,7 +30,6 @@ The root file links the library to a specific MDF ID.
 Maps an Emitter and its Modes.
 - **Root Element**: `<Emitter Name="{emitter_name}">`
 - **Metadata**: 
-    - `<ELNOT>{elnot}</ELNOT>` (Fallback to empty if not available)
     - `<OwnShip Flag="{bool}" />`
     - `<LethalCeiling Value="{val}" Units="{unit}" />`
 - **EWParameters**: Groups of parameters linked to Scans.
