@@ -91,3 +91,14 @@ class EmitterOut(BaseModel):
     last_validated_at: date | None = None
     last_validated_result: TestResult | None = None
     last_validated_test_record_id: UUID | None = None
+
+
+class EmitterCheckoutOut(BaseModel):
+    """One Emitter someone holds for editing — for "you're still editing
+    these" reminders and the Admin's view of every edit lock."""
+
+    emitter_id: UUID
+    emitter_name: str
+    checked_out_by_id: UUID
+    checked_out_by_username: str | None = None
+    checked_out_at: datetime | None = None

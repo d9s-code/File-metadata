@@ -15,6 +15,8 @@ export const emittersApi = {
   update: (id: string, input: Partial<EmitterCreateInput>) => api.patch<Emitter>(`/emitters/${id}`, input),
   delete: (id: string, hard = false) => api.delete<void>(`/emitters/${id}${hard ? "?hard=true" : ""}`),
   restore: (id: string) => api.post<Emitter>(`/emitters/${id}/restore`),
+  /** Every Emitter someone holds for editing, longest-held first. */
+  checkouts: () => api.get<EmitterCheckout[]>("/emitters/checkouts"),
   checkout: (id: string) => api.post<Emitter>(`/emitters/${id}/checkout`),
   checkin: (id: string) => api.delete<Emitter>(`/emitters/${id}/checkout`),
   discard: (id: string) => api.post<Emitter>(`/emitters/${id}/discard`),
@@ -30,3 +32,11 @@ export const emittersApi = {
     return api.post<void>(`/emitters/${emitterId}/imports/json-import`, formData);
   },
 };
+
+export interface EmitterCheckout {
+  emitter_id: string;
+  emitter_name: string;
+  checked_out_by_id: string;
+  checked_out_by_username: string | null;
+  checked_out_at: string | null;
+}

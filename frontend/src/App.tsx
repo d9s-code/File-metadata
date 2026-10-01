@@ -11,6 +11,8 @@ import { EmitterVersionHistoryPage } from "./pages/EmitterVersionHistoryPage";
 import { TestRunNewPage } from "./pages/TestRunNewPage";
 import { TestRunDetailPage } from "./pages/TestRunDetailPage";
 import { InterceptImportPage } from "./pages/InterceptImportPage";
+import { AdminCheckoutsPage } from "./pages/AdminCheckoutsPage";
+import { CheckoutReminder } from "./components/common/CheckoutReminder";
 import { PlatformsListPage } from "./pages/PlatformsListPage";
 import { PlatformBuilderPage } from "./pages/PlatformBuilderPage";
 import { PlatformVersionHistoryPage } from "./pages/PlatformVersionHistoryPage";
@@ -51,6 +53,7 @@ export default function App() {
         <BrowserRouter>
           <AuthProvider>
             <NavBar />
+            <CheckoutReminder />
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route
@@ -219,6 +222,16 @@ export default function App() {
                   <RequireAuth>
                     <RequireAdmin>
                       <AdminUsersPage />
+                    </RequireAdmin>
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/admin/checkouts"
+                element={
+                  <RequireAuth>
+                    <RequireAdmin>
+                      <AdminCheckoutsPage />
                     </RequireAdmin>
                   </RequireAuth>
                 }

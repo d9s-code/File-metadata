@@ -6,6 +6,9 @@ export function AdminNav() {
       <NavLink to="/admin/users" className={({ isActive }) => (isActive ? "tab active" : "tab")}>
         Users
       </NavLink>
+      <NavLink to="/admin/checkouts" className={({ isActive }) => (isActive ? "tab active" : "tab")}>
+        Edit locks
+      </NavLink>
       <NavLink to="/admin/trash" className={({ isActive }) => (isActive ? "tab active" : "tab")}>
         Recently Deleted
       </NavLink>

@@ -22,7 +22,8 @@ from app.models.emitter_note import EmitterNote
 from app.models.emitter_version import EmitterVersion
 from app.models.ew_group import EwGroup
 from app.models.mode import Mode, ModeGenerationBatch
-from app.schemas.emitter import EmitterCreate, EmitterOut, EmitterUpdate
+from app.models.user import User
+from app.schemas.emitter import EmitterCheckoutOut, EmitterCreate, EmitterOut, EmitterUpdate
 from app.schemas.emitter_note import EmitterNoteCreate, EmitterNoteOut
 from app.schemas.mode import ModeBatchEditRequest, ModeBatchEditResult, ModeGenerationBatchOut, ModeOut
 from app.schemas.emitter_version import (
@@ -67,6 +68,30 @@ def list_emitters(
         q = q.filter(Emitter.is_deleted.is_(False))
     emitters = q.order_by(Emitter.name).all()
     return attach_emitter_summaries(db, emitters)
+
+
+@router.get("/checkouts", response_model=list[EmitterCheckoutOut])
+def list_checkouts(db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))) -> list[EmitterCheckoutOut]:
+    """Every Emitter someone is holding for editing, longest-held first —
+    small enough to poll for the "you're still editing" reminder. Declared
+    before /{emitter_id} so "checkouts" isn't read as an id."""
+    rows = (
+        db.query(Emitter, User.username)
+        .outerjoin(User, User.id == Emitter.checked_out_by_id)
+        .filter(Emitter.checked_out_by_id.is_not(None), Emitter.is_deleted.is_(False))
+        .order_by(Emitter.checked_out_at.asc().nulls_last(), Emitter.name)
+        .all()
+    )
+    return [
+        EmitterCheckoutOut(
+            emitter_id=e.id,
+            emitter_name=e.name,
+            checked_out_by_id=e.checked_out_by_id,
+            checked_out_by_username=username,
+            checked_out_at=e.checked_out_at,
+        )
+        for e, username in rows
+    ]
 
 
 @router.get("/{emitter_id}", response_model=EmitterOut)
@@ -283,6 +308,9 @@ def checkin_emitter(
         raise HTTPException(status.HTTP_409_CONFLICT, "This Emitter isn't checked out")
     if emitter.checked_out_by_id != user.id and user.role != Role.admin:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the holder or an Admin can release this checkout")
+    holder_id = emitter.checked_out_by_id
+    forced = holder_id != user.id
+    holder = db.get(User, holder_id) if forced else None
     checkout_service.release_checkout(emitter)
     record_audit(
         db,
@@ -290,7 +318,12 @@ def checkin_emitter(
         action=AuditAction.checkin,
         entity_type=AuditEntityType.emitter.value,
         entity_id=emitter.id,
-        summary=f"Checked in Emitter '{emitter.name}'",
+        summary=(
+            f"Force-released {holder.username if holder else 'another user'}'s checkout of Emitter '{emitter.name}'"
+            if forced
+            else f"Checked in Emitter '{emitter.name}'"
+        ),
+        changes={"released_holder_id": str(holder_id)} if forced else None,
         emitter_id=emitter.id,
     )
     db.commit()

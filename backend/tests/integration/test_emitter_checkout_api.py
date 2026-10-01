@@ -110,3 +110,39 @@ def test_mode_mutations_require_emitters_checkout(editor_client, admin_client):
         json={"source_id": source["id"], "name": "Blocked Mode", "pri_type": "fixed", "line": FIXED_LINE},
     )
     assert resp.status_code == 409
+
+
+def test_checkouts_list_who_holds_what(editor_client, admin_client):
+    held = editor_client.post("/emitters", json={"name": "Held For Listing"}).json()
+    free = editor_client.post("/emitters", json={"name": "Released For Listing"}).json()
+    editor_client.delete(f"/emitters/{free['id']}/checkout")
+
+    resp = admin_client.get("/emitters/checkouts")
+    assert resp.status_code == 200, resp.text
+    by_id = {c["emitter_id"]: c for c in resp.json()}
+    assert free["id"] not in by_id
+    row = by_id[held["id"]]
+    assert row["emitter_name"] == "Held For Listing"
+    assert row["checked_out_by_id"] == held["checked_out_by_id"]
+    assert row["checked_out_by_username"]
+    assert row["checked_out_at"]
+
+
+def test_checkouts_list_leaves_out_deleted_emitters(editor_client):
+    gone = editor_client.post("/emitters", json={"name": "Deleted While Held"}).json()
+    editor_client.delete(f"/emitters/{gone['id']}")
+    ids = {c["emitter_id"] for c in editor_client.get("/emitters/checkouts").json()}
+    assert gone["id"] not in ids
+
+
+def test_force_release_is_logged_with_the_holder(editor_client, admin_client):
+    emitter = editor_client.post("/emitters", json={"name": "Logged Force Release"}).json()
+    admin_client.delete(f"/emitters/{emitter['id']}/checkout")
+    log = admin_client.get("/audit-log", params={"entity_id": emitter["id"], "action": "checkin"}).json()["items"]
+    assert log and log[0]["summary"].startswith("Force-released ")
+    assert log[0]["changes"]["released_holder_id"] == emitter["checked_out_by_id"]
+
+    own = editor_client.post("/emitters", json={"name": "Own Checkin"}).json()
+    editor_client.delete(f"/emitters/{own['id']}/checkout")
+    log = admin_client.get("/audit-log", params={"entity_id": own["id"], "action": "checkin"}).json()["items"]
+    assert log[0]["summary"] == "Checked in Emitter 'Own Checkin'"

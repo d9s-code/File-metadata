@@ -438,7 +438,11 @@ export function HelpPage() {
             <strong>checkout</strong> first — press <strong>Start editing</strong> in the Emitter's header.
             Until then every editing control is faded out. This stops two people from editing the same
             Emitter at once; the header shows who holds it, and an Admin can force-release a stale lock. A
-            brand-new Emitter is auto-checked-out to whoever created it.
+            brand-new Emitter is auto-checked-out to whoever created it. While you hold any, a panel in the
+            bottom-left corner of every page lists them and how long you&apos;ve held each (marked after 8 hours);
+            fold it to a small tab if it&apos;s in the way. Admins see every hold under{" "}
+            <strong>Admin → Edit locks</strong>, with <strong>Force release</strong> for one that&apos;s blocking
+            others.
           </p>
           <p>
             <strong>Save version</strong> takes an immutable snapshot of the Emitter's current state, with a
