@@ -1,5 +1,9 @@
 import type { InterceptEntry, Mode } from "../../types/domain";
 
+/** What matching needs from an entry — a saved one, or one still being
+ * put together (the CSV import's preview). */
+export type MatchableEntry = Pick<InterceptEntry, "pri_type" | "rf_mean_mhz" | "pri_mean_us" | "pw_mean_us" | "stagger_values">;
+
 /** One of the three parameters an entry is matched on. */
 export type MatchParam = "RF" | "PRI" | "PW";
 
@@ -30,7 +34,8 @@ export interface EntryMatch {
   /** Modes the entry falls inside on RF, PRI and PW. */
   matches: Mode[];
   /** Modes it misses on exactly one parameter — only listed when nothing
-   * matches fully. */
+   * matches fully, and never for CW (compared on RF alone, so "one off"
+   * would be every CW Mode). */
   near: ModeMatch[];
 }
 
@@ -38,8 +43,8 @@ function range(min: number | null | undefined, max: number | null | undefined) {
   return min == null || max == null ? null : { min, max };
 }
 
-function check(param: MatchParam, value: number, r: { min: number; max: number } | null, unit: string): ParamMiss | null {
-  if (r == null || (value >= r.min && value <= r.max)) return null;
+function check(param: MatchParam, value: number | null, r: { min: number; max: number } | null, unit: string): ParamMiss | null {
+  if (value == null || r == null || (value >= r.min && value <= r.max)) return null;
   return { param, value, min: r.min, max: r.max, unit, label: param };
 }
 
@@ -48,8 +53,9 @@ function check(param: MatchParam, value: number, r: { min: number; max: number }
  * the plain min/max when a Mode has no deltas). Null when they can't be
  * compared at all: a different PRI type, or a Mode with no values yet.
  * Jitter isn't compared — it describes the pulse train, not whether the
- * system would put the signal in this Mode. */
-export function compareEntryToMode(entry: InterceptEntry, mode: Mode): ParamMiss[] | null {
+ * system would put the signal in this Mode. A CW entry is compared on RF
+ * only — it has no pulses. */
+export function compareEntryToMode(entry: MatchableEntry, mode: Mode): ParamMiss[] | null {
   const line = mode.line;
   if (!line || mode.pri_type !== entry.pri_type) return null;
 
@@ -61,6 +67,7 @@ export function compareEntryToMode(entry: InterceptEntry, mode: Mode): ParamMiss
       "MHz",
     ),
   ];
+  if (entry.pri_type === "cw") return misses.filter((m): m is ParamMiss => m != null);
 
   if (entry.pri_type === "stagger") {
     const frameTime =
@@ -73,7 +80,7 @@ export function compareEntryToMode(entry: InterceptEntry, mode: Mode): ParamMiss
       pri = {
         ...(pri ?? {
           param: "PRI",
-          value: entry.pri_mean_us,
+          value: entry.pri_mean_us ?? 0,
           min: frameTime?.min ?? 0,
           max: frameTime?.max ?? 0,
           unit: "µs",
@@ -107,14 +114,14 @@ export function compareEntryToMode(entry: InterceptEntry, mode: Mode): ParamMiss
 
 /** Which of the Emitter's Modes an entry falls in — the question an
  * Intercept answers: is this a Mode we already have? */
-export function matchEntry(entry: InterceptEntry, modes: Mode[]): EntryMatch {
+export function matchEntry(entry: MatchableEntry, modes: Mode[]): EntryMatch {
   const matches: Mode[] = [];
   const near: ModeMatch[] = [];
   for (const mode of modes) {
     const misses = compareEntryToMode(entry, mode);
     if (misses == null) continue;
     if (misses.length === 0) matches.push(mode);
-    else if (misses.length === 1) near.push({ mode, misses });
+    else if (misses.length === 1 && entry.pri_type !== "cw") near.push({ mode, misses });
   }
   if (matches.length > 0) return { status: "match", matches, near: [] };
   return { status: near.length > 0 ? "near" : "none", matches, near };
@@ -128,7 +135,7 @@ export function describeMiss(miss: ParamMiss): string {
   return `${miss.label} ${miss.value} ${miss.unit} — Mode covers ${miss.min}–${miss.max}`;
 }
 
-export function countMatches(entries: InterceptEntry[], modes: Mode[]) {
+export function countMatches(entries: MatchableEntry[], modes: Mode[]) {
   const counts = { match: 0, near: 0, none: 0 };
   for (const e of entries) counts[matchEntry(e, modes).status] += 1;
   return counts;

@@ -61,10 +61,9 @@ class InterceptNote(UUIDPkMixin, Base):
 
 
 class InterceptEntry(UUIDPkMixin, Base):
-    """One logged observation within an Intercept — create/delete only (no
-    update endpoint), same precedent as ModeElement: a reading is either
-    right or should be deleted and re-logged, not silently rewritten after a
-    Mode may already have been derived from it.
+    """One logged observation within an Intercept. Corrected in place by a
+    full replace (see routers/intercepts.py), which keeps its id and so its
+    link to any Mode created from it — that Mode's own values don't change.
     """
 
     __tablename__ = "intercept_entries"
@@ -72,8 +71,8 @@ class InterceptEntry(UUIDPkMixin, Base):
     intercept_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("intercepts.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    # Only fixed/stagger are meaningful for a logged intercept — enforced by
-    # Pydantic (see schemas/intercept.py), not a separate DB enum.
+    # fixed, stagger or cw (X-let isn't supported yet) — enforced by Pydantic
+    # (see schemas/intercept.py), not a separate DB enum.
     pri_type: Mapped[PriType] = mapped_column(nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
@@ -85,13 +84,14 @@ class InterceptEntry(UUIDPkMixin, Base):
 
     pw_min_us: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
     pw_max_us: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
-    pw_mean_us: Mapped[float] = mapped_column(Numeric(14, 4), nullable=False)
+    # Null for a CW entry — a continuous wave has no pulses.
+    pw_mean_us: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
 
     # Literal PRI mean when pri_type is fixed; the stagger frame-time mean
-    # (same column, contextual meaning) when pri_type is stagger.
+    # (same column, contextual meaning) when pri_type is stagger. Null for CW.
     pri_min_us: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
     pri_max_us: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
-    pri_mean_us: Mapped[float] = mapped_column(Numeric(14, 4), nullable=False)
+    pri_mean_us: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
 
     # Fixed only — a single flat mean, not a min/max jitter bound.
     jitter_mean_us: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)

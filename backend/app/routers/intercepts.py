@@ -1,6 +1,8 @@
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
@@ -14,6 +16,8 @@ from app.schemas.intercept import (
     InterceptCreate,
     InterceptEntryCreate,
     InterceptEntryOut,
+    InterceptImport,
+    MAX_IMPORT_ENTRIES,
     InterceptNoteCreate,
     InterceptNoteOut,
     InterceptOut,
@@ -128,6 +132,48 @@ def create_intercept(
         changes=payload.model_dump(mode="json"),
         emitter_id=intercept.emitter_id,
     )
+    db.commit()
+    db.refresh(intercept)
+    return _attach_entry_count(db, intercept)
+
+
+@router.post(
+    "/import", response_model=InterceptOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(verify_csrf)]
+)
+def import_intercept(
+    payload: InterceptImport, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))
+) -> Intercept:
+    """Creates an Intercept with all its entries in one transaction — the CSV
+    import's save. Every entry is validated like a single POST before
+    anything is written, so a bad row leaves no half-imported Intercept."""
+    _check_emitter(db, payload.intercept.emitter_id)
+    intercept = Intercept(**payload.intercept.model_dump())
+    db.add(intercept)
+    db.flush()
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.create,
+        entity_type=AuditEntityType.intercept.value,
+        entity_id=intercept.id,
+        summary=f"Imported Intercept '{intercept.name}' with {len(payload.entries)} entries",
+        changes=payload.intercept.model_dump(mode="json"),
+        emitter_id=intercept.emitter_id,
+    )
+    entries = [InterceptEntry(intercept_id=intercept.id, **item.model_dump()) for item in payload.entries]
+    db.add_all(entries)
+    db.flush()
+    for entry, item in zip(entries, payload.entries):
+        record_audit(
+            db,
+            actor_id=user.id,
+            action=AuditAction.create,
+            entity_type=AuditEntityType.intercept_entry.value,
+            entity_id=entry.id,
+            summary=f"Added an entry to Intercept '{intercept.name}' (import)",
+            changes=item.model_dump(mode="json"),
+            emitter_id=intercept.emitter_id,
+        )
     db.commit()
     db.refresh(intercept)
     return _attach_entry_count(db, intercept)
@@ -300,7 +346,7 @@ def create_intercept_entry(
 )
 def bulk_create_intercept_entries(
     intercept_id: UUID,
-    payload: list[InterceptEntryCreate],
+    payload: Annotated[list[InterceptEntryCreate], Field(max_length=MAX_IMPORT_ENTRIES)],
     db: Session = Depends(get_db),
     user=Depends(require_role(Role.editor)),
 ) -> list[InterceptEntryOut]:

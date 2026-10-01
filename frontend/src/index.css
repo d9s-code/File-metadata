@@ -2782,6 +2782,18 @@ fieldset.edit-lock:disabled * {
 }
 
 /* --- Buttons: primary (solid), secondary (outlined), danger-outline ---- */
+/* A link that does a button's job (e.g. "Import CSV" opening a page). */
+a.button {
+  display: inline-block;
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.85rem;
+  font-size: 0.88rem;
+  font-weight: 500;
+  line-height: normal;
+  text-decoration: none;
+  background: var(--primary);
+  color: var(--on-primary);
+}
 .button.secondary {
   background: var(--card-bg);
   color: var(--text);
@@ -3150,4 +3162,112 @@ label.grow {
 }
 .data-table tbody tr.entry-unmatched > td:first-child {
   box-shadow: inset 3px 0 0 var(--badge-red-fg);
+}
+
+/* Intercept CSV import */
+.import-file-summary p {
+  margin: 0.4rem 0;
+}
+.import-skipped {
+  max-height: 12rem;
+  overflow-y: auto;
+  font-size: 0.85rem;
+  margin: 0.25rem 0;
+}
+.import-target {
+  align-self: flex-start;
+}
+.import-autogroup {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.6rem 0.8rem;
+  margin: 0 0 0.75rem;
+}
+.import-autogroup legend {
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 0 0.3rem;
+}
+.import-tolerances {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+  align-items: flex-end;
+}
+.import-tolerances input[type="number"] {
+  width: 7rem;
+}
+.import-rule {
+  margin: 0.5rem 0 0;
+  max-width: 110ch;
+}
+.import-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.9rem;
+  align-items: flex-end;
+}
+.import-filter-range span {
+  display: flex;
+  gap: 0.25rem;
+}
+.import-filter-range input {
+  width: 5.5rem;
+}
+.import-selection {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.6rem 0 0.4rem;
+  font-size: 0.9rem;
+}
+.import-selection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.import-message {
+  margin: 0.25rem 0 0.5rem;
+  font-size: 0.85rem;
+  color: var(--badge-blue-fg);
+}
+.data-table.import-groups td {
+  vertical-align: top;
+}
+.data-table tbody tr.import-excluded > td {
+  opacity: 0.55;
+}
+.import-excluded-tag {
+  margin-top: 0.2rem;
+  background: var(--badge-neutral-bg);
+  color: var(--badge-neutral-fg);
+}
+.import-group-reports > td {
+  background: var(--bg);
+  padding: 0.5rem 0.75rem 0.75rem 2.5rem;
+}
+.list-pager {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.6rem;
+  font-size: 0.9rem;
+}
+.import-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+}
+.import-footer p {
+  margin: 0;
+}
+.import-footer .button.primary {
+  margin-left: auto;
 }

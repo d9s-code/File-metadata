@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useEmitter } from "../state/hooks/useEmitters";
 import { useEwGroups } from "../state/hooks/useEwGroups";
@@ -29,11 +29,17 @@ import { InterceptFormModal } from "../components/intercepts/InterceptFormModal"
 import { EntryFormModal } from "../components/intercepts/EntryFormModal";
 import { EntryMatchCell, MatchCounts } from "../components/intercepts/EntryMatchCell";
 import { formatDay, modeLink } from "../components/intercepts/interceptFormat";
-import { countMatches, matchEntry } from "../components/intercepts/interceptMatch";
+import { matchEntry, type EntryMatch, type EntryMatchStatus } from "../components/intercepts/interceptMatch";
 import type { Emitter, InterceptEntry, Mode } from "../types/domain";
 
-/** A measured value: the mean, with the measured range under it when there is one. */
-function MeasuredValue({ mean, min, max }: { mean: number; min?: number | null; max?: number | null }) {
+const PAGE_SIZE = 100;
+
+const PRI_TYPE_LABEL: Record<string, string> = { fixed: "Fixed", stagger: "Stagger", cw: "CW", xlet: "X-let" };
+
+/** A measured value: the mean, with the measured range under it when there
+ * is one. A dash when the entry has none (a CW entry's PRI and PW). */
+function MeasuredValue({ mean, min, max }: { mean: number | null; min?: number | null; max?: number | null }) {
+  if (mean == null) return <span className="hint-text">—</span>;
   return (
     <>
       <strong>{mean}</strong>
@@ -51,12 +57,14 @@ function CreateModeFromEntry({ entry, emitterId, onClose }: { entry: InterceptEn
   const { data: sources } = useSources(emitterId);
   const { data: functionGroups } = useFunctionGroups(emitterId);
   const priLabel = entry.pri_type === "stagger" ? "Frame time" : "PRI";
+  const prefilled = entry.pri_type === "cw" ? "RF" : `RF/${priLabel}/PW`;
   // ModeForm picks its default EW Group and Source when it mounts, so wait for them.
   if (!ewGroups || !sources) return <LoadingState label="Loading EW Groups and Sources…" />;
   return (
     <>
       <p className="hint-text">
-        RF/{priLabel}/PW pre-filled from this entry (min/max fall back to the mean when not measured).
+        {prefilled} pre-filled from this entry (min/max fall back to the mean when not measured).
+        {entry.pri_type === "cw" && " A CW entry has no pulses, so fill in the Mode's PW range yourself."}
         {entry.pri_type === "fixed" && " Jitter min and max both take the entry's jitter mean."}
       </p>
       <ModeForm
@@ -73,11 +81,11 @@ function CreateModeFromEntry({ entry, emitterId, onClose }: { entry: InterceptEn
             values: {
               rf_min_mhz: entry.rf_min_mhz ?? entry.rf_mean_mhz,
               rf_max_mhz: entry.rf_max_mhz ?? entry.rf_mean_mhz,
-              pw_min_us: entry.pw_min_us ?? entry.pw_mean_us,
-              pw_max_us: entry.pw_max_us ?? entry.pw_mean_us,
+              pw_min_us: entry.pw_min_us ?? entry.pw_mean_us ?? undefined,
+              pw_max_us: entry.pw_max_us ?? entry.pw_mean_us ?? undefined,
               pri_type: entry.pri_type,
-              pri_min_us: entry.pri_type === "fixed" ? (entry.pri_min_us ?? entry.pri_mean_us) : undefined,
-              pri_max_us: entry.pri_type === "fixed" ? (entry.pri_max_us ?? entry.pri_mean_us) : undefined,
+              pri_min_us: entry.pri_type === "fixed" ? (entry.pri_min_us ?? entry.pri_mean_us ?? undefined) : undefined,
+              pri_max_us: entry.pri_type === "fixed" ? (entry.pri_max_us ?? entry.pri_mean_us ?? undefined) : undefined,
               jitter_mean_us: entry.pri_type === "fixed" ? (entry.jitter_mean_us ?? undefined) : undefined,
               pri_stagger_values_us: entry.pri_type === "stagger" ? (entry.stagger_values ?? undefined) : undefined,
             },
@@ -92,7 +100,8 @@ function CreateModeFromEntry({ entry, emitterId, onClose }: { entry: InterceptEn
 function EntryRow({
   entry,
   emitter,
-  modes,
+  match,
+  modeById,
   isMine,
   canWrite,
   onEdit,
@@ -100,7 +109,9 @@ function EntryRow({
 }: {
   entry: InterceptEntry;
   emitter: Emitter | undefined;
-  modes: Mode[] | undefined;
+  /** Null while the Modes load. */
+  match: EntryMatch | null;
+  modeById: Map<string, Mode>;
   isMine: boolean;
   canWrite: boolean;
   onEdit: (entry: InterceptEntry) => void;
@@ -108,14 +119,12 @@ function EntryRow({
 }) {
   const [showCreateMode, setShowCreateMode] = useState(false);
   const emitterId = emitter?.id ?? "";
-  const modeById = new Map((modes ?? []).map((m) => [m.id, m]));
   const createdModes = entry.derived_mode_ids.map((id) => modeById.get(id)).filter((m): m is Mode => !!m);
-  const match = modes ? matchEntry(entry, modes) : null;
 
   return (
     <>
       <tr className={match?.status === "none" ? "entry-unmatched" : undefined}>
-        <td>{entry.pri_type === "stagger" ? "Stagger" : "Fixed"}</td>
+        <td>{PRI_TYPE_LABEL[entry.pri_type] ?? entry.pri_type}</td>
         <td>
           <MeasuredValue mean={entry.rf_mean_mhz} min={entry.rf_min_mhz} max={entry.rf_max_mhz} />
         </td>
@@ -124,7 +133,9 @@ function EntryRow({
           {entry.pri_type === "stagger" && <div className="hint-text cell-subline">frame time</div>}
         </td>
         <td>
-          {entry.pri_type === "fixed"
+          {entry.pri_type === "cw"
+            ? <span className="hint-text">—</span>
+            : entry.pri_type === "fixed"
             ? (entry.jitter_mean_us ?? "—")
             : entry.stagger_values && entry.stagger_values.length > 0
               ? entry.stagger_values.join(", ")
@@ -205,10 +216,26 @@ export function InterceptDetailPage() {
   const [showEditDetails, setShowEditDetails] = useState(false);
   const [entryForm, setEntryForm] = useState<{ entry?: InterceptEntry } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [show, setShow] = useState<"all" | EntryMatchStatus>("all");
+  const [page, setPage] = useState(0);
+
+  // Matched once per change rather than per render — an imported Intercept
+  // can hold thousands of entries.
+  const matched = useMemo(
+    () => (entries ?? []).map((entry) => ({ entry, match: modes ? matchEntry(entry, modes) : null })),
+    [entries, modes],
+  );
+  const modeById = useMemo(() => new Map((modes ?? []).map((m) => [m.id, m])), [modes]);
 
   if (isLoading || !intercept) return <LoadingState label="Loading intercept…" />;
 
-  const counts = entries && modes ? countMatches(entries, modes) : null;
+  const counts = modes
+    ? matched.reduce((c, { match }) => ({ ...c, [match!.status]: c[match!.status] + 1 }), { match: 0, near: 0, none: 0 })
+    : null;
+  const shown = show === "all" ? matched : matched.filter(({ match }) => match?.status === show);
+  const pageCount = Math.max(1, Math.ceil(shown.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const pageRows = shown.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
 
   async function handleDeleteEntry(entry: InterceptEntry) {
     setError(null);
@@ -257,6 +284,7 @@ export function InterceptDetailPage() {
               label="More ▾"
               items={[
                 { label: "Edit name, date & description", onSelect: () => setShowEditDetails(true) },
+                { label: "Import entries from CSV", to: `/intercepts/import?intercept=${intercept.id}` },
                 { label: "Delete Intercept", danger: true, onSelect: () => void handleDeleteIntercept() },
               ]}
             />
@@ -272,7 +300,24 @@ export function InterceptDetailPage() {
           <h4>
             Entries <span className="section-count">{entries?.length ?? 0}</span>
           </h4>
-          {counts && <MatchCounts counts={counts} />}
+          <span className="section-actions">
+            {counts && <MatchCounts counts={counts} />}
+            {counts && (entries?.length ?? 0) > 10 && (
+              <select
+                aria-label="Show entries"
+                value={show}
+                onChange={(e) => {
+                  setShow(e.target.value as typeof show);
+                  setPage(0);
+                }}
+              >
+                <option value="all">All entries</option>
+                <option value="none">No matching Mode</option>
+                <option value="near">Near misses</option>
+                <option value="match">Matches</option>
+              </select>
+            )}
+          </span>
         </div>
         <p className="hint-text">
           Matched against {emitter?.name ?? "the Emitter"}&apos;s Modes on RF, PRI (frame time for a stagger) and PW, using
@@ -306,12 +351,13 @@ export function InterceptDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {entries.map((entry) => (
+                {pageRows.map(({ entry, match }) => (
                   <EntryRow
                     key={entry.id}
                     entry={entry}
                     emitter={emitter}
-                    modes={modes}
+                    match={match}
+                    modeById={modeById}
                     isMine={isMine}
                     canWrite={canWrite}
                     onEdit={(e) => setEntryForm({ entry: e })}
@@ -320,6 +366,26 @@ export function InterceptDetailPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+        {entries && entries.length > 0 && shown.length === 0 && <p className="hint-text">No entries of this kind.</p>}
+        {pageCount > 1 && (
+          <div className="list-pager">
+            <button type="button" className="button secondary small" disabled={safePage === 0} onClick={() => setPage(safePage - 1)}>
+              ← Previous
+            </button>
+            <span>
+              Entries {(safePage * PAGE_SIZE + 1).toLocaleString()}–{Math.min((safePage + 1) * PAGE_SIZE, shown.length).toLocaleString()} of{" "}
+              {shown.length.toLocaleString()}
+            </span>
+            <button
+              type="button"
+              className="button secondary small"
+              disabled={safePage >= pageCount - 1}
+              onClick={() => setPage(safePage + 1)}
+            >
+              Next →
+            </button>
           </div>
         )}
       </section>

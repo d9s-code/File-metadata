@@ -95,9 +95,14 @@ export function InterceptsPage() {
       <div className="page-header-row">
         <h1>Intercepts</h1>
         <RequireRole minimum="editor">
-          <button className="button primary" onClick={() => setShowAddModal(true)}>
-            + Add Intercept
-          </button>
+          <span className="section-actions">
+            <Link className="button secondary" to="/intercepts/import">
+              Import CSV
+            </Link>
+            <button className="button primary" onClick={() => setShowAddModal(true)}>
+              + Add Intercept
+            </button>
+          </span>
         </RequireRole>
       </div>
       <p className="hint-text">

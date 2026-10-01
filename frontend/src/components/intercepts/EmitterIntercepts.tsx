@@ -35,9 +35,14 @@ export function EmitterIntercepts({ emitterId }: { emitterId: string }) {
           Intercepts <span className="section-count">{intercepts?.length ?? 0}</span>
         </h4>
         <RequireRole minimum="editor">
-          <button type="button" className="button secondary small" onClick={() => setShowAdd(true)}>
-            + Add Intercept
-          </button>
+          <span className="section-actions">
+            <Link className="button secondary small" to={`/intercepts/import?emitter=${emitterId}`}>
+              Import CSV
+            </Link>
+            <button type="button" className="button secondary small" onClick={() => setShowAdd(true)}>
+              + Add Intercept
+            </button>
+          </span>
         </RequireRole>
       </div>
       <p className="hint-text">

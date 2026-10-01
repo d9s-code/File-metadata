@@ -218,12 +218,13 @@ export interface InterceptEntryFields {
   rf_mean_mhz: number;
   pw_min_us?: number | null;
   pw_max_us?: number | null;
-  pw_mean_us: number;
+  /** Null for a CW entry — no pulses. */
+  pw_mean_us: number | null;
   /** Literal PRI mean when pri_type is fixed; the stagger frame-time mean
-   * (same field, contextual meaning) when pri_type is stagger. */
+   * (same field, contextual meaning) when pri_type is stagger. Null for CW. */
   pri_min_us?: number | null;
   pri_max_us?: number | null;
-  pri_mean_us: number;
+  pri_mean_us: number | null;
   /** Fixed only — a single flat mean, not a min/max jitter bound. */
   jitter_mean_us?: number | null;
   /** Stagger only (ordered). */
@@ -247,8 +248,8 @@ export interface InterceptEntryBrief {
   pri_type: PriType;
   created_at: string;
   rf_mean_mhz: number;
-  pw_mean_us: number;
-  pri_mean_us: number;
+  pw_mean_us: number | null;
+  pri_mean_us: number | null;
 }
 
 export interface InterceptNote {

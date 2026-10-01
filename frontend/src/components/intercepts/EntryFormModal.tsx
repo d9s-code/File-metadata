@@ -1,11 +1,20 @@
 import { useState, type FormEvent } from "react";
 import { Modal } from "../common/Modal";
 import { ApiRequestError } from "../../api/client";
-import { useCreateInterceptEntry, useReplaceInterceptEntry } from "../../state/hooks/useIntercepts";
+import {
+  useCreateInterceptEntry,
+  useReplaceInterceptEntry,
+} from "../../state/hooks/useIntercepts";
 import type { InterceptEntryInput } from "../../api/intercepts";
 import type { InterceptEntry } from "../../types/domain";
 
-type EntryPriType = "fixed" | "stagger";
+type EntryPriType = "fixed" | "stagger" | "cw";
+
+const TYPE_LABEL: Record<EntryPriType, string> = {
+  fixed: "Fixed PRI",
+  stagger: "Stagger",
+  cw: "CW",
+};
 
 const str = (v: number | null | undefined) => (v == null ? "" : String(v));
 const num = (v: string) => (v.trim() === "" ? null : Number(v));
@@ -32,15 +41,28 @@ export function EntryFormModal({
 }) {
   const createEntry = useCreateInterceptEntry(interceptId);
   const replaceEntry = useReplaceInterceptEntry(interceptId);
-  const [priType, setPriType] = useState<EntryPriType>(entry?.pri_type === "stagger" ? "stagger" : "fixed");
+  const [priType, setPriType] = useState<EntryPriType>(
+    entry?.pri_type === "stagger" || entry?.pri_type === "cw"
+      ? entry.pri_type
+      : "fixed",
+  );
   const [rfMean, setRfMean] = useState(str(entry?.rf_mean_mhz));
   const [priMean, setPriMean] = useState(str(entry?.pri_mean_us));
-  const [jitterMean, setJitterMean] = useState(entry ? str(entry.jitter_mean_us) || "0" : "0");
-  const [stagger, setStagger] = useState(entry?.stagger_values?.join(", ") ?? "");
-  const [pwMean, setPwMean] = useState(str(entry?.pw_mean_us));
-  const hasRanges = [entry?.rf_min_mhz, entry?.rf_max_mhz, entry?.pri_min_us, entry?.pri_max_us, entry?.pw_min_us, entry?.pw_max_us].some(
-    (v) => v != null,
+  const [jitterMean, setJitterMean] = useState(
+    entry ? str(entry.jitter_mean_us) || "0" : "0",
   );
+  const [stagger, setStagger] = useState(
+    entry?.stagger_values?.join(", ") ?? "",
+  );
+  const [pwMean, setPwMean] = useState(str(entry?.pw_mean_us));
+  const hasRanges = [
+    entry?.rf_min_mhz,
+    entry?.rf_max_mhz,
+    entry?.pri_min_us,
+    entry?.pri_max_us,
+    entry?.pw_min_us,
+    entry?.pw_max_us,
+  ].some((v) => v != null);
   const [showRanges, setShowRanges] = useState(hasRanges);
   const [rfMin, setRfMin] = useState(str(entry?.rf_min_mhz));
   const [rfMax, setRfMax] = useState(str(entry?.rf_max_mhz));
@@ -53,10 +75,15 @@ export function EntryFormModal({
   const pending = createEntry.isPending || replaceEntry.isPending;
 
   const staggerValues = parseStagger(stagger);
-  const staggerValid = staggerValues.length > 0 && staggerValues.every((v) => Number.isFinite(v));
+  const staggerValid =
+    staggerValues.length > 0 && staggerValues.every((v) => Number.isFinite(v));
   // A stagger's frame time is the sum of its positions unless measured directly.
-  const staggerSum = staggerValid ? Math.round(staggerValues.reduce((a, b) => a + b, 0) * 1000) / 1000 : null;
+  const staggerSum = staggerValid
+    ? Math.round(staggerValues.reduce((a, b) => a + b, 0) * 1000) / 1000
+    : null;
   const priLabel = priType === "stagger" ? "Frame time" : "PRI";
+  // A continuous wave has no pulses: RF only.
+  const pulsed = priType !== "cw";
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -65,8 +92,10 @@ export function EntryFormModal({
       setError("Stagger values must be numbers, separated by commas.");
       return;
     }
-    const priMeanValue = num(priMean) ?? (priType === "stagger" ? staggerSum : null);
-    if (priMeanValue == null) {
+    const priMeanValue = pulsed
+      ? (num(priMean) ?? (priType === "stagger" ? staggerSum : null))
+      : null;
+    if (pulsed && priMeanValue == null) {
       setError(`${priLabel} mean is required.`);
       return;
     }
@@ -74,15 +103,15 @@ export function EntryFormModal({
       pri_type: priType,
       rf_mean_mhz: Number(rfMean),
       pri_mean_us: priMeanValue,
-      pw_mean_us: Number(pwMean),
+      pw_mean_us: pulsed ? Number(pwMean) : null,
       jitter_mean_us: priType === "fixed" ? (num(jitterMean) ?? 0) : null,
       stagger_values: priType === "stagger" ? staggerValues : null,
       rf_min_mhz: showRanges ? num(rfMin) : null,
       rf_max_mhz: showRanges ? num(rfMax) : null,
-      pri_min_us: showRanges ? num(priMin) : null,
-      pri_max_us: showRanges ? num(priMax) : null,
-      pw_min_us: showRanges ? num(pwMin) : null,
-      pw_max_us: showRanges ? num(pwMax) : null,
+      pri_min_us: showRanges && pulsed ? num(priMin) : null,
+      pri_max_us: showRanges && pulsed ? num(priMax) : null,
+      pw_min_us: showRanges && pulsed ? num(pwMin) : null,
+      pw_max_us: showRanges && pulsed ? num(pwMax) : null,
       notes: notes.trim() || null,
     };
     try {
@@ -90,11 +119,17 @@ export function EntryFormModal({
       else await createEntry.mutateAsync(input);
       onClose();
     } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : "Failed to save entry");
+      setError(
+        err instanceof ApiRequestError ? err.message : "Failed to save entry",
+      );
     }
   }
 
-  const numberInput = (value: string, set: (v: string) => void, opts: { required?: boolean; placeholder?: string } = {}) => (
+  const numberInput = (
+    value: string,
+    set: (v: string) => void,
+    opts: { required?: boolean; placeholder?: string } = {},
+  ) => (
     <input
       type="number"
       step="any"
@@ -109,8 +144,12 @@ export function EntryFormModal({
   return (
     <Modal title={entry ? "Edit entry" : "Add entry"} onClose={onClose} wide>
       <form className="edit-fields entry-form" onSubmit={handleSubmit}>
-        <div className="theme-toggle entry-type-toggle" role="group" aria-label="PRI type">
-          {(["fixed", "stagger"] as const).map((t) => (
+        <div
+          className="theme-toggle entry-type-toggle"
+          role="group"
+          aria-label="PRI type"
+        >
+          {(["fixed", "stagger", "cw"] as const).map((t) => (
             <button
               key={t}
               type="button"
@@ -118,7 +157,7 @@ export function EntryFormModal({
               className={priType === t ? "active" : ""}
               onClick={() => setPriType(t)}
             >
-              {t === "fixed" ? "Fixed PRI" : "Stagger"}
+              {TYPE_LABEL[t]}
             </button>
           ))}
         </div>
@@ -128,19 +167,24 @@ export function EntryFormModal({
             RF mean (MHz)
             {numberInput(rfMean, setRfMean, { required: true })}
           </label>
-          <label>
-            {priLabel} mean (µs)
-            {numberInput(priMean, setPriMean, {
-              required: priType === "fixed",
-              placeholder: priType === "stagger" && staggerSum != null ? `${staggerSum} (sum)` : undefined,
-            })}
-          </label>
+          {pulsed && (
+            <label>
+              {priLabel} mean (µs)
+              {numberInput(priMean, setPriMean, {
+                required: priType === "fixed",
+                placeholder:
+                  priType === "stagger" && staggerSum != null
+                    ? `${staggerSum} (sum)`
+                    : undefined,
+              })}
+            </label>
+          )}
           {priType === "fixed" ? (
             <label>
               Jitter mean (µs)
               {numberInput(jitterMean, setJitterMean, { required: true })}
             </label>
-          ) : (
+          ) : priType === "stagger" ? (
             <label>
               Stagger values (µs, in order)
               <input
@@ -151,17 +195,32 @@ export function EntryFormModal({
                 required
               />
             </label>
+          ) : null}
+          {pulsed && (
+            <label>
+              PW mean (µs)
+              {numberInput(pwMean, setPwMean, { required: true })}
+            </label>
           )}
-          <label>
-            PW mean (µs)
-            {numberInput(pwMean, setPwMean, { required: true })}
-          </label>
         </div>
+        {!pulsed && (
+          <p className="hint-text">
+            A continuous wave has no pulses, so only RF is recorded.
+          </p>
+        )}
         {priType === "stagger" && (
-          <p className="hint-text">Leave the frame time mean blank to use the sum of the stagger values.</p>
+          <p className="hint-text">
+            Leave the frame time mean blank to use the sum of the stagger
+            values.
+          </p>
         )}
 
-        <button type="button" className="link-button" aria-expanded={showRanges} onClick={() => setShowRanges((v) => !v)}>
+        <button
+          type="button"
+          className="link-button"
+          aria-expanded={showRanges}
+          onClick={() => setShowRanges((v) => !v)}
+        >
           {showRanges ? "▾ Measured min / max" : "▸ Add measured min / max"}
         </button>
         {showRanges && (
@@ -174,33 +233,45 @@ export function EntryFormModal({
               RF max (MHz)
               {numberInput(rfMax, setRfMax)}
             </label>
-            <label>
-              {priLabel} min (µs)
-              {numberInput(priMin, setPriMin)}
-            </label>
-            <label>
-              {priLabel} max (µs)
-              {numberInput(priMax, setPriMax)}
-            </label>
-            <label>
-              PW min (µs)
-              {numberInput(pwMin, setPwMin)}
-            </label>
-            <label>
-              PW max (µs)
-              {numberInput(pwMax, setPwMax)}
-            </label>
+            {pulsed && (
+              <>
+                <label>
+                  {priLabel} min (µs)
+                  {numberInput(priMin, setPriMin)}
+                </label>
+                <label>
+                  {priLabel} max (µs)
+                  {numberInput(priMax, setPriMax)}
+                </label>
+                <label>
+                  PW min (µs)
+                  {numberInput(pwMin, setPwMin)}
+                </label>
+                <label>
+                  PW max (µs)
+                  {numberInput(pwMax, setPwMax)}
+                </label>
+              </>
+            )}
           </div>
         )}
 
         <label>
           Notes
-          <textarea className="edit-input" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+          <textarea
+            className="edit-input"
+            rows={2}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+          />
         </label>
         {entry && entry.derived_mode_ids.length > 0 && (
           <p className="hint-text">
-            {entry.derived_mode_ids.length === 1 ? "A Mode was" : `${entry.derived_mode_ids.length} Modes were`} created from
-            this entry. It stays linked, but its values don't change.
+            {entry.derived_mode_ids.length === 1
+              ? "A Mode was"
+              : `${entry.derived_mode_ids.length} Modes were`}{" "}
+            created from this entry. It stays linked, but its values don't
+            change.
           </p>
         )}
         {error && <div className="error-text">{error}</div>}
@@ -208,7 +279,12 @@ export function EntryFormModal({
           <button type="submit" className="button primary" disabled={pending}>
             {pending ? "Saving…" : entry ? "Save entry" : "Add entry"}
           </button>
-          <button type="button" className="button secondary" onClick={onClose} disabled={pending}>
+          <button
+            type="button"
+            className="button secondary"
+            onClick={onClose}
+            disabled={pending}
+          >
             Cancel
           </button>
         </div>

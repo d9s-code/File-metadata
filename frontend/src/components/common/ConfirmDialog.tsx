@@ -3,14 +3,20 @@ import { useCallback, useState, type ReactNode } from "react";
 interface ConfirmState {
   message: string;
   resolve: (value: boolean) => void;
+  confirmLabel?: string;
 }
 
-export function useConfirmDialog(): { confirmDelete: (message: string) => Promise<boolean>; dialog: ReactNode } {
+/** Pass `confirmLabel` for a confirmation that isn't a delete (the button
+ * then isn't styled as destructive). */
+export function useConfirmDialog(): {
+  confirmDelete: (message: string, options?: { confirmLabel?: string }) => Promise<boolean>;
+  dialog: ReactNode;
+} {
   const [state, setState] = useState<ConfirmState | null>(null);
 
-  const confirmDelete = useCallback((message: string) => {
+  const confirmDelete = useCallback((message: string, options?: { confirmLabel?: string }) => {
     return new Promise<boolean>((resolve) => {
-      setState({ message, resolve });
+      setState({ message, resolve, confirmLabel: options?.confirmLabel });
     });
   }, []);
 
@@ -27,9 +33,15 @@ export function useConfirmDialog(): { confirmDelete: (message: string) => Promis
           <button type="button" className="icon-button" onClick={() => respond(false)}>
             Cancel
           </button>
-          <button type="button" className="danger-button" onClick={() => respond(true)}>
-            Delete
-          </button>
+          {state.confirmLabel ? (
+            <button type="button" className="button primary" onClick={() => respond(true)}>
+              {state.confirmLabel}
+            </button>
+          ) : (
+            <button type="button" className="danger-button" onClick={() => respond(true)}>
+              Delete
+            </button>
+          )}
         </div>
       </div>
     </div>

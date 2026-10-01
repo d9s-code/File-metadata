@@ -20,6 +20,9 @@ export interface InterceptEntryInput extends InterceptEntryFields {
   pri_type: PriType;
 }
 
+/** Entries per import — matches the backend's MAX_IMPORT_ENTRIES. */
+export const MAX_IMPORT_ENTRIES = 5000;
+
 export const interceptsApi = {
   list: (params?: { emitterId?: string; search?: string }) => {
     const query = new URLSearchParams();
@@ -30,6 +33,12 @@ export const interceptsApi = {
   },
   get: (interceptId: string) => api.get<Intercept>(`/intercepts/${interceptId}`),
   create: (input: InterceptInput) => api.post<Intercept>("/intercepts", input),
+  /** A new Intercept and all its entries, in one transaction. */
+  importNew: (intercept: InterceptInput, entries: InterceptEntryInput[]) =>
+    api.post<Intercept>("/intercepts/import", { intercept, entries }),
+  /** Entries added to an existing Intercept, all or nothing. */
+  bulkCreateEntries: (interceptId: string, entries: InterceptEntryInput[]) =>
+    api.post<InterceptEntry[]>(`/intercepts/${interceptId}/entries/bulk`, entries),
   update: (interceptId: string, input: InterceptUpdateInput) =>
     api.patch<Intercept>(`/intercepts/${interceptId}`, input),
   delete: (interceptId: string) => api.delete<void>(`/intercepts/${interceptId}`),

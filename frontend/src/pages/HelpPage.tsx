@@ -52,7 +52,10 @@ const TOC: TocNode[] = [
   {
     id: "intercepts",
     title: "Intercepts",
-    children: [{ id: "intercept-detail", title: "Intercept detail" }],
+    children: [
+      { id: "intercept-import", title: "Importing from CSV" },
+      { id: "intercept-detail", title: "Intercept detail" },
+    ],
   },
   { id: "audit-log", title: "Audit Log" },
 ];
@@ -563,11 +566,40 @@ export function HelpPage() {
         <p>
           Each entry records RF, PRI, and PW as a required mean, with an optional measured min and max.
           Pulse-train character depends on the entry's type: a <strong>Fixed</strong> entry gets a single
-          flat jitter mean; a <strong>Stagger</strong> entry gets an ordered list of stagger values instead
+          flat jitter mean; a <strong>CW</strong> entry has RF only (no pulses, so no PRI or PW, and it's matched
+          on RF alone); a <strong>Stagger</strong> entry gets an ordered list of stagger values instead
           (and its PRI mean field is read as the stagger frame-time mean — left blank, it's the sum of the
           stagger values). Each entry also has its own
           short note, separate from the container's Analyst notes.
         </p>
+
+        <div className="help-subsection" id="intercept-import">
+          <h3>Importing from CSV</h3>
+          <p>
+            <strong>Import CSV</strong> (on the Intercepts list, an Emitter&apos;s Intercepts tab, or an Intercept&apos;s
+            More menu) reads an <strong>EmitterTrackParameters</strong> export. The file is read in your browser and
+            nothing is saved until you press <strong>Import</strong>. Each line is one report: RF in MHz, and PRI,
+            pulse width, jitter and stagger positions in ns, converted to µs. <code>Simple</code> becomes Fixed;{" "}
+            <code>Stagger</code> keeps its first <code>Stagger_Count</code> positions and uses <code>BasePRI</code> as
+            the frame time; <code>CW</code> keeps RF only. X-let lines are skipped for now, and every skipped line is
+            listed with the reason.
+          </p>
+          <p>
+            The Emitter is the one whose <strong>designation</strong> equals the ELNOT the system identified the
+            reports as, when exactly one does — the page says when it picked one that way. You can always choose
+            another, and import into a new Intercept or add to an existing one.
+          </p>
+          <p>
+            Each row in the grouping table becomes one entry: the mean of its reports, with their lowest and highest
+            values as the measured range, and a note of which file lines it came from. Every report starts as its own
+            row. Group them yourself: filter (by type, RF/PRI/PW, track or identification), select rows, and{" "}
+            <strong>Merge into one</strong>; <strong>Split</strong> or <strong>Take out</strong> undoes it, and{" "}
+            <strong>Exclude</strong> leaves rows out of the import. <strong>Auto group</strong> uses the tolerances
+            you set and only the rule written next to it: reports of the same PRI type join a group when they are
+            within the tolerances of every report already in it (optionally only on the same track). It never runs
+            on its own. One import takes up to 5,000 entries.
+          </p>
+        </div>
 
         <div className="help-subsection" id="intercept-detail">
           <h3>Intercept detail</h3>

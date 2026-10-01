@@ -351,3 +351,82 @@ def test_list_every_entry_on_an_emitter(editor_client, emitter_ctx):
     resp = editor_client.get("/intercepts/entries", params={"emitter_id": emitter_id})
     assert resp.status_code == 200, resp.text
     assert sorted(e["intercept_id"] for e in resp.json()) == sorted([a["id"], b["id"]])
+
+
+CW_ENTRY = {"pri_type": "cw", "rf_mean_mhz": 8080.118, "rf_min_mhz": 8080.1, "rf_max_mhz": 8080.2}
+
+
+def test_cw_entry_takes_rf_only(editor_client, emitter_ctx):
+    intercept = _create_intercept(editor_client, emitter_ctx["emitter"]["id"])
+    resp = editor_client.post(f"/intercepts/{intercept['id']}/entries", json=CW_ENTRY)
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert body["pri_type"] == "cw"
+    assert body["pri_mean_us"] is None and body["pw_mean_us"] is None
+
+    for extra in ({"pw_mean_us": 1.0}, {"pri_mean_us": 1000}, {"jitter_mean_us": 0}, {"stagger_values": [1, 2]}):
+        resp = editor_client.post(f"/intercepts/{intercept['id']}/entries", json={**CW_ENTRY, **extra})
+        assert resp.status_code == 422, (extra, resp.text)
+
+
+def test_xlet_entries_are_rejected(editor_client, emitter_ctx):
+    intercept = _create_intercept(editor_client, emitter_ctx["emitter"]["id"])
+    resp = editor_client.post(
+        f"/intercepts/{intercept['id']}/entries", json={"pri_type": "xlet", "rf_mean_mhz": 9500}
+    )
+    assert resp.status_code == 422
+
+
+def test_import_creates_intercept_and_entries_together(editor_client, emitter_ctx):
+    emitter_id = emitter_ctx["emitter"]["id"]
+    resp = editor_client.post(
+        "/intercepts/import",
+        json={
+            "intercept": {"emitter_id": emitter_id, "name": "OPR 103", "intercepted_on": "2025-12-01"},
+            "entries": [FIXED_ENTRY, STAGGER_ENTRY, CW_ENTRY],
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    intercept = resp.json()
+    assert intercept["entry_count"] == 3
+    assert intercept["intercepted_on"] == "2025-12-01"
+    types = sorted(e["pri_type"] for e in editor_client.get(f"/intercepts/{intercept['id']}/entries").json())
+    assert types == ["cw", "fixed", "stagger"]
+
+
+def test_import_with_a_bad_entry_creates_nothing(editor_client, emitter_ctx):
+    emitter_id = emitter_ctx["emitter"]["id"]
+    bad = {k: v for k, v in FIXED_ENTRY.items() if k != "jitter_mean_us"}
+    resp = editor_client.post(
+        "/intercepts/import",
+        json={"intercept": {"emitter_id": emitter_id, "name": "Half"}, "entries": [FIXED_ENTRY, bad]},
+    )
+    assert resp.status_code == 422
+    resp = editor_client.post(
+        "/intercepts/import", json={"intercept": {"emitter_id": emitter_id, "name": "Empty"}, "entries": []}
+    )
+    assert resp.status_code == 422
+    names = {i["name"] for i in editor_client.get("/intercepts", params={"emitter_id": emitter_id}).json()}
+    assert not names & {"Half", "Empty"}
+
+
+def test_viewer_cannot_import(viewer_client, emitter_ctx):
+    resp = viewer_client.post(
+        "/intercepts/import",
+        json={"intercept": {"emitter_id": emitter_ctx["emitter"]["id"], "name": "X"}, "entries": [FIXED_ENTRY]},
+    )
+    assert resp.status_code == 403
+
+
+def test_import_caps_entries_per_request(editor_client, emitter_ctx):
+    from app.schemas import intercept as intercept_schema
+
+    intercept = _create_intercept(editor_client, emitter_ctx["emitter"]["id"])
+    too_many = [CW_ENTRY] * (intercept_schema.MAX_IMPORT_ENTRIES + 1)
+    resp = editor_client.post(f"/intercepts/{intercept['id']}/entries/bulk", json=too_many)
+    assert resp.status_code == 422
+    resp = editor_client.post(
+        "/intercepts/import",
+        json={"intercept": {"emitter_id": emitter_ctx["emitter"]["id"], "name": "Big"}, "entries": too_many},
+    )
+    assert resp.status_code == 422

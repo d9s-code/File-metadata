@@ -12,12 +12,14 @@ class InterceptEntryFields(BaseModel):
     rf_mean_mhz: float
     pw_min_us: float | None = None
     pw_max_us: float | None = None
-    pw_mean_us: float
+    # Required for fixed/stagger, absent for CW (see
+    # validate_intercept_entry_pri_type).
+    pw_mean_us: float | None = None
     # Literal PRI mean when pri_type is fixed; stagger frame-time mean
     # (same field, contextual meaning) when pri_type is stagger.
     pri_min_us: float | None = None
     pri_max_us: float | None = None
-    pri_mean_us: float
+    pri_mean_us: float | None = None
     jitter_mean_us: float | None = None
     stagger_values: list[float] | None = None
     notes: str | None = None
@@ -34,11 +36,15 @@ class InterceptEntryFields(BaseModel):
 
 
 def validate_intercept_entry_pri_type(pri_type: PriType, fields: InterceptEntryFields) -> None:
-    """Enforces the fixed-vs-stagger mutual exclusivity of an entry's
-    pulse-train character fields — mirrors validate_pri_type_fields in
-    schemas/mode.py, narrowed to the two PRI types an Intercept entry
-    supports.
+    """Enforces which fields each PRI type takes — mirrors
+    validate_pri_type_fields in schemas/mode.py, narrowed to the types an
+    Intercept entry supports (fixed, stagger, CW; not X-let yet).
     """
+    if pri_type in (PriType.fixed, PriType.stagger):
+        if fields.pri_mean_us is None:
+            raise ValueError(f"{pri_type.value.capitalize()} PRI requires pri_mean_us")
+        if fields.pw_mean_us is None:
+            raise ValueError(f"{pri_type.value.capitalize()} PRI requires pw_mean_us")
     if pri_type == PriType.fixed:
         if fields.jitter_mean_us is None:
             raise ValueError("Fixed PRI requires jitter_mean_us")
@@ -49,8 +55,16 @@ def validate_intercept_entry_pri_type(pri_type: PriType, fields: InterceptEntryF
             raise ValueError("Stagger PRI requires a non-empty stagger_values sequence")
         if fields.jitter_mean_us is not None:
             raise ValueError("Stagger PRI must not set jitter_mean_us")
+    elif pri_type == PriType.cw:
+        # A continuous wave: RF only — no pulses, so no PRI, PW or jitter.
+        pulse_fields = (
+            fields.pri_min_us, fields.pri_max_us, fields.pri_mean_us,
+            fields.pw_min_us, fields.pw_max_us, fields.pw_mean_us, fields.jitter_mean_us,
+        )
+        if any(v is not None for v in pulse_fields) or fields.stagger_values:
+            raise ValueError("CW carries RF only — no PRI, PW, jitter or stagger values")
     else:
-        raise ValueError("Intercept entries only support fixed or stagger PRI")
+        raise ValueError("Intercept entries support fixed, stagger or CW PRI (not X-let yet)")
 
 
 class InterceptEntryCreate(InterceptEntryFields):
@@ -84,8 +98,8 @@ class InterceptEntryBrief(BaseModel):
     pri_type: PriType
     created_at: datetime
     rf_mean_mhz: float
-    pw_mean_us: float
-    pri_mean_us: float
+    pw_mean_us: float | None = None
+    pri_mean_us: float | None = None
 
 
 class InterceptNoteCreate(BaseModel):
@@ -115,6 +129,19 @@ class InterceptUpdate(BaseModel):
     description: str | None = None
     intercepted_on: date | None = None
     collected_by: str | None = Field(default=None, max_length=200)
+
+
+# One import's worth of entries — a CSV is grouped into entries before it's
+# sent, so more than this means the reports still need grouping.
+MAX_IMPORT_ENTRIES = 5000
+
+
+class InterceptImport(BaseModel):
+    """A new Intercept and all its entries, created together or not at all —
+    what the CSV import sends once the reports are grouped."""
+
+    intercept: InterceptCreate
+    entries: list[InterceptEntryCreate] = Field(min_length=1, max_length=MAX_IMPORT_ENTRIES)
 
 
 class InterceptOut(BaseModel):

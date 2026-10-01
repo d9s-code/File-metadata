@@ -116,3 +116,24 @@ export function useReplaceInterceptEntry(interceptId: string) {
     },
   });
 }
+
+/** The CSV import's save: into a new Intercept, or added to an existing one. */
+export function useImportInterceptEntries() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (
+      args:
+        | { target: "new"; intercept: InterceptInput; entries: InterceptEntryInput[] }
+        | { target: "existing"; interceptId: string; entries: InterceptEntryInput[] },
+    ) => {
+      if (args.target === "new") return interceptsApi.importNew(args.intercept, args.entries);
+      await interceptsApi.bulkCreateEntries(args.interceptId, args.entries);
+      return interceptsApi.get(args.interceptId);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["intercepts"] });
+      qc.invalidateQueries({ queryKey: ["intercept"] });
+      qc.invalidateQueries({ queryKey: ["intercept-entries"] });
+    },
+  });
+}

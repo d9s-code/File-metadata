@@ -10,6 +10,7 @@ import { EmitterEditorPage } from "./pages/EmitterEditorPage";
 import { EmitterVersionHistoryPage } from "./pages/EmitterVersionHistoryPage";
 import { TestRunNewPage } from "./pages/TestRunNewPage";
 import { TestRunDetailPage } from "./pages/TestRunDetailPage";
+import { InterceptImportPage } from "./pages/InterceptImportPage";
 import { PlatformsListPage } from "./pages/PlatformsListPage";
 import { PlatformBuilderPage } from "./pages/PlatformBuilderPage";
 import { PlatformVersionHistoryPage } from "./pages/PlatformVersionHistoryPage";
@@ -161,6 +162,14 @@ export default function App() {
                 element={
                   <RequireAuth>
                     <InterceptsPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/intercepts/import"
+                element={
+                  <RequireAuth>
+                    <InterceptImportPage />
                   </RequireAuth>
                 }
               />
