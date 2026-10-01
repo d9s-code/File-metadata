@@ -50,10 +50,10 @@ export function InterceptImportPage() {
     if (existingIntercept) setEmitterId(existingIntercept.emitter_id);
   }, [existingIntercept]);
 
-  const elnotCounts = useMemo(() => {
+  const designationCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const r of parsed?.reports ?? []) {
-      const key = r.elnot ?? "not identified";
+      const key = r.designation ?? "not identified";
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
     return [...counts].sort((a, b) => b[1] - a[1]);
@@ -80,11 +80,11 @@ export function InterceptImportPage() {
       setName((n) => n || stem);
       const days = result.reports.map((r) => missionDay(r.missionTime)).filter((d): d is string => !!d).sort();
       setRecordedOn((d) => d || days[0] || "");
-      // The system's identification (ELNOT) is an Emitter's designation —
-      // pick that Emitter when exactly one matches, and say so.
+      // What the system identified the reports as is an Emitter's
+      // designation — pick that Emitter when exactly one matches, and say so.
       if (!emitterId && emitters) {
-        const elnots = new Set(result.reports.map((r) => r.elnot?.toLowerCase()).filter(Boolean));
-        const matching = emitters.filter((em) => em.designation && elnots.has(em.designation.trim().toLowerCase()));
+        const identified = new Set(result.reports.map((r) => r.designation?.toLowerCase()).filter(Boolean));
+        const matching = emitters.filter((em) => em.designation && identified.has(em.designation.trim().toLowerCase()));
         if (matching.length === 1) {
           setEmitterId(matching[0].id);
           setEmitterPick(
@@ -202,10 +202,10 @@ export function InterceptImportPage() {
                 {parsed.skipped.length > 200 && <li>…and {parsed.skipped.length - 200} more</li>}
               </ul>
             )}
-            {elnotCounts.length > 0 && (
+            {designationCounts.length > 0 && (
               <p className="hint-text">
                 Identified by the system as:{" "}
-                {elnotCounts.map(([elnot, n]) => `${elnot} (${n.toLocaleString()})`).join(", ")}
+                {designationCounts.map(([designation, n]) => `${designation} (${n.toLocaleString()})`).join(", ")}
               </p>
             )}
           </div>
@@ -239,8 +239,8 @@ export function InterceptImportPage() {
               </label>
               {emitterPick && <p className="hint-text">{emitterPick}</p>}
               {chosenEmitter &&
-                elnotCounts.length > 0 &&
-                !elnotCounts.some(([e]) => e.toLowerCase() === chosenEmitter.designation?.trim().toLowerCase()) && (
+                designationCounts.length > 0 &&
+                !designationCounts.some(([e]) => e.toLowerCase() === chosenEmitter.designation?.trim().toLowerCase()) && (
                   <p className="hint-text">
                     Note: {chosenEmitter.name}&apos;s designation ({chosenEmitter.designation ?? "none"}) isn&apos;t what
                     the system identified these reports as.

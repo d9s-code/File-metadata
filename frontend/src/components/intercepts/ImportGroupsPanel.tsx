@@ -116,7 +116,7 @@ export function ImportGroupsPanel({
     [groups, byLine],
   );
   const identifications = useMemo(
-    () => [...new Set(reports.map((r) => r.elnot ?? "not identified"))].sort(),
+    () => [...new Set(reports.map((r) => r.designation ?? "not identified"))].sort(),
     [reports],
   );
 

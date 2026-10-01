@@ -585,8 +585,8 @@ export function HelpPage() {
             listed with the reason.
           </p>
           <p>
-            The Emitter is the one whose <strong>designation</strong> equals the ELNOT the system identified the
-            reports as, when exactly one does — the page says when it picked one that way. You can always choose
+            The Emitter is the one whose <strong>designation</strong> equals the designation the system identified
+            the reports as, when exactly one does — the page says when it picked one that way. You can always choose
             another, and import into a new Intercept or add to an existing one.
           </p>
           <p>

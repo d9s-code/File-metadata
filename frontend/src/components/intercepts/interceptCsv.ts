@@ -13,8 +13,9 @@ export interface CsvReport {
   modeTrack: string | null;
   /** dBm. */
   power: number | null;
-  /** What the system identified the signal as — the first (best) candidate. */
-  elnot: string | null;
+  /** What the system identified the signal as — the first (best)
+   * candidate's designation, matched against Emitters' designations. */
+  designation: string | null;
   modeName: string | null;
   /** How many candidates the system had. */
   ambiguityCount: number | null;
@@ -44,7 +45,6 @@ const COL = {
   track: "TrackNumber",
   modeTrack: "ModeTrackNumber",
   ambiguityCount: "ModeAmbiguityCount",
-  elnot: "ModeIdAmbiguities_0_ELNOT",
   modeName: "ModeIdAmbiguities_0_ModeName",
   power: "ReceivedPower",
   rf: "Parameters_RF",
@@ -56,6 +56,9 @@ const COL = {
 } as const;
 const STAGGER_POSITION = (i: number) => `Parameters_Parameters_Stagger_Position${i}`;
 const REQUIRED = [COL.rf, COL.priClass, COL.basePri, COL.pw];
+/** The first candidate's identification sits in the other
+ * ModeIdAmbiguities_0_ column, beside its ModeName. */
+const FIRST_CANDIDATE_PREFIX = "ModeIdAmbiguities_0_";
 
 /** Splits CSV text into rows of cells, honouring double-quoted cells. */
 function splitCsv(text: string): string[][] {
@@ -117,6 +120,8 @@ export function parseInterceptCsv(text: string): ParsedCsv {
     );
   }
   const index = new Map(header.map((h, i) => [h, i]));
+  const designationColumn =
+    header.find((h) => h.startsWith(FIRST_CANDIDATE_PREFIX) && h !== COL.modeName) ?? null;
 
   const reports: CsvReport[] = [];
   const skipped: SkippedRow[] = [];
@@ -139,7 +144,7 @@ export function parseInterceptCsv(text: string): ParsedCsv {
       track: get(COL.track),
       modeTrack: get(COL.modeTrack),
       power: number(get(COL.power)),
-      elnot: get(COL.elnot),
+      designation: designationColumn ? get(designationColumn) : null,
       modeName: get(COL.modeName),
       ambiguityCount: number(get(COL.ambiguityCount)),
       rfMhz: rf,

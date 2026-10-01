@@ -192,7 +192,7 @@ export function summarize(groupReports: CsvReport[]): GroupSummary {
   const first = groupReports[0];
   const ids = new Map<string, number>();
   for (const r of groupReports) {
-    const label = r.elnot ? `${r.elnot}${r.modeName ? ` / ${r.modeName}` : ""}` : "not identified";
+    const label = r.designation ? `${r.designation}${r.modeName ? ` / ${r.modeName}` : ""}` : "not identified";
     ids.set(label, (ids.get(label) ?? 0) + 1);
   }
   const times = groupReports.map((r) => r.missionTime).filter((t): t is string => !!t).sort();
