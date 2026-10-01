@@ -3,7 +3,22 @@ import { useEmitterInterceptEntries } from "../../../state/hooks/useIntercepts";
 import { matchEntry } from "../../intercepts/interceptMatch";
 import type { Mode } from "../../../types/domain";
 import { modeRanges, RESULT_STATUS, type ModeRanges } from "./modeRanges";
-import { ModeMap, type MapEntry } from "./ModeMap";
+import { ModeMap, spanOf, valueOf, type MapEntry, type MapParam } from "./ModeMap";
+
+const AXES_KEY = "modeMapAxes";
+const PARAM_KEYS: MapParam[] = ["rf", "pri", "pw"];
+
+function readAxes(): { x: MapParam; y: MapParam } {
+  try {
+    const stored = JSON.parse(localStorage.getItem(AXES_KEY) ?? "null") as { x?: string; y?: string } | null;
+    const x = PARAM_KEYS.find((p) => p === stored?.x);
+    const y = PARAM_KEYS.find((p) => p === stored?.y);
+    if (x && y && x !== y) return { x, y };
+  } catch {
+    // Unreadable — use the default.
+  }
+  return { x: "rf", y: "pri" };
+}
 import { ModeLadders } from "./ModeLadders";
 
 /** The Modes tab's Charts view: the Modes on RF × PRI, and their ranges per
@@ -24,12 +39,23 @@ export function ModeCharts({
   const { data: interceptEntries } = useEmitterInterceptEntries(emitterId);
   const [showEntries, setShowEntries] = useState(true);
   const [fitEntries, setFitEntries] = useState(false);
+  // Which two parameters the map shows — remembered in this browser.
+  const [axes, setAxesState] = useState(readAxes);
+  function setAxes(x: MapParam, y: MapParam) {
+    setAxesState({ x, y });
+    try {
+      localStorage.setItem(AXES_KEY, JSON.stringify({ x, y }));
+    } catch {
+      // Not remembered — fine.
+    }
+  }
   const ranges = useMemo(() => modes.map(modeRanges).filter((r): r is ModeRanges => !!r), [modes]);
   const entries: MapEntry[] = useMemo(
     () =>
       (interceptEntries ?? []).map((e) => ({
         rf: e.rf_mean_mhz,
         pri: e.pri_mean_us,
+        pw: e.pw_mean_us,
         matched: matchEntry(e, allModes).status === "match",
         label: e.notes ?? "",
       })),
@@ -38,16 +64,18 @@ export function ModeCharts({
   const shownEntries = showEntries ? entries : [];
   const unmatched = entries.filter((e) => !e.matched).length;
   const skipped = modes.length - ranges.length;
-  // Entries beyond every Mode's reach — off the chart unless fitted to them.
+  // Entries beyond every Mode's reach on the map's two parameters — off the
+  // chart unless fitted to them.
   const offChart = useMemo(() => {
-    if (ranges.length === 0) return 0;
-    const rf = [Math.min(...ranges.map((r) => r.rf[0])), Math.max(...ranges.map((r) => r.rf[1]))];
-    const pris = ranges.flatMap((r) => (r.pri ? [r.pri] : []));
-    const pri = pris.length ? [Math.min(...pris.map((p) => p[0])), Math.max(...pris.map((p) => p[1]))] : null;
-    return entries.filter(
-      (e) => e.rf < rf[0] || e.rf > rf[1] || (pri != null && e.pri != null && (e.pri < pri[0] || e.pri > pri[1])),
-    ).length;
-  }, [ranges, entries]);
+    const reach = (p: MapParam) => {
+      const spans = ranges.flatMap((r) => (spanOf(r, p) ? [spanOf(r, p)!] : []));
+      return spans.length ? [Math.min(...spans.map((s) => s[0])), Math.max(...spans.map((s) => s[1]))] : null;
+    };
+    const rx = reach(axes.x);
+    const ry = reach(axes.y);
+    const outside = (v: number | null, r: number[] | null) => v != null && r != null && (v < r[0] || v > r[1]);
+    return entries.filter((e) => outside(valueOf(e, axes.x), rx) || outside(valueOf(e, axes.y), ry)).length;
+  }, [ranges, entries, axes]);
 
   return (
     <div className="mode-charts">
@@ -91,7 +119,15 @@ export function ModeCharts({
           </>
         )}
       </p>
-      <ModeMap ranges={ranges} entries={shownEntries} fitEntries={fitEntries} onOpen={onOpen} />
+      <ModeMap
+        ranges={ranges}
+        entries={shownEntries}
+        fitEntries={fitEntries}
+        xParam={axes.x}
+        yParam={axes.y}
+        onAxes={setAxes}
+        onOpen={onOpen}
+      />
       <ModeLadders ranges={ranges} entries={shownEntries} fitEntries={fitEntries} onOpen={onOpen} />
     </div>
   );

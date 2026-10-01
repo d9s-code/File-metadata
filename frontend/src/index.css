@@ -3663,3 +3663,22 @@ body:has(.import-footer) .checkout-reminder-tab {
   font-size: 0.82rem;
   font-weight: 400;
 }
+
+/* Range ladders: each parameter in its own box */
+.viz-plot .ladder-panel {
+  fill: var(--bg);
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.viz-plot .ladder-panel-rule { stroke: var(--border); stroke-width: 1; }
+.viz-plot text.ladder-title { fill: var(--text); font-weight: 700; font-size: 12.5px; }
+.viz-plot .ladder-title-unit { fill: var(--viz-ink-muted); font-weight: 400; }
+.map-axes {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.8rem;
+}
+label.map-axis { font-size: 0.8rem; gap: 0.3rem; }
+label.map-axis select { font-size: 0.8rem; padding: 0.1rem 0.3rem; }
+.viz-plot text.map-axis-title { fill: var(--text); font-weight: 600; }

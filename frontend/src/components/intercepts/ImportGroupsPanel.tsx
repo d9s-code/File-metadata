@@ -385,10 +385,16 @@ export function ImportGroupsPanel({
               pw: chartRange("pw"),
             }}
             onRange={setRange}
-            onBox={(rf, pri) => {
-              const [rLo, rHi] = fromRange(rf);
-              const [pLo, pHi] = fromRange(pri);
-              setFilters((f) => ({ ...f, rfMin: rLo, rfMax: rHi, priMin: pLo, priMax: pHi }));
+            onBox={(xp, xr, yp, yr) => {
+              const [xLo, xHi] = fromRange(xr);
+              const [yLo, yHi] = fromRange(yr);
+              setFilters((f) => ({
+                ...f,
+                [rangeKeys[xp][0]]: xLo,
+                [rangeKeys[xp][1]]: xHi,
+                [rangeKeys[yp][0]]: yLo,
+                [rangeKeys[yp][1]]: yHi,
+              }));
               setPage(0);
             }}
             preview={preview}

@@ -1,13 +1,20 @@
 import { useMemo, useState } from "react";
 import { fmt, niceTicks, useWidth } from "../../intercepts/charts/Histogram";
-import { domainOf, resultStatus, type ModeRanges, type Span } from "./modeRanges";
+import {
+  domainOf,
+  resultStatus,
+  type ModeRanges,
+  type Span,
+} from "./modeRanges";
 import type { Mode } from "../../../types/domain";
 import type { MapEntry } from "./ModeMap";
 
 const ROW = 20;
-const HEAD = 44;
+const HEAD = 54;
 const NAME_W = 200;
-const GAP = 18;
+// Each parameter sits in its own box: space between the boxes, padding inside.
+const GAP = 26;
+const PAD = 12;
 
 type SortBy = "rf" | "pri" | "pw" | "name";
 type Param = "rf" | "pri" | "pw";
@@ -49,13 +56,20 @@ export function ModeLadders({
   const [hoverRow, setHoverRow] = useState<number | null>(null);
 
   const rows = useMemo(() => {
-    const key = (r: ModeRanges) => (sortBy === "name" ? 0 : (engOf(r, sortBy)?.[0] ?? Infinity));
-    return [...ranges].sort((a, b) => key(a) - key(b) || a.mode.name.localeCompare(b.mode.name));
+    const key = (r: ModeRanges) =>
+      sortBy === "name" ? 0 : (engOf(r, sortBy)?.[0] ?? Infinity);
+    return [...ranges].sort(
+      (a, b) => key(a) - key(b) || a.mode.name.localeCompare(b.mode.name),
+    );
   }, [ranges, sortBy]);
 
   const domains = useMemo(() => {
     const entryValues = (p: Param) =>
-      p === "rf" ? entries.map((e) => e.rf) : p === "pri" ? entries.flatMap((e) => (e.pri == null ? [] : [e.pri])) : [];
+      p === "rf"
+        ? entries.map((e) => e.rf)
+        : p === "pri"
+          ? entries.flatMap((e) => (e.pri == null ? [] : [e.pri]))
+          : [];
     return Object.fromEntries(
       PARAMS.map(({ key }) => [
         key,
@@ -67,8 +81,14 @@ export function ModeLadders({
     ) as Record<Param, Span>;
   }, [ranges, entries, fitEntries]);
 
-  const panelW = Math.max(60, (width - NAME_W - GAP * PARAMS.length) / PARAMS.length);
-  const panelX = (i: number) => NAME_W + GAP + i * (panelW + GAP);
+  const panelW = Math.max(
+    60,
+    (width - NAME_W - (GAP + 2 * PAD) * PARAMS.length) / PARAMS.length,
+  );
+  const panelX = (i: number) =>
+    NAME_W + GAP + PAD + i * (panelW + 2 * PAD + GAP);
+  const boxX = (i: number) => panelX(i) - PAD;
+  const boxW = panelW + 2 * PAD;
   const height = HEAD + rows.length * ROW + 6;
   const sx = (p: Param, i: number, v: number) => {
     const [lo, hi] = domains[p];
@@ -81,7 +101,11 @@ export function ModeLadders({
         <strong>Range ladders</strong>
         <span className="hint-text">
           Sort by{" "}
-          <select className="ladder-sort" value={sortBy} onChange={(e) => setSortBy(e.target.value as SortBy)}>
+          <select
+            className="ladder-sort"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortBy)}
+          >
             <option value="rf">RF</option>
             <option value="pri">PRI / frame time</option>
             <option value="pw">PW</option>
@@ -89,40 +113,80 @@ export function ModeLadders({
           </select>
         </span>
       </div>
-      <div ref={ref} className="viz-plot" onPointerLeave={() => setHoverRow(null)}>
-        <svg width={width} height={height} aria-label="Mode ranges per parameter">
+      <div
+        ref={ref}
+        className="viz-plot"
+        onPointerLeave={() => setHoverRow(null)}
+      >
+        <svg
+          width={width}
+          height={height}
+          aria-label="Mode ranges per parameter"
+        >
+          {PARAMS.map((p, i) => (
+            <rect
+              key={`box-${p.key}`}
+              className="ladder-panel"
+              x={boxX(i)}
+              y={1}
+              width={boxW}
+              height={height - 2}
+              rx={6}
+            />
+          ))}
           {PARAMS.map((p, i) => {
             const [lo, hi] = domains[p.key];
             const x0 = panelX(i);
             return (
               <g key={p.key}>
-                <text className="viz-axis-label ladder-title" x={x0} y={11}>
-                  {p.label} ({p.unit})
+                <text className="ladder-title" x={x0} y={17}>
+                  {p.label}
+                  <tspan className="ladder-title-unit"> {p.unit}</tspan>
                 </text>
+                <line
+                  className="ladder-panel-rule"
+                  x1={boxX(i)}
+                  x2={boxX(i) + boxW}
+                  y1={HEAD - 2}
+                  y2={HEAD - 2}
+                />
                 {niceTicks(lo, hi, 4).map((t) => (
                   <g key={t}>
-                    <line className="viz-grid" x1={sx(p.key, i, t)} x2={sx(p.key, i, t)} y1={HEAD - 4} y2={height} />
-                    <text className="viz-axis-label" x={sx(p.key, i, t)} y={26} textAnchor="middle">
+                    <line
+                      className="viz-grid"
+                      x1={sx(p.key, i, t)}
+                      x2={sx(p.key, i, t)}
+                      y1={HEAD - 2}
+                      y2={height - 6}
+                    />
+                    <text
+                      className="viz-axis-label"
+                      x={sx(p.key, i, t)}
+                      y={33}
+                      textAnchor="middle"
+                    >
                       {fmt(t)}
                     </text>
                   </g>
                 ))}
-                {(p.key === "rf" || p.key === "pri") &&
-                  entries.map((e, k) => {
-                    const v = p.key === "rf" ? e.rf : e.pri;
-                    // Off this column's axis: left out rather than drawn over the next column.
-                    if (v == null || v < lo || v > hi) return null;
-                    return (
-                      <line
-                        key={k}
-                        className={e.matched ? "ladder-entry" : "ladder-entry-out"}
-                        x1={sx(p.key, i, v)}
-                        x2={sx(p.key, i, v)}
-                        y1={HEAD - 13}
-                        y2={HEAD - 5}
-                      />
-                    );
-                  })}
+                {entries.map((e, k) => {
+                  const v =
+                    p.key === "rf" ? e.rf : p.key === "pri" ? e.pri : e.pw;
+                  // Off this column's axis: left out rather than drawn over the next column.
+                  if (v == null || v < lo || v > hi) return null;
+                  return (
+                    <line
+                      key={k}
+                      className={
+                        e.matched ? "ladder-entry" : "ladder-entry-out"
+                      }
+                      x1={sx(p.key, i, v)}
+                      x2={sx(p.key, i, v)}
+                      y1={HEAD - 13}
+                      y2={HEAD - 5}
+                    />
+                  );
+                })}
               </g>
             );
           })}
@@ -132,17 +196,52 @@ export function ModeLadders({
             return (
               <g
                 key={r.mode.id}
-                className={hoverRow === rowIndex ? "ladder-row hovered" : "ladder-row"}
+                className={
+                  hoverRow === rowIndex ? "ladder-row hovered" : "ladder-row"
+                }
                 onPointerEnter={() => setHoverRow(rowIndex)}
               >
-                <rect className="ladder-row-bg" x={0} y={y} width={width} height={ROW} />
+                {/* Highlighted per region, so the boxes stay distinct. */}
+                <rect
+                  className="ladder-row-bg"
+                  x={0}
+                  y={y}
+                  width={NAME_W}
+                  height={ROW}
+                />
+                {PARAMS.map((p, i) => (
+                  <rect
+                    key={p.key}
+                    className="ladder-row-bg"
+                    x={boxX(i) + 1}
+                    y={y}
+                    width={boxW - 2}
+                    height={ROW}
+                  />
+                ))}
                 <title>
                   {`${r.mode.name} · ${status.label}\nRF ${fmt(r.rfRaw[0])}–${fmt(r.rfRaw[1])} (engineered ${fmt(r.rf[0])}–${fmt(r.rf[1])}) MHz`}
-                  {r.priRaw && r.pri ? `\nPRI ${fmt(r.priRaw[0])}–${fmt(r.priRaw[1])} (engineered ${fmt(r.pri[0])}–${fmt(r.pri[1])}) µs` : ""}
-                  {r.pwRaw && r.pw ? `\nPW ${fmt(r.pwRaw[0])}–${fmt(r.pwRaw[1])} (engineered ${fmt(r.pw[0])}–${fmt(r.pw[1])}) µs` : ""}
+                  {r.priRaw && r.pri
+                    ? `\nPRI ${fmt(r.priRaw[0])}–${fmt(r.priRaw[1])} (engineered ${fmt(r.pri[0])}–${fmt(r.pri[1])}) µs`
+                    : ""}
+                  {r.pwRaw && r.pw
+                    ? `\nPW ${fmt(r.pwRaw[0])}–${fmt(r.pwRaw[1])} (engineered ${fmt(r.pw[0])}–${fmt(r.pw[1])}) µs`
+                    : ""}
                 </title>
-                <rect className={`ladder-dot ${status.cls}`} x={2} y={y + ROW / 2 - 4} width={8} height={8} rx={2} />
-                <text className="ladder-name" x={16} y={y + ROW / 2 + 4} onClick={() => onOpen(r.mode)}>
+                <rect
+                  className={`ladder-dot ${status.cls}`}
+                  x={2}
+                  y={y + ROW / 2 - 4}
+                  width={8}
+                  height={8}
+                  rx={2}
+                />
+                <text
+                  className="ladder-name"
+                  x={16}
+                  y={y + ROW / 2 + 4}
+                  onClick={() => onOpen(r.mode)}
+                >
                   {truncate(r.mode.name, 26)}
                 </text>
                 {PARAMS.map((p, i) => {
@@ -150,7 +249,12 @@ export function ModeLadders({
                   const raw = rawOf(r, p.key);
                   if (!eng || !raw) {
                     return (
-                      <text key={p.key} className="viz-axis-label" x={panelX(i)} y={y + ROW / 2 + 4}>
+                      <text
+                        key={p.key}
+                        className="viz-axis-label"
+                        x={panelX(i)}
+                        y={y + ROW / 2 + 4}
+                      >
                         —
                       </text>
                     );

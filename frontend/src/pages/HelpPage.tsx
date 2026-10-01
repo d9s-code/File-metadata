@@ -299,10 +299,12 @@ export function HelpPage() {
             <p>
               <strong>Charts</strong> draws the Modes the filters leave, coloured by each Mode&apos;s last test result
               (with the result named in the legend and on hover), using the engineered ranges the system recognises.
-              The <strong>parameter map</strong> puts each Mode on RF × PRI (a stagger&apos;s frame time; Modes with no
-              PRI sit in a strip underneath): overlapping Modes show as layered areas and hovering lists every Mode under
+              The <strong>parameter map</strong> puts each Mode on two parameters — RF × PRI by default; pick any two
+              of RF, PRI (a stagger&apos;s frame time) and PW with <strong>Across</strong>/<strong>Up</strong>, or{" "}
+              <strong>Swap</strong>, remembered in this browser (Modes without the upward parameter sit in a strip
+              underneath): overlapping Modes show as layered areas and hovering lists every Mode under
               the pointer, empty space is what no Mode covers. Drag to zoom; click a Mode to open it in the table. The{" "}
-              <strong>range ladders</strong> give each Mode a row with its RF, PRI and PW side by side — the solid bar is
+              <strong>range ladders</strong> give each Mode a row with its RF, PRI and PW in three separate panels — the solid bar is
               what it was set to, the faint extension the engineered ± delta — so overlaps line up in a column. This
               Emitter&apos;s intercept entries are marked on both, as dots (matching a Mode) or crosses (outside every
               Mode); the axes fit the Modes unless you choose to fit the entries too.
@@ -628,13 +630,15 @@ export function HelpPage() {
             on its own. One import takes up to 5,000 entries.
           </p>
           <p>
-            <strong>Charts</strong> show the reports (excluded ones left out): RF against PRI, and how often each
+            <strong>Charts</strong> show the reports (excluded ones left out): a scatter of any two of RF, PRI and PW
+            (chosen with Across/Up, RF × PRI by default), and how often each
             RF, PRI, frame time, PW, jitter and stagger-position value occurs. With an Emitter chosen, each bar is
             split into reports <strong>within a Mode</strong> and <strong>outside every Mode</strong> for that
             parameter (using the Modes&apos; engineered ranges, Modes of the same PRI type only), a grey strip under
             the axis shows where the Modes reach, and each chart says what share falls outside — the quickest way to
             see what the current programming doesn&apos;t cover. Drag across a chart (or a box on RF × PRI) to filter
-            to that range: the table follows and the other charts narrow to it, so you can isolate one cluster and
+            to that range (a box on the scatter sets both of its parameters): the table follows and the other charts
+            narrow to it, so you can isolate one cluster and
             check its spread before merging it. Click a chart to clear its range.
           </p>
           <p>

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { CsvReport, ReportPriType } from "../interceptCsv";
 import type { ReportGroup } from "../interceptGroups";
 import { matchEntry } from "../interceptMatch";
@@ -15,6 +15,34 @@ import { Scatter, type ScatterPoint } from "./Scatter";
 
 export type RangeParam = "rf" | "pri" | "pw";
 export type Range = [number, number] | null;
+
+const AXIS_INFO: Record<RangeParam, { short: string; unit: string }> = {
+  rf: { short: "RF", unit: "MHz" },
+  pri: { short: "PRI", unit: "µs" },
+  pw: { short: "PW", unit: "µs" },
+};
+const AXES_KEY = "importScatterAxes";
+
+function readAxes(): { x: RangeParam; y: RangeParam } {
+  try {
+    const stored = JSON.parse(localStorage.getItem(AXES_KEY) ?? "null") as {
+      x?: string;
+      y?: string;
+    } | null;
+    const keys: RangeParam[] = ["rf", "pri", "pw"];
+    const x = keys.find((k) => k === stored?.x);
+    const y = keys.find((k) => k === stored?.y);
+    if (x && y && x !== y) return { x, y };
+  } catch {
+    // Unreadable — use the default.
+  }
+  return { x: "rf", y: "pri" };
+}
+
+/** A report's value on a scatter axis — PRI is a stagger's frame time, none for CW. */
+function axisValue(r: CsvReport, p: RangeParam): number | null {
+  return p === "rf" ? r.rfMhz : p === "pri" ? r.priUs : r.pwUs;
+}
 
 export interface ChartFilters {
   type: "" | ReportPriType;
@@ -48,7 +76,10 @@ function within(v: number | null, r: Range) {
 function zoom(own: Range, values: number[]): [number, number] {
   const [lo, hi] = extent(values);
   if (!own) return [lo, hi];
-  return [Number.isFinite(own[0]) ? own[0] : lo, Number.isFinite(own[1]) ? own[1] : hi];
+  return [
+    Number.isFinite(own[0]) ? own[0] : lo,
+    Number.isFinite(own[1]) ? own[1] : hi,
+  ];
 }
 
 function extent(values: number[]): [number, number] {
@@ -87,7 +118,8 @@ export function ImportCharts({
   modes: Mode[] | undefined;
   filters: ChartFilters;
   onRange: (param: RangeParam, range: Range) => void;
-  onBox: (rf: Range, pri: Range) => void;
+  /** A box dragged on the scatter: a range on each of its two parameters. */
+  onBox: (x: RangeParam, xRange: Range, y: RangeParam, yRange: Range) => void;
   /** Auto group's preview with the current tolerances — drawn as ticks. */
   preview: ReportGroup[] | null;
 }) {
@@ -193,17 +225,28 @@ export function ImportCharts({
     [base, ranges, coverage],
   );
 
-  const { points, inViewCount, matchedInView, rfExtent, priExtent } =
+  // Which two parameters the scatter shows — remembered in this browser.
+  const [axes, setAxesState] = useState(readAxes);
+  function setAxes(x: RangeParam, y: RangeParam) {
+    setAxesState({ x, y });
+    try {
+      localStorage.setItem(AXES_KEY, JSON.stringify({ x, y }));
+    } catch {
+      // Not remembered — fine.
+    }
+  }
+
+  const { points, inViewCount, matchedInView, xExtent, yExtent } =
     useMemo(() => {
       const inView = base.filter((r) => passes(r, null));
       const scatterRows = inView.filter(
-        (r) => r.priType !== "cw" && r.priUs != null,
+        (r) => axisValue(r, axes.x) != null && axisValue(r, axes.y) != null,
       );
       return {
         points: scatterRows.map(
           (r): ScatterPoint => ({
-            x: r.rfMhz,
-            y: r.priUs!,
+            x: axisValue(r, axes.x)!,
+            y: axisValue(r, axes.y)!,
             matched:
               modes && modes.length > 0
                 ? (matchedByLine.get(r.line) ?? false)
@@ -212,18 +255,36 @@ export function ImportCharts({
         ),
         inViewCount: inView.length,
         matchedInView: inView.filter((r) => matchedByLine.get(r.line)).length,
-        rfExtent: zoom(
-          ranges.rf,
-          scatterRows.map((r) => r.rfMhz),
+        xExtent: zoom(
+          ranges[axes.x],
+          scatterRows.map((r) => axisValue(r, axes.x)!),
         ),
-        priExtent: zoom(
-          ranges.pri,
-          scatterRows.map((r) => r.priUs!),
+        yExtent: zoom(
+          ranges[axes.y],
+          scatterRows.map((r) => axisValue(r, axes.y)!),
         ),
       };
       // passes reads ranges.
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [base, ranges, modes, matchedByLine]);
+    }, [base, ranges, modes, matchedByLine, axes]);
+
+  const axisSelect = (
+    value: RangeParam,
+    other: RangeParam,
+    set: (p: RangeParam) => void,
+    label: string,
+  ) => (
+    <label className="inline-label map-axis">
+      {label}
+      <select value={value} onChange={(e) => set(e.target.value as RangeParam)}>
+        {(Object.keys(AXIS_INFO) as RangeParam[]).map((p) => (
+          <option key={p} value={p} disabled={p === other}>
+            {AXIS_INFO[p].short}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 
   return (
     <div className="import-charts">
@@ -271,13 +332,39 @@ export function ImportCharts({
         )}
       </div>
       <Scatter
-        points={points}
-        xDomain={rfExtent}
-        yDomain={priExtent}
-        selection={
-          ranges.rf && ranges.pri ? { x: ranges.rf, y: ranges.pri } : null
+        header={
+          <span className="map-axes">
+            <strong>Scatter</strong>
+            {axisSelect(axes.x, axes.y, (x) => setAxes(x, axes.y), "Across")}
+            {axisSelect(axes.y, axes.x, (y) => setAxes(axes.x, y), "Up")}
+            <button
+              type="button"
+              className="link-button"
+              onClick={() => setAxes(axes.y, axes.x)}
+              title="Swap the axes"
+            >
+              ⇄ Swap
+            </button>
+            <span className="hint-text">
+              PRI is a stagger&apos;s frame time
+            </span>
+          </span>
         }
-        onSelect={(box) => (box ? onBox(box.x, box.y) : onBox(null, null))}
+        xAxis={AXIS_INFO[axes.x]}
+        yAxis={AXIS_INFO[axes.y]}
+        points={points}
+        xDomain={xExtent}
+        yDomain={yExtent}
+        selection={
+          ranges[axes.x] && ranges[axes.y]
+            ? { x: ranges[axes.x]!, y: ranges[axes.y]! }
+            : null
+        }
+        onSelect={(box) =>
+          box
+            ? onBox(axes.x, box.x, axes.y, box.y)
+            : onBox(axes.x, null, axes.y, null)
+        }
       />
       <div className="viz-grid-cards">
         {charts.map((c) => (

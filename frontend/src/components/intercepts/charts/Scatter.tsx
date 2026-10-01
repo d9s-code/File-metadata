@@ -1,8 +1,15 @@
-import { useEffect, useRef, useState, type PointerEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent,
+  type ReactNode,
+} from "react";
 import { fmt, niceTicks, useWidth } from "./Histogram";
 
 const HEIGHT = 300;
-const M = { left: 56, right: 12, top: 10, bottom: 34 };
+// Room at the top for the vertical axis title.
+const M = { left: 56, right: 12, top: 24, bottom: 34 };
 
 export interface ScatterPoint {
   x: number;
@@ -16,6 +23,9 @@ export interface ScatterPoint {
  * chart colours. Drag a box to filter to it; click to clear. Drawn on a
  * canvas so tens of thousands of points stay quick. */
 export function Scatter({
+  header,
+  xAxis,
+  yAxis,
   points,
   xDomain,
   yDomain,
@@ -23,6 +33,11 @@ export function Scatter({
   onSelect,
 }: {
   points: ScatterPoint[];
+  /** The left of the card header — the title and axis pickers. */
+  header: ReactNode;
+  /** Short names and units, for the hover read-out and axis titles. */
+  xAxis: { short: string; unit: string };
+  yAxis: { short: string; unit: string };
   xDomain: [number, number];
   yDomain: [number, number];
   selection: { x: [number, number]; y: [number, number] } | null;
@@ -106,19 +121,15 @@ export function Scatter({
   return (
     <div className="viz-card viz-card-wide">
       <div className="viz-card-header">
-        <strong>
-          RF × PRI{" "}
-          <span className="hint-text">
-            (MHz × µs; a stagger&apos;s frame time)
-          </span>
-        </strong>
+        {header}
         <span className="hint-text">
           {points.length.toLocaleString()} report
           {points.length === 1 ? "" : "s"}
           {hover && (
             <>
               {" · "}
-              {fmt(ix(hover.px))} MHz, {fmt(iy(hover.py))} µs
+              {xAxis.short} {fmt(ix(hover.px))} {xAxis.unit}, {yAxis.short}{" "}
+              {fmt(iy(hover.py))} {yAxis.unit}
             </>
           )}
         </span>
@@ -179,7 +190,7 @@ export function Scatter({
               width={width}
               height={HEIGHT}
               className="viz-overlay"
-              aria-label="RF against PRI scatter"
+              aria-label={`${xAxis.short} against ${yAxis.short} scatter`}
             >
               {niceTicks(yl, yh, 5).map((t) => (
                 <g key={`y${t}`}>
@@ -218,6 +229,17 @@ export function Scatter({
                 y1={M.top + plotH}
                 y2={M.top + plotH}
               />
+              <text className="viz-axis-label map-axis-title" x={6} y={13}>
+                {yAxis.short} ({yAxis.unit})
+              </text>
+              <text
+                className="viz-axis-label map-axis-title"
+                x={M.left + plotW}
+                y={HEIGHT - 10}
+                textAnchor="end"
+              >
+                {xAxis.short} ({xAxis.unit})
+              </text>
               {box && box.w > 0 && box.h > 0 && (
                 <rect
                   className="viz-selection"
