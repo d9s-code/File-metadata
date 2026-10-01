@@ -244,10 +244,13 @@ export function SourcesTable({
   emitterId,
   sources,
   ewGroups,
+  linkedSourceId,
 }: {
   emitterId: string;
   sources: Source[];
   ewGroups: EwGroup[];
+  /** From a ?source=… link (e.g. the Source Groups page): open that Source. */
+  linkedSourceId?: string;
 }) {
   const deleteSource = useDeleteSource(emitterId);
   const approveSource = useApproveSource(emitterId);
@@ -258,6 +261,10 @@ export function SourcesTable({
   const editTitle = canEdit ? undefined : "Start editing this Emitter first";
   const { confirmDelete, dialog } = useConfirmDialog();
   const [openSourceId, setOpenSourceId] = useState<string | null>(null);
+  // Open a linked Source once it has loaded — and again if a new link arrives.
+  useEffect(() => {
+    if (linkedSourceId && sources.some((s) => s.id === linkedSourceId)) setOpenSourceId(linkedSourceId);
+  }, [linkedSourceId, sources]);
   const [showForm, setShowForm] = useState(false);
   const [editingSource, setEditingSource] = useState<Source | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);

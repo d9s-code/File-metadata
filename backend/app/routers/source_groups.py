@@ -1,14 +1,19 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.csrf import verify_csrf
 from app.core.enums import AuditAction, AuditEntityType, Role
 from app.database import get_db
 from app.deps import require_role
+from app.models.emitter import Emitter
+from app.models.mode import Mode, ModeElement
+from app.models.parameter_sequence import ParameterSequence
+from app.models.source import Source
 from app.models.source_group import SourceGroup
-from app.schemas.source_group import SourceGroupCreate, SourceGroupOut, SourceGroupUpdate
+from app.schemas.source_group import SourceGroupCreate, SourceGroupOut, SourceGroupUpdate, SourceOverviewOut
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.source_group_service import compute_source_group_stats
 
@@ -43,6 +48,47 @@ def list_source_groups(db: Session = Depends(get_db), _=Depends(require_role(Rol
     """Lists all source groups, with derived stats rolled up across each group's Sources."""
     groups = db.query(SourceGroup).order_by(SourceGroup.name).all()
     return [_to_out(g) for g in groups]
+
+
+@router.get("/sources", response_model=list[SourceOverviewOut])
+def list_sources_overview(db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))) -> list[SourceOverviewOut]:
+    """Every Source on a live Emitter, grouped or not, with its group, its
+    Emitter, its dates and how much it holds — what the Source Groups page
+    builds its tree and queries from. Declared before /{group_id}."""
+
+    def count_by_source(model):
+        return dict(db.query(model.source_id, func.count(model.id)).group_by(model.source_id).all())
+
+    elements = count_by_source(ModeElement)
+    sequences = count_by_source(ParameterSequence)
+    modes = count_by_source(Mode)
+    rows = (
+        db.query(Source, Emitter, SourceGroup)
+        .join(Emitter, Emitter.id == Source.emitter_id)
+        .outerjoin(SourceGroup, SourceGroup.id == Source.group_id)
+        .filter(Emitter.is_deleted.is_(False))
+        .order_by(SourceGroup.name.nulls_last(), Emitter.name, Source.name)
+        .all()
+    )
+    return [
+        SourceOverviewOut(
+            id=s.id,
+            name=s.name,
+            status=s.status.value if hasattr(s.status, "value") else str(s.status),
+            source_type=s.source_type,
+            source_date=s.source_date,
+            updated_at=s.updated_at,
+            group_id=g.id if g else None,
+            group_name=g.name if g else None,
+            emitter_id=e.id,
+            emitter_name=e.name,
+            emitter_designation=e.designation,
+            element_count=elements.get(s.id, 0),
+            sequence_count=sequences.get(s.id, 0),
+            mode_count=modes.get(s.id, 0),
+        )
+        for s, e, g in rows
+    ]
 
 
 @router.post("/", response_model=SourceGroupOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(verify_csrf)])

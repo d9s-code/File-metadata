@@ -3402,3 +3402,48 @@ label.grow {
   background: var(--badge-red-bg);
   color: var(--badge-red-fg);
 }
+
+/* Source Groups: query bar and the Group -> Emitter -> Source tree */
+.source-query-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.9rem;
+  align-items: flex-end;
+}
+.source-query-fields label.grow {
+  flex: 1 1 16rem;
+}
+.source-query-summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+}
+.source-tree-table td {
+  vertical-align: top;
+}
+.tree-toggle {
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--muted);
+  padding: 0 0.35rem 0 0;
+  font-size: 0.85rem;
+  width: 1.2rem;
+}
+.tree-toggle:hover:not(:disabled) {
+  background: none;
+  color: var(--text);
+}
+.tree-row.tree-emitter > td:first-child {
+  padding-left: 1.8rem;
+}
+.tree-row.tree-source > td:first-child {
+  padding-left: 3.6rem;
+}
+.data-table tbody tr.tree-group > td {
+  border-top: 2px solid var(--border);
+}

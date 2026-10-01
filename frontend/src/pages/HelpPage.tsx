@@ -547,6 +547,14 @@ export function HelpPage() {
           shows each group's Source count, its aggregate RF/PRI/PW range across every Source in it, and when
           it was last touched. A Source is put into a group from the Source's own edit form.
         </p>
+        <p>
+          Open a group (▸) to see the Emitters its Sources sit under, and open an Emitter to see each Source with
+          its <strong>Date last updated</strong> and how long ago that was; every level shows the oldest and newest
+          date beneath it. Sources with no group are listed under <strong>No group</strong>. The query bar
+          narrows everything at once — search by Source, Emitter, designation, group or type, give a date range, or
+          pick <strong>Not updated in</strong> 6 months to 5 years — and <strong>List</strong> shows the matching
+          Sources as one table, oldest first. Click a Source to open it on its Emitter.
+        </p>
       </div>
 
       <div className="card" id="customers">

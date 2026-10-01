@@ -338,7 +338,12 @@ export function EmitterEditorPage() {
       <div hidden={tab !== "setup"}>
         <EwGroupsTable emitterId={emitter.id} ewGroups={ewGroups ?? []} />
         <FunctionGroupsTable emitterId={emitter.id} functionGroups={functionGroups ?? []} />
-        <SourcesTable emitterId={emitter.id} sources={sources ?? []} ewGroups={ewGroups ?? []} />
+        <SourcesTable
+          emitterId={emitter.id}
+          sources={sources ?? []}
+          ewGroups={ewGroups ?? []}
+          linkedSourceId={searchParams.get("source") ?? undefined}
+        />
       </div>
 
       <div hidden={tab !== "intercepts"}>

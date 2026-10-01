@@ -32,3 +32,25 @@ class SourceGroupOut(SourceGroupBase):
     pri_min_us: float | None = None
     pri_max_us: float | None = None
     pri_stagger_count: int = 0
+
+
+class SourceOverviewOut(BaseModel):
+    """One Source with where it sits (group, Emitter) and when it was last
+    updated — a row of the Source Groups overview."""
+
+    id: UUID
+    name: str
+    status: str
+    source_type: str | None = None
+    # The user-entered "Date last updated" of the Source's contents.
+    source_date: date
+    # When the record itself was last edited here.
+    updated_at: datetime
+    group_id: UUID | None = None
+    group_name: str | None = None
+    emitter_id: UUID
+    emitter_name: str
+    emitter_designation: str | None = None
+    element_count: int = 0
+    sequence_count: int = 0
+    mode_count: int = 0

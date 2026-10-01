@@ -1,6 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { sourceGroupsApi } from "../../api/source_groups";
 
+/** Every Source with its group, Emitter and dates. Under "sourceGroups", so
+ * group changes refresh it; refetched whenever the page is opened. */
+export function useSourcesOverview() {
+  return useQuery({
+    queryKey: ["sourceGroups", "sources"],
+    queryFn: sourceGroupsApi.sourcesOverview,
+    refetchOnMount: "always",
+  });
+}
+
 export function useSourceGroups() {
   const queryClient = useQueryClient();
 
