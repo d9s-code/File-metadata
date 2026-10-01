@@ -611,6 +611,21 @@ export function HelpPage() {
             within the tolerances of every report already in it (optionally only on the same track). It never runs
             on its own. One import takes up to 5,000 entries.
           </p>
+          <p>
+            <strong>Charts</strong> show the reports (excluded ones left out): RF against PRI, and how often each
+            RF, PRI, frame time, PW, jitter and stagger-position value occurs. With an Emitter chosen, each bar is
+            split into reports <strong>within a Mode</strong> and <strong>outside every Mode</strong> for that
+            parameter (using the Modes&apos; engineered ranges, Modes of the same PRI type only), a grey strip under
+            the axis shows where the Modes reach, and each chart says what share falls outside — the quickest way to
+            see what the current programming doesn&apos;t cover. Drag across a chart (or a box on RF × PRI) to filter
+            to that range: the table follows and the other charts narrow to it, so you can isolate one cluster and
+            check its spread before merging it. Click a chart to clear its range.
+          </p>
+          <p>
+            The <strong>sliders</strong> set Auto group&apos;s tolerances. As you move them, the line under them says
+            how many groups Auto group would make and the charts mark where each would sit — a preview only; your
+            grouping changes when you press the button.
+          </p>
         </div>
 
         <div className="help-subsection" id="intercept-detail">

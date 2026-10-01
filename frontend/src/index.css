@@ -1,6 +1,12 @@
 :root {
   --bg: #f5f6f8;
   --card-bg: #ffffff;
+  /* Chart colours (validated pair: within a Mode / outside every Mode). */
+  --viz-in: #2a78d6;
+  --viz-out: #eb6834;
+  --viz-grid: #e1e0d9;
+  --viz-axis: #c3c2b7;
+  --viz-ink-muted: #6b6a66;
   --hover-bg: #f1f3f5;
   --active-bg: #eef2f7;
   --border: #d7dbe0;
@@ -55,6 +61,11 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
+    --viz-in: #3987e5;
+    --viz-out: #d95926;
+    --viz-grid: #2c2c2a;
+    --viz-axis: #4a4a46;
+    --viz-ink-muted: #a3a29a;
     --bg: #14171c;
     --card-bg: #1c2027;
     --hover-bg: #262b33;
@@ -97,6 +108,11 @@
 }
 
 :root[data-theme="dark"] {
+  --viz-in: #3987e5;
+  --viz-out: #d95926;
+  --viz-grid: #2c2c2a;
+  --viz-axis: #4a4a46;
+  --viz-ink-muted: #a3a29a;
   --bg: #14171c;
   --card-bg: #1c2027;
   --hover-bg: #262b33;
@@ -3446,4 +3462,135 @@ label.grow {
 }
 .data-table tbody tr.tree-group > td {
   border-top: 2px solid var(--border);
+}
+
+/* Import charts */
+.import-charts-section {
+  margin: 0.25rem 0 0.75rem;
+  font-size: 0.9rem;
+}
+.import-preview {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+}
+.tolerance-slider span {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.tolerance-slider input[type="range"] {
+  width: 9rem;
+  accent-color: var(--primary);
+}
+.tolerance-slider input[type="number"] {
+  width: 5.5rem;
+}
+.import-charts {
+  margin-top: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.viz-summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.4rem 1rem;
+  font-size: 0.88rem;
+}
+.viz-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.9rem;
+  color: var(--muted);
+}
+.viz-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.viz-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  vertical-align: -1px;
+}
+.viz-swatch.viz-in { background: var(--viz-in); }
+.viz-swatch.viz-out { background: var(--viz-out); }
+.viz-swatch.viz-coverage { background: var(--viz-ink-muted); height: 5px; }
+.viz-swatch.viz-marks-swatch { width: 2px; height: 10px; background: var(--viz-ink-muted); }
+.viz-out-text { color: var(--text); }
+.viz-out-text strong { color: var(--text); }
+.viz-grid-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(26rem, 1fr));
+  gap: 0.75rem;
+}
+.viz-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.5rem 0.6rem 0.25rem;
+  background: var(--card-bg);
+  min-width: 0;
+}
+.viz-card-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+  font-size: 0.85rem;
+  margin-bottom: 0.2rem;
+}
+.viz-plot {
+  position: relative;
+  width: 100%;
+  min-height: 60px;
+  user-select: none;
+}
+.viz-brushable { cursor: crosshair; touch-action: none; }
+.viz-empty { margin: 1.5rem 0; text-align: center; }
+.viz-canvas,
+.viz-overlay {
+  position: absolute;
+  inset: 0;
+}
+.viz-overlay { pointer-events: none; }
+.viz-plot svg text.viz-axis-label {
+  fill: var(--viz-ink-muted);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+.viz-plot .viz-grid { stroke: var(--viz-grid); stroke-width: 1; }
+.viz-plot .viz-baseline { stroke: var(--viz-axis); stroke-width: 1; }
+.viz-plot rect.viz-in { fill: var(--viz-in); }
+.viz-plot rect.viz-single { fill: var(--viz-in); }
+.viz-plot rect.viz-out { fill: var(--viz-out); }
+.viz-plot .viz-bar.hovered rect { filter: brightness(1.15); }
+.viz-plot rect.viz-coverage { fill: var(--viz-ink-muted); opacity: 0.7; rx: 1; }
+.viz-plot .viz-marks { stroke: var(--viz-ink-muted); stroke-width: 1; opacity: 0.6; }
+.viz-plot .viz-selection {
+  fill: var(--text);
+  fill-opacity: 0.08;
+  stroke: var(--viz-ink-muted);
+  stroke-dasharray: 3 2;
+}
+.viz-tooltip {
+  position: absolute;
+  top: 0.25rem;
+  pointer-events: none;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  padding: 0.3rem 0.5rem;
+  font-size: 0.8rem;
+  min-width: 11rem;
+  z-index: 3;
+}
+.viz-tooltip > div { white-space: nowrap; }
+/* Sit above a page's sticky bottom bar (the import footer) rather than on it. */
+body:has(.import-footer) .checkout-reminder,
+body:has(.import-footer) .checkout-reminder-tab {
+  bottom: 5.5rem;
 }

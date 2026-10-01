@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import type { CsvReport, ReportPriType } from "./interceptCsv";
 import { formatMissionTime } from "./interceptCsv";
 import {
@@ -19,6 +19,7 @@ import {
 import { matchEntry } from "./interceptMatch";
 import { EntryMatchCell } from "./EntryMatchCell";
 import { useConfirmDialog } from "../common/ConfirmDialog";
+import { ImportCharts, type Range, type RangeParam } from "./charts/ImportCharts";
 import type { Mode } from "../../types/domain";
 
 const PAGE_SIZE = 100;
@@ -50,6 +51,50 @@ const NO_FILTERS: Filters = {
   identified: "",
   show: "all",
 };
+
+/** A tolerance slider: logarithmic, so the small values that matter get most
+ * of its travel; far left is 0. The number beside it takes any value. */
+const SLIDER_STEPS = 1000;
+function ToleranceSlider({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  /** Smallest non-zero value the slider reaches. */
+  min: number;
+  max: number;
+  onChange: (value: string) => void;
+}) {
+  const v = Number(value) || 0;
+  const pos = v <= 0 ? 0 : Math.round((Math.log(Math.min(Math.max(v, min), max) / min) / Math.log(max / min)) * SLIDER_STEPS);
+  const fromPos = (p: number) => {
+    if (p <= 0) return "0";
+    const raw = min * (max / min) ** (p / SLIDER_STEPS);
+    return String(Number(raw.toPrecision(2)));
+  };
+  return (
+    <label className="tolerance-slider">
+      {label}
+      <span>
+        <input
+          type="range"
+          min={0}
+          max={SLIDER_STEPS}
+          value={pos}
+          aria-label={`${label} slider`}
+          onChange={(e) => onChange(fromPos(Number(e.target.value)))}
+        />
+        <input type="number" step="any" min="0" value={value} onChange={(e) => onChange(e.target.value)} />
+      </span>
+    </label>
+  );
+}
+
+const CHARTS_OPEN_KEY = "import-charts-open";
 
 interface Row {
   group: ReportGroup;
@@ -102,6 +147,21 @@ export function ImportGroupsPanel({
   const [page, setPage] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
   const { confirmDelete: confirm, dialog } = useConfirmDialog();
+  const [chartsOpen, setChartsOpenState] = useState(() => {
+    try {
+      return localStorage.getItem(CHARTS_OPEN_KEY) !== "false";
+    } catch {
+      return true;
+    }
+  });
+  function setChartsOpen(open: boolean) {
+    setChartsOpenState(open);
+    try {
+      localStorage.setItem(CHARTS_OPEN_KEY, String(open));
+    } catch {
+      // Not remembered — fine.
+    }
+  }
 
   const rows: Row[] = useMemo(
     () =>
@@ -144,6 +204,51 @@ export function ImportGroupsPanel({
   const selectedGroups = groups.filter((g) => selected.has(g.id));
   const selectedReports = selectedGroups.flatMap((g) => g.lines.map((l) => byLine.get(l)!));
   const mergeBlocked = cannotMerge(selectedReports);
+  const excludedLines = useMemo(() => new Set(groups.filter((g) => g.excluded).flatMap((g) => g.lines)), [groups]);
+  const tolerances: Tolerances = {
+    rfMhz: Number(tol.rfMhz) || 0,
+    priUs: Number(tol.priUs) || 0,
+    pwUs: Number(tol.pwUs) || 0,
+    sameTrack: tol.sameTrack,
+  };
+  // What Auto group would make with the current tolerances — shown, never
+  // applied, until the button is pressed. Worked out a moment after the
+  // sliders stop, since a large file takes a fraction of a second.
+  const [preview, setPreview] = useState<ReportGroup[] | null>(null);
+  const scopeKey = selected.size > 0 ? [...selected].sort((a, b) => a - b).join(",") : "all";
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      const scope = (selected.size > 0 ? groups.filter((g) => selected.has(g.id)) : groups).filter((g) => !g.excluded);
+      const lines = new Set(scope.flatMap((g) => g.lines));
+      setPreview(lines.size ? autoGroup(reports.filter((r) => lines.has(r.line)), [], tolerances) : null);
+    }, 250);
+    return () => window.clearTimeout(handle);
+    // tolerances is rebuilt from tol each render; scopeKey stands in for the selection.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tol, scopeKey, groups, reports]);
+
+  const toRange = (lo: string, hi: string): Range =>
+    lo === "" && hi === "" ? null : [lo === "" ? -Infinity : Number(lo), hi === "" ? Infinity : Number(hi)];
+  const rangeKeys: Record<RangeParam, [keyof Filters, keyof Filters]> = {
+    rf: ["rfMin", "rfMax"],
+    pri: ["priMin", "priMax"],
+    pw: ["pwMin", "pwMax"],
+  };
+  // Rounded outwards, so a dragged range never drops a value at its edge.
+  const fromRange = (range: Range): [string, string] =>
+    range ? [String(Math.floor(range[0] * 1000) / 1000), String(Math.ceil(range[1] * 1000) / 1000)] : ["", ""];
+  function setRange(param: RangeParam, range: Range) {
+    const [lo, hi] = fromRange(range);
+    const [kLo, kHi] = rangeKeys[param];
+    setFilters((f) => ({ ...f, [kLo]: lo, [kHi]: hi }));
+    setPage(0);
+  }
+  /** A typed range, open-ended when only one end is given. */
+  function chartRange(param: RangeParam): Range {
+    const r = toRange(filters[rangeKeys[param][0]] as string, filters[rangeKeys[param][1]] as string);
+    return r && !Number.isNaN(r[0]) && !Number.isNaN(r[1]) ? r : null;
+  }
+
   const allPageSelected = pageRows.length > 0 && pageRows.every((r) => selected.has(r.group.id));
 
   function setFilter<K extends keyof Filters>(key: K, value: Filters[K]) {
@@ -163,12 +268,6 @@ export function ImportGroupsPanel({
   }
 
   async function runAutoGroup() {
-    const tolerances: Tolerances = {
-      rfMhz: Number(tol.rfMhz) || 0,
-      priUs: Number(tol.priUs) || 0,
-      pwUs: Number(tol.pwUs) || 0,
-      sameTrack: tol.sameTrack,
-    };
     const scope = (selected.size > 0 ? selectedGroups : groups).filter((g) => !g.excluded);
     const scopeLines = new Set(scope.flatMap((g) => g.lines));
     const merged = scope.filter((g) => g.lines.length > 1).length;
@@ -230,18 +329,9 @@ export function ImportGroupsPanel({
         <fieldset className="import-autogroup">
           <legend>Auto group</legend>
           <div className="import-tolerances">
-            <label>
-              RF ± (MHz)
-              <input type="number" step="any" min="0" value={tol.rfMhz} onChange={(e) => setTol({ ...tol, rfMhz: e.target.value })} />
-            </label>
-            <label>
-              PRI ± (µs)
-              <input type="number" step="any" min="0" value={tol.priUs} onChange={(e) => setTol({ ...tol, priUs: e.target.value })} />
-            </label>
-            <label>
-              PW ± (µs)
-              <input type="number" step="any" min="0" value={tol.pwUs} onChange={(e) => setTol({ ...tol, pwUs: e.target.value })} />
-            </label>
+            <ToleranceSlider label="RF ± (MHz)" value={tol.rfMhz} min={0.01} max={500} onChange={(v) => setTol({ ...tol, rfMhz: v })} />
+            <ToleranceSlider label="PRI ± (µs)" value={tol.priUs} min={0.01} max={1000} onChange={(v) => setTol({ ...tol, priUs: v })} />
+            <ToleranceSlider label="PW ± (µs)" value={tol.pwUs} min={0.001} max={50} onChange={(v) => setTol({ ...tol, pwUs: v })} />
             <label className="inline-label">
               <input
                 type="checkbox"
@@ -254,10 +344,56 @@ export function ImportGroupsPanel({
               {selected.size > 0 ? `Auto group ${selected.size} selected` : "Auto group all"}
             </button>
           </div>
+          <p className="import-preview">
+            {preview ? (
+              <>
+                With these tolerances Auto group would make <strong>{preview.length.toLocaleString()}</strong> group
+                {preview.length === 1 ? "" : "s"}
+                {selected.size > 0 ? " from the selected rows" : ""} — a preview, shown as ticks on the charts. Nothing
+                changes until you press the button.
+              </>
+            ) : (
+              <span className="hint-text">Working out the preview…</span>
+            )}
+          </p>
           <p className="hint-text import-rule">
             <strong>What it does:</strong> {AUTO_GROUP_RULE} With rows selected it only regroups those.
           </p>
         </fieldset>
+      </div>
+
+      <div className="import-charts-section">
+        <button type="button" className="link-button" aria-expanded={chartsOpen} onClick={() => setChartsOpen(!chartsOpen)}>
+          {chartsOpen ? "▾ Charts" : "▸ Charts"}
+        </button>
+        <span className="hint-text">
+          {" "}
+          Drag across a chart to filter to that range (the table below follows, and the other charts narrow to it);
+          click a chart to clear its range.
+        </span>
+        {chartsOpen && (
+          <ImportCharts
+            reports={reports}
+            excludedLines={excludedLines}
+            modes={modes}
+            filters={{
+              type: filters.type,
+              track: filters.track,
+              identified: filters.identified,
+              rf: chartRange("rf"),
+              pri: chartRange("pri"),
+              pw: chartRange("pw"),
+            }}
+            onRange={setRange}
+            onBox={(rf, pri) => {
+              const [rLo, rHi] = fromRange(rf);
+              const [pLo, pHi] = fromRange(pri);
+              setFilters((f) => ({ ...f, rfMin: rLo, rfMax: rHi, priMin: pLo, priMax: pHi }));
+              setPage(0);
+            }}
+            preview={preview}
+          />
+        )}
       </div>
 
       <div className="import-filters">
