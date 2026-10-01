@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { RequireRole } from "../../auth/RequireAuth";
@@ -26,8 +26,22 @@ export function NavBar() {
   const { pathname } = useLocation();
   useEffect(() => setMenuOpen(false), [pathname]);
 
+  // Publish the bar's height so sticky table headers can sit just under it
+  // (it changes with the window width and when the menu folds open).
+  const navRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+    const publish = () =>
+      document.documentElement.style.setProperty("--navbar-height", `${el.getBoundingClientRect().height}px`);
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <nav className="navbar">
+    <nav className="navbar" ref={navRef}>
       <div className="navbar-brand">
         <Link to="/dashboard">PRS Emitter Repo</Link>
       </div>

@@ -1881,14 +1881,6 @@ code {
   padding-top: 1rem;
 }
 
-.source-detail {
-  padding: 1rem;
-  background: var(--hover-bg);
-  border-radius: 6px;
-}
-.source-detail h5 {
-  margin-top: 0;
-}
 
 .source-group-section {
   margin-top: 1rem;
@@ -3270,4 +3262,61 @@ label.grow {
 }
 .import-footer .button.primary {
   margin-left: auto;
+}
+
+/* The grouping table's header stays on screen, just under the navigation
+   bar, while the page scrolls past it — so no scrolling box of its own. */
+.import-table-wrap {
+  overflow: visible;
+}
+.data-table.import-groups > thead > tr > th {
+  position: sticky;
+  top: var(--navbar-height, 0px);
+  z-index: 4;
+  background: var(--card-bg);
+  box-shadow: 0 1px 0 var(--border);
+}
+
+/* A Source opened over the page — a fixed size, so its tabs never resize
+   anything; only the body scrolls. */
+.source-overlay {
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  width: min(1400px, 94vw);
+  height: min(900px, 90vh);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.source-overlay-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 0.9rem 1.1rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+.source-overlay-title h3 {
+  margin: 0 0 0.15rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.source-overlay-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+.source-overlay-tabs {
+  padding: 0.5rem 1.1rem 0;
+  margin: 0;
+  flex-shrink: 0;
+}
+.source-overlay-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0.9rem 1.1rem 1.1rem;
 }

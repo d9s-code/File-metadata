@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { JsonImportModal } from "../common/JsonImportModal";
 import type { EwGroup, Source } from "../../types/domain";
@@ -94,8 +94,19 @@ type SourceDetailTab = "elements" | "sequences" | "generate" | "notes";
 /** An opened Source, as tabs rather than one long stack: its Elements, its
  * Parameter Sequences, Cartesian Product (generate Modes), and its notes
  * with the Modes built from it. */
-function SourceDetailTabs({ emitterId, source, ewGroups }: { emitterId: string; source: Source; ewGroups: EwGroup[] }) {
-  const [tab, setTab] = useState<SourceDetailTab>("elements");
+function SourceDetailTabs({
+  emitterId,
+  source,
+  ewGroups,
+  tab,
+  onTab,
+}: {
+  emitterId: string;
+  source: Source;
+  ewGroups: EwGroup[];
+  tab: SourceDetailTab;
+  onTab: (tab: SourceDetailTab) => void;
+}) {
   const { data: notes } = useSourceNotes(emitterId, source.id);
   const noteCount = notes?.length ?? 0;
   const tabs: [SourceDetailTab, string][] = [
@@ -106,7 +117,7 @@ function SourceDetailTabs({ emitterId, source, ewGroups }: { emitterId: string; 
   ];
   return (
     <>
-      <div className="sub-tab-bar" role="tablist" aria-label={`${source.name} details`}>
+      <div className="sub-tab-bar source-overlay-tabs" role="tablist" aria-label={`${source.name} details`}>
         {tabs.map(([key, label]) => (
           <button
             key={key}
@@ -114,12 +125,13 @@ function SourceDetailTabs({ emitterId, source, ewGroups }: { emitterId: string; 
             role="tab"
             aria-selected={tab === key}
             className={tab === key ? "sub-tab active" : "sub-tab"}
-            onClick={() => setTab(key)}
+            onClick={() => onTab(key)}
           >
             {label}
           </button>
         ))}
       </div>
+      <div className="source-overlay-body">
       {tab === "elements" && <ElementsPanel emitterId={emitterId} sourceId={source.id} />}
       {tab === "sequences" && <ParameterSequencesPanel emitterId={emitterId} sourceId={source.id} />}
       {tab === "generate" && (
@@ -135,7 +147,96 @@ function SourceDetailTabs({ emitterId, source, ewGroups }: { emitterId: string; 
           <SourceCoverage emitterId={emitterId} sourceId={source.id} />
         </>
       )}
+      </div>
     </>
+  );
+}
+
+/** A Source opened over the page, at a fixed size: its tabs stay put and
+ * only the body scrolls, so switching tabs never resizes anything. Previous
+ * and Next step through the Sources in the order they're listed, staying on
+ * the same tab. */
+function SourceOverlay({
+  emitterId,
+  sources,
+  sourceId,
+  ewGroups,
+  onNavigate,
+  onClose,
+}: {
+  emitterId: string;
+  /** In display order. */
+  sources: Source[];
+  sourceId: string;
+  ewGroups: EwGroup[];
+  onNavigate: (sourceId: string) => void;
+  onClose: () => void;
+}) {
+  const [tab, setTab] = useState<SourceDetailTab>("elements");
+  const index = sources.findIndex((s) => s.id === sourceId);
+  const source = sources[index];
+  const prev = index > 0 ? sources[index - 1] : null;
+  const next = index >= 0 && index < sources.length - 1 ? sources[index + 1] : null;
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      // A form or confirm dialog opened from inside closes first.
+      if (document.querySelectorAll(".modal-overlay").length > 1) return;
+      onClose();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  // The Source was deleted (or filtered away) while open.
+  useEffect(() => {
+    if (!source) onClose();
+  }, [source, onClose]);
+  if (!source) return null;
+
+  return (
+    <div className="modal-overlay source-overlay-backdrop" onClick={onClose}>
+      <div
+        className="source-overlay"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Source ${source.name}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="source-overlay-header">
+          <div className="source-overlay-title">
+            <h3>
+              {source.name}
+              {source.status !== "approved" && (
+                <span className={`status-badge status-${source.status}`}>{source.status.replace("_", " ")}</span>
+              )}
+            </h3>
+            <div className="hint-text">
+              Last updated {source.source_date}
+              {source.rf_legacy_term && ` · ${source.rf_legacy_term}`}
+              {source.pri_legacy_term && ` · PRI: ${source.pri_legacy_term}`}
+            </div>
+          </div>
+          <div className="source-overlay-nav">
+            <button type="button" className="button secondary small" disabled={!prev} onClick={() => prev && onNavigate(prev.id)}>
+              ‹ Previous
+            </button>
+            <span className="hint-text">
+              {index + 1} of {sources.length}
+            </span>
+            <button type="button" className="button secondary small" disabled={!next} onClick={() => next && onNavigate(next.id)}>
+              Next ›
+            </button>
+            <button type="button" className="link-button" aria-label="Close" onClick={onClose}>
+              ✕
+            </button>
+          </div>
+        </div>
+        {/* Keyed by Source so open forms and paging don't carry over to the next one. */}
+        <SourceDetailTabs key={source.id} emitterId={emitterId} source={source} ewGroups={ewGroups} tab={tab} onTab={setTab} />
+      </div>
+    </div>
   );
 }
 
@@ -156,7 +257,7 @@ export function SourcesTable({
   const { canEdit } = useEmitterCheckoutState(emitter);
   const editTitle = canEdit ? undefined : "Start editing this Emitter first";
   const { confirmDelete, dialog } = useConfirmDialog();
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [openSourceId, setOpenSourceId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingSource, setEditingSource] = useState<Source | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -199,6 +300,7 @@ export function SourcesTable({
 
   const groupNameById = useMemo(() => Object.fromEntries(sourceGroups.map((g) => [g.id, g.name])), [sourceGroups]);
 
+  const closeOverlay = useCallback(() => setOpenSourceId(null), []);
   const sections = useMemo(() => {
     const byGroup = new Map<string, Source[]>();
     for (const s of sorted) {
@@ -395,11 +497,8 @@ export function SourcesTable({
                             )}
                           </td>
                           <td>
-                            <button
-                              className="link-button"
-                              onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}
-                            >
-                              {expandedId === s.id ? "Close ▴" : "Open ▾"}
+                            <button className="link-button" onClick={() => setOpenSourceId(s.id)}>
+                              Open
                             </button>{" "}
                             <RequireRole minimum="editor">
                               {s.status !== "approved" && (
@@ -443,15 +542,6 @@ export function SourcesTable({
                             </RequireRole>
                           </td>
                         </tr>
-                        {expandedId === s.id && (
-                          <tr>
-                            <td colSpan={9}>
-                              <div className="source-detail">
-                                <SourceDetailTabs emitterId={emitterId} source={s} ewGroups={ewGroups} />
-                              </div>
-                            </td>
-                          </tr>
-                        )}
                       </Fragment>
                     ))}
                   </tbody>
@@ -462,6 +552,16 @@ export function SourcesTable({
         })
       )}
       {deleteError && <div className="error-text">{deleteError}</div>}
+      {openSourceId && (
+        <SourceOverlay
+          emitterId={emitterId}
+          sources={sections.flatMap((section) => section.items)}
+          sourceId={openSourceId}
+          ewGroups={ewGroups}
+          onNavigate={setOpenSourceId}
+          onClose={closeOverlay}
+        />
+      )}
       {rejectingSource && (
         <RejectSourceModal emitterId={emitterId} source={rejectingSource} onClose={() => setRejectingSource(null)} />
       )}

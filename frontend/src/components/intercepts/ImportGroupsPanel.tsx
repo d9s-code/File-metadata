@@ -374,7 +374,7 @@ export function ImportGroupsPanel({
       {selected.size > 1 && mergeBlocked && <p className="hint-text">Can't merge: {mergeBlocked}</p>}
       {message && <p className="import-message">{message}</p>}
 
-      <div className="matrix-scroll">
+      <div className="import-table-wrap">
         <table className="data-table import-groups">
           <thead>
             <tr>
