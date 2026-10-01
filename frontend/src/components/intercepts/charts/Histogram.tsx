@@ -28,17 +28,18 @@ export function niceTicks(lo: number, hi: number, count = 5): number[] {
 
 /** Width of the element, kept up to date. */
 export function useWidth<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
+  // A callback ref, so measuring starts whenever the element appears — a chart
+  // that first renders nothing (data still loading) still gets its width.
+  const [el, setEl] = useState<T | null>(null);
   const [width, setWidth] = useState(0);
   useEffect(() => {
-    const el = ref.current;
     if (!el) return;
     const observer = new ResizeObserver(() => setWidth(el.clientWidth));
     observer.observe(el);
     setWidth(el.clientWidth);
     return () => observer.disconnect();
-  }, []);
-  return { ref, width };
+  }, [el]);
+  return { ref: setEl, width };
 }
 
 /** How many values fall in each of BINS bins, split by whether they're

@@ -238,8 +238,8 @@ export function HelpPage() {
           <div className="help-subsection" id="emitter-modes-tab">
             <h4>Modes tab</h4>
             <p>
-              See the Emitter's Modes as a sortable <strong>Table</strong> or as <strong>Cards</strong>.
-              Filter by EW Group, Source, or Batch, and search by name. Each Mode row shows:
+              See the Emitter's Modes as a sortable <strong>Table</strong>, as <strong>Cards</strong>, or as{" "}
+              <strong>Charts</strong>. Filter by EW Group, Source, or Batch, and search by name. Each Mode row shows:
             </p>
             <ul>
               <li>RF min/max, PRI type (FIXED / STAGGER / CW / XLET) and its min/max where applicable, PW min/max</li>
@@ -294,11 +294,27 @@ export function HelpPage() {
             </p>
           </div>
 
+          <div className="help-subsection" id="emitter-modes-charts">
+            <h4>Modes charts</h4>
+            <p>
+              <strong>Charts</strong> draws the Modes the filters leave, coloured by each Mode&apos;s last test result
+              (with the result named in the legend and on hover), using the engineered ranges the system recognises.
+              The <strong>parameter map</strong> puts each Mode on RF × PRI (a stagger&apos;s frame time; Modes with no
+              PRI sit in a strip underneath): overlapping Modes show as layered areas and hovering lists every Mode under
+              the pointer, empty space is what no Mode covers. Drag to zoom; click a Mode to open it in the table. The{" "}
+              <strong>range ladders</strong> give each Mode a row with its RF, PRI and PW side by side — the solid bar is
+              what it was set to, the faint extension the engineered ± delta — so overlaps line up in a column. This
+              Emitter&apos;s intercept entries are marked on both, as dots (matching a Mode) or crosses (outside every
+              Mode); the axes fit the Modes unless you choose to fit the entries too.
+            </p>
+          </div>
           <div className="help-subsection" id="emitter-testing-tab">
             <h4>Test History tab</h4>
             <p>
               Two parts: the <strong>SIM Test Lines</strong> this Emitter is checked against, and the list of
-              logged <strong>test runs</strong>.
+              logged <strong>test runs</strong>. Between them, <strong>Simulation trend</strong> shows each simulation
+              run as a column of its line outcomes (correct, misclassified, missed, inconclusive), oldest to newest,
+              with the Emitter version it was run against on hover — click a column to open the run.
             </p>
             <ul>
               <li>

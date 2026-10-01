@@ -7,6 +7,7 @@ import { useConfirmDialog } from "../common/ConfirmDialog";
 import { ModesTable } from "./ModesTable";
 import { ModesCardGrid } from "./ModesCardGrid";
 import { ModesViewToggle, type ModesView } from "./ModesViewToggle";
+import { ModeCharts } from "./charts/ModeCharts";
 import { ModeForm } from "./ModeForm";
 import { BatchEditModal } from "./BatchEditModal";
 import { PrsImportModal } from "./PrsImportModal";
@@ -23,7 +24,8 @@ const COLLAPSE_BATCHES_STORAGE_KEY = "modesCollapseBatches";
 
 function readStoredView(): ModesView {
   try {
-    return localStorage.getItem(VIEW_STORAGE_KEY) === "cards" ? "cards" : "table";
+    const stored = localStorage.getItem(VIEW_STORAGE_KEY);
+    return stored === "cards" || stored === "charts" ? stored : "table";
   } catch {
     return "table";
   }
@@ -454,6 +456,17 @@ export function ModesSection({
               ? "No Modes match the current search/filters."
               : "Add a Source, then either type a DSL line or add Elements and run Cartesian Product."
           }
+        />
+      ) : view === "charts" ? (
+        <ModeCharts
+          emitterId={emitterId}
+          modes={sorted}
+          allModes={modes ?? []}
+          onOpen={(m) => {
+            // Open it where it can be edited: the table, searched to it.
+            setSearch(m.name);
+            setView("table");
+          }}
         />
       ) : view === "table" ? (
         <ModesTable

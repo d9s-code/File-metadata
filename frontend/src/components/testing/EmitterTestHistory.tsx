@@ -4,6 +4,7 @@ import { useEmitterTestLines } from "../../state/hooks/useTestLines";
 import { RequireRole } from "../../auth/RequireAuth";
 import { SimTestLinesPanel } from "./SimTestLinesPanel";
 import { TestRecordsTable } from "./TestRecordsTable";
+import { SimulationTrend } from "./SimulationTrend";
 
 export function EmitterTestHistory({
   emitterId,
@@ -20,6 +21,7 @@ export function EmitterTestHistory({
   return (
     <div>
       <SimTestLinesPanel emitterId={emitterId} lines={testLines ?? []} />
+      <SimulationTrend emitterId={emitterId} records={records ?? []} />
       <div className="card">
         <div className="card-header">
           <h4>

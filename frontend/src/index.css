@@ -3594,3 +3594,72 @@ body:has(.import-footer) .checkout-reminder,
 body:has(.import-footer) .checkout-reminder-tab {
   bottom: 5.5rem;
 }
+
+/* Status colours for test results (fixed in both themes; always shown with a
+   label in the legend or tooltip, never alone). */
+:root {
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-critical: #d03b3b;
+  --status-neutral: #898781;
+}
+.viz-swatch.status-good, .viz-plot .status-good { background: var(--status-good); fill: var(--status-good); stroke: var(--status-good); }
+.viz-swatch.status-warning, .viz-plot .status-warning { background: var(--status-warning); fill: var(--status-warning); stroke: var(--status-warning); }
+.viz-swatch.status-critical, .viz-plot .status-critical { background: var(--status-critical); fill: var(--status-critical); stroke: var(--status-critical); }
+.viz-swatch.status-neutral, .viz-plot .status-neutral { background: var(--status-neutral); fill: var(--status-neutral); stroke: var(--status-neutral); }
+
+/* Modes tab charts */
+.mode-charts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.mode-charts > .hint-text { margin: 0; }
+.viz-plot rect.map-mode {
+  fill-opacity: 0.16;
+  stroke-width: 1.5;
+  cursor: pointer;
+}
+.viz-plot rect.map-mode.hovered {
+  fill-opacity: 0.32;
+  stroke-width: 2.5;
+}
+.viz-plot .map-entry {
+  fill: var(--text);
+  stroke: var(--card-bg);
+  stroke-width: 2;
+  paint-order: stroke;
+}
+.viz-plot .map-entry-out {
+  stroke: var(--viz-out);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.viz-plot .map-entry-out-dot { fill: var(--viz-out); }
+.viz-swatch.map-entry-swatch { background: var(--text); border-radius: 50%; }
+.map-cross-swatch { color: var(--viz-out); font-weight: 700; font-size: 0.8rem; }
+.map-tip-first { margin-bottom: 0.2rem; }
+.viz-plot .ladder-row-bg { fill: transparent; }
+.viz-plot .ladder-row.hovered .ladder-row-bg { fill: var(--hover-bg); }
+.viz-plot .ladder-name {
+  fill: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+.viz-plot .ladder-name:hover { text-decoration: underline; }
+.viz-plot text.ladder-title { fill: var(--text); font-weight: 600; font-size: 11.5px; }
+.viz-plot rect.ladder-eng { fill-opacity: 0.3; stroke: none; }
+.viz-plot rect.ladder-raw { stroke: none; }
+.viz-plot rect.ladder-dot { stroke: none; }
+.viz-plot .ladder-entry { stroke: var(--text); stroke-width: 1; opacity: 0.55; }
+.viz-plot .ladder-entry-out { stroke: var(--viz-out); stroke-width: 1.5; }
+.ladder-sort { font-size: 0.8rem; padding: 0.1rem 0.3rem; }
+
+/* Simulation trend */
+.viz-plot .trend-hit { fill: transparent; cursor: pointer; }
+.viz-plot .trend-run.hovered .trend-hit { fill: var(--hover-bg); }
+.viz-plot rect.trend-seg { stroke: none; pointer-events: none; }
+.card-header .viz-legend {
+  font-size: 0.82rem;
+  font-weight: 400;
+}

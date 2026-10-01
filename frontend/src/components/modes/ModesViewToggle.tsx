@@ -1,4 +1,4 @@
-export type ModesView = "table" | "cards";
+export type ModesView = "table" | "cards" | "charts";
 
 export function ModesViewToggle({ view, onChange }: { view: ModesView; onChange: (view: ModesView) => void }) {
   return (
@@ -18,6 +18,14 @@ export function ModesViewToggle({ view, onChange }: { view: ModesView; onChange:
         onClick={() => onChange("cards")}
       >
         Cards
+      </button>
+      <button
+        type="button"
+        aria-pressed={view === "charts"}
+        className={view === "charts" ? "active" : ""}
+        onClick={() => onChange("charts")}
+      >
+        Charts
       </button>
     </div>
   );
