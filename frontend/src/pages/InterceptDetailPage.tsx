@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useEmitter } from "../state/hooks/useEmitters";
 import { useEwGroups } from "../state/hooks/useEwGroups";
@@ -8,9 +8,11 @@ import { useEmitterModes } from "../state/hooks/useModes";
 import { useEmitterCheckoutState } from "../state/hooks/useEmitterCheckout";
 import {
   useDeleteIntercept,
+  useDeleteInterceptEntries,
   useDeleteInterceptEntry,
   useInterceptEntries,
   useIntercept,
+  useMergeInterceptEntries,
 } from "../state/hooks/useIntercepts";
 import {
   useCreateInterceptNote,
@@ -30,6 +32,18 @@ import { EntryFormModal } from "../components/intercepts/EntryFormModal";
 import { EntryMatchCell, MatchCounts } from "../components/intercepts/EntryMatchCell";
 import { formatDay, modeLink } from "../components/intercepts/interceptFormat";
 import { matchEntry, type EntryMatch, type EntryMatchStatus } from "../components/intercepts/interceptMatch";
+import { SortableColumnHeader } from "../components/common/SortableColumnHeader";
+import { useSortableTable } from "../components/common/useSortableTable";
+import { compareNullable } from "../components/common/sortUtils";
+import type { SortDirection } from "../components/common/sortUtils";
+import {
+  EntryCharts,
+  entryValue,
+  withinRange,
+  type EntryChartTab,
+  type SelectMode,
+} from "../components/intercepts/charts/EntryCharts";
+import type { Range, RangeParam } from "../components/intercepts/charts/ImportCharts";
 import type { Emitter, InterceptEntry, Mode } from "../types/domain";
 
 const PAGE_SIZE = 100;
@@ -97,6 +111,35 @@ function CreateModeFromEntry({ entry, emitterId, onClose }: { entry: InterceptEn
   );
 }
 
+const pad2 = (n: number) => String(n).padStart(2, "0");
+/** A mission time as written in the file (stored as UTC). */
+function utcParts(iso: string) {
+  const d = new Date(iso);
+  return {
+    date: `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`,
+    time: `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`,
+    full: `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())} ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}:${pad2(d.getUTCSeconds())}`,
+  };
+}
+
+/** When an entry was heard: "2026-09-14 08:15–09:09", the full times in the tooltip. */
+function Heard({ entry }: { entry: InterceptEntry }) {
+  if (!entry.first_seen_at) return <span className="hint-text">—</span>;
+  const a = utcParts(entry.first_seen_at);
+  const b = entry.last_seen_at ? utcParts(entry.last_seen_at) : a;
+  const span = a.full === b.full ? a.time : a.date === b.date ? `${a.time}–${b.time}` : `${a.time} – ${b.date} ${b.time}`;
+  return (
+    <span title={`${a.full} – ${b.full}`}>
+      <span className="cell-nowrap">{span}</span>
+      <div className="hint-text cell-subline">{a.date}</div>
+    </span>
+  );
+}
+
+const STATUS_ORDER: Record<EntryMatchStatus, number> = { match: 0, near: 1, none: 2 };
+type SortKey = "type" | "rf" | "pri" | "pw" | "reports" | "heard" | "match" | "created";
+type Row = { entry: InterceptEntry; match: EntryMatch | null };
+
 function EntryRow({
   entry,
   emitter,
@@ -104,8 +147,11 @@ function EntryRow({
   modeById,
   isMine,
   canWrite,
+  selected,
+  onToggle,
   onEdit,
   onDelete,
+  columns,
 }: {
   entry: InterceptEntry;
   emitter: Emitter | undefined;
@@ -114,37 +160,66 @@ function EntryRow({
   modeById: Map<string, Mode>;
   isMine: boolean;
   canWrite: boolean;
+  selected: boolean;
+  onToggle: () => void;
   onEdit: (entry: InterceptEntry) => void;
   onDelete: (entry: InterceptEntry) => void;
+  columns: number;
 }) {
   const [showCreateMode, setShowCreateMode] = useState(false);
   const emitterId = emitter?.id ?? "";
   const createdModes = entry.derived_mode_ids.map((id) => modeById.get(id)).filter((m): m is Mode => !!m);
+  const tracks = entry.tracks ?? [];
 
   return (
     <>
-      <tr className={match?.status === "none" ? "entry-unmatched" : undefined}>
-        <td>{PRI_TYPE_LABEL[entry.pri_type] ?? entry.pri_type}</td>
+      <tr
+        className={[match?.status === "none" && "entry-unmatched", selected && "entry-selected"].filter(Boolean).join(" ") || undefined}
+      >
+        {canWrite && (
+          <td>
+            <input type="checkbox" aria-label="Select entry" checked={selected} onChange={onToggle} />
+          </td>
+        )}
+        <td>
+          {PRI_TYPE_LABEL[entry.pri_type] ?? entry.pri_type}
+          {entry.pri_type === "stagger" && entry.stagger_values && (
+            <div className="hint-text cell-subline">{entry.stagger_values.length} positions</div>
+          )}
+        </td>
         <td>
           <MeasuredValue mean={entry.rf_mean_mhz} min={entry.rf_min_mhz} max={entry.rf_max_mhz} />
         </td>
         <td>
           <MeasuredValue mean={entry.pri_mean_us} min={entry.pri_min_us} max={entry.pri_max_us} />
-          {entry.pri_type === "stagger" && <div className="hint-text cell-subline">frame time</div>}
         </td>
         <td>
           <MeasuredValue mean={entry.pw_mean_us} min={entry.pw_min_us} max={entry.pw_max_us} />
         </td>
-        <td>
+        <td className="entry-jitter">
           {entry.pri_type === "cw"
             ? <span className="hint-text">—</span>
             : entry.pri_type === "fixed"
             ? (entry.jitter_mean_us ?? "—")
             : entry.stagger_values && entry.stagger_values.length > 0
-              ? entry.stagger_values.join(", ")
+              ? <span title={entry.stagger_values.join(", ")}>{entry.stagger_values.join(", ")}</span>
               : "—"}
         </td>
-        <td>{match ? <EntryMatchCell match={match} emitterId={emitterId} /> : <span className="hint-text">…</span>}</td>
+        <td>{entry.report_count != null ? entry.report_count.toLocaleString() : <span className="hint-text">—</span>}</td>
+        <td>
+          <Heard entry={entry} />
+        </td>
+        <td>
+          {tracks.length === 0 ? (
+            <span className="hint-text">—</span>
+          ) : (
+            <span title={tracks.join(", ")}>
+              {tracks.slice(0, 3).join(", ")}
+              {tracks.length > 3 && <span className="hint-text"> +{tracks.length - 3}</span>}
+            </span>
+          )}
+        </td>
+        <td>{match ? <EntryMatchCell match={match} emitterId={emitterId} compact /> : <span className="hint-text">…</span>}</td>
         <td>
           {entry.derived_mode_ids.length === 0 ? (
             <span className="hint-text">—</span>
@@ -165,7 +240,9 @@ function EntryRow({
             </>
           )}
         </td>
-        <td className="entry-notes">{entry.notes ?? <span className="hint-text">—</span>}</td>
+        <td className="entry-notes" title={entry.notes ?? undefined}>
+          {entry.notes ?? <span className="hint-text">—</span>}
+        </td>
         <td className="sticky-end row-actions">
           {canWrite && (
             <MenuButton
@@ -188,13 +265,44 @@ function EntryRow({
       </tr>
       {showCreateMode && isMine && (
         <tr>
-          <td colSpan={9}>
+          <td colSpan={columns}>
             <CreateModeFromEntry entry={entry} emitterId={emitterId} onClose={() => setShowCreateMode(false)} />
           </td>
         </tr>
       )}
     </>
   );
+}
+
+const CHARTS_OPEN_KEY = "intercept-charts-open";
+const CHART_TAB_KEY = "intercept-chart-tab";
+
+function readStored<T extends string>(key: string, allowed: T[], fallback: T): T {
+  try {
+    const v = localStorage.getItem(key);
+    return allowed.find((a) => a === v) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+function store(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Not remembered — fine.
+  }
+}
+
+/** Why the selected entries can't be merged, or null if they can. */
+function cannotMerge(entries: InterceptEntry[]): string | null {
+  if (entries.length < 2) return "Select at least two entries to merge.";
+  if (new Set(entries.map((e) => e.pri_type)).size > 1) return "These have different PRI types — an entry has one.";
+  if (
+    entries[0].pri_type === "stagger" &&
+    new Set(entries.map((e) => e.stagger_values?.length ?? 0)).size > 1
+  )
+    return "These staggers have different numbers of positions.";
+  return null;
 }
 
 export function InterceptDetailPage() {
@@ -209,6 +317,8 @@ export function InterceptDetailPage() {
   const createNote = useCreateInterceptNote(interceptId ?? "");
   const deleteNote = useDeleteInterceptNote(interceptId ?? "");
   const deleteEntry = useDeleteInterceptEntry(interceptId ?? "");
+  const deleteEntries = useDeleteInterceptEntries(interceptId ?? "");
+  const mergeEntries = useMergeInterceptEntries(interceptId ?? "");
   const deleteIntercept = useDeleteIntercept();
   const { confirmDelete, dialog } = useConfirmDialog();
 
@@ -216,34 +326,165 @@ export function InterceptDetailPage() {
   const [showEditDetails, setShowEditDetails] = useState(false);
   const [entryForm, setEntryForm] = useState<{ entry?: InterceptEntry } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const [show, setShow] = useState<"all" | EntryMatchStatus>("all");
   const [page, setPage] = useState(0);
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [ranges, setRanges] = useState<Record<RangeParam, Range>>({ rf: null, pri: null, pw: null });
+  const [chartsOpen, setChartsOpenState] = useState(() => readStored(CHARTS_OPEN_KEY, ["true", "false"], "true") === "true");
+  const [chartTab, setChartTabState] = useState<EntryChartTab>(() =>
+    readStored<EntryChartTab>(CHART_TAB_KEY, ["distributions", "time"], "distributions"),
+  );
+  function setChartsOpen(open: boolean) {
+    setChartsOpenState(open);
+    store(CHARTS_OPEN_KEY, String(open));
+  }
+  function setChartTab(tab: EntryChartTab) {
+    setChartTabState(tab);
+    setChartsOpen(true);
+    store(CHART_TAB_KEY, tab);
+  }
 
   // Matched once per change rather than per render — an imported Intercept
   // can hold thousands of entries.
-  const matched = useMemo(
+  const matched: Row[] = useMemo(
     () => (entries ?? []).map((entry) => ({ entry, match: modes ? matchEntry(entry, modes) : null })),
     [entries, modes],
   );
+  const matchById = useMemo(
+    () => (modes ? new Map(matched.map(({ entry, match }) => [entry.id, match!])) : null),
+    [matched, modes],
+  );
   const modeById = useMemo(() => new Map((modes ?? []).map((m) => [m.id, m])), [modes]);
+  const byStatus = useMemo(
+    () => (show === "all" ? matched : matched.filter(({ match }) => match?.status === show)),
+    [matched, show],
+  );
+  const shown = useMemo(
+    () =>
+      byStatus.filter(({ entry }) =>
+        (["rf", "pri", "pw"] as RangeParam[]).every((p) => withinRange(entryValue(entry, p), ranges[p])),
+      ),
+    [byStatus, ranges],
+  );
+
+  const compare = useCallback((a: Row, b: Row, key: SortKey, dir: SortDirection) => {
+    const ea = a.entry;
+    const eb = b.entry;
+    switch (key) {
+      case "type":
+        return compareNullable(ea.pri_type, eb.pri_type, dir) || compareNullable(ea.rf_mean_mhz, eb.rf_mean_mhz, "asc");
+      case "rf":
+        return compareNullable(ea.rf_mean_mhz, eb.rf_mean_mhz, dir);
+      case "pri":
+        return compareNullable(ea.pri_mean_us, eb.pri_mean_us, dir);
+      case "pw":
+        return compareNullable(ea.pw_mean_us, eb.pw_mean_us, dir);
+      case "reports":
+        return compareNullable(ea.report_count, eb.report_count, dir);
+      case "heard":
+        return compareNullable(ea.first_seen_at, eb.first_seen_at, dir);
+      case "match":
+        return compareNullable(
+          a.match ? STATUS_ORDER[a.match.status] : null,
+          b.match ? STATUS_ORDER[b.match.status] : null,
+          dir,
+        );
+      case "created":
+        return compareNullable(ea.created_at, eb.created_at, dir);
+    }
+  }, []);
+  // Imported entries share one creation time, so the default order is by RF.
+  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable<Row, SortKey>(shown, compare, {
+    key: "rf",
+    dir: "asc",
+  });
 
   if (isLoading || !intercept) return <LoadingState label="Loading intercept…" />;
 
   const counts = modes
     ? matched.reduce((c, { match }) => ({ ...c, [match!.status]: c[match!.status] + 1 }), { match: 0, near: 0, none: 0 })
     : null;
-  const shown = show === "all" ? matched : matched.filter(({ match }) => match?.status === show);
-  const pageCount = Math.max(1, Math.ceil(shown.length / PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
-  const pageRows = shown.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+  const pageRows = sorted.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+  const selectedEntries = (entries ?? []).filter((e) => selected.has(e.id));
+  const hiddenSelected = selectedEntries.length - shown.filter(({ entry }) => selected.has(entry.id)).length;
+  const mergeBlocked = cannotMerge(selectedEntries);
+  const allPageSelected = pageRows.length > 0 && pageRows.every(({ entry }) => selected.has(entry.id));
+  const filteredByChart = Object.values(ranges).some(Boolean);
+  const columns = canWrite ? 13 : 12;
+
+  const totalReports = (entries ?? []).reduce((n, e) => n + (e.report_count ?? 0), 0);
+  const firsts = (entries ?? []).map((e) => e.first_seen_at).filter((t): t is string => !!t).sort();
+  const lasts = (entries ?? []).map((e) => e.last_seen_at ?? e.first_seen_at).filter((t): t is string => !!t).sort();
+
+  function selectBox(ids: string[], mode: SelectMode) {
+    setSelected((current) => {
+      if (mode === "replace") return new Set(ids);
+      if (mode === "add") return new Set([...current, ...ids]);
+      const inside = new Set(ids);
+      return new Set([...current].filter((id) => inside.has(id)));
+    });
+  }
+  function toggle(id: string) {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   async function handleDeleteEntry(entry: InterceptEntry) {
     setError(null);
     if (!(await confirmDelete("Delete this entry? Any Mode already created from it is unaffected."))) return;
     try {
       await deleteEntry.mutateAsync(entry.id);
+      setSelected((current) => {
+        const next = new Set(current);
+        next.delete(entry.id);
+        return next;
+      });
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : "Failed to delete entry");
+    }
+  }
+
+  async function handleDeleteSelected() {
+    setError(null);
+    const n = selectedEntries.length;
+    if (
+      !(await confirmDelete(
+        `Delete ${n} entr${n === 1 ? "y" : "ies"}?${hiddenSelected > 0 ? ` (${hiddenSelected} of them aren't shown by the current filters.)` : ""} Any Mode already created from them is unaffected.`,
+      ))
+    )
+      return;
+    try {
+      await deleteEntries.mutateAsync(selectedEntries.map((e) => e.id));
+      setSelected(new Set());
+      setMessage(`Deleted ${n} entr${n === 1 ? "y" : "ies"}.`);
+    } catch (err) {
+      setError(err instanceof ApiRequestError ? err.message : "Failed to delete the entries");
+    }
+  }
+
+  async function handleMergeSelected() {
+    setError(null);
+    const n = selectedEntries.length;
+    if (
+      !(await confirmDelete(
+        `Merge ${n} entries into one? Means are weighted by how many reports each was built from, the measured range becomes the widest of them, and their times, report counts, tracks and Mode links are combined.`,
+        { confirmLabel: "Merge" },
+      ))
+    )
+      return;
+    try {
+      const merged = await mergeEntries.mutateAsync(selectedEntries.map((e) => e.id));
+      setSelected(new Set([merged.id]));
+      setMessage(`Merged ${n} entries into one — it's selected.`);
+    } catch (err) {
+      setError(err instanceof ApiRequestError ? err.message : "Failed to merge the entries");
     }
   }
 
@@ -270,6 +511,18 @@ export function InterceptDetailPage() {
     `logged ${new Date(intercept.created_at).toLocaleDateString()}`,
   ].filter(Boolean);
 
+  const header = (label: string, key: SortKey, columnType?: "string" | "number" | "date") => (
+    <SortableColumnHeader
+      label={label}
+      columnKey={key}
+      columnType={columnType}
+      activeKey={sortKey}
+      activeDir={sortDir}
+      onSort={onSort}
+      onClear={onClear}
+    />
+  );
+
   return (
     <div className="page">
       {emitter && <Link to={`/emitters/${emitter.id}?tab=intercepts`}>← {emitter.name} Intercepts</Link>}
@@ -291,9 +544,74 @@ export function InterceptDetailPage() {
           </div>
         </RequireRole>
       </div>
-      <p className="intercept-meta">{meta.join(" · ").replace(/^./, (c) => c.toUpperCase())}</p>
+      <p className="intercept-meta">
+        {meta.join(" · ").replace(/^./, (c) => c.toUpperCase())}
+        {totalReports > 0 && ` · ${totalReports.toLocaleString()} reports`}
+        {firsts.length > 0 && (
+          <>
+            {" · heard "}
+            {utcParts(firsts[0]).full.slice(0, 16)} – {utcParts(lasts[lasts.length - 1]).full.slice(0, 16)}
+          </>
+        )}
+      </p>
       {intercept.description && <p className="muted">{intercept.description}</p>}
       {error && <div className="error-text">{error}</div>}
+
+      <section className="card">
+        <h4>Analyst notes</h4>
+        <NotesFeed
+          notes={notes}
+          isLoading={notesLoading}
+          placeholder="Your own thoughts/observations about this Intercept as a whole."
+          onAdd={(body) => createNote.mutateAsync(body)}
+          isAdding={createNote.isPending}
+          onDelete={(noteId) => deleteNote.mutateAsync(noteId)}
+        />
+      </section>
+
+      {entries && entries.length > 0 && (
+        <section className="card">
+          <div className="import-charts-bar">
+            <button type="button" className="link-button" aria-expanded={chartsOpen} onClick={() => setChartsOpen(!chartsOpen)}>
+              {chartsOpen ? "▾ Charts" : "▸ Charts"}
+            </button>
+            <div className="import-chart-tabs" role="tablist" aria-label="Charts">
+              {(
+                [
+                  ["distributions", "Scatter & distributions"],
+                  ["time", "Over time"],
+                ] as [EntryChartTab, string][]
+              ).map(([tab, label]) => (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={chartsOpen && chartTab === tab}
+                  className={chartsOpen && chartTab === tab ? "sub-tab active" : "sub-tab"}
+                  onClick={() => setChartTab(tab)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {chartsOpen && (
+            <EntryCharts
+              tab={chartTab}
+              entries={byStatus.map((r) => r.entry)}
+              matchById={matchById}
+              modes={modes}
+              ranges={ranges}
+              onRange={(p, r) => {
+                setRanges((current) => ({ ...current, [p]: r }));
+                setPage(0);
+              }}
+              selected={selected}
+              onSelectBox={selectBox}
+            />
+          )}
+        </section>
+      )}
 
       <section className="card">
         <div className="card-header">
@@ -321,11 +639,86 @@ export function InterceptDetailPage() {
         </div>
         <p className="hint-text">
           Matched against {emitter?.name ?? "the Emitter"}&apos;s Modes on RF, PRI (frame time for a stagger) and PW, using
-          each Mode&apos;s engineered range. A near miss is outside on one of the three.
+          each Mode&apos;s engineered range. A near miss is outside on one of the three — hover the badge for why.
           {canWrite && !isMine && counts && counts.none + counts.near > 0 && (
             <> To create a Mode from an entry, start editing {emitter?.name ?? "the Emitter"} first.</>
           )}
         </p>
+        {filteredByChart && (
+          <p className="entry-range-filters">
+            Filtered by the charts:{" "}
+            {(["rf", "pri", "pw"] as RangeParam[]).map((p) => {
+              const r = ranges[p];
+              if (!r) return null;
+              return (
+                <span key={p} className="filter-chip">
+                  {p === "rf" ? "RF" : p === "pri" ? "PRI" : "PW"} {Number(r[0].toFixed(3))}–{Number(r[1].toFixed(3))}
+                  <button
+                    type="button"
+                    className="link-button"
+                    aria-label="Clear this filter"
+                    onClick={() => setRanges((current) => ({ ...current, [p]: null }))}
+                  >
+                    ✕
+                  </button>
+                </span>
+              );
+            })}
+            <button type="button" className="link-button" onClick={() => setRanges({ rf: null, pri: null, pw: null })}>
+              Clear all
+            </button>
+            <span className="hint-text"> · {shown.length.toLocaleString()} of {byStatus.length.toLocaleString()} shown</span>
+          </p>
+        )}
+        {canWrite && entries && entries.length > 0 && (
+          <div className="import-selection entry-selection">
+            <span>
+              {selected.size.toLocaleString()} selected
+              {hiddenSelected > 0 && <span className="hint-text"> ({hiddenSelected} not shown by the filters)</span>}
+              {sorted.length > pageRows.length && !sorted.every(({ entry }) => selected.has(entry.id)) && (
+                <>
+                  {" · "}
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => setSelected(new Set(sorted.map(({ entry }) => entry.id)))}
+                  >
+                    Select all {sorted.length.toLocaleString()} shown
+                  </button>
+                </>
+              )}
+              {selected.size > 0 && (
+                <>
+                  {" · "}
+                  <button type="button" className="link-button" onClick={() => setSelected(new Set())}>
+                    Clear selection
+                  </button>
+                </>
+              )}
+            </span>
+            <span className="import-selection-actions">
+              <button
+                type="button"
+                className="button secondary small"
+                disabled={!!mergeBlocked || mergeEntries.isPending}
+                title={mergeBlocked ?? undefined}
+                onClick={() => void handleMergeSelected()}
+              >
+                Merge into one
+              </button>
+              <button
+                type="button"
+                className="button secondary small danger-outline"
+                disabled={selected.size === 0 || deleteEntries.isPending}
+                onClick={() => void handleDeleteSelected()}
+              >
+                Delete
+              </button>
+            </span>
+          </div>
+        )}
+        {selected.size > 1 && mergeBlocked && <p className="hint-text">Can&apos;t merge: {mergeBlocked}</p>}
+        {message && <p className="import-message">{message}</p>}
         {entriesLoading ? (
           <LoadingState label="Loading entries…" />
         ) : !entries || entries.length === 0 ? (
@@ -339,12 +732,34 @@ export function InterceptDetailPage() {
             <table className="data-table intercept-entries">
               <thead>
                 <tr>
-                  <th>PRI type</th>
-                  <th>RF (MHz)</th>
-                  <th>PRI (µs)</th>
-                  <th>PW (µs)</th>
+                  {canWrite && (
+                    <th>
+                      <input
+                        type="checkbox"
+                        aria-label="Select this page"
+                        checked={allPageSelected}
+                        onChange={() =>
+                          setSelected((current) => {
+                            const next = new Set(current);
+                            for (const { entry } of pageRows) {
+                              if (allPageSelected) next.delete(entry.id);
+                              else next.add(entry.id);
+                            }
+                            return next;
+                          })
+                        }
+                      />
+                    </th>
+                  )}
+                  {header("PRI type", "type")}
+                  {header("RF (MHz)", "rf", "number")}
+                  {header("PRI (µs)", "pri", "number")}
+                  {header("PW (µs)", "pw", "number")}
                   <th>Jitter / stagger (µs)</th>
-                  <th>Match</th>
+                  {header("Reports", "reports", "number")}
+                  {header("Heard", "heard", "date")}
+                  <th>Tracks</th>
+                  {header("Match", "match")}
                   <th>Modes created</th>
                   <th>Notes</th>
                   <th className="sticky-end" aria-label="Actions" />
@@ -360,23 +775,26 @@ export function InterceptDetailPage() {
                     modeById={modeById}
                     isMine={isMine}
                     canWrite={canWrite}
+                    selected={selected.has(entry.id)}
+                    onToggle={() => toggle(entry.id)}
                     onEdit={(e) => setEntryForm({ entry: e })}
                     onDelete={(e) => void handleDeleteEntry(e)}
+                    columns={columns}
                   />
                 ))}
               </tbody>
             </table>
           </div>
         )}
-        {entries && entries.length > 0 && shown.length === 0 && <p className="hint-text">No entries of this kind.</p>}
+        {entries && entries.length > 0 && shown.length === 0 && <p className="hint-text">No entries match the filters.</p>}
         {pageCount > 1 && (
           <div className="list-pager">
             <button type="button" className="button secondary small" disabled={safePage === 0} onClick={() => setPage(safePage - 1)}>
               ← Previous
             </button>
             <span>
-              Entries {(safePage * PAGE_SIZE + 1).toLocaleString()}–{Math.min((safePage + 1) * PAGE_SIZE, shown.length).toLocaleString()} of{" "}
-              {shown.length.toLocaleString()}
+              Entries {(safePage * PAGE_SIZE + 1).toLocaleString()}–{Math.min((safePage + 1) * PAGE_SIZE, sorted.length).toLocaleString()} of{" "}
+              {sorted.length.toLocaleString()}
             </span>
             <button
               type="button"
@@ -388,18 +806,6 @@ export function InterceptDetailPage() {
             </button>
           </div>
         )}
-      </section>
-
-      <section className="card">
-        <h4>Analyst notes</h4>
-        <NotesFeed
-          notes={notes}
-          isLoading={notesLoading}
-          placeholder="Your own thoughts/observations about this Intercept as a whole."
-          onAdd={(body) => createNote.mutateAsync(body)}
-          isAdding={createNote.isPending}
-          onDelete={(noteId) => deleteNote.mutateAsync(noteId)}
-        />
       </section>
 
       {showEditDetails && <InterceptFormModal intercept={intercept} onClose={() => setShowEditDetails(false)} />}

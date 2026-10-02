@@ -594,3 +594,14 @@ def test_intercepts_of_a_deleted_emitter_are_read_only_and_hidden(editor_client,
     assert editor_client.delete(f"/intercepts/{intercept['id']}/entries/{entry['id']}").status_code == 404
     assert editor_client.patch(f"/intercepts/{intercept['id']}", json={"name": "X"}).status_code == 404
     assert all(i["id"] != intercept["id"] for i in editor_client.get("/intercepts").json())
+
+
+def test_merge_range_spans_the_means_when_entries_have_no_measured_range(editor_client, emitter_ctx):
+    intercept = _create_intercept(editor_client, emitter_ctx["emitter"]["id"])
+    url = f"/intercepts/{intercept['id']}/entries"
+    a = editor_client.post(url, json={**FIXED_ENTRY, "pri_mean_us": 800, "pw_mean_us": 1.0, "report_count": 3}).json()
+    b = editor_client.post(url, json={**FIXED_ENTRY, "pri_mean_us": 1200, "pw_mean_us": 2.0, "report_count": 1}).json()
+    merged = editor_client.post(f"{url}/merge", json={"entry_ids": [a["id"], b["id"]]}).json()
+    assert merged["pri_mean_us"] == 900  # (800*3 + 1200) / 4
+    assert (merged["pri_min_us"], merged["pri_max_us"]) == (800, 1200)
+    assert (merged["pw_min_us"], merged["pw_max_us"]) == (1.0, 2.0)

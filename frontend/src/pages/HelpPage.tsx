@@ -645,6 +645,13 @@ export function HelpPage() {
             runs on its own. One import takes up to 5,000 entries.
           </p>
           <p>
+            Each saved entry keeps what it was built from: how many reports, when it was first and last heard
+            (mission times as written in the file), their track numbers and the file name. Your work on an import
+            is kept in this browser as you go — leave the page by any route and you&apos;re offered to resume it
+            when you come back. If the file was imported before, the page says where and asks before adding its
+            entries a second time.
+          </p>
+          <p>
             <strong>Charts</strong> show the reports (excluded ones left out): a scatter of any two of RF, PRI and PW
             (chosen with Across/Up, RF × PRI by default), and how often each
             RF, PRI, frame time, PW, jitter and stagger-position value occurs. With an Emitter chosen, each bar is
@@ -697,6 +704,23 @@ export function HelpPage() {
             (under More, or from the list) removes it along with all
             its entries and notes — any Mode already created from one of its entries is unaffected, it just
             loses that provenance link.
+          </p>
+          <p>
+            The entries table sorts by any of its columns (RF by default), shows one line per entry — the full
+            note, stagger list and near-miss reasons are in the tooltips — and filters by match result. Tick
+            entries (or box them on the charts) to <strong>Merge into one</strong> or <strong>Delete</strong>{" "}
+            them together. Merging keeps the first-created entry, so its Mode links stay, and the others&apos;
+            links move to it: means are weighted by each entry&apos;s report count, the measured range becomes
+            the widest of them, and times, report counts and tracks combine. Entries must share a PRI type (and a
+            stagger its number of positions) to merge.
+          </p>
+          <p>
+            The <strong>charts</strong> above the table show the entries the same way as the CSV import: on{" "}
+            <strong>Scatter &amp; distributions</strong>, each entry at its means (its measured range as a faint
+            box), with histograms of RF, PRI, frame time and PW split by whether they fall within a Mode; on{" "}
+            <strong>Over time</strong>, each entry as a box from first to last heard over its measured range.
+            Drag a box around points to select those entries (Shift adds, Ctrl keeps only those inside); drag
+            across a histogram to filter the table to that range. Selected entries light up on every chart.
           </p>
           <p>
             Every entry is <strong>matched</strong> against the Emitter's Modes of the same PRI type: it

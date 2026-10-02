@@ -622,20 +622,26 @@ def merge_intercept_entries(
     weights = [e.report_count or 1 for e in entries]
     w = lambda field: _weighted_mean([(_num(getattr(e, field)), wt) for e, wt in zip(entries, weights)])  # noqa: E731
 
-    keep.rf_mean_mhz = w("rf_mean_mhz")
-    keep.rf_min_mhz, keep.rf_max_mhz = _span(entries, "rf_min_mhz", "rf_max_mhz", "rf_mean_mhz")
+    # Everything is worked out from the entries as they are before any is
+    # written — the kept entry is one of them.
+    values: dict = {
+        "rf_mean_mhz": w("rf_mean_mhz"),
+        **dict(zip(("rf_min_mhz", "rf_max_mhz"), _span(entries, "rf_min_mhz", "rf_max_mhz", "rf_mean_mhz"))),
+    }
     if keep.pri_type != PriType.cw:
-        keep.pri_mean_us = w("pri_mean_us")
-        keep.pri_min_us, keep.pri_max_us = _span(entries, "pri_min_us", "pri_max_us", "pri_mean_us")
-        keep.pw_mean_us = w("pw_mean_us")
-        keep.pw_min_us, keep.pw_max_us = _span(entries, "pw_min_us", "pw_max_us", "pw_mean_us")
+        values["pri_mean_us"] = w("pri_mean_us")
+        values["pri_min_us"], values["pri_max_us"] = _span(entries, "pri_min_us", "pri_max_us", "pri_mean_us")
+        values["pw_mean_us"] = w("pw_mean_us")
+        values["pw_min_us"], values["pw_max_us"] = _span(entries, "pw_min_us", "pw_max_us", "pw_mean_us")
     if keep.pri_type == PriType.fixed:
-        keep.jitter_mean_us = w("jitter_mean_us")
+        values["jitter_mean_us"] = w("jitter_mean_us")
     if keep.pri_type == PriType.stagger:
         count = len(keep.stagger_values or [])
-        keep.stagger_values = [
+        values["stagger_values"] = [
             _weighted_mean([(_num(e.stagger_values[i]), wt) for e, wt in zip(entries, weights)]) for i in range(count)
         ]
+    for field, value in values.items():
+        setattr(keep, field, value)
     firsts = [e.first_seen_at for e in entries if e.first_seen_at]
     lasts = [e.last_seen_at for e in entries if e.last_seen_at]
     keep.first_seen_at = min(firsts) if firsts else None

@@ -1,32 +1,23 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useEmitterInterceptEntries, useIntercepts } from "../../state/hooks/useIntercepts";
-import { useEmitterModes } from "../../state/hooks/useModes";
+import { useInterceptMatchCounts, useIntercepts } from "../../state/hooks/useIntercepts";
 import { RequireRole } from "../../auth/RequireAuth";
 import { LoadingState } from "../common/LoadingState";
 import { EmptyState } from "../common/EmptyState";
 import { InterceptFormModal } from "./InterceptFormModal";
 import { MatchCounts } from "./EntryMatchCell";
-import { countMatches } from "./interceptMatch";
 import { formatDay } from "./interceptFormat";
-import type { InterceptEntry } from "../../types/domain";
 
 export function EmitterIntercepts({ emitterId }: { emitterId: string }) {
   const { data: intercepts, isLoading } = useIntercepts({ emitterId });
-  const { data: entries } = useEmitterInterceptEntries(emitterId);
-  const { data: modes } = useEmitterModes(emitterId);
+  // Counted on the server — the entries themselves can run to many thousands.
+  const { data: matchCounts } = useInterceptMatchCounts(emitterId);
   const [showAdd, setShowAdd] = useState(false);
   const navigate = useNavigate();
 
-  const entriesByIntercept = new Map<string, InterceptEntry[]>();
-  for (const e of entries ?? []) {
-    const list = entriesByIntercept.get(e.intercept_id) ?? [];
-    list.push(e);
-    entriesByIntercept.set(e.intercept_id, list);
-  }
-  const ready = entries != null && modes != null;
-  const total = ready ? countMatches(entries, modes) : null;
+  const total = matchCounts?.total ?? null;
   const unmatched = total ? total.none + total.near : 0;
+  const entryTotal = total ? total.match + total.near + total.none : 0;
 
   return (
     <section className="card">
@@ -57,7 +48,7 @@ export function EmitterIntercepts({ emitterId }: { emitterId: string }) {
             {total.near > 0 && ` (${total.near} near miss${total.near === 1 ? "" : "es"})`}.
           </>
         )}
-        {total && unmatched === 0 && (entries?.length ?? 0) > 0 && (
+        {total && unmatched === 0 && entryTotal > 0 && (
           <>
             {" "}
             <span className="summary-good">Every entry matches a Mode.</span>
@@ -83,7 +74,7 @@ export function EmitterIntercepts({ emitterId }: { emitterId: string }) {
             </thead>
             <tbody>
               {intercepts.map((i) => {
-                const own = entriesByIntercept.get(i.id) ?? [];
+                const own = matchCounts?.by_intercept[i.id] ?? { match: 0, near: 0, none: 0 };
                 return (
                   <tr key={i.id}>
                     <td>
@@ -95,7 +86,7 @@ export function EmitterIntercepts({ emitterId }: { emitterId: string }) {
                     </td>
                     <td>{i.collected_by ?? <span className="hint-text">—</span>}</td>
                     <td>{i.entry_count}</td>
-                    <td>{ready ? <MatchCounts counts={countMatches(own, modes)} /> : <span className="hint-text">…</span>}</td>
+                    <td>{matchCounts ? <MatchCounts counts={own} /> : <span className="hint-text">…</span>}</td>
                   </tr>
                 );
               })}

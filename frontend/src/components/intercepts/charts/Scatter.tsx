@@ -50,6 +50,7 @@ export function Scatter({
   xFormat = fmt,
   emptyText = "No pulsed reports in view.",
   markBoxes = [],
+  noun = ["report", "reports"],
 }: {
   /** Boxes the user marked on this chart; a narrowing one is dashed. */
   markBoxes?: (Box & { narrow?: boolean })[];
@@ -62,8 +63,10 @@ export function Scatter({
   points: ScatterPoint[];
   /** Group extents to outline. */
   boxes?: ScatterBox[];
-  /** Dashed for a preview, solid for the groups as they are. */
-  boxStyle?: "solid" | "dashed";
+  /** Dashed for a preview, solid for the groups as they are, faint for context. */
+  boxStyle?: "solid" | "dashed" | "faint";
+  /** What the points are, for the count in the header. */
+  noun?: [string, string];
   /** The left of the card header — the title and axis pickers. */
   header: ReactNode;
   /** Short names and units, for the hover read-out and axis titles. */
@@ -128,11 +131,13 @@ export function Scatter({
         }
       }
     };
+    // A handful of points (an Intercept's few entries) are drawn larger, so they read at a glance.
+    const base = points.length <= 50 ? 6 : 3;
     if (points.some((p) => p.marked)) {
       // Marked points keep their colours; the rest are faint grey context.
-      draw((p) => !p.marked, 0.18, 3, true);
-      draw((p) => !!p.marked, 0.9, 3.5);
-    } else draw(() => true, 0.55, 3);
+      draw((p) => !p.marked, 0.18, base, true);
+      draw((p) => !!p.marked, 0.9, base + 0.5);
+    } else draw(() => true, points.length <= 50 ? 0.85 : 0.55, base);
     ctx.globalAlpha = 1;
     // sx/sy derive from the domains and width listed here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -167,8 +172,7 @@ export function Scatter({
       <div className="viz-card-header">
         {header}
         <span className="hint-text">
-          {points.length.toLocaleString()} report
-          {points.length === 1 ? "" : "s"}
+          {points.length.toLocaleString()} {points.length === 1 ? noun[0] : noun[1]}
           {hover && (
             <>
               {" · "}
@@ -307,7 +311,7 @@ export function Scatter({
                   return (
                     <rect
                       key={i}
-                      className={boxStyle === "dashed" ? "viz-groupbox dashed" : "viz-groupbox"}
+                      className={boxStyle === "solid" ? "viz-groupbox" : `viz-groupbox ${boxStyle}`}
                       x={(x0 + x1) / 2 - w / 2}
                       y={(y0 + y1) / 2 - h / 2}
                       width={w}
