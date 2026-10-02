@@ -84,7 +84,13 @@ export function EditModeControls({
   }
 
   async function handleDiscard() {
-    if (!(await confirmDelete("Discard unsaved changes and go back to the last saved version?"))) return;
+    if (
+      !(await confirmDelete("Discard unsaved changes and go back to the last saved version?", {
+        confirmLabel: "Discard",
+        danger: true,
+      }))
+    )
+      return;
     setError(null);
     try {
       await discard.mutateAsync();

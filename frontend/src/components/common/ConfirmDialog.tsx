@@ -4,19 +4,29 @@ interface ConfirmState {
   message: string;
   resolve: (value: boolean) => void;
   confirmLabel?: string;
+  danger?: boolean;
 }
 
-/** Pass `confirmLabel` for a confirmation that isn't a delete (the button
- * then isn't styled as destructive). */
+interface ConfirmOptions {
+  /** The confirm button's label — "Delete" when not given. */
+  confirmLabel?: string;
+  /** Style the button as destructive with your own label (e.g. "Discard"). A
+   * plain delete is destructive already; another label isn't, unless this is set. */
+  danger?: boolean;
+}
+
+/** A confirmation dialog. With no options it's a delete ("Delete", in red);
+ * pass `confirmLabel` for anything else, and `danger` when it's still
+ * destructive (discard, revert). */
 export function useConfirmDialog(): {
-  confirmDelete: (message: string, options?: { confirmLabel?: string }) => Promise<boolean>;
+  confirmDelete: (message: string, options?: ConfirmOptions) => Promise<boolean>;
   dialog: ReactNode;
 } {
   const [state, setState] = useState<ConfirmState | null>(null);
 
-  const confirmDelete = useCallback((message: string, options?: { confirmLabel?: string }) => {
+  const confirmDelete = useCallback((message: string, options?: ConfirmOptions) => {
     return new Promise<boolean>((resolve) => {
-      setState({ message, resolve, confirmLabel: options?.confirmLabel });
+      setState({ message, resolve, confirmLabel: options?.confirmLabel, danger: options?.danger });
     });
   }, []);
 
@@ -34,7 +44,11 @@ export function useConfirmDialog(): {
             Cancel
           </button>
           {state.confirmLabel ? (
-            <button type="button" className="button primary" onClick={() => respond(true)}>
+            <button
+              type="button"
+              className={state.danger ? "danger-button" : "button primary"}
+              onClick={() => respond(true)}
+            >
               {state.confirmLabel}
             </button>
           ) : (

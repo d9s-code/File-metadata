@@ -59,6 +59,7 @@ export function EmitterVersionHistoryPage() {
     if (
       !(await confirmDelete(
         `Revert live Emitter data to version ${selected}? This overwrites current EW Groups/Sources/Modes and commits a new version documenting the revert.`,
+        { confirmLabel: "Revert", danger: true },
       ))
     ) {
       return;
