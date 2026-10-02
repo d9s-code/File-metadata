@@ -1,6 +1,7 @@
 import {
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
   type PointerEvent,
@@ -11,6 +12,9 @@ import { fmt, niceTicks, useWidth } from "./Histogram";
 const DEFAULT_HEIGHT = 300;
 // Room at the top for the vertical axis title.
 const M = { left: 56, right: 12, top: 24, bottom: 34 };
+// Boxes are shaded behind the points, overlaps blending into one area; up to
+// this many in view also get a light outline — more and outlines tangle.
+const OUTLINED_BOXES = 40;
 
 export interface ScatterPoint {
   x: number;
@@ -111,6 +115,34 @@ export function Scatter({
   const ix = (px: number) => xl + ((px - M.left) / plotW) * (xh - xl);
   const iy = (py: number) => yl + ((M.top + plotH - py) / plotH) * (yh - yl);
 
+  const visibleBoxes = useMemo(
+    () => boxes.filter((b) => !(b.x[1] < xl || b.x[0] > xh || b.y[1] < yl || b.y[0] > yh)),
+    [boxes, xl, xh, yl, yh],
+  );
+  const dense = visibleBoxes.length > OUTLINED_BOXES;
+  // A box on screen — a few pixels at least, so a tight group still shows.
+  const boxRect = (b: ScatterBox) => {
+    const x0 = sx(b.x[0]);
+    const x1 = sx(b.x[1]);
+    const y0 = sy(b.y[1]);
+    const y1 = sy(b.y[0]);
+    const min = 4;
+    const w = Math.max(min, x1 - x0);
+    const h = Math.max(min, y1 - y0);
+    return { x: (x0 + x1) / 2 - w / 2, y: (y0 + y1) / 2 - h / 2, w, h };
+  };
+  // The box under the pointer — the smallest, when they overlap — outlined, with its count.
+  const hoverBox = (() => {
+    if (!hover || drag) return null;
+    let best: { b: ScatterBox; r: ReturnType<typeof boxRect> } | null = null;
+    for (const b of visibleBoxes) {
+      const r = boxRect(b);
+      if (hover.px < r.x || hover.px > r.x + r.w || hover.py < r.y || hover.py > r.y + r.h) continue;
+      if (!best || r.w * r.h < best.r.w * best.r.h) best = { b, r };
+    }
+    return best;
+  })();
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || width === 0) return;
@@ -142,6 +174,20 @@ export function Scatter({
         }
       }
     };
+    if (visibleBoxes.length > 0) {
+      // Shaded behind the points: overlapping groups blend into one area rather than a tangle of lines.
+      ctx.fillStyle = mutedColor;
+      ctx.globalAlpha = boxStyle === "faint" ? 0.07 : 0.12;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(M.left, M.top, plotW, plotH);
+      ctx.clip();
+      for (const b of visibleBoxes) {
+        const r = boxRect(b);
+        ctx.fillRect(r.x, r.y, r.w, r.h);
+      }
+      ctx.restore();
+    }
     // A handful of points (an Intercept's few entries) are drawn larger, so they read at a glance.
     const base = points.length <= 50 ? 6 : 3;
     if (points.some((p) => p.marked)) {
@@ -152,7 +198,7 @@ export function Scatter({
     ctx.globalAlpha = 1;
     // sx/sy derive from the domains and width listed here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [points, width, xl, xh, yl, yh]);
+  }, [points, width, xl, xh, yl, yh, dense, visibleBoxes, boxStyle]);
 
   function local(e: PointerEvent<HTMLDivElement>) {
     const r = e.currentTarget.getBoundingClientRect();
@@ -207,6 +253,7 @@ export function Scatter({
               {xAxis.short} {xFormat(ix(hover.px))}
               {xAxis.unit && ` ${xAxis.unit}`}, {yAxis.short}{" "}
               {fmt(iy(hover.py))} {yAxis.unit}
+              {hoverBox && ` · in a box of ${hoverBox.b.count.toLocaleString()} report${hoverBox.b.count === 1 ? "" : "s"}`}
             </>
           )}
         </span>
@@ -309,7 +356,13 @@ export function Scatter({
               {(() => {
                 const ticks = xTicks ? xTicks(xl, xh) : niceTicks(xl, xh, 6);
                 const step = ticks.length > 1 ? ticks[1] - ticks[0] : undefined;
-                return ticks.map((t) => (
+                // Leave room for the axis title at the right end — a tick there would print over it.
+                const title = xAxis.unit ? `${xAxis.short} (${xAxis.unit})` : xAxis.short;
+                const titleLeft = M.left + plotW - title.length * 6.5 - 4;
+                return ticks.map((t) => {
+                  const label = xTicks ? xFormat(t, step) : fmt(t);
+                  if (sx(t) + label.length * 3.3 > titleLeft) return null;
+                  return (
                   <text
                     key={`x${t}`}
                     className="viz-axis-label"
@@ -317,9 +370,10 @@ export function Scatter({
                     y={HEIGHT - 10}
                     textAnchor="middle"
                   >
-                    {xTicks ? xFormat(t, step) : fmt(t)}
+                    {label}
                   </text>
-                ));
+                  );
+                });
               })()}
               <line
                 className="viz-baseline"
@@ -345,26 +399,29 @@ export function Scatter({
                 </clipPath>
               </defs>
               <g clipPath={`url(#${clipId})`}>
-                {boxes.map((b, i) => {
-                  if (b.x[1] < xl || b.x[0] > xh || b.y[1] < yl || b.y[0] > yh) return null;
-                  // At least a few pixels, so a tight group is still visible as a box.
-                  const x0 = sx(b.x[0]);
-                  const x1 = sx(b.x[1]);
-                  const y0 = sy(b.y[1]);
-                  const y1 = sy(b.y[0]);
-                  const w = Math.max(8, x1 - x0);
-                  const h = Math.max(8, y1 - y0);
-                  return (
-                    <rect
-                      key={i}
-                      className={boxStyle === "solid" ? "viz-groupbox" : `viz-groupbox ${boxStyle}`}
-                      x={(x0 + x1) / 2 - w / 2}
-                      y={(y0 + y1) / 2 - h / 2}
-                      width={w}
-                      height={h}
-                    />
-                  );
-                })}
+                {!dense &&
+                  visibleBoxes.map((b, i) => {
+                    const r = boxRect(b);
+                    return (
+                      <rect
+                        key={i}
+                        className={boxStyle === "solid" ? "viz-groupbox" : `viz-groupbox ${boxStyle}`}
+                        x={r.x}
+                        y={r.y}
+                        width={r.w}
+                        height={r.h}
+                      />
+                    );
+                  })}
+                {hoverBox && (
+                  <rect
+                    className="viz-groupbox hover"
+                    x={hoverBox.r.x}
+                    y={hoverBox.r.y}
+                    width={hoverBox.r.w}
+                    height={hoverBox.r.h}
+                  />
+                )}
               </g>
               {markBoxes.map((m, i) => {
                 if (m.x[1] < xl || m.x[0] > xh || m.y[1] < yl || m.y[0] > yh) return null;

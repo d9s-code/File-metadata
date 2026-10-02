@@ -3922,10 +3922,14 @@ label.grow {
   border-radius: 3px;
   background: var(--card-bg);
 }
-.viz-plot .viz-groupbox { fill: none; stroke: var(--text); stroke-opacity: 0.7; stroke-width: 1.25; }
-.viz-plot .viz-groupbox.dashed { stroke-dasharray: 4 3; }
-.viz-plot .viz-groupbox.faint { stroke-opacity: 0.28; stroke-width: 1; }
-.viz-swatch.viz-groupbox-swatch { background: none; border: 1.25px solid var(--text); opacity: 0.7; }
+.viz-plot .viz-groupbox { fill: none; stroke: var(--viz-ink-muted); stroke-opacity: 0.6; stroke-width: 1; }
+.viz-plot .viz-groupbox.dashed { stroke-dasharray: 5 3; }
+.viz-plot .viz-groupbox.faint { stroke-opacity: 0.3; }
+.viz-plot .viz-groupbox.hover { stroke: var(--primary); stroke-opacity: 1; stroke-width: 1.5; stroke-dasharray: none; }
+.viz-swatch.viz-groupbox-swatch {
+  background: color-mix(in srgb, var(--viz-ink-muted) 15%, transparent);
+  border: 1px solid var(--viz-ink-muted);
+}
 .viz-swatch.viz-groupbox-swatch.dashed { border-style: dashed; }
 .viz-empty { margin: 1.5rem 0; text-align: center; }
 .viz-canvas,

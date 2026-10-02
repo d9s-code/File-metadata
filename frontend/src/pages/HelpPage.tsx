@@ -697,7 +697,9 @@ export function HelpPage() {
             The other way round, rows you select in the table — after Auto group, a merge or a split — light up on
             the time charts and the scatter while nothing is marked, and the bar above the charts gives their RF, PRI
             and PW spans. The scatter&apos;s <strong>Outline</strong> setting also draws each group on the time
-            charts, as a box covering the time it was heard and its range of values.
+            charts, as a box covering the time it was heard and its range of values. Boxes are shaded lightly behind
+            the points, so overlapping groups blend into one area; with more than 40 in view they lose their
+            outlines too, which would only tangle. Point at a box to outline it and see how many reports it holds.
           </p>
           <p>
             <strong>Not covered by the Modes…</strong> (beside the filters, once an Emitter with Modes is chosen)
