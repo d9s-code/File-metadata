@@ -218,7 +218,6 @@ export function ModesFromEntriesModal({
               PW max (µs)
               <input className="edit-input" type="number" step="any" min="0" value={cwPwMax} onChange={(e) => setCwPwMax(e.target.value)} required />
             </label>
-            <span className="hint-text">A CW entry has no pulses, but a CW Mode still carries a PW range.</span>
           </div>
         )}
 

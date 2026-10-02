@@ -3335,7 +3335,29 @@ label.grow {
 }
 .import-rule {
   margin: 0.5rem 0 0;
-  max-width: 110ch;
+  max-width: 100ch;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+.import-rule summary {
+  cursor: pointer;
+  width: fit-content;
+  color: var(--primary);
+}
+.import-rule[open] summary {
+  margin-bottom: 0.4rem;
+}
+.import-rule ol,
+.import-rule ul {
+  margin: 0 0 0.4rem;
+  padding-left: 1.4rem;
+  line-height: 1.5;
+}
+.import-rule li + li {
+  margin-top: 0.25rem;
+}
+.import-rule strong {
+  color: var(--text);
 }
 .import-filters {
   display: flex;

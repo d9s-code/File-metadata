@@ -1,7 +1,7 @@
 /** Grouping imported reports into Intercept entries. Every change here is
  * one the user asked for — nothing is grouped until they merge reports or
  * press Auto group, and Auto group follows the one rule described in
- * AUTO_GROUP_RULE, with the gaps and minimum they set. */
+ * AUTO_GROUP_STEPS, with the gaps and minimum they set. */
 import type { CsvReport, ReportPriType } from "./interceptCsv";
 import { missionTimeMs } from "./interceptCsv";
 import type { InterceptEntryInput, ReportRow, ReportsUpload } from "../../api/intercepts";
@@ -24,23 +24,42 @@ export interface GapSettings {
   /** PRI, or for a stagger its frame time and each position. */
   priUs: number;
   pwUs: number;
-  /** Groups need at least this many reports; see AUTO_GROUP_RULE. */
+  /** Groups need at least this many reports; see AUTO_GROUP_STEPS. */
   minReports: number;
   sameTrack: boolean;
 }
 
-export const AUTO_GROUP_RULE =
-  "First it separates the reports by PRI type (and, for a stagger, the number of positions) — and by track " +
-  "number when \"same track number\" is ticked. Then it lines the reports up by RF and starts a new group " +
-  "wherever there is an empty stretch wider than the RF gap, then does the same on PRI (a stagger's frame time " +
-  "and each position) and on PW, and repeats until nothing splits further. So reports that run on into each " +
-  "other stay together however wide the group gets, and two signals end up apart as soon as there's a clear " +
-  "gap between them on any one parameter. Then the minimum: a report is a stray when its group has fewer " +
-  "reports than the minimum, or when fewer than (minimum − 1) others in its group are within the gaps of it on " +
-  "RF, PRI and PW at once. Strays are set aside — which can open new gaps, so it splits again — and listed as " +
-  "Strays, held out of the import until you merge, keep or exclude them. A minimum of 1 means no strays. Time, " +
-  "power, jitter and the system's identification aren't used. Excluded rows are left as they are. It " +
-  "replaces the current grouping; you can merge, split and exclude afterwards.";
+/** What Auto group does, step by step — shown under the Auto group controls. */
+export const AUTO_GROUP_STEPS: { title: string; text: string }[] = [
+  {
+    title: "Keep kinds apart",
+    text:
+      "Reports are separated by PRI type, staggers also by their number of positions — and by track number " +
+      "when \"Same track number only\" is ticked.",
+  },
+  {
+    title: "Split at gaps",
+    text:
+      "Within each kind, a new group starts wherever there's an empty stretch wider than the gap — on RF, PRI " +
+      "(a stagger's frame time and each position) or PW. This repeats until nothing splits further.",
+  },
+  {
+    title: "Set strays aside",
+    text:
+      "A report is a stray when its group has fewer reports than the minimum, or when fewer than (minimum − 1) " +
+      "others in its group lie within the gaps of it on RF, PRI and PW at once. Strays are held out of the " +
+      "import, and what's left is split again. A minimum of 1 means no strays.",
+  },
+];
+
+/** What to know about the result of Auto group. */
+export const AUTO_GROUP_NOTES = [
+  "Reports that run into each other stay in one group however wide it gets; two signals separate as soon as " +
+    "there's a clear gap between them on any one parameter.",
+  "Time, power, jitter and the system's identification aren't used.",
+  "Excluded rows are left as they are. With rows selected, only those are regrouped.",
+  "It replaces the current grouping — you can merge, split and exclude afterwards.",
+];
 
 /** One group per report — where an import starts. */
 export function oneGroupPerReport(reports: CsvReport[], excluded = new Set<number>()): ReportGroup[] {
@@ -229,7 +248,7 @@ export interface AutoGroupResult {
   strays: ReportGroup[];
 }
 
-/** See AUTO_GROUP_RULE. Works on the reports given; the caller keeps the rest. */
+/** See AUTO_GROUP_STEPS. Works on the reports given; the caller keeps the rest. */
 export function autoGroup(reports: CsvReport[], gap: GapSettings): AutoGroupResult {
   const kinds = new Map<string, CsvReport[]>();
   for (const r of reports) {

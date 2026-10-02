@@ -2,7 +2,8 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import type { CsvReport, ReportPriType } from "./interceptCsv";
 import { formatMissionTime } from "./interceptCsv";
 import {
-  AUTO_GROUP_RULE,
+  AUTO_GROUP_NOTES,
+  AUTO_GROUP_STEPS,
   autoGroup,
   cannotMerge,
   groupReports,
@@ -499,9 +500,21 @@ export function ImportGroupsPanel({
               <span className="hint-text">Working out the preview…</span>
             )}
           </p>
-          <p className="hint-text import-rule">
-            <strong>What it does:</strong> {AUTO_GROUP_RULE} With rows selected it only regroups those.
-          </p>
+          <details className="import-rule">
+            <summary>What does Auto group do?</summary>
+            <ol>
+              {AUTO_GROUP_STEPS.map((step) => (
+                <li key={step.title}>
+                  <strong>{step.title}.</strong> {step.text}
+                </li>
+              ))}
+            </ol>
+            <ul>
+              {AUTO_GROUP_NOTES.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+          </details>
         </fieldset>
       </div>
 
