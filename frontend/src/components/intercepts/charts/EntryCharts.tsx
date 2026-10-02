@@ -188,6 +188,8 @@ export function EntryCharts({
 
   // The stretch of time the Over time charts are zoomed to; null for all of it.
   const [timeWindow, setTimeWindow] = useState<TimeWindow>(null);
+  // Each chart's value axis, when zoomed by dragging along it.
+  const [yZoom, setYZoom] = useState<Partial<Record<RangeParam, [number, number]>>>({});
 
   const time = useMemo(() => {
     if (tab !== "time") return null;
@@ -222,8 +224,14 @@ export function EntryCharts({
           const chosen = rows.filter((e) => selected.has(e.id));
           return showRanges || chosen.length <= BOXES_BY_DEFAULT ? chosen.map(box) : [];
         })(),
-        shown: rows.filter(inWindow).length,
-        yDomain: extent(rows.filter(inWindow).flatMap((e) => entrySpan(e, param)!)),
+        shown: rows.filter(inWindow).filter((e) => {
+          const yz = yZoom[param];
+          if (!yz) return true;
+          const [lo, hi] = entrySpan(e, param)!;
+          return lo <= yz[1] && hi >= yz[0];
+        }).length,
+        yDomain: yZoom[param] ?? extent(rows.filter(inWindow).flatMap((e) => entrySpan(e, param)!)),
+        yZoomed: !!yZoom[param],
       };
     });
     const midTimes = timed.map((e) => {
@@ -233,10 +241,14 @@ export function EntryCharts({
     return { charts, xDomain, full, zoomed: win != null, midTimes, untimed: entries.length - timed.length, timed };
     // passes and matched read ranges and matchById.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, entries, ranges, matchById, selected, showRanges, timeWindow]);
+  }, [tab, entries, ranges, matchById, selected, showRanges, timeWindow, yZoom]);
 
-  const rangesToggle = (label: string) => (
-    <label className="inline-label map-axis">
+  // One setting, shown on both tabs: draw a box per entry, or just its point.
+  const rangesToggle = (label: string, title: string) => (
+    <label
+      className="inline-label map-axis"
+      title={`${title} Off, each entry is just a point (selected entries still get their box). Starts off above ${BOXES_BY_DEFAULT} entries, where the boxes would hide the points.`}
+    >
       <input type="checkbox" checked={showRanges} onChange={(e) => setShowRanges(e.target.checked)} />
       {label}
     </label>
@@ -274,7 +286,10 @@ export function EntryCharts({
                 <button type="button" className="link-button" onClick={() => setAxes(axes.y, axes.x)} title="Swap the axes">
                   ⇄ Swap
                 </button>
-                {rangesToggle("Measured ranges")}
+                {rangesToggle(
+                  "Box each entry's min–max",
+                  "Draws a faint box around each entry's point, from the lowest to the highest value its reports measured on both axes.",
+                )}
                 <span className="hint-text">PRI is a stagger&apos;s frame time</span>
               </span>
             }
@@ -329,7 +344,10 @@ export function EntryCharts({
             {time.untimed > 0 &&
               ` — ${time.untimed.toLocaleString()} entr${time.untimed === 1 ? "y has" : "ies have"} no time (typed in by hand) and aren't shown`}
             . <strong>Drag a box</strong> to select the entries it touches — <kbd>Shift</kbd> adds, <kbd>Ctrl</kbd>{" "}
-            keeps only those inside; click to clear. {rangesToggle("Show every entry's span")}
+            keeps only those inside; click to clear. {rangesToggle(
+              "Box each entry's time and min–max",
+              "Draws each entry as a box from when it was first to last heard, and from the lowest to the highest value its reports measured.",
+            )}
           </p>
           {time.timed.length > 0 && (
             <TimeZoom
@@ -357,6 +375,15 @@ export function EntryCharts({
                 xFormat={formatTime}
                 points={c.points}
                 shownCount={c.shown}
+                yZoomed={c.yZoomed}
+                onYZoom={(r) =>
+                  setYZoom((z) => {
+                    const next = { ...z };
+                    if (r) next[c.param] = r;
+                    else delete next[c.param];
+                    return next;
+                  })
+                }
                 xDomain={time.xDomain}
                 yDomain={c.yDomain}
                 boxes={c.boxes}

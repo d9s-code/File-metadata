@@ -45,7 +45,9 @@ export function EmitterIntercepts({ emitterId }: { emitterId: string }) {
             <strong className="summary-bad">
               {unmatched} {unmatched === 1 ? "entry doesn't" : "entries don't"} match a Mode
             </strong>
-            {total.near > 0 && ` (${total.near} near miss${total.near === 1 ? "" : "es"})`}.
+            {total.near > 0 &&
+              ` (${total.near} ${total.near === 1 ? "is a partial match" : "are partial matches"} — off on one of RF, PRI and PW)`}
+            .
           </>
         )}
         {total && unmatched === 0 && entryTotal > 0 && (

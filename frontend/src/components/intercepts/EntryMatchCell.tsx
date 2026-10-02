@@ -5,7 +5,7 @@ import { modeLink } from "./interceptFormat";
 
 const MAX_LISTED = 3;
 
-/** One line: the badge and the first Mode, with the rest (and why a near
+/** One line: the badge and the first Mode, with the rest (and why a partial
  * miss misses) in the tooltip — for tables of hundreds of rows. */
 function CompactMatch({ match, emitterId }: { match: EntryMatch; emitterId: string }) {
   if (match.status === "none") {
@@ -19,7 +19,7 @@ function CompactMatch({ match, emitterId }: { match: EntryMatch; emitterId: stri
     : `Falls in ${modes.map((m) => m.name).join(", ")}`;
   return (
     <span className="entry-match-compact" title={title}>
-      <span className={near ? "match-badge match-near" : "match-badge match-yes"}>{near ? "Near miss" : "Matches"}</span>{" "}
+      <span className={near ? "match-badge match-near" : "match-badge match-yes"}>{near ? "Partial match" : "Matches"}</span>{" "}
       <Link to={modeLink(emitterId, first)}>{first.name}</Link>
       {modes.length > 1 && <span className="hint-text"> +{modes.length - 1}</span>}
       {near && match.near[0].misses[0] && (
@@ -29,7 +29,7 @@ function CompactMatch({ match, emitterId }: { match: EntryMatch; emitterId: stri
   );
 }
 
-/** The Modes an entry falls in, the ones it nearly does (and why), or that
+/** The Modes an entry falls in, the ones it matches on all but one parameter (and which), or that
  * there's none — the cue to create one. `compact` keeps it to one line. */
 export function EntryMatchCell({
   match,
@@ -63,7 +63,9 @@ export function EntryMatchCell({
   if (match.status === "near") {
     return (
       <div className="entry-match">
-        <span className="match-badge match-near">Near miss</span>
+        <span className="match-badge match-near" title="Matches these Modes on two of RF, PRI and PW — off on the third">
+          Partial match
+        </span>
         <ul className="entry-match-near">
           {match.near.slice(0, MAX_LISTED).map(({ mode, misses }) => (
             <li key={mode.id}>
@@ -83,11 +85,11 @@ export function EntryMatchCell({
   );
 }
 
-/** "2 match · 1 near · 1 no match", skipping zeros. */
+/** "2 match · 1 partial · 1 no match", skipping zeros. */
 export function MatchCounts({ counts }: { counts: { match: number; near: number; none: number } }) {
   const parts: [number, string, string][] = [
     [counts.match, "match", "match-yes"],
-    [counts.near, "near miss", "match-near"],
+    [counts.near, "partial", "match-near"],
     [counts.none, "no match", "match-none"],
   ];
   const shown = parts.filter(([n]) => n > 0);

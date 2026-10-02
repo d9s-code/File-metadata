@@ -685,7 +685,10 @@ export function HelpPage() {
             drag the highlighted window to slide along, or click elsewhere to move it there. <strong>+</strong> and{" "}
             <strong>−</strong> zoom around the middle and <strong>Show all</strong> goes back to the whole
             recording. Zoomed in, each value axis fits the reports in the window, so a thin band spreads out, and
-            each chart counts how many of its reports are in view. Marking works the same while zoomed.
+            each chart counts how many of its reports are in view. To <strong>zoom vertically</strong>, drag up or
+            down along a chart&apos;s value axis (the numbers on its left): that chart shows just that range, and{" "}
+            <strong>Reset RF zoom</strong> (or PRI, PW) in its header goes back. Each chart zooms on its own.
+            Marking works the same while zoomed.
           </p>
           <p>
             The two ways of grouping work together. While reports are marked, the table flags every row holding
@@ -746,7 +749,7 @@ export function HelpPage() {
           </p>
           <p>
             The entries table sorts by any of its columns (RF by default), shows one line per entry — the full
-            note, stagger list and near-miss reasons are in the tooltips — and filters by match result. Tick
+            note, stagger list and which parameter a partial match is off on are in the tooltips — and filters by match result. Tick
             entries (or box them on the charts) to <strong>Merge into one</strong> or <strong>Delete</strong>{" "}
             them together. Merging keeps the first-created entry, so its Mode links stay, and the others&apos;
             links move to it: means are weighted by each entry&apos;s report count, the measured range becomes
@@ -760,13 +763,18 @@ export function HelpPage() {
             <strong>Over time</strong>, each entry as a box from first to last heard over its measured range.
             Drag a box around points to select those entries (Shift adds, Ctrl keeps only those inside); drag
             across a histogram to filter the table to that range. Selected entries light up on every chart. The
-            Over time charts zoom like the import&apos;s, from the strip above them.
+            Over time charts zoom like the import&apos;s: in time from the strip above them, and vertically by
+            dragging along a chart&apos;s value axis. <strong>Box each entry&apos;s min–max</strong> (on Scatter) and{" "}
+            <strong>Box each entry&apos;s time and min–max</strong> (on Over time) are one setting: on, each entry
+            is drawn as a faint box over the lowest to highest values its reports measured (and, over time, from
+            first to last heard); off, as just a point — selected entries keep their box. It starts off above 300
+            entries, where the boxes would hide the points.
           </p>
           <p>
             Every entry is <strong>matched</strong> against the Emitter's Modes of the same PRI type: it
             matches a Mode when its RF, PRI (frame time for a stagger) and PW means all fall inside that
-            Mode's engineered range — the range the system recognises. A <strong>near miss</strong> is
-            outside on exactly one of the three, and says which and by how much;{" "}
+            Mode's engineered range — the range the system recognises. A <strong>partial match</strong> is
+            inside a Mode on two of the three and outside it on the third, and says which and by how much;{" "}
             <strong>No matching Mode</strong> means neither, and is the cue to create one. Jitter isn't
             compared. Click a Mode's name to open the Modes tab filtered to it.
           </p>

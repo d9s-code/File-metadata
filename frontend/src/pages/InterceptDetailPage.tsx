@@ -715,7 +715,7 @@ export function InterceptDetailPage() {
               >
                 <option value="all">All entries</option>
                 <option value="none">No matching Mode</option>
-                <option value="near">Near misses</option>
+                <option value="near">Partial matches</option>
                 <option value="match">Matches</option>
               </select>
             )}
@@ -774,7 +774,7 @@ export function InterceptDetailPage() {
         )}
         <p className="hint-text">
           Matched against {emitter?.name ?? "the Emitter"}&apos;s Modes on RF, PRI (frame time for a stagger) and PW, using
-          each Mode&apos;s engineered range. A near miss is outside on one of the three — hover the badge for why.
+          each Mode&apos;s engineered range. A partial match is inside a Mode on two of the three and outside on the third — hover the badge for which.
           {canWrite && !isMine && counts && counts.none + counts.near > 0 && (
             <> To create a Mode from an entry, start editing {emitter?.name ?? "the Emitter"} first.</>
           )}

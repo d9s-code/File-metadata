@@ -52,7 +52,14 @@ export function Scatter({
   markBoxes = [],
   noun = ["report", "reports"],
   shownCount,
+  onYZoom,
+  yZoomed = false,
 }: {
+  /** Given, dragging up or down along the value axis zooms it to that range;
+   * null (from the Reset button) goes back to the automatic range. */
+  onYZoom?: (range: [number, number] | null) => void;
+  /** The value axis is zoomed — shows the Reset button. */
+  yZoomed?: boolean;
   /** How many points fall in the visible stretch, when zoomed — read as "N of M". */
   shownCount?: number;
   /** Boxes the user marked on this chart; a narrowing one is dashed. */
@@ -83,7 +90,8 @@ export function Scatter({
 }) {
   const { ref, width } = useWidth<HTMLDivElement>();
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  type Drag = { x0: number; y0: number; x1: number; y1: number };
+  // `axis`: started on the value axis — a vertical zoom, not a box.
+  type Drag = { x0: number; y0: number; x1: number; y1: number; axis?: boolean };
   const [drag, setDragState] = useState<Drag | null>(null);
   // The live drag, for the pointer handlers — state can lag a fast drag by a render.
   const dragRef = useRef<Drag | null>(null);
@@ -150,7 +158,10 @@ export function Scatter({
     const r = e.currentTarget.getBoundingClientRect();
     return { px: e.clientX - r.left, py: e.clientY - r.top };
   }
-  const box = drag
+  const axisDrag = drag?.axis ? drag : null;
+  const box = axisDrag
+    ? null
+    : drag
     ? {
         x: Math.min(drag.x0, drag.x1),
         y: Math.min(drag.y0, drag.y1),
@@ -175,6 +186,19 @@ export function Scatter({
       <div className="viz-card-header">
         {header}
         <span className="hint-text">
+          {yZoomed && onYZoom && (
+            <>
+              <button
+                type="button"
+                className="link-button viz-yzoom-reset"
+                title={`Back to the automatic ${yAxis.short} range`}
+                onClick={() => onYZoom(null)}
+              >
+                Reset {yAxis.short} zoom
+              </button>
+              {" · "}
+            </>
+          )}
           {shownCount != null && shownCount !== points.length && `${shownCount.toLocaleString()} of `}
           {points.length.toLocaleString()} {points.length === 1 ? noun[0] : noun[1]}
           {hover && (
@@ -194,7 +218,8 @@ export function Scatter({
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture(e.pointerId);
           const { px, py } = local(e);
-          setDrag({ x0: px, y0: py, x1: px, y1: py });
+          const axis = !!onYZoom && points.length > 0 && px < M.left && py >= M.top && py <= M.top + plotH;
+          setDrag({ x0: px, y0: py, x1: px, y1: py, axis });
         }}
         onPointerMove={(e) => {
           const { px, py } = local(e);
@@ -210,6 +235,16 @@ export function Scatter({
           if (!dragRef.current) return;
           const end = local(e);
           const drag = { ...dragRef.current, x1: end.px, y1: end.py };
+          if (drag.axis) {
+            setDrag(null);
+            // Clamped to the plot, so a drag past either end stops at the axis's current edge.
+            const clampY = (py: number) => Math.min(Math.max(py, M.top), M.top + plotH);
+            if (Math.abs(drag.y1 - drag.y0) >= 4 && onYZoom) {
+              const ys = [iy(clampY(drag.y0)), iy(clampY(drag.y1))].sort((a, b) => a - b) as [number, number];
+              onYZoom(ys);
+            }
+            return;
+          }
           if (
             Math.abs(drag.x1 - drag.x0) < 4 &&
             Math.abs(drag.y1 - drag.y0) < 4
@@ -234,6 +269,13 @@ export function Scatter({
           <p className="hint-text viz-empty">{emptyText}</p>
         ) : (
           <>
+            {onYZoom && (
+              <div
+                className="viz-yzoom-handle"
+                style={{ top: M.top, width: M.left - 2, height: plotH }}
+                title={`Drag up or down here to zoom the ${yAxis.short} axis`}
+              />
+            )}
             <canvas
               ref={canvasRef}
               className="viz-canvas"
@@ -334,6 +376,14 @@ export function Scatter({
                   <rect key={`m${i}`} className={m.narrow ? "viz-mark narrow" : "viz-mark"} x={x0} y={y0} width={Math.max(1, x1 - x0)} height={Math.max(1, y1 - y0)} />
                 );
               })}
+              {axisDrag && (() => {
+                const clampY = (py: number) => Math.min(Math.max(py, M.top), M.top + plotH);
+                const y0 = clampY(Math.min(axisDrag.y0, axisDrag.y1));
+                const y1 = clampY(Math.max(axisDrag.y0, axisDrag.y1));
+                return y1 - y0 > 0 ? (
+                  <rect className="viz-yzoom-band" x={0} y={y0} width={M.left + plotW} height={y1 - y0} />
+                ) : null;
+              })()}
               {box && box.w > 0 && box.h > 0 && (
                 <rect
                   className="viz-selection"

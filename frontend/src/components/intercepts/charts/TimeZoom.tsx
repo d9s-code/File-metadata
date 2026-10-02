@@ -87,10 +87,13 @@ export function TimeZoom({
           {zoomed ? (
             <>
               Showing {formatTime(shown[0])} – {formatTime(shown[1]).slice(11)} ({duration(shown[1] - shown[0])} of{" "}
-              {duration(span)})
+              {duration(span)}) · drag along a chart&apos;s value axis to zoom it vertically
             </>
           ) : (
-            <>Whole recording — {duration(span)}. Drag across the strip to zoom in.</>
+            <>
+              Whole recording — {duration(span)}. Drag across the strip to zoom in on time, or up and down along a
+              chart&apos;s value axis to zoom it vertically.
+            </>
           )}
         </span>
         <span className="time-zoom-buttons">

@@ -3947,6 +3947,27 @@ label.grow {
 .viz-plot .viz-bar.hovered rect { filter: brightness(1.15); }
 .viz-plot rect.viz-coverage { fill: var(--viz-ink-muted); opacity: 0.7; rx: 1; }
 .viz-plot .viz-marks { stroke: var(--viz-ink-muted); stroke-width: 1; opacity: 0.6; }
+/* The value axis of a chart that zooms vertically: drag up or down along it. */
+.viz-yzoom-handle {
+  position: absolute;
+  left: 0;
+  z-index: 1;
+  cursor: ns-resize;
+  border-radius: 4px;
+}
+.viz-yzoom-handle:hover {
+  background: var(--hover-bg);
+  opacity: 0.6;
+}
+.viz-plot .viz-yzoom-band {
+  fill: var(--primary);
+  fill-opacity: 0.1;
+  stroke: var(--primary);
+  stroke-dasharray: 4 3;
+}
+.viz-yzoom-reset {
+  font-size: inherit;
+}
 .viz-plot .viz-selection {
   fill: var(--text);
   fill-opacity: 0.08;

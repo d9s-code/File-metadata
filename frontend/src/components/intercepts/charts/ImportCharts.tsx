@@ -443,6 +443,8 @@ export function ImportCharts({
 
   // The stretch of time the Over time charts are zoomed to; null for all of it.
   const [timeWindow, setTimeWindow] = useState<TimeWindow>(null);
+  // Each chart's value axis, when zoomed by dragging along it.
+  const [yZoom, setYZoom] = useState<Partial<Record<RangeParam, [number, number]>>>({});
 
   // RF, PRI and PW against time: each chart filtered like its histogram, all on one time axis.
   const timeCharts = useMemo(() => {
@@ -468,14 +470,22 @@ export function ImportCharts({
           marked: highlight?.has(r.line) ?? false,
         });
       }
-      // Zoomed in, the value axis fits what's in the window — a thin band spreads out.
+      // Zoomed in, the value axis fits what's in the window — a thin band spreads out —
+      // unless the user zoomed the axis itself.
       const visible = win ? pts.filter((p) => p.x >= win[0] && p.x <= win[1]) : pts;
-      return { param, points: pts, shown: visible.length, yDomain: zoom(ranges[param], visible.map((p) => p.y)) };
+      const yz = yZoom[param];
+      return {
+        param,
+        points: pts,
+        shown: yz ? visible.filter((p) => p.y >= yz[0] && p.y <= yz[1]).length : visible.length,
+        yDomain: yz ?? zoom(ranges[param], visible.map((p) => p.y)),
+        yZoomed: !!yz,
+      };
     });
     return { charts, xDomain, full, allTimes, zoomed: win != null, noTime };
     // passes reads ranges.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showTime, base, ranges, modes, matchedByLine, times, highlight, timeWindow]);
+  }, [showTime, base, ranges, modes, matchedByLine, times, highlight, timeWindow, yZoom]);
 
   // Each group's extent on the time charts: the time it spans and its range of values.
   const timeBoxes = useMemo(() => {
@@ -782,6 +792,15 @@ export function ImportCharts({
               xFormat={formatTime}
               points={c.points}
               shownCount={c.shown}
+              yZoomed={c.yZoomed}
+              onYZoom={(r) =>
+                setYZoom((z) => {
+                  const next = { ...z };
+                  if (r) next[c.param] = r;
+                  else delete next[c.param];
+                  return next;
+                })
+              }
               xDomain={timeCharts.xDomain}
               yDomain={c.yDomain}
               selection={null}
