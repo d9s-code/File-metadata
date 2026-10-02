@@ -125,6 +125,36 @@ export function splitAtValue(
   return { groups: next, split };
 }
 
+/** The PRI type of a report, and for a stagger its number of positions — what an entry has one of. */
+export function reportKind(r: CsvReport): string {
+  return r.priType === "stagger" ? `stagger/${r.staggerUs?.length ?? 0}` : r.priType;
+}
+
+/** The given reports leave whatever groups they're in and become new
+ * groups — one per PRI type (and stagger position count), since an entry has
+ * one. What's left of their old groups stays as it was. */
+export function groupReports(
+  groups: ReportGroup[],
+  lines: number[],
+  byLine: Map<number, CsvReport>,
+): { groups: ReportGroup[]; made: ReportGroup[] } {
+  const taken = new Set(lines);
+  const rest = groups.flatMap((g) => {
+    const keep = g.lines.filter((l) => !taken.has(l));
+    if (keep.length === g.lines.length) return [g];
+    return keep.length > 0 ? [makeGroup(keep, g.excluded, g.stray)] : [];
+  });
+  const kinds = new Map<string, number[]>();
+  for (const l of taken) {
+    const k = reportKind(byLine.get(l)!);
+    const list = kinds.get(k);
+    if (list) list.push(l);
+    else kinds.set(k, [l]);
+  }
+  const made = [...kinds.values()].map((ls) => makeGroup(ls, false));
+  return { groups: [...rest, ...made], made };
+}
+
 type Getter = (r: CsvReport) => number | null;
 
 /** The parameters a group is split on, with their gaps: RF, PRI (frame

@@ -657,11 +657,18 @@ export function HelpPage() {
             check its spread before merging it. Click a chart to clear its range.
           </p>
           <p>
-            <strong>Over time</strong>, a separate panel with its own toggle beside Charts, plots RF, PRI and PW
-            against each report&apos;s mission time (as written in the file), on one shared time axis — so you can see
-            when each signal was heard, whether it drifts, and which signals were up at the same time. It follows the
-            same filters as the other charts; drag up or down one of its charts to filter to that range of values,
-            and click to clear it. Both panels remember whether you left them open.
+            The charts sit under two tabs, so only one set shows at a time: <strong>Scatter &amp;
+            distributions</strong> (above) and <strong>Over time</strong>, which plots RF, PRI and PW against each
+            report&apos;s mission time (as written in the file) on one shared time axis — when each signal was heard,
+            whether it drifts, which were up together. On Over time you group by marking:{" "}
+            <strong>drag a box around the dots you want</strong> on any of the three charts, and those reports light
+            up on all three (the rest turn faint grey), so boxing a stretch of RF shows that signal&apos;s PRI and PW.
+            Hold <strong>Shift</strong> to add another box, or <strong>Ctrl</strong> (⌘ or Alt) to keep only the
+            marked reports inside a box — box a signal on RF, then Ctrl-box its PRI line to leave out reports that
+            don&apos;t belong. The bar above the charts says how many are marked and their RF, PRI and PW spans;{" "}
+            <strong>Make a group</strong> takes them out of whatever rows they were in and makes them one row (one
+            per PRI type if they&apos;re mixed). Click a chart to clear the marks. The charts follow the table
+            filters, and the page remembers which tab you left open.
           </p>
           <p>
             The <strong>sliders</strong> set Auto group&apos;s gaps. As you move them, the line under them says how

@@ -17,7 +17,11 @@ export interface ScatterPoint {
   y: number;
   /** Matches a Mode on RF, PRI and PW; null when there's nothing to compare with. */
   matched: boolean | null;
+  /** Marked by the user; when any point is, the rest are faded. */
+  marked?: boolean;
 }
+
+type Box = { x: [number, number]; y: [number, number] };
 
 /** A group's extent on the two axes, outlined over the points. */
 export interface ScatterBox {
@@ -45,7 +49,10 @@ export function Scatter({
   xTicks,
   xFormat = fmt,
   emptyText = "No pulsed reports in view.",
+  markBoxes = [],
 }: {
+  /** Boxes the user marked on this chart; a narrowing one is dashed. */
+  markBoxes?: (Box & { narrow?: boolean })[];
   height?: number;
   /** Ticks along the bottom, when round numbers aren't right (times). */
   xTicks?: (lo: number, hi: number) => number[];
@@ -64,8 +71,9 @@ export function Scatter({
   yAxis: { short: string; unit: string };
   xDomain: [number, number];
   yDomain: [number, number];
-  selection: { x: [number, number]; y: [number, number] } | null;
-  onSelect: (box: { x: [number, number]; y: [number, number] } | null) => void;
+  selection: Box | null;
+  /** A dragged box, or null for a click; `add` when Shift was held, `narrow` with Ctrl, ⌘ or Alt. */
+  onSelect: (box: Box | null, opts: { add: boolean; narrow: boolean }) => void;
 }) {
   const { ref, width } = useWidth<HTMLDivElement>();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -104,18 +112,27 @@ export function Scatter({
     const outColor = style.getPropertyValue("--viz-out").trim() || "#eb6834";
     const singleColor =
       style.getPropertyValue("--viz-single").trim() || inColor;
-    // Matched first, unmatched on top: the ones that need attention stay visible.
-    for (const pass of [true, false]) {
-      ctx.fillStyle = pass ? inColor : outColor;
-      ctx.globalAlpha = 0.55;
-      for (const p of points) {
-        const matched = p.matched ?? true;
-        if (matched !== pass) continue;
-        if (p.x < xl || p.x > xh || p.y < yl || p.y > yh) continue;
-        if (p.matched == null) ctx.fillStyle = singleColor;
-        ctx.fillRect(sx(p.x) - 1.5, sy(p.y) - 1.5, 3, 3);
+    const mutedColor =
+      style.getPropertyValue("--viz-ink-muted").trim() || "#898781";
+    const draw = (only: (p: ScatterPoint) => boolean, alpha: number, size: number, muted = false) => {
+      // Matched first, unmatched on top: the ones that need attention stay visible.
+      for (const pass of [true, false]) {
+        ctx.fillStyle = muted ? mutedColor : pass ? inColor : outColor;
+        ctx.globalAlpha = alpha;
+        for (const p of points) {
+          const matched = p.matched ?? true;
+          if (matched !== pass || !only(p)) continue;
+          if (p.x < xl || p.x > xh || p.y < yl || p.y > yh) continue;
+          if (p.matched == null && !muted) ctx.fillStyle = singleColor;
+          ctx.fillRect(sx(p.x) - size / 2, sy(p.y) - size / 2, size, size);
+        }
       }
-    }
+    };
+    if (points.some((p) => p.marked)) {
+      // Marked points keep their colours; the rest are faint grey context.
+      draw((p) => !p.marked, 0.18, 3, true);
+      draw((p) => !!p.marked, 0.9, 3.5);
+    } else draw(() => true, 0.55, 3);
     ctx.globalAlpha = 1;
     // sx/sy derive from the domains and width listed here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -189,7 +206,7 @@ export function Scatter({
             Math.abs(drag.x1 - drag.x0) < 4 &&
             Math.abs(drag.y1 - drag.y0) < 4
           )
-            onSelect(null);
+            onSelect(null, { add: e.shiftKey, narrow: e.ctrlKey || e.metaKey || e.altKey });
           else {
             const xs = [ix(drag.x0), ix(drag.x1)].sort((a, b) => a - b) as [
               number,
@@ -199,7 +216,7 @@ export function Scatter({
               number,
               number,
             ];
-            onSelect({ x: xs, y: ys });
+            onSelect({ x: xs, y: ys }, { add: e.shiftKey, narrow: e.ctrlKey || e.metaKey || e.altKey });
           }
           setDrag(null);
         }}
@@ -299,6 +316,16 @@ export function Scatter({
                   );
                 })}
               </g>
+              {markBoxes.map((m, i) => {
+                if (m.x[1] < xl || m.x[0] > xh || m.y[1] < yl || m.y[0] > yh) return null;
+                const x0 = sx(Math.max(m.x[0], xl));
+                const x1 = sx(Math.min(m.x[1], xh));
+                const y0 = sy(Math.min(m.y[1], yh));
+                const y1 = sy(Math.max(m.y[0], yl));
+                return (
+                  <rect key={`m${i}`} className={m.narrow ? "viz-mark narrow" : "viz-mark"} x={x0} y={y0} width={Math.max(1, x1 - x0)} height={Math.max(1, y1 - y0)} />
+                );
+              })}
               {box && box.w > 0 && box.h > 0 && (
                 <rect
                   className="viz-selection"

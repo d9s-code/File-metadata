@@ -5,6 +5,7 @@ import {
   AUTO_GROUP_RULE,
   autoGroup,
   cannotMerge,
+  groupReports,
   mergeGroups,
   oneGroupPerReport,
   setExcluded,
@@ -98,7 +99,8 @@ function GapSlider({
 }
 
 const CHARTS_OPEN_KEY = "import-charts-open";
-const TIME_OPEN_KEY = "import-time-open";
+const CHART_TAB_KEY = "import-chart-tab";
+type ChartTab = "distributions" | "time";
 
 /** An open/closed panel, remembered in this browser. */
 function useRememberedOpen(key: string, initial: boolean) {
@@ -176,7 +178,22 @@ export function ImportGroupsPanel({
   const [message, setMessage] = useState<string | null>(null);
   const { confirmDelete: confirm, dialog } = useConfirmDialog();
   const [chartsOpen, setChartsOpen] = useRememberedOpen(CHARTS_OPEN_KEY, true);
-  const [timeOpen, setTimeOpen] = useRememberedOpen(TIME_OPEN_KEY, false);
+  const [chartTab, setChartTabState] = useState<ChartTab>(() => {
+    try {
+      return localStorage.getItem(CHART_TAB_KEY) === "time" ? "time" : "distributions";
+    } catch {
+      return "distributions";
+    }
+  });
+  function setChartTab(tab: ChartTab) {
+    setChartTabState(tab);
+    setChartsOpen(true);
+    try {
+      localStorage.setItem(CHART_TAB_KEY, tab);
+    } catch {
+      // Not remembered — fine.
+    }
+  }
 
   const rows: Row[] = useMemo(
     () =>
@@ -431,22 +448,54 @@ export function ImportGroupsPanel({
       </div>
 
       <div className="import-charts-section">
-        <button type="button" className="link-button" aria-expanded={chartsOpen} onClick={() => setChartsOpen(!chartsOpen)}>
-          {chartsOpen ? "▾ Charts" : "▸ Charts"}
-        </button>{" "}
-        <button type="button" className="link-button" aria-expanded={timeOpen} onClick={() => setTimeOpen(!timeOpen)}>
-          {timeOpen ? "▾ Over time" : "▸ Over time"}
-        </button>
-        <span className="hint-text">
-          {" "}
-          {splitting
-            ? "Showing only the selected rows' reports. Click the RF, PRI or PW chart where you want to split them."
-            : "Drag across a chart to filter to that range (the table below follows, and the other charts narrow to it); click a chart to clear its range."}
-        </span>
-        {(chartsOpen || timeOpen) && (
+        <div className="import-charts-bar">
+          <button type="button" className="link-button" aria-expanded={chartsOpen} onClick={() => setChartsOpen(!chartsOpen)}>
+            {chartsOpen ? "▾ Charts" : "▸ Charts"}
+          </button>
+          <div className="import-chart-tabs" role="tablist" aria-label="Charts">
+            {(
+              [
+                ["distributions", "Scatter & distributions"],
+                ["time", "Over time"],
+              ] as [ChartTab, string][]
+            ).map(([tab, label]) => (
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                aria-selected={chartsOpen && chartTab === tab}
+                className={chartsOpen && chartTab === tab ? "sub-tab active" : "sub-tab"}
+                onClick={() => setChartTab(tab)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {chartsOpen && (
+            <span className="hint-text">
+              {splitting
+                ? "Showing only the selected rows' reports." +
+                  (chartTab === "distributions" ? " Click the RF, PRI or PW chart where you want to split them." : "")
+                : chartTab === "distributions"
+                  ? "Drag across a chart to filter to that range (the table below follows, and the other charts narrow to it); click a chart to clear its range."
+                  : "Box the dots you want on any chart to mark them, then make a group of them."}
+            </span>
+          )}
+        </div>
+        {chartsOpen && (
           <ImportCharts
-            showDistributions={chartsOpen}
-            showTime={timeOpen}
+            showDistributions={chartTab === "distributions"}
+            showTime={chartTab === "time"}
+            onGroupLines={(lines) => {
+              const result = groupReports(groups, lines, byLine);
+              const n = result.made.length;
+              apply(
+                result.groups,
+                n === 1
+                  ? `Made a group of ${lines.length.toLocaleString()} marked report${lines.length === 1 ? "" : "s"}.`
+                  : `Made ${n} groups of the ${lines.length.toLocaleString()} marked reports — one per PRI type.`,
+              );
+            }}
             reports={reports}
             excludedLines={excludedLines}
             modes={modes}
@@ -585,7 +634,7 @@ export function ImportGroupsPanel({
             disabled={!splitting && !selectedGroups.some((g) => g.lines.length > 1)}
             onClick={() => {
               setSplitting(splitting ? null : { param: "rf", value: "" });
-              if (!splitting) setChartsOpen(true);
+              if (!splitting) setChartTab("distributions");
             }}
           >
             Split at a value…

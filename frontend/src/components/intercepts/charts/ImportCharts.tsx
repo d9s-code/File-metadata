@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import type { CsvReport, ReportPriType } from "../interceptCsv";
 import { missionTimeMs } from "../interceptCsv";
 import { formatTime, timeTicks } from "./timeAxis";
-import type { ReportGroup } from "../interceptGroups";
+import { reportKind, type ReportGroup } from "../interceptGroups";
 import { matchEntry } from "../interceptMatch";
 import type { Mode } from "../../../types/domain";
 import {
@@ -73,6 +73,16 @@ const CHARTS: {
   { param: "stagger", label: "Stagger positions", unit: "µs" },
 ];
 
+function fmtValue(v: number) {
+  return Number(v.toFixed(3)).toLocaleString(undefined, { maximumFractionDigits: 3 });
+}
+
+function kindLabel(kind: string) {
+  if (kind === "fixed") return "fixed";
+  if (kind === "cw") return "CW";
+  return `stagger (${kind.split("/")[1]} positions)`;
+}
+
 function within(v: number | null, r: Range) {
   return r == null || (v != null && v >= r[0] && v <= r[1]);
 }
@@ -124,7 +134,10 @@ export function ImportCharts({
   onSplitPick,
   showDistributions = true,
   showTime = false,
+  onGroupLines,
 }: {
+  /** Make groups of the reports marked on the time charts. */
+  onGroupLines?: (lines: number[]) => void;
   /** The scatter and the per-parameter distributions. */
   showDistributions?: boolean;
   /** RF, PRI and PW against time. */
@@ -337,14 +350,63 @@ export function ImportCharts({
     return out;
   }, [boxSource, preview, groups, reports, axes, onlyLines]);
 
+  // Boxes marked on the time charts: a time span and a range of one parameter.
+  // The first box marks what's in it; later ones add to it (Shift) or narrow it to what's inside (Ctrl/Alt).
+  type Mark = { param: RangeParam; x: [number, number]; y: [number, number]; op: "add" | "narrow" };
+  const [marks, setMarks] = useState<Mark[]>([]);
+  const times = useMemo(() => {
+    const out = new Map<number, number>();
+    if (!showTime) return out;
+    for (const r of base) {
+      const t = missionTimeMs(r.missionTime);
+      if (t != null) out.set(r.line, t);
+    }
+    return out;
+  }, [showTime, base]);
+  // Reports inside any marked box — on that box's chart, so marking a stretch of
+  // RF marks those reports, and their PRI and PW light up on the other charts.
+  const marked = useMemo(() => {
+    const out = new Set<number>();
+    if (marks.length === 0) return out;
+    const inside = (r: CsvReport, m: Mark) => {
+      const t = times.get(r.line);
+      const v = axisValue(r, m.param);
+      return t != null && v != null && t >= m.x[0] && t <= m.x[1] && v >= m.y[0] && v <= m.y[1];
+    };
+    for (const r of base) {
+      let on = false;
+      for (const m of marks) {
+        if (m.op === "add") on = on || inside(r, m);
+        else on = on && inside(r, m);
+      }
+      if (on) out.add(r.line);
+    }
+    return out;
+  }, [marks, base, times]);
+  const markedSummary = useMemo(() => {
+    if (marked.size === 0) return null;
+    const kinds = new Map<string, number>();
+    const span = { rf: [Infinity, -Infinity], pri: [Infinity, -Infinity], pw: [Infinity, -Infinity] } as Record<
+      RangeParam,
+      [number, number]
+    >;
+    for (const r of base) {
+      if (!marked.has(r.line)) continue;
+      const k = reportKind(r);
+      kinds.set(k, (kinds.get(k) ?? 0) + 1);
+      for (const p of ["rf", "pri", "pw"] as RangeParam[]) {
+        const v = axisValue(r, p);
+        if (v == null) continue;
+        if (v < span[p][0]) span[p][0] = v;
+        if (v > span[p][1]) span[p][1] = v;
+      }
+    }
+    return { kinds, span };
+  }, [marked, base]);
+
   // RF, PRI and PW against time: each chart filtered like its histogram, all on one time axis.
   const timeCharts = useMemo(() => {
     if (!showTime) return null;
-    const times = new Map<number, number>();
-    for (const r of base) {
-      const t = missionTimeMs(r.missionTime);
-      if (t != null) times.set(r.line, t);
-    }
     const inView = base.filter((r) => passes(r, null));
     const xDomain = extent(inView.flatMap((r) => (times.has(r.line) ? [times.get(r.line)!] : [])));
     const noTime = inView.filter((r) => !times.has(r.line)).length;
@@ -360,6 +422,7 @@ export function ImportCharts({
           x: t,
           y: v,
           matched: modes && modes.length > 0 ? (matchedByLine.get(r.line) ?? false) : null,
+          marked: marked.has(r.line),
         });
       }
       return { param, points: pts, yDomain: zoom(ranges[param], pts.map((p) => p.y)) };
@@ -367,7 +430,7 @@ export function ImportCharts({
     return { charts, xDomain, noTime };
     // passes reads ranges.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showTime, base, ranges, modes, matchedByLine]);
+  }, [showTime, base, ranges, modes, matchedByLine, times, marked]);
 
   const axisSelect = (
     value: RangeParam,
@@ -533,9 +596,55 @@ export function ImportCharts({
             Each report at its mission time, as written in the file
             {timeCharts.noTime > 0 &&
               ` (${timeCharts.noTime.toLocaleString()} in view have no readable time and aren't shown)`}
-            . Drag up or down a chart to filter to that range of values;
-            click to clear it. PRI is a stagger&apos;s frame time.
+            . <strong>Drag a box around the dots you&apos;re interested in</strong> on any chart to mark those
+            reports — they light up on all three charts, so marking a stretch of RF shows its PRI and PW. Hold{" "}
+            <kbd>Shift</kbd> to add another box, or <kbd>Ctrl</kbd> (<kbd>⌘</kbd>, <kbd>Alt</kbd>) to keep only the
+            marked reports inside a box — say, to drop odd PRI values from an RF box. Click a chart to clear. PRI is
+            a stagger&apos;s frame time.
           </p>
+          {markedSummary && (
+            <div className="import-marks">
+              <span>
+                <strong>{marked.size.toLocaleString()}</strong> report{marked.size === 1 ? "" : "s"} marked
+                {(["rf", "pri", "pw"] as RangeParam[]).map((p) => {
+                  const [lo, hi] = markedSummary.span[p];
+                  if (!Number.isFinite(lo)) return null;
+                  return (
+                    <span key={p} className="hint-text">
+                      {" · "}
+                      {AXIS_INFO[p].short} {lo === hi ? fmtValue(lo) : `${fmtValue(lo)}–${fmtValue(hi)}`}{" "}
+                      {AXIS_INFO[p].unit}
+                    </span>
+                  );
+                })}
+                {markedSummary.kinds.size > 1 && (
+                  <span className="hint-text">
+                    {" · "}
+                    {[...markedSummary.kinds].map(([k, n]) => `${n.toLocaleString()} ${kindLabel(k)}`).join(", ")}
+                  </span>
+                )}
+              </span>
+              <span className="import-selection-actions">
+                {onGroupLines && (
+                  <button
+                    type="button"
+                    className="button primary small"
+                    onClick={() => {
+                      onGroupLines([...marked]);
+                      setMarks([]);
+                    }}
+                  >
+                    {markedSummary.kinds.size > 1
+                      ? `Make ${markedSummary.kinds.size} groups — one per PRI type`
+                      : `Make a group of ${marked.size === 1 ? "it" : `these ${marked.size.toLocaleString()}`}`}
+                  </button>
+                )}
+                <button type="button" className="button secondary small" onClick={() => setMarks([])}>
+                  Clear marks
+                </button>
+              </span>
+            </div>
+          )}
           {timeCharts.charts.map((c) => (
             <Scatter
               key={c.param}
@@ -553,12 +662,19 @@ export function ImportCharts({
               points={c.points}
               xDomain={timeCharts.xDomain}
               yDomain={c.yDomain}
-              selection={
-                ranges[c.param]
-                  ? { x: timeCharts.xDomain, y: ranges[c.param]! }
-                  : null
-              }
-              onSelect={(box) => onRange(c.param, box ? box.y : null)}
+              selection={null}
+              markBoxes={marks
+                .filter((m) => m.param === c.param)
+                .map((m) => ({ x: m.x, y: m.y, narrow: m.op === "narrow" }))}
+              onSelect={(box, { add, narrow }) => {
+                if (!box) {
+                  if (!add && !narrow) setMarks([]);
+                  return;
+                }
+                const keep = marks.length > 0 && (add || narrow);
+                const mark: Mark = { param: c.param, x: box.x, y: box.y, op: keep && narrow ? "narrow" : "add" };
+                setMarks(keep ? [...marks, mark] : [mark]);
+              }}
               emptyText={
                 c.param === "rf"
                   ? "No reports with a time in view."

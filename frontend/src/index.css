@@ -3495,6 +3495,40 @@ label.grow {
   margin: 0.25rem 0 0.75rem;
   font-size: 0.9rem;
 }
+.import-charts-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.25rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.import-charts-bar > .link-button {
+  align-self: center;
+}
+.import-chart-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: -1px;
+}
+.import-charts-bar > .hint-text {
+  flex: 1 1 18rem;
+  align-self: center;
+  padding: 0.25rem 0;
+}
+.import-marks {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--primary);
+  border-radius: 6px;
+  position: sticky;
+  top: calc(var(--navbar-height, 0px) + 0.25rem);
+  z-index: 2;
+  background: var(--card-bg);
+}
 .import-preview {
   margin: 0.5rem 0 0;
   font-size: 0.9rem;
@@ -3588,6 +3622,21 @@ label.grow {
 .viz-plot .viz-split { stroke: var(--text); stroke-width: 1.5; }
 .viz-plot .viz-split-hover { stroke: var(--text); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.7; }
 .viz-plot svg text.viz-split-label { fill: var(--text); font-weight: 600; }
+.viz-plot .viz-mark {
+  fill: var(--primary);
+  fill-opacity: 0.06;
+  stroke: var(--primary);
+  stroke-width: 1.5;
+}
+.viz-plot .viz-mark.narrow { stroke-dasharray: 5 3; fill-opacity: 0; }
+.import-time-charts kbd {
+  font: inherit;
+  font-size: 0.8em;
+  padding: 0 0.3em;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--card-bg);
+}
 .viz-plot .viz-groupbox { fill: none; stroke: var(--text); stroke-opacity: 0.7; stroke-width: 1.25; }
 .viz-plot .viz-groupbox.dashed { stroke-dasharray: 4 3; }
 .viz-swatch.viz-groupbox-swatch { background: none; border: 1.25px solid var(--text); opacity: 0.7; }
