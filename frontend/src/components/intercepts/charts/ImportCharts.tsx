@@ -601,7 +601,8 @@ export function ImportCharts({
             ) : (
               <>
                 Highlighting the <strong>{markedSummary.count.toLocaleString()}</strong> report
-                {markedSummary.count === 1 ? "" : "s"} of the {selectedRows} row{selectedRows === 1 ? "" : "s"}{" "}
+                {markedSummary.count === 1 ? "" : "s"} of the {selectedRows.toLocaleString()} row
+                {selectedRows === 1 ? "" : "s"}{" "}
                 selected in the table
               </>
             )}
