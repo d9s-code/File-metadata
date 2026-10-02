@@ -51,7 +51,10 @@ export function Scatter({
   emptyText = "No pulsed reports in view.",
   markBoxes = [],
   noun = ["report", "reports"],
+  shownCount,
 }: {
+  /** How many points fall in the visible stretch, when zoomed — read as "N of M". */
+  shownCount?: number;
   /** Boxes the user marked on this chart; a narrowing one is dashed. */
   markBoxes?: (Box & { narrow?: boolean })[];
   height?: number;
@@ -172,6 +175,7 @@ export function Scatter({
       <div className="viz-card-header">
         {header}
         <span className="hint-text">
+          {shownCount != null && shownCount !== points.length && `${shownCount.toLocaleString()} of `}
           {points.length.toLocaleString()} {points.length === 1 ? noun[0] : noun[1]}
           {hover && (
             <>

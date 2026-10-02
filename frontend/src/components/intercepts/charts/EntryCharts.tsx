@@ -6,6 +6,7 @@ import { allIntervals, inIntervals, modeCoverage, type ChartParam } from "./cove
 import { Histogram } from "./Histogram";
 import { Scatter, type ScatterBox, type ScatterPoint } from "./Scatter";
 import { formatTime, timeTicks } from "./timeAxis";
+import { TimeZoom, fitWindow, type TimeWindow } from "./TimeZoom";
 import type { Range, RangeParam } from "./ImportCharts";
 
 export type EntryChartTab = "distributions" | "time";
@@ -185,10 +186,21 @@ export function EntryCharts({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, entries, ranges, coverage]);
 
+  // The stretch of time the Over time charts are zoomed to; null for all of it.
+  const [timeWindow, setTimeWindow] = useState<TimeWindow>(null);
+
   const time = useMemo(() => {
     if (tab !== "time") return null;
     const timed = entries.filter((e) => passes(e, null) && entryTimes(e));
-    const xDomain = extent(timed.flatMap((e) => entryTimes(e)!));
+    const full = extent(timed.flatMap((e) => entryTimes(e)!));
+    const win = fitWindow(timeWindow, full);
+    const xDomain = win ?? full;
+    // Zoomed in, each value axis fits the entries heard in the window.
+    const inWindow = (e: InterceptEntry) => {
+      if (!win) return true;
+      const [a, b] = entryTimes(e)!;
+      return a <= win[1] && b >= win[0];
+    };
     const charts = (["rf", "pri", "pw"] as RangeParam[]).map((param) => {
       const rows = timed.filter((e) => entryValue(e, param) != null);
       const points: ScatterPoint[] = rows.map((e) => {
@@ -210,13 +222,18 @@ export function EntryCharts({
           const chosen = rows.filter((e) => selected.has(e.id));
           return showRanges || chosen.length <= BOXES_BY_DEFAULT ? chosen.map(box) : [];
         })(),
-        yDomain: extent(rows.flatMap((e) => entrySpan(e, param)!)),
+        shown: rows.filter(inWindow).length,
+        yDomain: extent(rows.filter(inWindow).flatMap((e) => entrySpan(e, param)!)),
       };
     });
-    return { charts, xDomain, untimed: entries.length - timed.length, timed };
+    const midTimes = timed.map((e) => {
+      const [a, b] = entryTimes(e)!;
+      return (a + b) / 2;
+    });
+    return { charts, xDomain, full, zoomed: win != null, midTimes, untimed: entries.length - timed.length, timed };
     // passes and matched read ranges and matchById.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, entries, ranges, matchById, selected, showRanges]);
+  }, [tab, entries, ranges, matchById, selected, showRanges, timeWindow]);
 
   const rangesToggle = (label: string) => (
     <label className="inline-label map-axis">
@@ -314,6 +331,14 @@ export function EntryCharts({
             . <strong>Drag a box</strong> to select the entries it touches — <kbd>Shift</kbd> adds, <kbd>Ctrl</kbd>{" "}
             keeps only those inside; click to clear. {rangesToggle("Show every entry's span")}
           </p>
+          {time.timed.length > 0 && (
+            <TimeZoom
+              full={time.full}
+              window={time.zoomed ? time.xDomain : null}
+              onChange={setTimeWindow}
+              times={time.midTimes}
+            />
+          )}
           {time.timed.length === 0 ? (
             <p className="hint-text">No entries with a time — these were typed in by hand or imported before times were kept.</p>
           ) : (
@@ -331,6 +356,7 @@ export function EntryCharts({
                 xTicks={(lo, hi) => timeTicks(lo, hi)}
                 xFormat={formatTime}
                 points={c.points}
+                shownCount={c.shown}
                 xDomain={time.xDomain}
                 yDomain={c.yDomain}
                 boxes={c.boxes}

@@ -680,6 +680,14 @@ export function HelpPage() {
             to clear the marks. The charts follow the table filters, and the page remembers which tab you left open.
           </p>
           <p>
+            To <strong>zoom in on time</strong>, use the strip above the Over time charts — it shows how many
+            reports were heard at each moment of the whole recording. Drag across it to show just that stretch;
+            drag the highlighted window to slide along, or click elsewhere to move it there. <strong>+</strong> and{" "}
+            <strong>−</strong> zoom around the middle and <strong>Show all</strong> goes back to the whole
+            recording. Zoomed in, each value axis fits the reports in the window, so a thin band spreads out, and
+            each chart counts how many of its reports are in view. Marking works the same while zoomed.
+          </p>
+          <p>
             The two ways of grouping work together. While reports are marked, the table flags every row holding
             some of them (&ldquo;Marked&rdquo;, or &ldquo;12 marked&rdquo; when only part of the row is), and{" "}
             <strong>Show their rows in the table</strong> (or Show &rarr; Rows with marked reports) lists just those.
@@ -739,7 +747,8 @@ export function HelpPage() {
             box), with histograms of RF, PRI, frame time and PW split by whether they fall within a Mode; on{" "}
             <strong>Over time</strong>, each entry as a box from first to last heard over its measured range.
             Drag a box around points to select those entries (Shift adds, Ctrl keeps only those inside); drag
-            across a histogram to filter the table to that range. Selected entries light up on every chart.
+            across a histogram to filter the table to that range. Selected entries light up on every chart. The
+            Over time charts zoom like the import&apos;s, from the strip above them.
           </p>
           <p>
             Every entry is <strong>matched</strong> against the Emitter's Modes of the same PRI type: it

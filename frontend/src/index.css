@@ -3244,6 +3244,54 @@ label.grow {
   color: var(--muted);
 }
 
+/* Zoom for the Over time charts */
+.time-zoom {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.time-zoom-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+.time-zoom-buttons {
+  display: flex;
+  gap: 0.3rem;
+}
+.time-zoom-buttons .button {
+  min-width: 2rem;
+}
+.time-zoom-strip {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card-bg);
+  cursor: crosshair;
+  touch-action: none;
+  overflow: hidden;
+}
+.time-zoom-strip svg {
+  display: block;
+}
+.time-zoom-density {
+  fill: var(--viz-ink-muted);
+  opacity: 0.55;
+}
+.time-zoom-shade {
+  fill: var(--text);
+  opacity: 0.08;
+}
+.time-zoom-window {
+  fill: var(--primary);
+  fill-opacity: 0.12;
+  stroke: var(--primary);
+  stroke-width: 1.5;
+  cursor: grab;
+}
+
 /* An Intercept's reports */
 .report-sort {
   background: none;

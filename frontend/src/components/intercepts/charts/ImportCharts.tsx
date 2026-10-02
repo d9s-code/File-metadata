@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { CsvReport, ReportPriType } from "../interceptCsv";
 import { missionTimeMs } from "../interceptCsv";
 import { formatTime, timeTicks } from "./timeAxis";
+import { TimeZoom, fitWindow, type TimeWindow } from "./TimeZoom";
 import { reportKind, type ReportGroup } from "../interceptGroups";
 import { matchEntry } from "../interceptMatch";
 import type { Mode } from "../../../types/domain";
@@ -440,11 +441,17 @@ export function ImportCharts({
     return { kinds, span, count: [...marked].filter((l) => byLine.has(l)).length };
   }, [highlight, base, byLine]);
 
+  // The stretch of time the Over time charts are zoomed to; null for all of it.
+  const [timeWindow, setTimeWindow] = useState<TimeWindow>(null);
+
   // RF, PRI and PW against time: each chart filtered like its histogram, all on one time axis.
   const timeCharts = useMemo(() => {
     if (!showTime) return null;
     const inView = base.filter((r) => passes(r, null));
-    const xDomain = extent(inView.flatMap((r) => (times.has(r.line) ? [times.get(r.line)!] : [])));
+    const allTimes = inView.flatMap((r) => (times.has(r.line) ? [times.get(r.line)!] : []));
+    const full = extent(allTimes);
+    const win = fitWindow(timeWindow, full);
+    const xDomain = win ?? full;
     const noTime = inView.filter((r) => !times.has(r.line)).length;
     const charts = (["rf", "pri", "pw"] as RangeParam[]).map((param) => {
       const pts: ScatterPoint[] = [];
@@ -461,12 +468,14 @@ export function ImportCharts({
           marked: highlight?.has(r.line) ?? false,
         });
       }
-      return { param, points: pts, yDomain: zoom(ranges[param], pts.map((p) => p.y)) };
+      // Zoomed in, the value axis fits what's in the window — a thin band spreads out.
+      const visible = win ? pts.filter((p) => p.x >= win[0] && p.x <= win[1]) : pts;
+      return { param, points: pts, shown: visible.length, yDomain: zoom(ranges[param], visible.map((p) => p.y)) };
     });
-    return { charts, xDomain, noTime };
+    return { charts, xDomain, full, allTimes, zoomed: win != null, noTime };
     // passes reads ranges.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showTime, base, ranges, modes, matchedByLine, times, highlight]);
+  }, [showTime, base, ranges, modes, matchedByLine, times, highlight, timeWindow]);
 
   // Each group's extent on the time charts: the time it spans and its range of values.
   const timeBoxes = useMemo(() => {
@@ -749,6 +758,14 @@ export function ImportCharts({
             a stagger&apos;s frame time. Rows selected in the table light up here too (while nothing is marked),
             and the table flags the rows holding marked reports. {outlineSelect}
           </p>
+          {timeCharts.allTimes.length > 0 && (
+            <TimeZoom
+              full={timeCharts.full}
+              window={timeCharts.zoomed ? timeCharts.xDomain : null}
+              onChange={setTimeWindow}
+              times={timeCharts.allTimes}
+            />
+          )}
           {timeCharts.charts.map((c) => (
             <Scatter
               key={c.param}
@@ -764,6 +781,7 @@ export function ImportCharts({
               xTicks={(lo, hi) => timeTicks(lo, hi)}
               xFormat={formatTime}
               points={c.points}
+              shownCount={c.shown}
               xDomain={timeCharts.xDomain}
               yDomain={c.yDomain}
               selection={null}
