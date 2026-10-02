@@ -494,7 +494,10 @@ def batch_edit_modes(
 def list_generation_batches(
     emitter_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
 ) -> list[ModeGenerationBatchOut]:
-    """Every cartesian-product run for this Emitter, across all its EW Groups/Sources."""
+    """Every batch of generated Modes for this Emitter (cartesian-product runs
+    and Modes created from an Intercept), across all its EW Groups/Sources.
+    Batches with no Modes left — all deleted, or undone by discarding the
+    Emitter's changes — aren't listed."""
     _get_emitter_or_404(db, emitter_id)
     batches = (
         db.query(ModeGenerationBatch)
@@ -513,6 +516,7 @@ def list_generation_batches(
             mode_count=len(b.modes),
         )
         for b in batches
+        if b.modes
     ]
 
 

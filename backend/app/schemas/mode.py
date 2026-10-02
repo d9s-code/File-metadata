@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
 
@@ -165,6 +165,36 @@ class ModeCreate(BaseModel):
         validate_pri_type_fields(self.pri_type, self.line)
         require_manual_deltas(self.pri_type, self.line)
         return self
+
+
+# Modes created from one Intercept at once.
+MAX_MODES_FROM_INTERCEPT = 1000
+
+
+class ModesFromIntercept(BaseModel):
+    """Modes created from an Intercept's entries in one go — one Mode per
+    entry, its ranges taken from the entry, all in one generation batch (so
+    the batch can be deleted together from the Modes tab)."""
+
+    intercept_id: UUID
+    entry_ids: list[UUID] = Field(min_length=1, max_length=MAX_MODES_FROM_INTERCEPT)
+    source_id: UUID
+    function_group_id: UUID | None = None
+    # Modes are named "<prefix> 1", "<prefix> 2", … in rising RF, skipping names already used.
+    name_prefix: str = Field(min_length=1, max_length=150)
+    # "measured": each entry's measured min–max (its mean where it has none);
+    # "mean": a single value at the mean.
+    ranges: Literal["measured", "mean"] = "measured"
+    rf_delta: float = Field(default=0, ge=0)
+    pw_delta: float = Field(default=0, ge=0)
+    # Fixed PRI's delta, and a stagger's frame-time delta.
+    pri_delta: float = Field(default=0, ge=0)
+    frame_time_delta_us: float = Field(default=0, ge=0)
+    # A CW entry has no pulses, but a CW Mode still carries a PW range: given here.
+    cw_pw_min_us: float | None = None
+    cw_pw_max_us: float | None = None
+    confirmation_quality: ConfirmationQuality = DEFAULT_CONFIRMATION_QUALITY
+    confirmation_quantity: ConfirmationQuantity = DEFAULT_CONFIRMATION_QUANTITY
 
 
 class ModeCreateFromDsl(BaseModel):

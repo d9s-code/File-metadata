@@ -757,6 +757,15 @@ export function HelpPage() {
             <span className="test-derived-badge">Intercept-Derived</span> badge back to it, the same idea as
             a Test-Derived Mode.
           </p>
+          <p>
+            <strong>Create Modes…</strong> (in the bar above the entries, for the ticked ones, or under More for all
+            of them — while you&apos;re editing the Emitter) makes one Mode per entry in one go. Choose the EW Group,
+            Source and a name (Modes are numbered in rising RF, skipping numbers already used), whether each Mode
+            takes the entry&apos;s measured min–max or just its mean, and the deltas; CW Modes need a PW range,
+            since a CW entry has none. Entries that already match a Mode, or were already used to create one, can be
+            left out. A preview shows what each Mode will cover. The Modes are linked to their entries and made as
+            one generation batch, so the whole batch can be deleted together from the Modes tab.
+          </p>
         </div>
       </div>
 

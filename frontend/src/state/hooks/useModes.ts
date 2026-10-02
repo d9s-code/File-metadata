@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { modesApi, type ModeBatchEditInput, type ModeCreateInput } from "../../api/modes";
+import {
+  modesApi,
+  type ModeBatchEditInput,
+  type ModeCreateInput,
+  type ModesFromInterceptInput,
+} from "../../api/modes";
 import { dslApi, type ModeFromDslInput } from "../../api/dsl";
 import { emitterVersionsKey } from "./useEmitterVersions";
 
@@ -79,5 +84,19 @@ export function useDeleteMode(emitterId: string) {
   return useMutation({
     mutationFn: ({ ewGroupId, modeId }: { ewGroupId: string; modeId: string }) => modesApi.delete(ewGroupId, modeId),
     onSuccess: (_data, variables) => invalidateModes(qc, variables.ewGroupId, emitterId),
+  });
+}
+
+/** Modes from an Intercept's entries, one per entry, in one generation batch. */
+export function useCreateModesFromIntercept(emitterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ewGroupId, input }: { ewGroupId: string; input: ModesFromInterceptInput }) =>
+      modesApi.createFromIntercept(ewGroupId, input),
+    onSuccess: (_modes, { ewGroupId }) => {
+      invalidateModes(qc, ewGroupId, emitterId);
+      // The Modes tab groups Modes by generation batch.
+      qc.invalidateQueries({ queryKey: ["modeBatches", emitterId] });
+    },
   });
 }

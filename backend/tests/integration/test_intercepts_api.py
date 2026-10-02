@@ -773,3 +773,73 @@ def test_merge_and_delete_keep_reports(editor_client, emitter_ctx):
     editor_client.delete(f"/intercepts/{iid}/entries/{entries[2]['id']}")
     assert editor_client.get(f"/intercepts/{iid}/reports", params={"entry_id": "none"}).json()["total"] == 1
     assert editor_client.get(f"/intercepts/{iid}").json()["grouping_version"] == 3
+
+
+def _modes_from(editor_client, ctx, intercept_id, entry_ids, **options):
+    return editor_client.post(
+        f"/ew-groups/{ctx['ew_group']['id']}/modes/from-intercept",
+        json={
+            "intercept_id": intercept_id,
+            "entry_ids": entry_ids,
+            "source_id": ctx["source"]["id"],
+            "name_prefix": "Pass A",
+            "rf_delta": 1,
+            "pw_delta": 0.05,
+            "pri_delta": 10,
+            "frame_time_delta_us": 5,
+            **options,
+        },
+    )
+
+
+def test_create_modes_from_intercept_entries(editor_client, emitter_ctx):
+    intercept = _create_intercept(editor_client, emitter_ctx["emitter"]["id"])
+    url = f"/intercepts/{intercept['id']}/entries"
+    fixed = editor_client.post(
+        url, json={**FIXED_ENTRY, "rf_min_mhz": 2990, "rf_max_mhz": 3010, "pri_min_us": 990, "pri_max_us": 1010}
+    ).json()
+    stagger = editor_client.post(url, json={**STAGGER_ENTRY, "rf_mean_mhz": 3100, "pri_mean_us": 3335}).json()
+    cw = editor_client.post(url, json={**CW_ENTRY, "rf_mean_mhz": 3200}).json()
+    ids = [fixed["id"], stagger["id"], cw["id"]]
+
+    # A CW entry needs a PW range given for its Mode — and nothing is created without one.
+    assert _modes_from(editor_client, emitter_ctx, intercept["id"], ids).status_code == 422
+    assert editor_client.get(f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes").json() == []
+
+    resp = _modes_from(editor_client, emitter_ctx, intercept["id"], ids, cw_pw_min_us=0.5, cw_pw_max_us=1.5)
+    assert resp.status_code == 201, resp.text
+    modes = resp.json()
+    assert [m["name"] for m in modes] == ["Pass A 1", "Pass A 2", "Pass A 3"]
+    assert len({m["generation_batch_id"] for m in modes}) == 1
+    by_type = {m["pri_type"]: m for m in modes}
+    f_line = by_type["fixed"]["line"]
+    assert (f_line["rf_min_mhz"], f_line["rf_max_mhz"], f_line["rf_delta"]) == (2990, 3010, 1)
+    assert (f_line["pri_min_us"], f_line["pri_max_us"], f_line["pri_delta"]) == (990, 1010, 10)
+    assert f_line["jitter_min_us"] == f_line["jitter_max_us"] == 10
+    s_line = by_type["stagger"]["line"]
+    assert s_line["pri_stagger_values_us"] == [800, 850, 900, 780]
+    assert s_line["frame_time_delta_us"] == 5
+    assert s_line["explicit_frame_time_us"] == 3335  # the entry's frame time, not the sum (3330)
+    c_line = by_type["cw"]["line"]
+    assert (c_line["pw_min_us"], c_line["pw_max_us"]) == (0.5, 1.5)
+    entries = {e["id"]: e for e in editor_client.get(url).json()}
+    assert entries[fixed["id"]]["derived_mode_ids"] == [by_type["fixed"]["id"]]
+
+    # Again with the same prefix: names carry on rather than clash; "mean" gives a point range.
+    again = _modes_from(editor_client, emitter_ctx, intercept["id"], [fixed["id"]], ranges="mean").json()
+    assert again[0]["name"] == "Pass A 4"
+    assert (again[0]["line"]["rf_min_mhz"], again[0]["line"]["rf_max_mhz"]) == (3000, 3000)
+
+
+def test_modes_from_intercept_check_entries_and_emitter(editor_client, viewer_client, emitter_ctx):
+    intercept = _create_intercept(editor_client, emitter_ctx["emitter"]["id"])
+    other = _create_intercept(editor_client, emitter_ctx["emitter"]["id"], name="Other")
+    foreign = editor_client.post(f"/intercepts/{other['id']}/entries", json=FIXED_ENTRY).json()
+    resp = _modes_from(editor_client, emitter_ctx, intercept["id"], [foreign["id"]])
+    assert resp.status_code == 404
+    entry = editor_client.post(f"/intercepts/{intercept['id']}/entries", json=FIXED_ENTRY).json()
+    resp = viewer_client.post(
+        f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes/from-intercept",
+        json={"intercept_id": intercept["id"], "entry_ids": [entry["id"]], "source_id": emitter_ctx["source"]["id"], "name_prefix": "X"},
+    )
+    assert resp.status_code == 403

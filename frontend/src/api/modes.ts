@@ -73,7 +73,25 @@ export interface ModeBatchEditResult {
   count: number;
 }
 
+/** One Mode per Intercept entry, in one generation batch — see the backend's ModesFromIntercept. */
+export interface ModesFromInterceptInput {
+  intercept_id: string;
+  entry_ids: string[];
+  source_id: string;
+  function_group_id?: string | null;
+  name_prefix: string;
+  ranges: "measured" | "mean";
+  rf_delta: number;
+  pw_delta: number;
+  pri_delta: number;
+  frame_time_delta_us: number;
+  cw_pw_min_us?: number | null;
+  cw_pw_max_us?: number | null;
+}
+
 export const modesApi = {
+  createFromIntercept: (ewGroupId: string, input: ModesFromInterceptInput) =>
+    api.post<Mode[]>(`/ew-groups/${ewGroupId}/modes/from-intercept`, input),
   list: (ewGroupId: string) => api.get<Mode[]>(`/ew-groups/${ewGroupId}/modes`),
   listByEmitter: (emitterId: string) => api.get<Mode[]>(`/emitters/${emitterId}/modes`),
   create: (ewGroupId: string, input: ModeCreateInput) =>
