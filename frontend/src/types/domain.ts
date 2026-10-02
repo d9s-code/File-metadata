@@ -230,6 +230,13 @@ export interface InterceptEntryFields {
   /** Stagger only (ordered). */
   stagger_values?: number[] | null;
   notes?: string | null;
+  /** What an imported entry was built from — absent on entries typed in by
+   * hand. Times are mission times as written in the file (UTC). */
+  first_seen_at?: string | null;
+  last_seen_at?: string | null;
+  report_count?: number | null;
+  tracks?: string[] | null;
+  source_file?: string | null;
 }
 
 export interface InterceptEntry extends InterceptEntryFields {

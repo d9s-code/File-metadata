@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import ARRAY, Date, DateTime, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import ARRAY, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -100,6 +100,15 @@ class InterceptEntry(UUIDPkMixin, Base):
 
     # Per-entry note, separate from the container's InterceptNote feed.
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # What an imported entry was built from — null on entries typed in by
+    # hand. Times are mission times as written in the file, stored as UTC.
+    first_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    report_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    tracks: Mapped[list[str] | None] = mapped_column(ARRAY(String(50)), nullable=True)
+    # The file it was imported from — how a second import of the same file is caught.
+    source_file: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
 
     intercept: Mapped["Intercept"] = relationship(back_populates="entries")
     modes: Mapped[list["InterceptEntryMode"]] = relationship(

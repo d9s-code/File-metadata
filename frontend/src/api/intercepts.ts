@@ -20,6 +20,26 @@ export interface InterceptEntryInput extends InterceptEntryFields {
   pri_type: PriType;
 }
 
+export interface MatchCountsOut {
+  match: number;
+  near: number;
+  none: number;
+}
+
+export interface InterceptMatchCounts {
+  total: MatchCountsOut;
+  by_intercept: Record<string, MatchCountsOut>;
+}
+
+/** An Intercept already holding entries imported from a file. */
+export interface SourceFileImport {
+  intercept_id: string;
+  intercept_name: string;
+  emitter_id: string;
+  entry_count: number;
+  imported_at: string;
+}
+
 /** Entries per import — matches the backend's MAX_IMPORT_ENTRIES. */
 export const MAX_IMPORT_ENTRIES = 5000;
 
@@ -53,4 +73,16 @@ export const interceptsApi = {
     api.post<InterceptEntry>(`/intercepts/${interceptId}/entries`, input),
   deleteEntry: (interceptId: string, entryId: string) =>
     api.delete<void>(`/intercepts/${interceptId}/entries/${entryId}`),
+  /** Several entries at once, all or nothing. */
+  deleteEntries: (interceptId: string, entryIds: string[]) =>
+    api.post<void>(`/intercepts/${interceptId}/entries/delete`, { entry_ids: entryIds }),
+  /** Entries that are one signal, merged into the first created of them. */
+  mergeEntries: (interceptId: string, entryIds: string[]) =>
+    api.post<InterceptEntry>(`/intercepts/${interceptId}/entries/merge`, { entry_ids: entryIds }),
+  /** How an Emitter's Intercepts compare with its Modes — the counts only. */
+  matchCounts: (emitterId: string) =>
+    api.get<InterceptMatchCounts>(`/intercepts/match-counts?emitter_id=${encodeURIComponent(emitterId)}`),
+  /** Intercepts already holding entries imported from a file of this name. */
+  sourceFileImports: (name: string) =>
+    api.get<SourceFileImport[]>(`/intercepts/source-files?name=${encodeURIComponent(name)}`),
 };

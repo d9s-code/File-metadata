@@ -430,3 +430,167 @@ def test_import_caps_entries_per_request(editor_client, emitter_ctx):
         json={"intercept": {"emitter_id": emitter_ctx["emitter"]["id"], "name": "Big"}, "entries": too_many},
     )
     assert resp.status_code == 422
+
+
+IMPORTED = {
+    **FIXED_ENTRY,
+    "first_seen_at": "2025-12-01T08:00:00Z",
+    "last_seen_at": "2025-12-01T08:40:00Z",
+    "report_count": 30,
+    "tracks": ["11", "12"],
+    "source_file": "OPR_103_EmitterTrackParameters.csv",
+}
+
+
+def test_imported_entry_keeps_where_it_came_from(editor_client, emitter_ctx):
+    intercept = _create_intercept(editor_client, emitter_ctx["emitter"]["id"])
+    entry = editor_client.post(f"/intercepts/{intercept['id']}/entries", json=IMPORTED).json()
+    assert entry["report_count"] == 30
+    assert entry["tracks"] == ["11", "12"]
+    assert entry["first_seen_at"].startswith("2025-12-01T08:00:00")
+
+    # Correcting the values by hand doesn't wipe the provenance...
+    resp = editor_client.put(
+        f"/intercepts/{intercept['id']}/entries/{entry['id']}", json={**FIXED_ENTRY, "rf_mean_mhz": 3001}
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["rf_mean_mhz"] == 3001
+    assert resp.json()["report_count"] == 30
+    assert resp.json()["source_file"] == "OPR_103_EmitterTrackParameters.csv"
+    # ...unless the request sets it.
+    resp = editor_client.put(
+        f"/intercepts/{intercept['id']}/entries/{entry['id']}", json={**FIXED_ENTRY, "report_count": None}
+    )
+    assert resp.json()["report_count"] is None
+
+    bad = {**IMPORTED, "first_seen_at": "2025-12-02T00:00:00Z"}
+    assert editor_client.post(f"/intercepts/{intercept['id']}/entries", json=bad).status_code == 422
+
+
+def test_import_writes_one_audit_row_for_its_entries(editor_client, admin_client, emitter_ctx):
+    emitter_id = emitter_ctx["emitter"]["id"]
+    resp = editor_client.post(
+        "/intercepts/import",
+        json={"intercept": {"emitter_id": emitter_id, "name": "OPR 104"}, "entries": [IMPORTED] * 40},
+    )
+    assert resp.status_code == 201, resp.text
+    rows = admin_client.get("/audit-log", params={"entity_id": resp.json()["id"], "limit": 200}).json()["items"]
+    assert len(rows) == 2
+    added = next(r for r in rows if r["summary"].startswith("Added 40 entries"))
+    assert added["changes"]["source_files"] == ["OPR_103_EmitterTrackParameters.csv"]
+    entry_rows = admin_client.get("/audit-log", params={"entity_type": "intercept_entry", "emitter_id": emitter_id})
+    assert entry_rows.json()["total"] == 0
+
+
+def test_source_file_lookup_finds_earlier_imports(editor_client, emitter_ctx):
+    emitter_id = emitter_ctx["emitter"]["id"]
+    saved = editor_client.post(
+        "/intercepts/import",
+        json={"intercept": {"emitter_id": emitter_id, "name": "First import"}, "entries": [IMPORTED, IMPORTED]},
+    ).json()
+    found = editor_client.get("/intercepts/source-files", params={"name": IMPORTED["source_file"]}).json()
+    assert [(f["intercept_id"], f["entry_count"]) for f in found] == [(saved["id"], 2)]
+    assert editor_client.get("/intercepts/source-files", params={"name": "other.csv"}).json() == []
+
+
+def test_bulk_delete_entries_all_or_nothing(editor_client, admin_client, emitter_ctx):
+    intercept = _create_intercept(editor_client, emitter_ctx["emitter"]["id"])
+    other = _create_intercept(editor_client, emitter_ctx["emitter"]["id"], name="Other")
+    ids = [editor_client.post(f"/intercepts/{intercept['id']}/entries", json=FIXED_ENTRY).json()["id"] for _ in range(3)]
+    foreign = editor_client.post(f"/intercepts/{other['id']}/entries", json=FIXED_ENTRY).json()["id"]
+
+    resp = editor_client.post(f"/intercepts/{intercept['id']}/entries/delete", json={"entry_ids": [ids[0], foreign]})
+    assert resp.status_code == 404
+    assert len(editor_client.get(f"/intercepts/{intercept['id']}/entries").json()) == 3
+
+    resp = editor_client.post(f"/intercepts/{intercept['id']}/entries/delete", json={"entry_ids": ids[:2]})
+    assert resp.status_code == 204, resp.text
+    assert [e["id"] for e in editor_client.get(f"/intercepts/{intercept['id']}/entries").json()] == [ids[2]]
+    row = admin_client.get("/audit-log", params={"entity_id": intercept["id"], "action": "delete"}).json()["items"][0]
+    assert row["summary"].startswith("Deleted 2 entries")
+    assert len(row["changes"]["entries"]) == 2
+
+
+def test_merge_entries_weights_by_report_count_and_keeps_mode_links(editor_client, emitter_ctx):
+    intercept = _create_intercept(editor_client, emitter_ctx["emitter"]["id"])
+    url = f"/intercepts/{intercept['id']}/entries"
+    a = editor_client.post(
+        url,
+        json={**IMPORTED, "rf_mean_mhz": 3000, "rf_min_mhz": 2999, "rf_max_mhz": 3001, "report_count": 30},
+    ).json()
+    b = editor_client.post(
+        url,
+        json={
+            **IMPORTED,
+            "rf_mean_mhz": 3010,
+            "report_count": 10,
+            "tracks": ["13"],
+            "first_seen_at": "2025-12-01T07:00:00Z",
+            "last_seen_at": "2025-12-01T09:00:00Z",
+        },
+    ).json()
+    mode = editor_client.post(
+        f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes",
+        json={
+            "source_id": emitter_ctx["source"]["id"],
+            "name": "From B",
+            "pri_type": "fixed",
+            "line": MODE_LINE,
+            "derived_from_intercept_entry_ids": [b["id"]],
+        },
+    ).json()
+
+    resp = editor_client.post(f"{url}/merge", json={"entry_ids": [b["id"], a["id"]]})
+    assert resp.status_code == 200, resp.text
+    merged = resp.json()
+    assert merged["id"] == a["id"]  # the first created is kept
+    assert merged["rf_mean_mhz"] == 3002.5  # (3000*30 + 3010*10) / 40
+    assert (merged["rf_min_mhz"], merged["rf_max_mhz"]) == (2999, 3010)
+    assert merged["report_count"] == 40
+    assert merged["tracks"] == ["11", "12", "13"]
+    assert merged["first_seen_at"].startswith("2025-12-01T07:00:00")
+    assert merged["last_seen_at"].startswith("2025-12-01T09:00:00")
+    assert merged["derived_mode_ids"] == [mode["id"]]
+    assert merged["notes"].startswith("Merged from 2 entries.")
+    assert [e["id"] for e in editor_client.get(url).json()] == [a["id"]]
+
+
+def test_merge_refuses_mixed_pri_types(editor_client, emitter_ctx):
+    intercept = _create_intercept(editor_client, emitter_ctx["emitter"]["id"])
+    url = f"/intercepts/{intercept['id']}/entries"
+    a = editor_client.post(url, json=FIXED_ENTRY).json()
+    b = editor_client.post(url, json=STAGGER_ENTRY).json()
+    assert editor_client.post(f"{url}/merge", json={"entry_ids": [a["id"], b["id"]]}).status_code == 422
+    assert editor_client.post(f"{url}/merge", json={"entry_ids": [a["id"]]}).status_code == 422
+    assert len(editor_client.get(url).json()) == 2
+
+
+def test_match_counts_per_intercept(editor_client, emitter_ctx):
+    editor_client.post(
+        f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes",
+        json={"source_id": emitter_ctx["source"]["id"], "name": "M", "pri_type": "fixed", "line": MODE_LINE},
+    )
+    intercept = _create_intercept(editor_client, emitter_ctx["emitter"]["id"])
+    url = f"/intercepts/{intercept['id']}/entries"
+    editor_client.post(url, json=FIXED_ENTRY)  # inside on RF, PRI and PW
+    editor_client.post(url, json={**FIXED_ENTRY, "rf_mean_mhz": 3100.5})  # inside the engineered RF (± 1)
+    editor_client.post(url, json={**FIXED_ENTRY, "rf_mean_mhz": 5000})  # outside on RF only: near
+    editor_client.post(url, json={**FIXED_ENTRY, "rf_mean_mhz": 5000, "pw_mean_us": 9})  # two off: none
+    editor_client.post(url, json=STAGGER_ENTRY)  # no stagger Mode: none
+
+    counts = editor_client.get("/intercepts/match-counts", params={"emitter_id": emitter_ctx["emitter"]["id"]}).json()
+    assert counts["total"] == {"match": 2, "near": 1, "none": 2}
+    assert counts["by_intercept"][intercept["id"]] == {"match": 2, "near": 1, "none": 2}
+
+
+def test_intercepts_of_a_deleted_emitter_are_read_only_and_hidden(editor_client, emitter_ctx):
+    emitter_id = emitter_ctx["emitter"]["id"]
+    intercept = _create_intercept(editor_client, emitter_id)
+    entry = editor_client.post(f"/intercepts/{intercept['id']}/entries", json=FIXED_ENTRY).json()
+    assert editor_client.delete(f"/emitters/{emitter_id}").status_code == 204
+
+    assert editor_client.post("/intercepts", json={"emitter_id": emitter_id, "name": "Late"}).status_code == 404
+    assert editor_client.post(f"/intercepts/{intercept['id']}/entries", json=FIXED_ENTRY).status_code == 404
+    assert editor_client.delete(f"/intercepts/{intercept['id']}/entries/{entry['id']}").status_code == 404
+    assert editor_client.patch(f"/intercepts/{intercept['id']}", json={"name": "X"}).status_code == 404
+    assert all(i["id"] != intercept["id"] for i in editor_client.get("/intercepts").json())

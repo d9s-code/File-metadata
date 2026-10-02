@@ -2,7 +2,19 @@ import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useEmitters } from "../state/hooks/useEmitters";
 import { useEmitterModes } from "../state/hooks/useModes";
-import { useImportInterceptEntries, useIntercept, useIntercepts } from "../state/hooks/useIntercepts";
+import {
+  useImportInterceptEntries,
+  useIntercept,
+  useIntercepts,
+  useSourceFileImports,
+} from "../state/hooks/useIntercepts";
+import { useConfirmDialog } from "../components/common/ConfirmDialog";
+import {
+  clearImportDraft,
+  loadImportDraft,
+  saveImportDraft,
+  type ImportDraft,
+} from "../components/intercepts/importDraft";
 import { useHasRole } from "../auth/RequireAuth";
 import { ApiRequestError } from "../api/client";
 import { MAX_IMPORT_ENTRIES } from "../api/intercepts";
@@ -25,6 +37,11 @@ export function InterceptImportPage() {
   const { data: existingIntercept } = useIntercept(presetIntercept);
 
   const [fileName, setFileName] = useState("");
+  // The file's text, kept for the draft (see importDraft.ts).
+  const [fileText, setFileText] = useState("");
+  // An unfinished import from before, offered until the user resumes or discards it.
+  const [draftOffer, setDraftOffer] = useState<ImportDraft | null>(null);
+  const { confirmDelete: confirm, dialog } = useConfirmDialog();
   const [reading, setReading] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
   const [parsed, setParsed] = useState<ParsedCsv | null>(null);
@@ -45,6 +62,45 @@ export function InterceptImportPage() {
   const { data: emitterIntercepts } = useIntercepts(emitterId ? { emitterId } : undefined);
   const importEntries = useImportInterceptEntries();
 
+  useEffect(() => {
+    let live = true;
+    void loadImportDraft().then((draft) => {
+      if (live && draft) setDraftOffer(draft);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  // Earlier imports of this file — a second import would duplicate every entry.
+  const { data: earlierImports } = useSourceFileImports(parsed ? fileName : "");
+
+  // Keep the work as a draft a moment after each change, so leaving the page
+  // by any route (back button, a link, a refresh) loses nothing.
+  useEffect(() => {
+    if (!parsed || parsed.reports.length === 0 || !fileText) return;
+    const handle = window.setTimeout(() => {
+      void saveImportDraft({
+        fileName,
+        text: fileText,
+        groups,
+        destination: { emitterId, target, interceptId, name, recordedOn, collectedBy, description },
+        savedAt: Date.now(),
+      });
+    }, 800);
+    return () => window.clearTimeout(handle);
+  }, [parsed, fileText, fileName, groups, emitterId, target, interceptId, name, recordedOn, collectedBy, description]);
+
+  // Closing or reloading the tab asks first; the draft covers everything else.
+  useEffect(() => {
+    if (!parsed || parsed.reports.length === 0) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [parsed]);
+
   // Adding to an existing Intercept fixes the Emitter.
   useEffect(() => {
     if (existingIntercept) setEmitterId(existingIntercept.emitter_id);
@@ -62,6 +118,7 @@ export function InterceptImportPage() {
   async function handleFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    setDraftOffer(null);
     setFileError(null);
     setParsed(null);
     setReading(true);
@@ -74,6 +131,7 @@ export function InterceptImportPage() {
       if (result.reports.length === 0) {
         setFileError("No reports could be read from this file — see the skipped lines below.");
       }
+      setFileText(text);
       setParsed(result);
       setGroups(oneGroupPerReport(result.reports));
       const stem = file.name.replace(/\.csv$/i, "").replace(/_EmitterTrackParameters$/i, "");
@@ -103,6 +161,33 @@ export function InterceptImportPage() {
     }
   }
 
+  async function resumeDraft(draft: ImportDraft) {
+    setDraftOffer(null);
+    setFileError(null);
+    setReading(true);
+    setFileName(draft.fileName);
+    await new Promise((r) => setTimeout(r, 0));
+    try {
+      const result = parseInterceptCsv(draft.text);
+      setFileText(draft.text);
+      setParsed(result);
+      setGroups(draft.groups);
+      const d = draft.destination;
+      setEmitterId(d.emitterId);
+      setTarget(d.target);
+      setInterceptId(d.interceptId);
+      setName(d.name);
+      setRecordedOn(d.recordedOn);
+      setCollectedBy(d.collectedBy);
+      setDescription(d.description);
+    } catch (err) {
+      setFileError(`Couldn't resume the draft: ${(err as Error).message}`);
+      void clearImportDraft();
+    } finally {
+      setReading(false);
+    }
+  }
+
   const byLine = useMemo(() => new Map((parsed?.reports ?? []).map((r) => [r.line, r])), [parsed]);
   const included = groups.filter((g) => !g.excluded);
   const excludedReports = groups.filter((g) => g.excluded).reduce((n, g) => n + g.lines.length, 0);
@@ -114,6 +199,17 @@ export function InterceptImportPage() {
   async function handleImport() {
     if (!parsed) return;
     setSaveError(null);
+    if (
+      earlierImports &&
+      earlierImports.length > 0 &&
+      !(await confirm(
+        `${fileName} was imported before — into ${earlierImports
+          .map((i) => `"${i.intercept_name}" (${i.entry_count.toLocaleString()} entries)`)
+          .join(", ")}. Importing it again adds its entries a second time.`,
+        { confirmLabel: "Import again" },
+      ))
+    )
+      return;
     const entries = included.map((g) => toEntryInput(summarize(g.lines.map((l) => byLine.get(l)!)), g.lines, fileName));
     try {
       const saved =
@@ -130,6 +226,7 @@ export function InterceptImportPage() {
               entries,
             })
           : await importEntries.mutateAsync({ target: "existing", interceptId, entries });
+      await clearImportDraft();
       navigate(`/intercepts/${saved.id}`);
     } catch (err) {
       setSaveError(err instanceof ApiRequestError ? err.message : "Import failed — nothing was saved.");
@@ -164,6 +261,29 @@ export function InterceptImportPage() {
 
       <section className="card">
         <h4>1. File</h4>
+        {draftOffer && !parsed && (
+          <div className="import-draft">
+            <span>
+              <strong>Unfinished import:</strong> {draftOffer.fileName} — {draftOffer.groups.length.toLocaleString()}{" "}
+              rows, last changed {new Date(draftOffer.savedAt).toLocaleString()}.
+            </span>
+            <span className="import-selection-actions">
+              <button type="button" className="button primary small" onClick={() => void resumeDraft(draftOffer)}>
+                Resume it
+              </button>
+              <button
+                type="button"
+                className="button secondary small"
+                onClick={() => {
+                  setDraftOffer(null);
+                  void clearImportDraft();
+                }}
+              >
+                Discard it
+              </button>
+            </span>
+          </div>
+        )}
         <input type="file" accept=".csv,text/csv" onChange={(e) => void handleFile(e)} />
         {reading && <p className="hint-text">Reading {fileName}…</p>}
         {fileError && <div className="error-text">{fileError}</div>}
@@ -203,6 +323,23 @@ export function InterceptImportPage() {
                 {parsed.skipped.length > 200 && <li>…and {parsed.skipped.length - 200} more</li>}
               </ul>
             )}
+            {earlierImports && earlierImports.length > 0 && (
+              <p className="import-duplicate">
+                <strong>Imported before:</strong> {fileName} is already in{" "}
+                {earlierImports.map((i, k) => (
+                  <span key={i.intercept_id}>
+                    {k > 0 && ", "}
+                    <Link to={`/intercepts/${i.intercept_id}`}>{i.intercept_name}</Link> (
+                    {i.entry_count.toLocaleString()} entries, {new Date(i.imported_at).toLocaleDateString()})
+                  </span>
+                ))}
+                . Importing it again would add its entries a second time.
+              </p>
+            )}
+            <p className="hint-text">
+              Your grouping is kept in this browser as you work, so leaving the page loses nothing — you&apos;ll be
+              offered to resume it.
+            </p>
             {designationCounts.length > 0 && (
               <p className="hint-text">
                 Identified by the system as:{" "}
@@ -354,6 +491,7 @@ export function InterceptImportPage() {
           </section>
         </>
       )}
+      {dialog}
     </div>
   );
 }

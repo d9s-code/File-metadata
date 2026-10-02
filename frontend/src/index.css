@@ -3271,6 +3271,29 @@ label.grow {
   background: var(--badge-neutral-bg);
   color: var(--badge-neutral-fg);
 }
+.entry-match-compact {
+  white-space: nowrap;
+}
+.import-draft,
+.import-duplicate {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.6rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+.import-draft {
+  border: 1px solid var(--primary);
+}
+.import-duplicate {
+  display: block;
+  background: var(--badge-amber-bg);
+  color: var(--badge-amber-fg);
+}
 .import-split,
 .import-strays {
   display: flex;

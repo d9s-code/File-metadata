@@ -939,7 +939,7 @@ export function ImportGroupsPanel({
                       {formatMissionTime(s.firstTime)}
                       {s.lastTime && s.lastTime !== s.firstTime && <div>– {formatMissionTime(s.lastTime)}</div>}
                     </td>
-                    {modes && <td>{match && <EntryMatchCell match={match} emitterId={emitterId} />}</td>}
+                    {modes && <td>{match && <EntryMatchCell match={match} emitterId={emitterId} compact />}</td>}
                   </tr>
                   {open && (
                     <tr className="import-group-reports">

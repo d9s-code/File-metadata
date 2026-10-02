@@ -3,6 +3,7 @@
  * press Auto group, and Auto group follows the one rule described in
  * AUTO_GROUP_RULE, with the gaps and minimum they set. */
 import type { CsvReport, ReportPriType } from "./interceptCsv";
+import { missionTimeMs } from "./interceptCsv";
 import type { InterceptEntryInput } from "../../api/intercepts";
 
 export interface ReportGroup {
@@ -338,14 +339,19 @@ export function toEntryInput(s: GroupSummary, lines: number[], fileName: string)
   const rf = range(s.rf);
   const pri = range(s.pri);
   const pw = range(s.pw);
+  // The report count, times, tracks and file are fields of their own; the
+  // note keeps what has no field — which lines, and what the system called it.
   const note = [
-    `${s.count} report${s.count === 1 ? "" : "s"} from ${fileName} (line${lines.length === 1 ? "" : "s"} ${listLines(lines)})`,
-    s.tracks.length > 0 && `track${s.tracks.length === 1 ? "" : "s"} ${s.tracks.join(", ")}`,
+    `Line${lines.length === 1 ? "" : "s"} ${listLines(lines)}`,
     s.identifiedAs.length > 0 && `identified as ${s.identifiedAs.map((i) => i.label).join(", ")}`,
     s.priType === "fixed" && s.jitter == null && "no jitter in the file, saved as 0",
   ]
     .filter(Boolean)
     .join("; ");
+  const iso = (t: string | null) => {
+    const ms = missionTimeMs(t);
+    return ms == null ? null : new Date(ms).toISOString();
+  };
   return {
     pri_type: s.priType,
     rf_mean_mhz: s.rf.mean,
@@ -360,5 +366,10 @@ export function toEntryInput(s: GroupSummary, lines: number[], fileName: string)
     jitter_mean_us: s.priType === "fixed" ? (s.jitter?.mean ?? 0) : null,
     stagger_values: s.stagger,
     notes: note,
+    first_seen_at: iso(s.firstTime),
+    last_seen_at: iso(s.lastTime),
+    report_count: s.count,
+    tracks: s.tracks.length > 0 ? s.tracks.slice(0, 1000).map((t) => t.slice(0, 50)) : null,
+    source_file: fileName.slice(0, 255) || null,
   };
 }

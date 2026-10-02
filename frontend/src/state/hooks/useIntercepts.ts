@@ -72,6 +72,27 @@ export function useEmitterInterceptEntries(emitterId: string) {
   });
 }
 
+/** How each of an Emitter's Intercepts compares with its Modes, counted on
+ * the server. Under the "intercept-entries" prefix so entry changes refresh
+ * it; fetched afresh whenever the tab opens, so Mode changes show too. */
+export function useInterceptMatchCounts(emitterId: string) {
+  return useQuery({
+    queryKey: ["intercept-entries", "match-counts", emitterId],
+    queryFn: () => interceptsApi.matchCounts(emitterId),
+    enabled: !!emitterId,
+    refetchOnMount: "always",
+  });
+}
+
+/** Earlier imports of a file with this name — the import page warns about them. */
+export function useSourceFileImports(name: string) {
+  return useQuery({
+    queryKey: ["intercept-entries", "source-file", name],
+    queryFn: () => interceptsApi.sourceFileImports(name),
+    enabled: !!name,
+  });
+}
+
 export function useInterceptEntries(interceptId: string) {
   return useQuery({
     queryKey: interceptEntriesKey(interceptId),
@@ -101,6 +122,33 @@ export function useDeleteInterceptEntry(interceptId: string) {
       qc.invalidateQueries({ queryKey: interceptKey(interceptId) });
       qc.invalidateQueries({ queryKey: ["intercepts"] });
     },
+  });
+}
+
+function useEntriesChanged(interceptId: string) {
+  const qc = useQueryClient();
+  return () => {
+    qc.invalidateQueries({ queryKey: ["intercept-entries"] });
+    qc.invalidateQueries({ queryKey: interceptKey(interceptId) });
+    qc.invalidateQueries({ queryKey: ["intercepts"] });
+    // A merge moves Mode links; a Mode shows the entries it came from.
+    qc.invalidateQueries({ queryKey: ["modes"] });
+  };
+}
+
+export function useDeleteInterceptEntries(interceptId: string) {
+  const changed = useEntriesChanged(interceptId);
+  return useMutation({
+    mutationFn: (entryIds: string[]) => interceptsApi.deleteEntries(interceptId, entryIds),
+    onSuccess: changed,
+  });
+}
+
+export function useMergeInterceptEntries(interceptId: string) {
+  const changed = useEntriesChanged(interceptId);
+  return useMutation({
+    mutationFn: (entryIds: string[]) => interceptsApi.mergeEntries(interceptId, entryIds),
+    onSuccess: changed,
   });
 }
 
