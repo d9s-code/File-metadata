@@ -646,7 +646,9 @@ export function HelpPage() {
           </p>
           <p>
             Each saved entry keeps what it was built from: how many reports, when it was first and last heard
-            (mission times as written in the file), their track numbers and the file name. Your work on an import
+            (mission times as written in the file), their track numbers and the file name. The reports themselves
+            are kept with the Intercept too — every one, including those left out — so they can be viewed and
+            regrouped later (up to 100,000 per file). Your work on an import
             is kept in this browser as you go — leave the page by any route and you&apos;re offered to resume it
             when you come back. If the file was imported before, the page says where and asks before adding its
             entries a second time.
@@ -704,6 +706,23 @@ export function HelpPage() {
             (under More, or from the list) removes it along with all
             its entries and notes — any Mode already created from one of its entries is unaffected, it just
             loses that provenance link.
+          </p>
+          <p>
+            <strong>Reports.</strong> For an imported Intercept, click an entry&apos;s report count to list the
+            reports it was built from, or switch the card to <strong>Reports</strong> to list every report — or
+            just those in no entry (left out at import, or their entry was deleted). Both tables sort by clicking a
+            heading and page through large files.
+          </p>
+          <p>
+            <strong>Regroup reports</strong> reopens the grouping tools — Auto group, merge, split, split at a
+            value, the charts and Over time marking — on the kept reports, starting from the entries as they are
+            (reports in no entry start out excluded). Nothing changes until you save, and you&apos;re shown what
+            will: each new group keeps the id — and so the Mode links — of the entry it shares the most reports
+            with, other groups become new entries, and an entry no group took is removed, its Mode links moving to
+            the entry that took most of its reports. Entries typed in by hand aren&apos;t touched. If someone else
+            changes the grouping while you work (a regroup, merge or delete), saving is refused rather than undoing
+            theirs. Unfinished regrouping is kept in this browser and offered when you come back. Intercepts
+            imported before reports were kept can&apos;t be regrouped — import the file again to keep them.
           </p>
           <p>
             The entries table sorts by any of its columns (RF by default), shows one line per entry — the full

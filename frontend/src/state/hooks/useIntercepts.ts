@@ -1,9 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   interceptsApi,
   type InterceptEntryInput,
   type InterceptInput,
   type InterceptUpdateInput,
+  type ReportSort,
+  type ReportsUpload,
 } from "../../api/intercepts";
 
 export function interceptsKey(params?: { emitterId?: string; search?: string }) {
@@ -93,6 +95,20 @@ export function useSourceFileImports(name: string) {
   });
 }
 
+/** A page of an Intercept's reports — all, one entry's, or those in no entry. */
+export function useInterceptReports(
+  interceptId: string,
+  params: { entryId?: string | "none"; sort?: ReportSort; direction?: "asc" | "desc"; offset?: number; limit?: number },
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: ["intercept-entries", "reports", interceptId, params],
+    queryFn: () => interceptsApi.listReports(interceptId, params),
+    enabled: enabled && !!interceptId,
+    placeholderData: keepPreviousData,
+  });
+}
+
 export function useInterceptEntries(interceptId: string) {
   return useQuery({
     queryKey: interceptEntriesKey(interceptId),
@@ -171,12 +187,11 @@ export function useImportInterceptEntries() {
   return useMutation({
     mutationFn: async (
       args:
-        | { target: "new"; intercept: InterceptInput; entries: InterceptEntryInput[] }
-        | { target: "existing"; interceptId: string; entries: InterceptEntryInput[] },
+        | { target: "new"; intercept: InterceptInput; entries: InterceptEntryInput[]; reports?: ReportsUpload }
+        | { target: "existing"; interceptId: string; entries: InterceptEntryInput[]; reports?: ReportsUpload },
     ) => {
-      if (args.target === "new") return interceptsApi.importNew(args.intercept, args.entries);
-      await interceptsApi.bulkCreateEntries(args.interceptId, args.entries);
-      return interceptsApi.get(args.interceptId);
+      if (args.target === "new") return interceptsApi.importNew(args.intercept, args.entries, args.reports);
+      return interceptsApi.importInto(args.interceptId, args.entries, args.reports);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["intercepts"] });

@@ -1,9 +1,17 @@
-from typing import Annotated
+import csv
+import io
+import json
+import uuid as uuid_mod
+from collections import Counter
+from decimal import Decimal
+from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import Field
-from sqlalchemy import func
+from sqlalchemy import bindparam, func, select, text, update
+from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.csrf import verify_csrf
@@ -12,15 +20,22 @@ from app.database import get_db
 from app.deps import require_role
 from app.models.emitter import Emitter
 from app.models.ew_group import EwGroup
-from app.models.intercept import Intercept, InterceptEntry, InterceptEntryMode, InterceptNote
+from app.models.intercept import Intercept, InterceptEntry, InterceptEntryMode, InterceptNote, InterceptReport
 from app.models.mode import Mode
 from app.schemas.intercept import (
     PROVENANCE_FIELDS,
     EntryIds,
+    REPORT_ROW_FIELDS,
     InterceptCreate,
+    InterceptEntriesImport,
     InterceptEntryCreate,
     InterceptEntryOut,
     InterceptImport,
+    InterceptReportOut,
+    InterceptReportPage,
+    RegroupRequest,
+    RegroupResult,
+    ReportsUpload,
     InterceptMatchCounts,
     MAX_IMPORT_ENTRIES,
     InterceptNoteCreate,
@@ -97,7 +112,61 @@ def _attach_entry_count(db: Session, intercept: Intercept) -> Intercept:
     intercept.entry_count = (
         db.query(func.count(InterceptEntry.id)).filter(InterceptEntry.intercept_id == intercept.id).scalar() or 0
     )
+    intercept.report_count = (
+        db.query(func.count(InterceptReport.id)).filter(InterceptReport.intercept_id == intercept.id).scalar() or 0
+    )
     return intercept
+
+
+def _store_reports(db: Session, intercept: Intercept, entries: list[InterceptEntry], upload: ReportsUpload | None) -> int:
+    """Saves an import's reports, each linked to the entry it went into (the
+    entries must be flushed, so they have ids). Inserted in one statement —
+    a file can hold tens of thousands."""
+    if upload is None or not upload.rows:
+        return 0
+    columns = ("id", "intercept_id", "entry_id", "source_file") + REPORT_ROW_FIELDS
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    for row in upload.rows:
+        entry_index = row[-1]
+        writer.writerow(
+            [
+                _copy_cell(v)
+                for v in (
+                    uuid_mod.uuid4(),
+                    intercept.id,
+                    None if entry_index is None else entries[entry_index].id,
+                    upload.source_file,
+                    *row[:-1],
+                )
+            ]
+        )
+    buffer.seek(0)
+    # COPY rather than INSERT: about four times quicker for a large file, in
+    # the same transaction as the rest of the import.
+    with db.connection().connection.cursor() as cursor:
+        cursor.copy_expert(
+            f"COPY intercept_reports ({', '.join(columns)}) FROM STDIN WITH (FORMAT csv, NULL '{_COPY_NULL}')",
+            buffer,
+        )
+    intercept.grouping_version += 1
+    return len(upload.rows)
+
+
+_COPY_NULL = "\\N"
+
+
+def _copy_cell(v):
+    """A value as COPY's CSV format reads it."""
+    if v is None:
+        return _COPY_NULL
+    if isinstance(v, list):
+        return "{" + ",".join(repr(float(x)) for x in v) + "}"
+    if hasattr(v, "isoformat"):
+        return v.isoformat()
+    if isinstance(v, PriType):
+        return v.value
+    return v
 
 
 def _attach_derived_mode_ids(db: Session, entries: list[InterceptEntry]) -> list[InterceptEntryOut]:
@@ -265,6 +334,29 @@ def import_intercept(
     entries = [InterceptEntry(intercept_id=intercept.id, **item.model_dump()) for item in payload.entries]
     db.add_all(entries)
     db.flush()
+    _store_reports(db, intercept, entries, payload.reports)
+    _record_entries_added(db, user, intercept, entries, "import")
+    db.commit()
+    db.refresh(intercept)
+    return _attach_entry_count(db, intercept)
+
+
+@router.post(
+    "/{intercept_id}/import", response_model=InterceptOut, dependencies=[Depends(verify_csrf)]
+)
+def import_into_intercept(
+    intercept_id: UUID,
+    payload: InterceptEntriesImport,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+) -> Intercept:
+    """Adds a file's entries, and the reports they were grouped from, to an
+    existing Intercept — all or nothing."""
+    intercept = _get_writable_intercept(db, intercept_id)
+    entries = [InterceptEntry(intercept_id=intercept.id, **item.model_dump()) for item in payload.entries]
+    db.add_all(entries)
+    db.flush()
+    _store_reports(db, intercept, entries, payload.reports)
     _record_entries_added(db, user, intercept, entries, "import")
     db.commit()
     db.refresh(intercept)
@@ -521,7 +613,9 @@ def delete_intercept_entry(
         changes=snapshot(entry, ENTRY_SNAPSHOT_FIELDS),
         emitter_id=intercept.emitter_id,
     )
+    # Its reports stay, in no entry (ON DELETE SET NULL) — they can be regrouped.
     db.delete(entry)
+    intercept.grouping_version += 1
     db.commit()
 
 
@@ -565,6 +659,7 @@ def delete_intercept_entries(
     )
     for entry in entries:
         db.delete(entry)
+    intercept.grouping_version += 1
     db.commit()
 
 
@@ -654,7 +749,13 @@ def merge_intercept_entries(
     notes = list(dict.fromkeys(n.strip() for n in (e.notes for e in entries) if n and n.strip()))
     keep.notes = "\n".join([f"Merged from {len(entries)} entries."] + notes)
 
-    # The others' links to Modes created from them move to the kept entry.
+    # The others' reports, and their links to Modes created from them, move to the kept entry.
+    db.execute(
+        update(InterceptReport)
+        .where(InterceptReport.entry_id.in_([o.id for o in others]))
+        .values(entry_id=keep.id)
+    )
+    intercept.grouping_version += 1
     linked = {link.mode_id for link in keep.modes}
     for other in others:
         for link in list(other.modes):
@@ -676,3 +777,255 @@ def merge_intercept_entries(
     db.commit()
     db.refresh(keep)
     return _attach_derived_mode_ids(db, [keep])[0]
+
+
+ReportSort = Literal["line", "time", "rf", "pri", "pw", "track", "power"]
+_REPORT_SORT = {
+    "line": (InterceptReport.source_file, InterceptReport.file_line),
+    "time": (InterceptReport.mission_time,),
+    "rf": (InterceptReport.rf_mhz,),
+    "pri": (InterceptReport.pri_us,),
+    "pw": (InterceptReport.pw_us,),
+    "track": (InterceptReport.track,),
+    "power": (InterceptReport.power,),
+}
+
+
+@router.get("/{intercept_id}/reports", response_model=InterceptReportPage)
+def list_intercept_reports(
+    intercept_id: UUID,
+    entry_id: str | None = Query(default=None, description='An entry\'s id, or "none" for reports in no entry'),
+    sort: ReportSort = "line",
+    direction: Literal["asc", "desc"] = "asc",
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=500),
+    db: Session = Depends(get_db),
+    _=Depends(require_role(Role.viewer)),
+) -> InterceptReportPage:
+    """A page of an Intercept's reports — all of them, one entry's, or those
+    in no entry — for viewing in a table."""
+    _get_intercept_or_404(db, intercept_id)
+    query = db.query(InterceptReport).filter(InterceptReport.intercept_id == intercept_id)
+    if entry_id == "none":
+        query = query.filter(InterceptReport.entry_id.is_(None))
+    elif entry_id:
+        try:
+            query = query.filter(InterceptReport.entry_id == UUID(entry_id))
+        except ValueError:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "entry_id must be an id or \"none\"")
+    total = query.count()
+    columns = _REPORT_SORT[sort]
+    order = [(c.desc() if direction == "desc" else c.asc()).nulls_last() for c in columns]
+    items = (
+        query.order_by(*order, InterceptReport.source_file, InterceptReport.file_line, InterceptReport.id)
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+    return InterceptReportPage(total=total, items=[InterceptReportOut.model_validate(r) for r in items])
+
+
+def _plain(v):
+    if isinstance(v, Decimal):
+        return float(v)
+    if isinstance(v, list):
+        return [_plain(x) for x in v]
+    if hasattr(v, "isoformat"):
+        return v.isoformat()
+    if hasattr(v, "value"):
+        return v.value
+    if isinstance(v, UUID):
+        return str(v)
+    return v
+
+
+@router.get("/{intercept_id}/reports/all")
+def all_intercept_reports(
+    intercept_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
+) -> Response:
+    """Every report of an Intercept at once, compactly, for regrouping:
+    {grouping_version, entries: [entry ids], fields: [...], reports: [[id,
+    entry index or null, ...fields]]}. Built by hand rather than through a
+    response model — validating tens of thousands of rows that way is slow."""
+    intercept = _get_intercept_or_404(db, intercept_id)
+    fields = ("source_file",) + REPORT_ROW_FIELDS
+    rows = db.execute(
+        select(InterceptReport.id, InterceptReport.entry_id, *[getattr(InterceptReport, f) for f in fields])
+        .where(InterceptReport.intercept_id == intercept_id)
+        .order_by(InterceptReport.source_file, InterceptReport.file_line, InterceptReport.id)
+    ).all()
+    entry_index: dict[UUID, int] = {}
+    out_rows = []
+    for row in rows:
+        rid, eid, *values = row
+        index = None
+        if eid is not None:
+            index = entry_index.setdefault(eid, len(entry_index))
+        out_rows.append([str(rid), index, *[_plain(v) for v in values]])
+    body = {
+        "grouping_version": intercept.grouping_version,
+        "entries": [str(e) for e in entry_index],
+        "fields": list(fields),
+        "reports": out_rows,
+    }
+    return Response(content=json.dumps(body, separators=(",", ":")), media_type="application/json")
+
+
+@router.put("/{intercept_id}/grouping", response_model=RegroupResult, dependencies=[Depends(verify_csrf)])
+def regroup_intercept(
+    intercept_id: UUID,
+    payload: RegroupRequest,
+    dry_run: bool = False,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+) -> RegroupResult:
+    """Replaces how an Intercept's reports are grouped into entries.
+
+    Each new group keeps the id — and so the Mode links — of the old entry
+    it shares the most reports with (largest overlaps first, each old entry
+    used once); other groups become new entries. An old entry no group took
+    is removed, its Mode links moving to the new entry that took most of its
+    reports. Entries without reports (typed in by hand) aren't touched. With
+    dry_run, says what would happen and changes nothing."""
+    intercept = _get_writable_intercept(db, intercept_id)
+    if payload.expected_version != intercept.grouping_version:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "This Intercept's grouping changed since you opened it (another regroup, merge or delete). "
+            "Reload to start from the current grouping.",
+        )
+    current = dict(
+        db.execute(
+            select(InterceptReport.id, InterceptReport.entry_id).where(InterceptReport.intercept_id == intercept_id)
+        ).all()
+    )
+    seen: set[UUID] = set()
+    for group in payload.groups:
+        for rid in group.report_ids:
+            if rid not in current:
+                raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "A report in the grouping isn't on this Intercept")
+            if rid in seen:
+                raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "A report is in two groups")
+            seen.add(rid)
+
+    old_members: dict[UUID, set[UUID]] = {}
+    for rid, eid in current.items():
+        if eid is not None:
+            old_members.setdefault(eid, set()).add(rid)
+
+    # Largest overlaps first: each group keeps the old entry it most resembles.
+    pairs = []
+    for gi, group in enumerate(payload.groups):
+        counts = Counter(current[r] for r in group.report_ids if current[r] is not None)
+        pairs.extend((n, gi, eid) for eid, n in counts.items())
+    pairs.sort(key=lambda p: (-p[0], p[1], str(p[2])))
+    kept_by_group: dict[int, UUID] = {}
+    claimed: set[UUID] = set()
+    for _n, gi, eid in pairs:
+        if gi not in kept_by_group and eid not in claimed:
+            kept_by_group[gi] = eid
+            claimed.add(eid)
+
+    unchanged = sum(
+        1 for gi, eid in kept_by_group.items() if set(payload.groups[gi].report_ids) == old_members[eid]
+    )
+    removed = [eid for eid in old_members if eid not in claimed]
+    entries_by_id = {
+        e.id: e
+        for e in db.query(InterceptEntry).filter(InterceptEntry.id.in_(list(old_members))).all()
+    } if old_members else {}
+
+    # Where each removed entry's reports went — its Mode links follow the most.
+    new_entry_of_group: dict[int, InterceptEntry] = {}
+    moved = dropped = 0
+    removed_snapshots = []
+    group_of_report = {rid: gi for gi, g in enumerate(payload.groups) for rid in g.report_ids}
+
+    for gi, group in enumerate(payload.groups):
+        values = group.entry.model_dump()
+        if gi in kept_by_group:
+            entry = entries_by_id[kept_by_group[gi]]
+            for field, value in values.items():
+                setattr(entry, field, value)
+        else:
+            entry = InterceptEntry(intercept_id=intercept.id, **values)
+            db.add(entry)
+        new_entry_of_group[gi] = entry
+    db.flush()
+
+    # Every Mode link of the old entries, in one query — there can be thousands of entries.
+    links_of: dict[UUID, set[UUID]] = {}
+    if old_members:
+        for entry_id, mode_id in db.query(InterceptEntryMode.intercept_entry_id, InterceptEntryMode.mode_id).filter(
+            InterceptEntryMode.intercept_entry_id.in_(list(old_members))
+        ):
+            links_of.setdefault(entry_id, set()).add(mode_id)
+    for eid in removed:
+        old = entries_by_id[eid]
+        removed_snapshots.append({"id": str(eid), **snapshot(old, ENTRY_SNAPSHOT_FIELDS)})
+        targets = Counter(group_of_report[r] for r in old_members[eid] if r in group_of_report)
+        links = links_of.get(eid, set())
+        if targets and links:
+            target = new_entry_of_group[targets.most_common(1)[0][0]]
+            have = links_of.setdefault(target.id, set())
+            for mode_id in links:
+                if mode_id not in have:
+                    db.add(InterceptEntryMode(intercept_entry_id=target.id, mode_id=mode_id))
+                    have.add(mode_id)
+                moved += 1
+        elif links:
+            dropped += len(links)
+
+    result = RegroupResult(
+        unchanged=unchanged,
+        changed=len(kept_by_group) - unchanged,
+        created=len(payload.groups) - len(kept_by_group),
+        removed=len(removed),
+        mode_links_moved=moved,
+        mode_links_dropped=dropped,
+        reports_left_out=len(current) - len(seen),
+        grouping_version=intercept.grouping_version + 1,
+    )
+    if dry_run:
+        db.rollback()
+        result.grouping_version = intercept.grouping_version
+        return result
+
+    # Only reports whose entry changes are written — one statement for all of them.
+    changes = [
+        (rid, new_entry_of_group[group_of_report[rid]].id if rid in group_of_report else None)
+        for rid in current
+    ]
+    changes = [(rid, eid) for rid, eid in changes if eid != current[rid]]
+    if changes:
+        db.execute(
+            text(
+                "UPDATE intercept_reports AS r SET entry_id = v.entry_id "
+                "FROM unnest(:ids, :entry_ids) AS v(id, entry_id) WHERE r.id = v.id"
+            ).bindparams(
+                bindparam("ids", type_=ARRAY(PG_UUID(as_uuid=True))),
+                bindparam("entry_ids", type_=ARRAY(PG_UUID(as_uuid=True))),
+            ),
+            {"ids": [c[0] for c in changes], "entry_ids": [c[1] for c in changes]},
+        )
+    # In one statement — the database drops their remaining Mode links (ON
+    # DELETE CASCADE); a regroup can remove thousands.
+    if removed:
+        db.query(InterceptEntry).filter(InterceptEntry.id.in_(removed)).delete(synchronize_session=False)
+    intercept.grouping_version += 1
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.update,
+        entity_type=AuditEntityType.intercept.value,
+        entity_id=intercept.id,
+        summary=(
+            f"Regrouped {len(current)} reports on Intercept '{intercept.name}': "
+            f"{result.unchanged} entries unchanged, {result.changed} changed, {result.created} new, "
+            f"{result.removed} removed"
+        ),
+        changes={**result.model_dump(), "removed_entries": removed_snapshots},
+        emitter_id=intercept.emitter_id,
+    )
+    db.commit()
+    return result

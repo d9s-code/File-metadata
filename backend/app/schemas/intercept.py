@@ -151,12 +151,156 @@ class InterceptUpdate(BaseModel):
 MAX_IMPORT_ENTRIES = 5000
 
 
+# Reports per import: a large file, sent compactly (see ReportRow).
+MAX_IMPORT_REPORTS = 100_000
+
+Str50 = Annotated[str, Field(max_length=50)]
+Str200 = Annotated[str, Field(max_length=200)]
+
+# One report, as a row rather than an object — tens of thousands of them make
+# up an import, so the field names aren't repeated on each:
+# (file_line, mission_time, track, mode_track, power, designation, mode_name,
+#  ambiguity_count, pri_type, rf_mhz, pri_us, pw_us, jitter_us, stagger_us,
+#  entry) — entry is the index of the entry it went into, or null if it was
+#  left out.
+ReportRow = tuple[
+    int,
+    datetime | None,
+    Str50 | None,
+    Str50 | None,
+    float | None,
+    Str200 | None,
+    Str200 | None,
+    int | None,
+    PriType,
+    float,
+    float | None,
+    float | None,
+    float | None,
+    list[float] | None,
+    int | None,
+]
+REPORT_ROW_FIELDS = (
+    "file_line",
+    "mission_time",
+    "track",
+    "mode_track",
+    "power",
+    "designation",
+    "mode_name",
+    "ambiguity_count",
+    "pri_type",
+    "rf_mhz",
+    "pri_us",
+    "pw_us",
+    "jitter_us",
+    "stagger_us",
+)
+
+
+class ReportsUpload(BaseModel):
+    """The reports of one imported file, every one of them — grouped into
+    entries or left out — so they can be viewed and regrouped later."""
+
+    source_file: str | None = Field(default=None, max_length=255)
+    rows: list[ReportRow] = Field(max_length=MAX_IMPORT_REPORTS)
+
+
+def _check_report_entries(entries: list, reports: "ReportsUpload | None") -> None:
+    if reports is None:
+        return
+    for row in reports.rows:
+        if row[8] == PriType.xlet:
+            raise ValueError("X-let reports aren't supported yet")
+        if row[14] is not None and not 0 <= row[14] < len(entries):
+            raise ValueError(f"Report on line {row[0]} points at entry {row[14]}, which isn't in this import")
+
+
 class InterceptImport(BaseModel):
     """A new Intercept and all its entries, created together or not at all —
     what the CSV import sends once the reports are grouped."""
 
     intercept: InterceptCreate
     entries: list[InterceptEntryCreate] = Field(min_length=1, max_length=MAX_IMPORT_ENTRIES)
+    reports: ReportsUpload | None = None
+
+    @model_validator(mode="after")
+    def check_reports(self) -> "InterceptImport":
+        _check_report_entries(self.entries, self.reports)
+        return self
+
+
+class InterceptEntriesImport(BaseModel):
+    """Entries, and the reports they were grouped from, added to an existing
+    Intercept — all or nothing."""
+
+    entries: list[InterceptEntryCreate] = Field(min_length=1, max_length=MAX_IMPORT_ENTRIES)
+    reports: ReportsUpload | None = None
+
+    @model_validator(mode="after")
+    def check_reports(self) -> "InterceptEntriesImport":
+        _check_report_entries(self.entries, self.reports)
+        return self
+
+
+class InterceptReportOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    entry_id: UUID | None = None
+    source_file: str | None = None
+    file_line: int
+    mission_time: datetime | None = None
+    track: str | None = None
+    mode_track: str | None = None
+    power: float | None = None
+    designation: str | None = None
+    mode_name: str | None = None
+    ambiguity_count: int | None = None
+    pri_type: PriType
+    rf_mhz: float
+    pri_us: float | None = None
+    pw_us: float | None = None
+    jitter_us: float | None = None
+    stagger_us: list[float] | None = None
+
+
+class InterceptReportPage(BaseModel):
+    total: int
+    items: list[InterceptReportOut]
+
+
+class RegroupGroup(BaseModel):
+    """One entry as it should be after regrouping, and its reports."""
+
+    entry: InterceptEntryCreate
+    report_ids: list[UUID] = Field(min_length=1, max_length=MAX_IMPORT_REPORTS)
+
+
+class RegroupRequest(BaseModel):
+    """The whole new grouping of an Intercept's reports. Entries that have no
+    reports (typed in by hand) aren't touched. Reports in no group are left
+    out of every entry."""
+
+    expected_version: int
+    groups: list[RegroupGroup] = Field(max_length=MAX_IMPORT_ENTRIES)
+
+
+class RegroupResult(BaseModel):
+    """What a regroup did — or, as a dry run, would do."""
+
+    unchanged: int
+    changed: int
+    created: int
+    removed: int
+    # Links to Modes created from a removed entry, moved to the entry that
+    # took most of its reports.
+    mode_links_moved: int
+    # Removed entries with Modes created from them whose reports all went
+    # into no entry — those Modes lose the link (they keep their values).
+    mode_links_dropped: int
+    reports_left_out: int
+    grouping_version: int
 
 
 class EntryIds(BaseModel):
@@ -201,3 +345,6 @@ class InterceptOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     entry_count: int = 0
+    # Reports kept from imported files — what the entries can be regrouped from.
+    report_count: int = 0
+    grouping_version: int = 0

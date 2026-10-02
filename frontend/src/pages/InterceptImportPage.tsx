@@ -17,9 +17,15 @@ import {
 } from "../components/intercepts/importDraft";
 import { useHasRole } from "../auth/RequireAuth";
 import { ApiRequestError } from "../api/client";
-import { MAX_IMPORT_ENTRIES } from "../api/intercepts";
+import { MAX_IMPORT_ENTRIES, MAX_IMPORT_REPORTS } from "../api/intercepts";
 import { CsvFormatError, missionDay, parseInterceptCsv, type ParsedCsv } from "../components/intercepts/interceptCsv";
-import { oneGroupPerReport, summarize, toEntryInput, type ReportGroup } from "../components/intercepts/interceptGroups";
+import {
+  oneGroupPerReport,
+  summarize,
+  toEntryInput,
+  toReportsUpload,
+  type ReportGroup,
+} from "../components/intercepts/interceptGroups";
 import { ImportGroupsPanel } from "../components/intercepts/ImportGroupsPanel";
 
 const TYPE_LABEL = { fixed: "Fixed", stagger: "Stagger", cw: "CW" } as const;
@@ -192,7 +198,9 @@ export function InterceptImportPage() {
   const included = groups.filter((g) => !g.excluded);
   const excludedReports = groups.filter((g) => g.excluded).reduce((n, g) => n + g.lines.length, 0);
   const strayReports = groups.filter((g) => g.stray).reduce((n, g) => n + g.lines.length, 0);
-  const tooMany = included.length > MAX_IMPORT_ENTRIES;
+  // The reports are kept with the Intercept, so a file can be at most this big.
+  const tooManyReports = (parsed?.reports.length ?? 0) > MAX_IMPORT_REPORTS;
+  const tooMany = included.length > MAX_IMPORT_ENTRIES || tooManyReports;
   const destinationReady =
     !!emitterId && (target === "new" ? name.trim().length > 0 : interceptId.length > 0);
 
@@ -210,7 +218,13 @@ export function InterceptImportPage() {
       ))
     )
       return;
-    const entries = included.map((g) => toEntryInput(summarize(g.lines.map((l) => byLine.get(l)!)), g.lines, fileName));
+    const entries = included.map((g) => {
+      const groupReports = g.lines.map((l) => byLine.get(l)!);
+      return toEntryInput(summarize(groupReports), groupReports, fileName);
+    });
+    // Every report goes too — those left out as well — so the Intercept can
+    // show them and be regrouped later.
+    const reports = toReportsUpload(parsed.reports, included, fileName);
     try {
       const saved =
         target === "new"
@@ -224,8 +238,9 @@ export function InterceptImportPage() {
                 description: description.trim() || null,
               },
               entries,
+              reports,
             })
-          : await importEntries.mutateAsync({ target: "existing", interceptId, entries });
+          : await importEntries.mutateAsync({ target: "existing", interceptId, entries, reports });
       await clearImportDraft();
       navigate(`/intercepts/${saved.id}`);
     } catch (err) {
@@ -467,9 +482,15 @@ export function InterceptImportPage() {
                 </span>
               )}
             </p>
-            {tooMany && (
+            {included.length > MAX_IMPORT_ENTRIES && (
               <p className="error-text">
                 One import takes at most {MAX_IMPORT_ENTRIES.toLocaleString()} entries — group or exclude reports first.
+              </p>
+            )}
+            {tooManyReports && (
+              <p className="error-text">
+                One file can hold at most {MAX_IMPORT_REPORTS.toLocaleString()} reports — split it and import the
+                parts into the same Intercept.
               </p>
             )}
             {!destinationReady && (

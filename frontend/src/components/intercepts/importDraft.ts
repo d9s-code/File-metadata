@@ -36,6 +36,7 @@ function openDb(): Promise<IDBDatabase> {
 }
 
 async function run<T>(mode: IDBTransactionMode, act: (store: IDBObjectStore) => IDBRequest): Promise<T | null> {
+  if (typeof indexedDB === "undefined") return null;
   try {
     const db = await openDb();
     return await new Promise<T | null>((resolve) => {
@@ -58,3 +59,20 @@ async function run<T>(mode: IDBTransactionMode, act: (store: IDBObjectStore) => 
 export const loadImportDraft = () => run<ImportDraft>("readonly", (s) => s.get(KEY));
 export const saveImportDraft = (draft: ImportDraft) => run("readwrite", (s) => s.put(draft, KEY));
 export const clearImportDraft = () => run("readwrite", (s) => s.delete(KEY));
+
+/** Regrouping a saved Intercept's reports, in progress. Only offered back
+ * while the Intercept's grouping is still the version it started from. */
+export interface RegroupDraft {
+  groupingVersion: number;
+  /** Groups as lists of report ids — stable, unlike the page's line numbers. */
+  groups: { reportIds: string[]; excluded: boolean }[];
+  savedAt: number;
+}
+
+const regroupKey = (interceptId: string) => `regroup-${interceptId}`;
+export const loadRegroupDraft = (interceptId: string) =>
+  run<RegroupDraft>("readonly", (s) => s.get(regroupKey(interceptId)));
+export const saveRegroupDraft = (interceptId: string, draft: RegroupDraft) =>
+  run("readwrite", (s) => s.put(draft, regroupKey(interceptId)));
+export const clearRegroupDraft = (interceptId: string) =>
+  run("readwrite", (s) => s.delete(regroupKey(interceptId)));

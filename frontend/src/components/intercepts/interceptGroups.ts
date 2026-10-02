@@ -4,7 +4,7 @@
  * AUTO_GROUP_RULE, with the gaps and minimum they set. */
 import type { CsvReport, ReportPriType } from "./interceptCsv";
 import { missionTimeMs } from "./interceptCsv";
-import type { InterceptEntryInput } from "../../api/intercepts";
+import type { InterceptEntryInput, ReportRow, ReportsUpload } from "../../api/intercepts";
 
 export interface ReportGroup {
   /** Stable for React keys; the lowest line number in the group. */
@@ -333,8 +333,12 @@ function listLines(lines: number[]): string {
 }
 
 /** The entry a group is saved as: the mean of its reports, with their min and
- * max as the measured range when there's more than one report. */
-export function toEntryInput(s: GroupSummary, lines: number[], fileName: string): InterceptEntryInput {
+ * max as the measured range when there's more than one report. Lines and the
+ * file are each report's own (fileLine/sourceFile) where it has them — an
+ * Intercept being regrouped can hold several files — else `fileName`. */
+export function toEntryInput(s: GroupSummary, groupReports: CsvReport[], fileName: string): InterceptEntryInput {
+  const lines = groupReports.map((r) => r.fileLine ?? r.line).sort((a, b) => a - b);
+  const files = [...new Set(groupReports.map((r) => r.sourceFile ?? fileName))].filter(Boolean);
   const range = (m: Measured | null) => (s.count > 1 && m ? { min: m.min, max: m.max } : { min: null, max: null });
   const rf = range(s.rf);
   const pri = range(s.pri);
@@ -342,7 +346,7 @@ export function toEntryInput(s: GroupSummary, lines: number[], fileName: string)
   // The report count, times, tracks and file are fields of their own; the
   // note keeps what has no field — which lines, and what the system called it.
   const note = [
-    `Line${lines.length === 1 ? "" : "s"} ${listLines(lines)}`,
+    `Line${lines.length === 1 ? "" : "s"} ${listLines(lines)}${files.length > 1 ? ` (from ${files.length} files)` : ""}`,
     s.identifiedAs.length > 0 && `identified as ${s.identifiedAs.map((i) => i.label).join(", ")}`,
     s.priType === "fixed" && s.jitter == null && "no jitter in the file, saved as 0",
   ]
@@ -370,6 +374,58 @@ export function toEntryInput(s: GroupSummary, lines: number[], fileName: string)
     last_seen_at: iso(s.lastTime),
     report_count: s.count,
     tracks: s.tracks.length > 0 ? s.tracks.slice(0, 1000).map((t) => t.slice(0, 50)) : null,
+    source_file: files.length === 1 ? files[0]!.slice(0, 255) : null,
+  };
+}
+
+/** A mission time as the CSV writes it ("20251201-111008.902000") — how a
+ * stored report's time is put back for the grouping tools. */
+export function toMissionTime(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const p = (n: number, w = 2) => String(n).padStart(w, "0");
+  return (
+    `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}-` +
+    `${p(d.getUTCHours())}${p(d.getUTCMinutes())}${p(d.getUTCSeconds())}.${p(d.getUTCMilliseconds(), 3)}000`
+  );
+}
+
+/** Every report of an import, each pointing at the entry (an index into the
+ * entries sent with it) it went into, or none — so the Intercept keeps them
+ * for viewing and regrouping. */
+export function toReportsUpload(
+  reports: CsvReport[],
+  entryGroups: ReportGroup[],
+  fileName: string,
+): ReportsUpload {
+  const entryOf = new Map<number, number>();
+  entryGroups.forEach((g, i) => g.lines.forEach((l) => entryOf.set(l, i)));
+  const cut = (v: string | null, n: number) => (v == null ? null : v.slice(0, n));
+  const iso = (t: string | null) => {
+    const ms = missionTimeMs(t);
+    return ms == null ? null : new Date(ms).toISOString();
+  };
+  return {
     source_file: fileName.slice(0, 255) || null,
+    rows: reports.map(
+      (r): ReportRow => [
+        r.fileLine ?? r.line,
+        iso(r.missionTime),
+        cut(r.track, 50),
+        cut(r.modeTrack, 50),
+        r.power,
+        cut(r.designation, 200),
+        cut(r.modeName, 200),
+        r.ambiguityCount,
+        r.priType,
+        r.rfMhz,
+        r.priUs,
+        r.pwUs,
+        r.jitterUs,
+        r.staggerUs,
+        entryOf.get(r.line) ?? null,
+      ],
+    ),
   };
 }

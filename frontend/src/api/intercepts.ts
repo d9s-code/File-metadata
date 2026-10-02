@@ -1,5 +1,5 @@
 import { api } from "./client";
-import type { Intercept, InterceptEntry, InterceptEntryFields, PriType } from "../types/domain";
+import type { Intercept, InterceptEntry, InterceptEntryFields, InterceptReport, PriType } from "../types/domain";
 
 export interface InterceptInput {
   emitter_id: string;
@@ -40,6 +40,68 @@ export interface SourceFileImport {
   imported_at: string;
 }
 
+/** One report as sent with an import — a row rather than an object, since a
+ * file holds tens of thousands: (file_line, mission_time, track, mode_track,
+ * power, designation, mode_name, ambiguity_count, pri_type, rf_mhz, pri_us,
+ * pw_us, jitter_us, stagger_us, entry index or null). */
+export type ReportRow = [
+  number,
+  string | null,
+  string | null,
+  string | null,
+  number | null,
+  string | null,
+  string | null,
+  number | null,
+  PriType,
+  number,
+  number | null,
+  number | null,
+  number | null,
+  number[] | null,
+  number | null,
+];
+
+export interface ReportsUpload {
+  source_file: string | null;
+  rows: ReportRow[];
+}
+
+export interface InterceptReportPage {
+  total: number;
+  items: InterceptReport[];
+}
+
+export type ReportSort = "line" | "time" | "rf" | "pri" | "pw" | "track" | "power";
+
+/** Every report of an Intercept, compactly — for regrouping. Each report row
+ * is [id, entry index (into entries) or null, ...fields]. */
+export interface AllReports {
+  grouping_version: number;
+  entries: string[];
+  fields: string[];
+  reports: (string | number | null | number[])[][];
+}
+
+export interface RegroupGroup {
+  entry: InterceptEntryInput;
+  report_ids: string[];
+}
+
+export interface RegroupResult {
+  unchanged: number;
+  changed: number;
+  created: number;
+  removed: number;
+  mode_links_moved: number;
+  mode_links_dropped: number;
+  reports_left_out: number;
+  grouping_version: number;
+}
+
+/** Reports per import — matches the backend's MAX_IMPORT_REPORTS. */
+export const MAX_IMPORT_REPORTS = 100_000;
+
 /** Entries per import — matches the backend's MAX_IMPORT_ENTRIES. */
 export const MAX_IMPORT_ENTRIES = 5000;
 
@@ -53,9 +115,31 @@ export const interceptsApi = {
   },
   get: (interceptId: string) => api.get<Intercept>(`/intercepts/${interceptId}`),
   create: (input: InterceptInput) => api.post<Intercept>("/intercepts", input),
-  /** A new Intercept and all its entries, in one transaction. */
-  importNew: (intercept: InterceptInput, entries: InterceptEntryInput[]) =>
-    api.post<Intercept>("/intercepts/import", { intercept, entries }),
+  /** A new Intercept, its entries and the reports they came from, in one transaction. */
+  importNew: (intercept: InterceptInput, entries: InterceptEntryInput[], reports?: ReportsUpload) =>
+    api.post<Intercept>("/intercepts/import", { intercept, entries, reports }),
+  /** Entries and their reports added to an existing Intercept, all or nothing. */
+  importInto: (interceptId: string, entries: InterceptEntryInput[], reports?: ReportsUpload) =>
+    api.post<Intercept>(`/intercepts/${interceptId}/import`, { entries, reports }),
+  listReports: (
+    interceptId: string,
+    params: { entryId?: string | "none"; sort?: ReportSort; direction?: "asc" | "desc"; offset?: number; limit?: number },
+  ) => {
+    const q = new URLSearchParams();
+    if (params.entryId) q.set("entry_id", params.entryId);
+    if (params.sort) q.set("sort", params.sort);
+    if (params.direction) q.set("direction", params.direction);
+    q.set("offset", String(params.offset ?? 0));
+    q.set("limit", String(params.limit ?? 100));
+    return api.get<InterceptReportPage>(`/intercepts/${interceptId}/reports?${q}`);
+  },
+  allReports: (interceptId: string) => api.get<AllReports>(`/intercepts/${interceptId}/reports/all`),
+  /** Replaces how the reports are grouped into entries; dryRun only says what would change. */
+  regroup: (interceptId: string, expectedVersion: number, groups: RegroupGroup[], dryRun = false) =>
+    api.put<RegroupResult>(`/intercepts/${interceptId}/grouping?dry_run=${dryRun}`, {
+      expected_version: expectedVersion,
+      groups,
+    }),
   /** Entries added to an existing Intercept, all or nothing. */
   bulkCreateEntries: (interceptId: string, entries: InterceptEntryInput[]) =>
     api.post<InterceptEntry[]>(`/intercepts/${interceptId}/entries/bulk`, entries),

@@ -28,6 +28,10 @@ class Intercept(UUIDPkMixin, TimestampMixin, Base):
     intercepted_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     # Who/what recorded it, free text (e.g. "P-8A / ESM suite").
     collected_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # Bumped whenever which report is in which entry changes (an import, a
+    # regroup, a merge, a delete) — a regroup saved against an older version
+    # is refused rather than silently undoing someone else's.
+    grouping_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
 
     emitter: Mapped["Emitter"] = relationship(back_populates="intercepts")  # noqa: F821
     entries: Mapped[list["InterceptEntry"]] = relationship(
@@ -35,6 +39,11 @@ class Intercept(UUIDPkMixin, TimestampMixin, Base):
     )
     notes: Mapped[list["InterceptNote"]] = relationship(
         back_populates="intercept", cascade="all, delete-orphan", order_by="InterceptNote.created_at.desc()"
+    )
+    # Deleted with the Intercept by the database (ON DELETE CASCADE) — there
+    # can be tens of thousands, so they're never loaded just to delete them.
+    reports: Mapped[list["InterceptReport"]] = relationship(
+        back_populates="intercept", cascade="all, delete-orphan", passive_deletes=True
     )
 
 
@@ -138,3 +147,39 @@ class InterceptEntryMode(UUIDPkMixin, Base):
 
     intercept_entry: Mapped["InterceptEntry"] = relationship(back_populates="modes")
     mode: Mapped["Mode"] = relationship()  # noqa: F821
+
+
+class InterceptReport(UUIDPkMixin, Base):
+    """One report from an imported file — a single measurement the system
+    made — kept so an Intercept's entries can be traced back to what they
+    were built from, and regrouped. In at most one entry; none means it was
+    left out (or its entry was deleted, which leaves the report here)."""
+
+    __tablename__ = "intercept_reports"
+
+    intercept_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("intercepts.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    entry_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("intercept_entries.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    source_file: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    file_line: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Mission time as written in the file, stored as UTC.
+    mission_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    track: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    mode_track: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    power: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
+    # What the system identified it as.
+    designation: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    mode_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    ambiguity_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pri_type: Mapped[PriType] = mapped_column(nullable=False)
+    rf_mhz: Mapped[float] = mapped_column(Numeric(14, 4), nullable=False)
+    # PRI, or a stagger's frame time; null for CW.
+    pri_us: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
+    pw_us: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
+    jitter_us: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
+    stagger_us: Mapped[list[float] | None] = mapped_column(ARRAY(Numeric(14, 4)), nullable=True)
+
+    intercept: Mapped["Intercept"] = relationship(back_populates="reports")

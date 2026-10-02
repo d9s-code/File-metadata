@@ -160,7 +160,15 @@ export function ImportGroupsPanel({
   onChange,
   modes,
   emitterId,
+  defaultShow = "all",
+  heading = "3. Group reports into entries",
+  startsFrom,
 }: {
+  heading?: string;
+  /** Where the rows start from, said in the intro — the import starts with one per report. */
+  startsFrom?: string;
+  /** Which rows the table lists at first — the regroup page starts with the included ones. */
+  defaultShow?: Filters["show"];
   reports: CsvReport[];
   groups: ReportGroup[];
   onChange: (groups: ReportGroup[]) => void;
@@ -168,7 +176,14 @@ export function ImportGroupsPanel({
   emitterId: string;
 }) {
   const byLine = useMemo(() => new Map(reports.map((r) => [r.line, r])), [reports]);
-  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  // The line in its file — reports loaded back from an Intercept are numbered
+  // apart from their file lines (an Intercept can hold several files).
+  const fileLine = (line: number) => {
+    const r = byLine.get(line);
+    return r?.fileLine != null ? `${r.sourceFile && multiFile ? `${r.sourceFile} ` : ""}${r.fileLine}` : String(line);
+  };
+  const multiFile = useMemo(() => new Set(reports.map((r) => r.sourceFile).filter(Boolean)).size > 1, [reports]);
+  const [filters, setFilters] = useState<Filters>({ ...NO_FILTERS, show: defaultShow });
   const [gap, setGap] = useState({ rfMhz: "1", priUs: "1", pwUs: "0.1", minReports: "5", sameTrack: false });
   // Splitting the selected rows at a value: which parameter, and where.
   const [splitting, setSplitting] = useState<{ param: SplitParam; value: string } | null>(null);
@@ -421,14 +436,15 @@ export function ImportGroupsPanel({
   return (
     <section className="card">
       <div className="card-header">
-        <h4>3. Group reports into entries</h4>
+        <h4>{heading}</h4>
         <button type="button" className="button secondary small" onClick={() => void resetAll()}>
           Start over
         </button>
       </div>
       <p className="hint-text">
         Each row below becomes one entry: the mean of its reports, with their lowest and highest values as the
-        measured range. Every report starts as its own row — nothing is grouped until you do it. Select rows and{" "}
+        measured range.{" "}
+        {startsFrom ?? "Every report starts as its own row — nothing is grouped until you do it."} Select rows and{" "}
         <strong>Merge</strong> them, <strong>split</strong> them at a value, or use <strong>Auto group</strong> with
         your own gaps.
       </p>
@@ -866,14 +882,14 @@ export function ImportGroupsPanel({
                     <td>
                       <input
                         type="checkbox"
-                        aria-label={`Select row with line ${group.id}`}
+                        aria-label={`Select row with line ${fileLine(group.id)}`}
                         checked={selected.has(group.id)}
                         onChange={() => toggle(selected, group.id, setSelected)}
                       />
                     </td>
                     <td>
                       {single ? (
-                        <span className="hint-text">line {group.lines[0]}</span>
+                        <span className="hint-text">line {fileLine(group.lines[0])}</span>
                       ) : (
                         <button
                           type="button"
@@ -963,7 +979,7 @@ export function ImportGroupsPanel({
                               const r = byLine.get(line)!;
                               return (
                                 <tr key={line}>
-                                  <td>{line}</td>
+                                  <td>{fileLine(line)}</td>
                                   <td>{formatMissionTime(r.missionTime)}</td>
                                   <td>{r.track ?? "—"}</td>
                                   <td>{r.rfMhz}</td>
@@ -975,7 +991,7 @@ export function ImportGroupsPanel({
                                     <button
                                       type="button"
                                       className="link-button"
-                                      onClick={() => apply(takeOut(groups, group.id, line), `Line ${line} is its own row again.`)}
+                                      onClick={() => apply(takeOut(groups, group.id, line), `Line ${fileLine(line)} is its own row again.`)}
                                     >
                                       Take out
                                     </button>

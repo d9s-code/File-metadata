@@ -280,6 +280,32 @@ export interface Intercept {
   created_at: string;
   updated_at: string;
   entry_count: number;
+  /** Reports kept from imported files — what the entries can be regrouped from. */
+  report_count: number;
+  /** Bumped whenever which report is in which entry changes. */
+  grouping_version: number;
+}
+
+/** One report kept from an imported file. */
+export interface InterceptReport {
+  id: string;
+  /** The entry it's in, or null when it's in none. */
+  entry_id: string | null;
+  source_file: string | null;
+  file_line: number;
+  mission_time: string | null;
+  track: string | null;
+  mode_track: string | null;
+  power: number | null;
+  designation: string | null;
+  mode_name: string | null;
+  ambiguity_count: number | null;
+  pri_type: PriType;
+  rf_mhz: number;
+  pri_us: number | null;
+  pw_us: number | null;
+  jitter_us: number | null;
+  stagger_us: number[] | null;
 }
 
 export interface Mode {

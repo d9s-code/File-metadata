@@ -605,3 +605,171 @@ def test_merge_range_spans_the_means_when_entries_have_no_measured_range(editor_
     assert merged["pri_mean_us"] == 900  # (800*3 + 1200) / 4
     assert (merged["pri_min_us"], merged["pri_max_us"]) == (800, 1200)
     assert (merged["pw_min_us"], merged["pw_max_us"]) == (1.0, 2.0)
+
+
+def _report(line, entry, rf=3000.0, time="2025-12-01T08:00:00Z", track="11", pri_type="fixed"):
+    pri = None if pri_type == "cw" else 1000.0
+    pw = None if pri_type == "cw" else 1.0
+    jitter = 0.01 if pri_type == "fixed" else None
+    return [line, time, track, "1", -40.5, "U000A", "Default", 1, pri_type, rf, pri, pw, jitter, None, entry]
+
+
+def _import_with_reports(editor_client, emitter_id, groups, left_out=0, name="With reports"):
+    """groups: report counts per entry. Returns (intercept, entries sorted by RF)."""
+    entries, rows, line = [], [], 1
+    for i, n in enumerate(groups):
+        entries.append({**FIXED_ENTRY, "rf_mean_mhz": 3000 + 10 * i, "report_count": n, "source_file": "f.csv"})
+        for _ in range(n):
+            rows.append(_report(line, i, rf=3000 + 10 * i))
+            line += 1
+    for _ in range(left_out):
+        rows.append(_report(line, None, rf=4000))
+        line += 1
+    resp = editor_client.post(
+        "/intercepts/import",
+        json={
+            "intercept": {"emitter_id": emitter_id, "name": name},
+            "entries": entries,
+            "reports": {"source_file": "f.csv", "rows": rows},
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    intercept = resp.json()
+    saved = sorted(editor_client.get(f"/intercepts/{intercept['id']}/entries").json(), key=lambda e: e["rf_mean_mhz"])
+    return intercept, saved
+
+
+def test_import_keeps_reports_linked_to_their_entries(editor_client, emitter_ctx):
+    intercept, entries = _import_with_reports(editor_client, emitter_ctx["emitter"]["id"], [3, 2], left_out=4)
+    assert intercept["report_count"] == 9
+    assert intercept["grouping_version"] == 1
+    url = f"/intercepts/{intercept['id']}/reports"
+    page = editor_client.get(url, params={"limit": 5}).json()
+    assert page["total"] == 9 and len(page["items"]) == 5
+    assert page["items"][0]["file_line"] == 1 and page["items"][0]["source_file"] == "f.csv"
+    first = editor_client.get(url, params={"entry_id": entries[0]["id"]}).json()
+    assert first["total"] == 3 and {r["entry_id"] for r in first["items"]} == {entries[0]["id"]}
+    left = editor_client.get(url, params={"entry_id": "none"}).json()
+    assert left["total"] == 4
+    by_rf = editor_client.get(url, params={"sort": "rf", "direction": "desc", "limit": 1}).json()
+    assert by_rf["items"][0]["rf_mhz"] == 4000
+
+
+def test_import_refuses_a_report_pointing_at_no_entry(editor_client, emitter_ctx):
+    resp = editor_client.post(
+        "/intercepts/import",
+        json={
+            "intercept": {"emitter_id": emitter_ctx["emitter"]["id"], "name": "Bad"},
+            "entries": [FIXED_ENTRY],
+            "reports": {"rows": [_report(1, 3)]},
+        },
+    )
+    assert resp.status_code == 422
+
+
+def test_import_into_an_existing_intercept_adds_reports(editor_client, emitter_ctx):
+    intercept, _ = _import_with_reports(editor_client, emitter_ctx["emitter"]["id"], [2])
+    resp = editor_client.post(
+        f"/intercepts/{intercept['id']}/import",
+        json={"entries": [FIXED_ENTRY], "reports": {"source_file": "g.csv", "rows": [_report(1, 0), _report(2, None)]}},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["report_count"] == 4
+    assert resp.json()["entry_count"] == 2
+
+
+def test_all_reports_come_compactly_with_their_entry(editor_client, emitter_ctx):
+    intercept, entries = _import_with_reports(editor_client, emitter_ctx["emitter"]["id"], [2, 1], left_out=1)
+    body = editor_client.get(f"/intercepts/{intercept['id']}/reports/all").json()
+    assert body["grouping_version"] == 1
+    assert body["fields"][:3] == ["source_file", "file_line", "mission_time"]
+    assert len(body["reports"]) == 4
+    entry_of = [body["entries"][r[1]] if r[1] is not None else None for r in body["reports"]]
+    assert entry_of == [entries[0]["id"], entries[0]["id"], entries[1]["id"], None]
+    first = body["reports"][0]
+    assert first[2] == "f.csv" and first[3] == 1 and first[11] == "fixed" and first[12] == 3000.0
+
+
+def _regroup(editor_client, intercept_id, groups, version, dry_run=False):
+    return editor_client.put(
+        f"/intercepts/{intercept_id}/grouping",
+        params={"dry_run": str(dry_run).lower()},
+        json={
+            "expected_version": version,
+            "groups": [{"entry": {**FIXED_ENTRY, "rf_mean_mhz": rf}, "report_ids": ids} for rf, ids in groups],
+        },
+    )
+
+
+def test_regroup_keeps_entry_ids_and_moves_mode_links(editor_client, emitter_ctx):
+    # B has more reports than C, so the merged group keeps B's id and C is removed.
+    intercept, entries = _import_with_reports(editor_client, emitter_ctx["emitter"]["id"], [3, 3, 2], left_out=1)
+    iid = intercept["id"]
+    mode = editor_client.post(
+        f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes",
+        json={
+            "source_id": emitter_ctx["source"]["id"],
+            "name": "From C",
+            "pri_type": "fixed",
+            "line": MODE_LINE,
+            "derived_from_intercept_entry_ids": [entries[2]["id"]],
+        },
+    ).json()
+    body = editor_client.get(f"/intercepts/{iid}/reports/all").json()
+    ids_of = {}
+    for r in body["reports"]:
+        key = body["entries"][r[1]] if r[1] is not None else None
+        ids_of.setdefault(key, []).append(r[0])
+    a, b, c = (ids_of[e["id"]] for e in entries)
+    stray = ids_of[None]
+    # A stays as it is; B and C become one group (with C's Mode link following); the stray joins A's neighbour.
+    groups = [(3000, a), (3015, b + c), (4000, stray)]
+
+    dry = _regroup(editor_client, iid, groups, 1, dry_run=True)
+    assert dry.status_code == 200, dry.text
+    assert dry.json() == {
+        "unchanged": 1, "changed": 1, "created": 1, "removed": 1,
+        "mode_links_moved": 1, "mode_links_dropped": 0, "reports_left_out": 0, "grouping_version": 1,
+    }
+    assert len(editor_client.get(f"/intercepts/{iid}/entries").json()) == 3  # the dry run changed nothing
+
+    resp = _regroup(editor_client, iid, groups, 1)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["grouping_version"] == 2
+    after = {e["rf_mean_mhz"]: e for e in editor_client.get(f"/intercepts/{iid}/entries").json()}
+    assert after[3000]["id"] == entries[0]["id"]
+    assert after[3015]["id"] == entries[1]["id"]
+    assert after[3015]["derived_mode_ids"] == [mode["id"]]
+    assert editor_client.get(f"/intercepts/{iid}/reports", params={"entry_id": "none"}).json()["total"] == 0
+    assert editor_client.get(f"/intercepts/{iid}/reports", params={"entry_id": after[3015]["id"]}).json()["total"] == 5
+
+    # Saved against the old version: refused.
+    assert _regroup(editor_client, iid, groups, 1).status_code == 409
+
+
+def test_regroup_validates_reports_and_leaves_hand_typed_entries(editor_client, emitter_ctx):
+    intercept, entries = _import_with_reports(editor_client, emitter_ctx["emitter"]["id"], [2])
+    iid = intercept["id"]
+    typed = editor_client.post(f"/intercepts/{iid}/entries", json=STAGGER_ENTRY).json()
+    ids = [r[0] for r in editor_client.get(f"/intercepts/{iid}/reports/all").json()["reports"]]
+    assert _regroup(editor_client, iid, [(3000, ids), (3001, ids[:1])], 1).status_code == 422
+    other, _ = _import_with_reports(editor_client, emitter_ctx["emitter"]["id"], [1], name="Other")
+    foreign = editor_client.get(f"/intercepts/{other['id']}/reports/all").json()["reports"][0][0]
+    assert _regroup(editor_client, iid, [(3000, [foreign])], 1).status_code == 422
+    # Everything left out: the imported entry goes, the typed one stays.
+    resp = _regroup(editor_client, iid, [], 1)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["removed"] == 1 and resp.json()["reports_left_out"] == 2
+    assert [e["id"] for e in editor_client.get(f"/intercepts/{iid}/entries").json()] == [typed["id"]]
+
+
+def test_merge_and_delete_keep_reports(editor_client, emitter_ctx):
+    intercept, entries = _import_with_reports(editor_client, emitter_ctx["emitter"]["id"], [2, 3, 1])
+    iid = intercept["id"]
+    merged = editor_client.post(
+        f"/intercepts/{iid}/entries/merge", json={"entry_ids": [entries[0]["id"], entries[1]["id"]]}
+    ).json()
+    assert editor_client.get(f"/intercepts/{iid}/reports", params={"entry_id": merged["id"]}).json()["total"] == 5
+    editor_client.delete(f"/intercepts/{iid}/entries/{entries[2]['id']}")
+    assert editor_client.get(f"/intercepts/{iid}/reports", params={"entry_id": "none"}).json()["total"] == 1
+    assert editor_client.get(f"/intercepts/{iid}").json()["grouping_version"] == 3

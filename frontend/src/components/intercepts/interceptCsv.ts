@@ -5,8 +5,12 @@
 export type ReportPriType = "fixed" | "stagger" | "cw";
 
 export interface CsvReport {
-  /** Line number in the file (the header is line 1). */
+  /** Line number in the file (the header is line 1) — or, for reports loaded
+   * back from an Intercept (which can hold several files), a number of their
+   * own; fileLine and sourceFile then say where they came from. */
   line: number;
+  fileLine?: number;
+  sourceFile?: string | null;
   /** As written, e.g. "20251201-111008.902000". */
   missionTime: string | null;
   track: string | null;

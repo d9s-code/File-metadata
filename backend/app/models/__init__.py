@@ -12,7 +12,13 @@ from app.models.emitter_version import EmitterVersion  # noqa: F401
 from app.models.ew_group import EwGroup  # noqa: F401
 from app.models.function_group import FunctionGroup  # noqa: F401
 from app.models.import_batch import ImportBatch  # noqa: F401
-from app.models.intercept import Intercept, InterceptEntry, InterceptEntryMode, InterceptNote  # noqa: F401
+from app.models.intercept import (  # noqa: F401
+    Intercept,
+    InterceptEntry,
+    InterceptEntryMode,
+    InterceptNote,
+    InterceptReport,
+)
 from app.models.mdf import Mdf, MdfPlatformLink, MdfVersion  # noqa: F401
 from app.models.mdf_note import MdfNote  # noqa: F401
 from app.models.mode import Mode, ModeElement, ModeGenerationBatch, ModeLine  # noqa: F401

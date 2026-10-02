@@ -44,6 +44,8 @@ import {
   type SelectMode,
 } from "../components/intercepts/charts/EntryCharts";
 import type { Range, RangeParam } from "../components/intercepts/charts/ImportCharts";
+import { ReportsTable } from "../components/intercepts/ReportsTable";
+import { useInterceptReports } from "../state/hooks/useIntercepts";
 import type { Emitter, InterceptEntry, Mode } from "../types/domain";
 
 const PAGE_SIZE = 100;
@@ -152,6 +154,8 @@ function EntryRow({
   onEdit,
   onDelete,
   columns,
+  hasReports,
+  multiFile,
 }: {
   entry: InterceptEntry;
   emitter: Emitter | undefined;
@@ -165,8 +169,12 @@ function EntryRow({
   onEdit: (entry: InterceptEntry) => void;
   onDelete: (entry: InterceptEntry) => void;
   columns: number;
+  /** The Intercept keeps its reports, so this entry's can be listed. */
+  hasReports: boolean;
+  multiFile: boolean;
 }) {
   const [showCreateMode, setShowCreateMode] = useState(false);
+  const [showReports, setShowReports] = useState(false);
   const emitterId = emitter?.id ?? "";
   const createdModes = entry.derived_mode_ids.map((id) => modeById.get(id)).filter((m): m is Mode => !!m);
   const tracks = entry.tracks ?? [];
@@ -205,7 +213,23 @@ function EntryRow({
               ? <span title={entry.stagger_values.join(", ")}>{entry.stagger_values.join(", ")}</span>
               : "—"}
         </td>
-        <td>{entry.report_count != null ? entry.report_count.toLocaleString() : <span className="hint-text">—</span>}</td>
+        <td>
+          {entry.report_count == null ? (
+            <span className="hint-text">—</span>
+          ) : hasReports ? (
+            <button
+              type="button"
+              className="link-button cell-nowrap"
+              aria-expanded={showReports}
+              title="Show the reports this entry was built from"
+              onClick={() => setShowReports((v) => !v)}
+            >
+              {showReports ? "▾" : "▸"} {entry.report_count.toLocaleString()}
+            </button>
+          ) : (
+            entry.report_count.toLocaleString()
+          )}
+        </td>
         <td>
           <Heard entry={entry} />
         </td>
@@ -263,6 +287,13 @@ function EntryRow({
           )}
         </td>
       </tr>
+      {showReports && (
+        <tr className="entry-reports-row">
+          <td colSpan={columns}>
+            <ReportsTable interceptId={entry.intercept_id} entryId={entry.id} showFile={multiFile} pageSize={25} />
+          </td>
+        </tr>
+      )}
       {showCreateMode && isMine && (
         <tr>
           <td colSpan={columns}>
@@ -331,6 +362,12 @@ export function InterceptDetailPage() {
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [ranges, setRanges] = useState<Record<RangeParam, Range>>({ rf: null, pri: null, pw: null });
+  const [view, setView] = useState<"entries" | "reports">("entries");
+  const [reportFilter, setReportFilter] = useState<"all" | "none">("all");
+  const hasReports = (intercept?.report_count ?? 0) > 0;
+  // How many kept reports are in no entry — left out at import, or their entry deleted.
+  const { data: leftOutPage } = useInterceptReports(interceptId ?? "", { entryId: "none", limit: 1 }, hasReports);
+  const leftOut = leftOutPage?.total ?? 0;
   const [chartsOpen, setChartsOpenState] = useState(() => readStored(CHARTS_OPEN_KEY, ["true", "false"], "true") === "true");
   const [chartTab, setChartTabState] = useState<EntryChartTab>(() =>
     readStored<EntryChartTab>(CHART_TAB_KEY, ["distributions", "time"], "distributions"),
@@ -414,6 +451,15 @@ export function InterceptDetailPage() {
   const allPageSelected = pageRows.length > 0 && pageRows.every(({ entry }) => selected.has(entry.id));
   const filteredByChart = Object.values(ranges).some(Boolean);
   const columns = canWrite ? 13 : 12;
+  const legacyImport = !hasReports && (entries ?? []).some((e) => e.report_count != null);
+  const multiFile = new Set((entries ?? []).map((e) => e.source_file).filter(Boolean)).size > 1;
+  const entryById = new Map((entries ?? []).map((e) => [e.id, e]));
+  function entryLabel(id: string | null) {
+    if (!id) return "none";
+    const e = entryById.get(id);
+    if (!e) return "—";
+    return `${PRI_TYPE_LABEL[e.pri_type] ?? e.pri_type} · RF ${e.rf_mean_mhz}${e.pri_mean_us != null ? ` · PRI ${e.pri_mean_us}` : ""}`;
+  }
 
   const totalReports = (entries ?? []).reduce((n, e) => n + (e.report_count ?? 0), 0);
   const firsts = (entries ?? []).map((e) => e.first_seen_at).filter((t): t is string => !!t).sort();
@@ -538,6 +584,7 @@ export function InterceptDetailPage() {
               items={[
                 { label: "Edit name, date & description", onSelect: () => setShowEditDetails(true) },
                 { label: "Import entries from CSV", to: `/intercepts/import?intercept=${intercept.id}` },
+                ...(hasReports ? [{ label: "Regroup reports", to: `/intercepts/${intercept.id}/regroup` }] : []),
                 { label: "Delete Intercept", danger: true, onSelect: () => void handleDeleteIntercept() },
               ]}
             />
@@ -615,12 +662,40 @@ export function InterceptDetailPage() {
 
       <section className="card">
         <div className="card-header">
-          <h4>
-            Entries <span className="section-count">{entries?.length ?? 0}</span>
-          </h4>
+          {hasReports ? (
+            <div className="import-chart-tabs entry-view-tabs" role="tablist" aria-label="Entries or reports">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === "entries"}
+                className={view === "entries" ? "sub-tab active" : "sub-tab"}
+                onClick={() => setView("entries")}
+              >
+                Entries <span className="section-count">{entries?.length ?? 0}</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === "reports"}
+                className={view === "reports" ? "sub-tab active" : "sub-tab"}
+                onClick={() => setView("reports")}
+              >
+                Reports <span className="section-count">{intercept.report_count.toLocaleString()}</span>
+              </button>
+            </div>
+          ) : (
+            <h4>
+              Entries <span className="section-count">{entries?.length ?? 0}</span>
+            </h4>
+          )}
           <span className="section-actions">
-            {counts && <MatchCounts counts={counts} />}
-            {counts && (entries?.length ?? 0) > 10 && (
+            {canWrite && hasReports && (
+              <Link className="button secondary small" to={`/intercepts/${intercept.id}/regroup`}>
+                Regroup reports
+              </Link>
+            )}
+            {view === "entries" && counts && <MatchCounts counts={counts} />}
+            {view === "entries" && counts && (entries?.length ?? 0) > 10 && (
               <select
                 aria-label="Show entries"
                 value={show}
@@ -637,6 +712,57 @@ export function InterceptDetailPage() {
             )}
           </span>
         </div>
+        {view === "reports" && (
+          <>
+            <p className="hint-text reports-view-bar">
+              The single measurements this Intercept&apos;s entries were grouped from, as they were in the file.{" "}
+              <label className="inline-label">
+                Show
+                <select value={reportFilter} onChange={(e) => setReportFilter(e.target.value as "all" | "none")}>
+                  <option value="all">All reports</option>
+                  <option value="none">In no entry ({leftOut.toLocaleString()})</option>
+                </select>
+              </label>
+            </p>
+            <ReportsTable
+              key={reportFilter}
+              interceptId={intercept.id}
+              entryId={reportFilter === "none" ? "none" : undefined}
+              entryLabel={(id) => entryLabel(id)}
+              showFile={multiFile}
+            />
+          </>
+        )}
+        {view === "entries" && (
+          <>
+        {legacyImport && (
+          <p className="import-duplicate">
+            These entries were imported before the reports were kept, so their reports can&apos;t be shown or
+            regrouped. Importing the file again (into a new Intercept) keeps them.
+          </p>
+        )}
+        {hasReports && leftOut > 0 && (
+          <p className="hint-text">
+            {leftOut.toLocaleString()} report{leftOut === 1 ? " isn't" : "s aren't"} in any entry — left out at
+            import, or their entry was deleted.{" "}
+            <button
+              type="button"
+              className="link-button"
+              onClick={() => {
+                setReportFilter("none");
+                setView("reports");
+              }}
+            >
+              Show {leftOut === 1 ? "it" : "them"}
+            </button>
+            {canWrite && (
+              <>
+                {" · "}
+                <Link to={`/intercepts/${intercept.id}/regroup`}>Regroup</Link>
+              </>
+            )}
+          </p>
+        )}
         <p className="hint-text">
           Matched against {emitter?.name ?? "the Emitter"}&apos;s Modes on RF, PRI (frame time for a stagger) and PW, using
           each Mode&apos;s engineered range. A near miss is outside on one of the three — hover the badge for why.
@@ -780,6 +906,8 @@ export function InterceptDetailPage() {
                     onEdit={(e) => setEntryForm({ entry: e })}
                     onDelete={(e) => void handleDeleteEntry(e)}
                     columns={columns}
+                    hasReports={hasReports}
+                    multiFile={multiFile}
                   />
                 ))}
               </tbody>
@@ -805,6 +933,8 @@ export function InterceptDetailPage() {
               Next →
             </button>
           </div>
+        )}
+          </>
         )}
       </section>
 
