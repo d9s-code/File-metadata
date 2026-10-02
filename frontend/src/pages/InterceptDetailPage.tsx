@@ -133,6 +133,9 @@ function EntryRow({
           {entry.pri_type === "stagger" && <div className="hint-text cell-subline">frame time</div>}
         </td>
         <td>
+          <MeasuredValue mean={entry.pw_mean_us} min={entry.pw_min_us} max={entry.pw_max_us} />
+        </td>
+        <td>
           {entry.pri_type === "cw"
             ? <span className="hint-text">—</span>
             : entry.pri_type === "fixed"
@@ -140,9 +143,6 @@ function EntryRow({
             : entry.stagger_values && entry.stagger_values.length > 0
               ? entry.stagger_values.join(", ")
               : "—"}
-        </td>
-        <td>
-          <MeasuredValue mean={entry.pw_mean_us} min={entry.pw_min_us} max={entry.pw_max_us} />
         </td>
         <td>{match ? <EntryMatchCell match={match} emitterId={emitterId} /> : <span className="hint-text">…</span>}</td>
         <td>
@@ -339,11 +339,11 @@ export function InterceptDetailPage() {
             <table className="data-table intercept-entries">
               <thead>
                 <tr>
-                  <th>Type</th>
+                  <th>PRI type</th>
                   <th>RF (MHz)</th>
                   <th>PRI (µs)</th>
-                  <th>Jitter / stagger (µs)</th>
                   <th>PW (µs)</th>
+                  <th>Jitter / stagger (µs)</th>
                   <th>Match</th>
                   <th>Modes created</th>
                   <th>Notes</th>

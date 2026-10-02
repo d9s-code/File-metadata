@@ -472,7 +472,7 @@ export function ImportGroupsPanel({
 
       <div className="import-filters">
         <label>
-          Type
+          PRI type
           <select value={filters.type} onChange={(e) => setFilter("type", e.target.value as Filters["type"])}>
             <option value="">All</option>
             <option value="fixed">Fixed</option>
@@ -702,11 +702,11 @@ export function ImportGroupsPanel({
                 />
               </th>
               <th>Reports</th>
-              <th>Type</th>
+              <th>PRI type</th>
               <th>RF (MHz)</th>
               <th>PRI (µs)</th>
-              <th>Jitter / stagger (µs)</th>
               <th>PW (µs)</th>
+              <th>Jitter / stagger (µs)</th>
               <th>Track</th>
               <th>Identified as</th>
               <th>Time</th>
@@ -759,13 +759,23 @@ export function ImportGroupsPanel({
                         group.excluded && <div className="match-badge import-excluded-tag">Excluded</div>
                       )}
                     </td>
-                    <td>{TYPE_LABEL[s.priType]}</td>
+                    <td>
+                      {TYPE_LABEL[s.priType]}
+                      {s.stagger && (
+                        <div className="hint-text cell-subline">
+                          {s.stagger.length} position{s.stagger.length === 1 ? "" : "s"}
+                        </div>
+                      )}
+                    </td>
                     <td>
                       <Value m={s.rf} single={single} />
                     </td>
                     <td>
                       <Value m={s.pri} single={single} />
                       {s.priType === "stagger" && <div className="hint-text cell-subline">frame time</div>}
+                    </td>
+                    <td>
+                      <Value m={s.pw} single={single} />
                     </td>
                     <td>
                       {s.priType === "fixed" ? (
@@ -775,9 +785,6 @@ export function ImportGroupsPanel({
                       ) : (
                         <span className="hint-text">—</span>
                       )}
-                    </td>
-                    <td>
-                      <Value m={s.pw} single={single} />
                     </td>
                     <td>
                       {s.tracks.length <= 3 ? s.tracks.join(", ") || "—" : `${s.tracks.slice(0, 3).join(", ")} +${s.tracks.length - 3}`}
@@ -807,8 +814,8 @@ export function ImportGroupsPanel({
                               <th>Track</th>
                               <th>RF (MHz)</th>
                               <th>PRI (µs)</th>
-                              <th>Jitter / stagger (µs)</th>
                               <th>PW (µs)</th>
+                              <th>Jitter / stagger (µs)</th>
                               <th>Power (dBm)</th>
                               <th />
                             </tr>
@@ -823,8 +830,8 @@ export function ImportGroupsPanel({
                                   <td>{r.track ?? "—"}</td>
                                   <td>{r.rfMhz}</td>
                                   <td>{r.priUs ?? "—"}</td>
-                                  <td>{r.priType === "fixed" ? (r.jitterUs ?? "—") : (r.staggerUs?.join(", ") ?? "—")}</td>
                                   <td>{r.pwUs ?? "—"}</td>
+                                  <td>{r.priType === "fixed" ? (r.jitterUs ?? "—") : (r.staggerUs?.join(", ") ?? "—")}</td>
                                   <td>{r.power ?? "—"}</td>
                                   <td>
                                     <button
