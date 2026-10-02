@@ -3517,6 +3517,15 @@ label.grow {
   flex-direction: column;
   gap: 0.75rem;
 }
+.import-time-charts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.import-time-charts > .hint-text {
+  margin: 0;
+  font-size: 0.85rem;
+}
 .viz-summary {
   display: flex;
   flex-wrap: wrap;

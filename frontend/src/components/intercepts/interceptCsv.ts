@@ -204,6 +204,14 @@ export function formatMissionTime(t: string | null): string {
 }
 
 /** The day of a mission time, as YYYY-MM-DD. */
+/** A mission time as milliseconds, read as UTC so it's shown as written; null when unreadable. */
+export function missionTimeMs(t: string | null): number | null {
+  const m = t?.match(/^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})(\.\d+)?/);
+  if (!m) return null;
+  const ms = m[7] ? Math.round(Number(m[7]) * 1000) : 0;
+  return Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6], ms);
+}
+
 export function missionDay(t: string | null): string | null {
   const m = t?.match(/^(\d{4})(\d{2})(\d{2})/);
   return m ? `${m[1]}-${m[2]}-${m[3]}` : null;

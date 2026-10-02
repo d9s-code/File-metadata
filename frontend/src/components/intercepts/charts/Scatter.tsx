@@ -8,7 +8,7 @@ import {
 } from "react";
 import { fmt, niceTicks, useWidth } from "./Histogram";
 
-const HEIGHT = 300;
+const DEFAULT_HEIGHT = 300;
 // Room at the top for the vertical axis title.
 const M = { left: 56, right: 12, top: 24, bottom: 34 };
 
@@ -41,7 +41,17 @@ export function Scatter({
   onSelect,
   boxes = [],
   boxStyle = "solid",
+  height: HEIGHT = DEFAULT_HEIGHT,
+  xTicks,
+  xFormat = fmt,
+  emptyText = "No pulsed reports in view.",
 }: {
+  height?: number;
+  /** Ticks along the bottom, when round numbers aren't right (times). */
+  xTicks?: (lo: number, hi: number) => number[];
+  /** How x values read on the axis and in the hover read-out. */
+  xFormat?: (v: number, step?: number) => string;
+  emptyText?: string;
   points: ScatterPoint[];
   /** Group extents to outline. */
   boxes?: ScatterBox[];
@@ -122,7 +132,9 @@ export function Scatter({
         w: Math.abs(drag.x1 - drag.x0),
         h: Math.abs(drag.y1 - drag.y0),
       }
-    : selection
+    : // Zoomed to the selection, it would shade the whole chart — the zoom shows it.
+      selection &&
+        !(selection.x[0] <= xl && selection.x[1] >= xh && selection.y[0] <= yl && selection.y[1] >= yh)
       ? {
           x: sx(Math.max(selection.x[0], xl)),
           y: sy(Math.min(selection.y[1], yh)),
@@ -143,7 +155,8 @@ export function Scatter({
           {hover && (
             <>
               {" · "}
-              {xAxis.short} {fmt(ix(hover.px))} {xAxis.unit}, {yAxis.short}{" "}
+              {xAxis.short} {xFormat(ix(hover.px))}
+              {xAxis.unit && ` ${xAxis.unit}`}, {yAxis.short}{" "}
               {fmt(iy(hover.py))} {yAxis.unit}
             </>
           )}
@@ -193,7 +206,7 @@ export function Scatter({
         onPointerLeave={() => setHover(null)}
       >
         {points.length === 0 ? (
-          <p className="hint-text viz-empty">No pulsed reports in view.</p>
+          <p className="hint-text viz-empty">{emptyText}</p>
         ) : (
           <>
             <canvas
@@ -226,17 +239,21 @@ export function Scatter({
                   </text>
                 </g>
               ))}
-              {niceTicks(xl, xh, 6).map((t) => (
-                <text
-                  key={`x${t}`}
-                  className="viz-axis-label"
-                  x={sx(t)}
-                  y={HEIGHT - 10}
-                  textAnchor="middle"
-                >
-                  {fmt(t)}
-                </text>
-              ))}
+              {(() => {
+                const ticks = xTicks ? xTicks(xl, xh) : niceTicks(xl, xh, 6);
+                const step = ticks.length > 1 ? ticks[1] - ticks[0] : undefined;
+                return ticks.map((t) => (
+                  <text
+                    key={`x${t}`}
+                    className="viz-axis-label"
+                    x={sx(t)}
+                    y={HEIGHT - 10}
+                    textAnchor="middle"
+                  >
+                    {xTicks ? xFormat(t, step) : fmt(t)}
+                  </text>
+                ));
+              })()}
               <line
                 className="viz-baseline"
                 x1={M.left}
@@ -253,7 +270,7 @@ export function Scatter({
                 y={HEIGHT - 10}
                 textAnchor="end"
               >
-                {xAxis.short} ({xAxis.unit})
+                {xAxis.unit ? `${xAxis.short} (${xAxis.unit})` : xAxis.short}
               </text>
               <defs>
                 <clipPath id={clipId}>

@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import type { CsvReport, ReportPriType } from "../interceptCsv";
+import { missionTimeMs } from "../interceptCsv";
+import { formatTime, timeTicks } from "./timeAxis";
 import type { ReportGroup } from "../interceptGroups";
 import { matchEntry } from "../interceptMatch";
 import type { Mode } from "../../../types/domain";
@@ -120,7 +122,13 @@ export function ImportCharts({
   onlyLines = null,
   split = null,
   onSplitPick,
+  showDistributions = true,
+  showTime = false,
 }: {
+  /** The scatter and the per-parameter distributions. */
+  showDistributions?: boolean;
+  /** RF, PRI and PW against time. */
+  showTime?: boolean;
   reports: CsvReport[];
   excludedLines: Set<number>;
   modes: Mode[] | undefined;
@@ -329,6 +337,38 @@ export function ImportCharts({
     return out;
   }, [boxSource, preview, groups, reports, axes, onlyLines]);
 
+  // RF, PRI and PW against time: each chart filtered like its histogram, all on one time axis.
+  const timeCharts = useMemo(() => {
+    if (!showTime) return null;
+    const times = new Map<number, number>();
+    for (const r of base) {
+      const t = missionTimeMs(r.missionTime);
+      if (t != null) times.set(r.line, t);
+    }
+    const inView = base.filter((r) => passes(r, null));
+    const xDomain = extent(inView.flatMap((r) => (times.has(r.line) ? [times.get(r.line)!] : [])));
+    const noTime = inView.filter((r) => !times.has(r.line)).length;
+    const charts = (["rf", "pri", "pw"] as RangeParam[]).map((param) => {
+      const pts: ScatterPoint[] = [];
+      for (const r of base) {
+        const t = times.get(r.line);
+        const v = axisValue(r, param);
+        if (t == null || v == null || !passes(r, param)) continue;
+        const own = ranges[param];
+        if (own && (v < own[0] || v > own[1])) continue;
+        pts.push({
+          x: t,
+          y: v,
+          matched: modes && modes.length > 0 ? (matchedByLine.get(r.line) ?? false) : null,
+        });
+      }
+      return { param, points: pts, yDomain: zoom(ranges[param], pts.map((p) => p.y)) };
+    });
+    return { charts, xDomain, noTime };
+    // passes reads ranges.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showTime, base, ranges, modes, matchedByLine]);
+
   const axisSelect = (
     value: RangeParam,
     other: RangeParam,
@@ -380,16 +420,19 @@ export function ImportCharts({
             <span>
               <span className="viz-swatch viz-out" /> Outside every Mode
             </span>
-            <span>
-              <span className="viz-swatch viz-coverage" /> Where the Modes reach
-            </span>
-            {preview && (
+            {showDistributions && (
+              <span>
+                <span className="viz-swatch viz-coverage" /> Where the Modes
+                reach
+              </span>
+            )}
+            {showDistributions && preview && (
               <span>
                 <span className="viz-swatch viz-marks-swatch" /> Auto group
                 preview
               </span>
             )}
-            {boxSource !== "none" && boxes.length > 0 && (
+            {showDistributions && boxSource !== "none" && boxes.length > 0 && (
               <span>
                 <span
                   className={
@@ -404,82 +447,127 @@ export function ImportCharts({
           </span>
         )}
       </div>
-      <Scatter
-        header={
-          <span className="map-axes">
-            <strong>Scatter</strong>
-            {axisSelect(axes.x, axes.y, (x) => setAxes(x, axes.y), "Across")}
-            {axisSelect(axes.y, axes.x, (y) => setAxes(axes.x, y), "Up")}
-            <button
-              type="button"
-              className="link-button"
-              onClick={() => setAxes(axes.y, axes.x)}
-              title="Swap the axes"
-            >
-              ⇄ Swap
-            </button>
-            <label className="inline-label map-axis">
-              Outline
-              <select
-                value={boxSource}
-                onChange={(e) => setBoxSource(e.target.value as BoxSource)}
+      {showDistributions && (
+        <>
+        <Scatter
+          header={
+            <span className="map-axes">
+              <strong>Scatter</strong>
+              {axisSelect(axes.x, axes.y, (x) => setAxes(x, axes.y), "Across")}
+              {axisSelect(axes.y, axes.x, (y) => setAxes(axes.x, y), "Up")}
+              <button
+                type="button"
+                className="link-button"
+                onClick={() => setAxes(axes.y, axes.x)}
+                title="Swap the axes"
               >
-                <option value="preview">Auto group preview</option>
-                <option value="groups">Groups as they are</option>
-                <option value="none">Nothing</option>
-              </select>
-            </label>
-            <span className="hint-text">
-              PRI is a stagger&apos;s frame time
-              {boxes.length > MAX_BOXES &&
-                ` · ${boxes.length.toLocaleString()} groups — too many to outline; filter to a range`}
+                ⇄ Swap
+              </button>
+              <label className="inline-label map-axis">
+                Outline
+                <select
+                  value={boxSource}
+                  onChange={(e) => setBoxSource(e.target.value as BoxSource)}
+                >
+                  <option value="preview">Auto group preview</option>
+                  <option value="groups">Groups as they are</option>
+                  <option value="none">Nothing</option>
+                </select>
+              </label>
+              <span className="hint-text">
+                PRI is a stagger&apos;s frame time
+                {boxes.length > MAX_BOXES &&
+                  ` · ${boxes.length.toLocaleString()} groups — too many to outline; filter to a range`}
+              </span>
             </span>
-          </span>
-        }
-        boxes={boxes.length > MAX_BOXES ? [] : boxes}
-        boxStyle={boxSource === "preview" ? "dashed" : "solid"}
-        xAxis={AXIS_INFO[axes.x]}
-        yAxis={AXIS_INFO[axes.y]}
-        points={points}
-        xDomain={xExtent}
-        yDomain={yExtent}
-        selection={
-          ranges[axes.x] && ranges[axes.y]
-            ? { x: ranges[axes.x]!, y: ranges[axes.y]! }
-            : null
-        }
-        onSelect={(box) =>
-          box
-            ? onBox(axes.x, box.x, axes.y, box.y)
-            : onBox(axes.x, null, axes.y, null)
-        }
-      />
-      <div className="viz-grid-cards">
-        {charts.map((c) => (
-          <Histogram
-            key={c.param}
-            label={c.label}
-            unit={c.unit}
-            values={c.values}
-            covered={c.covered}
-            intervals={c.intervals}
-            marks={previewMarks[c.param]}
-            domain={c.domain}
-            selection={c.filter ? ranges[c.filter] : null}
-            onSelect={
-              c.filter ? (range) => onRange(c.filter!, range) : undefined
-            }
-            splitValue={
-              split && c.filter === split.param ? split.value : null
-            }
-            onSplitPick={
-              onSplitPick && c.filter
-                ? (value) => onSplitPick(c.filter!, value)
-                : undefined
-            }
-          />
-        ))}
-      </div>
+          }
+          boxes={boxes.length > MAX_BOXES ? [] : boxes}
+          boxStyle={boxSource === "preview" ? "dashed" : "solid"}
+          xAxis={AXIS_INFO[axes.x]}
+          yAxis={AXIS_INFO[axes.y]}
+          points={points}
+          xDomain={xExtent}
+          yDomain={yExtent}
+          selection={
+            ranges[axes.x] && ranges[axes.y]
+              ? { x: ranges[axes.x]!, y: ranges[axes.y]! }
+              : null
+          }
+          onSelect={(box) =>
+            box
+              ? onBox(axes.x, box.x, axes.y, box.y)
+              : onBox(axes.x, null, axes.y, null)
+          }
+        />
+        <div className="viz-grid-cards">
+          {charts.map((c) => (
+            <Histogram
+              key={c.param}
+              label={c.label}
+              unit={c.unit}
+              values={c.values}
+              covered={c.covered}
+              intervals={c.intervals}
+              marks={previewMarks[c.param]}
+              domain={c.domain}
+              selection={c.filter ? ranges[c.filter] : null}
+              onSelect={
+                c.filter ? (range) => onRange(c.filter!, range) : undefined
+              }
+              splitValue={
+                split && c.filter === split.param ? split.value : null
+              }
+              onSplitPick={
+                onSplitPick && c.filter
+                  ? (value) => onSplitPick(c.filter!, value)
+                  : undefined
+              }
+            />
+          ))}
+        </div>
+        </>
+      )}
+      {timeCharts && (
+        <div className="import-time-charts">
+          <p className="hint-text">
+            Each report at its mission time, as written in the file
+            {timeCharts.noTime > 0 &&
+              ` (${timeCharts.noTime.toLocaleString()} in view have no readable time and aren't shown)`}
+            . Drag up or down a chart to filter to that range of values;
+            click to clear it. PRI is a stagger&apos;s frame time.
+          </p>
+          {timeCharts.charts.map((c) => (
+            <Scatter
+              key={c.param}
+              header={
+                <strong>
+                  {AXIS_INFO[c.param].short} over time{" "}
+                  <span className="hint-text">({AXIS_INFO[c.param].unit})</span>
+                </strong>
+              }
+              height={210}
+              xAxis={{ short: "Time", unit: "" }}
+              yAxis={AXIS_INFO[c.param]}
+              xTicks={(lo, hi) => timeTicks(lo, hi)}
+              xFormat={formatTime}
+              points={c.points}
+              xDomain={timeCharts.xDomain}
+              yDomain={c.yDomain}
+              selection={
+                ranges[c.param]
+                  ? { x: timeCharts.xDomain, y: ranges[c.param]! }
+                  : null
+              }
+              onSelect={(box) => onRange(c.param, box ? box.y : null)}
+              emptyText={
+                c.param === "rf"
+                  ? "No reports with a time in view."
+                  : "No pulsed reports with a time in view."
+              }
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

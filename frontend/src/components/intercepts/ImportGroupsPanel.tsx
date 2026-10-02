@@ -98,6 +98,28 @@ function GapSlider({
 }
 
 const CHARTS_OPEN_KEY = "import-charts-open";
+const TIME_OPEN_KEY = "import-time-open";
+
+/** An open/closed panel, remembered in this browser. */
+function useRememberedOpen(key: string, initial: boolean) {
+  const [open, setOpenState] = useState(() => {
+    try {
+      const v = localStorage.getItem(key);
+      return v == null ? initial : v === "true";
+    } catch {
+      return initial;
+    }
+  });
+  function setOpen(next: boolean) {
+    setOpenState(next);
+    try {
+      localStorage.setItem(key, String(next));
+    } catch {
+      // Not remembered — fine.
+    }
+  }
+  return [open, setOpen] as const;
+}
 const SPLIT_LABEL: Record<SplitParam, string> = { rf: "RF (MHz)", pri: "PRI / frame time (µs)", pw: "PW (µs)" };
 
 interface Row {
@@ -153,21 +175,8 @@ export function ImportGroupsPanel({
   const [page, setPage] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
   const { confirmDelete: confirm, dialog } = useConfirmDialog();
-  const [chartsOpen, setChartsOpenState] = useState(() => {
-    try {
-      return localStorage.getItem(CHARTS_OPEN_KEY) !== "false";
-    } catch {
-      return true;
-    }
-  });
-  function setChartsOpen(open: boolean) {
-    setChartsOpenState(open);
-    try {
-      localStorage.setItem(CHARTS_OPEN_KEY, String(open));
-    } catch {
-      // Not remembered — fine.
-    }
-  }
+  const [chartsOpen, setChartsOpen] = useRememberedOpen(CHARTS_OPEN_KEY, true);
+  const [timeOpen, setTimeOpen] = useRememberedOpen(TIME_OPEN_KEY, false);
 
   const rows: Row[] = useMemo(
     () =>
@@ -424,6 +433,9 @@ export function ImportGroupsPanel({
       <div className="import-charts-section">
         <button type="button" className="link-button" aria-expanded={chartsOpen} onClick={() => setChartsOpen(!chartsOpen)}>
           {chartsOpen ? "▾ Charts" : "▸ Charts"}
+        </button>{" "}
+        <button type="button" className="link-button" aria-expanded={timeOpen} onClick={() => setTimeOpen(!timeOpen)}>
+          {timeOpen ? "▾ Over time" : "▸ Over time"}
         </button>
         <span className="hint-text">
           {" "}
@@ -431,8 +443,10 @@ export function ImportGroupsPanel({
             ? "Showing only the selected rows' reports. Click the RF, PRI or PW chart where you want to split them."
             : "Drag across a chart to filter to that range (the table below follows, and the other charts narrow to it); click a chart to clear its range."}
         </span>
-        {chartsOpen && (
+        {(chartsOpen || timeOpen) && (
           <ImportCharts
+            showDistributions={chartsOpen}
+            showTime={timeOpen}
             reports={reports}
             excludedLines={excludedLines}
             modes={modes}

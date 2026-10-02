@@ -657,6 +657,13 @@ export function HelpPage() {
             check its spread before merging it. Click a chart to clear its range.
           </p>
           <p>
+            <strong>Over time</strong>, a separate panel with its own toggle beside Charts, plots RF, PRI and PW
+            against each report&apos;s mission time (as written in the file), on one shared time axis — so you can see
+            when each signal was heard, whether it drifts, and which signals were up at the same time. It follows the
+            same filters as the other charts; drag up or down one of its charts to filter to that range of values,
+            and click to clear it. Both panels remember whether you left them open.
+          </p>
+          <p>
             The <strong>sliders</strong> set Auto group&apos;s gaps. As you move them, the line under them says how
             many groups and strays Auto group would make, the charts mark where each group would sit, and the scatter
             outlines each one as a dashed box — a preview only; your grouping changes when you press the button. Set
