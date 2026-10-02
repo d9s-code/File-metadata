@@ -65,7 +65,8 @@ function binValues(
 /** One parameter's distribution: a bar per value range, stacked by whether
  * those reports fall within a Mode. Under the axis, a strip shows where the
  * Modes reach; above the bars, ticks show where Auto group's preview would
- * put each group. Drag across it to select a range; click to clear. */
+ * put each group. Drag across it to select a range; click to clear. While
+ * splitting (onSplitPick given), a click picks the value to split at instead. */
 export function Histogram({
   label,
   unit,
@@ -76,6 +77,8 @@ export function Histogram({
   domain,
   selection,
   onSelect,
+  splitValue = null,
+  onSplitPick,
 }: {
   label: string;
   unit: string;
@@ -88,6 +91,10 @@ export function Histogram({
   selection: [number, number] | null;
   /** Leave out where there's no filter to set. */
   onSelect?: (range: [number, number] | null) => void;
+  /** Where a split is about to be made, drawn as a line. */
+  splitValue?: number | null;
+  /** Given while splitting: a click picks the value instead of selecting. */
+  onSplitPick?: (value: number) => void;
 }) {
   const { ref, width } = useWidth<HTMLDivElement>();
   const [drag, setDragState] = useState<{ from: number; to: number } | null>(
@@ -100,6 +107,7 @@ export function Histogram({
     setDragState(d);
   };
   const [hoverBin, setHoverBin] = useState<number | null>(null);
+  const [hoverPx, setHoverPx] = useState<number | null>(null);
   const {
     inside,
     outside,
@@ -136,6 +144,10 @@ export function Histogram({
     return e.clientX - e.currentTarget.getBoundingClientRect().left;
   }
   function onPointerDown(e: PointerEvent<SVGSVGElement>) {
+    if (onSplitPick) {
+      onSplitPick(toValue(localX(e)));
+      return;
+    }
     if (!onSelect) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     const px = localX(e);
@@ -144,6 +156,7 @@ export function Histogram({
   function onPointerMove(e: PointerEvent<SVGSVGElement>) {
     const px = localX(e);
     if (dragRef.current) setDrag({ ...dragRef.current, to: px });
+    setHoverPx(px >= M.left && px <= M.left + plotW ? px : null);
     const bin = Math.floor((px - M.left) / barW);
     setHoverBin(bin >= 0 && bin < BINS ? bin : null);
   }
@@ -207,11 +220,14 @@ export function Histogram({
             height={HEIGHT}
             role="img"
             aria-label={`${label} distribution`}
-            className={onSelect ? "viz-brushable" : undefined}
+            className={onSplitPick ? "viz-splittable" : onSelect ? "viz-brushable" : undefined}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
-            onPointerLeave={() => setHoverBin(null)}
+            onPointerLeave={() => {
+              setHoverBin(null);
+              setHoverPx(null);
+            }}
           >
             <line
               className="viz-grid"
@@ -295,7 +311,23 @@ export function Histogram({
                 {fmt(t)}
               </text>
             ))}
-            {band && (
+            {onSplitPick && hoverPx != null && (
+              <line className="viz-split-hover" x1={hoverPx} x2={hoverPx} y1={M.top} y2={baseline} />
+            )}
+            {splitValue != null && splitValue >= lo && splitValue <= hi && (
+              <g>
+                <line className="viz-split" x1={x(splitValue)} x2={x(splitValue)} y1={M.top - 4} y2={baseline} />
+                <text
+                  className="viz-axis-label viz-split-label"
+                  x={x(splitValue) + (x(splitValue) > M.left + plotW - 60 ? -4 : 4)}
+                  y={M.top + 8}
+                  textAnchor={x(splitValue) > M.left + plotW - 60 ? "end" : "start"}
+                >
+                  split at {fmt(splitValue)}
+                </text>
+              </g>
+            )}
+            {band && !onSplitPick && (
               <rect
                 className="viz-selection"
                 x={band[0]}
@@ -319,6 +351,11 @@ export function Histogram({
             <div>
               {fmt(hovered.lo)}–{fmt(hovered.hi)} {unit}
             </div>
+            {onSplitPick && hoverPx != null && (
+              <div>
+                <strong>Click to split at {fmt(toValue(hoverPx))}</strong>
+              </div>
+            )}
             {covered ? (
               <>
                 <div>

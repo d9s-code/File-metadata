@@ -11,7 +11,7 @@ import {
   type ChartParam,
 } from "./coverage";
 import { Histogram } from "./Histogram";
-import { Scatter, type ScatterPoint } from "./Scatter";
+import { Scatter, type ScatterBox, type ScatterPoint } from "./Scatter";
 
 export type RangeParam = "rf" | "pri" | "pw";
 export type Range = [number, number] | null;
@@ -22,6 +22,10 @@ const AXIS_INFO: Record<RangeParam, { short: string; unit: string }> = {
   pw: { short: "PW", unit: "µs" },
 };
 const AXES_KEY = "importScatterAxes";
+const BOXES_KEY = "importScatterBoxes";
+type BoxSource = "preview" | "groups" | "none";
+// Beyond this many, outlines would hide the points rather than show the groups.
+const MAX_BOXES = 3000;
 
 function readAxes(): { x: RangeParam; y: RangeParam } {
   try {
@@ -112,6 +116,10 @@ export function ImportCharts({
   onRange,
   onBox,
   preview,
+  groups,
+  onlyLines = null,
+  split = null,
+  onSplitPick,
 }: {
   reports: CsvReport[];
   excludedLines: Set<number>;
@@ -120,8 +128,16 @@ export function ImportCharts({
   onRange: (param: RangeParam, range: Range) => void;
   /** A box dragged on the scatter: a range on each of its two parameters. */
   onBox: (x: RangeParam, xRange: Range, y: RangeParam, yRange: Range) => void;
-  /** Auto group's preview with the current tolerances — drawn as ticks. */
+  /** Auto group's preview with the current settings — drawn as ticks, and as boxes on the scatter. */
   preview: ReportGroup[] | null;
+  /** The groups as they are now — the scatter can outline these instead. */
+  groups: ReportGroup[];
+  /** Show just these reports (the rows being split). */
+  onlyLines?: Set<number> | null;
+  /** A split about to be made, drawn on its charts. */
+  split?: { param: RangeParam; value: number } | null;
+  /** Given while splitting: a click on the RF, PRI or PW chart picks the value. */
+  onSplitPick?: (param: RangeParam, value: number) => void;
 }) {
   const coverage = useMemo(
     () => (modes && modes.length > 0 ? modeCoverage(modes) : null),
@@ -133,13 +149,13 @@ export function ImportCharts({
     const track = filters.track.trim();
     return reports.filter(
       (r) =>
-        !excludedLines.has(r.line) &&
+        (onlyLines ? onlyLines.has(r.line) : !excludedLines.has(r.line)) &&
         (!filters.type || r.priType === filters.type) &&
         (!track || r.track === track) &&
         (!filters.identified ||
           (r.designation ?? "not identified") === filters.identified),
     );
-  }, [reports, excludedLines, filters.type, filters.track, filters.identified]);
+  }, [reports, excludedLines, onlyLines, filters.type, filters.track, filters.identified]);
 
   // The ranges arrive as new arrays on every render; key the work on their values.
   const rangesKey = JSON.stringify([filters.rf, filters.pri, filters.pw]);
@@ -268,6 +284,51 @@ export function ImportCharts({
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [base, ranges, modes, matchedByLine, axes]);
 
+  // Which groups the scatter outlines — remembered in this browser.
+  const [boxSource, setBoxSourceState] = useState<BoxSource>(() => {
+    try {
+      const v = localStorage.getItem(BOXES_KEY);
+      return v === "groups" || v === "none" ? v : "preview";
+    } catch {
+      return "preview";
+    }
+  });
+  function setBoxSource(v: BoxSource) {
+    setBoxSourceState(v);
+    try {
+      localStorage.setItem(BOXES_KEY, v);
+    } catch {
+      // Not remembered — fine.
+    }
+  }
+  const boxes = useMemo(() => {
+    const source = boxSource === "preview" ? preview : boxSource === "groups" ? groups.filter((g) => !g.excluded) : null;
+    if (!source) return [];
+    const byLine = new Map(reports.map((r) => [r.line, r]));
+    const out: ScatterBox[] = [];
+    for (const g of source) {
+      // A single report is a point, not a group.
+      if (g.lines.length < 2) continue;
+      if (onlyLines && !onlyLines.has(g.lines[0])) continue;
+      let x0 = Infinity;
+      let x1 = -Infinity;
+      let y0 = Infinity;
+      let y1 = -Infinity;
+      for (const l of g.lines) {
+        const r = byLine.get(l);
+        const vx = r && axisValue(r, axes.x);
+        const vy = r && axisValue(r, axes.y);
+        if (vx == null || vy == null) continue;
+        if (vx < x0) x0 = vx;
+        if (vx > x1) x1 = vx;
+        if (vy < y0) y0 = vy;
+        if (vy > y1) y1 = vy;
+      }
+      if (Number.isFinite(x0)) out.push({ x: [x0, x1], y: [y0, y1], count: g.lines.length });
+    }
+    return out;
+  }, [boxSource, preview, groups, reports, axes, onlyLines]);
+
   const axisSelect = (
     value: RangeParam,
     other: RangeParam,
@@ -328,6 +389,18 @@ export function ImportCharts({
                 preview
               </span>
             )}
+            {boxSource !== "none" && boxes.length > 0 && (
+              <span>
+                <span
+                  className={
+                    boxSource === "preview"
+                      ? "viz-swatch viz-groupbox-swatch dashed"
+                      : "viz-swatch viz-groupbox-swatch"
+                  }
+                />{" "}
+                {boxSource === "preview" ? "Preview group" : "Group"}
+              </span>
+            )}
           </span>
         )}
       </div>
@@ -345,11 +418,26 @@ export function ImportCharts({
             >
               ⇄ Swap
             </button>
+            <label className="inline-label map-axis">
+              Outline
+              <select
+                value={boxSource}
+                onChange={(e) => setBoxSource(e.target.value as BoxSource)}
+              >
+                <option value="preview">Auto group preview</option>
+                <option value="groups">Groups as they are</option>
+                <option value="none">Nothing</option>
+              </select>
+            </label>
             <span className="hint-text">
               PRI is a stagger&apos;s frame time
+              {boxes.length > MAX_BOXES &&
+                ` · ${boxes.length.toLocaleString()} groups — too many to outline; filter to a range`}
             </span>
           </span>
         }
+        boxes={boxes.length > MAX_BOXES ? [] : boxes}
+        boxStyle={boxSource === "preview" ? "dashed" : "solid"}
         xAxis={AXIS_INFO[axes.x]}
         yAxis={AXIS_INFO[axes.y]}
         points={points}
@@ -380,6 +468,14 @@ export function ImportCharts({
             selection={c.filter ? ranges[c.filter] : null}
             onSelect={
               c.filter ? (range) => onRange(c.filter!, range) : undefined
+            }
+            splitValue={
+              split && c.filter === split.param ? split.value : null
+            }
+            onSplitPick={
+              onSplitPick && c.filter
+                ? (value) => onSplitPick(c.filter!, value)
+                : undefined
             }
           />
         ))}

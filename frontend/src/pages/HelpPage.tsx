@@ -624,10 +624,25 @@ export function HelpPage() {
             values as the measured range, and a note of which file lines it came from. Every report starts as its own
             row. Group them yourself: filter (by type, RF/PRI/PW, track or identification), select rows, and{" "}
             <strong>Merge into one</strong>; <strong>Split</strong> or <strong>Take out</strong> undoes it, and{" "}
-            <strong>Exclude</strong> leaves rows out of the import. <strong>Auto group</strong> uses the tolerances
-            you set and only the rule written next to it: reports of the same PRI type join a group when they are
-            within the tolerances of every report already in it (optionally only on the same track). It never runs
-            on its own. One import takes up to 5,000 entries.
+            <strong>Exclude</strong> leaves rows out of the import. <strong>Split at a value…</strong> cuts the
+            selected rows in two on RF, PRI or PW: while it&apos;s on, the charts show only those rows&apos; reports, so
+            two signals that run into each other show as two humps — click the dip between them (or type the value),
+            check the line on the chart, and press Split. Reports at or below the value go in one row, those above in
+            the other.
+          </p>
+          <p>
+            <strong>Auto group</strong> uses the gaps you set and only the rule written next to it. It keeps PRI types
+            (and staggers with different numbers of positions) apart, and optionally tracks. Then it starts a new
+            group wherever there&apos;s an <strong>empty stretch wider than the gap</strong> on RF, PRI or PW, and
+            repeats until nothing splits further. So a signal stays in one group however much it spreads or drifts, as
+            long as its reports run on into each other, and two signals separate as soon as there&apos;s a clear gap
+            between them on any one parameter. Two signals whose spreads touch stay together — split them at the dip.
+            The <strong>minimum reports per group</strong> keeps scattered reports out of the groups. A report with
+            too few others near it (within the gaps on RF, PRI and PW together), or in a group smaller than the
+            minimum, becomes a <strong>stray</strong>. This also stops a thin trickle of strays from joining two real
+            signals. Strays are listed apart and held out of the import until you decide: show them, merge them into
+            a group, keep each as its own entry, or exclude them. A minimum of 1 means no strays. Auto group never
+            runs on its own. One import takes up to 5,000 entries.
           </p>
           <p>
             <strong>Charts</strong> show the reports (excluded ones left out): a scatter of any two of RF, PRI and PW
@@ -642,9 +657,11 @@ export function HelpPage() {
             check its spread before merging it. Click a chart to clear its range.
           </p>
           <p>
-            The <strong>sliders</strong> set Auto group&apos;s tolerances. As you move them, the line under them says
-            how many groups Auto group would make and the charts mark where each would sit — a preview only; your
-            grouping changes when you press the button.
+            The <strong>sliders</strong> set Auto group&apos;s gaps. As you move them, the line under them says how
+            many groups and strays Auto group would make, the charts mark where each group would sit, and the scatter
+            outlines each one as a dashed box — a preview only; your grouping changes when you press the button. Set
+            the scatter&apos;s <strong>Outline</strong> to &ldquo;Groups as they are&rdquo; to see the current
+            grouping as solid boxes instead.
           </p>
         </div>
 

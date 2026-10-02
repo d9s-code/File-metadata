@@ -8,13 +8,16 @@ import {
   mergeGroups,
   oneGroupPerReport,
   setExcluded,
+  splitAtValue,
   splitGroups,
   summarize,
   takeOut,
+  type AutoGroupResult,
+  type GapSettings,
   type GroupSummary,
   type Measured,
   type ReportGroup,
-  type Tolerances,
+  type SplitParam,
 } from "./interceptGroups";
 import { matchEntry } from "./interceptMatch";
 import { EntryMatchCell } from "./EntryMatchCell";
@@ -37,7 +40,7 @@ interface Filters {
   pwMax: string;
   track: string;
   identified: string;
-  show: "all" | "included" | "excluded";
+  show: "all" | "included" | "excluded" | "strays";
 }
 const NO_FILTERS: Filters = {
   type: "",
@@ -52,10 +55,10 @@ const NO_FILTERS: Filters = {
   show: "all",
 };
 
-/** A tolerance slider: logarithmic, so the small values that matter get most
+/** A gap slider: logarithmic, so the small values that matter get most
  * of its travel; far left is 0. The number beside it takes any value. */
 const SLIDER_STEPS = 1000;
-function ToleranceSlider({
+function GapSlider({
   label,
   value,
   min,
@@ -95,6 +98,7 @@ function ToleranceSlider({
 }
 
 const CHARTS_OPEN_KEY = "import-charts-open";
+const SPLIT_LABEL: Record<SplitParam, string> = { rf: "RF (MHz)", pri: "PRI / frame time (µs)", pw: "PW (µs)" };
 
 interface Row {
   group: ReportGroup;
@@ -124,8 +128,8 @@ function Value({ m, single }: { m: Measured | null; single: boolean }) {
 }
 
 /** The grouping step of the CSV import: each group becomes one entry. The
- * user does the grouping — by selecting rows and merging them, or with Auto
- * group and tolerances they set; nothing regroups on its own. */
+ * user does the grouping — by selecting rows and merging them, splitting at a
+ * value, or with Auto group and the gaps they set; nothing regroups on its own. */
 export function ImportGroupsPanel({
   reports,
   groups,
@@ -141,7 +145,9 @@ export function ImportGroupsPanel({
 }) {
   const byLine = useMemo(() => new Map(reports.map((r) => [r.line, r])), [reports]);
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
-  const [tol, setTol] = useState({ rfMhz: "1", priUs: "1", pwUs: "0.1", sameTrack: false });
+  const [gap, setGap] = useState({ rfMhz: "1", priUs: "1", pwUs: "0.1", minReports: "5", sameTrack: false });
+  // Splitting the selected rows at a value: which parameter, and where.
+  const [splitting, setSplitting] = useState<{ param: SplitParam; value: string } | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [page, setPage] = useState(0);
@@ -184,6 +190,7 @@ export function ImportGroupsPanel({
     const f = filters;
     const track = f.track.trim();
     return rows.filter(({ group, summary: s }) => {
+      if (f.show === "strays" ? !group.stray : group.stray) return false;
       if (f.show === "included" && group.excluded) return false;
       if (f.show === "excluded" && !group.excluded) return false;
       if (f.type && s.priType !== f.type) return false;
@@ -205,27 +212,46 @@ export function ImportGroupsPanel({
   const selectedReports = selectedGroups.flatMap((g) => g.lines.map((l) => byLine.get(l)!));
   const mergeBlocked = cannotMerge(selectedReports);
   const excludedLines = useMemo(() => new Set(groups.filter((g) => g.excluded).flatMap((g) => g.lines)), [groups]);
-  const tolerances: Tolerances = {
-    rfMhz: Number(tol.rfMhz) || 0,
-    priUs: Number(tol.priUs) || 0,
-    pwUs: Number(tol.pwUs) || 0,
-    sameTrack: tol.sameTrack,
+  const strays = useMemo(() => groups.filter((g) => g.stray), [groups]);
+  const gapSettings: GapSettings = {
+    rfMhz: Number(gap.rfMhz) || 0,
+    priUs: Number(gap.priUs) || 0,
+    pwUs: Number(gap.pwUs) || 0,
+    minReports: Math.max(1, Math.floor(Number(gap.minReports) || 1)),
+    sameTrack: gap.sameTrack,
   };
-  // What Auto group would make with the current tolerances — shown, never
+  // What Auto group works on: the selected rows, or all of them — leaving
+  // out what the user excluded, but taking strays back in.
+  const inScope = (g: ReportGroup) => (selected.size === 0 || selected.has(g.id)) && (!g.excluded || !!g.stray);
+  // What Auto group would make with the current settings — shown, never
   // applied, until the button is pressed. Worked out a moment after the
   // sliders stop, since a large file takes a fraction of a second.
-  const [preview, setPreview] = useState<ReportGroup[] | null>(null);
+  const [preview, setPreview] = useState<AutoGroupResult | null>(null);
   const scopeKey = selected.size > 0 ? [...selected].sort((a, b) => a - b).join(",") : "all";
   useEffect(() => {
     const handle = window.setTimeout(() => {
-      const scope = (selected.size > 0 ? groups.filter((g) => selected.has(g.id)) : groups).filter((g) => !g.excluded);
-      const lines = new Set(scope.flatMap((g) => g.lines));
-      setPreview(lines.size ? autoGroup(reports.filter((r) => lines.has(r.line)), [], tolerances) : null);
+      const lines = new Set(groups.filter(inScope).flatMap((g) => g.lines));
+      setPreview(lines.size ? autoGroup(reports.filter((r) => lines.has(r.line)), gapSettings) : null);
     }, 250);
     return () => window.clearTimeout(handle);
-    // tolerances is rebuilt from tol each render; scopeKey stands in for the selection.
+    // gapSettings and inScope are rebuilt each render; gap and scopeKey stand in for them.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tol, scopeKey, groups, reports]);
+  }, [gap, scopeKey, groups, reports]);
+
+  // Splitting at a value: how many of the selected rows have reports on both sides.
+  const splitValue = splitting && splitting.value !== "" ? Number(splitting.value) : null;
+  const splitResult = useMemo(
+    () =>
+      splitting && splitValue != null && !Number.isNaN(splitValue)
+        ? splitAtValue(groups, selected, byLine, splitting.param, splitValue)
+        : null,
+    [splitting, splitValue, groups, selected, byLine],
+  );
+  // While splitting, the charts show just the selected rows' reports — where the dip between two humps shows.
+  const splitLines = useMemo(
+    () => (splitting ? new Set(groups.filter((g) => selected.has(g.id)).flatMap((g) => g.lines)) : null),
+    [splitting, groups, selected],
+  );
 
   const toRange = (lo: string, hi: string): Range =>
     lo === "" && hi === "" ? null : [lo === "" ? -Infinity : Number(lo), hi === "" ? Infinity : Number(hi)];
@@ -258,6 +284,7 @@ export function ImportGroupsPanel({
   function apply(next: ReportGroup[], note: string) {
     onChange(next);
     setSelected(new Set());
+    setSplitting(null);
     setMessage(note);
   }
   function toggle(set: Set<number>, id: number, update: (s: Set<number>) => void) {
@@ -268,7 +295,7 @@ export function ImportGroupsPanel({
   }
 
   async function runAutoGroup() {
-    const scope = (selected.size > 0 ? selectedGroups : groups).filter((g) => !g.excluded);
+    const scope = groups.filter(inScope);
     const scopeLines = new Set(scope.flatMap((g) => g.lines));
     const merged = scope.filter((g) => g.lines.length > 1).length;
     if (scopeLines.size === 0) {
@@ -284,14 +311,26 @@ export function ImportGroupsPanel({
     )
       return;
     const scopeIds = new Set(scope.map((g) => g.id));
-    const regrouped = autoGroup(
+    const result = autoGroup(
       reports.filter((r) => scopeLines.has(r.line)),
-      [],
-      tolerances,
+      gapSettings,
     );
+    const n = result.groups.length;
     apply(
-      [...groups.filter((g) => !scopeIds.has(g.id)), ...regrouped],
-      `Auto group put ${scopeLines.size} reports into ${regrouped.length} group${regrouped.length === 1 ? "" : "s"}.`,
+      [...groups.filter((g) => !scopeIds.has(g.id)), ...result.groups, ...result.strays],
+      `Auto group put ${(scopeLines.size - result.strays.length).toLocaleString()} reports into ${n.toLocaleString()} group${n === 1 ? "" : "s"}` +
+        (result.strays.length > 0
+          ? ` and set ${result.strays.length.toLocaleString()} aside as strays.`
+          : "."),
+    );
+  }
+
+  function applySplit() {
+    if (!splitting || !splitResult || splitValue == null) return;
+    const label = SPLIT_LABEL[splitting.param];
+    apply(
+      splitResult.groups,
+      `Split ${splitResult.split} row${splitResult.split === 1 ? "" : "s"} at ${label.split(" (")[0]} ${splitValue}.`,
     );
   }
 
@@ -322,21 +361,34 @@ export function ImportGroupsPanel({
       <p className="hint-text">
         Each row below becomes one entry: the mean of its reports, with their lowest and highest values as the
         measured range. Every report starts as its own row — nothing is grouped until you do it. Select rows and{" "}
-        <strong>Merge</strong> them, or use <strong>Auto group</strong> with your own tolerances.
+        <strong>Merge</strong> them, <strong>split</strong> them at a value, or use <strong>Auto group</strong> with
+        your own gaps.
       </p>
 
       <div className="import-tools">
         <fieldset className="import-autogroup">
           <legend>Auto group</legend>
           <div className="import-tolerances">
-            <ToleranceSlider label="RF ± (MHz)" value={tol.rfMhz} min={0.01} max={500} onChange={(v) => setTol({ ...tol, rfMhz: v })} />
-            <ToleranceSlider label="PRI ± (µs)" value={tol.priUs} min={0.01} max={1000} onChange={(v) => setTol({ ...tol, priUs: v })} />
-            <ToleranceSlider label="PW ± (µs)" value={tol.pwUs} min={0.001} max={50} onChange={(v) => setTol({ ...tol, pwUs: v })} />
+            <GapSlider label="RF gap (MHz)" value={gap.rfMhz} min={0.01} max={500} onChange={(v) => setGap({ ...gap, rfMhz: v })} />
+            <GapSlider label="PRI gap (µs)" value={gap.priUs} min={0.01} max={1000} onChange={(v) => setGap({ ...gap, priUs: v })} />
+            <GapSlider label="PW gap (µs)" value={gap.pwUs} min={0.001} max={50} onChange={(v) => setGap({ ...gap, pwUs: v })} />
+            <label className="tolerance-slider import-min-reports">
+              Minimum reports per group
+              <span>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={gap.minReports}
+                  onChange={(e) => setGap({ ...gap, minReports: e.target.value })}
+                />
+              </span>
+            </label>
             <label className="inline-label">
               <input
                 type="checkbox"
-                checked={tol.sameTrack}
-                onChange={(e) => setTol({ ...tol, sameTrack: e.target.checked })}
+                checked={gap.sameTrack}
+                onChange={(e) => setGap({ ...gap, sameTrack: e.target.checked })}
               />
               Same track number only
             </label>
@@ -347,10 +399,17 @@ export function ImportGroupsPanel({
           <p className="import-preview">
             {preview ? (
               <>
-                With these tolerances Auto group would make <strong>{preview.length.toLocaleString()}</strong> group
-                {preview.length === 1 ? "" : "s"}
-                {selected.size > 0 ? " from the selected rows" : ""} — a preview, shown as ticks on the charts. Nothing
-                changes until you press the button.
+                With these settings Auto group would make <strong>{preview.groups.length.toLocaleString()}</strong> group
+                {preview.groups.length === 1 ? "" : "s"}
+                {preview.strays.length > 0 && (
+                  <>
+                    {" "}
+                    and set <strong>{preview.strays.length.toLocaleString()}</strong> report
+                    {preview.strays.length === 1 ? "" : "s"} aside as strays
+                  </>
+                )}
+                {selected.size > 0 ? " from the selected rows" : ""} — a preview, shown as ticks on the charts and boxes
+                on the scatter. Nothing changes until you press the button.
               </>
             ) : (
               <span className="hint-text">Working out the preview…</span>
@@ -368,8 +427,9 @@ export function ImportGroupsPanel({
         </button>
         <span className="hint-text">
           {" "}
-          Drag across a chart to filter to that range (the table below follows, and the other charts narrow to it);
-          click a chart to clear its range.
+          {splitting
+            ? "Showing only the selected rows' reports. Click the RF, PRI or PW chart where you want to split them."
+            : "Drag across a chart to filter to that range (the table below follows, and the other charts narrow to it); click a chart to clear its range."}
         </span>
         {chartsOpen && (
           <ImportCharts
@@ -397,7 +457,15 @@ export function ImportGroupsPanel({
               }));
               setPage(0);
             }}
-            preview={preview}
+            preview={preview?.groups ?? null}
+            groups={groups}
+            onlyLines={splitLines}
+            split={splitting && splitValue != null && !Number.isNaN(splitValue) ? { param: splitting.param, value: splitValue } : null}
+            onSplitPick={
+              splitting
+                ? (param, value) => setSplitting({ param, value: String(Number(value.toPrecision(6))) })
+                : undefined
+            }
           />
         )}
       </div>
@@ -435,9 +503,10 @@ export function ImportGroupsPanel({
         <label>
           Show
           <select value={filters.show} onChange={(e) => setFilter("show", e.target.value as Filters["show"])}>
-            <option value="all">All rows</option>
+            <option value="all">{strays.length > 0 ? "All but strays" : "All rows"}</option>
             <option value="included">Included</option>
             <option value="excluded">Excluded</option>
+            {(strays.length > 0 || filters.show === "strays") && <option value="strays">Strays</option>}
           </select>
         </label>
         {filtered && (
@@ -498,7 +567,19 @@ export function ImportGroupsPanel({
           <button
             type="button"
             className="button secondary small"
-            disabled={!selectedGroups.some((g) => !g.excluded)}
+            aria-pressed={!!splitting}
+            disabled={!splitting && !selectedGroups.some((g) => g.lines.length > 1)}
+            onClick={() => {
+              setSplitting(splitting ? null : { param: "rf", value: "" });
+              if (!splitting) setChartsOpen(true);
+            }}
+          >
+            Split at a value…
+          </button>
+          <button
+            type="button"
+            className="button secondary small"
+            disabled={!selectedGroups.some((g) => !g.excluded || g.stray)}
             onClick={() => apply(setExcluded(groups, selected, true), `Excluded ${selected.size} row(s) from the import.`)}
           >
             Exclude
@@ -514,6 +595,91 @@ export function ImportGroupsPanel({
         </span>
       </div>
       {selected.size > 1 && mergeBlocked && <p className="hint-text">Can't merge: {mergeBlocked}</p>}
+      {splitting && (
+        <div className="import-split">
+          <span>
+            Split the {selected.size} selected row{selected.size === 1 ? "" : "s"} at
+          </span>
+          <select
+            aria-label="Parameter to split on"
+            value={splitting.param}
+            onChange={(e) => setSplitting({ ...splitting, param: e.target.value as SplitParam })}
+          >
+            {(Object.keys(SPLIT_LABEL) as SplitParam[]).map((p) => (
+              <option key={p} value={p}>
+                {SPLIT_LABEL[p]}
+              </option>
+            ))}
+          </select>
+          <input
+            type="number"
+            step="any"
+            aria-label="Value to split at"
+            placeholder="click a chart"
+            value={splitting.value}
+            onChange={(e) => setSplitting({ ...splitting, value: e.target.value })}
+          />
+          <button type="button" className="button primary small" disabled={!splitResult?.split} onClick={applySplit}>
+            Split
+          </button>
+          <button type="button" className="link-button" onClick={() => setSplitting(null)}>
+            Cancel
+          </button>
+          <span className="hint-text">
+            {splitResult
+              ? splitResult.split > 0
+                ? `Reports at or below the value go in one row, those above in another — ${splitResult.split} row${splitResult.split === 1 ? "" : "s"} would split.`
+                : "None of the selected rows have reports on both sides of that value."
+              : "Click the RF, PRI or PW chart above at the dip between two humps, or type the value."}
+          </span>
+        </div>
+      )}
+      {strays.length > 0 && (
+        <div className="import-strays">
+          <span>
+            <strong>
+              {strays.length.toLocaleString()} stray{strays.length === 1 ? "" : "s"}
+            </strong>{" "}
+            — reports Auto group set aside (too few others near them). They&apos;re held out of the import until you
+            decide: select them with a group and <strong>Merge</strong>, or
+          </span>
+          <span className="import-selection-actions">
+            {filters.show !== "strays" ? (
+              <button type="button" className="button secondary small" onClick={() => setFilter("show", "strays")}>
+                Show them
+              </button>
+            ) : (
+              <button type="button" className="button secondary small" onClick={() => setFilter("show", "all")}>
+                Back to the groups
+              </button>
+            )}
+            <button
+              type="button"
+              className="button secondary small"
+              onClick={() =>
+                apply(
+                  setExcluded(groups, new Set(strays.map((g) => g.id)), false),
+                  `Kept ${strays.length.toLocaleString()} strays, each as its own entry.`,
+                )
+              }
+            >
+              Keep each as its own entry
+            </button>
+            <button
+              type="button"
+              className="button secondary small"
+              onClick={() =>
+                apply(
+                  setExcluded(groups, new Set(strays.map((g) => g.id)), true),
+                  `Excluded ${strays.length.toLocaleString()} strays from the import.`,
+                )
+              }
+            >
+              Exclude them
+            </button>
+          </span>
+        </div>
+      )}
       {message && <p className="import-message">{message}</p>}
 
       <div className="import-table-wrap">
@@ -587,7 +753,11 @@ export function ImportGroupsPanel({
                           {open ? "▾" : "▸"} {s.count} reports
                         </button>
                       )}
-                      {group.excluded && <div className="match-badge import-excluded-tag">Excluded</div>}
+                      {group.stray ? (
+                        <div className="match-badge import-excluded-tag">Stray</div>
+                      ) : (
+                        group.excluded && <div className="match-badge import-excluded-tag">Excluded</div>
+                      )}
                     </td>
                     <td>{TYPE_LABEL[s.priType]}</td>
                     <td>

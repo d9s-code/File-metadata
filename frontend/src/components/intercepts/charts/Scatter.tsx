@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useId,
   useRef,
   useState,
   type PointerEvent,
@@ -18,10 +19,17 @@ export interface ScatterPoint {
   matched: boolean | null;
 }
 
+/** A group's extent on the two axes, outlined over the points. */
+export interface ScatterBox {
+  x: [number, number];
+  y: [number, number];
+  count: number;
+}
+
 /** Reports by RF and PRI (a stagger's frame time) — where clusters show up
  * as clumps. Points matching a Mode and points outside every Mode get the two
- * chart colours. Drag a box to filter to it; click to clear. Drawn on a
- * canvas so tens of thousands of points stay quick. */
+ * chart colours; groups can be outlined as boxes. Drag a box to filter to it;
+ * click to clear. Drawn on a canvas so tens of thousands of points stay quick. */
 export function Scatter({
   header,
   xAxis,
@@ -31,8 +39,14 @@ export function Scatter({
   yDomain,
   selection,
   onSelect,
+  boxes = [],
+  boxStyle = "solid",
 }: {
   points: ScatterPoint[];
+  /** Group extents to outline. */
+  boxes?: ScatterBox[];
+  /** Dashed for a preview, solid for the groups as they are. */
+  boxStyle?: "solid" | "dashed";
   /** The left of the card header — the title and axis pickers. */
   header: ReactNode;
   /** Short names and units, for the hover read-out and axis titles. */
@@ -54,6 +68,7 @@ export function Scatter({
     setDragState(d);
   };
   const [hover, setHover] = useState<{ px: number; py: number } | null>(null);
+  const clipId = `scatter-clip-${useId().replace(/:/g, "")}`;
 
   const plotW = Math.max(10, width - M.left - M.right);
   const plotH = HEIGHT - M.top - M.bottom;
@@ -240,6 +255,33 @@ export function Scatter({
               >
                 {xAxis.short} ({xAxis.unit})
               </text>
+              <defs>
+                <clipPath id={clipId}>
+                  <rect x={M.left} y={M.top} width={plotW} height={plotH} />
+                </clipPath>
+              </defs>
+              <g clipPath={`url(#${clipId})`}>
+                {boxes.map((b, i) => {
+                  if (b.x[1] < xl || b.x[0] > xh || b.y[1] < yl || b.y[0] > yh) return null;
+                  // At least a few pixels, so a tight group is still visible as a box.
+                  const x0 = sx(b.x[0]);
+                  const x1 = sx(b.x[1]);
+                  const y0 = sy(b.y[1]);
+                  const y1 = sy(b.y[0]);
+                  const w = Math.max(8, x1 - x0);
+                  const h = Math.max(8, y1 - y0);
+                  return (
+                    <rect
+                      key={i}
+                      className={boxStyle === "dashed" ? "viz-groupbox dashed" : "viz-groupbox"}
+                      x={(x0 + x1) / 2 - w / 2}
+                      y={(y0 + y1) / 2 - h / 2}
+                      width={w}
+                      height={h}
+                    />
+                  );
+                })}
+              </g>
               {box && box.w > 0 && box.h > 0 && (
                 <rect
                   className="viz-selection"

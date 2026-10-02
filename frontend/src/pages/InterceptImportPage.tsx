@@ -106,6 +106,7 @@ export function InterceptImportPage() {
   const byLine = useMemo(() => new Map((parsed?.reports ?? []).map((r) => [r.line, r])), [parsed]);
   const included = groups.filter((g) => !g.excluded);
   const excludedReports = groups.filter((g) => g.excluded).reduce((n, g) => n + g.lines.length, 0);
+  const strayReports = groups.filter((g) => g.stray).reduce((n, g) => n + g.lines.length, 0);
   const tooMany = included.length > MAX_IMPORT_ENTRIES;
   const destinationReady =
     !!emitterId && (target === "new" ? name.trim().length > 0 : interceptId.length > 0);
@@ -316,7 +317,12 @@ export function InterceptImportPage() {
             <p>
               <strong>{included.length.toLocaleString()}</strong> entr{included.length === 1 ? "y" : "ies"} from{" "}
               {(parsed.reports.length - excludedReports).toLocaleString()} reports
-              {excludedReports > 0 && <span className="hint-text"> · {excludedReports.toLocaleString()} reports excluded</span>}
+              {strayReports > 0 && (
+                <span className="hint-text"> · {strayReports.toLocaleString()} strays held out</span>
+              )}
+              {excludedReports > strayReports && (
+                <span className="hint-text"> · {(excludedReports - strayReports).toLocaleString()} reports excluded</span>
+              )}
               {parsed.skipped.length > 0 && (
                 <span className="hint-text">
                   {" "}
