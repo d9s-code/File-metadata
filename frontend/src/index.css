@@ -3292,6 +3292,67 @@ label.grow {
   cursor: grab;
 }
 
+/* What the Modes don't cover, in a window over the grouping page. */
+.import-filters-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.import-filters-note p {
+  margin: 0.4rem 0;
+}
+.uncovered-summary {
+  padding: 0.6rem 1.1rem 0;
+  flex-shrink: 0;
+}
+.uncovered-summary p {
+  margin: 0 0 0.5rem;
+}
+.uncovered-controls,
+.uncovered-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.25rem;
+}
+.uncovered-actions {
+  justify-content: space-between;
+  margin-bottom: 0.6rem;
+}
+.uncovered-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+.uncovered-reason {
+  background: var(--card-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-size: 0.85rem;
+  box-shadow: none;
+}
+.uncovered-reason:hover {
+  background: var(--hover-bg);
+  box-shadow: none;
+}
+.uncovered-reason.active {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--hover-bg);
+}
+.uncovered-spans {
+  margin: 0 0 0.6rem;
+  font-size: 0.9rem;
+}
+.uncovered-window .source-overlay-body > p.hint-text {
+  margin: 0 0 0.6rem;
+}
+
 /* An Intercept's reports */
 .report-sort {
   background: none;

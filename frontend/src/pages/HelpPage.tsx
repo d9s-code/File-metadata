@@ -697,6 +697,18 @@ export function HelpPage() {
             charts, as a box covering the time it was heard and its range of values.
           </p>
           <p>
+            <strong>Not covered by the Modes…</strong> (beside the filters, once an Emitter with Modes is chosen)
+            opens a window listing everything the Modes don&apos;t cover, using the Match column&apos;s test. Under{" "}
+            <strong>Reports</strong>, every report that falls outside every Mode of its PRI type, with why: off on
+            RF, PRI (or frame time) or PW alone — naming the nearest Mode and its range — off on two or more, or no
+            Mode of that PRI type at all. Click a reason to list only those; a line above the table gives the RF,
+            PRI and PW they reach. Under <strong>Rows</strong>, the rows that don&apos;t match a Mode, and those that
+            match on their means but hold reports outside. The window only lists:{" "}
+            <strong>Select … in the table</strong> (or a report&apos;s row) closes it and selects those rows in the
+            table, listing just them, to merge, split or exclude as you see fit. Choose whether excluded rows count
+            at the top.
+          </p>
+          <p>
             The <strong>sliders</strong> set Auto group&apos;s gaps. As you move them, the line under them says how
             many groups and strays Auto group would make, the charts mark where each group would sit, and the scatter
             outlines each one as a dashed box — a preview only; your grouping changes when you press the button. Set

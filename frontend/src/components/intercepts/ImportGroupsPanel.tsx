@@ -25,6 +25,7 @@ import { matchEntry } from "./interceptMatch";
 import { EntryMatchCell } from "./EntryMatchCell";
 import { useConfirmDialog } from "../common/ConfirmDialog";
 import { ImportCharts, type Range, type RangeParam } from "./charts/ImportCharts";
+import { UncoveredWindow } from "./UncoveredWindow";
 import type { Mode } from "../../types/domain";
 
 const PAGE_SIZE = 100;
@@ -192,6 +193,7 @@ export function ImportGroupsPanel({
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [page, setPage] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
+  const [uncoveredOpen, setUncoveredOpen] = useState(false);
   const { confirmDelete: confirm, dialog } = useConfirmDialog();
   const [chartsOpen, setChartsOpen] = useRememberedOpen(CHARTS_OPEN_KEY, true);
   const [chartTab, setChartTabState] = useState<ChartTab>(() => {
@@ -668,7 +670,42 @@ export function ImportGroupsPanel({
           </button>
         )}
       </div>
-      <p className="hint-text">Filters compare each row's mean; they only narrow what's listed and selected.</p>
+      <div className="import-filters-note">
+        <p className="hint-text">Filters compare each row's mean; they only narrow what's listed and selected.</p>
+        <button
+          type="button"
+          className="button secondary small"
+          disabled={!modes || modes.length === 0}
+          title={
+            modes && modes.length > 0
+              ? "Every report and row the Emitter's Modes don't cover, in a window of its own"
+              : "Choose an Emitter with Modes first"
+          }
+          onClick={() => setUncoveredOpen(true)}
+        >
+          Not covered by the Modes…
+        </button>
+      </div>
+      {uncoveredOpen && modes && (
+        <UncoveredWindow
+          rows={rows}
+          reports={reports}
+          modes={modes}
+          emitterId={emitterId}
+          fileLine={fileLine}
+          onClose={() => setUncoveredOpen(false)}
+          onSelectRows={(ids) => {
+            setUncoveredOpen(false);
+            setSelected(new Set(ids));
+            setFilters({ ...NO_FILTERS, show: "selected" });
+            setPage(0);
+            setJumpTo(ids[0] ?? null);
+            setMessage(
+              `Selected ${ids.length.toLocaleString()} row${ids.length === 1 ? "" : "s"} from "Not covered by the Modes" — the table lists just ${ids.length === 1 ? "it" : "them"} (Show → All rows to see the rest).`,
+            );
+          }}
+        />
+      )}
 
       <div className="import-selection">
         <span>
