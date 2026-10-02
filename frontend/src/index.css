@@ -3255,6 +3255,17 @@ label.grow {
 .data-table tbody tr.import-excluded > td {
   opacity: 0.55;
 }
+.data-table tbody tr.import-row-marked > td {
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+.data-table tbody tr.import-row-marked > td:first-child {
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+.import-marked-tag {
+  margin-top: 0.2rem;
+  background: var(--badge-blue-bg);
+  color: var(--badge-blue-fg);
+}
 .import-excluded-tag {
   margin-top: 0.2rem;
   background: var(--badge-neutral-bg);

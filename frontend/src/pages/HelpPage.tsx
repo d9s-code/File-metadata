@@ -667,8 +667,17 @@ export function HelpPage() {
             marked reports inside a box — box a signal on RF, then Ctrl-box its PRI line to leave out reports that
             don&apos;t belong. The bar above the charts says how many are marked and their RF, PRI and PW spans;{" "}
             <strong>Make a group</strong> takes them out of whatever rows they were in and makes them one row (one
-            per PRI type if they&apos;re mixed). Click a chart to clear the marks. The charts follow the table
-            filters, and the page remembers which tab you left open.
+            per PRI type if they&apos;re mixed), selects the new rows and scrolls the table to them. Click a chart
+            to clear the marks. The charts follow the table filters, and the page remembers which tab you left open.
+          </p>
+          <p>
+            The two ways of grouping work together. While reports are marked, the table flags every row holding
+            some of them (&ldquo;Marked&rdquo;, or &ldquo;12 marked&rdquo; when only part of the row is), and{" "}
+            <strong>Show their rows in the table</strong> (or Show &rarr; Rows with marked reports) lists just those.
+            The other way round, rows you select in the table — after Auto group, a merge or a split — light up on
+            the time charts and the scatter while nothing is marked, and the bar above the charts gives their RF, PRI
+            and PW spans. The scatter&apos;s <strong>Outline</strong> setting also draws each group on the time
+            charts, as a box covering the time it was heard and its range of values.
           </p>
           <p>
             The <strong>sliders</strong> set Auto group&apos;s gaps. As you move them, the line under them says how

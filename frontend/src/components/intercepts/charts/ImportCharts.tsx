@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CsvReport, ReportPriType } from "../interceptCsv";
 import { missionTimeMs } from "../interceptCsv";
 import { formatTime, timeTicks } from "./timeAxis";
@@ -135,9 +135,24 @@ export function ImportCharts({
   showDistributions = true,
   showTime = false,
   onGroupLines,
+  selectedLines = null,
+  selectedRows = 0,
+  onClearSelection,
+  onMarkedChange,
+  markedRows = 0,
+  onShowMarkedRows,
 }: {
   /** Make groups of the reports marked on the time charts. */
   onGroupLines?: (lines: number[]) => void;
+  /** Reports of the rows selected in the table — highlighted when nothing is marked. */
+  selectedLines?: Set<number> | null;
+  selectedRows?: number;
+  onClearSelection?: () => void;
+  /** The marked reports, for the table to flag their rows. */
+  onMarkedChange?: (lines: Set<number>) => void;
+  /** How many table rows hold marked reports. */
+  markedRows?: number;
+  onShowMarkedRows?: () => void;
   /** The scatter and the per-parameter distributions. */
   showDistributions?: boolean;
   /** RF, PRI and PW against time. */
@@ -273,37 +288,6 @@ export function ImportCharts({
     }
   }
 
-  const { points, inViewCount, matchedInView, xExtent, yExtent } =
-    useMemo(() => {
-      const inView = base.filter((r) => passes(r, null));
-      const scatterRows = inView.filter(
-        (r) => axisValue(r, axes.x) != null && axisValue(r, axes.y) != null,
-      );
-      return {
-        points: scatterRows.map(
-          (r): ScatterPoint => ({
-            x: axisValue(r, axes.x)!,
-            y: axisValue(r, axes.y)!,
-            matched:
-              modes && modes.length > 0
-                ? (matchedByLine.get(r.line) ?? false)
-                : null,
-          }),
-        ),
-        inViewCount: inView.length,
-        matchedInView: inView.filter((r) => matchedByLine.get(r.line)).length,
-        xExtent: zoom(
-          ranges[axes.x],
-          scatterRows.map((r) => axisValue(r, axes.x)!),
-        ),
-        yExtent: zoom(
-          ranges[axes.y],
-          scatterRows.map((r) => axisValue(r, axes.y)!),
-        ),
-      };
-      // passes reads ranges.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [base, ranges, modes, matchedByLine, axes]);
 
   // Which groups the scatter outlines — remembered in this browser.
   const [boxSource, setBoxSourceState] = useState<BoxSource>(() => {
@@ -322,10 +306,14 @@ export function ImportCharts({
       // Not remembered — fine.
     }
   }
+  const byLine = useMemo(() => new Map(reports.map((r) => [r.line, r])), [reports]);
+  const outlineSource = useMemo(
+    () => (boxSource === "preview" ? preview : boxSource === "groups" ? groups.filter((g) => !g.excluded) : null),
+    [boxSource, preview, groups],
+  );
   const boxes = useMemo(() => {
-    const source = boxSource === "preview" ? preview : boxSource === "groups" ? groups.filter((g) => !g.excluded) : null;
+    const source = outlineSource;
     if (!source) return [];
-    const byLine = new Map(reports.map((r) => [r.line, r]));
     const out: ScatterBox[] = [];
     for (const g of source) {
       // A single report is a point, not a group.
@@ -348,7 +336,7 @@ export function ImportCharts({
       if (Number.isFinite(x0)) out.push({ x: [x0, x1], y: [y0, y1], count: g.lines.length });
     }
     return out;
-  }, [boxSource, preview, groups, reports, axes, onlyLines]);
+  }, [outlineSource, byLine, axes, onlyLines]);
 
   // Boxes marked on the time charts: a time span and a range of one parameter.
   // The first box marks what's in it; later ones add to it (Shift) or narrow it to what's inside (Ctrl/Alt).
@@ -383,8 +371,56 @@ export function ImportCharts({
     }
     return out;
   }, [marks, base, times]);
+  // Tell the table which reports are marked, so it can flag their rows — and nothing once the charts close.
+  useEffect(() => {
+    onMarkedChange?.(marked);
+    // Only when the marks change; the callback is a fresh function each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [marked]);
+  useEffect(
+    () => () => onMarkedChange?.(new Set()),
+    // On unmount only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+  // What lights up on the charts: the marked reports, or else the reports of the rows selected in the table.
+  const highlight = marked.size > 0 ? marked : selectedLines && selectedLines.size > 0 ? selectedLines : null;
+
+  const { points, inViewCount, matchedInView, xExtent, yExtent } =
+    useMemo(() => {
+      const inView = base.filter((r) => passes(r, null));
+      const scatterRows = inView.filter(
+        (r) => axisValue(r, axes.x) != null && axisValue(r, axes.y) != null,
+      );
+      return {
+        points: scatterRows.map(
+          (r): ScatterPoint => ({
+            x: axisValue(r, axes.x)!,
+            y: axisValue(r, axes.y)!,
+            matched:
+              modes && modes.length > 0
+                ? (matchedByLine.get(r.line) ?? false)
+                : null,
+            marked: highlight?.has(r.line) ?? false,
+          }),
+        ),
+        inViewCount: inView.length,
+        matchedInView: inView.filter((r) => matchedByLine.get(r.line)).length,
+        xExtent: zoom(
+          ranges[axes.x],
+          scatterRows.map((r) => axisValue(r, axes.x)!),
+        ),
+        yExtent: zoom(
+          ranges[axes.y],
+          scatterRows.map((r) => axisValue(r, axes.y)!),
+        ),
+      };
+      // passes reads ranges.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [base, ranges, modes, matchedByLine, axes, highlight]);
   const markedSummary = useMemo(() => {
-    if (marked.size === 0) return null;
+    if (!highlight) return null;
+    const marked = highlight;
     const kinds = new Map<string, number>();
     const span = { rf: [Infinity, -Infinity], pri: [Infinity, -Infinity], pw: [Infinity, -Infinity] } as Record<
       RangeParam,
@@ -401,8 +437,8 @@ export function ImportCharts({
         if (v > span[p][1]) span[p][1] = v;
       }
     }
-    return { kinds, span };
-  }, [marked, base]);
+    return { kinds, span, count: [...marked].filter((l) => byLine.has(l)).length };
+  }, [highlight, base, byLine]);
 
   // RF, PRI and PW against time: each chart filtered like its histogram, all on one time axis.
   const timeCharts = useMemo(() => {
@@ -422,7 +458,7 @@ export function ImportCharts({
           x: t,
           y: v,
           matched: modes && modes.length > 0 ? (matchedByLine.get(r.line) ?? false) : null,
-          marked: marked.has(r.line),
+          marked: highlight?.has(r.line) ?? false,
         });
       }
       return { param, points: pts, yDomain: zoom(ranges[param], pts.map((p) => p.y)) };
@@ -430,7 +466,51 @@ export function ImportCharts({
     return { charts, xDomain, noTime };
     // passes reads ranges.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showTime, base, ranges, modes, matchedByLine, times, marked]);
+  }, [showTime, base, ranges, modes, matchedByLine, times, highlight]);
+
+  // Each group's extent on the time charts: the time it spans and its range of values.
+  const timeBoxes = useMemo(() => {
+    const out: Record<RangeParam, ScatterBox[]> = { rf: [], pri: [], pw: [] };
+    if (!showTime || !outlineSource) return out;
+    for (const g of outlineSource) {
+      if (g.lines.length < 2) continue;
+      if (onlyLines && !onlyLines.has(g.lines[0])) continue;
+      let t0 = Infinity;
+      let t1 = -Infinity;
+      const span = { rf: [Infinity, -Infinity], pri: [Infinity, -Infinity], pw: [Infinity, -Infinity] } as Record<
+        RangeParam,
+        [number, number]
+      >;
+      for (const l of g.lines) {
+        const t = times.get(l);
+        const r = byLine.get(l);
+        if (t == null || !r) continue;
+        if (t < t0) t0 = t;
+        if (t > t1) t1 = t;
+        for (const p of ["rf", "pri", "pw"] as RangeParam[]) {
+          const v = axisValue(r, p);
+          if (v == null) continue;
+          if (v < span[p][0]) span[p][0] = v;
+          if (v > span[p][1]) span[p][1] = v;
+        }
+      }
+      if (!Number.isFinite(t0)) continue;
+      for (const p of ["rf", "pri", "pw"] as RangeParam[])
+        if (Number.isFinite(span[p][0])) out[p].push({ x: [t0, t1], y: span[p], count: g.lines.length });
+    }
+    return out;
+  }, [showTime, outlineSource, onlyLines, times, byLine]);
+
+  const outlineSelect = (
+    <label className="inline-label map-axis">
+      Outline
+      <select value={boxSource} onChange={(e) => setBoxSource(e.target.value as BoxSource)}>
+        <option value="preview">Auto group preview</option>
+        <option value="groups">Groups as they are</option>
+        <option value="none">Nothing</option>
+      </select>
+    </label>
+  );
 
   const axisSelect = (
     value: RangeParam,
@@ -510,6 +590,81 @@ export function ImportCharts({
           </span>
         )}
       </div>
+      {markedSummary && (marked.size > 0 || showTime) && (
+        <div className="import-marks">
+          <span>
+            {marked.size > 0 ? (
+              <>
+                <strong>{markedSummary.count.toLocaleString()}</strong> report{markedSummary.count === 1 ? "" : "s"}{" "}
+                marked
+              </>
+            ) : (
+              <>
+                Highlighting the <strong>{markedSummary.count.toLocaleString()}</strong> report
+                {markedSummary.count === 1 ? "" : "s"} of the {selectedRows} row{selectedRows === 1 ? "" : "s"}{" "}
+                selected in the table
+              </>
+            )}
+            {(["rf", "pri", "pw"] as RangeParam[]).map((p) => {
+              const [lo, hi] = markedSummary.span[p];
+              if (!Number.isFinite(lo)) return null;
+              return (
+                <span key={p} className="hint-text">
+                  {" · "}
+                  {AXIS_INFO[p].short} {lo === hi ? fmtValue(lo) : `${fmtValue(lo)}–${fmtValue(hi)}`}{" "}
+                  {AXIS_INFO[p].unit}
+                </span>
+              );
+            })}
+            {markedSummary.kinds.size > 1 && (
+              <span className="hint-text">
+                {" · "}
+                {[...markedSummary.kinds].map(([k, n]) => `${n.toLocaleString()} ${kindLabel(k)}`).join(", ")}
+              </span>
+            )}
+            {marked.size > 0 && markedRows > 0 && (
+              <span className="hint-text">
+                {" · "}
+                in {markedRows.toLocaleString()} table row{markedRows === 1 ? "" : "s"}
+              </span>
+            )}
+          </span>
+          <span className="import-selection-actions">
+            {marked.size > 0 ? (
+              <>
+                {onGroupLines && (
+                  <button
+                    type="button"
+                    className="button primary small"
+                    onClick={() => {
+                      onGroupLines([...marked]);
+                      setMarks([]);
+                    }}
+                  >
+                    {markedSummary.kinds.size > 1
+                      ? `Make ${markedSummary.kinds.size} groups — one per PRI type`
+                      : `Make a group of ${marked.size === 1 ? "it" : `these ${marked.size.toLocaleString()}`}`}
+                  </button>
+                )}
+                {onShowMarkedRows && markedRows > 0 && (
+                  <button type="button" className="button secondary small" onClick={onShowMarkedRows}>
+                    Show their row{markedRows === 1 ? "" : "s"} in the table
+                  </button>
+                )}
+                <button type="button" className="button secondary small" onClick={() => setMarks([])}>
+                  Clear marks
+                </button>
+              </>
+            ) : (
+              onClearSelection && (
+                <button type="button" className="button secondary small" onClick={onClearSelection}>
+                  Clear selection
+                </button>
+              )
+            )}
+          </span>
+        </div>
+      )}
       {showDistributions && (
         <>
         <Scatter
@@ -526,17 +681,7 @@ export function ImportCharts({
               >
                 ⇄ Swap
               </button>
-              <label className="inline-label map-axis">
-                Outline
-                <select
-                  value={boxSource}
-                  onChange={(e) => setBoxSource(e.target.value as BoxSource)}
-                >
-                  <option value="preview">Auto group preview</option>
-                  <option value="groups">Groups as they are</option>
-                  <option value="none">Nothing</option>
-                </select>
-              </label>
+              {outlineSelect}
               <span className="hint-text">
                 PRI is a stagger&apos;s frame time
                 {boxes.length > MAX_BOXES &&
@@ -600,51 +745,9 @@ export function ImportCharts({
             reports — they light up on all three charts, so marking a stretch of RF shows its PRI and PW. Hold{" "}
             <kbd>Shift</kbd> to add another box, or <kbd>Ctrl</kbd> (<kbd>⌘</kbd>, <kbd>Alt</kbd>) to keep only the
             marked reports inside a box — say, to drop odd PRI values from an RF box. Click a chart to clear. PRI is
-            a stagger&apos;s frame time.
+            a stagger&apos;s frame time. Rows selected in the table light up here too (while nothing is marked),
+            and the table flags the rows holding marked reports. {outlineSelect}
           </p>
-          {markedSummary && (
-            <div className="import-marks">
-              <span>
-                <strong>{marked.size.toLocaleString()}</strong> report{marked.size === 1 ? "" : "s"} marked
-                {(["rf", "pri", "pw"] as RangeParam[]).map((p) => {
-                  const [lo, hi] = markedSummary.span[p];
-                  if (!Number.isFinite(lo)) return null;
-                  return (
-                    <span key={p} className="hint-text">
-                      {" · "}
-                      {AXIS_INFO[p].short} {lo === hi ? fmtValue(lo) : `${fmtValue(lo)}–${fmtValue(hi)}`}{" "}
-                      {AXIS_INFO[p].unit}
-                    </span>
-                  );
-                })}
-                {markedSummary.kinds.size > 1 && (
-                  <span className="hint-text">
-                    {" · "}
-                    {[...markedSummary.kinds].map(([k, n]) => `${n.toLocaleString()} ${kindLabel(k)}`).join(", ")}
-                  </span>
-                )}
-              </span>
-              <span className="import-selection-actions">
-                {onGroupLines && (
-                  <button
-                    type="button"
-                    className="button primary small"
-                    onClick={() => {
-                      onGroupLines([...marked]);
-                      setMarks([]);
-                    }}
-                  >
-                    {markedSummary.kinds.size > 1
-                      ? `Make ${markedSummary.kinds.size} groups — one per PRI type`
-                      : `Make a group of ${marked.size === 1 ? "it" : `these ${marked.size.toLocaleString()}`}`}
-                  </button>
-                )}
-                <button type="button" className="button secondary small" onClick={() => setMarks([])}>
-                  Clear marks
-                </button>
-              </span>
-            </div>
-          )}
           {timeCharts.charts.map((c) => (
             <Scatter
               key={c.param}
@@ -663,6 +766,8 @@ export function ImportCharts({
               xDomain={timeCharts.xDomain}
               yDomain={c.yDomain}
               selection={null}
+              boxes={timeBoxes[c.param].length > MAX_BOXES ? [] : timeBoxes[c.param]}
+              boxStyle={boxSource === "preview" ? "dashed" : "solid"}
               markBoxes={marks
                 .filter((m) => m.param === c.param)
                 .map((m) => ({ x: m.x, y: m.y, narrow: m.op === "narrow" }))}

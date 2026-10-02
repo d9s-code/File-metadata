@@ -41,7 +41,7 @@ interface Filters {
   pwMax: string;
   track: string;
   identified: string;
-  show: "all" | "included" | "excluded" | "strays";
+  show: "all" | "included" | "excluded" | "strays" | "selected" | "marked";
 }
 const NO_FILTERS: Filters = {
   type: "",
@@ -212,11 +212,35 @@ export function ImportGroupsPanel({
     [reports],
   );
 
+  // Reports marked on the Over time charts, and how many of them each row holds.
+  const [markedLines, setMarkedLines] = useState<Set<number>>(() => new Set());
+  const markedPerRow = useMemo(() => {
+    const out = new Map<number, number>();
+    if (markedLines.size === 0) return out;
+    for (const g of groups) {
+      let n = 0;
+      for (const l of g.lines) if (markedLines.has(l)) n++;
+      if (n > 0) out.set(g.id, n);
+    }
+    return out;
+  }, [groups, markedLines]);
+  // The reports of the selected rows — highlighted on the charts while nothing is marked.
+  const selectedLines = useMemo(
+    () => new Set(groups.filter((g) => selected.has(g.id)).flatMap((g) => g.lines)),
+    [groups, selected],
+  );
+  // A row to bring into view once it's rendered — a group just made from marked reports.
+  const [jumpTo, setJumpTo] = useState<number | null>(null);
+
   const visible = useMemo(() => {
     const f = filters;
     const track = f.track.trim();
     return rows.filter(({ group, summary: s }) => {
-      if (f.show === "strays" ? !group.stray : group.stray) return false;
+      if (f.show === "selected") {
+        if (!selected.has(group.id)) return false;
+      } else if (f.show === "marked") {
+        if (!markedPerRow.has(group.id)) return false;
+      } else if (f.show === "strays" ? !group.stray : group.stray) return false;
       if (f.show === "included" && group.excluded) return false;
       if (f.show === "excluded" && !group.excluded) return false;
       if (f.type && s.priType !== f.type) return false;
@@ -227,7 +251,25 @@ export function ImportGroupsPanel({
       if (f.identified && !s.identifiedAs.some((i) => i.label.split(" / ")[0] === f.identified)) return false;
       return true;
     });
-  }, [rows, filters]);
+  }, [rows, filters, selected, markedPerRow]);
+
+  useEffect(() => {
+    if (jumpTo == null) return;
+    const index = visible.findIndex((r) => r.group.id === jumpTo);
+    if (index < 0) {
+      setJumpTo(null);
+      return;
+    }
+    const targetPage = Math.floor(index / PAGE_SIZE);
+    if (page !== targetPage) {
+      setPage(targetPage);
+      return;
+    }
+    setJumpTo(null);
+    window.requestAnimationFrame(() =>
+      document.getElementById(`import-row-${jumpTo}`)?.scrollIntoView({ block: "center", behavior: "smooth" }),
+    );
+  }, [jumpTo, visible, page]);
 
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
@@ -489,12 +531,27 @@ export function ImportGroupsPanel({
             onGroupLines={(lines) => {
               const result = groupReports(groups, lines, byLine);
               const n = result.made.length;
-              apply(
-                result.groups,
-                n === 1
-                  ? `Made a group of ${lines.length.toLocaleString()} marked report${lines.length === 1 ? "" : "s"}.`
-                  : `Made ${n} groups of the ${lines.length.toLocaleString()} marked reports — one per PRI type.`,
+              onChange(result.groups);
+              setSplitting(null);
+              // The new rows are selected — so they stay lit on the charts — and brought into view in the table.
+              setSelected(new Set(result.made.map((g) => g.id)));
+              if (filters.show === "marked") setFilters((f) => ({ ...f, show: "selected" }));
+              setJumpTo(result.made[0]?.id ?? null);
+              setMessage(
+                (n === 1
+                  ? `Made a group of ${lines.length.toLocaleString()} marked report${lines.length === 1 ? "" : "s"}`
+                  : `Made ${n} groups of the ${lines.length.toLocaleString()} marked reports — one per PRI type`) +
+                  (n === 1 ? " and selected it in the table below." : " and selected them in the table below."),
               );
+            }}
+            selectedLines={selectedLines}
+            selectedRows={selected.size}
+            onClearSelection={() => setSelected(new Set())}
+            onMarkedChange={setMarkedLines}
+            markedRows={markedPerRow.size}
+            onShowMarkedRows={() => {
+              setFilter("show", "marked");
+              document.querySelector(".import-filters")?.scrollIntoView({ block: "start", behavior: "smooth" });
             }}
             reports={reports}
             excludedLines={excludedLines}
@@ -570,6 +627,10 @@ export function ImportGroupsPanel({
             <option value="included">Included</option>
             <option value="excluded">Excluded</option>
             {(strays.length > 0 || filters.show === "strays") && <option value="strays">Strays</option>}
+            {(selected.size > 0 || filters.show === "selected") && <option value="selected">Selected rows</option>}
+            {(markedLines.size > 0 || filters.show === "marked") && (
+              <option value="marked">Rows with marked reports</option>
+            )}
           </select>
         </label>
         {filtered && (
@@ -794,7 +855,14 @@ export function ImportGroupsPanel({
                 : null;
               return (
                 <Fragment key={group.id}>
-                  <tr className={group.excluded ? "import-excluded" : undefined}>
+                  <tr
+                    id={`import-row-${group.id}`}
+                    className={
+                      [group.excluded && "import-excluded", markedPerRow.has(group.id) && "import-row-marked"]
+                        .filter(Boolean)
+                        .join(" ") || undefined
+                    }
+                  >
                     <td>
                       <input
                         type="checkbox"
@@ -820,6 +888,13 @@ export function ImportGroupsPanel({
                         <div className="match-badge import-excluded-tag">Stray</div>
                       ) : (
                         group.excluded && <div className="match-badge import-excluded-tag">Excluded</div>
+                      )}
+                      {markedPerRow.has(group.id) && (
+                        <div className="match-badge import-marked-tag" title="Reports marked on the Over time charts">
+                          {markedPerRow.get(group.id) === s.count
+                            ? "Marked"
+                            : `${markedPerRow.get(group.id)!.toLocaleString()} marked`}
+                        </div>
                       )}
                     </td>
                     <td>
