@@ -4370,3 +4370,7 @@ label.map-axis select { font-size: 0.8rem; padding: 0.1rem 0.3rem; }
     display: none;
   }
 }
+.backup-download {
+  margin-left: 0.6rem;
+  font-size: 0.85rem;
+}

@@ -1,4 +1,4 @@
-import { api } from "./client";
+import { api, API_BASE_URL } from "./client";
 
 export type BackupKind = "scheduled" | "manual" | "before-restore" | "unknown";
 
@@ -27,6 +27,7 @@ export interface BackupItem {
   has_overview: boolean;
   verification: BackupVerification | null;
   copied_to: string | null;
+  sha256: string | null;
 }
 
 export interface SchedulerStatus {
@@ -76,6 +77,8 @@ export const backupsApi = {
   health: () => api.get<BackupHealth>("/admin/backups/health"),
   backUpNow: () => api.post<BackupItem>("/admin/backups"),
   verify: (file: string) => api.post<BackupItem>(`/admin/backups/${encodeURIComponent(file)}/verify`),
+  /** A plain link, so the browser streams the file into its own downloads. */
+  downloadUrl: (file: string) => `${API_BASE_URL}/admin/backups/${encodeURIComponent(file)}/download`,
   diff: (from: string, to: string) =>
     api.get<BackupDiff>(`/admin/backups/diff?${new URLSearchParams({ from, to }).toString()}`),
 };

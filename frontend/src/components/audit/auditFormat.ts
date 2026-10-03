@@ -17,6 +17,7 @@ const ENTITY_TYPE_LABELS: Record<string, string> = {
   prs_import: "PRS Imports",
   user: "Users",
   auth: "Auth",
+  backup: "Backups",
 };
 
 export function entityTypeLabel(entityType: string): string {
@@ -38,6 +39,7 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   discard: "Discarded changes",
   revert: "Reverted",
   fork: "Forked",
+  download: "Downloaded",
 };
 
 export function actionLabel(action: AuditAction): string {

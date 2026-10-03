@@ -204,3 +204,20 @@ def test_unchanged_leaves_out_items_in_recently_deleted():
     live = {**item, "id": "e2", "deleted": False}
     overview = {"emitters": [item, live], "platforms": [], "mdfs": []}
     assert backup_service.diff_overviews(overview, overview)["emitters"]["unchanged"] == 1
+
+
+def test_download_returns_the_file_and_is_audited(admin_client, editor_client, backup_dir, db_session):
+    from app.models.audit_log import AuditLog
+
+    name = admin_client.post("/admin/backups").json()["file"]
+    resp = admin_client.get(f"/admin/backups/{name}/download")
+    assert resp.status_code == 200
+    assert resp.content == (backup_dir / name).read_bytes()
+    assert name in resp.headers["content-disposition"]
+
+    summaries = [a.summary for a in db_session.query(AuditLog).filter(AuditLog.entity_type == "backup")]
+    assert f"Took backup {name}" in summaries and f"Downloaded backup {name}" in summaries
+
+    assert editor_client.get(f"/admin/backups/{name}/download").status_code == 403
+    assert admin_client.get("/admin/backups/emitterdb_20000101_000000.dump/download").status_code == 404
+    assert admin_client.get("/admin/backups/..%2Fsecret/download").status_code == 404

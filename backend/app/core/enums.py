@@ -167,6 +167,7 @@ class AuditAction(str, enum.Enum):
     discard = "discard"
     revert = "revert"
     fork = "fork"
+    download = "download"
 
 
 class AuditEntityType(str, enum.Enum):
@@ -201,3 +202,4 @@ class AuditEntityType(str, enum.Enum):
     parameter_sequence = "parameter_sequence"
     user = "user"
     auth = "auth"
+    backup = "backup"

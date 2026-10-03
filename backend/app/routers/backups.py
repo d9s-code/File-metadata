@@ -4,11 +4,15 @@ data) hold — see app/services/backup_service.py. Restoring stays a deliberate
 command-line step (scripts/restore_db.py), never a button."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
 
 from app.core.csrf import verify_csrf
-from app.core.enums import Role
+from app.core.enums import AuditAction, AuditEntityType, Role
+from app.database import get_db
 from app.deps import require_role
 from app.services import backup_service
+from app.services.audit_service import record_audit
 from app.services.backup_service import BackupError
 
 router = APIRouter(prefix="/admin/backups", tags=["backups"], dependencies=[Depends(require_role(Role.admin))])
@@ -28,6 +32,7 @@ def _item(path_name: str, manifest: dict | None, when_iso: str, size: int) -> di
         "has_overview": m.get("overview") is not None,
         "verification": m.get("verification"),
         "copied_to": m.get("copied_to"),
+        "sha256": m.get("sha256"),
     }
 
 
@@ -52,12 +57,41 @@ def backup_health() -> dict:
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, dependencies=[Depends(verify_csrf)])
-def back_up_now(user=Depends(require_role(Role.admin))) -> dict:
+def back_up_now(user=Depends(require_role(Role.admin)), db: Session = Depends(get_db)) -> dict:
     try:
         manifest = backup_service.take_backup(kind="manual", created_by=user.username)
     except BackupError as err:
         _fail(err)
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.create,
+        entity_type=AuditEntityType.backup.value,
+        entity_id=None,
+        summary=f"Took backup {manifest['file']}",
+    )
+    db.commit()
     return next(i for i in _items() if i["file"] == manifest["file"])
+
+
+@router.get("/{name}/download")
+def download(name: str, user=Depends(require_role(Role.admin)), db: Session = Depends(get_db)) -> FileResponse:
+    """The backup file itself, to keep a copy on another computer. It holds the whole
+    database — user accounts' password hashes included — so each download is audited."""
+    try:
+        dump = backup_service.resolve_dump(name)
+    except BackupError as err:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(err)) from err
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.download,
+        entity_type=AuditEntityType.backup.value,
+        entity_id=None,
+        summary=f"Downloaded backup {name}",
+    )
+    db.commit()
+    return FileResponse(dump, media_type="application/octet-stream", filename=name)
 
 
 @router.post("/{name}/verify", dependencies=[Depends(verify_csrf)])

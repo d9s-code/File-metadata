@@ -442,7 +442,8 @@ export type AuditAction =
   | "checkin"
   | "discard"
   | "revert"
-  | "fork";
+  | "fork"
+  | "download";
 
 export interface AuditLogEntry {
   id: string;

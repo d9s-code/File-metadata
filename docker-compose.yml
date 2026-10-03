@@ -94,7 +94,9 @@ services:
     environment: *backend-env
     volumes:
       - backup_data:/backups
-      # - /mnt/backup-share:/backups-copy   # with BACKUP_COPY_DIR above
+      # A second copy on another machine: uncomment this, BACKUP_COPY_DIR above,
+      # and the backup_copy volume at the bottom of this file.
+      # - backup_copy:/backups-copy
     networks:
       - web
     command: python scripts/backup_scheduler.py
@@ -129,3 +131,15 @@ volumes:
   # Only backups live in a compose-managed volume now — the database
   # itself is the existing Postgres 18 instance, managed elsewhere.
   backup_data:
+  # A share on another computer, mounted straight into the backup container —
+  # nothing to set up on this host. A Windows share (SMB):
+  # backup_copy:
+  #   driver: local
+  #   driver_opts:
+  #     type: cifs
+  #     device: //OTHER-PC/rf-backups
+  #     o: "addr=OTHER-PC,username=CHANGE_ME,password=CHANGE_ME,uid=10001,gid=10001,file_mode=0640,dir_mode=0750"
+  # or a Linux server's NFS export:
+  #     type: nfs
+  #     device: ":/srv/rf-backups"
+  #     o: "addr=OTHER-SERVER,rw,nfsvers=4"

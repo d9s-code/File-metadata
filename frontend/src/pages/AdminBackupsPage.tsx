@@ -5,6 +5,7 @@ import { LoadingState } from "../components/common/LoadingState";
 import { EmptyState } from "../components/common/EmptyState";
 import { useBackUpNow, useBackupDiff, useBackups, useVerifyBackup } from "../state/hooks/useBackups";
 import {
+  backupsApi,
   LIVE_DATA,
   type BackupDiffKind,
   type BackupItem,
@@ -217,8 +218,9 @@ export function AdminBackupsPage() {
             </dl>
             <p className="hint-text">
               Every night a backup is taken, then restored into a scratch database to prove it works; old ones are thinned
-              out to 14 daily, 8 weekly and 6 monthly. Restoring one is done from the server&apos;s command line — see{" "}
-              <Link to="/help#admin-backups">Help</Link>.
+              out to 14 daily, 8 weekly and 6 monthly. <strong>Download</strong> keeps a copy on your own computer — it
+              holds everything, user accounts included, so store it somewhere safe; downloads show in the Audit Log.
+              Restoring one is done from the server&apos;s command line — see <Link to="/help#admin-backups">Help</Link>.
             </p>
           </section>
 
@@ -283,6 +285,14 @@ export function AdminBackupsPage() {
                           >
                             {verify.isPending && verify.variables === b.file ? "Verifying…" : "Verify"}
                           </button>
+                          <a
+                            className="backup-download"
+                            href={backupsApi.downloadUrl(b.file)}
+                            download={b.file}
+                            title={b.sha256 ? `SHA-256 ${b.sha256}` : undefined}
+                          >
+                            Download
+                          </a>
                           <button
                             type="button"
                             className="link-button"

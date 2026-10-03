@@ -178,6 +178,24 @@ CREATE DATABASE rf_emitter_db_verify OWNER rf_app;
 (or point `BACKUP_VERIFY_DATABASE_URL` elsewhere). Without it backups still run, but the
 Backups page says they aren't verified.
 
+**Keeping a copy off this server.** Backups sit on this server's disk, so a lost server
+means lost backups. Either or both:
+
+- **Download** — Admin → Backups has a Download link on each backup. It holds the whole
+  database (user accounts' password hashes included), so keep it somewhere safe; every
+  download is recorded in the Audit Log.
+- **Automatic copy to another computer** — set `BACKUP_COPY_DIR: /backups-copy` and mount a
+  share from that computer there. `docker-compose.yml` has a commented `backup_copy` volume
+  for a Windows (SMB) share or a Linux NFS export: uncomment it, fill in the address and
+  credentials, and uncomment the two lines that use it. Every backup is then copied there
+  after it's taken, and the Backups page shows each one's copy and warns if one failed. If
+  the share can't be reached when the container starts, the container doesn't start, and the
+  page says the scheduler isn't reporting. Pruning only thins out this server's backups —
+  the other computer keeps every copy until you clear it.
+
+The other way round works too: the other computer can fetch new files from the
+`backup_data` volume on a schedule (`rsync`/`scp` over SSH) without the app knowing.
+
 The image's `pg_dump` is version 18 (`PG_CLIENT_MAJOR` in `backend/Dockerfile`) — it must be
 at least the server's version, so raise it if the server moves to a newer major version.
 

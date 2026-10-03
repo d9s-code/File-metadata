@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 /** Fired when a logged-in request comes back 401 (the session cookie
  * expired or was revoked), so the auth layer can send the user to /login. */
