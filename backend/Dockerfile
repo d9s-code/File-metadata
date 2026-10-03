@@ -1,7 +1,18 @@
 FROM python:3.11-slim
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq5 postgresql-client \
+# The Postgres client tools (pg_dump/pg_restore, for backups) must be at least
+# the server's major version — pg_dump refuses to dump a newer server. Debian's
+# own postgresql-client lags behind, so take it from the PostgreSQL project's
+# apt repository; set PG_CLIENT_MAJOR to match the server.
+ARG PG_CLIENT_MAJOR=18
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
+    && install -d /usr/share/postgresql-common/pgdg \
+    && curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+    && . /etc/os-release \
+    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+       > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update && apt-get install -y --no-install-recommends libpq5 postgresql-client-${PG_CLIENT_MAJOR} \
+    && apt-get purge -y curl && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

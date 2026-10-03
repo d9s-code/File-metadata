@@ -286,12 +286,15 @@ Export is available from the MDF page (latest committed version) and from the MD
 
 Since this app runs fully offline, its own database backups *are* the disaster-recovery plan — there's no cloud fallback. Whole-database `pg_dump` backups are:
 
-- **Scheduled independently of the app** (OS cron, not an in-process job) so a backup still runs even if the web app itself is down
-- **Written to a separate disk/volume from the live database**, so one disk failure can't take out both the data and its backups
-- **Pruned on a retention policy** (keep recent daily backups, thin older ones down to weekly/monthly) so the backup directory doesn't grow forever
-- **Automatically verified** on a schedule — a real restore into a scratch database, checked, and torn down again, so a backup that silently stopped working gets caught
+- **Scheduled independently of the app** — their own container, not an in-process job, so a backup still runs even if the web app is down. A server that was off overnight catches up when it starts.
+- **Written to a separate disk/volume from the live database**, and optionally **copied to a second place** (`BACKUP_COPY_DIR` — another disk or a share), so one failure can't take out both the data and its backups
+- **Pruned on a retention policy** (14 daily, 8 weekly, 6 monthly by default) so the backup directory doesn't grow forever
+- **Verified after every backup** — a real restore into a scratch database, with the row counts checked against what was backed up, then torn down again. Each file's checksum is checked first, so a file that changed on disk is caught too.
+- **Described by a manifest** next to each file: when and why it was taken (nightly, by hand, or just before a restore), by whom, its size, checksum, row counts, and an overview of every Emitter, Platform and MDF in it
 
-Restoring is a deliberate, operator-run CLI action (not a UI button) — it overwrites live data, so it requires explicitly confirming the target database name. See the [README](../README.md#backups) for the exact commands.
+**Admin → Backups** shows whether all of this is working: the latest backup and its verification, when the next one runs, and a plain list of anything wrong (no backup in over a day, a failed verification, the scheduler not reporting). Admins see a warning across the top of every page when there is. From there an Admin can also take a backup now, verify any backup again, and **compare** two backups — or a backup against the current data. The comparison is an overview, not a field-by-field diff: which Emitters, Platforms and MDFs were added, removed or moved to Recently Deleted, and for each changed one a line per change — renamed, status, number of Modes, saved version, pins.
+
+Restoring is a deliberate, operator-run CLI action (not a UI button) — it overwrites live data, so it requires explicitly confirming the target database name, and it takes a backup of the current data first so a restore of the wrong file can be undone. See the [README](../README.md#backups) for the exact commands.
 
 ---
 
@@ -311,7 +314,7 @@ Authentication is local username/password (no external identity provider, matchi
 
 ## 14. Admin Panel
 
-Admin-only (both the nav link and the routes themselves redirect a non-admin away, not just hide the link) — two sections:
+Admin-only (both the nav link and the routes themselves redirect a non-admin away, not just hide the link) — Users, Edit locks, Recently Deleted and Backups:
 
 ### Users
 
@@ -324,6 +327,10 @@ Emitters, Platforms, and MDFs are already soft-deleted by default when you delet
 - Every soft-deleted item, across all three entity types, in one list with a live "days left" countdown (30 days by default, `TRASH_RETENTION_DAYS`).
 - **Restore** — reverses the soft delete; the item reappears wherever it normally lives.
 - **Delete forever** — Admin-only, immediate, irreversible hard delete from the trash view itself.
-- **Automatic purge** — a cron-run script (`backend/scripts/purge_deleted.py`, see the [README](../README.md#backups) for the crontab entry) hard-deletes anything past the retention window on a schedule, so nothing relies on a human remembering to empty the trash.
+- **Automatic purge** — the nightly backup run (the `backup` container, see the [README](../README.md#backups)) hard-deletes anything past the retention window, right after that night's backup, so nothing relies on a human remembering to empty the trash.
 
 Restoring can fail with a 409 if another item now holds the same name — rename the conflicting one first.
+
+### Backups
+
+The backups' health, Back up now, Verify, and the compare overview — see [Backup & Restore](#12-backup--restore).

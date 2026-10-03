@@ -1,3 +1,31 @@
+# Settings the web app and the backup scheduler share — both talk to the same
+# database and write to the same backup volume.
+x-backend-env: &backend-env
+  # TODO: replace with the role/database you create on the existing
+  # Postgres 18 instance, and its container/service name as the host
+  # (must be reachable on whatever network you join below).
+  DATABASE_URL: postgresql+psycopg2://CHANGE_ME_USER:CHANGE_ME_PASSWORD@CHANGE_ME_POSTGRES_HOST:5432/CHANGE_ME_DB
+  # Real secret — generate with `openssl rand -hex 32`, don't ship the
+  # placeholder. Since this file is hardcoded (not .env-driven), be
+  # careful not to commit the real value if this repo is tracked in git.
+  JWT_SECRET: CHANGE_ME_generate_with_openssl_rand_hex_32
+  CORS_ORIGINS: '["https://prs.app"]'
+  # true: Traefik terminates TLS in front of this with your AD-issued
+  # cert, so the browser only ever sees HTTPS.
+  COOKIE_SECURE: "true"
+  BACKUP_DIR: /backups
+  ADMIN_USERNAME: admin
+  ADMIN_PASSWORD: CHANGE_ME
+  # Optional: verification restores each backup into a scratch database — by
+  # default the live database's name + `_verify` on the same server, which
+  # must be created once (see README → Backups). Or point this elsewhere:
+  # BACKUP_VERIFY_DATABASE_URL: postgresql+psycopg2://USER:PASSWORD@HOST:5432/DB_verify
+  # Optional: a second place every backup is copied to (mount it below on the
+  # backup service too), e.g. a share on another machine.
+  # BACKUP_COPY_DIR: /backups-copy
+  # Nightly backup time, UTC.
+  BACKUP_SCHEDULE_TIME: "03:00"
+
 services:
   backend:
     build: ./backend
@@ -11,22 +39,7 @@ services:
     #   depends_on:
     #     my-postgres:
     #       condition: service_healthy
-    environment:
-      # TODO: replace with the role/database you create on the existing
-      # Postgres 18 instance, and its container/service name as the host
-      # (must be reachable on whatever network you join below).
-      DATABASE_URL: postgresql+psycopg2://CHANGE_ME_USER:CHANGE_ME_PASSWORD@CHANGE_ME_POSTGRES_HOST:5432/CHANGE_ME_DB
-      # Real secret — generate with `openssl rand -hex 32`, don't ship the
-      # placeholder. Since this file is hardcoded (not .env-driven), be
-      # careful not to commit the real value if this repo is tracked in git.
-      JWT_SECRET: CHANGE_ME_generate_with_openssl_rand_hex_32
-      CORS_ORIGINS: '["https://prs.app"]'
-      # true: Traefik terminates TLS in front of this with your AD-issued
-      # cert, so the browser only ever sees HTTPS.
-      COOKIE_SECURE: "true"
-      BACKUP_DIR: /backups
-      ADMIN_USERNAME: admin
-      ADMIN_PASSWORD: CHANGE_ME
+    environment: *backend-env
     volumes:
       - backup_data:/backups
     networks:
@@ -59,6 +72,32 @@ services:
       # own MAX_UPLOAD_BYTES (10 MB) is the per-file limit behind this.
       traefik.http.middlewares.rf-emitter-body-limit.buffering.maxRequestBodyBytes: "20971520"
       traefik.http.services.rf-emitter-backend.loadbalancer.server.port: "8000"
+    # /health answers 503 when the database is unreachable.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Nightly backups, apart from the web app so they happen whether or not it's
+  # up: backup → verify (restore into the scratch database) → prune old ones →
+  # purge expired Recently Deleted items. Takes one straight away if the latest
+  # is over a day old. Status shows on Admin → Backups.
+  backup:
+    image: rf-emitter-backend:latest
+    restart: unless-stopped
+    depends_on:
+      backend:
+        # Migrations run in the backend's start command.
+        condition: service_healthy
+    environment: *backend-env
+    volumes:
+      - backup_data:/backups
+      # - /mnt/backup-share:/backups-copy   # with BACKUP_COPY_DIR above
+    networks:
+      - web
+    command: python scripts/backup_scheduler.py
 
   frontend:
     build:

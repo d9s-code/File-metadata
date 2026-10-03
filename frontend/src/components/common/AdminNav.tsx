@@ -12,6 +12,9 @@ export function AdminNav() {
       <NavLink to="/admin/trash" className={({ isActive }) => (isActive ? "tab active" : "tab")}>
         Recently Deleted
       </NavLink>
+      <NavLink to="/admin/backups" className={({ isActive }) => (isActive ? "tab active" : "tab")}>
+        Backups
+      </NavLink>
     </div>
   );
 }

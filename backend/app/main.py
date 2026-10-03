@@ -1,11 +1,16 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import insecure_setting_problems, settings
+from app.database import engine
 from app.routers import (
     ambiguity,
     audit_log,
     auth,
+    backups,
     customers,
     dashboard,
     dsl,
@@ -67,8 +72,15 @@ app.include_router(dashboard.router)
 app.include_router(ambiguity.router)
 app.include_router(audit_log.router)
 app.include_router(trash.router)
+app.include_router(backups.router)
 
 
 @app.get("/health")
-def health() -> dict:
-    return {"status": "ok"}
+def health():
+    """Up only if the database answers too — the container healthcheck uses this."""
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except SQLAlchemyError:
+        return JSONResponse({"status": "error", "database": "unreachable"}, status_code=503)
+    return {"status": "ok", "database": "ok"}

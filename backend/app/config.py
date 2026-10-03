@@ -28,6 +28,16 @@ class Settings(BaseSettings):
     backup_retention_daily: int = 14
     backup_retention_weekly: int = 8
     backup_retention_monthly: int = 6
+    # A second place each backup is copied to — another disk, a mounted share.
+    backup_copy_dir: str | None = None
+    # The scratch database verification restores into; default: the live
+    # database's name + "_verify" on the same server. Create it once, owned by
+    # the app's role — it's emptied again after every check.
+    backup_verify_database_url: str | None = None
+    # When the scheduler takes the nightly backup (HH:MM, the container's clock — UTC).
+    backup_schedule_time: str = "03:00"
+    # Older than this and admins are warned.
+    backup_max_age_hours: int = 26
 
     trash_retention_days: int = 30
 

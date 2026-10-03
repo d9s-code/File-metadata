@@ -58,6 +58,11 @@ const TOC: TocNode[] = [
     ],
   },
   { id: "audit-log", title: "Audit Log" },
+  {
+    id: "admin",
+    title: "Admin",
+    children: [{ id: "admin-backups", title: "Backups" }],
+  },
 ];
 
 function flattenIds(nodes: TocNode[]): string[] {
@@ -852,6 +857,45 @@ export function HelpPage() {
           summary and, where relevant, a field-by-field diff.
         </p>
           </div>
+
+      <div className="card" id="admin">
+        <h2>Admin</h2>
+        <p>
+          Admins only. <strong>Users</strong>: create accounts, change roles, deactivate or reactivate.{" "}
+          <strong>Edit locks</strong>: every Emitter being edited, with Force release for a stale hold.{" "}
+          <strong>Recently Deleted</strong>: restore deleted Emitters, Platforms and MDFs, or delete them for good;
+          anything left 30 days is removed each night. <strong>Backups</strong>: below.
+        </p>
+        <div className="help-subsection" id="admin-backups">
+          <h3>Backups</h3>
+          <p>
+            Every night a backup of the whole database is taken by its own container, so it runs even if the app
+            itself is down. Each one is then <strong>verified</strong>: restored into a scratch database and checked
+            against what was backed up, so a backup that wouldn&apos;t restore is caught the next morning rather than
+            on the day it&apos;s needed. Old backups are thinned out to 14 daily, 8 weekly and 6 monthly. If the
+            server was off overnight, a backup is taken as soon as it&apos;s back.
+          </p>
+          <p>
+            <strong>Admin → Backups</strong> shows whether this is all working — the latest backup, its verification,
+            when the next one runs, and whether a second copy is kept. When something is wrong (no backup in over a
+            day, a failed verification, the scheduler not running) it says what, and admins see a warning at the top of
+            every page until it&apos;s fixed. <strong>Back up now</strong> takes one straight away — worth doing before
+            a big change. <strong>Verify</strong> checks any backup again.
+          </p>
+          <p>
+            <strong>Compare</strong> gives an overview of what changed between two backups, or between a backup and
+            the current data: which Emitters, Platforms and MDFs were added, removed or changed, and for each changed
+            one a line per change — renamed, status, number of Modes, moved to or restored from Recently Deleted,
+            saved version, and the versions a Platform or MDF pins. It&apos;s the quick way to see what a restore
+            would bring back or lose; for the detail, use an item&apos;s own version history.
+          </p>
+          <p className="hint-text">
+            Restoring a backup is done on the server&apos;s command line, not from this page, because it replaces all
+            the current data. A backup of the current data is taken first, so restoring the wrong one can be undone.
+            The README has the exact commands.
+          </p>
+        </div>
+      </div>
         </div>
       </div>
     </div>

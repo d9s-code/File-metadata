@@ -40,11 +40,11 @@ gets pinned into an MDF, and why readiness warnings never hard-block release).
   same way; RF/PW/PRI can each independently be flagged for range matching, governed by
   the same propose/approve workflow as any other Mode Line edit.
 - **Recently Deleted & Admin panel** — Emitters/Platforms/MDFs soft-delete into a 30-day
-  Recently Deleted view (restore, or Admin-only permanent delete/auto-purge via cron);
+  Recently Deleted view (restore, or Admin-only permanent delete; auto-purged nightly);
   Admins can also create and manage user accounts from the UI.
-- **Backup & restore** — `pg_dump`/`pg_restore` based, with retention pruning and
-  automated restore verification; treated as the most critical piece of ops, not an
-  afterthought.
+- **Backup & restore** — nightly `pg_dump` backups from their own container, each one
+  restored into a scratch database to prove it works, with retention pruning, an optional
+  second copy, and an Admin page that shows their health and compares any two of them.
 - **Dark mode** — light/dark/system theme, persisted per browser, applied before first
   paint to avoid a flash of the wrong theme.
 - **Roles** — Admin/Editor/Viewer, enforced server-side.
@@ -81,7 +81,7 @@ Backend: http://localhost:8000 · Frontend dev server: http://localhost:5173
 
 This app is deployed behind an existing Traefik reverse proxy at `prs.app`, and connects to
 an existing Postgres 18 instance rather than running its own — `docker-compose.yml` only
-defines the `backend` and `frontend` services. Before running it:
+defines the `backend`, `frontend` and `backup` services. Before running it:
 
 - Edit `DATABASE_URL` in `docker-compose.yml` to point at a role/database created on that
   Postgres 18 instance (see below), and add the backend to whatever Docker network reaches
@@ -113,9 +113,9 @@ There is no self-service register form, so the backend bootstraps an initial adm
 `scripts/create_admin.py` — it no-ops once that user already exists. Log in with those
 credentials at `https://prs.app` and create additional users from there.
 
-Database backups (`backend/scripts/backup_db.py`) still write to the `backup_data` volume,
+Backups (the `backup` service — see [Backups](#backups)) write to the `backup_data` volume,
 separate from wherever the Postgres 18 instance itself stores its data — keep that separation
-on different physical disks if that instance doesn't already handle it elsewhere.
+on different physical disks, and set `BACKUP_COPY_DIR` to keep a second copy elsewhere.
 
 ## Offline / air-gapped server deployment
 
@@ -152,29 +152,52 @@ steps 2–3 on the server (`docker load` overwrites the existing image tags; `do
 
 ## Backups
 
+In Docker the `backup` service does this on its own, apart from the web app so it runs
+whether or not the app is up. Every night at `BACKUP_SCHEDULE_TIME` (UTC, default 03:00) it:
+
+1. takes a backup — a `pg_dump` file plus a small JSON manifest next to it (checksum, row
+   counts, and an overview of every Emitter, Platform and MDF, used by the compare view);
+2. copies it to `BACKUP_COPY_DIR`, if set — mount a second disk or a share there;
+3. **verifies** it: restores it into a scratch database and checks the row counts match;
+4. prunes old backups (keeps 14 daily, 8 weekly, 6 monthly — `BACKUP_RETENTION_*`);
+5. purges Recently Deleted items past `TRASH_RETENTION_DAYS` (default 30).
+
+If the latest backup is more than a day old when it starts (the server was off overnight),
+it takes one straight away. **Admin → Backups** shows all of this: the latest backup and its
+verification, when the next one runs, a warning if anything is missing, late or failed, a
+"Back up now" button, and a compare view — what changed between two backups, or since a
+backup, at the level of Emitters, Platforms and MDFs.
+
+Verification needs an empty scratch database it may overwrite — by default the live
+database's name with `_verify` on the same server. Create it once:
+
+```sql
+CREATE DATABASE rf_emitter_db_verify OWNER rf_app;
+```
+
+(or point `BACKUP_VERIFY_DATABASE_URL` elsewhere). Without it backups still run, but the
+Backups page says they aren't verified.
+
+The image's `pg_dump` is version 18 (`PG_CLIENT_MAJOR` in `backend/Dockerfile`) — it must be
+at least the server's version, so raise it if the server moves to a newer major version.
+
 ```bash
-# one-off / manual
-python backend/scripts/backup_db.py
+# a backup now (also on Admin → Backups)
+docker compose exec backup python scripts/backup_db.py --verify
 
-# restore (deliberately requires confirming the target DB name)
-python backend/scripts/restore_db.py /path/to/emitterdb_20260101_030000.dump --confirm-db rf_emitter_db
+# restore — overwrites the live database, so it asks for its name. It takes a
+# "before-restore" backup first, so restoring the wrong file can be undone.
+# Stop the web app while it runs.
+docker compose stop backend
+docker compose exec backup python scripts/restore_db.py /backups/emitterdb_20260101_030000.dump --confirm-db rf_emitter_db
+docker compose start backend
 ```
 
-Schedule regular backups via OS cron (decoupled from whether the app process is up), e.g.
-`crontab -e`:
+Without Docker, run the same scripts from `backend/` (`python scripts/backup_scheduler.py`
+as a service, or `scripts/backup_db.py --verify` and `scripts/purge_deleted.py` from cron).
 
-```
-# nightly backup + retention pruning at 03:00
-0 3 * * * cd /opt/rf-emitter-app/backend && .venv/bin/python scripts/backup_db.py >> /var/log/rf-emitter-backup.log 2>&1
-
-# nightly trash purge at 03:30 — hard-deletes Emitters/Platforms/MDFs that
-# have sat in Recently Deleted past the retention window (TRASH_RETENTION_DAYS, default 30)
-30 3 * * * cd /opt/rf-emitter-app/backend && .venv/bin/python scripts/purge_deleted.py >> /var/log/rf-emitter-purge.log 2>&1
-```
-
-Restore is deliberately a CLI-only, confirmation-required runbook rather than a UI
-button, since it overwrites live data. See `docs/FEATURES.md#backup--restore` for the
-full retention/verification story.
+Restore is deliberately a command-line step with a confirmation rather than a button, since
+it overwrites live data. See `docs/FEATURES.md#backup--restore` for more.
 
 ## Database migrations
 
@@ -193,6 +216,7 @@ running `upgrade head` from wherever it was.
 ```bash
 cd backend
 sudo -u postgres psql -c "CREATE DATABASE rf_emitter_test OWNER rf_app;"   # once
+sudo -u postgres psql -c "CREATE DATABASE rf_emitter_test_verify OWNER rf_app;"   # once, for the backup verification test
 source .venv/bin/activate
 pytest
 ```

@@ -4,6 +4,7 @@ import { AuthProvider } from "./auth/AuthContext";
 import { RequireAuth, RequireAdmin } from "./auth/RequireAuth";
 import { ThemeProvider } from "./theme/ThemeContext";
 import { NavBar } from "./components/common/NavBar";
+import { BackupWarning } from "./components/common/BackupWarning";
 import { LoginPage } from "./pages/LoginPage";
 import { EmittersListPage } from "./pages/EmittersListPage";
 import { EmitterEditorPage } from "./pages/EmitterEditorPage";
@@ -12,6 +13,7 @@ import { TestRunNewPage } from "./pages/TestRunNewPage";
 import { TestRunDetailPage } from "./pages/TestRunDetailPage";
 import { InterceptImportPage } from "./pages/InterceptImportPage";
 import { AdminCheckoutsPage } from "./pages/AdminCheckoutsPage";
+import { AdminBackupsPage } from "./pages/AdminBackupsPage";
 import { CheckoutReminder } from "./components/common/CheckoutReminder";
 import { PlatformsListPage } from "./pages/PlatformsListPage";
 import { PlatformBuilderPage } from "./pages/PlatformBuilderPage";
@@ -55,6 +57,7 @@ export default function App() {
         <BrowserRouter>
           <AuthProvider>
             <NavBar />
+            <BackupWarning />
             <CheckoutReminder />
             <Routes>
               <Route path="/login" element={<LoginPage />} />
@@ -260,6 +263,16 @@ export default function App() {
                   <RequireAuth>
                     <RequireAdmin>
                       <AdminTrashPage />
+                    </RequireAdmin>
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/admin/backups"
+                element={
+                  <RequireAuth>
+                    <RequireAdmin>
+                      <AdminBackupsPage />
                     </RequireAdmin>
                   </RequireAuth>
                 }
