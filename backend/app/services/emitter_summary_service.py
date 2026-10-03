@@ -126,7 +126,7 @@ def attach_emitter_summaries(db: Session, emitters: list[Emitter]) -> list[Emitt
     """
     summaries = compute_emitter_summaries(db, [e.id for e in emitters])
     validations = get_last_validation(db, [e.id for e in emitters])
-    holder_ids = {e.checked_out_by_id for e in emitters if e.checked_out_by_id is not None}
+    holder_ids = {uid for e in emitters for uid in (e.checked_out_by_id, e.assignee_id) if uid is not None}
     usernames = dict(db.query(User.id, User.username).filter(User.id.in_(holder_ids)).all()) if holder_ids else {}
     results = []
     for e in emitters:
@@ -134,6 +134,8 @@ def attach_emitter_summaries(db: Session, emitters: list[Emitter]) -> list[Emitt
         out.summary = summaries.get(e.id, EmitterSummary())
         if e.checked_out_by_id is not None:
             out.checked_out_by_username = usernames.get(e.checked_out_by_id)
+        if e.assignee_id is not None:
+            out.assignee_username = usernames.get(e.assignee_id)
         if e.id in validations:
             out.last_validated_at, out.last_validated_result, out.last_validated_test_record_id = validations[e.id]
         results.append(out)

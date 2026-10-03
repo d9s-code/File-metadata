@@ -203,3 +203,4 @@ class AuditEntityType(str, enum.Enum):
     user = "user"
     auth = "auth"
     backup = "backup"
+    task = "task"

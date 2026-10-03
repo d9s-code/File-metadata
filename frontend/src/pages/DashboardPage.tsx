@@ -7,6 +7,7 @@ import { EmitterSimTable } from "../components/dashboard/EmitterSimTable";
 import { TestRunsCard } from "../components/dashboard/TestRunsCard";
 import { RecentActivityCard } from "../components/dashboard/RecentActivityCard";
 import { BackupCard } from "../components/dashboard/BackupCard";
+import { MyWorkCard } from "../components/dashboard/MyWorkCard";
 
 export function DashboardPage() {
   const { data, isLoading } = useDashboard();
@@ -18,6 +19,7 @@ export function DashboardPage() {
       <h1>Dashboard</h1>
 
       <div className="dashboard-grid">
+        <MyWorkCard />
         <LifecycleCard emitterCounts={data.emitter_status_counts} mdfCounts={data.mdf_status_counts} />
         <SimValidationCard counts={data.sim_line_counts} rows={data.emitter_sim_status} />
         <NeedsAttentionCard items={data.needs_attention} pendingApprovals={data.pending_approvals} />

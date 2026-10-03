@@ -23,6 +23,8 @@ import { LoadingState } from "../components/common/LoadingState";
 import { Modal } from "../components/common/Modal";
 import { NotesFeed } from "../components/common/NotesFeed";
 import { emitterStatusLabel } from "../components/common/emitterStatusLabel";
+import { AssigneeControl } from "../components/tasks/AssigneeControl";
+import { TasksButton } from "../components/tasks/TasksButton";
 
 type Tab = "modes" | "setup" | "intercepts" | "tests" | "audit";
 const TABS: readonly Tab[] = ["modes", "setup", "intercepts", "tests", "audit"];
@@ -194,6 +196,8 @@ export function EmitterEditorPage() {
               </button>
             )}
             <StatusTransitionControls emitterId={emitter.id} status={emitter.status} />
+            <AssigneeControl emitter={emitter} />
+            <TasksButton type="emitter" id={emitter.id} name={emitter.name} />
             {exportError && <span className="error-text">{exportError}</span>}
           </>
         }

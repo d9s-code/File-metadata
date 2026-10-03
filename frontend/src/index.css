@@ -4481,3 +4481,227 @@ label.map-axis select { font-size: 0.8rem; padding: 0.1rem 0.3rem; }
   gap: 0.75rem;
   flex-wrap: wrap;
 }
+
+/* Tasks */
+.task-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.task-form-row,
+.task-form-about {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.task-form-row label.grow,
+.task-form-about label.grow {
+  flex: 1 1 16rem;
+}
+.task-form-notes-toggle {
+  align-self: flex-start;
+}
+.task-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+.task-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.task-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.5rem 0.25rem;
+  border-top: 1px solid var(--border);
+}
+.task-row:first-child {
+  border-top: none;
+}
+.task-check {
+  margin-top: 0.2rem;
+  width: 1.05rem;
+  height: 1.05rem;
+  flex: none;
+  cursor: pointer;
+}
+.task-check:disabled {
+  cursor: not-allowed;
+}
+.task-body {
+  flex: 1;
+  min-width: 0;
+}
+.task-main {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.task-title {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.task-row.done .task-title {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+.task-about {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.task-notes {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.task-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.2rem;
+  font-size: 0.8rem;
+}
+.task-who {
+  font-weight: 600;
+}
+.task-who.anyone {
+  color: var(--badge-blue-fg);
+}
+.task-due {
+  padding: 0.02rem 0.45rem;
+  border-radius: 999px;
+  background: var(--hover-bg);
+  color: var(--muted);
+}
+.task-due.today {
+  background: var(--badge-amber-bg);
+  color: var(--badge-amber-fg);
+}
+.task-due.overdue {
+  background: var(--badge-red-bg);
+  color: var(--badge-red-fg);
+  font-weight: 600;
+}
+.task-count-chip {
+  background: none;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.12rem 0.65rem;
+  font-size: 0.8rem;
+}
+.task-count-chip:hover:not(:disabled) {
+  background: var(--hover-bg);
+  color: var(--text);
+}
+.task-count-chip.has-open {
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+}
+.task-modal-footer {
+  margin: 0.75rem 0 0;
+}
+.tasks-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.tasks-toolbar .tab-bar {
+  flex-wrap: wrap;
+  margin: 0 0 0.25rem;
+}
+.tasks-toolbar .tab .section-count {
+  margin-left: 0.35rem;
+}
+.assignee-chip {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.assignee-chip select {
+  font-size: 0.8rem;
+  padding: 0.1rem 0.35rem;
+}
+.assignee-chip.none select {
+  color: var(--muted);
+}
+.navbar-count {
+  display: inline-block;
+  min-width: 1.15rem;
+  margin-left: 0.3rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.15rem;
+  text-align: center;
+}
+
+/* Dashboard → My work */
+.my-work-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.5rem 1.5rem;
+}
+@media (max-width: 1150px) {
+  .my-work-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .my-work-grid > section:first-child {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 760px) {
+  .my-work-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.my-work h4 {
+  margin: 0 0 0.25rem;
+}
+.my-work h4 a {
+  color: inherit;
+  text-decoration: none;
+}
+.my-work .task-list {
+  margin-top: 0;
+  max-height: 20rem;
+  overflow-y: auto;
+}
+.my-work-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+.my-work-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+.my-work-links {
+  display: flex;
+  gap: 1rem;
+  margin: 0.4rem 0 0;
+  font-size: 0.85rem;
+}

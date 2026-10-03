@@ -88,6 +88,9 @@ export interface Emitter {
   checked_out_by_id: string | null;
   checked_out_by_username: string | null;
   checked_out_at: string | null;
+  /** Who's responsible for this Emitter — not part of its saved versions. */
+  assignee_id: string | null;
+  assignee_username: string | null;
   forked_from_emitter_id: string | null;
   forked_from_version_id: string | null;
   forked_at_version_number: number | null;

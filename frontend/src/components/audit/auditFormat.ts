@@ -18,6 +18,7 @@ const ENTITY_TYPE_LABELS: Record<string, string> = {
   user: "Users",
   auth: "Auth",
   backup: "Backups",
+  task: "Tasks",
 };
 
 export function entityTypeLabel(entityType: string): string {

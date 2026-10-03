@@ -76,6 +76,9 @@ class EmitterOut(BaseModel):
     # column — see that function.
     checked_out_by_username: str | None = None
     checked_out_at: datetime | None = None
+    assignee_id: UUID | None = None
+    # Populated by attach_emitter_summaries.
+    assignee_username: str | None = None
     forked_from_emitter_id: UUID | None = None
     forked_from_version_id: UUID | None = None
     # Versions at or below this number were copied in from the source

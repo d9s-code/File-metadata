@@ -31,6 +31,7 @@ import { InterceptRegroupPage } from "./pages/InterceptRegroupPage";
 import { AmbiguityDashboardPage } from "./pages/AmbiguityDashboardPage";
 import { AuditLogPage } from "./pages/AuditLogPage";
 import { HelpPage } from "./pages/HelpPage";
+import { TasksPage } from "./pages/TasksPage";
 import { AdminUsersPage } from "./pages/AdminUsersPage";
 import { AdminTrashPage } from "./pages/AdminTrashPage";
 
@@ -226,6 +227,14 @@ export default function App() {
                 element={
                   <RequireAuth>
                     <AuditLogPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/tasks"
+                element={
+                  <RequireAuth>
+                    <TasksPage />
                   </RequireAuth>
                 }
               />

@@ -12,6 +12,8 @@ import { useSortableTable } from "../components/common/useSortableTable";
 import { compareNullable, compareStrings } from "../components/common/sortUtils";
 import { emitterStatusLabel } from "../components/common/emitterStatusLabel";
 import type { Emitter } from "../types/domain";
+import { useAuth } from "../auth/AuthContext";
+import { usePeople } from "../state/hooks/useTasks";
 
 type EmitterSortKey =
   | "name"
@@ -25,7 +27,8 @@ type EmitterSortKey =
   | "pri_max"
   | "scan_min"
   | "scan_max"
-  | "modes_passing";
+  | "modes_passing"
+  | "assignee";
 
 function compareEmitters(a: Emitter, b: Emitter, key: EmitterSortKey, dir: "asc" | "desc"): number {
   switch (key) {
@@ -53,6 +56,8 @@ function compareEmitters(a: Emitter, b: Emitter, key: EmitterSortKey, dir: "asc"
       return compareNullable(a.summary.scan_max, b.summary.scan_max, dir);
     case "modes_passing":
       return compareNullable(a.summary.modes_passing, b.summary.modes_passing, dir);
+    case "assignee":
+      return compareStrings(a.assignee_username, b.assignee_username, dir);
   }
 }
 
@@ -90,6 +95,10 @@ export function EmittersListPage() {
   const [priMax, setPriMax] = useState("");
   const [scanMin, setScanMin] = useState("");
   const [scanMax, setScanMax] = useState("");
+  // "" anyone, "me", "none", or a person's id.
+  const [assignedFilter, setAssignedFilter] = useState("");
+  const { user } = useAuth();
+  const { data: people } = usePeople();
 
   const filtered = (emitters ?? []).filter((e) => {
     const nameQ = nameFilter.trim().toLowerCase();
@@ -100,6 +109,9 @@ export function EmittersListPage() {
     if (!rangeOverlaps(pwMin, pwMax, e.summary.pw_min_us, e.summary.pw_max_us)) return false;
     if (!rangeOverlaps(priMin, priMax, e.summary.pri_min_us, e.summary.pri_max_us)) return false;
     if (!rangeOverlaps(scanMin, scanMax, e.summary.scan_min, e.summary.scan_max)) return false;
+    if (assignedFilter === "none" && e.assignee_id) return false;
+    if (assignedFilter === "me" && e.assignee_id !== user?.id) return false;
+    if (assignedFilter && !["me", "none"].includes(assignedFilter) && e.assignee_id !== assignedFilter) return false;
     return true;
   });
 
@@ -128,6 +140,7 @@ export function EmittersListPage() {
     setPriMax("");
     setScanMin("");
     setScanMax("");
+    setAssignedFilter("");
   }
 
   async function handleDelete(emitter: Emitter) {
@@ -238,6 +251,21 @@ export function EmittersListPage() {
             <input type="number" step="any" placeholder="min" value={scanMin} onChange={(e) => setScanMin(e.target.value)} />
             <input type="number" step="any" placeholder="max" value={scanMax} onChange={(e) => setScanMax(e.target.value)} />
           </label>
+          <label>
+            Assigned to
+            <select aria-label="Assigned to" value={assignedFilter} onChange={(e) => setAssignedFilter(e.target.value)}>
+              <option value="">Anyone</option>
+              <option value="me">Me</option>
+              <option value="none">Nobody</option>
+              {(people ?? [])
+                .filter((p) => p.role !== "viewer" && p.id !== user?.id)
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.username}
+                  </option>
+                ))}
+            </select>
+          </label>
           <button type="button" className="link-button" onClick={resetFilters}>
             Reset filters
           </button>
@@ -266,6 +294,7 @@ export function EmittersListPage() {
               {header("Name", "name")}
               {header("Designation", "designation")}
               {header("Status", "status")}
+              {header("Assigned to", "assignee")}
               {header("RF min", "rf_min", "number")}
               {header("RF max", "rf_max", "number")}
               {header("PW min", "pw_min", "number")}
@@ -288,6 +317,7 @@ export function EmittersListPage() {
                 <td>
                   <span className={`status-badge status-${e.status}`}>{emitterStatusLabel(e.status)}</span>
                 </td>
+                <td>{e.assignee_id === user?.id ? <strong>You</strong> : (e.assignee_username ?? <span className="muted">—</span>)}</td>
                 <td>{e.summary.rf_min_mhz ?? "—"}</td>
                 <td>{e.summary.rf_max_mhz ?? "—"}</td>
                 <td>{e.summary.pw_min_us ?? "—"}</td>

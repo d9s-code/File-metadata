@@ -209,6 +209,7 @@ A test record automatically pins to whichever version of the Emitter or MDF was 
 
 The **Dashboard** is the landing page after login. It is built around SIM Test Lines — whether each Emitter is recognized correctly against simulated signals — rather than per-Mode pass rates:
 
+- **My work**, across the top — your open tasks (overdue first, tick them off right there), the Emitters assigned to you with their status and open tasks, and the Emitters you're editing now with how long you've held each. See [Tasks & Assignment](#15-tasks--assignment).
 - **Emitters / MDFs** — counts per lifecycle stage.
 - **Simulation Validation** — every SIM Test Line's latest outcome across all Emitters (correct, misclassified, missed, inconclusive, untested) as one bar, and how many Emitters had every line correct in their latest run.
 - **Needs Attention**, grouped by kind:
@@ -335,3 +336,20 @@ Restoring can fail with a 409 if another item now holds the same name — rename
 ### Backups
 
 The backups' health, Back up now, Verify, and the compare overview — see [Backup & Restore](#12-backup--restore).
+
+---
+
+## 15. Tasks & Assignment
+
+**Assigning an Emitter.** Each Emitter can be assigned to one person — whoever's responsible for it. It's set from the "Assigned to" control on the Emitter's page by any editor, without editing the Emitter: who works on it isn't part of what it is, so it isn't saved in its versions and leaves nothing unsaved. Only editors and admins can be given an Emitter (a viewer couldn't edit it). The Emitters list has an **Assigned to** column and filter (Me, Nobody, or a person). Every change is in the Audit Log and the Emitter's Audit tab.
+
+**Tasks** are to-dos, three ways:
+
+- **For yourself** — a personal reminder.
+- **For someone else** — giving out work; it shows on their dashboard and in the count by **Tasks** in the top bar.
+- **For anyone** — up for grabs; whoever takes it becomes its owner.
+
+A task has a title, optional notes and due date, and can be about one Emitter, Platform or MDF. The **Tasks** page has views for Mine, Up for grabs, I gave out, Everyone (narrowed to one person if you like) and Done (the latest 200). On an Emitter, Platform or MDF page, **☑ Tasks** lists the tasks about it and adds one already linked. Overdue tasks are marked red, ones due today amber.
+
+Editors can create, edit, reassign and tick off any task; whoever a task is for can always tick it off, even a viewer. A task can be deleted by whoever made it, whoever it's for, or an admin. Tasks are visible to everyone — they're how the team splits the work. Every change is recorded in the Audit Log.
+

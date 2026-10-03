@@ -57,6 +57,7 @@ const TOC: TocNode[] = [
       { id: "intercept-detail", title: "Intercept detail" },
     ],
   },
+  { id: "tasks", title: "Tasks & assignment" },
   { id: "audit-log", title: "Audit Log" },
   {
     id: "admin",
@@ -176,6 +177,10 @@ export function HelpPage() {
           something stands:
         </p>
         <ul>
+          <li>
+            <strong>My work</strong>, across the top — your open tasks (tick them off right there), the Emitters
+            assigned to you, and the Emitters you&apos;re editing now. See <a href="#tasks">Tasks &amp; assignment</a>.
+          </li>
           <li>
             <strong>Emitters</strong> and <strong>MDFs</strong> — how many are at each lifecycle stage.
           </li>
@@ -852,6 +857,28 @@ export function HelpPage() {
             read as matching straight away — and go back if the Modes are discarded or changed.
           </p>
         </div>
+      </div>
+
+      <div className="card" id="tasks">
+        <h2>Tasks &amp; assignment</h2>
+        <p>
+          <strong>Assigning an Emitter.</strong> On an Emitter&apos;s page, <strong>Assigned to</strong> says who&apos;s
+          responsible for it. Any editor can change it without editing the Emitter — it isn&apos;t part of the
+          Emitter&apos;s saved versions. Only editors and admins can be given one. The Emitters list has an Assigned to
+          column and filter, so &ldquo;Me&rdquo; shows yours.
+        </p>
+        <p>
+          <strong>Tasks</strong> are to-dos. Make one for yourself, give one to someone else, or leave it{" "}
+          <em>up for grabs</em> for whoever takes it. A task can have notes and a due date, and can be about an
+          Emitter, Platform or MDF — use <strong>☑ Tasks</strong> on that page to see its tasks and add one already
+          linked. The <strong>Tasks</strong> page (top bar; the number is how many are open for you) has views for
+          Mine, Up for grabs, I gave out, Everyone and Done. Overdue tasks show red, ones due today amber.
+        </p>
+        <p className="hint-text">
+          Editors can create, change and tick off any task; whoever a task is for can always tick it off. Deleting is
+          for whoever made it, whoever it&apos;s for, or an admin. Everyone can see every task, and every change is in
+          the Audit Log.
+        </p>
       </div>
 
       <div className="card" id="audit-log">

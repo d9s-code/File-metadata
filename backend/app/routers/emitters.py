@@ -25,6 +25,7 @@ from app.models.mode import Mode, ModeGenerationBatch
 from app.models.user import User
 from app.schemas.emitter import EmitterCheckoutOut, EmitterCreate, EmitterOut, EmitterUpdate
 from app.schemas.emitter_note import EmitterNoteCreate, EmitterNoteOut
+from app.schemas.task import EmitterAssign
 from app.schemas.mode import ModeBatchEditRequest, ModeBatchEditResult, ModeGenerationBatchOut, ModeOut
 from app.schemas.emitter_version import (
     CommitEmitterVersionRequest,
@@ -34,6 +35,7 @@ from app.schemas.emitter_version import (
     ForkRequest,
     StatusTransitionRequest,
 )
+from app.routers.tasks import active_user
 from app.services import checkout_service
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.emitter_diff_service import compute_emitter_diff
@@ -262,6 +264,40 @@ def _lock_emitter_for_checkout(db: Session, emitter_id: UUID) -> Emitter:
     if emitter.is_deleted:
         raise HTTPException(status.HTTP_409_CONFLICT, "This Emitter is deleted — restore it before editing")
     return emitter
+
+
+@router.put("/{emitter_id}/assignee", response_model=EmitterOut, dependencies=[Depends(verify_csrf)])
+def assign_emitter(
+    emitter_id: UUID,
+    payload: EmitterAssign,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(Role.editor)),
+) -> EmitterOut:
+    """Who's responsible for this Emitter (null: nobody). Not part of its saved
+    versions, so it needs no edit lock — anyone who can edit may (re)assign it."""
+    emitter = db.get(Emitter, emitter_id)
+    if emitter is None or emitter.is_deleted:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Emitter not found")
+    assignee = active_user(db, payload.assignee_id, editors_only=True)
+    if payload.assignee_id != emitter.assignee_id:
+        old = db.get(User, emitter.assignee_id) if emitter.assignee_id else None
+        emitter.assignee_id = payload.assignee_id
+        record_audit(
+            db,
+            actor_id=user.id,
+            action=AuditAction.update,
+            entity_type=AuditEntityType.emitter.value,
+            entity_id=emitter.id,
+            summary=(
+                f"Assigned Emitter '{emitter.name}' to {assignee.username}" if assignee
+                else f"Unassigned Emitter '{emitter.name}'"
+            ),
+            changes={"assignee": {"old": old.username if old else None, "new": assignee.username if assignee else None}},
+            emitter_id=emitter.id,
+        )
+        db.commit()
+        db.refresh(emitter)
+    return attach_emitter_summaries(db, [emitter])[0]
 
 
 @router.post("/{emitter_id}/checkout", response_model=EmitterOut, dependencies=[Depends(verify_csrf)])

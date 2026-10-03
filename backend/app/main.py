@@ -24,6 +24,7 @@ from app.routers import (
     platforms,
     source_groups,
     sources,
+    tasks,
     test_lines,
     test_records,
     trash,
@@ -52,6 +53,8 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(tasks.people_router)
+app.include_router(tasks.router)
 app.include_router(users.router)
 app.include_router(platforms.router)
 app.include_router(emitters.router)

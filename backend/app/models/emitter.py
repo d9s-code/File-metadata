@@ -43,6 +43,11 @@ class Emitter(UUIDPkMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
     checked_out_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Who's responsible for this Emitter — set from its page, not part of its
+    # saved versions (it's who works on it, not what it is), and needs no edit lock.
+    assignee_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     forked_from_emitter_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("emitters.id", ondelete="SET NULL"), nullable=True, index=True
     )

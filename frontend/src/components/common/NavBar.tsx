@@ -3,6 +3,7 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { RequireRole } from "../../auth/RequireAuth";
 import { ThemeToggle } from "./ThemeToggle";
+import { useMyWork } from "../../state/hooks/useTasks";
 
 const LINKS: { to: string; label: string }[] = [
   { to: "/dashboard", label: "Dashboard" },
@@ -12,6 +13,7 @@ const LINKS: { to: string; label: string }[] = [
   { to: "/source-groups", label: "Source Groups" },
   { to: "/customers", label: "Customers" },
   { to: "/intercepts", label: "Intercepts" },
+  { to: "/tasks", label: "Tasks" },
   { to: "/audit-log", label: "Audit Log" },
   { to: "/help", label: "Help" },
 ];
@@ -21,6 +23,8 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
 
 export function NavBar() {
   const { user, logout } = useAuth();
+  const { data: work } = useMyWork(!!user);
+  const myTasks = work?.tasks.length ?? 0;
   // On narrow windows the links fold behind a Menu button.
   const [menuOpen, setMenuOpen] = useState(false);
   const { pathname } = useLocation();
@@ -64,6 +68,11 @@ export function NavBar() {
           {LINKS.map((l) => (
             <NavLink key={l.to} to={l.to} className={linkClass}>
               {l.label}
+              {l.to === "/tasks" && myTasks > 0 && (
+                <span className="navbar-count" title={`${myTasks} open task${myTasks === 1 ? "" : "s"} for you`}>
+                  {myTasks}
+                </span>
+              )}
             </NavLink>
           ))}
           <RequireRole minimum="admin">

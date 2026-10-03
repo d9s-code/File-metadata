@@ -13,6 +13,7 @@ import { Modal } from "../components/common/Modal";
 import { MenuButton } from "../components/common/MenuButton";
 import { EntityHeader } from "../components/common/EntityHeader";
 import { LatestVersion, SaveVersionButton } from "../components/versioning/SaveVersionButton";
+import { TasksButton } from "../components/tasks/TasksButton";
 
 type Tab = "emitters" | "audit";
 
@@ -98,6 +99,7 @@ export function PlatformBuilderPage() {
         status={
           <>
             <LatestVersion versions={versions} />
+            <TasksButton type="platform" id={platform.id} name={platform.name} />
             {exportError && <span className="error-text">{exportError}</span>}
           </>
         }

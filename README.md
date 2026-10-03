@@ -14,6 +14,9 @@ gets pinned into an MDF, and why readiness warnings never hard-block release).
 
 ## Highlights
 
+- **Tasks & assignment** — assign each Emitter to a person; give out to-dos (for yourself,
+  for someone, or up for grabs), optionally about an Emitter, Platform or MDF, with due
+  dates; "My work" on the dashboard.
 - **Emitters, Groups & Sources** — Modes are grouped two ways at once: operationally
   by Group (scan range + threat priority) and by data provenance by Source.
 - **Typed DSL + editorial tools** — write mode lines as text (`RF 2900-3100 PRI FIXED

@@ -21,6 +21,7 @@ import { LoadingState } from "../components/common/LoadingState";
 import { Modal } from "../components/common/Modal";
 import { NotesFeed } from "../components/common/NotesFeed";
 import { statusLabel } from "../components/common/emitterStatusLabel";
+import { TasksButton } from "../components/tasks/TasksButton";
 
 type Tab = "platforms" | "tests" | "audit";
 
@@ -138,6 +139,7 @@ export function MdfBuilderPage() {
             <span className={`status-badge status-${mdf.status}`}>{statusLabel(mdf.status)}</span>
             <MdfStatusTransitionControls mdfId={mdf.id} status={mdf.status} />
             <LatestVersion versions={versions} />
+            <TasksButton type="mdf" id={mdf.id} name={mdf.name} />
             {exportError && <span className="error-text">{exportError}</span>}
           </>
         }
