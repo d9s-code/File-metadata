@@ -3,6 +3,8 @@ import { useMdfReadiness, useTransitionMdfStatus } from "../../state/hooks/useMd
 import { ApiRequestError } from "../../api/client";
 import type { MdfStatus } from "../../types/domain";
 import { RequireRole } from "../../auth/RequireAuth";
+import { useConfirmDialog } from "../common/ConfirmDialog";
+import { statusLabel } from "../common/emitterStatusLabel";
 
 const MDF_TRANSITIONS: Record<MdfStatus, MdfStatus[]> = {
   draft: ["pending_review"],
@@ -16,12 +18,13 @@ export function MdfStatusTransitionControls({ mdfId, status }: { mdfId: string; 
   const { data: readiness } = useMdfReadiness(mdfId);
   const transition = useTransitionMdfStatus(mdfId);
   const [error, setError] = useState<string | null>(null);
+  const { confirmDelete: confirm, dialog } = useConfirmDialog();
 
   async function handleTransition(newStatus: MdfStatus) {
     setError(null);
     if (readiness && readiness.warnings.length > 0) {
-      const message = `This MDF has open readiness warnings:\n\n${readiness.warnings.join("\n")}\n\nMove to '${newStatus.replace("_", " ")}' anyway?`;
-      if (!window.confirm(message)) return;
+      const message = `This MDF has open readiness warnings:\n\n${readiness.warnings.join("\n")}\n\nMove it to ${statusLabel(newStatus)} anyway?`;
+      if (!(await confirm(message, { confirmLabel: `Move to ${statusLabel(newStatus)}` }))) return;
     }
     try {
       await transition.mutateAsync({ newStatus });
@@ -40,11 +43,12 @@ export function MdfStatusTransitionControls({ mdfId, status }: { mdfId: string; 
             onClick={() => void handleTransition(next)}
             disabled={transition.isPending}
           >
-            Move to {next.replace("_", " ")}
+            Move to {statusLabel(next)}
           </button>
         ))}
         {error && <span className="error-text">{error}</span>}
       </div>
+      {dialog}
     </RequireRole>
   );
 }

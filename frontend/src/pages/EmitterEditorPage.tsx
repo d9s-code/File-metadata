@@ -15,6 +15,7 @@ import { EmitterIntercepts } from "../components/intercepts/EmitterIntercepts";
 import { StatusTransitionControls } from "../components/versioning/StatusTransitionControls";
 import { EditModeControls, LiveDiffPanel } from "../components/versioning/EditModeControls";
 import { EmitterSummaryStrip } from "../components/emitters/EmitterSummaryStrip";
+import { EntityHeader } from "../components/common/EntityHeader";
 import { MenuButton } from "../components/common/MenuButton";
 import { EmitterTestHistory } from "../components/testing/EmitterTestHistory";
 import { EntityAuditTrail } from "../components/audit/EntityAuditTrail";
@@ -73,6 +74,7 @@ export function EmitterEditorPage() {
   const { mutateAsync: createEmitterNote, isPending: isAddingNote } = useCreateEmitterNote(emitterId ?? "");
   const { mutateAsync: deleteEmitterNote } = useDeleteEmitterNote(emitterId ?? "");
 
+  const [exportError, setExportError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
   const [editDesignation, setEditDesignation] = useState("");
@@ -123,6 +125,7 @@ export function EmitterEditorPage() {
   };
 
   const handleExportXml = async () => {
+    setExportError(null);
     try {
       const blob = await emittersApi.exportXml(emitter.id, { responseType: "blob" });
       const url = window.URL.createObjectURL(blob as Blob);
@@ -134,8 +137,7 @@ export function EmitterEditorPage() {
       window.URL.revokeObjectURL(url);
       a.remove();
     } catch (err) {
-      alert("Failed to export XML archive.");
-      console.error(err);
+      setExportError(err instanceof Error ? `Couldn't export the XML archive: ${err.message}` : "Couldn't export the XML archive.");
     }
   };
 
@@ -153,12 +155,12 @@ export function EmitterEditorPage() {
 
   return (
     <div className="page">
-      <div className={isMine ? "emitter-header editing" : "emitter-header"}>
-        <div className="emitter-title-row">
-          <h1>
-            {emitter.name} {emitter.designation && <span className="muted">({emitter.designation})</span>}
-          </h1>
-          <div className="emitter-actions">
+      <EntityHeader
+        title={emitter.name}
+        subtitle={emitter.designation}
+        editing={isMine}
+        actions={
+          <>
             <EditModeControls
               emitter={emitter}
               onDiscarded={() => setContentVersion((v) => v + 1)}
@@ -174,24 +176,28 @@ export function EmitterEditorPage() {
                 { label: "Version history", to: `/emitters/${emitter.id}/versions` },
                 { label: "Ambiguity check", to: `/ambiguity/emitter/${emitter.id}` },
                 {
-                  label: "Edit name, designation & description",
+                  label: "Edit details",
                   onSelect: handleStartEdit,
                   disabled: !canEdit,
                   title: canEdit ? undefined : "Start editing this Emitter first",
                 },
               ]}
             />
-          </div>
-        </div>
-        <div className="status-row">
-          <span className={`status-badge status-${emitter.status}`}>{emitterStatusLabel(emitter.status)}</span>
-          {emitter.status === "deprecated" && emitter.rework_note && (
-            <button className="rework-note-button" onClick={() => setShowReworkNote(true)}>
-              ⚠ View rework note
-            </button>
-          )}
-          <StatusTransitionControls emitterId={emitter.id} status={emitter.status} />
-        </div>
+          </>
+        }
+        status={
+          <>
+            <span className={`status-badge status-${emitter.status}`}>{emitterStatusLabel(emitter.status)}</span>
+            {emitter.status === "deprecated" && emitter.rework_note && (
+              <button className="rework-note-button" onClick={() => setShowReworkNote(true)}>
+                ⚠ View rework note
+              </button>
+            )}
+            <StatusTransitionControls emitterId={emitter.id} status={emitter.status} />
+            {exportError && <span className="error-text">{exportError}</span>}
+          </>
+        }
+      >
         {emitter.description && <p className="muted emitter-description">{emitter.description}</p>}
         <EmitterSummaryStrip
           emitter={emitter}
@@ -200,10 +206,10 @@ export function EmitterEditorPage() {
           onToggleNotes={() => setNotesOpen(!notesOpen)}
           onOpenTests={() => setTab("tests")}
         />
-      </div>
+      </EntityHeader>
 
       {isEditing && (
-        <Modal title="Edit Name/Designation/Description" onClose={handleCancelEdit} wide>
+        <Modal title="Edit details" onClose={handleCancelEdit} wide>
           <div className="edit-fields">
             <label>
               Name
@@ -236,12 +242,12 @@ export function EmitterEditorPage() {
               />
             </label>
           </div>
-          <div className="edit-actions">
-            <button className="button primary" onClick={handleSaveEdit} disabled={isUpdating}>
-              {isUpdating ? "Saving..." : "Save"}
-            </button>
-            <button className="button" onClick={handleCancelEdit} disabled={isUpdating}>
+          <div className="modal-actions">
+            <button className="button secondary" onClick={handleCancelEdit} disabled={isUpdating}>
               Cancel
+            </button>
+            <button className="button primary" onClick={handleSaveEdit} disabled={isUpdating}>
+              {isUpdating ? "Saving…" : "Save"}
             </button>
           </div>
         </Modal>

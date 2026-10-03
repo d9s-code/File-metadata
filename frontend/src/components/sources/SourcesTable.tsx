@@ -23,6 +23,7 @@ import { EmptyState } from "../common/EmptyState";
 import { SortableColumnHeader } from "../common/SortableColumnHeader";
 import { useSortableTable } from "../common/useSortableTable";
 import { compareStrings } from "../common/sortUtils";
+import { statusLabel } from "../common/emitterStatusLabel";
 
 const UNGROUPED_KEY = "__ungrouped__";
 
@@ -209,7 +210,7 @@ function SourceOverlay({
             <h3>
               {source.name}
               {source.status !== "approved" && (
-                <span className={`status-badge status-${source.status}`}>{source.status.replace("_", " ")}</span>
+                <span className={`status-badge status-${source.status}`}>{statusLabel(source.status)}</span>
               )}
             </h3>
             <div className="hint-text">
@@ -483,7 +484,7 @@ export function SourcesTable({
                           <td>
                             {s.name}
                             {s.status !== "approved" && (
-                              <span className={`status-badge status-${s.status}`}>{s.status.replace("_", " ")}</span>
+                              <span className={`status-badge status-${s.status}`}>{statusLabel(s.status)}</span>
                             )}
                             {s.status === "rejected" && s.rejection_reason && (
                               <div className="hint-text rejection-reason">Rejected: {s.rejection_reason}</div>

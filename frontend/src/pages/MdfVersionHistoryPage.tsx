@@ -6,8 +6,7 @@ import { VersionList } from "../components/versioning/VersionList";
 import { DiffViewer } from "../components/versioning/DiffViewer";
 import { ExportXmlButton } from "../components/mdf/ExportXmlButton";
 import { ExportPrsButton } from "../components/versioning/ExportPrsButton";
-import { RequireRole } from "../auth/RequireAuth";
-import { ApiRequestError } from "../api/client";
+import { SaveVersionButton } from "../components/versioning/SaveVersionButton";
 import { LoadingState } from "../components/common/LoadingState";
 
 export function MdfVersionHistoryPage() {
@@ -16,41 +15,24 @@ export function MdfVersionHistoryPage() {
   const { data: versions } = useMdfVersions(mdfId ?? "");
   const commitVersion = useCommitMdfVersion(mdfId ?? "");
   const [selected, setSelected] = useState<number | null>(null);
-  const [changeSummary, setChangeSummary] = useState("");
-  const [error, setError] = useState<string | null>(null);
 
   const { data: diff, isLoading: diffLoading } = useMdfVersionDiff(mdfId ?? "", selected ?? 0);
-
-  async function handleCommit() {
-    setError(null);
-    try {
-      await commitVersion.mutateAsync(changeSummary || undefined);
-      setChangeSummary("");
-    } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : "Failed to commit version");
-    }
-  }
 
   if (!mdf) return <LoadingState label="Loading version history…" />;
 
   return (
     <div className="page">
-      <h1>{mdf.name} — Version History</h1>
-      <Link to={`/mdfs/${mdf.id}`}>← Back to MDF</Link>
-
-      <RequireRole minimum="editor">
-        <div className="card inline-form">
-          <input
-            placeholder="Change summary (optional)"
-            value={changeSummary}
-            onChange={(e) => setChangeSummary(e.target.value)}
+      <Link to={`/mdfs/${mdf.id}`}>← Back to {mdf.name}</Link>
+      <div className="emitter-title-row">
+        <h1>{mdf.name} — Version History</h1>
+        <div className="emitter-actions">
+          <SaveVersionButton
+            noun="MDF"
+            save={(summary) => commitVersion.mutateAsync(summary)}
+            pending={commitVersion.isPending}
           />
-          <button onClick={() => void handleCommit()} disabled={commitVersion.isPending}>
-            Commit Version
-          </button>
         </div>
-        {error && <div className="error-text">{error}</div>}
-      </RequireRole>
+      </div>
 
       <div className="version-history-layout">
         <div className="card">
@@ -63,7 +45,7 @@ export function MdfVersionHistoryPage() {
             {selected != null && <ExportXmlButton mdfId={mdf.id} versionNumber={selected} />}
             {selected != null && <ExportPrsButton kind="mdf" id={mdf.id} versionNumber={selected} />}
           </div>
-          {selected === 1 && <p className="hint-text">This is the first committed version — no prior version to diff against.</p>}
+          {selected === 1 && <p className="hint-text">This is the first saved version — no prior version to diff against.</p>}
           {selected != null && selected > 1 && diffLoading && <p>Loading diff…</p>}
           {selected != null && selected > 1 && diff && <DiffViewer diff={diff} />}
         </div>

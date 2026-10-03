@@ -275,17 +275,12 @@ export function EntryFormModal({
           </p>
         )}
         {error && <div className="error-text">{error}</div>}
-        <div className="edit-actions">
+        <div className="modal-actions">
+          <button type="button" className="button secondary" onClick={onClose} disabled={pending}>
+            Cancel
+          </button>
           <button type="submit" className="button primary" disabled={pending}>
             {pending ? "Saving…" : entry ? "Save entry" : "Add entry"}
-          </button>
-          <button
-            type="button"
-            className="button secondary"
-            onClick={onClose}
-            disabled={pending}
-          >
-            Cancel
           </button>
         </div>
       </form>

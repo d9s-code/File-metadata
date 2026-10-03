@@ -190,7 +190,7 @@ export function EmittersListPage() {
             </div>
             {formError && <div className="error-text">{formError}</div>}
             <div className="modal-actions">
-              <button type="button" className="icon-button" onClick={() => setShowAddModal(false)}>
+              <button type="button" className="button secondary" onClick={() => setShowAddModal(false)}>
                 Cancel
               </button>
               <button type="submit" disabled={createEmitter.isPending}>

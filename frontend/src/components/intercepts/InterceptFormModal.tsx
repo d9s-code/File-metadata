@@ -50,7 +50,7 @@ export function InterceptFormModal({
   }
 
   return (
-    <Modal title={intercept ? "Edit Intercept" : "Add Intercept"} onClose={onClose}>
+    <Modal title={intercept ? "Edit details" : "Add Intercept"} onClose={onClose}>
       <form className="edit-fields" onSubmit={handleSubmit}>
         {!intercept && !emitterId && (
           <label>
@@ -99,12 +99,12 @@ export function InterceptFormModal({
           <textarea className="edit-input" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
         </label>
         {error && <div className="error-text">{error}</div>}
-        <div className="edit-actions">
-          <button type="submit" className="button primary" disabled={pending || !name.trim() || (!intercept && !pickedEmitterId)}>
-            {pending ? "Saving…" : intercept ? "Save" : "Add Intercept"}
-          </button>
+        <div className="modal-actions">
           <button type="button" className="button secondary" onClick={onClose} disabled={pending}>
             Cancel
+          </button>
+          <button type="submit" className="button primary" disabled={pending || !name.trim() || (!intercept && !pickedEmitterId)}>
+            {pending ? "Saving…" : intercept ? "Save" : "Add Intercept"}
           </button>
         </div>
       </form>

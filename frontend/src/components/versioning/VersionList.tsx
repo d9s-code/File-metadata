@@ -14,7 +14,7 @@ export function VersionList({
    * shown with a badge since they can be viewed/diffed but not reverted to. */
   forkBoundary?: number | null;
 }) {
-  if (versions.length === 0) return <p className="hint-text">No committed versions yet.</p>;
+  if (versions.length === 0) return <p className="hint-text">No saved versions yet.</p>;
 
   return (
     <ul className="version-list">

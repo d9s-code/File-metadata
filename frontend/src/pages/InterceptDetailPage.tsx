@@ -583,7 +583,7 @@ export function InterceptDetailPage() {
             <MenuButton
               label="More ▾"
               items={[
-                { label: "Edit name, date & description", onSelect: () => setShowEditDetails(true) },
+                { label: "Edit details", onSelect: () => setShowEditDetails(true) },
                 { label: "Import entries from CSV", to: `/intercepts/import?intercept=${intercept.id}` },
                 ...(hasReports ? [{ label: "Regroup reports", to: `/intercepts/${intercept.id}/regroup` }] : []),
                 { label: "Delete Intercept", danger: true, onSelect: () => void handleDeleteIntercept() },

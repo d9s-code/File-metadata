@@ -14,6 +14,12 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+/** Downloads a saved Platform or MDF version as the PRS-format ZIP package. */
+export async function downloadPrs(kind: "platform" | "mdf", id: string, versionNumber: number) {
+  const blob = kind === "platform" ? await platformsApi.exportPrs(id, versionNumber) : await mdfsApi.exportPrs(id, versionNumber);
+  downloadBlob(blob, `${kind}_${id}_v${versionNumber}_prs.zip`);
+}
+
 /** Exports a committed Platform or MDF version to the real PRS-format ZIP
  * package the target system actually consumes — distinct from the
  * placeholder "Export XML" button, which uses this app's own legacy
@@ -34,8 +40,7 @@ export function ExportPrsButton({
     setError(null);
     setDownloading(true);
     try {
-      const blob = kind === "platform" ? await platformsApi.exportPrs(id, versionNumber) : await mdfsApi.exportPrs(id, versionNumber);
-      downloadBlob(blob, `${kind}_${id}_v${versionNumber}_prs.zip`);
+      await downloadPrs(kind, id, versionNumber);
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : "Failed to export PRS package");
     } finally {
@@ -45,7 +50,7 @@ export function ExportPrsButton({
 
   return (
     <span>
-      <button className="status-transition-button" onClick={() => void handleExport()} disabled={downloading}>
+      <button className="button secondary small" onClick={() => void handleExport()} disabled={downloading}>
         {downloading ? "Exporting…" : `Export v${versionNumber} PRS`}
       </button>
       {error && <span className="error-text"> {error}</span>}

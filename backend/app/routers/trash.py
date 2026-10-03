@@ -10,6 +10,7 @@ from app.deps import require_role
 from app.schemas.trash import DeletedItemOut
 from app.services.audit_service import record_audit, snapshot
 from app.services.trash_service import get_deleted_entity, list_deleted
+from app.models.mdf import MdfPlatformLink
 from app.models.platform import PlatformEmitterLink
 from app.models.platform import Platform as PlatformModel
 
@@ -49,6 +50,17 @@ def purge_forever(
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
                 f"Cannot delete this Emitter because it is currently linked to Platform(s): {', '.join(platform_names)}"
+            )
+
+    if entity_type == "platform":
+        # An MDF (live or in the trash) still pins one of its versions — purging would break that pin.
+        pins = db.query(MdfPlatformLink).filter(MdfPlatformLink.platform_id == entity.id).all()
+        if pins:
+            mdf_names = [f"{pin.mdf.name}{' (in the trash)' if pin.mdf.is_deleted else ''}" for pin in pins]
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                f"Cannot delete this Platform because it is pinned by MDF(s): {', '.join(mdf_names)} — "
+                "unpin it there, or purge that MDF first",
             )
 
     record_audit(

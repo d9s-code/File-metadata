@@ -221,6 +221,26 @@ def test_trash_lists_and_purges_deleted_entities(editor_client, admin_client, em
     assert editor_client.get(f"/emitters/{emitter['id']}").status_code == 404
 
 
+def test_trash_refuses_to_purge_a_platform_an_mdf_still_pins(editor_client, admin_client):
+    platform = editor_client.post("/platforms", json={"name": "Pinned Platform"}).json()
+    version = editor_client.post(f"/platforms/{platform['id']}/versions", json={}).json()
+    mdf = editor_client.post("/mdfs", json={"name": "Pinning MDF"}).json()
+    pin = editor_client.post(
+        f"/mdfs/{mdf['id']}/links", json={"platform_id": platform["id"], "platform_version_id": version["id"]}
+    )
+    assert pin.status_code == 201, pin.text
+    editor_client.delete(f"/mdfs/{mdf['id']}")
+    editor_client.delete(f"/platforms/{platform['id']}")
+
+    # The MDF in the trash still pins it: a clear refusal, not a crash.
+    resp = admin_client.delete(f"/trash/platform/{platform['id']}")
+    assert resp.status_code == 409
+    assert "Pinning MDF (in the trash)" in resp.json()["detail"]
+    # Purge the MDF first, then the Platform goes.
+    assert admin_client.delete(f"/trash/mdf/{mdf['id']}").status_code == 204
+    assert admin_client.delete(f"/trash/platform/{platform['id']}").status_code == 204
+
+
 def test_trash_refuses_to_purge_a_live_entity(editor_client, admin_client, emitter):
     assert admin_client.delete(f"/trash/emitter/{emitter['id']}").status_code == 404
 

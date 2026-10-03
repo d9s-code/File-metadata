@@ -12,6 +12,7 @@ import { EmptyState } from "../components/common/EmptyState";
 import { useConfirmDialog } from "../components/common/ConfirmDialog";
 import { ApiRequestError } from "../api/client";
 import type { SourceGroup } from "../types/domain";
+import { statusLabel } from "../components/common/emitterStatusLabel";
 
 function rangeText(min: number | null, max: number | null, unit: string): string {
   if (min == null || max == null) return "—";
@@ -183,7 +184,7 @@ function SourceList({ sources }: { sources: SourceOverview[] }) {
             </td>
             <td>{new Date(s.updated_at).toLocaleDateString()}</td>
             <td>
-              <span className={`status-badge status-${s.status}`}>{s.status.replace("_", " ")}</span>
+              <span className={`status-badge status-${s.status}`}>{statusLabel(s.status)}</span>
             </td>
             <td>{s.element_count}</td>
             <td>{s.sequence_count}</td>
@@ -521,7 +522,7 @@ export function SourceGroupsPage() {
                                     <td>
                                       <Link to={sourceLink(s)}>{s.name}</Link>
                                       {s.status !== "approved" && (
-                                        <span className={`status-badge status-${s.status}`}>{s.status.replace("_", " ")}</span>
+                                        <span className={`status-badge status-${s.status}`}>{statusLabel(s.status)}</span>
                                       )}
                                       <div className="hint-text cell-subline">
                                         {[s.source_type, `${s.element_count} elements`, `${s.sequence_count} sequences`, `${s.mode_count} Modes`]

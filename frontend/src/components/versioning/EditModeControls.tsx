@@ -163,7 +163,15 @@ export function EditModeControls({
               autoFocus
             />
           </label>
-          <div className="edit-actions">
+          {error && <div className="error-text">{error}</div>}
+          <div className="modal-actions">
+            <button
+              className="button secondary"
+              onClick={() => setShowSaveModal(false)}
+              disabled={commitVersion.isPending || checkin.isPending}
+            >
+              Cancel
+            </button>
             <button
               className="button primary"
               onClick={() => void handleSaveAndCheckin()}
@@ -171,11 +179,7 @@ export function EditModeControls({
             >
               {commitVersion.isPending || checkin.isPending ? "Saving…" : "Save version"}
             </button>
-            <button className="button" onClick={() => setShowSaveModal(false)} disabled={commitVersion.isPending || checkin.isPending}>
-              Cancel
-            </button>
           </div>
-          {error && <div className="error-text">{error}</div>}
         </Modal>
       )}
     </RequireRole>
@@ -191,7 +195,7 @@ export function LiveDiffPanel({ emitterId }: { emitterId: string }) {
       ) : diff ? (
         <EmitterDiffViewer diff={diff} />
       ) : (
-        <p className="hint-text">No committed version to compare against yet.</p>
+        <p className="hint-text">No saved version to compare against yet.</p>
       )}
     </div>
   );

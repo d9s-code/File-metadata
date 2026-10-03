@@ -130,7 +130,7 @@ export function EmitterVersionHistoryPage() {
               </label>
             )}
           </div>
-          {selected === 1 && against == null && <p className="hint-text">This is the first committed version — no prior version to diff against.</p>}
+          {selected === 1 && against == null && <p className="hint-text">This is the first saved version — no prior version to diff against.</p>}
           {isForkPoint && against == null && (
             <p className="hint-text">
               This version is where the fork happened — every EW Group/Source/Mode got a fresh id here, so this

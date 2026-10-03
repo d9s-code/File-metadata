@@ -44,7 +44,7 @@ export function PlatformLinkTable({
   const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(links, compareLinks);
 
   if (links.length === 0) {
-    return <EmptyState icon="○" title="No Emitters pinned yet" message="Pin a committed Emitter version below." />;
+    return <EmptyState icon="○" title="No Emitters pinned yet" message="Pin a saved Emitter version below." />;
   }
 
   return (

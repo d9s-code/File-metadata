@@ -1,17 +1,19 @@
 import { useMemo, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useCreateMdf, useDeleteMdf, useMdfs } from "../state/hooks/useMdfs";
 import { useCustomers } from "../state/hooks/useCustomers";
 import { RequireRole } from "../auth/RequireAuth";
 import { ApiRequestError } from "../api/client";
 import { LoadingState } from "../components/common/LoadingState";
 import { EmptyState } from "../components/common/EmptyState";
+import { Modal } from "../components/common/Modal";
 import { SortableColumnHeader } from "../components/common/SortableColumnHeader";
 import { useSortableTable } from "../components/common/useSortableTable";
 import { compareNullable, compareStrings } from "../components/common/sortUtils";
 import { useConfirmDialog } from "../components/common/ConfirmDialog";
 import type { Customer } from "../api/customers";
 import type { Mdf } from "../api/mdfs";
+import { statusLabel } from "../components/common/emitterStatusLabel";
 
 type MdfSortKey = "name" | "platforms" | "release_date" | "status" | "customer";
 
@@ -64,6 +66,11 @@ export function MdfsListPage() {
   const [releaseDate, setReleaseDate] = useState(todayDate());
   const [customerId, setCustomerId] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [filter, setFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [customerFilter, setCustomerFilter] = useState("");
+  const navigate = useNavigate();
 
   async function handleDelete(mdf: Mdf) {
     if (await confirmDelete(`Delete MDF "${mdf.name}"? It can be restored from Recently Deleted for 30 days.`)) {
@@ -75,7 +82,7 @@ export function MdfsListPage() {
     e.preventDefault();
     setError(null);
     try {
-      await createMdf.mutateAsync({
+      const mdf = await createMdf.mutateAsync({
         name,
         description: description || undefined,
         release_date: releaseDate || undefined,
@@ -85,42 +92,115 @@ export function MdfsListPage() {
       setDescription("");
       setReleaseDate(todayDate());
       setCustomerId("");
+      setShowAdd(false);
+      navigate(`/mdfs/${mdf.id}`);
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : "Failed to create MDF");
     }
   }
 
+  const query = filter.trim().toLowerCase();
+  const visible = sorted.filter(
+    (m) =>
+      (!query || `${m.name} ${m.description ?? ""}`.toLowerCase().includes(query)) &&
+      (!statusFilter || m.status === statusFilter) &&
+      (!customerFilter || m.customer_id === customerFilter),
+  );
+  const statuses = [...new Set((mdfs ?? []).map((m) => m.status))].sort();
+
   return (
     <div className="page">
-      <h1>Mission Data Files</h1>
+      <div className="page-header-row">
+        <h1>Mission Data Files</h1>
+        <RequireRole minimum="editor">
+          <button onClick={() => setShowAdd(true)}>+ Add MDF</button>
+        </RequireRole>
+      </div>
+      <p className="hint-text">An MDF pins saved Platform versions for delivery to a customer.</p>
 
-      <RequireRole minimum="editor">
-        <form className="card inline-form" onSubmit={handleCreate}>
-          <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required />
-          <input placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
-          <label className="inline-date-label">
-            Release date
-            <input type="date" value={releaseDate} onChange={(e) => setReleaseDate(e.target.value)} />
-          </label>
-          <select value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
-            <option value="">— no customer —</option>
-            {(customers ?? []).map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          <button type="submit" disabled={createMdf.isPending}>
-            Add MDF
-          </button>
-        </form>
-        {error && <div className="error-text">{error}</div>}
-      </RequireRole>
+      {showAdd && (
+        <Modal title="Add MDF" onClose={() => setShowAdd(false)}>
+          <form onSubmit={handleCreate}>
+            <div className="form-row">
+              <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
+            </div>
+            <div className="form-row">
+              <label className="wide-label">
+                Description (optional)
+                <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
+              </label>
+            </div>
+            <div className="form-row">
+              <label className="wide-label">
+                Release date
+                <input type="date" value={releaseDate} onChange={(e) => setReleaseDate(e.target.value)} />
+              </label>
+              <label className="wide-label">
+                Customer
+                <select value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+                  <option value="">— no customer —</option>
+                  {(customers ?? []).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {error && <div className="error-text">{error}</div>}
+            <div className="modal-actions">
+              <button type="button" className="button secondary" onClick={() => setShowAdd(false)}>
+                Cancel
+              </button>
+              <button type="submit" className="button primary" disabled={createMdf.isPending}>
+                Add MDF
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {mdfs && mdfs.length > 0 && (
+        <div className="card">
+          <div className="modes-toolbar-row">
+            <input placeholder="Filter by name or description…" value={filter} onChange={(e) => setFilter(e.target.value)} />
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Status">
+              <option value="">All statuses</option>
+              {statuses.map((st) => (
+                <option key={st} value={st}>
+                  {statusLabel(st)}
+                </option>
+              ))}
+            </select>
+            {(customers ?? []).length > 0 && (
+              <select value={customerFilter} onChange={(e) => setCustomerFilter(e.target.value)} aria-label="Customer">
+                <option value="">All customers</option>
+                {(customers ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            <button
+              type="button"
+              className="link-button"
+              onClick={() => {
+                setFilter("");
+                setStatusFilter("");
+                setCustomerFilter("");
+              }}
+            >
+              Reset filters
+            </button>
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <LoadingState label="Loading MDFs…" />
       ) : mdfs && mdfs.length === 0 ? (
-        <EmptyState icon="◇" title="No MDFs yet" message="Add one above, then pin committed Platform versions to it." />
+        <EmptyState icon="◇" title="No MDFs yet" message="Add one with + Add MDF, then pin saved Platform versions to it." />
       ) : (
         <table className="data-table">
           <thead>
@@ -171,7 +251,7 @@ export function MdfsListPage() {
             </tr>
           </thead>
           <tbody>
-            {sorted.map((m) => (
+            {visible.map((m) => (
               <tr key={m.id}>
                 <td>
                   <Link to={`/mdfs/${m.id}`}>{m.name}</Link>
@@ -179,7 +259,7 @@ export function MdfsListPage() {
                 <td>{m.platforms_count}</td>
                 <td>{m.release_date ?? "—"}</td>
                 <td>
-                  <span className={`status-badge status-${m.status}`}>{m.status.replace("_", " ")}</span>
+                  <span className={`status-badge status-${m.status}`}>{statusLabel(m.status)}</span>
                 </td>
                 <td>{m.customer_id ? customersById[m.customer_id]?.name ?? "—" : "—"}</td>
                 <td>

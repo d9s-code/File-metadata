@@ -17,7 +17,7 @@ export function PlatformVersionPicker({ mdfId }: { mdfId: string }) {
   async function handlePin() {
     setError(null);
     if (!selectedVersion) {
-      setError("Choose a platform and a committed version first.");
+      setError("Choose a Platform and a saved version first.");
       return;
     }
     try {
@@ -51,7 +51,7 @@ export function PlatformVersionPicker({ mdfId }: { mdfId: string }) {
         disabled={!platformId}
       >
         <option value="">
-          {platformId && versions?.length === 0 ? "No committed versions — commit one first" : "Choose version…"}
+          {platformId && versions?.length === 0 ? "No saved versions — save one on the Platform first" : "Choose version…"}
         </option>
         {versions?.map((v) => (
           <option key={v.id} value={v.version_number}>

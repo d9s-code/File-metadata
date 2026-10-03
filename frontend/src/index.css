@@ -492,6 +492,10 @@ button:disabled {
 .modal-dialog p {
   margin: 0 0 1rem 0;
 }
+/* A confirm message keeps its line breaks — a list of warnings, say. */
+.confirm-message {
+  white-space: pre-line;
+}
 .modal-dialog-wide {
   width: 760px;
 }

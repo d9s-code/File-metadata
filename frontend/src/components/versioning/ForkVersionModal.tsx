@@ -47,7 +47,7 @@ export function ForkVersionModal({
           />
         </div>
         <div className="modal-actions">
-          <button type="button" className="icon-button" onClick={onClose}>
+          <button type="button" className="button secondary" onClick={onClose}>
             Cancel
           </button>
           <button type="submit" disabled={fork.isPending}>

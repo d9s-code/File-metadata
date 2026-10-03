@@ -85,7 +85,7 @@ export function StatusTransitionControls({ emitterId, status }: { emitterId: str
           <div className="modal-actions">
             <button
               type="button"
-              className="icon-button"
+              className="button secondary"
               onClick={() => {
                 setPendingNext(null);
                 setNote("");

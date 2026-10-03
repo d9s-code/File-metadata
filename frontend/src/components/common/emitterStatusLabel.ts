@@ -13,3 +13,10 @@ export const EMITTER_STATUS_LABEL: Record<EmitterStatus, string> = {
 export function emitterStatusLabel(status: EmitterStatus): string {
   return EMITTER_STATUS_LABEL[status];
 }
+
+/** Any other status as shown to a person: "pending_review" → "Pending review"
+ * — so MDFs, Sources and the rest read the same way as Emitters. */
+export function statusLabel(status: string): string {
+  const words = status.replace(/_/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}

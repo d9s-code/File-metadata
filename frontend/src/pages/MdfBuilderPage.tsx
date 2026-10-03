@@ -1,21 +1,26 @@
 import { useEffect, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useMdf, useMdfLinks, useUpdateMdf } from "../state/hooks/useMdfs";
-import { useMdfVersions } from "../state/hooks/useMdfVersions";
+import { useCommitMdfVersion, useMdfVersions } from "../state/hooks/useMdfVersions";
 import { usePlatforms } from "../state/hooks/usePlatforms";
 import { useCustomers } from "../state/hooks/useCustomers";
 import { useCreateMdfNote, useDeleteMdfNote, useMdfNotes } from "../state/hooks/useMdfNotes";
 import { MdfLinkTable } from "../components/mdf/MdfLinkTable";
 import { PlatformVersionPicker } from "../components/mdf/PlatformVersionPicker";
 import { MdfStatusTransitionControls } from "../components/mdf/MdfStatusTransitionControls";
-import { ExportXmlButton } from "../components/mdf/ExportXmlButton";
-import { ExportPrsButton } from "../components/versioning/ExportPrsButton";
+import { downloadMdfXml } from "../components/mdf/ExportXmlButton";
+import { downloadPrs } from "../components/versioning/ExportPrsButton";
+import { LatestVersion, SaveVersionButton } from "../components/versioning/SaveVersionButton";
+import { EntityHeader } from "../components/common/EntityHeader";
+import { MenuButton } from "../components/common/MenuButton";
+import { ApiRequestError } from "../api/client";
 import { MdfTestHistory } from "../components/testing/MdfTestHistory";
 import { EntityAuditTrail } from "../components/audit/EntityAuditTrail";
-import { RequireRole } from "../auth/RequireAuth";
+import { RequireRole, useHasRole } from "../auth/RequireAuth";
 import { LoadingState } from "../components/common/LoadingState";
 import { Modal } from "../components/common/Modal";
 import { NotesFeed } from "../components/common/NotesFeed";
+import { statusLabel } from "../components/common/emitterStatusLabel";
 
 type Tab = "platforms" | "tests" | "audit";
 
@@ -33,6 +38,9 @@ export function MdfBuilderPage() {
   const { data: links } = useMdfLinks(mdfId ?? "");
   const { data: platforms } = usePlatforms();
   const { data: versions } = useMdfVersions(mdfId ?? "");
+  const commitVersion = useCommitMdfVersion(mdfId ?? "");
+  const canWrite = useHasRole("editor");
+  const [exportError, setExportError] = useState<string | null>(null);
   const { data: customers } = useCustomers();
   const { mutate: updateMdf, isPending: isUpdating } = useUpdateMdf();
   const { data: mdfNotes, isLoading: notesLoading } = useMdfNotes(mdfId ?? "");
@@ -62,6 +70,15 @@ export function MdfBuilderPage() {
 
   const handleCancelEdit = () => setIsEditing(false);
 
+  async function runExport(download: () => Promise<void>) {
+    setExportError(null);
+    try {
+      await download();
+    } catch (err) {
+      setExportError(err instanceof ApiRequestError ? err.message : "Export failed");
+    }
+  }
+
   const handleSaveEdit = () => {
     updateMdf(
       {
@@ -80,20 +97,54 @@ export function MdfBuilderPage() {
 
   return (
     <div className="page">
-      <h1>{mdf.name}</h1>
-      <div className="status-row">
-        <span className={`status-badge status-${mdf.status}`}>{mdf.status.replace("_", " ")}</span>
-        <MdfStatusTransitionControls mdfId={mdf.id} status={mdf.status} />
-        <Link to={`/mdfs/${mdf.id}/versions`}>Version history</Link>
-        <Link to={`/ambiguity/mdf/${mdf.id}`}>Ambiguity check</Link>
-        <button className="button secondary small" onClick={handleStartEdit}>
-          Edit Details
-        </button>
-        {latestVersion && <ExportXmlButton mdfId={mdf.id} versionNumber={latestVersion.version_number} />}
-        {latestVersion && <ExportPrsButton kind="mdf" id={mdf.id} versionNumber={latestVersion.version_number} />}
-      </div>
-      {mdf.description && <p className="muted">{mdf.description}</p>}
-      {mdf.notes && <p className="muted">{mdf.notes}</p>}
+      <EntityHeader
+        title={mdf.name}
+        actions={
+          <>
+            <SaveVersionButton
+              noun="MDF"
+              save={(summary) => commitVersion.mutateAsync(summary)}
+              pending={commitVersion.isPending}
+            />
+            <MenuButton
+              label="Export ▾"
+              items={
+                latestVersion
+                  ? [
+                      {
+                        label: `XML (v${latestVersion.version_number})`,
+                        onSelect: () => void runExport(() => downloadMdfXml(mdf.id, latestVersion.version_number)),
+                      },
+                      {
+                        label: `PRS package (v${latestVersion.version_number})`,
+                        onSelect: () => void runExport(() => downloadPrs("mdf", mdf.id, latestVersion.version_number)),
+                      },
+                    ]
+                  : [{ label: "Save a version first — exports come from a saved version", disabled: true }]
+              }
+            />
+            <MenuButton
+              label="More ▾"
+              items={[
+                { label: "Version history", to: `/mdfs/${mdf.id}/versions` },
+                { label: "Ambiguity check", to: `/ambiguity/mdf/${mdf.id}` },
+                ...(canWrite ? [{ label: "Edit details", onSelect: handleStartEdit }] : []),
+              ]}
+            />
+          </>
+        }
+        status={
+          <>
+            <span className={`status-badge status-${mdf.status}`}>{statusLabel(mdf.status)}</span>
+            <MdfStatusTransitionControls mdfId={mdf.id} status={mdf.status} />
+            <LatestVersion versions={versions} />
+            {exportError && <span className="error-text">{exportError}</span>}
+          </>
+        }
+      >
+        {mdf.description && <p className="muted emitter-description">{mdf.description}</p>}
+        {mdf.notes && <p className="muted emitter-description">{mdf.notes}</p>}
+      </EntityHeader>
 
       <section className="card">
         <h4>Release notes</h4>
@@ -108,7 +159,7 @@ export function MdfBuilderPage() {
       </section>
 
       {isEditing && (
-        <Modal title="Edit MDF Details" onClose={handleCancelEdit} wide>
+        <Modal title="Edit details" onClose={handleCancelEdit} wide>
           <div className="edit-fields">
             <label>
               Name
@@ -165,12 +216,12 @@ export function MdfBuilderPage() {
               </select>
             </label>
           </div>
-          <div className="edit-actions">
-            <button className="button primary" onClick={handleSaveEdit} disabled={isUpdating}>
-              {isUpdating ? "Saving..." : "Save"}
-            </button>
-            <button className="button" onClick={handleCancelEdit} disabled={isUpdating}>
+          <div className="modal-actions">
+            <button className="button secondary" onClick={handleCancelEdit} disabled={isUpdating}>
               Cancel
+            </button>
+            <button className="button primary" onClick={handleSaveEdit} disabled={isUpdating}>
+              {isUpdating ? "Saving…" : "Save"}
             </button>
           </div>
         </Modal>
@@ -194,7 +245,7 @@ export function MdfBuilderPage() {
           <RequireRole minimum="editor">
             <h4>Pin a Platform Version</h4>
             <p className="hint-text">
-              Pinning requires a committed version of the platform (and each emitter it references).
+              Pinning needs a saved version of the Platform (and of each Emitter it pins).
             </p>
             <PlatformVersionPicker mdfId={mdf.id} />
           </RequireRole>

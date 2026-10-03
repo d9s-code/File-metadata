@@ -1,6 +1,8 @@
+import { statusLabel } from "../common/emitterStatusLabel";
+
 export function StatusTiles({
   counts,
-  labelFor = (status) => status.replace("_", " "),
+  labelFor = statusLabel,
 }: {
   counts: Record<string, number>;
   labelFor?: (status: string) => string;

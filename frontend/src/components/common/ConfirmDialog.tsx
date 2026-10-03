@@ -38,9 +38,9 @@ export function useConfirmDialog(): {
   const dialog = state ? (
     <div className="modal-overlay" onClick={() => respond(false)}>
       <div className="modal-dialog" role="alertdialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
-        <p>{state.message}</p>
+        <p className="confirm-message">{state.message}</p>
         <div className="modal-actions">
-          <button type="button" className="icon-button" onClick={() => respond(false)}>
+          <button type="button" className="button secondary" onClick={() => respond(false)}>
             Cancel
           </button>
           {state.confirmLabel ? (

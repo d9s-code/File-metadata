@@ -499,7 +499,13 @@ export function HelpPage() {
 
         <div className="help-subsection" id="platform-detail">
           <h3>Platform detail</h3>
-          <p>Pin and unpin Emitters (each pin references one committed Emitter version), and edit the Platform's own metadata.</p>
+          <p>
+            Laid out like an Emitter: <strong>Save version</strong>, <strong>Export XML</strong> and{" "}
+            <strong>More ▾</strong> (Version history, Ambiguity check, Edit details) along the top, with when it
+            was last saved under the name. Pin and unpin Emitters below — each pin references one saved Emitter
+            version. A Platform has no editing session: pins and details apply straight away, and{" "}
+            <strong>Save version</strong> records them as a new version (the summary is optional).
+          </p>
         </div>
 
         <div className="help-subsection" id="platform-versions">
@@ -542,9 +548,10 @@ export function HelpPage() {
         <div className="help-subsection" id="mdf-versions">
           <h3>Version history & XML export</h3>
           <p>
-            Commits work the same way as an Emitter's. For a committed MDF version, an{" "}
-            <strong>Export XML</strong> button on this page produces the final XML output — built strictly
-            from committed snapshots, never live/draft data.
+            <strong>Save version</strong> (along the top of the MDF and on this page) records the MDF as a new
+            version, like an Emitter&apos;s, with an optional summary. <strong>Export ▾</strong> on the MDF
+            exports its latest saved version as XML or as a PRS package; this page exports any version you pick —
+            always from saved snapshots, never live data.
           </p>
         </div>
 

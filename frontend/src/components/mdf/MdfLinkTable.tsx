@@ -44,7 +44,7 @@ export function MdfLinkTable({
   const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(links, compareLinks);
 
   if (links.length === 0) {
-    return <EmptyState icon="○" title="No Platforms pinned yet" message="Pin a committed Platform version below." />;
+    return <EmptyState icon="○" title="No Platforms pinned yet" message="Pin a saved Platform version below." />;
   }
 
   return (

@@ -131,7 +131,7 @@ async function handleCreate(e: FormEvent) {
             </div>
             {formError && <div className="error-text">{formError}</div>}
             <div className="modal-actions">
-              <button type="button" className="icon-button" onClick={() => setShowAddModal(false)}>
+              <button type="button" className="button secondary" onClick={() => setShowAddModal(false)}>
                 Cancel
               </button>
               <button type="submit" disabled={createUser.isPending}>
@@ -219,7 +219,7 @@ async function handleCreate(e: FormEvent) {
                 </div>
                 {resetError && <div className="error-text">{resetError}</div>}
                 <div className="modal-actions">
-                  <button type="button" className="icon-button" onClick={() => setShowResetModal(false)}>
+                  <button type="button" className="button secondary" onClick={() => setShowResetModal(false)}>
                     Cancel
                   </button>
                   <button type="submit" disabled={updateUser.isPending}>

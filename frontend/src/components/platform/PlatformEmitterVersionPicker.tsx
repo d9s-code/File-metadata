@@ -17,7 +17,7 @@ export function PlatformEmitterVersionPicker({ platformId }: { platformId: strin
   async function handlePin() {
     setError(null);
     if (!selectedVersion) {
-      setError("Choose an emitter and a committed version first.");
+      setError("Choose an Emitter and a saved version first.");
       return;
     }
     try {
@@ -51,7 +51,7 @@ export function PlatformEmitterVersionPicker({ platformId }: { platformId: strin
         disabled={!emitterId}
       >
         <option value="">
-          {emitterId && versions?.length === 0 ? "No committed versions — commit one first" : "Choose version…"}
+          {emitterId && versions?.length === 0 ? "No saved versions — save one on the Emitter first" : "Choose version…"}
         </option>
         {versions?.map((v) => (
           <option key={v.id} value={v.version_number}>
