@@ -803,7 +803,10 @@ export function HelpPage() {
             <li>
               <strong>New Mode</strong> — the entry&apos;s range with the ± margins you set on top. A stagger&apos;s frame
               time is one value, so its measured spread goes into its ±; a Fixed Mode&apos;s jitter range comes from
-              the reports. CW Modes need a PW range, since a CW entry has none.
+              the reports. CW Modes need a PW range, since a CW entry has none. To give one entry different margins,
+              click <strong>± for this entry</strong> under its choice: any field you fill overrides the page&apos;s
+              margin for that entry alone (left empty, it shows and uses the page&apos;s); <strong>Use the
+              page&apos;s</strong> clears them.
             </li>
             <li>
               <strong>Skip</strong> — leave it uncovered.
@@ -819,7 +822,9 @@ export function HelpPage() {
             You can plan without editing the Emitter, but <strong>Apply</strong> needs you to be editing it: it asks
             once, with a summary, then makes every change together or none — into your unsaved changes, so Discard
             still undoes it. Every Mode made or widened is linked to its entries; its{" "}
-            <span className="test-derived-badge">Intercept-Derived</span> badge names the Intercept.
+            <span className="test-derived-badge">Intercept-Derived</span> badge names the Intercept. Matching is
+            worked out afresh from the Emitter&apos;s Modes wherever it&apos;s shown, so once applied the entries
+            read as matching straight away — and go back if the Modes are discarded or changed.
           </p>
         </div>
       </div>

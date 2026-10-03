@@ -3265,6 +3265,27 @@ label.grow {
 .plan-table select {
   max-width: 22rem;
 }
+.plan-margins {
+  margin-top: 0.3rem;
+  font-size: 0.85rem;
+}
+.plan-margins-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.35rem 0.6rem;
+  margin-top: 0.3rem;
+}
+.plan-margins-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.plan-margins-fields input {
+  width: 5.5rem;
+}
 .plan-result {
   font-size: 0.9rem;
   line-height: 1.45;

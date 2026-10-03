@@ -44,6 +44,9 @@ const PARAM_KEY: Record<MatchParam, "rf" | "pri" | "pw"> = { RF: "rf", PRI: "pri
 
 type Action = { kind: "new" } | { kind: "widen"; modeId: string } | { kind: "skip" };
 
+/** One entry's own ± margins for its new Mode, as typed; empty uses the page's. */
+type RowDeltas = Partial<Record<"rf" | "pri" | "frame" | "pw", string>>;
+
 /** Each entry's reports, from the all-reports listing: sorted values for
  * percentiles, and each report's values for coverage. */
 function reportsByEntry(all: AllReports): Map<string, EntryReports> {
@@ -107,6 +110,61 @@ function CoverageLines({ priType, c }: { priType: string; c: Coverage }) {
   );
 }
 
+/** An entry's own ± margins for its new Mode — a link that opens three small
+ * fields; left empty, each uses the page's margin (shown greyed in it). */
+function RowMargins({
+  priType,
+  open,
+  values,
+  page,
+  onToggle,
+  onChange,
+}: {
+  priType: string;
+  open: boolean;
+  values: RowDeltas;
+  page: PlanSettings;
+  onToggle: () => void;
+  onChange: (values: RowDeltas) => void;
+}) {
+  const fields: { key: keyof RowDeltas; label: string; fallback: number }[] = [
+    { key: "rf", label: "RF ±", fallback: page.rfDelta },
+    ...(priType === "fixed" ? [{ key: "pri" as const, label: "PRI ±", fallback: page.priDelta }] : []),
+    ...(priType === "stagger" ? [{ key: "frame" as const, label: "Frame ±", fallback: page.frameDelta }] : []),
+    ...(priType !== "cw" ? [{ key: "pw" as const, label: "PW ±", fallback: page.pwDelta }] : []),
+  ];
+  const own = fields.filter((f) => values[f.key] != null && values[f.key]!.trim() !== "");
+  return (
+    <div className="plan-margins">
+      <button type="button" className="link-button" aria-expanded={open} onClick={onToggle}>
+        {own.length > 0 ? `± own: ${own.map((f) => `${f.label} ${values[f.key]}`).join(", ")}` : "± for this entry"}
+      </button>
+      {open && (
+        <div className="plan-margins-fields">
+          {fields.map((f) => (
+            <label key={f.key}>
+              {f.label}
+              <input
+                type="number"
+                step="any"
+                min="0"
+                placeholder={String(f.fallback)}
+                value={values[f.key] ?? ""}
+                onChange={(ev) => onChange({ ...values, [f.key]: ev.target.value })}
+              />
+            </label>
+          ))}
+          {own.length > 0 && (
+            <button type="button" className="link-button" onClick={() => onChange({})}>
+              Use the page&apos;s
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface Row {
   entry: InterceptEntry;
   match: EntryMatch;
@@ -151,6 +209,8 @@ export function InterceptModePlanPage() {
   const [onlyPicked, setOnlyPicked] = useState(picked != null);
   const [showMatched, setShowMatched] = useState(false);
   const [overrides, setOverrides] = useState<Map<string, Action>>(new Map());
+  const [rowDeltas, setRowDeltas] = useState<Map<string, RowDeltas>>(new Map());
+  const [openDeltas, setOpenDeltas] = useState<Set<string>>(new Set());
   const [ewGroupId, setEwGroupId] = useState("");
   const [sourceId, setSourceId] = useState("");
   const [functionGroupId, setFunctionGroupId] = useState("");
@@ -214,7 +274,16 @@ export function InterceptModePlanPage() {
     return base.map((r): Row => {
       const reports = byEntry.get(r.entry.id);
       if (r.action.kind === "new") {
-        const line = newModeLine(r.entry, r.ranges, settings);
+        // The page's margins, with any this entry has of its own.
+        const own = rowDeltas.get(r.entry.id) ?? {};
+        const mine = (v: string | undefined, page: number) => (v != null && v.trim() !== "" ? num(v, page) : page);
+        const line = newModeLine(r.entry, r.ranges, {
+          ...settings,
+          rfDelta: mine(own.rf, settings.rfDelta),
+          priDelta: mine(own.pri, settings.priDelta),
+          frameDelta: mine(own.frame, settings.frameDelta),
+          pwDelta: mine(own.pw, settings.pwDelta),
+        });
         const problem = line
           ? null
           : r.entry.pri_type === "cw"
@@ -249,7 +318,7 @@ export function InterceptModePlanPage() {
     });
     // settingsKey stands in for settings, rebuilt each render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entries, modes, byEntry, overrides, onlyPicked, picked, settingsKey]);
+  }, [entries, modes, byEntry, overrides, rowDeltas, onlyPicked, picked, settingsKey]);
 
   if (!canWrite) {
     return (
@@ -445,7 +514,8 @@ export function InterceptModePlanPage() {
           )}
         </div>
         <p className="hint-text">
-          A new Mode takes the entry&apos;s range with these ± margins on top; a stagger&apos;s frame time is one value,
+          A new Mode takes the entry&apos;s range with these ± margins on top (or its own — &ldquo;± for this
+          entry&rdquo; in its row); a stagger&apos;s frame time is one value,
           so its measured spread goes into its ± too. A widened Mode keeps its own name, margins and everything else.
         </p>
       </section>
@@ -519,6 +589,27 @@ export function InterceptModePlanPage() {
                             <option value="new">New Mode</option>
                             <option value="skip">Skip</option>
                           </select>
+                        )}
+                        {r.action.kind === "new" && r.match.status !== "match" && (
+                          <RowMargins
+                            priType={e.pri_type}
+                            open={openDeltas.has(e.id)}
+                            values={rowDeltas.get(e.id) ?? {}}
+                            page={settings}
+                            onToggle={() => {
+                              const next = new Set(openDeltas);
+                              if (next.has(e.id)) next.delete(e.id);
+                              else next.add(e.id);
+                              setOpenDeltas(next);
+                            }}
+                            onChange={(values) => {
+                              const next = new Map(rowDeltas);
+                              if (Object.values(values).every((v) => !v || v.trim() === "")) next.delete(e.id);
+                              else next.set(e.id, values);
+                              setRowDeltas(next);
+                              setDone(null);
+                            }}
+                          />
                         )}
                       </td>
                       <td className="plan-result">
