@@ -17,10 +17,19 @@ from app.deps import has_role, require_role
 from app.models.emitter import Emitter
 from app.models.mdf import Mdf
 from app.models.platform import Platform
-from app.models.task import Task
+from app.models.task import Task, TaskNote
 from app.models.user import User
-from app.schemas.task import AssignedEmitterOut, MyWorkOut, PersonOut, TaskCreate, TaskOut, TaskUpdate
-from app.services.audit_service import record_audit
+from app.schemas.task import (
+    AssignedEmitterOut,
+    MyWorkOut,
+    PersonOut,
+    TaskCreate,
+    TaskNoteCreate,
+    TaskNoteOut,
+    TaskOut,
+    TaskUpdate,
+)
+from app.services.audit_service import record_audit, snapshot
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 people_router = APIRouter(prefix="/people", tags=["tasks"])
@@ -62,6 +71,16 @@ def to_out(db: Session, tasks: list[Task]) -> list[TaskOut]:
         if ids:
             for id_, name, deleted in db.query(model.id, model.name, model.is_deleted).filter(model.id.in_(ids)):
                 items[(kind, id_)] = (name, deleted)
+    note_counts = (
+        dict(
+            db.query(TaskNote.task_id, func.count())
+            .filter(TaskNote.task_id.in_([t.id for t in tasks]))
+            .group_by(TaskNote.task_id)
+            .all()
+        )
+        if tasks
+        else {}
+    )
     out = []
     for t in tasks:
         name, deleted = items.get((t.entity_type, t.entity_id), (None, t.entity_id is not None))
@@ -81,6 +100,7 @@ def to_out(db: Session, tasks: list[Task]) -> list[TaskOut]:
                 entity_id=t.entity_id,
                 entity_name=name,
                 entity_deleted=deleted,
+                note_count=note_counts.get(t.id, 0),
                 created_at=t.created_at,
                 updated_at=t.updated_at,
             )
@@ -261,3 +281,71 @@ def delete_task(task_id: UUID, db: Session = Depends(get_db), user: User = Depen
     _audit(db, user, AuditAction.delete, task, f"Deleted task '{task.title}'")
     db.delete(task)
     db.commit()
+
+
+# --- Notes: a running log on a task -------------------------------------------------
+
+
+def _note_out(db: Session, notes: list[TaskNote]) -> list[TaskNoteOut]:
+    ids = {n.author_id for n in notes if n.author_id}
+    names = dict(db.query(User.id, User.username).filter(User.id.in_(ids)).all()) if ids else {}
+    return [
+        TaskNoteOut(id=n.id, author_id=n.author_id, author_username=names.get(n.author_id), body=n.body, created_at=n.created_at)
+        for n in notes
+    ]
+
+
+@router.get("/{task_id}/notes", response_model=list[TaskNoteOut])
+def list_task_notes(task_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))) -> list[TaskNoteOut]:
+    """Newest first."""
+    _get(db, task_id)
+    notes = db.query(TaskNote).filter(TaskNote.task_id == task_id).order_by(TaskNote.created_at.desc()).all()
+    return _note_out(db, notes)
+
+
+@router.post(
+    "/{task_id}/notes",
+    response_model=TaskNoteOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(verify_csrf)],
+)
+def add_task_note(
+    task_id: UUID, payload: TaskNoteCreate, db: Session = Depends(get_db), user: User = Depends(require_role(Role.viewer))
+) -> TaskNoteOut:
+    """Editors, or whoever the task is for."""
+    task = _get(db, task_id)
+    if not has_role(user, Role.editor) and task.assignee_id != user.id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only editors, or whoever the task is for, can add notes")
+    note = TaskNote(task_id=task.id, author_id=user.id, body=payload.body)
+    db.add(note)
+    db.flush()
+    _audit(db, user, AuditAction.create, task, f"Added a note to task '{task.title}'")
+    db.commit()
+    db.refresh(note)
+    return _note_out(db, [note])[0]
+
+
+@router.delete("/{task_id}/notes/{note_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(verify_csrf)])
+def delete_task_note(
+    task_id: UUID, note_id: UUID, db: Session = Depends(get_db), user: User = Depends(require_role(Role.viewer))
+) -> None:
+    """Whoever wrote it, or an admin."""
+    task = _get(db, task_id)
+    note = db.get(TaskNote, note_id)
+    if note is None or note.task_id != task.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Note not found")
+    if note.author_id != user.id and not has_role(user, Role.admin):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only whoever wrote a note, or an admin, can delete it")
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.delete,
+        entity_type=AuditEntityType.task.value,
+        entity_id=task.id,
+        summary=f"Deleted a note from task '{task.title}'",
+        changes=snapshot(note, ["body"]),
+        emitter_id=task.entity_id if task.entity_type == "emitter" else None,
+    )
+    db.delete(note)
+    db.commit()
+

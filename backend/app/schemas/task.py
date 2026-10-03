@@ -51,8 +51,29 @@ class TaskOut(BaseModel):
     # The linked item's name; None if it's been deleted for good.
     entity_name: str | None = None
     entity_deleted: bool = False
+    note_count: int = 0
     created_at: datetime
     updated_at: datetime
+
+
+class TaskNoteCreate(BaseModel):
+    body: str = Field(min_length=1, max_length=5000)
+
+    @field_validator("body")
+    @classmethod
+    def _strip_body(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("A note can't be empty")
+        return v
+
+
+class TaskNoteOut(BaseModel):
+    id: UUID
+    author_id: UUID | None = None
+    author_username: str | None = None
+    body: str
+    created_at: datetime
 
 
 class PersonOut(BaseModel):

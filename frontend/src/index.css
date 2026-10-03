@@ -4681,8 +4681,6 @@ label.map-axis select { font-size: 0.8rem; padding: 0.1rem 0.3rem; }
 }
 .my-work .task-list {
   margin-top: 0;
-  max-height: 20rem;
-  overflow-y: auto;
 }
 .my-work-list {
   list-style: none;
@@ -4704,4 +4702,17 @@ label.map-axis select { font-size: 0.8rem; padding: 0.1rem 0.3rem; }
   gap: 1rem;
   margin: 0.4rem 0 0;
   font-size: 0.85rem;
+}
+.task-notes-toggle.open {
+  font-weight: 600;
+}
+.task-notes-log {
+  margin-top: 0.4rem;
+  padding: 0.5rem 0.65rem;
+  border-left: 3px solid var(--border);
+  background: var(--hover-bg);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.task-notes-log .notes-feed-add textarea {
+  background: var(--card-bg);
 }

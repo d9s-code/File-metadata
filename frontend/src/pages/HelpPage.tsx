@@ -869,7 +869,9 @@ export function HelpPage() {
         </p>
         <p>
           <strong>Tasks</strong> are to-dos. Make one for yourself, give one to someone else, or leave it{" "}
-          <em>up for grabs</em> for whoever takes it. A task can have notes and a due date, and can be about an
+          <em>up for grabs</em> for whoever takes it. A task can have details and a due date, and a running log of{" "}
+          <strong>notes</strong> — click <strong>💬</strong> on any task to read them or add one (progress, a
+          question, what&apos;s left), each stamped with who wrote it and when. A task can be about an
           Emitter, Platform or MDF — use <strong>☑ Tasks</strong> on that page to see its tasks and add one already
           linked. The <strong>Tasks</strong> page (top bar; the number is how many are open for you) has views for
           Mine, Up for grabs, I gave out, Everyone and Done. Overdue tasks show red, ones due today amber.

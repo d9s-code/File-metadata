@@ -1,10 +1,10 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type { EmitterNote, SourceNote } from "../../types/domain";
-import { RequireRole } from "../../auth/RequireAuth";
+import { useHasRole } from "../../auth/RequireAuth";
 import { useConfirmDialog } from "./ConfirmDialog";
 import { ApiRequestError } from "../../api/client";
 
-type NoteEntry = EmitterNote | SourceNote;
+type NoteEntry = EmitterNote | SourceNote | { id: string; author_id: string | null; author_username: string | null; body: string; created_at: string };
 
 /** A note's text, cut to a few lines (see .notes-feed-body) with a Show more
  * toggle when it's longer than that — so one long note can't push the rest
@@ -49,6 +49,8 @@ export function NotesFeed({
   onAdd,
   isAdding,
   onDelete,
+  canAdd,
+  canDelete,
 }: {
   notes: NoteEntry[] | undefined;
   isLoading: boolean;
@@ -56,7 +58,13 @@ export function NotesFeed({
   onAdd: (body: string) => Promise<unknown>;
   isAdding: boolean;
   onDelete: (noteId: string) => Promise<unknown>;
+  /** Who may add or delete notes; editors when not given. */
+  canAdd?: boolean;
+  canDelete?: (note: NoteEntry) => boolean;
 }) {
+  const isEditor = useHasRole("editor");
+  const mayAdd = canAdd ?? isEditor;
+  const mayDelete = canDelete ?? (() => isEditor);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
@@ -99,11 +107,11 @@ export function NotesFeed({
                 <div className="notes-feed-meta">
                   <span>{n.author_username ?? "system"}</span>
                   <span className="hint-text">{new Date(n.created_at).toLocaleString()}</span>
-                  <RequireRole minimum="editor">
+                  {mayDelete(n) && (
                     <button type="button" className="link-button link-button-danger" onClick={() => void handleDelete(n.id)}>
                       Delete
                     </button>
-                  </RequireRole>
+                  )}
                 </div>
                 <NoteBody body={n.body} />
               </li>
@@ -116,7 +124,7 @@ export function NotesFeed({
           )}
         </>
       )}
-      <RequireRole minimum="editor">
+      {mayAdd && (
         <div className="notes-feed-add">
           <textarea
             value={draft}
@@ -134,7 +142,7 @@ export function NotesFeed({
             {isAdding ? "Adding..." : "Add note"}
           </button>
         </div>
-      </RequireRole>
+      )}
       {error && <div className="error-text">{error}</div>}
       {dialog}
     </div>

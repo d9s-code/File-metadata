@@ -155,12 +155,17 @@ export function TaskForm({
       )}
       {showNotes ? (
         <label>
-          Notes
-          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
+          Details
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+            placeholder="What it involves — progress goes in its notes once it exists"
+          />
         </label>
       ) : (
         <button type="button" className="link-button task-form-notes-toggle" onClick={() => setShowNotes(true)}>
-          + Add notes
+          + Add details
         </button>
       )}
       {error && <div className="error-text">{error}</div>}

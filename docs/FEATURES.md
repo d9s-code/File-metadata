@@ -349,7 +349,7 @@ The backups' health, Back up now, Verify, and the compare overview — see [Back
 - **For someone else** — giving out work; it shows on their dashboard and in the count by **Tasks** in the top bar.
 - **For anyone** — up for grabs; whoever takes it becomes its owner.
 
-A task has a title, optional notes and due date, and can be about one Emitter, Platform or MDF. The **Tasks** page has views for Mine, Up for grabs, I gave out, Everyone (narrowed to one person if you like) and Done (the latest 200). On an Emitter, Platform or MDF page, **☑ Tasks** lists the tasks about it and adds one already linked. Overdue tasks are marked red, ones due today amber.
+A task has a title, optional details and due date, and can be about one Emitter, Platform or MDF. Each task also keeps a running **notes** log — progress, questions, what's left — each note stamped with who wrote it and when, newest first. **💬 Notes** on any task row (on the Tasks page, the dashboard, or an item's Tasks list) opens it. Editors and whoever the task is for can add notes; a note can be deleted by whoever wrote it or an admin; deleting a task deletes its notes. The **Tasks** page has views for Mine, Up for grabs, I gave out, Everyone (narrowed to one person if you like) and Done (the latest 200). On an Emitter, Platform or MDF page, **☑ Tasks** lists the tasks about it and adds one already linked. Overdue tasks are marked red, ones due today amber.
 
 Editors can create, edit, reassign and tick off any task; whoever a task is for can always tick it off, even a viewer. A task can be deleted by whoever made it, whoever it's for, or an admin. Tasks are visible to everyone — they're how the team splits the work. Every change is recorded in the Audit Log.
 

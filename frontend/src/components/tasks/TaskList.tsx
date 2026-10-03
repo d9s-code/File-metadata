@@ -4,7 +4,8 @@ import { useAuth } from "../../auth/AuthContext";
 import { useHasRole } from "../../auth/RequireAuth";
 import { ApiRequestError } from "../../api/client";
 import { ENTITY_LABELS, ENTITY_PATHS, type Task } from "../../api/tasks";
-import { useDeleteTask, useUpdateTask } from "../../state/hooks/useTasks";
+import { useAddTaskNote, useDeleteTask, useDeleteTaskNote, useTaskNotes, useUpdateTask } from "../../state/hooks/useTasks";
+import { NotesFeed } from "../common/NotesFeed";
 import { MenuButton } from "../common/MenuButton";
 import { Modal } from "../common/Modal";
 import { useConfirmDialog } from "../common/ConfirmDialog";
@@ -28,6 +29,29 @@ export function DueTag({ due, done }: { due: string | null; done?: boolean }) {
   );
 }
 
+/** A task's running notes — loaded when opened. */
+function TaskNotes({ task, canAdd }: { task: Task; canAdd: boolean }) {
+  const { user } = useAuth();
+  const isAdmin = useHasRole("admin");
+  const { data: notes, isLoading } = useTaskNotes(task.id, true);
+  const add = useAddTaskNote(task.id);
+  const del = useDeleteTaskNote(task.id);
+  return (
+    <div className="task-notes-log">
+      <NotesFeed
+        notes={notes}
+        isLoading={isLoading}
+        placeholder="Progress, a question, what's left…"
+        onAdd={(body) => add.mutateAsync(body)}
+        isAdding={add.isPending}
+        onDelete={(noteId) => del.mutateAsync(noteId)}
+        canAdd={canAdd}
+        canDelete={(n) => isAdmin || n.author_id === user?.id}
+      />
+    </div>
+  );
+}
+
 function TaskRow({ task, showAbout }: { task: Task; showAbout: boolean }) {
   const { user } = useAuth();
   const canEdit = useHasRole("editor");
@@ -36,6 +60,7 @@ function TaskRow({ task, showAbout }: { task: Task; showAbout: boolean }) {
   const remove = useDeleteTask();
   const { confirmDelete, dialog } = useConfirmDialog();
   const [editing, setEditing] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Ticked or unticked while the server catches up, so the box answers at once.
   const [ticking, setTicking] = useState<boolean | null>(null);
@@ -97,12 +122,23 @@ function TaskRow({ task, showAbout }: { task: Task; showAbout: boolean }) {
             {task.created_by_username && task.created_by_id !== task.assignee_id ? `from ${task.created_by_username}` : ""}
             {done && task.done_at && ` · done ${new Date(task.done_at).toLocaleDateString(undefined, { day: "numeric", month: "short" })}${task.done_by_username && task.done_by_username !== task.assignee_username ? ` by ${task.done_by_username}` : ""}`}
           </span>
+          {(task.note_count > 0 || canTick) && (
+            <button
+              type="button"
+              className={notesOpen ? "link-button task-notes-toggle open" : "link-button task-notes-toggle"}
+              aria-expanded={notesOpen}
+              onClick={() => setNotesOpen((v) => !v)}
+            >
+              {task.note_count > 0 ? `💬 ${task.note_count} note${task.note_count === 1 ? "" : "s"}` : "💬 Add a note"}
+            </button>
+          )}
           {!task.assignee_id && canEdit && !done && (
             <button type="button" className="link-button" onClick={() => void patch({ assignee_id: user?.id ?? null })}>
               Take it
             </button>
           )}
         </div>
+        {notesOpen && <TaskNotes task={task} canAdd={canTick} />}
         {error && <div className="error-text">{error}</div>}
       </div>
       {canEdit && (

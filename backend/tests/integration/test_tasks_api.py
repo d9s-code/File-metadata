@@ -119,3 +119,39 @@ def test_my_work_lists_assigned_emitters(admin_client):
     [e] = admin_client.get("/tasks/my-work").json()["emitters"]
     assert (e["name"], e["checked_out_by_username"], e["open_tasks"]) == ("Mine Radar", "admin_t", 1)
     assert date.today()  # sanity
+
+
+def test_task_notes_log(admin_client, editor_client, viewer_client):
+    people = _people(admin_client)
+    task = admin_client.post("/tasks", json={"title": "Narrow the Modes", "assignee_id": people["viewer_t"]}).json()
+    assert task["note_count"] == 0
+
+    first = editor_client.post(f"/tasks/{task['id']}/notes", json={"body": "  Waiting on the new intercepts  "})
+    assert first.status_code == 201, first.text
+    assert first.json()["body"] == "Waiting on the new intercepts" and first.json()["author_username"] == "editor_t"
+    # Whoever it's for can add notes too, even a viewer.
+    assert viewer_client.post(f"/tasks/{task['id']}/notes", json={"body": "Got them, starting"}).status_code == 201
+    assert viewer_client.post(f"/tasks/{task['id']}/notes", json={"body": "   "}).status_code == 422
+
+    notes = viewer_client.get(f"/tasks/{task['id']}/notes").json()
+    assert [n["body"] for n in notes] == ["Got them, starting", "Waiting on the new intercepts"]
+    assert admin_client.get("/tasks", params={"assignee": people["viewer_t"]}).json()[0]["note_count"] == 2
+
+    # Someone else's task: a viewer can't add to it.
+    other = admin_client.post("/tasks", json={"title": "Other"}).json()
+    assert viewer_client.post(f"/tasks/{other['id']}/notes", json={"body": "x"}).status_code == 403
+
+    # Only the author, or an admin, deletes a note.
+    editor_note = notes[1]["id"]
+    assert viewer_client.delete(f"/tasks/{task['id']}/notes/{editor_note}").status_code == 403
+    assert editor_client.delete(f"/tasks/{task['id']}/notes/{editor_note}").status_code == 204
+    assert admin_client.delete(f"/tasks/{task['id']}/notes/{notes[0]['id']}").status_code == 204
+    assert viewer_client.get(f"/tasks/{task['id']}/notes").json() == []
+
+    summaries = [a["summary"] for a in admin_client.get("/audit-log", params={"entity_type": "task"}).json()["items"]]
+    assert "Added a note to task 'Narrow the Modes'" in summaries and "Deleted a note from task 'Narrow the Modes'" in summaries
+
+    # Deleting the task takes its notes with it.
+    admin_client.post(f"/tasks/{other['id']}/notes", json={"body": "gone soon"})
+    assert admin_client.delete(f"/tasks/{other['id']}").status_code == 204
+    assert admin_client.get(f"/tasks/{other['id']}/notes").status_code == 404

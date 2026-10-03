@@ -41,6 +41,27 @@ export function useDeleteTask() {
   });
 }
 
+export function useTaskNotes(taskId: string, enabled: boolean) {
+  return useQuery({ queryKey: [...tasksKey, "notes", taskId], queryFn: () => tasksApi.notes(taskId), enabled });
+}
+
+/** Adding or deleting a note changes the task's note count too, so every task list refreshes. */
+export function useAddTaskNote(taskId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: string) => tasksApi.addNote(taskId, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: tasksKey }),
+  });
+}
+
+export function useDeleteTaskNote(taskId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (noteId: string) => tasksApi.deleteNote(taskId, noteId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: tasksKey }),
+  });
+}
+
 export function useAssignEmitter() {
   const qc = useQueryClient();
   return useMutation({
