@@ -17,7 +17,7 @@ export function usePlatformVersionDiff(platformId: string, versionNumber: number
   return useQuery({
     queryKey: [...platformVersionsKey(platformId), versionNumber, "diff", against],
     queryFn: () => platformVersionsApi.diff(platformId, versionNumber, against),
-    enabled: !!platformId && versionNumber > 1,
+    enabled: !!platformId && versionNumber >= 1 && (against != null ? against >= 1 : versionNumber > 1),
   });
 }
 

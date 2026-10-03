@@ -76,6 +76,11 @@ def test_diff_shows_added_mode_not_spurious_field_noise(editor_client, emitter_c
     entry = diff["entries"][0]
     assert entry["scope"] == "Mode 'Mode 1'"
     assert entry["kind"] == "added"
+    # An added Mode says what it covers, not just "Added".
+    assert entry["new_value"].startswith("Fixed · RF ")
+
+    versions = editor_client.get(f"/emitters/{emitter_id}/versions").json()
+    assert all(v["created_by_username"] for v in versions)
 
 
 def test_live_diff_shows_mode_added_inside_a_brand_new_ew_group(editor_client, emitter_ctx):

@@ -83,3 +83,9 @@ class PlatformVersion(UUIDPkMixin, Base):
     )
 
     platform: Mapped["Platform"] = relationship(back_populates="versions")
+    # Who saved it — joined so a version list shows names without a query per row.
+    creator: Mapped["User | None"] = relationship(lazy="joined", viewonly=True)  # noqa: F821
+
+    @property
+    def created_by_username(self) -> str | None:
+        return self.creator.username if self.creator else None

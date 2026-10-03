@@ -465,12 +465,15 @@ export function HelpPage() {
           <p>
             <strong>Save version</strong> takes an immutable snapshot of the Emitter's current state, with a
             short message describing what changed, and ends your editing session. <strong>Discard</strong>{" "}
-            throws away everything since the last saved version. Version History opens on the newest
-            version and shows what changed field-by-field; pick another version under{" "}
-            <strong>Compare with</strong> to diff any two.
+            throws away everything since the last saved version. <strong>Version History</strong> lists the
+            versions newest first — each with its summary, who saved it and when — and opens on the newest. The
+            selected version shows what changed since the one before, item by item: each Mode, EW Group, Source
+            or Test Line with its changed fields as before → after, and anything added or removed with a line
+            saying what it was (an added Mode&apos;s type, RF, PRI and PW, say). Pick another version under{" "}
+            <strong>Changes since</strong> to compare any two. Its actions — Revert, Fork — sit beside it.
           </p>
           <p>
-            <strong>Revert to this version</strong> resets live data to match an older committed version
+            <strong>Revert to vN…</strong> resets live data to match an older saved version
             and immediately commits a new version documenting the revert — like <code>git revert</code>,
             history is never rewritten or deleted. <strong>Fork this version</strong> instead spins that
             version off into a brand-new, fully independent Emitter you can experiment on freely without
@@ -510,7 +513,11 @@ export function HelpPage() {
 
         <div className="help-subsection" id="platform-versions">
           <h3>Version history</h3>
-          <p>Works the same way as an Emitter's — see "Version history" above.</p>
+          <p>
+            Laid out like an Emitter&apos;s — see &ldquo;Version history&rdquo; above. The changes list which
+            Emitters were pinned or unpinned, which moved to another of their versions, and any change to the
+            Platform&apos;s own name or description. Each version can be exported as a PRS package from beside it.
+          </p>
         </div>
 
         <div className="help-subsection" id="platform-ambiguity">

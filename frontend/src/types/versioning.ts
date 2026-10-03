@@ -3,6 +3,8 @@ export interface VersionSummary {
   version_number: number;
   change_summary: string | null;
   created_by: string | null;
+  /** Who saved it, by name. */
+  created_by_username?: string | null;
   created_at: string;
 }
 
@@ -18,6 +20,8 @@ export interface DiffResult {
   removed: DiffEntry[];
   changed: DiffEntry[];
   identical: boolean;
+  /** The same changes, readable — pins added, removed or moved, and fields. */
+  entries?: EmitterDiffEntry[];
 }
 
 // Emitter-specific diff shape: entries are already grouped by the actual

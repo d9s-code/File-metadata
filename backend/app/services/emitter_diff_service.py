@@ -116,16 +116,71 @@ def _diff_fields(
             entries.append(_entry(scope, label, "changed", names.get(old_v, old_v), names.get(new_v, new_v)))
 
 
+def _num(v) -> str:
+    """9500.0 → "9500", 1.25 → "1.25"."""
+    if isinstance(v, float) and v.is_integer():
+        return str(int(v))
+    return str(v)
+
+
+def _span(lo, hi, unit: str) -> str | None:
+    if lo is None and hi is None:
+        return None
+    if lo == hi or hi is None:
+        return f"{_num(lo)} {unit}"
+    if lo is None:
+        return f"{_num(hi)} {unit}"
+    return f"{_num(lo)}–{_num(hi)} {unit}"
+
+
+def _mode_summary(m: dict) -> str:
+    """One line for an added or removed Mode: what it covered."""
+    line = m.get("line") or {}
+    pri_type = m.get("pri_type") or ""
+    parts = [{"fixed": "Fixed", "stagger": "Stagger", "cw": "CW"}.get(pri_type, pri_type)]
+    rf = _span(line.get("rf_min_mhz"), line.get("rf_max_mhz"), "MHz")
+    if rf:
+        parts.append(f"RF {rf}")
+    if pri_type == "stagger":
+        values = line.get("pri_stagger_values_us") or []
+        if values:
+            parts.append(f"stagger {', '.join(_num(v) for v in values)} µs")
+    elif pri_type != "cw":
+        pri = _span(line.get("pri_min_us"), line.get("pri_max_us"), "µs")
+        if pri:
+            parts.append(f"PRI {pri}")
+    pw = _span(line.get("pw_min_us"), line.get("pw_max_us"), "µs")
+    if pw:
+        parts.append(f"PW {pw}")
+    return " · ".join(p for p in parts if p)
+
+
+def _group_summary(g: dict) -> str:
+    scan = _span(g.get("scan_min"), g.get("scan_max"), "s")
+    parts = [f"scan {scan}" if scan else None, f"threat priority {g['threat_priority']}" if g.get("threat_priority") is not None else None]
+    modes = len(g.get("modes", []))
+    parts.append(f"{modes} Mode{'' if modes == 1 else 's'}")
+    return " · ".join(p for p in parts if p)
+
+
+def _source_summary(s: dict) -> str | None:
+    return f"dated {s['source_date']}" if s.get("source_date") else None
+
+
+def _test_line_summary(tl: dict) -> str | None:
+    return f"expects {tl['expected_mode_name']}" if tl.get("expected_mode_name") else None
+
+
 def _diff_modes(entries: list[dict], old_modes: list[dict], new_modes: list[dict]) -> None:
     old_by_id = {m["id"]: m for m in old_modes}
     new_by_id = {m["id"]: m for m in new_modes}
 
     for mode_id, m in new_by_id.items():
         if mode_id not in old_by_id:
-            entries.append(_entry(f"Mode '{m['name']}'", "Added", "added"))
+            entries.append(_entry(f"Mode '{m['name']}'", "Added", "added", new_value=_mode_summary(m)))
     for mode_id, m in old_by_id.items():
         if mode_id not in new_by_id:
-            entries.append(_entry(f"Mode '{m['name']}'", "Removed", "removed"))
+            entries.append(_entry(f"Mode '{m['name']}'", "Removed", "removed", old_value=_mode_summary(m)))
 
     for mode_id in set(old_by_id) & set(new_by_id):
         om, nm = old_by_id[mode_id], new_by_id[mode_id]
@@ -147,14 +202,14 @@ def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict) -> dict:
     new_groups = {g["id"]: g for g in new_snapshot.get("ew_groups", [])}
     for group_id, g in new_groups.items():
         if group_id not in old_groups:
-            entries.append(_entry(f"EW Group '{g['name']}'", "Added", "added"))
+            entries.append(_entry(f"EW Group '{g['name']}'", "Added", "added", new_value=_group_summary(g)))
             # The group itself is reported above, but Modes created inside a
             # brand-new group are otherwise never itemized individually —
             # matching how a Mode added to an already-existing group is.
             _diff_modes(entries, [], g.get("modes", []))
     for group_id, g in old_groups.items():
         if group_id not in new_groups:
-            entries.append(_entry(f"EW Group '{g['name']}'", "Removed", "removed"))
+            entries.append(_entry(f"EW Group '{g['name']}'", "Removed", "removed", old_value=_group_summary(g)))
             _diff_modes(entries, g.get("modes", []), [])
     for group_id in set(old_groups) & set(new_groups):
         og, ng = old_groups[group_id], new_groups[group_id]
@@ -165,10 +220,10 @@ def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict) -> dict:
     new_sources = {s["id"]: s for s in new_snapshot.get("sources", [])}
     for source_id, s in new_sources.items():
         if source_id not in old_sources:
-            entries.append(_entry(f"Source '{s['name']}'", "Added", "added"))
+            entries.append(_entry(f"Source '{s['name']}'", "Added", "added", new_value=_source_summary(s)))
     for source_id, s in old_sources.items():
         if source_id not in new_sources:
-            entries.append(_entry(f"Source '{s['name']}'", "Removed", "removed"))
+            entries.append(_entry(f"Source '{s['name']}'", "Removed", "removed", old_value=_source_summary(s)))
     for source_id in set(old_sources) & set(new_sources):
         os_, ns = old_sources[source_id], new_sources[source_id]
         _diff_fields(
@@ -185,10 +240,10 @@ def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict) -> dict:
     new_lines = {tl["id"]: tl for tl in new_snapshot.get("test_lines", [])}
     for line_id, tl in new_lines.items():
         if line_id not in old_lines:
-            entries.append(_entry(f"Test Line '{tl['label']}'", "Added", "added"))
+            entries.append(_entry(f"Test Line '{tl['label']}'", "Added", "added", new_value=_test_line_summary(tl)))
     for line_id, tl in old_lines.items():
         if line_id not in new_lines:
-            entries.append(_entry(f"Test Line '{tl['label']}'", "Removed", "removed"))
+            entries.append(_entry(f"Test Line '{tl['label']}'", "Removed", "removed", old_value=_test_line_summary(tl)))
     for line_id in set(old_lines) & set(new_lines):
         ol, nl = old_lines[line_id], new_lines[line_id]
         _diff_fields(

@@ -38,6 +38,7 @@ class EmitterVersionOut(BaseModel):
     change_summary: str | None = None
     created_by: UUID | None = None
     created_at: datetime
+    created_by_username: str | None = None
 
 
 class EmitterVersionDetailOut(EmitterVersionOut):
@@ -51,19 +52,21 @@ class DiffEntry(BaseModel):
     new_value: object | None = None
 
 
-class DiffOut(BaseModel):
-    added: list[DiffEntry]
-    removed: list[DiffEntry]
-    changed: list[DiffEntry]
-    identical: bool
-
-
 class EmitterDiffEntry(BaseModel):
     scope: str
     label: str
     kind: str
     old_value: object | None = None
     new_value: object | None = None
+
+
+class DiffOut(BaseModel):
+    added: list[DiffEntry]
+    removed: list[DiffEntry]
+    changed: list[DiffEntry]
+    identical: bool
+    # The same changes, readable — what a Platform's or MDF's history shows (see pinned_diff_service).
+    entries: list[EmitterDiffEntry] = []
 
 
 class EmitterDiffOut(BaseModel):

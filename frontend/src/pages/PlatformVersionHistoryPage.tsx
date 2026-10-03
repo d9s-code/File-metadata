@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { usePlatform } from "../state/hooks/usePlatforms";
 import {
@@ -7,7 +7,7 @@ import {
   usePlatformVersions,
 } from "../state/hooks/usePlatformVersions";
 import { VersionList } from "../components/versioning/VersionList";
-import { DiffViewer } from "../components/versioning/DiffViewer";
+import { VersionPanel } from "../components/versioning/VersionPanel";
 import { ExportPrsButton } from "../components/versioning/ExportPrsButton";
 import { SaveVersionButton } from "../components/versioning/SaveVersionButton";
 import { LoadingState } from "../components/common/LoadingState";
@@ -21,7 +21,15 @@ export function PlatformVersionHistoryPage() {
   const initialVersion = Number(searchParams.get("version"));
   const [selected, setSelected] = useState<number | null>(initialVersion > 0 ? initialVersion : null);
 
-  const { data: diff, isLoading: diffLoading } = usePlatformVersionDiff(platformId ?? "", selected ?? 0);
+  /** The version compared with; null = the one just before. */
+  const [against, setAgainst] = useState<number | null>(null);
+  const { data: diff, isLoading: diffLoading } = usePlatformVersionDiff(platformId ?? "", selected ?? 0, against ?? undefined);
+
+  // Open on the newest version rather than an empty panel.
+  const latest = versions?.length ? Math.max(...versions.map((v) => v.version_number)) : null;
+  useEffect(() => {
+    if (selected == null && latest != null) setSelected(latest);
+  }, [selected, latest]);
 
   if (!platform) return <LoadingState label="Loading version history…" />;
 
@@ -42,17 +50,28 @@ export function PlatformVersionHistoryPage() {
       <div className="version-history-layout">
         <div className="card">
           <h4>Versions</h4>
-          <VersionList versions={versions ?? []} selected={selected} onSelect={setSelected} />
+          <VersionList
+            versions={versions ?? []}
+            selected={selected}
+            onSelect={(n) => {
+              setSelected(n);
+              setAgainst(null);
+            }}
+          />
         </div>
-        <div className="card">
-          <div className="version-diff-header">
-            <h4>{selected ? `Diff: v${selected - 1} → v${selected}` : "Select a version to view its diff"}</h4>
-            {selected != null && <ExportPrsButton kind="platform" id={platform.id} versionNumber={selected} />}
-          </div>
-          {selected === 1 && <p className="hint-text">This is the first saved version — no prior version to diff against.</p>}
-          {selected != null && selected > 1 && diffLoading && <p>Loading diff…</p>}
-          {selected != null && selected > 1 && diff && <DiffViewer diff={diff} />}
-        </div>
+        {selected != null && (
+          <VersionPanel
+            versions={versions ?? []}
+            selected={selected}
+            against={against}
+            onAgainst={setAgainst}
+            diff={diff && { entries: diff.entries ?? [], identical: diff.identical }}
+            loading={diffLoading}
+            actions={
+              <ExportPrsButton kind="platform" id={platform.id} versionNumber={selected} />
+            }
+          />
+        )}
       </div>
     </div>
   );

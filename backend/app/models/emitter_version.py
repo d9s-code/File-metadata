@@ -32,3 +32,9 @@ class EmitterVersion(UUIDPkMixin, Base):
     )
 
     emitter: Mapped["Emitter"] = relationship(back_populates="versions")  # noqa: F821
+    # Who saved it — joined so a version list shows names without a query per row.
+    creator: Mapped["User | None"] = relationship(lazy="joined", viewonly=True)  # noqa: F821
+
+    @property
+    def created_by_username(self) -> str | None:
+        return self.creator.username if self.creator else None

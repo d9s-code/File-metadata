@@ -13,7 +13,7 @@ export function useMdfVersionDiff(mdfId: string, versionNumber: number, against?
   return useQuery({
     queryKey: [...mdfVersionsKey(mdfId), versionNumber, "diff", against],
     queryFn: () => mdfVersionsApi.diff(mdfId, versionNumber, against),
-    enabled: !!mdfId && versionNumber > 1,
+    enabled: !!mdfId && versionNumber >= 1 && (against != null ? against >= 1 : versionNumber > 1),
   });
 }
 

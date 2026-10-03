@@ -94,6 +94,16 @@ def test_platform_version_commit_and_diff(editor_client, emitter_with_version):
     diff = editor_client.get(f"/platforms/{platform['id']}/versions/2/diff").json()
     assert len(diff["added"]) == 1
     assert diff["added"][0]["value"]["emitter_id"] == emitter["id"]
+    # And readably: the pin, by name and version — not the pinned Emitter's whole snapshot.
+    assert diff["entries"] == [
+        {
+            "scope": f"Emitter '{emitter['name']}'",
+            "label": "Pinned",
+            "kind": "added",
+            "old_value": None,
+            "new_value": f"At its v{v1['version_number']}",
+        }
+    ]
 
 
 def test_unpin_removes_link(editor_client, emitter_with_version):

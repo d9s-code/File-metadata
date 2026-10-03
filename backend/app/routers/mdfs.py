@@ -24,6 +24,7 @@ from app.services.prs_export.packager import build_mdf_export_zip
 from app.services.readiness_service import compute_mdf_readiness_warnings
 from app.services.snapshots import build_mdf_snapshot
 from app.services.status_service import InvalidStatusTransition, validate_transition
+from app.services.pinned_diff_service import compute_pinned_diff
 from app.services.versioning_service import VersionSpec, commit_version, diff_versions, get_version, list_versions
 from app.xml_export.serializer import serialize_mdf_snapshot_to_xml
 
@@ -400,7 +401,10 @@ def diff_mdf_version(
         result = diff_versions(db, spec=_VERSION_SPEC, entity_id=mdf_id, from_version=from_version, to_version=version_number)
     except ValueError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
-    return DiffOut(**result)
+    old = get_version(db, spec=_VERSION_SPEC, entity_id=mdf_id, version_number=from_version)
+    new = get_version(db, spec=_VERSION_SPEC, entity_id=mdf_id, version_number=version_number)
+    entries = compute_pinned_diff(old.snapshot, new.snapshot, own="MDF", child="platform")
+    return DiffOut(**result, entries=entries)
 
 
 @router.get("/{mdf_id}/status/readiness", response_model=MdfReadinessOut)

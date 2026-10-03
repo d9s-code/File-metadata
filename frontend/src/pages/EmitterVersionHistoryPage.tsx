@@ -7,7 +7,7 @@ import {
   useRevertEmitterVersion,
 } from "../state/hooks/useEmitterVersions";
 import { VersionList } from "../components/versioning/VersionList";
-import { EmitterDiffViewer } from "../components/versioning/EmitterDiffViewer";
+import { VersionPanel } from "../components/versioning/VersionPanel";
 import { ForkVersionModal } from "../components/versioning/ForkVersionModal";
 import { RequireRole } from "../auth/RequireAuth";
 import { ApiRequestError } from "../api/client";
@@ -41,12 +41,6 @@ export function EmitterVersionHistoryPage() {
     setAgainst(null);
   }
 
-  // Any other version to diff against, besides the default (the one just before).
-  const compareOptions =
-    selected == null
-      ? []
-      : [...(versions ?? [])].reverse().filter((v) => v.version_number !== selected && v.version_number !== selected - 1);
-  const baseline = against ?? (selected != null && selected > 1 ? selected - 1 : null);
   const { data: diff, isLoading: diffLoading } = useEmitterVersionDiff(emitterId ?? "", selected ?? 0, against ?? undefined);
 
   const forkBoundary = emitter?.forked_at_version_number ?? null;
@@ -103,60 +97,46 @@ export function EmitterVersionHistoryPage() {
           <h4>Versions</h4>
           <VersionList versions={versions ?? []} selected={selected} onSelect={select} forkBoundary={forkBoundary} />
         </div>
-        <div className="card">
-          <div className="card-header">
-            <h4>
-              {selected == null
-                ? "Select a version to view its changes"
-                : baseline == null
-                  ? `v${selected}`
-                  : `Changes: v${baseline} → v${selected}`}
-            </h4>
-            {compareOptions.length > 0 && (
-              <label className="inline-label">
-                Compare with{" "}
-                <select
-                  value={against ?? ""}
-                  onChange={(e) => setAgainst(e.target.value === "" ? null : Number(e.target.value))}
-                >
-                  <option value="">{selected != null && selected > 1 ? `previous (v${selected - 1})` : "—"}</option>
-                  {compareOptions.map((v) => (
-                    <option key={v.id} value={v.version_number}>
-                      v{v.version_number}
-                      {v.version_number === latest ? " (latest)" : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-          </div>
-          {selected === 1 && against == null && <p className="hint-text">This is the first saved version — no prior version to diff against.</p>}
-          {isForkPoint && against == null && (
-            <p className="hint-text">
-              This version is where the fork happened — every EW Group/Source/Mode got a fresh id here, so this
-              diff shows a full replacement rather than the (likely small) actual change.
-            </p>
-          )}
-          {baseline != null && diffLoading && <p>Loading changes…</p>}
-          {baseline != null && diff && <EmitterDiffViewer diff={diff} />}
-          {selected != null && (
-            <RequireRole minimum="editor">
-              <div className="form-row">
+        {selected != null && (
+          <VersionPanel
+            versions={versions ?? []}
+            selected={selected}
+            against={against}
+            onAgainst={setAgainst}
+            diff={diff}
+            loading={diffLoading}
+            tags={isPreFork ? <span className="version-tag">Before fork</span> : undefined}
+            notice={
+              isForkPoint && against == null ? (
+                <p className="hint-text">
+                  This version is where the fork happened — every EW Group, Source and Mode got a fresh id here, so
+                  this shows a full replacement rather than the (likely small) actual change.
+                </p>
+              ) : undefined
+            }
+            actions={
+              <RequireRole minimum="editor">
                 <button
-                  className="link-button"
-                  disabled={revertVersion.isPending || isPreFork}
-                  title={isPreFork ? "This version predates the fork — fork from it again instead of reverting to it" : undefined}
+                  className="button secondary small"
+                  disabled={revertVersion.isPending || isPreFork || selected === latest}
+                  title={
+                    isPreFork
+                      ? "This version predates the fork — fork from it again instead of reverting to it"
+                      : selected === latest
+                        ? "This is already the latest version"
+                        : "Make the Emitter match this version again (saved as a new version)"
+                  }
                   onClick={() => void handleRevert()}
                 >
-                  Revert to this version
+                  Revert to v{selected}…
                 </button>
-                <button className="link-button" onClick={() => setShowForkModal(true)}>
-                  Fork this version
+                <button className="button secondary small" onClick={() => setShowForkModal(true)} title="Start a new Emitter from this version">
+                  Fork v{selected}…
                 </button>
-              </div>
-            </RequireRole>
-          )}
-        </div>
+              </RequireRole>
+            }
+          />
+        )}
       </div>
       {showForkModal && selected != null && (
         <ForkVersionModal emitterId={emitter.id} versionNumber={selected} onClose={() => setShowForkModal(false)} />

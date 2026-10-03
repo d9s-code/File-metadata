@@ -18,6 +18,7 @@ from app.schemas.platform_version import PlatformVersionDetailOut, PlatformVersi
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.prs_export.packager import build_platform_export_zip
 from app.services.snapshots import build_platform_snapshot
+from app.services.pinned_diff_service import compute_pinned_diff
 from app.services.versioning_service import VersionSpec, commit_version, diff_versions, get_version, list_versions
 from app.services.prs_export.serializer import sanitize_filename
 from app.services.xml_export.xml_exporter_service import XMLExporterService
@@ -339,7 +340,10 @@ def diff_platform_version(
         )
     except ValueError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
-    return DiffOut(**result)
+    old = get_version(db, spec=_VERSION_SPEC, entity_id=platform_id, version_number=from_version)
+    new = get_version(db, spec=_VERSION_SPEC, entity_id=platform_id, version_number=version_number)
+    entries = compute_pinned_diff(old.snapshot, new.snapshot, own="Platform", child="emitter")
+    return DiffOut(**result, entries=entries)
 
 
 @router.post("/{platform_id}/export/xml")

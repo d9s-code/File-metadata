@@ -13,6 +13,7 @@ class PlatformVersionOut(BaseModel):
     change_summary: str | None = None
     created_by: UUID | None = None
     created_at: datetime
+    created_by_username: str | None = None
 
 
 class PlatformVersionDetailOut(PlatformVersionOut):
