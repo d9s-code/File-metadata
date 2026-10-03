@@ -2,8 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   modesApi,
   type ModeBatchEditInput,
+  type InterceptModePlanInput,
   type ModeCreateInput,
-  type ModesFromInterceptInput,
 } from "../../api/modes";
 import { dslApi, type ModeFromDslInput } from "../../api/dsl";
 import { emitterVersionsKey } from "./useEmitterVersions";
@@ -88,15 +88,18 @@ export function useDeleteMode(emitterId: string) {
 }
 
 /** Modes from an Intercept's entries, one per entry, in one generation batch. */
-export function useCreateModesFromIntercept(emitterId: string) {
+/** Applies a plan from an Intercept's planning page: new Modes into one EW
+ * Group, and widened Modes in any of the Emitter's EW Groups. */
+export function useApplyInterceptModePlan(emitterId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ ewGroupId, input }: { ewGroupId: string; input: ModesFromInterceptInput }) =>
-      modesApi.createFromIntercept(ewGroupId, input),
-    onSuccess: (_modes, { ewGroupId }) => {
+    mutationFn: ({ ewGroupId, input }: { ewGroupId: string; input: InterceptModePlanInput }) =>
+      modesApi.applyInterceptPlan(ewGroupId, input),
+    onSuccess: (result, { ewGroupId }) => {
       invalidateModes(qc, ewGroupId, emitterId);
-      // The Modes tab groups Modes by generation batch.
+      for (const m of result.widened) qc.invalidateQueries({ queryKey: ["modes", m.ew_group_id] });
       qc.invalidateQueries({ queryKey: ["modeBatches", emitterId] });
     },
   });
 }
+

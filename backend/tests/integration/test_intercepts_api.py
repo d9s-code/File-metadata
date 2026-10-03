@@ -798,7 +798,9 @@ def test_create_modes_from_intercept_entries(editor_client, emitter_ctx):
     fixed = editor_client.post(
         url, json={**FIXED_ENTRY, "rf_min_mhz": 2990, "rf_max_mhz": 3010, "pri_min_us": 990, "pri_max_us": 1010}
     ).json()
-    stagger = editor_client.post(url, json={**STAGGER_ENTRY, "rf_mean_mhz": 3100, "pri_mean_us": 3335}).json()
+    stagger = editor_client.post(
+        url, json={**STAGGER_ENTRY, "rf_mean_mhz": 3100, "pri_mean_us": 3335, "pri_min_us": 3331, "pri_max_us": 3343}
+    ).json()
     cw = editor_client.post(url, json={**CW_ENTRY, "rf_mean_mhz": 3200}).json()
     ids = [fixed["id"], stagger["id"], cw["id"]]
 
@@ -818,17 +820,21 @@ def test_create_modes_from_intercept_entries(editor_client, emitter_ctx):
     assert f_line["jitter_min_us"] == f_line["jitter_max_us"] == 10
     s_line = by_type["stagger"]["line"]
     assert s_line["pri_stagger_values_us"] == [800, 850, 900, 780]
-    assert s_line["frame_time_delta_us"] == 5
     assert s_line["explicit_frame_time_us"] == 3335  # the entry's frame time, not the sum (3330)
+    # The measured frame-time spread (3331–3343, 8 above the mean) goes into the delta, on top of the 5 asked for,
+    # so the Mode reaches every frame time measured.
+    assert s_line["frame_time_delta_us"] == 13
+    assert (s_line["engineered_frame_time_min_us"], s_line["engineered_frame_time_max_us"]) == (3322, 3348)
     c_line = by_type["cw"]["line"]
     assert (c_line["pw_min_us"], c_line["pw_max_us"]) == (0.5, 1.5)
     entries = {e["id"]: e for e in editor_client.get(url).json()}
     assert entries[fixed["id"]]["derived_mode_ids"] == [by_type["fixed"]["id"]]
 
     # Again with the same prefix: names carry on rather than clash; "mean" gives a point range.
-    again = _modes_from(editor_client, emitter_ctx, intercept["id"], [fixed["id"]], ranges="mean").json()
+    again = _modes_from(editor_client, emitter_ctx, intercept["id"], [fixed["id"], stagger["id"]], ranges="mean").json()
     assert again[0]["name"] == "Pass A 4"
     assert (again[0]["line"]["rf_min_mhz"], again[0]["line"]["rf_max_mhz"]) == (3000, 3000)
+    assert again[1]["line"]["frame_time_delta_us"] == 5  # "mean": no spread added
 
 
 def test_modes_from_intercept_check_entries_and_emitter(editor_client, viewer_client, emitter_ctx):
@@ -843,3 +849,131 @@ def test_modes_from_intercept_check_entries_and_emitter(editor_client, viewer_cl
         json={"intercept_id": intercept["id"], "entry_ids": [entry["id"]], "source_id": emitter_ctx["source"]["id"], "name_prefix": "X"},
     )
     assert resp.status_code == 403
+
+
+def _plan(editor_client, ctx, intercept_id, **plan):
+    return editor_client.post(
+        f"/ew-groups/{ctx['ew_group']['id']}/modes/from-intercept-plan",
+        json={"intercept_id": intercept_id, **plan},
+    )
+
+
+def test_intercept_mode_plan_creates_and_widens(editor_client, emitter_ctx):
+    ew = emitter_ctx["ew_group"]["id"]
+    existing = editor_client.post(
+        f"/ew-groups/{ew}/modes",
+        json={"source_id": emitter_ctx["source"]["id"], "name": "Search 1", "pri_type": "fixed", "line": MODE_LINE},
+    ).json()
+    intercept = _create_intercept(editor_client, emitter_ctx["emitter"]["id"])
+    url = f"/intercepts/{intercept['id']}/entries"
+    # Inside "Search 1" on RF and PRI, outside on PW (2.0 against 0.5–1.2): a partial match.
+    partial = editor_client.post(url, json={**FIXED_ENTRY, "pw_mean_us": 2.0, "pw_min_us": 1.9, "pw_max_us": 2.1}).json()
+    unmatched = editor_client.post(url, json={**FIXED_ENTRY, "rf_mean_mhz": 5000}).json()
+    new_line = {**MODE_LINE, "rf_min_mhz": 4990, "rf_max_mhz": 5010}
+    counts = editor_client.get("/intercepts/match-counts", params={"emitter_id": emitter_ctx["emitter"]["id"]}).json()
+    assert counts["by_intercept"][intercept["id"]] == {"match": 0, "near": 2, "none": 0}
+
+    resp = _plan(
+        editor_client,
+        emitter_ctx,
+        intercept["id"],
+        source_id=emitter_ctx["source"]["id"],
+        name_prefix="Pass B",
+        confirmation_quality=60,
+        confirmation_quantity=1,
+        new_modes=[{"entry_ids": [unmatched["id"]], "pri_type": "fixed", "line": new_line}],
+        widen=[{"mode_id": existing["id"], "entry_ids": [partial["id"]], "pw_max_us": 2.1}],
+    )
+    assert resp.status_code == 201, resp.text
+    result = resp.json()
+    [created] = result["created"]
+    assert created["name"] == "Pass B 1"
+    assert (created["line"]["rf_min_mhz"], created["line"]["rf_max_mhz"]) == (4990, 5010)
+    assert (created["confirmation_quality"], created["confirmation_quantity"]) == (60, 1)
+    [widened] = result["widened"]
+    assert widened["id"] == existing["id"]
+    assert (widened["line"]["pw_min_us"], widened["line"]["pw_max_us"]) == (0.5, 2.1)
+    # Nothing else about the Mode changed.
+    assert (widened["line"]["rf_min_mhz"], widened["line"]["pri_max_us"], widened["line"]["pw_delta"]) == (2900, 1200, 0.05)
+    assert widened["name"] == "Search 1" and widened["generation_batch_id"] is None
+    assert widened["derived_from_intercepts"][0]["intercept_name"] == "Morning Pass"
+
+    entries = {e["id"]: e for e in editor_client.get(url).json()}
+    assert entries[partial["id"]]["derived_mode_ids"] == [existing["id"]]
+    assert entries[unmatched["id"]]["derived_mode_ids"] == [created["id"]]
+    # Before the plan both are partial matches (the second is off on RF). After: both match.
+    counts = editor_client.get("/intercepts/match-counts", params={"emitter_id": emitter_ctx["emitter"]["id"]}).json()
+    assert counts["by_intercept"][intercept["id"]] == {"match": 2, "near": 0, "none": 0}
+
+    audit = editor_client.get("/audit-log", params={"entity_id": existing["id"], "action": "update"}).json()
+    items = audit["items"] if isinstance(audit, dict) else audit
+    assert any("Widened Mode 'Search 1' (PW)" in a["summary"] for a in items)
+
+
+def test_intercept_mode_plan_is_all_or_nothing(editor_client, emitter_ctx):
+    ew = emitter_ctx["ew_group"]["id"]
+    existing = editor_client.post(
+        f"/ew-groups/{ew}/modes",
+        json={"source_id": emitter_ctx["source"]["id"], "name": "Search 1", "pri_type": "fixed", "line": MODE_LINE},
+    ).json()
+    intercept = _create_intercept(editor_client, emitter_ctx["emitter"]["id"])
+    entry = editor_client.post(f"/intercepts/{intercept['id']}/entries", json=FIXED_ENTRY).json()
+    new = [{"entry_ids": [entry["id"]], "pri_type": "fixed", "line": MODE_LINE}]
+    base = {"source_id": emitter_ctx["source"]["id"], "name_prefix": "P", "new_modes": new}
+
+    # Narrowing is refused — and the new Mode in the same plan isn't created either.
+    resp = _plan(editor_client, emitter_ctx, intercept["id"], **base, widen=[{"mode_id": existing["id"], "entry_ids": [entry["id"]], "pw_max_us": 1.0}])
+    assert resp.status_code == 422 and "only grows" in resp.text
+    assert [m["name"] for m in editor_client.get(f"/ew-groups/{ew}/modes").json()] == ["Search 1"]
+
+    # A fixed Mode has no frame time; the same Mode can't be widened twice; an empty plan does nothing.
+    assert _plan(editor_client, emitter_ctx, intercept["id"], widen=[{"mode_id": existing["id"], "entry_ids": [entry["id"]], "frame_time_delta_us": 5}]).status_code == 422
+    twice = [{"mode_id": existing["id"], "entry_ids": [entry["id"]], "pw_max_us": 1.3}] * 2
+    assert _plan(editor_client, emitter_ctx, intercept["id"], widen=twice).status_code == 422
+    assert _plan(editor_client, emitter_ctx, intercept["id"]).status_code == 422
+    # New Modes need a Source and a name prefix.
+    assert _plan(editor_client, emitter_ctx, intercept["id"], new_modes=new).status_code == 422
+
+    # A Mode on another Emitter can't be widened from here.
+    other = editor_client.post("/emitters", json={"name": "Elsewhere"}).json()
+    other_group = editor_client.post(
+        f"/emitters/{other['id']}/ew-groups", json={"name": "G", "scan_min": 1.0, "scan_max": 2.0, "threat_priority": 5}
+    ).json()
+    other_source = editor_client.post(f"/emitters/{other['id']}/sources", json={"name": "S", "source_date": "2025-01-15"}).json()
+    foreign = editor_client.post(
+        f"/ew-groups/{other_group['id']}/modes",
+        json={"source_id": other_source["id"], "name": "F", "pri_type": "fixed", "line": MODE_LINE},
+    ).json()
+    resp = _plan(editor_client, emitter_ctx, intercept["id"], widen=[{"mode_id": foreign["id"], "entry_ids": [entry["id"]], "pw_max_us": 1.3}])
+    assert resp.status_code == 404
+
+    # Widening a Mode that already covers the entry just links it.
+    resp = _plan(editor_client, emitter_ctx, intercept["id"], widen=[{"mode_id": existing["id"], "entry_ids": [entry["id"]], "pw_max_us": 1.2}])
+    assert resp.status_code == 201, resp.text
+    resp = _plan(editor_client, emitter_ctx, intercept["id"], widen=[{"mode_id": existing["id"], "entry_ids": [entry["id"]]}])
+    assert resp.status_code == 201, resp.text
+    assert editor_client.get(f"/intercepts/{intercept['id']}/entries").json()[0]["derived_mode_ids"] == [existing["id"]]
+
+
+def test_intercept_mode_plan_widens_a_stagger_on_frame_time(editor_client, emitter_ctx):
+    ew = emitter_ctx["ew_group"]["id"]
+    stagger_line = {
+        "rf_min_mhz": 2900, "rf_max_mhz": 3100, "pw_min_us": 0.5, "pw_max_us": 1.2,
+        "pri_stagger_values_us": [800, 850, 900, 780], "frame_time_delta_us": 2,
+        "rf_delta": 0, "pw_delta": 0,
+        "rf_range_matching": False, "pw_range_matching": False, "pri_range_matching": False,
+    }
+    mode = editor_client.post(
+        f"/ew-groups/{ew}/modes",
+        json={"source_id": emitter_ctx["source"]["id"], "name": "Stag", "pri_type": "stagger", "line": stagger_line},
+    )
+    assert mode.status_code == 201, mode.text
+    mode = mode.json()
+    intercept = _create_intercept(editor_client, emitter_ctx["emitter"]["id"])
+    entry = editor_client.post(f"/intercepts/{intercept['id']}/entries", json={**STAGGER_ENTRY, "pri_mean_us": 3340}).json()
+    bad = _plan(editor_client, emitter_ctx, intercept["id"], widen=[{"mode_id": mode["id"], "entry_ids": [entry["id"]], "pri_max_us": 4000}])
+    assert bad.status_code == 422
+    resp = _plan(editor_client, emitter_ctx, intercept["id"], widen=[{"mode_id": mode["id"], "entry_ids": [entry["id"]], "frame_time_delta_us": 10}])
+    assert resp.status_code == 201, resp.text
+    line = resp.json()["widened"][0]["line"]
+    assert (line["engineered_frame_time_min_us"], line["engineered_frame_time_max_us"]) == (3320, 3340)

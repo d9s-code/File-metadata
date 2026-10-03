@@ -789,13 +789,37 @@ export function HelpPage() {
             a Test-Derived Mode.
           </p>
           <p>
-            <strong>Create Modes…</strong> (in the bar above the entries, for the ticked ones, or under More for all
-            of them — while you&apos;re editing the Emitter) makes one Mode per entry in one go. Choose the EW Group,
-            Source and a name (Modes are numbered in rising RF, skipping numbers already used), whether each Mode
-            takes the entry&apos;s measured min–max or just its mean, and the deltas; CW Modes need a PW range,
-            since a CW entry has none. Entries that already match a Mode, or were already used to create one, can be
-            left out. A preview shows what each Mode will cover. The Modes are linked to their entries and made as
-            one generation batch, so the whole batch can be deleted together from the Modes tab.
+            <strong>Plan Modes…</strong> (in the bar above the entries — for the ticked ones, or all of them when none
+            are) opens a planning page: the step between an Intercept and its Modes. Every entry the Modes don&apos;t
+            cover yet gets a row, and you choose what to do with it:
+          </p>
+          <ul>
+            <li>
+              <strong>Widen</strong> a Mode it partly matches — only the one parameter that&apos;s off grows, just enough
+              to take in the entry&apos;s range (a stagger&apos;s frame time by its ±). The Mode keeps its name, margins
+              and everything else; the Mode that needs the least change is suggested first. Several entries widening
+              the same Mode widen it once, to take them all in.
+            </li>
+            <li>
+              <strong>New Mode</strong> — the entry&apos;s range with the ± margins you set on top. A stagger&apos;s frame
+              time is one value, so its measured spread goes into its ±; a Fixed Mode&apos;s jitter range comes from
+              the reports. CW Modes need a PW range, since a CW entry has none.
+            </li>
+            <li>
+              <strong>Skip</strong> — leave it uncovered.
+            </li>
+          </ul>
+          <p>
+            Each row shows what the result will cover — for a widening, the range before and after — and how many of
+            the entry&apos;s reports fall inside. <strong>Range from</strong> takes each range from every report, or
+            from the middle 98% (leaving out the extreme 1% each side, so a handful of stray reports don&apos;t
+            stretch a Mode); the reports-inside column shows what that costs. New Modes go into the EW Group and
+            Source you pick, named in the order listed (numbers already used are skipped), with the confirmation
+            quality and quantity you set, as one generation batch that can be deleted together from the Modes tab.
+            You can plan without editing the Emitter, but <strong>Apply</strong> needs you to be editing it: it asks
+            once, with a summary, then makes every change together or none — into your unsaved changes, so Discard
+            still undoes it. Every Mode made or widened is linked to its entries; its{" "}
+            <span className="test-derived-badge">Intercept-Derived</span> badge names the Intercept.
           </p>
         </div>
       </div>

@@ -2,6 +2,12 @@ import { Link } from "react-router-dom";
 import type { InterceptEntryBrief } from "../../types/domain";
 import { HoverInfo } from "../common/InfoPopover";
 
+/** "Intercept 'Baltic sortie' — a Fixed entry at 9300.012 MHz". */
+function describe(e: InterceptEntryBrief) {
+  const type = e.pri_type === "cw" ? "CW" : e.pri_type === "stagger" ? "Stagger" : "Fixed";
+  return `${e.intercept_name ? `Intercept '${e.intercept_name}'` : "an Intercept"} — a ${type} entry at ${e.rf_mean_mhz} MHz`;
+}
+
 export function InterceptDerivedBadge({ intercepts }: { intercepts: InterceptEntryBrief[] }) {
   if (intercepts.length === 0) return null;
 
@@ -11,7 +17,7 @@ export function InterceptDerivedBadge({ intercepts }: { intercepts: InterceptEnt
       <Link
         to={`/intercepts/${e.intercept_id}`}
         className="test-derived-badge"
-        title={`Intercept entry (${e.pri_type}), logged ${new Date(e.created_at).toLocaleDateString()}`}
+        title={`Made or widened for ${describe(e)}`}
       >
         Intercept-Derived
       </Link>
@@ -25,7 +31,7 @@ export function InterceptDerivedBadge({ intercepts }: { intercepts: InterceptEnt
         {intercepts.map((e) => (
           <dd key={e.id}>
             <Link to={`/intercepts/${e.intercept_id}`}>
-              Intercept entry ({e.pri_type}), {new Date(e.created_at).toLocaleDateString()}
+              {describe(e)}
             </Link>
           </dd>
         ))}

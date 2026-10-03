@@ -197,6 +197,57 @@ class ModesFromIntercept(BaseModel):
     confirmation_quantity: ConfirmationQuantity = DEFAULT_CONFIRMATION_QUANTITY
 
 
+class PlannedNewMode(BaseModel):
+    """A Mode to create, its line worked out (and shown) on the planning page."""
+
+    entry_ids: list[UUID] = Field(min_length=1)
+    pri_type: PriType
+    line: ModeLineFields
+
+
+class PlannedWiden(BaseModel):
+    """An existing Mode to widen so it covers the given entries. Only ranges can
+    grow here — each given min must be at or below the Mode's, each max at or
+    above, and a stagger's frame-time delta at or above — never narrower, never
+    any other field."""
+
+    mode_id: UUID
+    entry_ids: list[UUID] = Field(min_length=1)
+    rf_min_mhz: float | None = None
+    rf_max_mhz: float | None = None
+    pri_min_us: float | None = None
+    pri_max_us: float | None = None
+    pw_min_us: float | None = None
+    pw_max_us: float | None = None
+    frame_time_delta_us: float | None = Field(default=None, ge=0)
+
+
+class InterceptModePlan(BaseModel):
+    """What the planning page applies in one go: new Modes (one generation
+    batch) and widened Modes, all or nothing."""
+
+    intercept_id: UUID
+    source_id: UUID | None = None
+    function_group_id: UUID | None = None
+    # New Modes are named "<prefix> 1", "<prefix> 2", … in the order given, skipping names already used.
+    name_prefix: str | None = Field(default=None, max_length=150)
+    confirmation_quality: ConfirmationQuality = DEFAULT_CONFIRMATION_QUALITY
+    confirmation_quantity: ConfirmationQuantity = DEFAULT_CONFIRMATION_QUANTITY
+    new_modes: list[PlannedNewMode] = Field(default_factory=list, max_length=MAX_MODES_FROM_INTERCEPT)
+    widen: list[PlannedWiden] = Field(default_factory=list, max_length=MAX_MODES_FROM_INTERCEPT)
+
+    @model_validator(mode="after")
+    def check_plan(self) -> "InterceptModePlan":
+        if not self.new_modes and not self.widen:
+            raise ValueError("The plan is empty — nothing to create or widen")
+        if self.new_modes and (self.source_id is None or not (self.name_prefix or "").strip()):
+            raise ValueError("New Modes need a source_id and a name_prefix")
+        ids = [w.mode_id for w in self.widen]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Each Mode can be widened once per plan — combine its entries")
+        return self
+
+
 class ModeCreateFromDsl(BaseModel):
     source_id: UUID
     name: str
@@ -420,3 +471,8 @@ class ModeGenerationBatchOut(BaseModel):
     name_prefix: str
     created_at: datetime
     mode_count: int
+
+
+class InterceptModePlanResult(BaseModel):
+    created: list[ModeOut]
+    widened: list[ModeOut]

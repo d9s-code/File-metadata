@@ -45,7 +45,6 @@ import {
 } from "../components/intercepts/charts/EntryCharts";
 import type { Range, RangeParam } from "../components/intercepts/charts/ImportCharts";
 import { ReportsTable } from "../components/intercepts/ReportsTable";
-import { ModesFromEntriesModal } from "../components/intercepts/ModesFromEntriesModal";
 import { useInterceptReports } from "../state/hooks/useIntercepts";
 import type { Emitter, InterceptEntry, Mode } from "../types/domain";
 
@@ -365,7 +364,6 @@ export function InterceptDetailPage() {
   const [ranges, setRanges] = useState<Record<RangeParam, Range>>({ rf: null, pri: null, pw: null });
   const [view, setView] = useState<"entries" | "reports">("entries");
   // Entries to create Modes from (the selection, or every entry from the More menu).
-  const [modesFrom, setModesFrom] = useState<InterceptEntry[] | null>(null);
   const [reportFilter, setReportFilter] = useState<"all" | "none">("all");
   const hasReports = (intercept?.report_count ?? 0) > 0;
   // How many kept reports are in no entry — left out at import, or their entry deleted.
@@ -588,12 +586,6 @@ export function InterceptDetailPage() {
                 { label: "Edit name, date & description", onSelect: () => setShowEditDetails(true) },
                 { label: "Import entries from CSV", to: `/intercepts/import?intercept=${intercept.id}` },
                 ...(hasReports ? [{ label: "Regroup reports", to: `/intercepts/${intercept.id}/regroup` }] : []),
-                {
-                  label: "Create Modes from entries…",
-                  onSelect: () => setModesFrom(entries ?? []),
-                  disabled: !isMine || !entries?.length,
-                  title: isMine ? undefined : `Start editing ${emitter?.name ?? "the Emitter"} first`,
-                },
                 { label: "Delete Intercept", danger: true, onSelect: () => void handleDeleteIntercept() },
               ]}
             />
@@ -835,11 +827,15 @@ export function InterceptDetailPage() {
               <button
                 type="button"
                 className="button secondary small"
-                disabled={selected.size === 0 || !isMine}
-                title={isMine ? "One Mode per selected entry, in one batch" : `Start editing ${emitter?.name ?? "the Emitter"} first`}
-                onClick={() => setModesFrom(selectedEntries)}
+                disabled={!entries?.length}
+                title="Choose, entry by entry, to make a new Mode or widen one it nearly fits — see what each covers before anything changes"
+                onClick={() =>
+                  navigate(`/intercepts/${intercept.id}/modes`, {
+                    state: selected.size > 0 ? { entryIds: selectedEntries.map((e) => e.id) } : null,
+                  })
+                }
               >
-                Create Modes…
+                {selected.size > 0 ? `Plan Modes for ${selected.size}…` : "Plan Modes…"}
               </button>
               <button
                 type="button"
@@ -956,19 +952,6 @@ export function InterceptDetailPage() {
         )}
       </section>
 
-      {modesFrom && (
-        <ModesFromEntriesModal
-          intercept={intercept}
-          entries={modesFrom}
-          matchById={matchById}
-          onClose={() => setModesFrom(null)}
-          onDone={(note) => {
-            setModesFrom(null);
-            setSelected(new Set());
-            setMessage(note);
-          }}
-        />
-      )}
       {showEditDetails && <InterceptFormModal intercept={intercept} onClose={() => setShowEditDetails(false)} />}
       {entryForm && (
         <EntryFormModal interceptId={intercept.id} entry={entryForm.entry} onClose={() => setEntryForm(null)} />

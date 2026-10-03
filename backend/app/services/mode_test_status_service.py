@@ -5,7 +5,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.enums import TestRecordModeLinkType, TestResult
-from app.models.intercept import InterceptEntry, InterceptEntryMode
+from app.models.intercept import Intercept, InterceptEntry, InterceptEntryMode
 from app.models.mode import Mode
 from app.models.test_record import TestRecord, TestRecordMode
 from app.schemas.intercept import InterceptEntryBrief
@@ -67,15 +67,18 @@ def get_intercept_derivations(db: Session, mode_ids: list[UUID]) -> dict[UUID, l
     if not mode_ids:
         return {}
     rows = (
-        db.query(InterceptEntryMode.mode_id, InterceptEntry)
+        db.query(InterceptEntryMode.mode_id, InterceptEntry, Intercept.name)
         .join(InterceptEntry, InterceptEntryMode.intercept_entry_id == InterceptEntry.id)
+        .join(Intercept, InterceptEntry.intercept_id == Intercept.id)
         .filter(InterceptEntryMode.mode_id.in_(mode_ids))
         .order_by(InterceptEntry.created_at.desc())
         .all()
     )
     derivations: dict[UUID, list[InterceptEntryBrief]] = {}
-    for mode_id, entry in rows:
-        derivations.setdefault(mode_id, []).append(InterceptEntryBrief.model_validate(entry))
+    for mode_id, entry, intercept_name in rows:
+        brief = InterceptEntryBrief.model_validate(entry)
+        brief.intercept_name = intercept_name
+        derivations.setdefault(mode_id, []).append(brief)
     return derivations
 
 

@@ -257,6 +257,8 @@ export interface InterceptEntryBrief {
   rf_mean_mhz: number;
   pw_mean_us: number | null;
   pri_mean_us: number | null;
+  /** The Intercept the entry belongs to. */
+  intercept_name: string | null;
 }
 
 export interface InterceptNote {

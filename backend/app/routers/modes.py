@@ -18,6 +18,8 @@ from app.models.mode import Mode, ModeGenerationBatch, ModeLine
 from app.models.source import Source
 from app.models.test_record import TestRecord, TestRecordMode
 from app.schemas.mode import (
+    InterceptModePlan,
+    InterceptModePlanResult,
     ModeLineFields,
     ModesFromIntercept,
     ModeCreate,
@@ -380,11 +382,23 @@ def _line_from_entry(entry: InterceptEntry, payload: ModesFromIntercept) -> dict
         line.update(pri_min_us=pri_min, pri_max_us=pri_max, pri_delta=payload.pri_delta, jitter_min_us=jitter, jitter_max_us=jitter)
     else:
         values = [float(v) for v in entry.stagger_values or []]
-        line.update(pri_stagger_values_us=values, frame_time_delta_us=payload.frame_time_delta_us)
         # The file's own frame time where it differs from the sum of the positions.
         frame = _f(entry.pri_mean_us)
         if frame is not None and values and abs(frame - compute_frametime_us(values)) > 10 ** -FRAME_TIME_DECIMALS:
             line["explicit_frame_time_us"] = round(frame, FRAME_TIME_DECIMALS)
+        # A Mode's frame time is one value with a ± delta, so the measured spread
+        # goes into the delta: far enough either side to reach the lowest and
+        # highest frame time measured.
+        centre = frame if frame is not None else (compute_frametime_us(values) if values else None)
+        spread = 0.0
+        if measured and centre is not None:
+            for edge in (_f(entry.pri_min_us), _f(entry.pri_max_us)):
+                if edge is not None:
+                    spread = max(spread, abs(edge - centre))
+        line.update(
+            pri_stagger_values_us=values,
+            frame_time_delta_us=round(payload.frame_time_delta_us + spread, FRAME_TIME_DECIMALS),
+        )
     return line
 
 
@@ -495,3 +509,213 @@ def create_modes_from_intercept(
     for mode in created:
         db.refresh(mode)
     return attach_mode_extras(db, created)
+
+
+# What a widening may change, and the parameter each belongs to (for the audit summary).
+_WIDEN_FIELDS = {
+    "rf_min_mhz": "RF",
+    "rf_max_mhz": "RF",
+    "pri_min_us": "PRI",
+    "pri_max_us": "PRI",
+    "pw_min_us": "PW",
+    "pw_max_us": "PW",
+    "frame_time_delta_us": "Frame time",
+}
+
+
+def _link_entries_once(db: Session, mode_id: UUID, entry_ids: list[UUID]) -> None:
+    """Links entries to a Mode, skipping any already linked to it."""
+    have = {
+        eid
+        for (eid,) in db.query(InterceptEntryMode.intercept_entry_id)
+        .filter(InterceptEntryMode.mode_id == mode_id, InterceptEntryMode.intercept_entry_id.in_(entry_ids))
+        .all()
+    }
+    for entry_id in entry_ids:
+        if entry_id not in have:
+            db.add(InterceptEntryMode(intercept_entry_id=entry_id, mode_id=mode_id))
+            have.add(entry_id)
+
+
+@router.post(
+    "/from-intercept-plan",
+    response_model=InterceptModePlanResult,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(verify_csrf)],
+)
+def apply_intercept_mode_plan(
+    ew_group_id: UUID,
+    payload: InterceptModePlan,
+    db: Session = Depends(get_db),
+    user=Depends(require_ew_group_checkout()),
+) -> InterceptModePlanResult:
+    """Applies a plan made on an Intercept's planning page, all or nothing:
+    new Modes go into this EW Group as one generation batch; widened Modes
+    (any EW Group of the same Emitter) only have ranges grown. Every Mode is
+    linked to the entries it was made or widened for."""
+    ew_group = _get_ew_group_or_404(db, ew_group_id)
+    emitter_id = ew_group.emitter_id
+    intercept = db.get(Intercept, payload.intercept_id)
+    if intercept is None or intercept.emitter_id != emitter_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Intercept not found on this Emitter")
+
+    wanted = {eid for item in [*payload.new_modes, *payload.widen] for eid in item.entry_ids}
+    entries = {
+        e.id: e
+        for e in db.query(InterceptEntry)
+        .filter(InterceptEntry.intercept_id == intercept.id, InterceptEntry.id.in_(wanted))
+        .all()
+    }
+    if len(entries) != len(wanted):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Some of those entries aren't on this Intercept")
+
+    source = None
+    if payload.new_modes:
+        source = db.get(Source, payload.source_id)
+        if source is None or source.emitter_id != emitter_id:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT, "Source and EW Group must belong to the same Emitter"
+            )
+        _check_function_group(db, function_group_id=payload.function_group_id, emitter_id=emitter_id)
+
+    # Check everything before writing anything.
+    for i, planned in enumerate(payload.new_modes):
+        if any(entries[eid].pri_type != planned.pri_type for eid in planned.entry_ids):
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT, f"New Mode {i + 1}: its entries must all be {planned.pri_type.value}"
+            )
+        try:
+            validate_pri_type_fields(planned.pri_type, planned.line)
+            require_manual_deltas(planned.pri_type, planned.line)
+        except ValueError as err:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"New Mode {i + 1}: {err}")
+
+    widen_plan: list[tuple[Mode, dict, list[UUID]]] = []
+    for w in payload.widen:
+        mode = db.get(Mode, w.mode_id)
+        if mode is None or mode.line is None or db.get(EwGroup, mode.ew_group_id).emitter_id != emitter_id:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "A Mode to widen isn't on this Emitter")
+        if any(entries[eid].pri_type != mode.pri_type for eid in w.entry_ids):
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT, f"Mode '{mode.name}' is {mode.pri_type.value}; its entries must be too"
+            )
+        line = mode.line
+        changes: dict = {}
+        for field in _WIDEN_FIELDS:
+            new = getattr(w, field)
+            if new is None:
+                continue
+            old = _f(getattr(line, field))
+            upper = field.endswith(("_max_mhz", "_max_us")) or field == "frame_time_delta_us"
+            grows = old is None or (new >= old - 1e-9 if upper else new <= old + 1e-9)
+            if not grows:
+                raise HTTPException(
+                    status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    f"Widening only grows a range — {field} of Mode '{mode.name}' would go from {old} to {new}",
+                )
+            if old is None or abs(new - old) > 1e-9:
+                changes[field] = new
+        if mode.pri_type == PriType.stagger and any(k.startswith("pri_") for k in changes):
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT, "A stagger Mode is widened on its frame-time delta, not PRI"
+            )
+        if mode.pri_type == PriType.fixed and "frame_time_delta_us" in changes:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "A fixed Mode has no frame time to widen")
+        current = {k: getattr(line, k) for k in ModeLineFields.model_fields}
+        try:
+            fields = ModeLineFields(**{**current, **changes})
+            validate_pri_type_fields(mode.pri_type, fields)
+        except ValueError as err:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Mode '{mode.name}': {err}")
+        widen_plan.append((mode, changes, w.entry_ids))
+
+    created: list[Mode] = []
+    if payload.new_modes:
+        prefix = payload.name_prefix.strip()
+        batch = ModeGenerationBatch(ew_group_id=ew_group_id, source_id=source.id, name_prefix=prefix, created_by=user.id)
+        db.add(batch)
+        db.flush()
+        used = {name for (name,) in db.query(Mode.name).filter(Mode.ew_group_id == ew_group_id).all()}
+        base_sort = db.query(func.max(Mode.sort_order)).filter(Mode.ew_group_id == ew_group_id).scalar() or 0
+        counter = 1
+        for planned in payload.new_modes:
+            while f"{prefix} {counter}" in used:
+                counter += 1
+            name = f"{prefix} {counter}"
+            used.add(name)
+            counter += 1
+            reports = sum(entries[eid].report_count or 0 for eid in planned.entry_ids)
+            mode = Mode(
+                ew_group_id=ew_group_id,
+                source_id=source.id,
+                name=name,
+                pri_type=planned.pri_type,
+                notes=f"From Intercept '{intercept.name}'" + (f", {reports} reports" if reports else ""),
+                sort_order=base_sort + len(created) + 1,
+                confirmation_quality=payload.confirmation_quality,
+                confirmation_quantity=payload.confirmation_quantity,
+                function_group_id=payload.function_group_id,
+                generation_batch_id=batch.id,
+            )
+            db.add(mode)
+            db.flush()
+            line_fields = planned.line.model_dump()
+            try:
+                dsl_text = render_mode_line(
+                    pri_type=planned.pri_type,
+                    **{k: v for k, v in line_fields.items() if k not in _NON_DSL_LINE_FIELDS},
+                )
+            except DslSyntaxError:
+                dsl_text = None
+            db.add(ModeLine(mode_id=mode.id, dsl_text=dsl_text, **line_fields))
+            _link_entries_once(db, mode.id, planned.entry_ids)
+            record_audit(
+                db,
+                actor_id=user.id,
+                action=AuditAction.create,
+                entity_type=AuditEntityType.mode.value,
+                entity_id=mode.id,
+                summary=f"Created Mode '{mode.name}' from Intercept '{intercept.name}' (batch '{prefix}')",
+                changes={
+                    **{k: (list(v) if isinstance(v, list) else v) for k, v in line_fields.items()},
+                    "generation_batch_id": str(batch.id),
+                    "intercept_entry_ids": [str(e) for e in planned.entry_ids],
+                },
+                emitter_id=emitter_id,
+            )
+            created.append(mode)
+
+    widened: list[Mode] = []
+    for mode, changes, entry_ids in widen_plan:
+        diff = apply_and_diff(mode.line, changes) if changes else {}
+        if diff:
+            line_fields = {k: getattr(mode.line, k) for k in ModeLineFields.model_fields}
+            try:
+                mode.line.dsl_text = render_mode_line(
+                    pri_type=mode.pri_type,
+                    **{k: v for k, v in line_fields.items() if k not in _NON_DSL_LINE_FIELDS},
+                )
+            except DslSyntaxError:
+                mode.line.dsl_text = None
+        _link_entries_once(db, mode.id, entry_ids)
+        params = sorted({_WIDEN_FIELDS[k] for k in diff})
+        record_audit(
+            db,
+            actor_id=user.id,
+            action=AuditAction.update,
+            entity_type=AuditEntityType.mode.value,
+            entity_id=mode.id,
+            summary=(
+                f"Widened Mode '{mode.name}' ({', '.join(params)}) to cover Intercept '{intercept.name}'"
+                if params
+                else f"Linked Mode '{mode.name}' to Intercept '{intercept.name}' (it already covered it)"
+            ),
+            changes={**diff, "intercept_entry_ids": [str(e) for e in entry_ids]},
+            emitter_id=emitter_id,
+        )
+        widened.append(mode)
+
+    db.commit()
+    for mode in [*created, *widened]:
+        db.refresh(mode)
+    return InterceptModePlanResult(created=attach_mode_extras(db, created), widened=attach_mode_extras(db, widened))

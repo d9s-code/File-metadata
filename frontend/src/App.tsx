@@ -24,6 +24,7 @@ import { SourceGroupsPage } from "./pages/SourceGroupsPage";
 import { CustomersPage } from "./pages/CustomersPage";
 import { InterceptsPage } from "./pages/InterceptsPage";
 import { InterceptDetailPage } from "./pages/InterceptDetailPage";
+import { InterceptModePlanPage } from "./pages/InterceptModePlanPage";
 import { InterceptRegroupPage } from "./pages/InterceptRegroupPage";
 import { AmbiguityDashboardPage } from "./pages/AmbiguityDashboardPage";
 import { AuditLogPage } from "./pages/AuditLogPage";
@@ -174,6 +175,14 @@ export default function App() {
                 element={
                   <RequireAuth>
                     <InterceptImportPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/intercepts/:interceptId/modes"
+                element={
+                  <RequireAuth>
+                    <InterceptModePlanPage />
                   </RequireAuth>
                 }
               />

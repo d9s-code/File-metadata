@@ -73,25 +73,34 @@ export interface ModeBatchEditResult {
   count: number;
 }
 
-/** One Mode per Intercept entry, in one generation batch — see the backend's ModesFromIntercept. */
-export interface ModesFromInterceptInput {
+/** What the planning page applies in one go — see backend InterceptModePlan. */
+export interface InterceptModePlanInput {
   intercept_id: string;
-  entry_ids: string[];
-  source_id: string;
+  source_id?: string | null;
   function_group_id?: string | null;
-  name_prefix: string;
-  ranges: "measured" | "mean";
-  rf_delta: number;
-  pw_delta: number;
-  pri_delta: number;
-  frame_time_delta_us: number;
-  cw_pw_min_us?: number | null;
-  cw_pw_max_us?: number | null;
+  name_prefix?: string | null;
+  confirmation_quality: number;
+  confirmation_quantity: number;
+  new_modes: { entry_ids: string[]; pri_type: PriType; line: ModeLineFields }[];
+  widen: ({ mode_id: string; entry_ids: string[] } & {
+    rf_min_mhz?: number;
+    rf_max_mhz?: number;
+    pri_min_us?: number;
+    pri_max_us?: number;
+    pw_min_us?: number;
+    pw_max_us?: number;
+    frame_time_delta_us?: number;
+  })[];
+}
+
+export interface InterceptModePlanResult {
+  created: Mode[];
+  widened: Mode[];
 }
 
 export const modesApi = {
-  createFromIntercept: (ewGroupId: string, input: ModesFromInterceptInput) =>
-    api.post<Mode[]>(`/ew-groups/${ewGroupId}/modes/from-intercept`, input),
+  applyInterceptPlan: (ewGroupId: string, input: InterceptModePlanInput) =>
+    api.post<InterceptModePlanResult>(`/ew-groups/${ewGroupId}/modes/from-intercept-plan`, input),
   list: (ewGroupId: string) => api.get<Mode[]>(`/ew-groups/${ewGroupId}/modes`),
   listByEmitter: (emitterId: string) => api.get<Mode[]>(`/emitters/${emitterId}/modes`),
   create: (ewGroupId: string, input: ModeCreateInput) =>

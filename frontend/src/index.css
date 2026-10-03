@@ -3215,33 +3215,74 @@ label.grow {
   background: var(--badge-blue-bg);
   color: var(--badge-blue-fg);
 }
-/* Modes from Intercept entries */
-.modes-from-entries {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
+/* Planning Modes from an Intercept */
+.plan-settings h3 {
+  margin: 0 0 0.5rem;
 }
-.modes-from-entries .form-row {
+.plan-settings .form-row {
   align-items: flex-end;
+  flex-wrap: wrap;
 }
-.modes-from-skips {
-  flex-direction: column;
-  align-items: flex-start !important;
-  gap: 0.25rem;
+.plan-settings .form-row {
+  gap: 0.6rem 0.9rem;
 }
-.modes-from-ranges {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0.35rem 0.75rem 0.5rem;
+.plan-settings .form-row > label {
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-  font-size: 0.9rem;
 }
-.modes-from-ranges legend {
-  padding: 0 0.25rem;
-  font-size: 0.85rem;
+.plan-settings .form-row > label.grow {
+  flex: 1 1 12rem;
+}
+.plan-settings input[type="number"] {
+  width: 7.5rem;
+}
+.plan-settings .plan-basis {
+  width: 23rem;
+  max-width: 100%;
+}
+.plan-settings .hint-text {
+  margin: 0.4rem 0 0;
+}
+.plan-notice {
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  background: var(--badge-amber-bg, var(--hover-bg));
+  color: var(--badge-amber-fg, var(--text));
+}
+.plan-table-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.6rem;
+}
+.plan-table td {
+  vertical-align: top;
+}
+.plan-table select {
+  max-width: 22rem;
+}
+.plan-result {
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.plan-before {
   color: var(--muted);
+}
+.plan-after {
+  font-weight: 600;
+}
+.plan-skipped td {
+  opacity: 0.65;
+}
+.plan-covers {
+  font-weight: 600;
+}
+.plan-covers.low {
+  color: var(--error);
 }
 
 /* Zoom for the Over time charts */

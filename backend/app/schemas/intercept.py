@@ -115,6 +115,8 @@ class InterceptEntryBrief(BaseModel):
     rf_mean_mhz: float
     pw_mean_us: float | None = None
     pri_mean_us: float | None = None
+    # The Intercept it belongs to, so a Mode's badge can name it.
+    intercept_name: str | None = None
 
 
 class InterceptNoteCreate(BaseModel):
