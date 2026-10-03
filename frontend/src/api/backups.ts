@@ -39,6 +39,33 @@ export interface SchedulerStatus {
   last_steps?: string[];
 }
 
+export type FreshnessLevel = "ok" | "due" | "overdue" | "none";
+
+export interface FreshnessKind {
+  added: number;
+  removed: number;
+  changed: number;
+  /** The first few, added first. */
+  named: { id: string; name: string; how: "added" | "changed" | "removed" }[];
+}
+
+/** Time since the latest backup, what's changed since, and whether one is due. */
+export interface BackupFreshness {
+  level: FreshnessLevel;
+  latest_backup_at: string | null;
+  age_hours: number | null;
+  /** Audit Log entries that changed data since the latest backup. */
+  changes: number | null;
+  /** How long after the latest backup the next is due, given those changes. */
+  due_after_hours: number | null;
+  due_at: string | null;
+  changes_per_week: number;
+  kinds: Record<BackupDiffKind, FreshnessKind> | null;
+  /** "Sundays at 03:00 UTC". */
+  schedule: string;
+  next_scheduled_at: string | null;
+}
+
 export interface BackupHealth {
   ok: boolean;
   problems: string[];
@@ -46,6 +73,8 @@ export interface BackupHealth {
   last_verification: BackupVerification | null;
   scheduler: SchedulerStatus | null;
   copy_dir: string | null;
+  schedule: string;
+  freshness: BackupFreshness;
 }
 
 export interface BackupListing {
@@ -73,6 +102,8 @@ export interface BackupDiff {
 export const LIVE_DATA = "live";
 
 export const backupsApi = {
+  /** For anyone signed in — the dashboard's Backup card. */
+  status: () => api.get<BackupFreshness>("/backup-status"),
   list: () => api.get<BackupListing>("/admin/backups"),
   health: () => api.get<BackupHealth>("/admin/backups/health"),
   backUpNow: () => api.post<BackupItem>("/admin/backups"),

@@ -6,6 +6,7 @@ import { SimValidationCard } from "../components/dashboard/SimValidationCard";
 import { EmitterSimTable } from "../components/dashboard/EmitterSimTable";
 import { TestRunsCard } from "../components/dashboard/TestRunsCard";
 import { RecentActivityCard } from "../components/dashboard/RecentActivityCard";
+import { BackupCard } from "../components/dashboard/BackupCard";
 
 export function DashboardPage() {
   const { data, isLoading } = useDashboard();
@@ -24,6 +25,7 @@ export function DashboardPage() {
         <EmitterSimTable rows={data.emitter_sim_status} />
         <TestRunsCard runs={data.recent_test_runs} needsRedo={data.needs_redo} />
 
+        <BackupCard />
         <RecentActivityCard entries={data.recent_activity} />
       </div>
     </div>

@@ -200,6 +200,12 @@ export function HelpPage() {
             that still need a redo.
           </li>
           <li>
+            <strong>Backup</strong> — how long since the last backup, how many changes have been made since, and
+            which Emitters, Platforms and MDFs were added, changed or removed. The more that changes, the sooner a
+            backup is due — the bar fills toward that, and the card turns amber when it&apos;s due and red when
+            it&apos;s overdue. See <a href="#admin-backups">Backups</a>.
+          </li>
+          <li>
             <strong>Recent Activity</strong> — the last few entries from the Audit Log.
           </li>
         </ul>
@@ -864,21 +870,30 @@ export function HelpPage() {
           Admins only. <strong>Users</strong>: create accounts, change roles, deactivate or reactivate.{" "}
           <strong>Edit locks</strong>: every Emitter being edited, with Force release for a stale hold.{" "}
           <strong>Recently Deleted</strong>: restore deleted Emitters, Platforms and MDFs, or delete them for good;
-          anything left 30 days is removed each night. <strong>Backups</strong>: below.
+          anything left 30 days is removed each day. <strong>Backups</strong>: below.
         </p>
         <div className="help-subsection" id="admin-backups">
           <h3>Backups</h3>
           <p>
-            Every night a backup of the whole database is taken by its own container, so it runs even if the app
-            itself is down. Each one is then <strong>verified</strong>: restored into a scratch database and checked
-            against what was backed up, so a backup that wouldn&apos;t restore is caught the next morning rather than
-            on the day it&apos;s needed. Old backups are thinned out to 14 daily, 8 weekly and 6 monthly. If the
-            server was off overnight, a backup is taken as soon as it&apos;s back.
+            Once a week (Sunday night, unless set otherwise) a backup of the whole database is taken by its own
+            container, so it runs even if the app itself is down. Each one is then <strong>verified</strong>: restored
+            into a scratch database and checked against what was backed up, so a backup that wouldn&apos;t restore is
+            caught straight away rather than on the day it&apos;s needed. Old backups are thinned out to the newest 14,
+            then one a week for 8 weeks and one a month for 6 months. If the server was off, a backup is taken as soon
+            as it&apos;s back.
+          </p>
+          <p>
+            <strong>In between, a backup is due sooner the more that changes.</strong> Every change to the data (each
+            Audit Log entry that edits something — not sign-ins or downloads) counts. At 50 changes a backup is due a
+            week after the last one; at 100, half a week; at 200, under two days — never sooner than 12 hours, never
+            later than 4 weeks, and never if nothing has changed. The dashboard&apos;s <strong>Backup</strong> card shows
+            this; when a backup is due, it turns amber and admins see a warning on every page, and at twice that
+            it&apos;s overdue and turns red. <strong>Back up now</strong> clears it.
           </p>
           <p>
             <strong>Admin → Backups</strong> shows whether this is all working — the latest backup, its verification,
-            when the next one runs, and whether a second copy is kept. When something is wrong (no backup in over a
-            day, a failed verification, the scheduler not running) it says what, and admins see a warning at the top of
+            when the next one runs, and whether a second copy is kept. When something is wrong (a backup due for the
+            changes made, a failed verification, the scheduler not running) it says what, and admins see a warning at the top of
             every page until it&apos;s fixed. <strong>Back up now</strong> takes one straight away — worth doing before
             a big change. <strong>Verify</strong> checks any backup again. <strong>Download</strong> saves a backup to
             your own computer, as a copy off the server — it holds the whole database, user accounts&apos; password

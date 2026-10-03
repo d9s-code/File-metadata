@@ -221,3 +221,63 @@ def test_download_returns_the_file_and_is_audited(admin_client, editor_client, b
     assert editor_client.get(f"/admin/backups/{name}/download").status_code == 403
     assert admin_client.get("/admin/backups/emitterdb_20000101_000000.dump/download").status_code == 404
     assert admin_client.get("/admin/backups/..%2Fsecret/download").status_code == 404
+
+
+def test_freshness_counts_changes_and_scales_the_alert(admin_client, viewer_client, backup_dir, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+
+    assert viewer_client.get("/backup-status").json()["level"] == "none"
+
+    admin_client.post("/emitters", json={"name": "Fresh A"})
+    name = admin_client.post("/admin/backups").json()["file"]
+    admin_client.get(f"/admin/backups/{name}/download")  # not a change
+    status = viewer_client.get("/backup-status").json()
+    assert (status["level"], status["changes"], status["due_at"]) == ("ok", 0, None)
+    assert status["kinds"]["emitters"] == {"added": 0, "removed": 0, "changed": 0, "named": []}
+
+    # Edits are changes.
+    emitter = admin_client.post("/emitters", json={"name": "Fresh B"}).json()
+    admin_client.patch(f"/emitters/{emitter['id']}", json={"designation": "FB-1"})
+    status = viewer_client.get("/backup-status").json()
+    assert status["changes"] >= 2
+    assert status["kinds"]["emitters"]["added"] == 1
+    assert status["kinds"]["emitters"]["named"] == [{"id": emitter["id"], "name": "Fresh B", "how": "added"}]
+
+    # With a week's worth of changes it's due a week on; twice as many, half that.
+    monkeypatch.setattr(settings, "backup_changes_per_week", status["changes"])
+    assert backup_service.due_after_hours(status["changes"]) == 168
+    assert backup_service.due_after_hours(status["changes"] * 2) == 84
+    later = datetime.now(timezone.utc) + timedelta(days=8)
+    assert backup_service.backup_freshness(now=later)["level"] == "due"
+    assert backup_service.backup_freshness(now=later + timedelta(days=7))["level"] == "overdue"
+    # Admins are told, once it's due.
+    def told(when):
+        return [p for p in backup_service.backup_health(now=when)["problems"] if "changes have been made since" in p]
+
+    assert told(datetime.now(timezone.utc)) == []
+    assert told(later)[0].startswith("A backup is due: the latest is 8 days old")
+    assert told(later + timedelta(days=7))[0].startswith("A backup is overdue")
+
+
+def test_due_time_is_bounded():
+    assert backup_service.due_after_hours(0) is None
+    assert backup_service.due_after_hours(1) == backup_service.MAX_DUE_HOURS
+    assert backup_service.due_after_hours(10**6) == backup_service.MIN_DUE_HOURS
+
+
+def test_schedule_weekly_or_daily(monkeypatch):
+    from datetime import datetime, timezone
+
+    sat_evening = datetime(2026, 10, 3, 20, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(settings, "backup_schedule_time", "03:00")
+    monkeypatch.setattr(settings, "backup_schedule_day", "sun")
+    assert backup_service.next_scheduled_backup(sat_evening) == datetime(2026, 10, 4, 3, 0, tzinfo=timezone.utc)
+    assert backup_service.next_scheduled_backup(datetime(2026, 10, 4, 3, 0, tzinfo=timezone.utc)).day == 11
+    assert backup_service.schedule_label() == "Sundays at 03:00 UTC"
+    monkeypatch.setattr(settings, "backup_schedule_day", "Wednesday")
+    assert backup_service.next_scheduled_backup(sat_evening).day == 7
+    monkeypatch.setattr(settings, "backup_schedule_day", "daily")
+    assert backup_service.schedule_label() == "Every day at 03:00 UTC"
+    monkeypatch.setattr(settings, "backup_schedule_day", "someday")
+    with pytest.raises(ValueError):
+        backup_service.schedule_weekday()

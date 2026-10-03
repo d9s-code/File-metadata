@@ -16,6 +16,14 @@ from app.services.audit_service import record_audit
 from app.services.backup_service import BackupError
 
 router = APIRouter(prefix="/admin/backups", tags=["backups"], dependencies=[Depends(require_role(Role.admin))])
+# For everyone signed in: the dashboard's Backup card.
+status_router = APIRouter(prefix="/backup-status", tags=["backups"], dependencies=[Depends(require_role(Role.viewer))])
+
+
+@status_router.get("")
+def backup_status() -> dict:
+    """Time since the latest backup, what's changed since, and whether one is due."""
+    return backup_service.backup_freshness()
 
 LIVE = "live"
 

@@ -286,13 +286,14 @@ Export is available from the MDF page (latest committed version) and from the MD
 
 Since this app runs fully offline, its own database backups *are* the disaster-recovery plan — there's no cloud fallback. Whole-database `pg_dump` backups are:
 
-- **Scheduled independently of the app** — their own container, not an in-process job, so a backup still runs even if the web app is down. A server that was off overnight catches up when it starts.
+- **Scheduled independently of the app** — weekly by default (`BACKUP_SCHEDULE_DAY`, or daily), from their own container, not an in-process job, so a backup still runs even if the web app is down. A server that was off catches up when it starts.
+- **Due sooner the more changes** — between automatic backups, the dashboard's Backup card shows the time since the last backup and the changes since (Audit Log entries that edit data, plus which Emitters, Platforms and MDFs were added, changed or removed). A backup is due a week after the last at 50 changes (`BACKUP_CHANGES_PER_WEEK`), half a week at 100, and so on, between 12 hours and 4 weeks; nothing changed, nothing due. Due turns the card amber and warns admins on every page; twice past due is overdue, red.
 - **Written to a separate disk/volume from the live database**, and optionally **copied to a second place** (`BACKUP_COPY_DIR` — another disk or a share), so one failure can't take out both the data and its backups
-- **Pruned on a retention policy** (14 daily, 8 weekly, 6 monthly by default) so the backup directory doesn't grow forever
+- **Pruned on a retention policy** (the newest 14, then one a week for 8 weeks and one a month for 6 months, by default) so the backup directory doesn't grow forever
 - **Verified after every backup** — a real restore into a scratch database, with the row counts checked against what was backed up, then torn down again. Each file's checksum is checked first, so a file that changed on disk is caught too.
-- **Described by a manifest** next to each file: when and why it was taken (nightly, by hand, or just before a restore), by whom, its size, checksum, row counts, and an overview of every Emitter, Platform and MDF in it
+- **Described by a manifest** next to each file: when and why it was taken (automatically, by hand, or just before a restore), by whom, its size, checksum, row counts, and an overview of every Emitter, Platform and MDF in it
 
-**Admin → Backups** shows whether all of this is working: the latest backup and its verification, when the next one runs, and a plain list of anything wrong (no backup in over a day, a failed verification, the scheduler not reporting). Admins see a warning across the top of every page when there is. From there an Admin can also take a backup now, verify any backup again, **download** one to keep a copy off the server (recorded in the Audit Log, since it holds the whole database), and **compare** two backups — or a backup against the current data. The comparison is an overview, not a field-by-field diff: which Emitters, Platforms and MDFs were added, removed or moved to Recently Deleted, and for each changed one a line per change — renamed, status, number of Modes, saved version, pins.
+**Admin → Backups** shows whether all of this is working: the latest backup and its verification, when the next one runs, and a plain list of anything wrong (a backup due for the changes made, a failed verification, the scheduler not reporting). Admins see a warning across the top of every page when there is. From there an Admin can also take a backup now, verify any backup again, **download** one to keep a copy off the server (recorded in the Audit Log, since it holds the whole database), and **compare** two backups — or a backup against the current data. The comparison is an overview, not a field-by-field diff: which Emitters, Platforms and MDFs were added, removed or moved to Recently Deleted, and for each changed one a line per change — renamed, status, number of Modes, saved version, pins.
 
 Restoring is a deliberate, operator-run CLI action (not a UI button) — it overwrites live data, so it requires explicitly confirming the target database name, and it takes a backup of the current data first so a restore of the wrong file can be undone. See the [README](../README.md#backups) for the exact commands.
 
@@ -327,7 +328,7 @@ Emitters, Platforms, and MDFs are already soft-deleted by default when you delet
 - Every soft-deleted item, across all three entity types, in one list with a live "days left" countdown (30 days by default, `TRASH_RETENTION_DAYS`).
 - **Restore** — reverses the soft delete; the item reappears wherever it normally lives.
 - **Delete forever** — Admin-only, immediate, irreversible hard delete from the trash view itself.
-- **Automatic purge** — the nightly backup run (the `backup` container, see the [README](../README.md#backups)) hard-deletes anything past the retention window, right after that night's backup, so nothing relies on a human remembering to empty the trash.
+- **Automatic purge** — the `backup` container (see the [README](../README.md#backups)) hard-deletes anything past the retention window every day, so nothing relies on a human remembering to empty the trash.
 
 Restoring can fail with a 409 if another item now holds the same name — rename the conflicting one first.
 

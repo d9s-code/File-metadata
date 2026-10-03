@@ -1,21 +1,26 @@
 #!/usr/bin/env python3
 """The backup container's main loop — runs apart from the web app, so backups
-happen whether or not the app is up. Every night at BACKUP_SCHEDULE_TIME (the
-container's clock, UTC) it:
+happen whether or not the app is up. Every BACKUP_SCHEDULE_DAY (a weekday, or
+"daily"; default Sunday) at BACKUP_SCHEDULE_TIME (the container's clock, UTC) it:
 
 1. takes a backup (dump + manifest; copied to BACKUP_COPY_DIR if set),
 2. restores it into the scratch database to check it,
-3. prunes old backups (BACKUP_RETENTION_DAILY / _WEEKLY / _MONTHLY),
-4. purges Recently Deleted items past TRASH_RETENTION_DAYS.
+3. prunes old backups (BACKUP_RETENTION_DAILY / _WEEKLY / _MONTHLY).
 
-On start it also takes a backup straight away if the latest is older than
-BACKUP_MAX_AGE_HOURS, so a server that was down overnight catches up. What it
-did last, and when it runs next, goes to scheduler.json in the backup directory
-— the Admin → Backups page reads it.
+Every day at that time it also purges Recently Deleted items past
+TRASH_RETENTION_DAYS, so nothing outstays its countdown by more than a day.
+
+On start it takes a backup straight away if the latest is older than one
+schedule interval (and a bit), so a server that was down catches up. What it
+did last, and when it backs up next, goes to scheduler.json in the backup
+directory — the Admin → Backups page reads it.
+
+Between automatic backups the app shows how much has changed since the last one,
+and asks admins for a backup sooner the more there is (BACKUP_CHANGES_PER_WEEK).
 
 Usage:
     python scripts/backup_scheduler.py            # run forever
-    python scripts/backup_scheduler.py --once     # one run now, then exit
+    python scripts/backup_scheduler.py --once     # one backup run now, then exit
 """
 
 import argparse
@@ -30,7 +35,11 @@ from app.config import settings  # noqa: E402
 from app.services.backup_service import (  # noqa: E402
     BackupError,
     list_backups,
+    next_scheduled_backup,
     prune_backups,
+    schedule_interval,
+    schedule_label,
+    schedule_weekday,
     scheduler_status,
     take_backup,
     verify_backup,
@@ -39,10 +48,16 @@ from app.services.backup_service import (  # noqa: E402
 from app.services.trash_service import purge_expired  # noqa: E402
 
 
-def _next_run(now: datetime) -> datetime:
+def _next_tick(now: datetime) -> datetime:
+    """The next daily run time — housekeeping every day, a backup on backup days."""
     hour, minute = (int(x) for x in settings.backup_schedule_time.split(":"))
     run = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
     return run if run > now else run + timedelta(days=1)
+
+
+def _is_backup_day(when: datetime) -> bool:
+    weekday = schedule_weekday()
+    return weekday is None or when.weekday() == weekday
 
 
 def _log(message: str) -> None:
@@ -71,9 +86,6 @@ def run_once() -> dict:
         removed = prune_backups()
         if removed:
             steps.append(f"pruned {len(removed)} old backup(s)")
-        purged = purge_expired()
-        if purged:
-            steps.append(f"purged {purged} item(s) from Recently Deleted")
     except Exception as err:  # anything at all — the loop must keep going
         result["last_error"] = str(err) or err.__class__.__name__
         steps.append(f"FAILED: {result['last_error']}")
@@ -85,34 +97,49 @@ def run_once() -> dict:
     return result
 
 
+def purge_trash() -> dict:
+    """The daily housekeeping: Recently Deleted items past their time go for good."""
+    try:
+        purged = purge_expired()
+        if purged:
+            _log(f"purged {purged} item(s) from Recently Deleted")
+        return {"last_purge_at": datetime.now(timezone.utc).isoformat(), "last_purge_error": None}
+    except Exception as err:  # the loop must keep going
+        traceback.print_exc()
+        return {"last_purge_error": str(err) or err.__class__.__name__}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--once", action="store_true")
     args = parser.parse_args()
 
     if args.once:
-        status = run_once()
+        status = {**run_once(), **purge_trash()}
         write_scheduler_status({**(scheduler_status() or {}), **status, "next_run_at": None})
         raise SystemExit(1 if status["last_error"] else 0)
 
-    _log(f"Backup scheduler started — nightly at {settings.backup_schedule_time} UTC, into {settings.backup_dir}")
+    schedule_weekday()  # a bad BACKUP_SCHEDULE_DAY stops the container here, loudly
+    _log(f"Backup scheduler started — {schedule_label()}, into {settings.backup_dir}")
     status = scheduler_status() or {}
     backups = list_backups()
-    stale = not backups or datetime.now(timezone.utc) - backups[0].when > timedelta(hours=settings.backup_max_age_hours)
+    stale = not backups or datetime.now(timezone.utc) - backups[0].when > schedule_interval() + timedelta(hours=6)
     if stale:
-        _log("The latest backup is missing or too old — taking one now")
+        _log("The latest backup is missing or older than the schedule allows — taking one now")
         status.update(run_once())
     while True:
         now = datetime.now(timezone.utc)
-        upcoming = _next_run(now)
-        status.update({"next_run_at": upcoming.isoformat(), "heartbeat_at": now.isoformat()})
+        tick = _next_tick(now)
+        status.update({"next_run_at": next_scheduled_backup(now).isoformat(), "heartbeat_at": now.isoformat()})
         write_scheduler_status(status)
         # Wake every minute to keep the heartbeat fresh, until it's time.
-        while datetime.now(timezone.utc) < upcoming:
-            time.sleep(min(60, max(1, (upcoming - datetime.now(timezone.utc)).total_seconds())))
+        while datetime.now(timezone.utc) < tick:
+            time.sleep(min(60, max(1, (tick - datetime.now(timezone.utc)).total_seconds())))
             status["heartbeat_at"] = datetime.now(timezone.utc).isoformat()
             write_scheduler_status(status)
-        status.update(run_once())
+        if _is_backup_day(tick):
+            status.update(run_once())
+        status.update(purge_trash())
 
 
 if __name__ == "__main__":

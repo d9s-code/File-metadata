@@ -283,6 +283,7 @@ def take_backup(*, kind: str = "manual", created_by: str | None = None, director
             conn = raw.execution_options(isolation_level="REPEATABLE READ")
             with conn.begin():
                 snapshot = conn.execute(text("SELECT pg_export_snapshot()")).scalar_one()
+                snapshot_at = conn.execute(text("SELECT now()")).scalar_one()
                 schema = conn.execute(text("SELECT current_schema()")).scalar_one()
                 args, env = _client_args("pg_dump", settings.database_url)
                 args += ["-Fc", f"--snapshot={snapshot}"]
@@ -306,6 +307,8 @@ def take_backup(*, kind: str = "manual", created_by: str | None = None, director
         manifest = {
             "file": dump.name,
             "created_at": when.isoformat(),
+            # The moment the data in it is from — changes after this aren't in it.
+            "snapshot_at": snapshot_at.isoformat(),
             "kind": kind,
             "created_by": created_by,
             "size_bytes": dump.stat().st_size,
@@ -556,18 +559,160 @@ def write_scheduler_status(status: dict, directory: Path | None = None) -> None:
     tmp.replace(directory / SCHEDULER_STATUS_FILE)
 
 
-def backup_health(directory: Path | None = None) -> dict:
+_WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+
+def schedule_weekday() -> int | None:
+    """The weekday automatic backups run on (Monday = 0), or None for every day."""
+    day = settings.backup_schedule_day.strip().lower()
+    if day in ("daily", "every day", "*"):
+        return None
+    for i, name in enumerate(_WEEKDAYS):
+        if len(day) >= 3 and name.startswith(day):
+            return i
+    raise ValueError(f"BACKUP_SCHEDULE_DAY must be a weekday or 'daily', not {settings.backup_schedule_day!r}")
+
+
+def schedule_label() -> str:
+    """"Sundays at 03:00 UTC" / "Every day at 03:00 UTC"."""
+    weekday = schedule_weekday()
+    when = f"at {settings.backup_schedule_time} UTC"
+    return f"Every day {when}" if weekday is None else f"{_WEEKDAYS[weekday].capitalize()}s {when}"
+
+
+def next_scheduled_backup(now: datetime) -> datetime:
+    hour, minute = (int(x) for x in settings.backup_schedule_time.split(":"))
+    run = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if run <= now:
+        run += timedelta(days=1)
+    weekday = schedule_weekday()
+    if weekday is not None:
+        run += timedelta(days=(weekday - run.weekday()) % 7)
+    return run
+
+
+def schedule_interval() -> timedelta:
+    return timedelta(days=1 if schedule_weekday() is None else 7)
+
+
+# --- Freshness: how much a lost database would cost ---------------------------------
+
+#: Audit Log actions that aren't changes to the data.
+_NOT_CHANGES = ["login", "login_failed", "logout", "checkout", "checkin", "download"]
+MIN_DUE_HOURS = 12
+MAX_DUE_HOURS = 4 * 7 * 24
+
+
+def changes_since(conn: Connection, since: datetime) -> int:
+    """Changes made since a moment — every Audit Log entry that edits data (not
+    sign-ins, starting or ending an edit, downloads, or backups themselves)."""
+    return conn.execute(
+        text(
+            "SELECT count(*) FROM audit_log WHERE created_at > :since"
+            " AND entity_type <> 'backup' AND NOT (action::text = ANY(:skip))"
+        ),
+        {"since": since, "skip": _NOT_CHANGES},
+    ).scalar_one()
+
+
+def due_after_hours(changes: int) -> float | None:
+    """How long after a backup the next is due, given the changes made since: a week
+    at BACKUP_CHANGES_PER_WEEK, shorter the more there are. None when nothing changed."""
+    if changes <= 0:
+        return None
+    hours = 7 * 24 * settings.backup_changes_per_week / changes
+    return min(MAX_DUE_HOURS, max(MIN_DUE_HOURS, hours))
+
+
+def _age_text(hours: float) -> str:
+    if hours < 1:
+        return "under an hour"
+    if hours < 48:
+        n = int(hours)
+        return f"{n} hour{'s' if n != 1 else ''}"
+    n = int(hours // 24)
+    return f"{n} days"
+
+
+#: Changed items named per kind on the dashboard, beyond which only counted.
+NAMED_PER_KIND = 5
+
+
+def backup_freshness(directory: Path | None = None, now: datetime | None = None) -> dict:
+    """How long since the latest backup, what's changed since, and whether a backup is
+    due: "ok", "due" (past its due time), "overdue" (twice past), or "none" (never
+    backed up). The due time shrinks as changes pile up — see due_after_hours."""
+    from app.database import engine
+
+    directory = directory or backup_dir()
+    now = now or datetime.now(timezone.utc)
+    backups = list_backups(directory)
+    latest = backups[0] if backups else None
+    scheduler = scheduler_status(directory) or {}
+    out = {
+        "level": "none",
+        "latest_backup_at": None,
+        "age_hours": None,
+        "changes": None,
+        "due_after_hours": None,
+        "due_at": None,
+        "changes_per_week": settings.backup_changes_per_week,
+        "kinds": None,
+        "schedule": schedule_label(),
+        "next_scheduled_at": scheduler.get("next_run_at"),
+    }
+    if latest is None:
+        return out
+    # The moment the backup's data is from; the file name's time is only to the second.
+    m = latest.manifest or {}
+    taken = datetime.fromisoformat(m.get("snapshot_at") or m.get("created_at") or latest.when.isoformat())
+    with engine.connect() as conn:
+        changes = changes_since(conn, taken)
+        base = next((b for b in backups if b.manifest and b.manifest.get("overview") is not None), None)
+        live = compute_overview(conn) if base else None
+    age = (now - latest.when).total_seconds() / 3600
+    due = due_after_hours(changes)
+    out.update(
+        latest_backup_at=latest.when.isoformat(),
+        age_hours=round(age, 2),
+        changes=changes,
+        due_after_hours=due,
+        due_at=(latest.when + timedelta(hours=due)).isoformat() if due else None,
+        level="ok" if due is None or age < due else "due" if age < 2 * due else "overdue",
+    )
+    if base is not None:
+        diff = diff_overviews(base.manifest["overview"], live)
+        out["kinds"] = {
+            kind: {
+                "added": len(d["added"]),
+                "removed": len(d["removed"]),
+                "changed": len(d["changed"]),
+                "named": (
+                    [{"id": a["id"], "name": a["name"], "how": "added"} for a in d["added"]]
+                    + [{"id": c["id"], "name": c["name"], "how": "changed"} for c in d["changed"]]
+                    + [{"id": r["id"], "name": r["name"], "how": "removed"} for r in d["removed"]]
+                )[:NAMED_PER_KIND],
+            }
+            for kind, d in diff.items()
+        }
+    return out
+
+
+def backup_health(directory: Path | None = None, now: datetime | None = None) -> dict:
     """Whether backups are in order, and if not, what an admin should know."""
     directory = directory or backup_dir()
     backups = list_backups(directory)
-    now = datetime.now(timezone.utc)
+    now = now or datetime.now(timezone.utc)
     problems: list[str] = []
     latest = backups[0] if backups else None
+    freshness = backup_freshness(directory, now)
     if latest is None:
         problems.append("No backups have been taken yet")
-    elif now - latest.when > timedelta(hours=settings.backup_max_age_hours):
-        hours = int((now - latest.when).total_seconds() // 3600)
-        problems.append(f"The latest backup is {hours} hours old")
+    elif freshness["level"] in ("due", "overdue"):
+        problems.append(
+            f"A backup is {'overdue' if freshness['level'] == 'overdue' else 'due'}: the latest is"
+            f" {_age_text(freshness['age_hours'])} old and {freshness['changes']} changes have been made since"
+        )
     verified = [b for b in backups if b.manifest and b.manifest.get("verification")]
     last_check = verified[0].manifest["verification"] if verified else None
     if last_check and not last_check.get("ok"):
@@ -583,6 +728,8 @@ def backup_health(directory: Path | None = None) -> dict:
             problems.append(f"The backup scheduler hasn't checked in since {beat[:16].replace('T', ' ')} UTC — is its container running?")
         if scheduler.get("last_error"):
             problems.append(f"The scheduler's last run had a problem: {scheduler['last_error']}")
+        if scheduler.get("last_purge_error"):
+            problems.append(f"Emptying old Recently Deleted items failed: {scheduler['last_purge_error']}")
     return {
         "ok": not problems,
         "problems": problems,
@@ -590,4 +737,6 @@ def backup_health(directory: Path | None = None) -> dict:
         "last_verification": last_check,
         "scheduler": scheduler,
         "copy_dir": settings.backup_copy_dir,
+        "schedule": schedule_label(),
+        "freshness": freshness,
     }

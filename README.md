@@ -40,9 +40,9 @@ gets pinned into an MDF, and why readiness warnings never hard-block release).
   same way; RF/PW/PRI can each independently be flagged for range matching, governed by
   the same propose/approve workflow as any other Mode Line edit.
 - **Recently Deleted & Admin panel** — Emitters/Platforms/MDFs soft-delete into a 30-day
-  Recently Deleted view (restore, or Admin-only permanent delete; auto-purged nightly);
+  Recently Deleted view (restore, or Admin-only permanent delete; auto-purged daily);
   Admins can also create and manage user accounts from the UI.
-- **Backup & restore** — nightly `pg_dump` backups from their own container, each one
+- **Backup & restore** — weekly `pg_dump` backups from their own container, each one
   restored into a scratch database to prove it works, with retention pruning, an optional
   second copy, and an Admin page that shows their health and compares any two of them.
 - **Dark mode** — light/dark/system theme, persisted per browser, applied before first
@@ -153,17 +153,28 @@ steps 2–3 on the server (`docker load` overwrites the existing image tags; `do
 ## Backups
 
 In Docker the `backup` service does this on its own, apart from the web app so it runs
-whether or not the app is up. Every night at `BACKUP_SCHEDULE_TIME` (UTC, default 03:00) it:
+whether or not the app is up. Every `BACKUP_SCHEDULE_DAY` (a weekday, or `daily`; default
+`sun`) at `BACKUP_SCHEDULE_TIME` (UTC, default 03:00) it:
 
 1. takes a backup — a `pg_dump` file plus a small JSON manifest next to it (checksum, row
    counts, and an overview of every Emitter, Platform and MDF, used by the compare view);
 2. copies it to `BACKUP_COPY_DIR`, if set — mount a second disk or a share there;
 3. **verifies** it: restores it into a scratch database and checks the row counts match;
-4. prunes old backups (keeps 14 daily, 8 weekly, 6 monthly — `BACKUP_RETENTION_*`);
-5. purges Recently Deleted items past `TRASH_RETENTION_DAYS` (default 30).
+4. prunes old backups (keeps the newest 14, then one a week for 8 weeks and one a month
+   for 6 months — `BACKUP_RETENTION_DAILY` / `_WEEKLY` / `_MONTHLY`).
 
-If the latest backup is more than a day old when it starts (the server was off overnight),
-it takes one straight away. **Admin → Backups** shows all of this: the latest backup and its
+Every day at that time it also purges Recently Deleted items past `TRASH_RETENTION_DAYS`
+(default 30). If the latest backup is over a week old when it starts (the server was off),
+it takes one straight away.
+
+**Between automatic backups, the warning scales with the changes.** The dashboard's Backup
+card shows how long since the last backup and how many changes have been made since (every
+Audit Log entry that edits data), with which Emitters, Platforms and MDFs were added,
+changed or removed. A backup is due a week after the last one at `BACKUP_CHANGES_PER_WEEK`
+changes (default 50), half a week at twice as many, and so on — never sooner than 12 hours
+after, never later than 4 weeks, and not at all if nothing changed. Once due, the card turns
+amber and admins get a warning on every page; at twice that it's overdue and turns red.
+"Back up now" (on the card, or Admin → Backups) clears it. **Admin → Backups** shows all of this: the latest backup and its
 verification, when the next one runs, a warning if anything is missing, late or failed, a
 "Back up now" button, and a compare view — what changed between two backups, or since a
 backup, at the level of Emitters, Platforms and MDFs.

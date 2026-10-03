@@ -73,6 +73,7 @@ app.include_router(ambiguity.router)
 app.include_router(audit_log.router)
 app.include_router(trash.router)
 app.include_router(backups.router)
+app.include_router(backups.status_router)
 
 
 @app.get("/health")

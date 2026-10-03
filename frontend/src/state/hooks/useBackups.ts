@@ -18,6 +18,15 @@ export function useBackupHealth(enabled: boolean) {
   });
 }
 
+/** The dashboard's Backup card: time since the latest backup and changes since. */
+export function useBackupStatus() {
+  return useQuery({
+    queryKey: [...backupsKey, "status"],
+    queryFn: () => backupsApi.status(),
+    refetchInterval: 5 * 60_000,
+  });
+}
+
 export function useBackupDiff(from: string | null, to: string) {
   return useQuery({
     queryKey: [...backupsKey, "diff", from, to],

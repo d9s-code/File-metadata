@@ -34,10 +34,16 @@ class Settings(BaseSettings):
     # database's name + "_verify" on the same server. Create it once, owned by
     # the app's role — it's emptied again after every check.
     backup_verify_database_url: str | None = None
-    # When the scheduler takes the nightly backup (HH:MM, the container's clock — UTC).
+    # When the scheduler takes the automatic backup: a weekday ("sun", "monday"…)
+    # or "daily", at HH:MM on the container's clock (UTC). Expired Recently
+    # Deleted items are purged at that time every day either way.
+    backup_schedule_day: str = "sun"
     backup_schedule_time: str = "03:00"
-    # Older than this and admins are warned.
-    backup_max_age_hours: int = 26
+    # How soon a backup is due depends on how much has changed since the last
+    # one: with this many changes it's due a week after it, with twice as many
+    # half a week, and so on (12 hours at the soonest, 4 weeks at the latest).
+    # Nothing changed, nothing due.
+    backup_changes_per_week: int = 50
 
     trash_retention_days: int = 30
 

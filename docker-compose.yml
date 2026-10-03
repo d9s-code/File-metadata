@@ -23,8 +23,12 @@ x-backend-env: &backend-env
   # Optional: a second place every backup is copied to (mount it below on the
   # backup service too), e.g. a share on another machine.
   # BACKUP_COPY_DIR: /backups-copy
-  # Nightly backup time, UTC.
+  # Automatic backups: a weekday (or "daily") and a time, UTC.
+  BACKUP_SCHEDULE_DAY: sun
   BACKUP_SCHEDULE_TIME: "03:00"
+  # Between them, a backup is due a week after the last one at this many
+  # changes, half a week at twice as many, and so on — admins are warned then.
+  BACKUP_CHANGES_PER_WEEK: "50"
 
 services:
   backend:
@@ -80,10 +84,11 @@ services:
       retries: 3
       start_period: 60s
 
-  # Nightly backups, apart from the web app so they happen whether or not it's
-  # up: backup → verify (restore into the scratch database) → prune old ones →
-  # purge expired Recently Deleted items. Takes one straight away if the latest
-  # is over a day old. Status shows on Admin → Backups.
+  # Weekly backups (BACKUP_SCHEDULE_DAY), apart from the web app so they happen
+  # whether or not it's up: backup → verify (restore into the scratch database)
+  # → prune old ones. Every day it also purges expired Recently Deleted items.
+  # Takes a backup straight away if the latest is over a week old. Status shows
+  # on Admin → Backups and the dashboard.
   backup:
     image: rf-emitter-backend:latest
     restart: unless-stopped

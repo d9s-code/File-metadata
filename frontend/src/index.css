@@ -4374,3 +4374,110 @@ label.map-axis select { font-size: 0.8rem; padding: 0.1rem 0.3rem; }
   margin-left: 0.6rem;
   font-size: 0.85rem;
 }
+
+/* Dashboard → Backup */
+.backup-card {
+  border-left: 4px solid var(--badge-green-fg);
+}
+.backup-card.level-due {
+  border-left-color: var(--badge-amber-fg);
+}
+.backup-card.level-overdue,
+.backup-card.level-none {
+  border-left-color: var(--badge-red-fg);
+}
+.backup-level {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  background: var(--badge-green-bg);
+  color: var(--badge-green-fg);
+}
+.backup-level.level-due {
+  background: var(--badge-amber-bg);
+  color: var(--badge-amber-fg);
+}
+.backup-level.level-overdue,
+.backup-level.level-none {
+  background: var(--badge-red-bg);
+  color: var(--badge-red-fg);
+}
+.backup-card-stats {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+.backup-card-stats > div {
+  display: flex;
+  flex-direction: column;
+}
+.backup-card-figure {
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.backup-card-meter {
+  margin-top: 0.7rem;
+}
+.progress-bar-fill.level-due {
+  background: var(--badge-amber-fg);
+}
+.progress-bar-fill.level-overdue {
+  background: var(--badge-red-fg);
+}
+.backup-card-due {
+  margin: 0.4rem 0 0.5rem;
+  font-size: 0.88rem;
+}
+.backup-card-due.alert {
+  font-weight: 600;
+}
+.backup-card.level-due .backup-card-due {
+  color: var(--badge-amber-fg);
+}
+.backup-card.level-overdue .backup-card-due,
+.backup-card.level-none .backup-card-due {
+  color: var(--badge-red-fg);
+}
+.backup-card-kinds {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.15rem 0.75rem;
+  margin: 0 0 0.4rem;
+  font-size: 0.85rem;
+}
+.backup-card-kinds > div {
+  display: contents;
+}
+.backup-card-kinds dt {
+  color: var(--muted);
+}
+.backup-card-kinds dd {
+  margin: 0;
+}
+.backup-card-named {
+  list-style: none;
+  margin: 0 0 0.4rem;
+  padding: 0;
+  font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.backup-card-named li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.backup-card-next {
+  margin: auto 0 0.5rem;
+  padding-top: 0.3rem;
+}
+.backup-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}

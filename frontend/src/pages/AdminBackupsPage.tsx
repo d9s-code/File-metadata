@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { AdminNav } from "../components/common/AdminNav";
 import { LoadingState } from "../components/common/LoadingState";
 import { EmptyState } from "../components/common/EmptyState";
+import { backupWhen as when, relativeTime as relative } from "../components/common/backupFormat";
 import { useBackUpNow, useBackupDiff, useBackups, useVerifyBackup } from "../state/hooks/useBackups";
 import {
   backupsApi,
@@ -29,20 +30,6 @@ const DIFF_KINDS: { key: BackupDiffKind; label: string; path: string }[] = [
 
 /** Listed per section before "Show all". */
 const SHOWN = 15;
-
-function when(iso: string | null | undefined) {
-  return iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "—";
-}
-
-/** "3 hours ago", "in 9 hours", "2 days ago". */
-function relative(iso: string, now = Date.now()) {
-  const minutes = Math.round((Date.parse(iso) - now) / 60_000);
-  const abs = Math.abs(minutes);
-  const [n, unit] = abs < 60 ? [abs, "minute"] : abs < 48 * 60 ? [Math.round(abs / 60), "hour"] : [Math.round(abs / 1440), "day"];
-  if (n === 0) return "just now";
-  const text = `${n} ${unit}${n === 1 ? "" : "s"}`;
-  return minutes < 0 ? `${text} ago` : `in ${text}`;
-}
 
 function size(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -194,6 +181,18 @@ export function AdminBackupsPage() {
                 <dd>{health.latest_backup_at ? `${when(health.latest_backup_at)} (${relative(health.latest_backup_at)})` : "None yet"}</dd>
               </div>
               <div>
+                <dt>Changes since</dt>
+                <dd>
+                  {health.freshness.changes ?? "—"}
+                  {health.freshness.due_at && (
+                    <span className="hint-text">
+                      {" "}
+                      · backup due {relative(health.freshness.due_at)}
+                    </span>
+                  )}
+                </dd>
+              </div>
+              <div>
                 <dt>Last verification</dt>
                 <dd>
                   {health.last_verification ? (
@@ -206,9 +205,10 @@ export function AdminBackupsPage() {
                 </dd>
               </div>
               <div>
-                <dt>Next nightly backup</dt>
+                <dt>Next automatic backup</dt>
                 <dd>
                   {scheduler?.next_run_at ? `${when(scheduler.next_run_at)} (${relative(scheduler.next_run_at)})` : "Scheduler not reporting"}
+                  <span className="hint-text"> · {health.schedule}</span>
                 </dd>
               </div>
               <div>
@@ -217,8 +217,11 @@ export function AdminBackupsPage() {
               </div>
             </dl>
             <p className="hint-text">
-              Every night a backup is taken, then restored into a scratch database to prove it works; old ones are thinned
-              out to 14 daily, 8 weekly and 6 monthly. <strong>Download</strong> keeps a copy on your own computer — it
+              A backup is taken automatically ({health.schedule.toLowerCase()}), then restored into a scratch database to
+              prove it works. In between, the more that changes the sooner a backup is due: a week after the last one at{" "}
+              {health.freshness.changes_per_week} changes, half a week at twice that, and so on — that&apos;s when the
+              warning shows. Old backups are thinned out to the newest 14, then one a week for 8 weeks and one a month for 6
+              months. <strong>Download</strong> keeps a copy on your own computer — it
               holds everything, user accounts included, so store it somewhere safe; downloads show in the Audit Log.
               Restoring one is done from the server&apos;s command line — see <Link to="/help#admin-backups">Help</Link>.
             </p>
@@ -231,7 +234,7 @@ export function AdminBackupsPage() {
               </h4>
             </div>
             {backups.length === 0 ? (
-              <EmptyState compact title="No backups yet" message="Take one with Back up now, or wait for the nightly one." />
+              <EmptyState compact title="No backups yet" message="Take one with Back up now, or wait for the automatic one." />
             ) : (
               <div className="backup-table-wrap">
                 <table className="data-table backup-table">
