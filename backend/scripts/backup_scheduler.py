@@ -72,6 +72,12 @@ def run_once() -> dict:
     try:
         manifest = take_backup(kind="scheduled", created_by="scheduler")
         steps.append(f"backed up to {manifest['file']} ({manifest['size_bytes']:,} bytes)")
+        prs = manifest.get("prs_export") or {}
+        if prs.get("error"):
+            steps.append(f"COULD NOT make the PRS export: {prs['error']}")
+            result["last_error"] = f"The PRS export couldn't be made: {prs['error']}"
+        elif prs:
+            steps.append(f"PRS export {prs['file']} ({prs['emitters']} Emitters, {prs['platforms']} Platforms, {prs['mdfs']} MDFs)")
         if settings.backup_copy_dir and not manifest.get("copied_to"):
             steps.append(f"COULD NOT copy it to {settings.backup_copy_dir}")
             result["last_error"] = f"The copy to {settings.backup_copy_dir} failed"

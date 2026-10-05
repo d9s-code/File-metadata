@@ -161,6 +161,7 @@ whether or not the app is up. Every `BACKUP_SCHEDULE_DAY` (a weekday, or `daily`
 
 1. takes a backup — a `pg_dump` file plus a small JSON manifest next to it (checksum, row
    counts, and an overview of every Emitter, Platform and MDF, used by the compare view);
+   alongside it, a **PRS export of the whole repository** (`<backup>_prs.zip`, below);
 2. copies it to `BACKUP_COPY_DIR`, if set — mount a second disk or a share there;
 3. **verifies** it: restores it into a scratch database and checks the row counts match;
 4. prunes old backups (keeps the newest 14, then one a week for 8 weeks and one a month
@@ -181,6 +182,22 @@ amber and admins get a warning on every page; at twice that it's overdue and tur
 verification, when the next one runs, a warning if anything is missing, late or failed, a
 "Back up now" button, and a compare view — what changed between two backups, or since a
 backup, at the level of Emitters, Platforms and MDFs.
+
+**The PRS export — for when there's no time to restore.** Each backup has a
+`emitterdb_<date>_prs.zip` next to it, taken from the same moment as the database file:
+
+```
+README.txt                  what's inside, and which saved version each item is from
+emitters/<Emitter>.xml      every Emitter (plus default_unknown_emitter.xml)
+platforms/<Platform>/...    each Platform as its own PRS package
+mdfs/<MDF>/...              each MDF as a complete PRS package, ready to use as-is
+```
+
+They're the same files the app's own PRS exports give, from each item's latest saved
+version (anything never saved is taken from its current state; README.txt says which).
+Verify checks it, it's copied to `BACKUP_COPY_DIR` and pruned with its backup, and Admin →
+Backups downloads it with **PRS (XML)**. If it fails, the database backup is still kept and
+the Backups page says so.
 
 Verification needs an empty scratch database it may overwrite — by default the live
 database's name with `_verify` on the same server. Create it once:

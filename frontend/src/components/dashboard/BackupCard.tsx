@@ -105,8 +105,9 @@ export function BackupCard() {
       )}
 
       <p className="hint-text backup-card-next">
-        Automatic backups: {f.schedule}
-        {f.next_scheduled_at && ` — next ${relativeTime(f.next_scheduled_at)}`}.
+        {f.next_scheduled_at
+          ? `Next automatic backup ${relativeTime(f.next_scheduled_at)}.`
+          : "The automatic backup scheduler isn't reporting."}
       </p>
 
       {isAdmin ? (

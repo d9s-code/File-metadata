@@ -28,7 +28,13 @@ export interface BackupItem {
   verification: BackupVerification | null;
   copied_to: string | null;
   sha256: string | null;
+  /** The whole repository as PRS XML, taken with this backup; null for older backups. */
+  prs_export: PrsExport | null;
 }
+
+export type PrsExport =
+  | { file: string; size_bytes: number; sha256: string; emitters: number; platforms: number; mdfs: number; files: number; never_saved: number }
+  | { error: string };
 
 export interface SchedulerStatus {
   heartbeat_at?: string;
@@ -109,7 +115,8 @@ export const backupsApi = {
   backUpNow: () => api.post<BackupItem>("/admin/backups"),
   verify: (file: string) => api.post<BackupItem>(`/admin/backups/${encodeURIComponent(file)}/verify`),
   /** A plain link, so the browser streams the file into its own downloads. */
-  downloadUrl: (file: string) => `${API_BASE_URL}/admin/backups/${encodeURIComponent(file)}/download`,
+  downloadUrl: (file: string, part: "database" | "prs" = "database") =>
+    `${API_BASE_URL}/admin/backups/${encodeURIComponent(file)}/download${part === "prs" ? "?part=prs" : ""}`,
   diff: (from: string, to: string) =>
     api.get<BackupDiff>(`/admin/backups/diff?${new URLSearchParams({ from, to }).toString()}`),
 };

@@ -16,7 +16,7 @@ import {
 } from "../api/backups";
 
 const KIND_LABELS: Record<BackupKind, string> = {
-  scheduled: "Nightly",
+  scheduled: "Automatic",
   manual: "By hand",
   "before-restore": "Before restore",
   unknown: "—",
@@ -208,7 +208,6 @@ export function AdminBackupsPage() {
                 <dt>Next automatic backup</dt>
                 <dd>
                   {scheduler?.next_run_at ? `${when(scheduler.next_run_at)} (${relative(scheduler.next_run_at)})` : "Scheduler not reporting"}
-                  <span className="hint-text"> · {health.schedule}</span>
                 </dd>
               </div>
               <div>
@@ -217,12 +216,15 @@ export function AdminBackupsPage() {
               </div>
             </dl>
             <p className="hint-text">
-              A backup is taken automatically ({health.schedule.toLowerCase()}), then restored into a scratch database to
+              A backup is taken automatically, then restored into a scratch database to
               prove it works. In between, the more that changes the sooner a backup is due: a week after the last one at{" "}
               {health.freshness.changes_per_week} changes, half a week at twice that, and so on — that&apos;s when the
               warning shows. Old backups are thinned out to the newest 14, then one a week for 8 weeks and one a month for 6
-              months. <strong>Download</strong> keeps a copy on your own computer — it
-              holds everything, user accounts included, so store it somewhere safe; downloads show in the Audit Log.
+              months. Each backup also carries a <strong>PRS export</strong> of the whole repository — every MDF as a
+              ready-to-use PRS package, every Platform and Emitter as XML — for when there&apos;s no time to restore the
+              database. <strong>Database</strong> and <strong>PRS (XML)</strong> download either to your own computer;
+              the database file holds everything, user accounts included, so store it somewhere safe. Downloads show in
+              the Audit Log.
               Restoring one is done from the server&apos;s command line — see <Link to="/help#admin-backups">Help</Link>.
             </p>
           </section>
@@ -292,10 +294,26 @@ export function AdminBackupsPage() {
                             className="backup-download"
                             href={backupsApi.downloadUrl(b.file)}
                             download={b.file}
-                            title={b.sha256 ? `SHA-256 ${b.sha256}` : undefined}
+                            title={b.sha256 ? `The database file · SHA-256 ${b.sha256}` : "The database file"}
                           >
-                            Download
+                            Database
                           </a>
+                          {b.prs_export && "file" in b.prs_export ? (
+                            <a
+                              className="backup-download"
+                              href={backupsApi.downloadUrl(b.file, "prs")}
+                              download={b.prs_export.file}
+                              title={`The whole repository as PRS XML: ${b.prs_export.emitters} Emitters, ${b.prs_export.platforms} Platforms, ${b.prs_export.mdfs} MDFs`}
+                            >
+                              PRS (XML)
+                            </a>
+                          ) : (
+                            b.prs_export && (
+                              <span className="backup-download error-text" title={b.prs_export.error}>
+                                PRS failed
+                              </span>
+                            )
+                          )}
                           <button
                             type="button"
                             className="link-button"

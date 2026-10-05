@@ -939,10 +939,18 @@ export function HelpPage() {
             when the next one runs, and whether a second copy is kept. When something is wrong (a backup due for the
             changes made, a failed verification, the scheduler not running) it says what, and admins see a warning at the top of
             every page until it&apos;s fixed. <strong>Back up now</strong> takes one straight away — worth doing before
-            a big change. <strong>Verify</strong> checks any backup again. <strong>Download</strong> saves a backup to
+            a big change. <strong>Verify</strong> checks any backup again. <strong>Database</strong> downloads a backup to
             your own computer, as a copy off the server — it holds the whole database, user accounts&apos; password
             hashes included, so keep it somewhere safe; each download is recorded in the Audit Log. The server can
             also save a second copy of every backup to another machine by itself (the README explains how).
+          </p>
+          <p>
+            <strong>No time to restore?</strong> Every backup also carries a <strong>PRS export</strong> of the whole
+            repository, taken at the same moment: every Emitter as XML, and every Platform and MDF as its own complete
+            PRS package — the same files exporting each from the app would give, from its latest saved version
+            (anything never saved is from its current state). Download it with <strong>PRS (XML)</strong> and use the
+            MDF folders as they are; the README.txt inside lists what&apos;s there and from which version. On the
+            server it sits next to the backup, as <code>emitterdb_&lt;date&gt;_prs.zip</code>.
           </p>
           <p>
             <strong>Compare</strong> gives an overview of what changed between two backups, or between a backup and

@@ -3,6 +3,8 @@ now, checking one restores, and comparing what two of them (or one and the live
 data) hold — see app/services/backup_service.py. Restoring stays a deliberate
 command-line step (scripts/restore_db.py), never a button."""
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -41,6 +43,7 @@ def _item(path_name: str, manifest: dict | None, when_iso: str, size: int) -> di
         "verification": m.get("verification"),
         "copied_to": m.get("copied_to"),
         "sha256": m.get("sha256"),
+        "prs_export": m.get("prs_export"),
     }
 
 
@@ -83,23 +86,33 @@ def back_up_now(user=Depends(require_role(Role.admin)), db: Session = Depends(ge
 
 
 @router.get("/{name}/download")
-def download(name: str, user=Depends(require_role(Role.admin)), db: Session = Depends(get_db)) -> FileResponse:
-    """The backup file itself, to keep a copy on another computer. It holds the whole
-    database — user accounts' password hashes included — so each download is audited."""
+def download(
+    name: str,
+    part: Literal["database", "prs"] = "database",
+    user=Depends(require_role(Role.admin)),
+    db: Session = Depends(get_db),
+) -> FileResponse:
+    """A backup's database file, or (part=prs) the PRS export taken with it — to keep
+    a copy on another computer. Both hold the repository's contents, the database
+    also user accounts' password hashes, so each download is audited."""
     try:
         dump = backup_service.resolve_dump(name)
     except BackupError as err:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(err)) from err
+    path = backup_service.prs_path(dump) if part == "prs" else dump
+    if not path.exists():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"This backup has no {'PRS export' if part == 'prs' else 'file'}")
     record_audit(
         db,
         actor_id=user.id,
         action=AuditAction.download,
         entity_type=AuditEntityType.backup.value,
         entity_id=None,
-        summary=f"Downloaded backup {name}",
+        summary=f"Downloaded {'the PRS export of ' if part == 'prs' else ''}backup {name}",
     )
     db.commit()
-    return FileResponse(dump, media_type="application/octet-stream", filename=name)
+    media = "application/zip" if part == "prs" else "application/octet-stream"
+    return FileResponse(path, media_type=media, filename=path.name)
 
 
 @router.post("/{name}/verify", dependencies=[Depends(verify_csrf)])

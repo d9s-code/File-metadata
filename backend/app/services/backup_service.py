@@ -27,6 +27,7 @@ import os
 import re
 import shutil
 import subprocess
+import zipfile
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -36,10 +37,12 @@ from urllib.parse import urlparse, urlunparse
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import OperationalError
+from sqlalchemy.orm import Session
 from sqlalchemy.pool import NullPool
 
 from app.config import settings
 from app.core.enums import EMITTER_STATUS_LABELS
+from app.services.backup_prs_export import build_repository_prs_zip
 
 FILENAME_RE = re.compile(r"^emitterdb_(\d{8})_(\d{6})\.dump$")
 SCHEDULER_STATUS_FILE = "scheduler.json"
@@ -147,6 +150,11 @@ def _when_from_name(name: str) -> datetime | None:
     if not m:
         return None
     return datetime.strptime(m.group(1) + m.group(2), "%Y%m%d%H%M%S").replace(tzinfo=timezone.utc)
+
+
+def prs_path(dump: Path) -> Path:
+    """The PRS export taken with a backup: emitterdb_…_prs.zip beside the dump."""
+    return dump.with_name(f"{dump.stem}_prs.zip")
 
 
 def _manifest_path(dump: Path) -> Path:
@@ -347,11 +355,28 @@ def take_backup(*, kind: str = "manual", created_by: str | None = None, director
                     raise BackupError(f"pg_dump failed: {detail[-1] if detail else f'exit code {result.returncode}'}")
                 overview = compute_overview(conn)
                 counts = table_counts(conn)
+                # The PRS export from the same snapshot, so it matches the dump. If it
+                # can't be made, the database backup still stands — the record says why.
+                try:
+                    with Session(bind=conn) as session:
+                        prs_bytes, prs_summary = build_repository_prs_zip(session, when)
+                    prs_error = None
+                except Exception as err:  # noqa: BLE001 — any failure here mustn't lose the dump
+                    prs_bytes, prs_summary, prs_error = None, None, str(err) or err.__class__.__name__
                 try:
                     alembic = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
                 except Exception:  # no alembic table (a schema built straight from the models)
                     alembic = None
         part.replace(dump)
+        prs_record: dict
+        if prs_bytes is not None:
+            prs = prs_path(dump)
+            prs_part = prs.with_suffix(".zip.part")
+            prs_part.write_bytes(prs_bytes)
+            prs_part.replace(prs)
+            prs_record = {"file": prs.name, "size_bytes": prs.stat().st_size, "sha256": _sha256(prs), **prs_summary}
+        else:
+            prs_record = {"error": prs_error}
 
         manifest = {
             "file": dump.name,
@@ -368,6 +393,7 @@ def take_backup(*, kind: str = "manual", created_by: str | None = None, director
             "counts": counts,
             "overview": overview,
             "overview_source": "backup",
+            "prs_export": prs_record,
             "verification": None,
             "copied_to": None,
         }
@@ -385,6 +411,8 @@ def _copy_out(dump: Path, target: Path) -> str | None:
     try:
         target.mkdir(parents=True, exist_ok=True)
         shutil.copy2(dump, target / dump.name)
+        if prs_path(dump).exists():
+            shutil.copy2(prs_path(dump), target / prs_path(dump).name)
         shutil.copy2(_manifest_path(dump), target / _manifest_path(dump).name)
         return str(target / dump.name)
     except OSError:
@@ -424,12 +452,37 @@ def prune_backups(
     for b in backups:
         if b.path not in keep:
             b.path.unlink(missing_ok=True)
+            prs_path(b.path).unlink(missing_ok=True)
             _manifest_path(b.path).unlink(missing_ok=True)
             removed.append(b.path)
     return removed
 
 
 # --- Verifying a backup ------------------------------------------------------------
+
+
+def check_prs_export(dump: Path, manifest: dict) -> tuple[str | None, str]:
+    """Whether the PRS export beside a backup is still there and whole: (problem
+    or None, a note for the verification message)."""
+    record = manifest.get("prs_export")
+    if not record:
+        return None, ""  # made before backups carried one
+    if record.get("error"):
+        return None, " · no PRS export (it couldn't be made: " + record["error"] + ")"
+    prs = prs_path(dump)
+    if not prs.exists():
+        return f"The PRS export {prs.name} is missing", ""
+    if record.get("sha256") and _sha256(prs) != record["sha256"]:
+        return "The PRS export has changed since it was written — its checksum doesn't match", ""
+    try:
+        with zipfile.ZipFile(prs) as zf:
+            bad = zf.testzip()
+            count = len(zf.namelist())
+    except zipfile.BadZipFile:
+        return "The PRS export isn't a readable zip file", ""
+    if bad:
+        return f"The PRS export is damaged ({bad})", ""
+    return None, f" · PRS export checked ({count} files)"
 
 
 def verify_backup(name: str, directory: Path | None = None) -> dict:
@@ -468,6 +521,9 @@ def verify_backup(name: str, directory: Path | None = None) -> dict:
 
         if manifest.get("sha256") and _sha256(dump) != manifest["sha256"]:
             return record(False, "The file has changed since it was written — its checksum doesn't match")
+        prs_problem, prs_note = check_prs_export(dump, manifest)
+        if prs_problem:
+            return record(False, prs_problem)
 
         scratch_engine = create_engine(url, poolclass=NullPool)
         try:
@@ -497,13 +553,13 @@ def verify_backup(name: str, directory: Path | None = None) -> dict:
             expected = manifest.get("counts")
             if expected is None:
                 manifest["counts"] = counts
-                return record(True, f"Restored {len(counts)} tables — no earlier counts to compare with", tables=len(counts), rows=sum(counts.values()))
+                return record(True, f"Restored {len(counts)} tables — no earlier counts to compare with{prs_note}", tables=len(counts), rows=sum(counts.values()))
             wrong = [
                 f"{t}: {counts.get(t, 'missing')} rows, expected {n}" for t, n in expected.items() if counts.get(t) != n
             ]
             if wrong:
                 return record(False, "Row counts differ — " + "; ".join(wrong[:5]), tables=len(counts))
-            return record(True, f"Restored and checked {len(counts)} tables, {sum(counts.values()):,} rows", tables=len(counts), rows=sum(counts.values()))
+            return record(True, f"Restored and checked {len(counts)} tables, {sum(counts.values()):,} rows{prs_note}", tables=len(counts), rows=sum(counts.values()))
         finally:
             # Empty the scratch database again — it only ever holds a copy for as long as the check takes.
             try:

@@ -328,3 +328,82 @@ def test_verify_reports_the_real_error(admin_client, backup_dir, tmp_path, monke
     check = admin_client.post(f"/admin/backups/{name}/verify").json()["verification"]
     assert not check["ok"]
     assert check["message"].startswith("Restore failed: permission denied for schema public"), check["message"]
+
+
+def _repository(client):
+    """An Emitter (saved), a Platform pinning it (saved), an MDF pinning that
+    (saved), and an Emitter never saved."""
+    emitter, _, _ = _emitter_with_mode(client, name="PRS Radar")
+    ev = client.get(f"/emitters/{emitter['id']}/versions").json()[-1]
+    platform = client.post("/platforms", json={"name": "PRS Platform"}).json()
+    client.post(f"/platforms/{platform['id']}/links", json={"emitter_id": emitter["id"], "emitter_version_id": ev["id"]})
+    pv = client.post(f"/platforms/{platform['id']}/versions", json={}).json()
+    mdf = client.post("/mdfs", json={"name": "PRS MDF"}).json()
+    client.post(f"/mdfs/{mdf['id']}/links", json={"platform_id": platform["id"], "platform_version_id": pv["id"]})
+    client.post(f"/mdfs/{mdf['id']}/versions", json={})
+    client.post("/emitters", json={"name": "Unsaved Radar"})
+    return mdf
+
+
+def test_backup_carries_a_prs_export_of_everything(admin_client, backup_dir):
+    import io
+    import zipfile
+
+    mdf = _repository(admin_client)
+    item = admin_client.post("/admin/backups").json()
+    prs = item["prs_export"]
+    assert (prs["emitters"], prs["platforms"], prs["mdfs"], prs["never_saved"]) == (2, 1, 1, 1)
+
+    path = backup_dir / prs["file"]
+    assert path.name == item["file"].replace(".dump", "_prs.zip") and path.exists()
+    with zipfile.ZipFile(path) as zf:
+        names = set(zf.namelist())
+        readme = zf.read("README.txt").decode()
+        # Each MDF folder is exactly the PRS package the app exports for that MDF.
+        app_export = zipfile.ZipFile(io.BytesIO(admin_client.get(f"/mdfs/{mdf['id']}/versions/1/export/prs").content))
+        for entry in app_export.namelist():
+            assert zf.read(f"mdfs/PRS_MDF/{entry}") == app_export.read(entry), entry
+    assert {"emitters/PRS_Radar.xml", "emitters/Unsaved_Radar.xml", "emitters/default_unknown_emitter.xml"} <= names
+    assert any(n.startswith("platforms/PRS_Platform/") for n in names)
+    assert "PRS_Radar.xml: PRS Radar — v1" in readme and "Unsaved_Radar.xml: Unsaved Radar — never saved" in readme
+
+    # Downloadable on its own, and audited.
+    resp = admin_client.get(f"/admin/backups/{item['file']}/download", params={"part": "prs"})
+    assert resp.status_code == 200 and resp.content == path.read_bytes()
+    summaries = [a["summary"] for a in admin_client.get("/audit-log").json()["items"]]
+    assert f"Downloaded the PRS export of backup {item['file']}" in summaries
+
+
+def test_verify_checks_the_prs_export(admin_client, backup_dir):
+    if not _verify_db_available():
+        pytest.skip("No verification database on this server")
+    _repository(admin_client)
+    item = admin_client.post("/admin/backups").json()
+    check = admin_client.post(f"/admin/backups/{item['file']}/verify").json()["verification"]
+    assert check["ok"] and "PRS export checked" in check["message"], check
+
+    with open(backup_dir / item["prs_export"]["file"], "ab") as f:
+        f.write(b"tampered")
+    check = admin_client.post(f"/admin/backups/{item['file']}/verify").json()["verification"]
+    assert not check["ok"] and "PRS export" in check["message"]
+
+
+def test_prune_removes_the_prs_export_too(tmp_path):
+    for day in range(1, 31):
+        dump = tmp_path / f"emitterdb_202601{day:02d}_030000.dump"
+        dump.write_bytes(b"x")
+        backup_service.prs_path(dump).write_bytes(b"zip")
+        backup_service.write_manifest(dump, {"file": dump.name})
+    removed = backup_service.prune_backups(tmp_path, keep_daily=7, keep_weekly=2, keep_monthly=1)
+    assert removed and not any(backup_service.prs_path(p).exists() for p in removed)
+    assert len(list(tmp_path.glob("*_prs.zip"))) == len(list(tmp_path.glob("*.dump")))
+
+
+def test_a_failed_prs_export_keeps_the_database_backup(admin_client, backup_dir, monkeypatch):
+    def broken(*_args, **_kwargs):
+        raise RuntimeError("serializer exploded")
+
+    monkeypatch.setattr(backup_service, "build_repository_prs_zip", broken)
+    item = admin_client.post("/admin/backups").json()
+    assert (backup_dir / item["file"]).exists()
+    assert item["prs_export"] == {"error": "serializer exploded"}
