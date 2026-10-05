@@ -1,15 +1,31 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { useCreateMode } from "../../state/hooks/useModes";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCreateMode, useEmitterModes } from "../../state/hooks/useModes";
 import { ApiRequestError } from "../../api/client";
-import type { EwGroup, FunctionGroup, Mode, PriType, Source } from "../../types/domain";
+import type { EwGroup, FunctionGroup, Mode, Source } from "../../types/domain";
 import type { ModeCreateInput } from "../../api/modes";
 import type { ObservedValueOption } from "../testing/testFormat";
-import { DerivedFromPicker } from "./DerivedFromPicker";
-import { FrameTimeInput, useFrameTimeField } from "./FrameTimeInput";
-import { ConfirmationInputs, DEFAULT_CONFIRMATION_QUALITY, DEFAULT_CONFIRMATION_QUANTITY } from "./ConfirmationInputs";
+import { BLANK_LINE, lineValuesFrom, nameAfter, nextFreeName } from "./modeLine";
+import { ModeLineFields, friendlyServerError, useModeLine } from "./ModeLineFields";
+import {
+  DEFAULT_CONFIRMATION_QUALITY,
+  DEFAULT_CONFIRMATION_QUANTITY,
+  ModeMoreOptions,
+  confirmationProblem,
+  type MoreOptionsValues,
+} from "./ModeMoreOptions";
 
-const PRI_TYPES: PriType[] = ["fixed", "stagger", "cw", "xlet"];
+const DEFAULT_OPTIONS: MoreOptionsValues = {
+  functionGroupId: "",
+  quality: String(DEFAULT_CONFIRMATION_QUALITY),
+  quantity: String(DEFAULT_CONFIRMATION_QUANTITY),
+  notes: "",
+  derivedFrom: new Set(),
+};
 
+/** Adding a Mode by hand: name, EW Group and Source, its line (RF, PRI, PW),
+ * and the rarely-changed options folded away. Problems show by the field they
+ * belong to; "Add & next" keeps the group, Source, PRI type and margins and
+ * suggests the next name, for entering several in a row. */
 export function ModeForm({
   emitterId,
   ewGroups,
@@ -52,122 +68,103 @@ export function ModeForm({
   /** Apply the first observed-values option as soon as the form opens —
    * for a form opened from one specific set (e.g. an Intercept entry). */
   prefillOnOpen?: boolean;
-  /** Pre-fills every field from an existing Mode's line, except Name (left
-   * blank — two Modes can't share one). Submitting still creates a new
-   * Mode; it just starts from a known-good line instead of a blank one. */
+  /** Pre-fills every field from an existing Mode's line; the name is the next
+   * free one after the original's. Submitting still creates a new Mode. */
   duplicateFrom?: Mode;
   onClose?: () => void;
 }) {
   const [ewGroupId, setEwGroupId] = useState(defaultEwGroupId || ewGroups[0]?.id || "");
   const [sourceId, setSourceId] = useState(sources[0]?.id ?? "");
-  const [functionGroupId, setFunctionGroupId] = useState("");
   const [name, setName] = useState("");
-  const [priType, setPriType] = useState<PriType>("fixed");
-  const [rfMin, setRfMin] = useState("");
-  const [rfMax, setRfMax] = useState("");
-  // Deltas start at 0 — overwrite them when the Source gives a tolerance.
-  const [rfDelta, setRfDelta] = useState("0");
-  const [pwMin, setPwMin] = useState("");
-  const [pwMax, setPwMax] = useState("");
-  const [pwDelta, setPwDelta] = useState("0");
-  const [priMin, setPriMin] = useState("");
-  const [priMax, setPriMax] = useState("");
-  const [priDelta, setPriDelta] = useState("0");
-  // Jitter starts at 0–1 µs, like the deltas start at 0.
-  const [jitterMin, setJitterMin] = useState("0");
-  const [jitterMax, setJitterMax] = useState("1");
-  const [staggerValues, setStaggerValues] = useState("");
-  const [frameTimeDelta, setFrameTimeDelta] = useState("0");
-  const frameTime = useFrameTimeField(staggerValues);
-  const { load: loadFrameTime } = frameTime;
-  const [confirmationQuality, setConfirmationQuality] = useState(String(DEFAULT_CONFIRMATION_QUALITY));
-  const [confirmationQuantity, setConfirmationQuantity] = useState(String(DEFAULT_CONFIRMATION_QUANTITY));
-  const [rfRangeMatching, setRfRangeMatching] = useState(false);
-  const [pwRangeMatching, setPwRangeMatching] = useState(false);
-  const [priRangeMatching, setPriRangeMatching] = useState(false);
-  const [notes, setNotes] = useState("");
-  const [derivedFrom, setDerivedFrom] = useState<Set<string>>(new Set());
-  const [showDerivedFrom, setShowDerivedFrom] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Until someone types a name, the form keeps suggesting one.
+  const [nameTyped, setNameTyped] = useState(false);
+  // The suggestion follows this name ("Search 3" → "Search 4"), else the EW Group's.
+  const [suggestAfter, setSuggestAfter] = useState<string | null>(duplicateFrom?.name ?? null);
+  // Added here already, though the Mode list may not have caught up yet.
+  const [addedNames, setAddedNames] = useState<string[]>([]);
+  const [options, setOptions] = useState<MoreOptionsValues>(DEFAULT_OPTIONS);
+  const [startFrom, setStartFrom] = useState("");
   const [preFillFrom, setPreFillFrom] = useState(observedValueOptions?.[0]?.key ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [problems, setProblems] = useState<{ name?: string; ewGroup?: string; source?: string }>({});
+  const [optionsForced, setOptionsForced] = useState(false);
+  const [added, setAdded] = useState<string | null>(null);
+  const line = useModeLine(BLANK_LINE);
+  const { load: loadLine, setMany: setLine, loadFrameTime } = line;
+  const formRef = useRef<HTMLFormElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
 
   const createMode = useCreateMode(ewGroupId, emitterId);
+  const { data: emitterModes } = useEmitterModes(emitterId);
+  const groupNames = useMemo(
+    () => [...(emitterModes ?? []).filter((m) => m.ew_group_id === ewGroupId).map((m) => m.name), ...addedNames],
+    [emitterModes, ewGroupId, addedNames],
+  );
+  const groupName = ewGroups.find((g) => g.id === ewGroupId)?.name ?? "Mode";
+  const clash = name.trim() !== "" && groupNames.includes(name.trim());
+  const fixedOrigin = !!fixedDerivedFromTestRecordId || !!fixedDerivedFromInterceptEntryId;
+
+  // Suggest a name until one is typed: the next free "<group> n", or the next
+  // after the Mode this one follows on from.
+  useEffect(() => {
+    if (nameTyped) return;
+    setName(suggestAfter ? nameAfter(suggestAfter, groupNames) : nextFreeName(groupName, groupNames));
+  }, [nameTyped, suggestAfter, groupName, groupNames]);
+
+  function copyFrom(mode: Mode) {
+    setSuggestAfter(mode.name);
+    setEwGroupId(mode.ew_group_id);
+    setSourceId(mode.source_id);
+    loadLine(lineValuesFrom(mode.pri_type, mode.line), mode.line?.explicit_frame_time_us);
+    // Provenance isn't copied — a copy wasn't itself derived from that test.
+    setOptions({
+      functionGroupId: mode.function_group_id ?? "",
+      quality: String(mode.confirmation_quality),
+      quantity: String(mode.confirmation_quantity),
+      notes: mode.notes ?? "",
+      derivedFrom: new Set(),
+    });
+  }
 
   useEffect(() => {
-    const source = duplicateFrom;
-    if (source) {
-      setEwGroupId(source.ew_group_id);
-      setSourceId(source.source_id);
-      // A duplicate can't start with the original's name — two Modes can't
-      // share one, and leaving it blank forces picking a real one rather
-      // than silently failing on submit with an unexplained name clash.
-      setName("");
-      setPriType(source.pri_type);
-      setNotes(source.notes || "");
-      setFunctionGroupId(source.function_group_id ?? "");
-      setConfirmationQuality(String(source.confirmation_quality));
-      setConfirmationQuantity(String(source.confirmation_quantity));
-
-      if (source.line) {
-        setRfMin(String(source.line.rf_min_mhz));
-        setRfMax(String(source.line.rf_max_mhz));
-        setRfDelta(String(source.line.rf_delta ?? 0));
-        setPwMin(String(source.line.pw_min_us));
-        setPwMax(String(source.line.pw_max_us));
-        setPwDelta(String(source.line.pw_delta ?? 0));
-        setRfRangeMatching(source.line.rf_range_matching);
-        setPwRangeMatching(source.line.pw_range_matching);
-        setPriRangeMatching(source.line.pri_range_matching);
-
-        if (source.pri_type === "fixed") {
-          setPriMin(String(source.line.pri_min_us ?? ""));
-          setPriMax(String(source.line.pri_max_us ?? ""));
-          setPriDelta(String(source.line.pri_delta ?? 0));
-          setJitterMin(String(source.line.jitter_min_us ?? 0));
-          setJitterMax(String(source.line.jitter_max_us ?? 1));
-        } else if (source.pri_type === "stagger" && source.line.pri_stagger_values_us) {
-          setStaggerValues(source.line.pri_stagger_values_us.join(", "));
-          setFrameTimeDelta(String(source.line.frame_time_delta_us ?? 0));
-          loadFrameTime(source.line.explicit_frame_time_us);
-        }
-      }
-      // Provenance isn't copied for a duplicate — it wasn't independently
-      // derived from that test/intercept, it's a copy of a Mode that was.
-    }
-  }, [duplicateFrom, ewGroups, sources, loadFrameTime]);
+    if (duplicateFrom) copyFrom(duplicateFrom);
+    // Once per Mode being copied.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [duplicateFrom]);
 
   useEffect(() => {
     if (!observedValueOptions?.length) return;
-    if (!observedValueOptions.some((o) => o.key === preFillFrom)) {
-      setPreFillFrom(observedValueOptions[0].key);
-    }
+    if (!observedValueOptions.some((o) => o.key === preFillFrom)) setPreFillFrom(observedValueOptions[0].key);
   }, [observedValueOptions, preFillFrom]);
 
   function applyPreFill(key = preFillFrom) {
     const values = observedValueOptions?.find((o) => o.key === key)?.values;
     if (!values) return;
-    // A logged mean fills both min and max; sets logged before means were
-    // introduced carry min/max directly.
-    const fill = (mean: number | undefined, min: number | undefined, max: number | undefined,
-                  setMin: (v: string) => void, setMax: (v: string) => void) => {
+    // A logged mean fills both min and max; older sets carry min/max directly.
+    const pair = (mean?: number, min?: number, max?: number) => {
       const lo = min ?? mean;
       const hi = max ?? mean;
-      if (lo != null) setMin(String(lo));
-      if (hi != null) setMax(String(hi));
+      return lo == null ? {} : { min: String(lo), max: hi == null || hi === lo ? "" : String(hi) };
     };
-    fill(values.rf_mean_mhz, values.rf_min_mhz, values.rf_max_mhz, setRfMin, setRfMax);
-    fill(values.pw_mean_us, values.pw_min_us, values.pw_max_us, setPwMin, setPwMax);
+    const rf = pair(values.rf_mean_mhz, values.rf_min_mhz, values.rf_max_mhz);
+    const pw = pair(values.pw_mean_us, values.pw_min_us, values.pw_max_us);
+    const next: Parameters<typeof setLine>[0] = {};
+    if (rf.min != null) Object.assign(next, { rfMin: rf.min, rfMax: rf.max });
+    if (pw.min != null) Object.assign(next, { pwMin: pw.min, pwMax: pw.max });
     // The chosen set's PRI type wins — its PRI values only make sense under it.
     if (values.pri_type) {
-      setPriType(values.pri_type);
+      next.priType = values.pri_type;
       if (values.pri_type === "fixed") {
-        fill(values.pri_mean_us, values.pri_min_us, values.pri_max_us, setPriMin, setPriMax);
-        fill(values.jitter_mean_us, values.jitter_min_us, values.jitter_max_us, setJitterMin, setJitterMax);
+        const pri = pair(values.pri_mean_us, values.pri_min_us, values.pri_max_us);
+        const jit = pair(values.jitter_mean_us, values.jitter_min_us, values.jitter_max_us);
+        if (pri.min != null) Object.assign(next, { priMin: pri.min, priMax: pri.max });
+        if (jit.min != null) Object.assign(next, { jitterMin: jit.min, jitterMax: jit.max || jit.min });
       } else if (values.pri_type === "stagger" && values.pri_stagger_values_us?.length) {
-        setStaggerValues(values.pri_stagger_values_us.join(", "));
-        frameTime.load(values.frame_time_us);
+        next.stagger = values.pri_stagger_values_us.join(", ");
+        loadFrameTime(values.frame_time_us);
       }
     }
+    setLine(next);
   }
 
   const prefilledOnOpen = useRef(false);
@@ -179,331 +176,225 @@ export function ModeForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefillOnOpen, observedValueOptions]);
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
+  function focusFirstProblem() {
+    // After the messages render.
+    setTimeout(() => formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus(), 0);
+  }
+
+  async function submit(next: boolean) {
     setError(null);
-    if (!ewGroupId) {
-      setError("An EW Group is required — create one first.");
-      return;
-    }
-    if (!sourceId) {
-      setError("A Source is required — create one first.");
+    setAdded(null);
+    line.reveal();
+    const found = {
+      name: name.trim() ? undefined : "Give the Mode a name",
+      ewGroup: ewGroupId ? undefined : "Pick an EW Group — add one under Groups & Sources first",
+      source: sourceId ? undefined : "Pick a Source — add one under Groups & Sources first",
+    };
+    setProblems(found);
+    const optionsProblem = confirmationProblem(options.quality, options.quantity);
+    setOptionsForced(!!optionsProblem);
+    if (found.name || found.ewGroup || found.source || !line.valid || optionsProblem) {
+      focusFirstProblem();
       return;
     }
 
-    const linePayload = {
-      rf_min_mhz: Number(rfMin),
-      rf_max_mhz: Number(rfMax),
-      rf_delta: Number(rfDelta),
-      rf_range_matching: rfRangeMatching,
-      pw_min_us: Number(pwMin),
-      pw_max_us: Number(pwMax),
-      pw_delta: Number(pwDelta),
-      pw_range_matching: pwRangeMatching,
-      pri_range_matching: priRangeMatching,
-      pri_min_us: priType === "fixed" ? Number(priMin) : undefined,
-      pri_max_us: priType === "fixed" ? Number(priMax) : undefined,
-      pri_delta: priType === "fixed" ? Number(priDelta) : undefined,
-      jitter_min_us: priType === "fixed" ? Number(jitterMin) : undefined,
-      jitter_max_us: priType === "fixed" ? Number(jitterMax) : undefined,
-      pri_stagger_values_us:
-        priType === "stagger"
-          ? staggerValues
-              .split(",")
-              .map((s) => s.trim())
-              .filter(Boolean)
-              .map(Number)
-          : undefined,
-      frame_time_delta_us: priType === "stagger" ? Number(frameTimeDelta) : undefined,
-      explicit_frame_time_us: priType === "stagger" ? frameTime.payload() : undefined,
+    const payload: ModeCreateInput = {
+      source_id: sourceId,
+      name: name.trim(),
+      pri_type: line.values.priType,
+      notes: options.notes.trim() || undefined,
+      confirmation_quality: Number(options.quality),
+      confirmation_quantity: Number(options.quantity),
+      line: line.payload(),
+      function_group_id: options.functionGroupId || null,
     };
-    const confirmation = {
-      confirmation_quality: Number(confirmationQuality),
-      confirmation_quantity: Number(confirmationQuantity),
-    };
-
     if (onStage) {
-      const payload: ModeCreateInput = {
-        source_id: sourceId,
-        name,
-        pri_type: priType,
-        notes: notes || undefined,
-        ...confirmation,
-        line: linePayload,
-        function_group_id: functionGroupId || null,
-      };
       onStage(ewGroupId, payload);
       return;
     }
-
     try {
-      const payload: ModeCreateInput = {
-        source_id: sourceId,
-        name,
-        pri_type: priType,
-        notes: notes || undefined,
-        ...confirmation,
-        line: linePayload,
-        function_group_id: functionGroupId || null,
-      };
       await createMode.mutateAsync({
         ...payload,
-        derived_from_test_record_ids: fixedDerivedFromTestRecordId ? [fixedDerivedFromTestRecordId] : [...derivedFrom],
+        derived_from_test_record_ids: fixedDerivedFromTestRecordId
+          ? [fixedDerivedFromTestRecordId]
+          : [...options.derivedFrom],
         derived_from_intercept_entry_ids: fixedDerivedFromInterceptEntryId ? [fixedDerivedFromInterceptEntryId] : [],
       });
-      onClose?.();
     } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : "Failed to save Mode");
+      setError(err instanceof ApiRequestError ? friendlyServerError(err.message) : "Couldn't add the Mode");
+      return;
     }
+    if (!next) {
+      onClose?.();
+      return;
+    }
+    // Ready for the next one: same group, Source, PRI type, margins and range
+    // flags; values cleared; the next name suggested.
+    const v = line.values;
+    loadLine({
+      ...BLANK_LINE,
+      priType: v.priType,
+      rfDelta: v.rfDelta,
+      priDelta: v.priDelta,
+      pwDelta: v.pwDelta,
+      frameTimeDelta: v.frameTimeDelta,
+      jitterMin: v.jitterMin,
+      jitterMax: v.jitterMax,
+      rfRange: v.rfRange,
+      priRange: v.priRange,
+      pwRange: v.pwRange,
+    });
+    setAdded(name.trim());
+    setAddedNames((n) => [...n, name.trim()]);
+    setSuggestAfter(name.trim());
+    setNameTyped(false);
+    setOptions((o) => ({ ...o, notes: "", derivedFrom: new Set() }));
+    setTimeout(() => nameRef.current?.select(), 0);
   }
 
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    void submit(false);
+  }
+
+  const startFromOptions = (emitterModes ?? []).slice().sort((a, b) => a.name.localeCompare(b.name));
+  const groupLabel = (id: string) => ewGroups.find((g) => g.id === id)?.name ?? "";
+
   return (
-    <form className="card mode-form" onSubmit={handleSubmit}>
-      <div className="form-row">
-        <input placeholder="Mode name" value={name} onChange={(e) => setName(e.target.value)} required />
-        <select value={ewGroupId} onChange={(e) => setEwGroupId(e.target.value)} required>
-          <option value="" disabled>
-            Select EW Group…
-          </option>
-          {ewGroups.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.name}
-            </option>
-          ))}
-        </select>
-        <select value={sourceId} onChange={(e) => setSourceId(e.target.value)} required>
-          <option value="" disabled>
-            Select source…
-          </option>
-          {sources.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-        <select value={priType} onChange={(e) => setPriType(e.target.value as PriType)}>
-          {PRI_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {t.toUpperCase()}
-            </option>
-          ))}
-        </select>
-        <select value={functionGroupId} onChange={(e) => setFunctionGroupId(e.target.value)}>
-          <option value="">— no Function Group —</option>
-          {(functionGroups ?? []).map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.name}
-            </option>
-          ))}
-        </select>
+    <form className="card mode-form" onSubmit={handleSubmit} noValidate ref={formRef}>
+      <div className="mode-form-head">
+        <h4>{duplicateFrom ? `Copy of ${duplicateFrom.name}` : onStage ? "Stage a new Mode" : "New Mode"}</h4>
+        {!duplicateFrom && startFromOptions.length > 0 && (
+          <label className="inline-label" title="Fill everything in from an existing Mode, then change what differs">
+            Start from
+            <select
+              value={startFrom}
+              onChange={(e) => {
+                setStartFrom(e.target.value);
+                const mode = startFromOptions.find((m) => m.id === e.target.value);
+                if (mode) copyFrom(mode);
+                else setSuggestAfter(null);
+              }}
+            >
+              <option value="">A blank Mode</option>
+              {startFromOptions.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name} ({groupLabel(m.ew_group_id)})
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
 
-      <div className="form-row param-row">
-        <span className="param-row-label">Range matching</span>
-        <label className="checkbox-label">
+      <div className="mode-form-grid">
+        <label className="mode-form-name">
+          Name
           <input
-            type="checkbox"
-            checked={rfRangeMatching}
-            onChange={(e) => setRfRangeMatching(e.target.checked)}
+            ref={nameRef}
+            value={name}
+            aria-invalid={!!problems.name || undefined}
+            onChange={(e) => {
+              setName(e.target.value);
+              setNameTyped(true);
+              setProblems((p) => ({ ...p, name: undefined }));
+            }}
+            onFocus={(e) => !nameTyped && e.target.select()}
           />
-          RF
+          {problems.name ? (
+            <span className="line-row-problem">{problems.name}</span>
+          ) : clash ? (
+            <span className="mode-form-warning">Another Mode in {groupName} already has this name.</span>
+          ) : (
+            !nameTyped && <span className="hint-text">Suggested — type to change</span>
+          )}
         </label>
-        <label className="checkbox-label">
-          <input
-            type="checkbox"
-            checked={priRangeMatching}
-            onChange={(e) => setPriRangeMatching(e.target.checked)}
-          />
-          PRI
+        <label>
+          EW Group
+          <select value={ewGroupId} aria-invalid={!!problems.ewGroup || undefined} onChange={(e) => setEwGroupId(e.target.value)}>
+            <option value="" disabled>
+              Pick one…
+            </option>
+            {ewGroups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+          {problems.ewGroup && <span className="line-row-problem">{problems.ewGroup}</span>}
         </label>
-        <label className="checkbox-label">
-          <input
-            type="checkbox"
-            checked={pwRangeMatching}
-            onChange={(e) => setPwRangeMatching(e.target.checked)}
-          />
-          PW
+        <label>
+          Source
+          <select value={sourceId} aria-invalid={!!problems.source || undefined} onChange={(e) => setSourceId(e.target.value)}>
+            <option value="" disabled>
+              Pick one…
+            </option>
+            {sources.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+          {problems.source && <span className="line-row-problem">{problems.source}</span>}
         </label>
       </div>
 
       {observedValueOptions && observedValueOptions.length > 0 && (
-        <div className="form-row">
-          <label className="wide-label">
-            Pre-fill from observed values (optional)
-            <span className="form-row">
-              <select value={preFillFrom} onChange={(e) => setPreFillFrom(e.target.value)}>
-                {observedValueOptions.map((o) => (
-                  <option key={o.key} value={o.key}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-              <button type="button" className="link-button" onClick={() => applyPreFill()}>
-                Pre-fill
-              </button>
-            </span>
+        <div className="mode-form-prefill">
+          <label className="inline-label">
+            Pre-fill from observed values
+            <select value={preFillFrom} onChange={(e) => setPreFillFrom(e.target.value)}>
+              {observedValueOptions.map((o) => (
+                <option key={o.key} value={o.key}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
           </label>
+          <button type="button" className="button secondary small" onClick={() => applyPreFill()}>
+            Pre-fill
+          </button>
         </div>
       )}
 
-      <div className="form-row param-row">
-        <span className="param-row-label">RF</span>
-        <label>
-          min (MHz)
-          <input type="number" step="any" value={rfMin} onChange={(e) => setRfMin(e.target.value)} required />
-        </label>
-        <label>
-          max (MHz)
-          <input type="number" step="any" value={rfMax} onChange={(e) => setRfMax(e.target.value)} required />
-        </label>
-        <label>
-          delta (±MHz)
-          <input
-            type="number"
-            step="any"
-            min="0"
-            value={rfDelta}
-            onChange={(e) => setRfDelta(e.target.value)}
-            title="Symmetric tolerance margin applied to RF min/max to derive the engineered value"
-            required
-          />
-        </label>
-      </div>
+      <ModeLineFields line={line} />
 
-      {priType === "fixed" && (
-        <div className="form-row param-row">
-          <span className="param-row-label">PRI</span>
-          <label>
-            min (µs)
-            <input type="number" step="any" value={priMin} onChange={(e) => setPriMin(e.target.value)} required />
-          </label>
-          <label>
-            max (µs)
-            <input type="number" step="any" value={priMax} onChange={(e) => setPriMax(e.target.value)} required />
-          </label>
-          <label>
-            delta (±µs)
-            <input
-              type="number"
-              step="any"
-              min="0"
-              value={priDelta}
-              onChange={(e) => setPriDelta(e.target.value)}
-              title="Symmetric tolerance margin applied to PRI min/max to derive the engineered value"
-              required
-            />
-          </label>
-          <label>
-            jitter min (µs)
-            <input type="number" step="any" value={jitterMin} onChange={(e) => setJitterMin(e.target.value)} required />
-          </label>
-          <label>
-            jitter max (µs)
-            <input type="number" step="any" value={jitterMax} onChange={(e) => setJitterMax(e.target.value)} required />
-          </label>
-        </div>
-      )}
-
-      {priType === "stagger" && (
-        <div className="form-row param-row">
-          <span className="param-row-label">PRI</span>
-          <label className="wide-label">
-            Stagger sequence (comma-separated µs, in order)
-            <input
-              placeholder="800, 850, 900, 780"
-              value={staggerValues}
-              onChange={(e) => setStaggerValues(e.target.value)}
-              required
-            />
-          </label>
-          <label>
-            frame time delta (±µs)
-            <input
-              type="number"
-              step="any"
-              min="0"
-              value={frameTimeDelta}
-              onChange={(e) => setFrameTimeDelta(e.target.value)}
-              title="Symmetric tolerance margin applied to the frame time to derive the engineered min/max"
-              required
-            />
-          </label>
-          <FrameTimeInput field={frameTime} />
-        </div>
-      )}
-
-      {priType === "cw" && <p className="hint-text">CW: PRI is constant — no value to enter.</p>}
-      {priType === "xlet" && <p className="hint-text">Xlet: no fields defined yet.</p>}
-
-      <div className="form-row param-row">
-        <span className="param-row-label">PW</span>
-        <label>
-          min (µs)
-          <input type="number" step="any" value={pwMin} onChange={(e) => setPwMin(e.target.value)} required />
-        </label>
-        <label>
-          max (µs)
-          <input type="number" step="any" value={pwMax} onChange={(e) => setPwMax(e.target.value)} required />
-        </label>
-        <label>
-          delta (±µs)
-          <input
-            type="number"
-            step="any"
-            min="0"
-            value={pwDelta}
-            onChange={(e) => setPwDelta(e.target.value)}
-            title="Symmetric tolerance margin applied to PW min/max to derive the engineered value"
-            required
-          />
-        </label>
-      </div>
-
-      <ConfirmationInputs
-        quality={confirmationQuality}
-        quantity={confirmationQuantity}
-        onQualityChange={setConfirmationQuality}
-        onQuantityChange={setConfirmationQuantity}
+      <ModeMoreOptions
+        values={options}
+        onChange={(part) => setOptions((o) => ({ ...o, ...part }))}
+        functionGroups={functionGroups}
+        emitterId={emitterId}
+        showDerived={!fixedOrigin && !onStage}
+        forceOpen={optionsForced}
       />
 
-      <div className="form-row">
-        <label className="wide-label">
-          Notes (optional)
-          <textarea
-            placeholder="Any context worth recording about this Mode…"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={4}
-          />
-        </label>
-      </div>
-
-      {!fixedDerivedFromTestRecordId && !fixedDerivedFromInterceptEntryId && !onStage && (
-        <div>
-          {showDerivedFrom ? (
-            <>
-              <h5>Explained by test result(s)</h5>
-              <DerivedFromPicker emitterId={emitterId} selected={derivedFrom} onChange={setDerivedFrom} />
-            </>
-          ) : (
-            <button type="button" className="link-button" onClick={() => setShowDerivedFrom(true)}>
-              + This Mode is test-derived (not from the Source)
-            </button>
-          )}
-        </div>
+      {added && <p className="mode-form-added">✓ Added &ldquo;{added}&rdquo; — the next one goes in below.</p>}
+      {error && (
+        <p className="error-text" role="alert">
+          {error}
+        </p>
       )}
-
-      <div className="form-row">
+      <div className="mode-form-actions">
         <button type="submit" disabled={!onStage && createMode.isPending}>
-          {onStage ? "Stage this Mode" : "Add Mode"}
+          {onStage ? "Stage this Mode" : createMode.isPending ? "Adding…" : "Add Mode"}
         </button>
+        {!onStage && !fixedOrigin && (
+          <button
+            type="button"
+            className="button secondary"
+            disabled={createMode.isPending}
+            onClick={() => void submit(true)}
+            title="Add this one and start the next: same EW Group, Source, PRI type and margins"
+          >
+            Add &amp; next
+          </button>
+        )}
         {onClose && (
-          <button type="button" className="icon-button" onClick={() => onClose()}>
-            Cancel
+          <button type="button" className="button secondary" onClick={() => onClose()}>
+            {added ? "Done" : "Cancel"}
           </button>
         )}
       </div>
-      {error && <div className="error-text">{error}</div>}
     </form>
   );
 }

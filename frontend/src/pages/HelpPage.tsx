@@ -288,6 +288,18 @@ export function HelpPage() {
               click it to jump to the record that produced it.
             </p>
             <p>
+              <strong>+ Add Mode</strong> opens the Mode form (the same fields as <strong>Edit</strong>): a
+              suggested name (the next free &ldquo;EW Group n&rdquo;), the EW Group and Source, then one row each for
+              RF, PRI (with its type) and PW. For a single value, fill in <em>min</em> and leave <em>max</em> blank.
+              Under each row you see what it will match once its ± margin is added (&ldquo;Matches 2,999 – 3,001
+              MHz&rdquo;), or, for a stagger, its steps and frame time. A mistake is pointed out under its row once
+              you move on, in plain words, and the form won&apos;t save until it&apos;s fixed.{" "}
+              <strong>Start from</strong> fills everything in from an existing Mode. <strong>Add &amp; next</strong>{" "}
+              saves this one and starts the next with the same EW Group, Source, PRI type and margins, and the next
+              name. Function Group, confirmation, notes and &ldquo;test-derived&rdquo; are folded under{" "}
+              <strong>More options</strong>, which says what they&apos;re set to.
+            </p>
+            <p>
               Every field — metadata (name, notes, EW Group) and the actual line values (RF/PRI/PW/deltas)
               alike — edits in place immediately, the same way everything else in the app works. The only
               gate is holding the Emitter's <strong>checkout</strong> (see below): with it, click{" "}

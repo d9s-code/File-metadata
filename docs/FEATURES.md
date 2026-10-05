@@ -51,6 +51,10 @@ Every Mode also carries `rf_min/max` and `pw_min/max`, always required regardles
 
 There are two ways to build a Mode, and they're designed to be interchangeable:
 
+### The Mode form
+
+**+ Add Mode** and a Mode's **Edit** share one form. It suggests a name (the next free "<EW Group> n"; a copy suggests the one after the original's), then has one labelled row each for RF, PRI (its type chosen in the row) and PW, each with min, max, ± margin and a Range Matching box. Leaving max blank means the same as min, for a single datasheet value. Under every row the form shows what it will match with the margin applied ("Matches 2,999 – 3,001 MHz"), or a stagger's step count and frame time, and points out a mistake in plain words under its row (once you leave the row, or all at once on save) — the form doesn't submit until the line is valid. **Start from** copies an existing Mode in. **Add & next** saves and starts the next Mode with the same EW Group, Source, PRI type, margins and range flags, with the next name. Function Group, confirmation, notes and test-derived links sit under **More options**, summarised in one line while folded.
+
 ### Typed DSL entry
 
 Type a mode line directly using a small custom syntax:
