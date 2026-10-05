@@ -286,6 +286,24 @@ The second writes `llm_eval.md` (what the model was given and answered, per find
 `llm_eval.csv` (one row each, with empty *correct* / *useful* columns for an analyst), and
 saves nothing to the database unless `--save` is given.
 
+### Outline as background (being built)
+
+The model can be given pages from an Outline wiki — the sensor logic, say — as background
+for its answers. So far there's a read-only check of what it would get:
+
+```bash
+docker compose exec backend python scripts/outline_probe.py                     # sign-in, collections
+docker compose exec backend python scripts/outline_probe.py --collection "PRS"  # pages and size
+docker compose exec backend python scripts/outline_probe.py --collection "PRS" --search "stagger"
+```
+
+with `OUTLINE_URL`, `OUTLINE_API_TOKEN` (an Outline API key — Outline → Settings → API) and
+optionally `OUTLINE_COLLECTION` set on the backend. Only what that Outline account may read
+is ever returned. If Outline runs on the same server, the backend container has to be able to
+reach that address: if the probe can't, either add the name to the backend service's
+`extra_hosts`, or put the backend on Outline's Docker network and use Outline's internal
+address. A certificate from your own authority needs `OUTLINE_CA_BUNDLE`.
+
 ## Database migrations
 
 `alembic/versions/` holds a single baseline migration, not an incremental history — a

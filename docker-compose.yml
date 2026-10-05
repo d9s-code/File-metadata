@@ -35,6 +35,11 @@ x-backend-env: &backend-env
   # LLM_BASE_URL: http://vllm-host:8000/v1
   # LLM_MODEL: your-model-name
   # LLM_API_KEY: only-if-your-server-wants-one
+  # Optional: an Outline wiki whose pages the model may be given as background;
+  # the token's Outline account decides what can be read.
+  # OUTLINE_URL: https://outline.app
+  # OUTLINE_API_TOKEN: ol_api_...
+  # OUTLINE_COLLECTION: PRS
 
 services:
   backend:

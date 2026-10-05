@@ -56,6 +56,16 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = 120.0
     llm_max_tokens: int = 1200
 
+    # An Outline wiki whose pages (the sensor logic, say) the language model
+    # may be given as background. OUTLINE_URL is the address people open it
+    # at; OUTLINE_API_TOKEN belongs to an Outline account that can read only
+    # what the model may see — Outline's own permissions decide. For a
+    # certificate from your own authority, OUTLINE_CA_BUNDLE is its file.
+    outline_url: str | None = None
+    outline_api_token: str | None = None
+    outline_collection: str | None = None
+    outline_ca_bundle: str | None = None
+
     max_upload_bytes: int = 10 * 1024 * 1024
 
     cors_origins: list[str] = ["http://localhost:5173"]
