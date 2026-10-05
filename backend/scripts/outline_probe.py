@@ -3,6 +3,7 @@
     python scripts/outline_probe.py                       # sign-in check, list collections
     python scripts/outline_probe.py --collection "PRS"    # that collection's pages and size
     python scripts/outline_probe.py --collection "PRS" --search "stagger"
+    python scripts/outline_probe.py --collection "PRS" --sections   # every section, with what to fix
 
 Run it where the backend runs (in Docker: docker compose exec backend python
 scripts/outline_probe.py), with OUTLINE_URL and OUTLINE_API_TOKEN set as for
@@ -12,7 +13,10 @@ It signs in, lists the collections that account can read, and for one
 collection lists every page: how many sections (headings) it has, roughly
 how many tokens, and when it last changed. Then it says whether the whole
 collection could go with every question, or only the relevant sections
-should. --search tries Outline's own search. Nothing is written anywhere,
+should. --search tries Outline's own search. --sections lists every section
+the pages split into — the pieces the model would be given and cite — and
+marks the ones too long to hand over whole, too short to make sense alone,
+or under no heading at all. Nothing is written anywhere,
 in Outline or here, unless --dump is given (which saves the pages as
 Markdown files in a folder — mind where).
 """
@@ -30,12 +34,17 @@ from app.services import llm_client, outline_client  # noqa: E402
 # Above this, sending the whole collection with every question costs a small
 # model too much attention and the GPU too much memory: pick sections instead.
 WHOLE_COLLECTION_LIMIT = 30_000
+# A section is handed to the model whole: past this it crowds out the others,
+# under the other it's too little to make sense on its own.
+LONG_SECTION = 1_500
+SHORT_SECTION = 40
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--collection", default=settings.outline_collection, help="collection name or id")
     parser.add_argument("--search", help="try Outline's search with this text")
+    parser.add_argument("--sections", action="store_true", help="list every section, marking ones to split or merge")
     parser.add_argument("--dump", help="save every page as Markdown in this folder")
     args = parser.parse_args()
 
@@ -73,15 +82,16 @@ def main() -> int:
         return 1
 
     print(f'\n"{collection["name"]}": {len(docs)} pages')
-    print(f"  {'tokens':>7}  {'sections':>8}  {'last changed':<12}  title")
+    print(f"  {'tokens':>7}  {'sections':>8}  {'last changed':<12}  page")
     total = 0
     all_sections: list[tuple[str, str]] = []
-    for doc in sorted(docs, key=lambda d: d.title.lower()):
-        secs = outline_client.sections(doc)
+    paths = outline_client.page_paths(docs)
+    for doc in sorted(docs, key=lambda d: paths[d.id].lower()):
+        secs = outline_client.sections(doc, paths[doc.id])
         all_sections += secs
         tokens = outline_client.estimate_tokens(doc.text)
         total += tokens
-        print(f"  {tokens:>7}  {len(secs):>8}  {(doc.updated_at or '')[:10]:<12}  {doc.title}")
+        print(f"  {tokens:>7}  {len(secs):>8}  {(doc.updated_at or '')[:10]:<12}  {paths[doc.id]}")
     empty = [d.title for d in docs if not d.text.strip()]
     sizes = sorted((outline_client.estimate_tokens(t), h) for h, t in all_sections)
 
@@ -108,8 +118,27 @@ def main() -> int:
             f"Over {WHOLE_COLLECTION_LIMIT:,} tokens: better to send only the sections relevant to each question, "
             "each cited back to its page."
         )
-    if sizes and sizes[-1][0] > 4_000:
-        print("Some sections are long — more headings in those pages would make picking the relevant part sharper.")
+    long_n = sum(1 for t, _ in sizes if t > LONG_SECTION)
+    short_n = sum(1 for t, _ in sizes if t < SHORT_SECTION)
+    if long_n or short_n:
+        print(
+            f"{long_n} section(s) over {LONG_SECTION:,} tokens (split them with more headings), "
+            f"{short_n} under {SHORT_SECTION} (merge, or say more) — see --sections."
+        )
+
+    if args.sections:
+        page_roots = set(paths.values())
+        print(f"\nSections ({len(all_sections)}), in page order:")
+        for heading, text in all_sections:
+            t = outline_client.estimate_tokens(text)
+            note = ""
+            if t > LONG_SECTION:
+                note = "  ← long: split with sub-headings"
+            elif t < SHORT_SECTION:
+                note = "  ← very short: merge, or make it stand on its own"
+            elif heading in page_roots and t > SHORT_SECTION * 5:
+                note = "  ← under no heading"
+            print(f"  {t:>6}  {heading}{note}")
 
     if args.search:
         print(f'\nOutline search for "{args.search}":')

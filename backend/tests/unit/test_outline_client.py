@@ -132,6 +132,27 @@ def test_a_page_splits_into_citable_sections(outline):
     ]
 
 
+def test_section_paths_follow_the_headings_and_the_page_tree():
+    parent = outline_client.OutlineDocument("p", "Sensor logic", "", "", None, None)
+    child = outline_client.OutlineDocument(
+        "c",
+        "Pulse processing",
+        "Intro.\n# Stagger\nAbout stagger.\n## Frame\nFrame text.\n## Steps\nStep text.\n# Jitter\nJitter text.",
+        "",
+        None,
+        "p",
+    )
+    paths = outline_client.page_paths([parent, child])
+    assert paths["c"] == "Sensor logic › Pulse processing"
+    assert [h for h, _ in outline_client.sections(child, paths["c"])] == [
+        "Sensor logic › Pulse processing",
+        "Sensor logic › Pulse processing › Stagger",
+        "Sensor logic › Pulse processing › Stagger › Frame",
+        "Sensor logic › Pulse processing › Stagger › Steps",
+        "Sensor logic › Pulse processing › Jitter",
+    ]
+
+
 def test_a_wrong_token_says_so(outline, monkeypatch):
     outline()
     monkeypatch.setattr(settings, "outline_api_token", "wrong")
@@ -143,7 +164,7 @@ def test_the_probe_script_reports_size_and_search(outline, capsys, monkeypatch):
     outline()
     import scripts.outline_probe as probe
 
-    monkeypatch.setattr("sys.argv", ["outline_probe.py", "--collection", "PRS", "--search", "frame"])
+    monkeypatch.setattr("sys.argv", ["outline_probe.py", "--collection", "PRS", "--search", "frame", "--sections"])
     assert probe.main() == 0
     out = capsys.readouterr().out
     assert "Signed in as PRS reader (team EW)" in out
@@ -151,3 +172,5 @@ def test_the_probe_script_reports_size_and_search(outline, capsys, monkeypatch):
     assert "Stagger logic" in out
     assert "Small enough to send the whole collection" in out
     assert "Stagger logic: the frame is found" in out
+    assert "Stagger logic › Frame detection" in out
+    assert "very short: merge" in out

@@ -150,20 +150,46 @@ def search(query: str, collection_id: str | None = None, limit: int = 10) -> lis
 _HEADING = re.compile(r"^(#{1,4})\s+(.+?)\s*$", re.M)
 
 
-def sections(doc: OutlineDocument) -> list[tuple[str, str]]:
+def page_paths(docs: list[OutlineDocument]) -> dict[str, str]:
+    """Each page's place in the collection's tree: "Parent › Child › Page"."""
+    by_id = {d.id: d for d in docs}
+    paths: dict[str, str] = {}
+
+    def path(doc: OutlineDocument, seen: frozenset = frozenset()) -> str:
+        if doc.id not in paths:
+            parent = by_id.get(doc.parent_id or "")
+            paths[doc.id] = (
+                f"{path(parent, seen | {doc.id})} › {doc.title}" if parent and parent.id not in seen else doc.title
+            )
+        return paths[doc.id]
+
+    for d in docs:
+        path(d)
+    return paths
+
+
+def sections(doc: OutlineDocument, page_path: str | None = None) -> list[tuple[str, str]]:
     """A page split at its headings: (heading path, text) — the pieces a
-    question would be given, each citable on its own."""
+    question would be given, each citable on its own. The path carries every
+    heading above the piece, so "Stagger" under "Pulse processing" reads
+    "Page › Pulse processing › Stagger"."""
+    root = page_path or doc.title
     marks = list(_HEADING.finditer(doc.text))
     if not marks:
-        return [(doc.title, doc.text.strip())] if doc.text.strip() else []
+        return [(root, doc.text.strip())] if doc.text.strip() else []
     out = []
     intro = doc.text[: marks[0].start()].strip()
     if intro:
-        out.append((doc.title, intro))
+        out.append((root, intro))
+    stack: list[tuple[int, str]] = []  # (level, heading) above the current one
     for i, m in enumerate(marks):
+        level = len(m.group(1))
+        while stack and stack[-1][0] >= level:
+            stack.pop()
+        stack.append((level, m.group(2)))
         body = doc.text[m.end() : marks[i + 1].start() if i + 1 < len(marks) else len(doc.text)].strip()
         if body:
-            out.append((f"{doc.title} › {m.group(2)}", body))
+            out.append((" › ".join([root, *(h for _, h in stack)]), body))
     return out
 
 

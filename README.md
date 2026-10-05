@@ -295,7 +295,13 @@ for its answers. So far there's a read-only check of what it would get:
 docker compose exec backend python scripts/outline_probe.py                     # sign-in, collections
 docker compose exec backend python scripts/outline_probe.py --collection "PRS"  # pages and size
 docker compose exec backend python scripts/outline_probe.py --collection "PRS" --search "stagger"
+docker compose exec backend python scripts/outline_probe.py --collection "PRS" --sections  # every section
 ```
+
+The model is given sections — the text under each heading, labelled with every heading
+above it and the page's place in the collection — so the structure in Outline matters:
+`--sections` marks sections too long to hand over whole (split them with sub-headings),
+too short to make sense alone, or under no heading at all.
 
 with `OUTLINE_URL`, `OUTLINE_API_TOKEN` (an Outline API key — Outline → Settings → API) and
 optionally `OUTLINE_COLLECTION` set on the backend. Only what that Outline account may read
