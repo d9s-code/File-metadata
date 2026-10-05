@@ -2,7 +2,7 @@
 # database and write to the same backup volume.
 x-backend-env: &backend-env
   # TODO: replace with the role/database you create on the existing
-  # Postgres 18 instance, and its container/service name as the host
+  # Postgres 15 instance, and its container/service name as the host
   # (must be reachable on whatever network you join below).
   DATABASE_URL: postgresql+psycopg2://CHANGE_ME_USER:CHANGE_ME_PASSWORD@CHANGE_ME_POSTGRES_HOST:5432/CHANGE_ME_DB
   # Real secret — generate with `openssl rand -hex 32`, don't ship the
@@ -38,7 +38,7 @@ services:
     # by name instead of guessing compose's auto-generated project tag.
     image: rf-emitter-backend:latest
     restart: unless-stopped
-    # TODO: point this at your existing Postgres 18 container once you've
+    # TODO: point this at your existing Postgres 15 container once you've
     # added it below (copied from one of your other stacks), e.g.:
     #   depends_on:
     #     my-postgres:
@@ -134,7 +134,7 @@ networks:
 
 volumes:
   # Only backups live in a compose-managed volume now — the database
-  # itself is the existing Postgres 18 instance, managed elsewhere.
+  # itself is the existing Postgres 15 instance, managed elsewhere.
   backup_data:
   # A share on another computer, mounted straight into the backup container —
   # nothing to set up on this host. A Windows share (SMB):

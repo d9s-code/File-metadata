@@ -281,3 +281,50 @@ def test_schedule_weekly_or_daily(monkeypatch):
     monkeypatch.setattr(settings, "backup_schedule_day", "someday")
     with pytest.raises(ValueError):
         backup_service.schedule_weekday()
+
+
+def _fake_pg_restore(tmp_path, monkeypatch, extra_stderr: str):
+    """A pg_restore that really restores, then reports what a newer pg_restore says
+    to an older server — the way the image's tools meet a pre-17 Postgres."""
+    import shutil
+    import stat
+
+    real = shutil.which("pg_restore")
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    fake = bindir / "pg_restore"
+    fake.write_text(f'#!/bin/sh\n[ "$1" = "--version" ] && exec {real} "$@"\n{real} "$@"\ncat >&2 <<"MSG"\n{extra_stderr}\nMSG\nexit 1\n')
+    fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
+    monkeypatch.setenv("PATH", f"{bindir}:{os.environ['PATH']}")
+
+
+def test_verify_skips_settings_an_older_server_doesnt_know(admin_client, backup_dir, tmp_path, monkeypatch):
+    if not _verify_db_available():
+        pytest.skip("No verification database on this server")
+    _emitter_with_mode(admin_client)
+    name = admin_client.post("/admin/backups").json()["file"]
+    _fake_pg_restore(
+        tmp_path,
+        monkeypatch,
+        'pg_restore: error: could not execute query: ERROR:  unrecognized configuration parameter "transaction_timeout"\n'
+        "Command was: SET transaction_timeout = 0;\n"
+        "pg_restore: warning: errors ignored on restore: 1",
+    )
+    check = admin_client.post(f"/admin/backups/{name}/verify").json()["verification"]
+    assert check["ok"], check
+
+
+def test_verify_reports_the_real_error(admin_client, backup_dir, tmp_path, monkeypatch):
+    if not _verify_db_available():
+        pytest.skip("No verification database on this server")
+    _emitter_with_mode(admin_client)
+    name = admin_client.post("/admin/backups").json()["file"]
+    _fake_pg_restore(
+        tmp_path,
+        monkeypatch,
+        'pg_restore: error: could not execute query: ERROR:  permission denied for schema public\n'
+        "Command was: CREATE TABLE public.x ();",
+    )
+    check = admin_client.post(f"/admin/backups/{name}/verify").json()["verification"]
+    assert not check["ok"]
+    assert check["message"].startswith("Restore failed: permission denied for schema public"), check["message"]

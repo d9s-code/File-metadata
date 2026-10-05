@@ -83,11 +83,11 @@ Backend: http://localhost:8000 · Frontend dev server: http://localhost:5173
 ## Docker Compose
 
 This app is deployed behind an existing Traefik reverse proxy at `prs.app`, and connects to
-an existing Postgres 18 instance rather than running its own — `docker-compose.yml` only
+an existing Postgres 15 instance rather than running its own — `docker-compose.yml` only
 defines the `backend`, `frontend` and `backup` services. Before running it:
 
 - Edit `DATABASE_URL` in `docker-compose.yml` to point at a role/database created on that
-  Postgres 18 instance (see below), and add the backend to whatever Docker network reaches
+  Postgres 15 instance (see below), and add the backend to whatever Docker network reaches
   it (the `# TODO` comments in the file mark exactly where).
 - Replace `JWT_SECRET` and `ADMIN_PASSWORD` with real values (`openssl rand -hex 32` for the
   former) — don't ship the placeholders.
@@ -117,7 +117,7 @@ There is no self-service register form, so the backend bootstraps an initial adm
 credentials at `https://prs.app` and create additional users from there.
 
 Backups (the `backup` service — see [Backups](#backups)) write to the `backup_data` volume,
-separate from wherever the Postgres 18 instance itself stores its data — keep that separation
+separate from wherever the Postgres 15 instance itself stores its data — keep that separation
 on different physical disks, and set `BACKUP_COPY_DIR` to keep a second copy elsewhere.
 
 ## Offline / air-gapped server deployment
@@ -140,7 +140,7 @@ server, so there's no database image to build or transfer.
    `docker-compose.yml`) to the offline server — USB drive, `scp` over a jump host, whatever
    transfer path that network allows.
 3. On the offline server, confirm the `web` network exists and the role/database above has
-   been created on the Postgres 18 instance, then:
+   been created on the Postgres 15 instance, then:
    ```bash
    ./scripts/offline/load-images.sh
    docker compose up -d
@@ -210,8 +210,11 @@ means lost backups. Either or both:
 The other way round works too: the other computer can fetch new files from the
 `backup_data` volume on a schedule (`rsync`/`scp` over SSH) without the app knowing.
 
-The image's `pg_dump` is version 18 (`PG_CLIENT_MAJOR` in `backend/Dockerfile`) — it must be
-at least the server's version, so raise it if the server moves to a newer major version.
+The image's backup tools (`pg_dump`/`pg_restore`) are Postgres 15, matching the server —
+if the server is upgraded, set `PG_CLIENT_MAJOR` in `backend/Dockerfile` to its new major
+version (`SELECT version();`) and rebuild. They must never be older than the server. Newer ones still work — a restore skips
+settings an older server doesn't know, such as `transaction_timeout` (Postgres 17+) — but
+matching the server is the clean setup, and the Backups page says so if they differ.
 
 ```bash
 # a backup now (also on Admin → Backups)

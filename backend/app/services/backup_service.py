@@ -76,6 +76,55 @@ def _client_args(tool: str, database_url: str) -> tuple[list[str], dict]:
     return args, env
 
 
+#: Errors from settings that newer pg_restore versions send at the start of a
+#: restore and an older server doesn't know (transaction_timeout is Postgres 17+).
+#: They only tune the restore's own session, so they're safe to skip.
+_HARMLESS_RESTORE_ERRORS = ('unrecognized configuration parameter "transaction_timeout"',)
+
+
+def run_pg_restore(args: list[str], env: dict) -> tuple[bool, str | None, int]:
+    """Runs pg_restore (without --exit-on-error, so a harmless setting an older
+    server doesn't know can't stop it). Returns whether it worked, the first real
+    error in plain words if not, and how many harmless errors were skipped."""
+    result = subprocess.run(args, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, env=env)
+    lines = result.stderr.decode(errors="replace").splitlines()
+    errors = [line for line in lines if "ERROR:" in line]
+    real = [e for e in errors if not any(h in e for h in _HARMLESS_RESTORE_ERRORS)]
+    skipped = len(errors) - len(real)
+    if result.returncode == 0 or (errors and not real):
+        return True, None, skipped
+    if real:
+        problem = real[0].split("ERROR:", 1)[1].strip()
+    else:
+        detail = [line for line in lines if line.strip() and not line.startswith("Command was")]
+        problem = detail[-1] if detail else f"exit code {result.returncode}"
+    return False, problem, skipped
+
+
+def tool_major_version(tool: str) -> int | None:
+    """The major version of pg_dump / pg_restore in this image ("pg_restore (PostgreSQL) 18.1" → 18)."""
+    try:
+        out = subprocess.run([tool, "--version"], capture_output=True, text=True, check=True).stdout
+        return int(re.search(r"\(PostgreSQL\)\s+(\d+)", out).group(1))
+    except (OSError, subprocess.CalledProcessError, AttributeError, ValueError):
+        return None
+
+
+def version_note(conn: Connection) -> str:
+    """" (server Postgres 16, backup tools 18 — set PG_CLIENT_MAJOR=16 …)" when they differ, else ""."""
+    try:
+        server = int(conn.execute(text("SHOW server_version_num")).scalar_one()) // 10000
+    except Exception:
+        return ""
+    tools = tool_major_version("pg_restore")
+    if tools is None or tools == server:
+        return ""
+    return (
+        f" (the database server is Postgres {server}, the backup tools are {tools}; "
+        f"rebuild the image with PG_CLIENT_MAJOR={server} to match)"
+    )
+
+
 def verify_database_url() -> str:
     """The scratch database verification restores into: BACKUP_VERIFY_DATABASE_URL,
     or the live database's name with `_verify` on the same server (no query options —
@@ -433,11 +482,12 @@ def verify_backup(name: str, directory: Path | None = None) -> dict:
 
         try:
             args, env = _client_args("pg_restore", url)
-            args += ["--clean", "--if-exists", "--no-owner", "--exit-on-error", "-d", scratch, str(dump)]
-            result = subprocess.run(args, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, env=env)
-            if result.returncode != 0:
-                detail = result.stderr.decode(errors="replace").strip().splitlines()
-                return record(False, f"Restore failed: {detail[-1] if detail else f'exit code {result.returncode}'}")
+            args += ["--clean", "--if-exists", "--no-owner", "-d", scratch, str(dump)]
+            ok, problem, _skipped = run_pg_restore(args, env)
+            if not ok:
+                with scratch_engine.connect() as conn:
+                    note = version_note(conn)
+                return record(False, f"Restore failed: {problem}{note}")
             with scratch_engine.connect() as conn:
                 conn.execute(text(f'SET search_path TO "{schema}"'))
                 counts = table_counts(conn)

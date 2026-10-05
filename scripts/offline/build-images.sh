@@ -3,7 +3,7 @@
 #
 # Builds the backend/frontend images and saves them into a single tar for
 # transfer to the air-gapped server. Postgres isn't included — this app
-# connects to an existing Postgres 18 instance already running on that
+# connects to an existing Postgres 15 instance already running on that
 # server, so there's no database image to ship.
 #
 # Before running this: edit docker-compose.yml's DATABASE_URL, JWT_SECRET,

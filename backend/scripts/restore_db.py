@@ -12,14 +12,13 @@ Usage:
 
 import argparse
 import os
-import subprocess
 import sys
 from urllib.parse import urlparse
 
 sys.path.insert(0, ".")
 
 from app.config import settings  # noqa: E402
-from app.services.backup_service import BackupError, take_backup  # noqa: E402
+from app.services.backup_service import BackupError, run_pg_restore, take_backup  # noqa: E402
 
 
 def restore(dump_path: str, database_url: str) -> None:
@@ -39,9 +38,11 @@ def restore(dump_path: str, database_url: str) -> None:
     if parsed.password:
         env["PGPASSWORD"] = parsed.password
 
-    result = subprocess.run(args, env=env)
-    if result.returncode != 0:
-        raise RuntimeError(f"pg_restore failed with exit code {result.returncode}")
+    ok, problem, skipped = run_pg_restore(args, env)
+    if not ok:
+        raise RuntimeError(f"pg_restore failed: {problem}")
+    if skipped:
+        print(f"Skipped {skipped} setting(s) this Postgres server doesn't know (harmless).")
     print(f"Restored {dump_path} into database '{parsed.path.lstrip('/')}'.")
 
 
