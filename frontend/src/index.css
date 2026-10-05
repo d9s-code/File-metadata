@@ -7,6 +7,15 @@
   --viz-grid: #e1e0d9;
   --viz-axis: #c3c2b7;
   --viz-ink-muted: #6b6a66;
+  /* Categorical colours for telling Modes apart, in this fixed order. */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #4a3aa7;
+  --series-8: #e34948;
   --hover-bg: #f1f3f5;
   --active-bg: #eef2f7;
   --border: #d7dbe0;
@@ -66,6 +75,14 @@
     --viz-grid: #2c2c2a;
     --viz-axis: #4a4a46;
     --viz-ink-muted: #a3a29a;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+    --series-8: #e66767;
     --bg: #14171c;
     --card-bg: #1c2027;
     --hover-bg: #262b33;
@@ -113,6 +130,14 @@
   --viz-grid: #2c2c2a;
   --viz-axis: #4a4a46;
   --viz-ink-muted: #a3a29a;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
   --bg: #14171c;
   --card-bg: #1c2027;
   --hover-bg: #262b33;
@@ -4102,6 +4127,19 @@ body:has(.import-footer) .checkout-reminder-tab {
 .viz-swatch.status-critical, .viz-plot .status-critical { background: var(--status-critical); fill: var(--status-critical); stroke: var(--status-critical); }
 .viz-swatch.status-neutral, .viz-plot .status-neutral { background: var(--status-neutral); fill: var(--status-neutral); stroke: var(--status-neutral); }
 
+/* Modes coloured one by one (up to eight at once; the rest grey), always
+   named beside the swatch in the legend and tooltips. */
+.viz-swatch.series-1, .viz-plot .series-1 { background: var(--series-1); fill: var(--series-1); stroke: var(--series-1); }
+.viz-swatch.series-2, .viz-plot .series-2 { background: var(--series-2); fill: var(--series-2); stroke: var(--series-2); }
+.viz-swatch.series-3, .viz-plot .series-3 { background: var(--series-3); fill: var(--series-3); stroke: var(--series-3); }
+.viz-swatch.series-4, .viz-plot .series-4 { background: var(--series-4); fill: var(--series-4); stroke: var(--series-4); }
+.viz-swatch.series-5, .viz-plot .series-5 { background: var(--series-5); fill: var(--series-5); stroke: var(--series-5); }
+.viz-swatch.series-6, .viz-plot .series-6 { background: var(--series-6); fill: var(--series-6); stroke: var(--series-6); }
+.viz-swatch.series-7, .viz-plot .series-7 { background: var(--series-7); fill: var(--series-7); stroke: var(--series-7); }
+.viz-swatch.series-8, .viz-plot .series-8 { background: var(--series-8); fill: var(--series-8); stroke: var(--series-8); }
+.viz-swatch.series-other, .viz-plot .series-other { background: var(--status-neutral); fill: var(--status-neutral); stroke: var(--status-neutral); }
+.viz-plot .dimmed { opacity: 0.15; }
+
 /* Modes tab charts */
 .mode-charts {
   display: flex;
@@ -4148,6 +4186,56 @@ body:has(.import-footer) .checkout-reminder-tab {
 .viz-plot .ladder-entry { stroke: var(--text); stroke-width: 1; opacity: 0.55; }
 .viz-plot .ladder-entry-out { stroke: var(--viz-out); stroke-width: 1.5; }
 .ladder-sort { font-size: 0.8rem; padding: 0.1rem 0.3rem; }
+.viz-plot .ladder-beyond { fill: var(--viz-ink-muted); font-size: 11px; }
+
+/* Charts toolbar: colour choice, the Mode legend and the axis ranges */
+.chart-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card-bg);
+  font-size: 0.86rem;
+}
+.chart-controls-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 1.1rem;
+}
+.chart-controls-row > strong { min-width: 5.5rem; }
+.chart-scale-param {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.chart-scale-param input {
+  width: 6.5rem;
+  padding: 0.15rem 0.35rem;
+  font-size: 0.84rem;
+}
+.chart-scale-param input[aria-invalid="true"] { border-color: var(--status-critical); }
+.mode-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.4rem;
+}
+.mode-legend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.1rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.mode-legend-chip.off { color: var(--muted); }
+.mode-legend-chip:hover, .mode-legend-chip:focus-visible { background: var(--hover-bg); }
 
 /* Simulation trend */
 .viz-plot .trend-hit { fill: transparent; cursor: pointer; }

@@ -3,7 +3,10 @@ import { fmt, niceTicks, useWidth } from "../../intercepts/charts/Histogram";
 import {
   domainOf,
   resultStatus,
+  withLimits,
+  type AxisLimits,
   type ModeRanges,
+  type Paint,
   type Span,
 } from "./modeRanges";
 import type { Mode } from "../../../types/domain";
@@ -39,16 +42,24 @@ function truncate(s: string, n: number) {
  * by side: the solid bar is what the Mode was set to, the faint extension is
  * what the system recognises (± delta). Bars that line up in a column
  * overlap on that parameter; gaps between them are values no Mode covers.
- * Intercept entries are ticks along the top of each column. */
+ * Intercept entries are ticks along the top of each column. A column fits
+ * the Modes unless the user set its bounds; a Mode reaching past them is cut
+ * at the edge, and one wholly beyond them gets an arrow pointing its way. */
 export function ModeLadders({
   ranges,
   entries,
   fitEntries,
+  limits,
+  paint,
+  highlight,
   onOpen,
 }: {
   ranges: ModeRanges[];
   entries: MapEntry[];
   fitEntries: boolean;
+  limits: AxisLimits;
+  paint: Paint;
+  highlight: string | null;
   onOpen: (mode: Mode) => void;
 }) {
   const { ref, width } = useWidth<HTMLDivElement>();
@@ -73,13 +84,16 @@ export function ModeLadders({
     return Object.fromEntries(
       PARAMS.map(({ key }) => [
         key,
-        domainOf(
-          ranges.map((r) => engOf(r, key)),
-          fitEntries ? entryValues(key) : [],
+        withLimits(
+          domainOf(
+            ranges.map((r) => engOf(r, key)),
+            fitEntries ? entryValues(key) : [],
+          ),
+          limits[key],
         ),
       ]),
     ) as Record<Param, Span>;
-  }, [ranges, entries, fitEntries]);
+  }, [ranges, entries, fitEntries, limits]);
 
   const panelW = Math.max(
     60,
@@ -123,6 +137,13 @@ export function ModeLadders({
           height={height}
           aria-label="Mode ranges per parameter"
         >
+          <defs>
+            {PARAMS.map((p, i) => (
+              <clipPath key={p.key} id={`ladder-clip-${p.key}`}>
+                <rect x={panelX(i) - 1} y={0} width={panelW + 2} height={height} />
+              </clipPath>
+            ))}
+          </defs>
           {PARAMS.map((p, i) => (
             <rect
               key={`box-${p.key}`}
@@ -193,12 +214,12 @@ export function ModeLadders({
           {rows.map((r, rowIndex) => {
             const y = HEAD + rowIndex * ROW;
             const status = resultStatus(r.mode);
+            const colour = paint(r.mode).cls;
+            const faded = highlight && highlight !== r.mode.id;
             return (
               <g
                 key={r.mode.id}
-                className={
-                  hoverRow === rowIndex ? "ladder-row hovered" : "ladder-row"
-                }
+                className={`ladder-row${hoverRow === rowIndex ? " hovered" : ""}${faded ? " dimmed" : ""}`}
                 onPointerEnter={() => setHoverRow(rowIndex)}
               >
                 {/* Highlighted per region, so the boxes stay distinct. */}
@@ -229,7 +250,7 @@ export function ModeLadders({
                     : ""}
                 </title>
                 <rect
-                  className={`ladder-dot ${status.cls}`}
+                  className={`ladder-dot ${colour}`}
                   x={2}
                   y={y + ROW / 2 - 4}
                   width={8}
@@ -259,12 +280,27 @@ export function ModeLadders({
                       </text>
                     );
                   }
+                  const [lo, hi] = domains[p.key];
+                  if (eng[1] < lo || eng[0] > hi) {
+                    const left = eng[1] < lo;
+                    return (
+                      <text
+                        key={p.key}
+                        className="ladder-beyond"
+                        x={left ? panelX(i) : panelX(i) + panelW}
+                        y={y + ROW / 2 + 4}
+                        textAnchor={left ? "start" : "end"}
+                      >
+                        {left ? `◂ ${fmt(eng[1])}` : `${fmt(eng[0])} ▸`}
+                      </text>
+                    );
+                  }
                   const ex = sx(p.key, i, eng[0]);
                   const rx = sx(p.key, i, raw[0]);
                   return (
-                    <g key={p.key}>
+                    <g key={p.key} clipPath={`url(#ladder-clip-${p.key})`}>
                       <rect
-                        className={`ladder-eng ${status.cls}`}
+                        className={`ladder-eng ${colour}`}
                         x={ex}
                         y={y + ROW / 2 - 4}
                         width={Math.max(3, sx(p.key, i, eng[1]) - ex)}
@@ -272,7 +308,7 @@ export function ModeLadders({
                         rx={2}
                       />
                       <rect
-                        className={`ladder-raw ${status.cls}`}
+                        className={`ladder-raw ${colour}`}
                         x={rx}
                         y={y + ROW / 2 - 4}
                         width={Math.max(3, sx(p.key, i, raw[1]) - rx)}

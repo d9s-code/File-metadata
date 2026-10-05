@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type PointerEvent } from "react";
 import { fmt, niceTicks, useWidth } from "../../intercepts/charts/Histogram";
-import { domainOf, resultStatus, type ModeRanges, type Span } from "./modeRanges";
+import { domainOf, resultStatus, withLimits, type AxisLimits, type ModeRanges, type Paint, type Span } from "./modeRanges";
 import type { Mode } from "../../../types/domain";
 
 const HEIGHT = 380;
@@ -29,16 +29,19 @@ export const spanOf = (r: ModeRanges, p: MapParam): Span | null => (p === "rf" ?
 export const valueOf = (e: MapEntry, p: MapParam): number | null => (p === "rf" ? e.rf : p === "pri" ? e.pri : e.pw);
 
 /** Each Mode as a rectangle over its engineered ranges on two chosen
- * parameters, coloured by its last test result: overlaps show as darker,
+ * parameters, coloured by its last test result or by Mode: overlaps show as darker,
  * layered areas, gaps as empty space. Modes without the vertical parameter
  * (CW has no PRI or PW) sit in a strip under the plot, by the horizontal one.
  * Intercept entries are dots (matching a Mode) or crosses (outside every
  * Mode). Hover to see which Modes are under the pointer; click to open one;
- * drag to zoom. */
+ * drag to zoom. The axes fit the Modes unless the user set their bounds. */
 export function ModeMap({
   ranges,
   entries,
   fitEntries,
+  limits,
+  paint,
+  highlight,
   xParam,
   yParam,
   onAxes,
@@ -48,6 +51,11 @@ export function ModeMap({
   entries: MapEntry[];
   /** Fit the axes to the entries as well as the Modes. */
   fitEntries: boolean;
+  /** Axis bounds the user set, per parameter. */
+  limits: AxisLimits;
+  paint: Paint;
+  /** A Mode to pick out — the rest fade. */
+  highlight: string | null;
   xParam: MapParam;
   yParam: MapParam;
   onAxes: (x: MapParam, y: MapParam) => void;
@@ -71,16 +79,22 @@ export function ModeMap({
   const full = useMemo(() => {
     const vals = (p: MapParam) => (fitEntries ? entries.flatMap((e) => (valueOf(e, p) == null ? [] : [valueOf(e, p)!])) : []);
     return {
-      x: domainOf(
-        onX.map((r) => spanOf(r, xParam)),
-        vals(xParam),
+      x: withLimits(
+        domainOf(
+          onX.map((r) => spanOf(r, xParam)),
+          vals(xParam),
+        ),
+        limits[xParam],
       ),
-      y: domainOf(
-        both.map((r) => spanOf(r, yParam)),
-        vals(yParam),
+      y: withLimits(
+        domainOf(
+          both.map((r) => spanOf(r, yParam)),
+          vals(yParam),
+        ),
+        limits[yParam],
       ),
     };
-  }, [onX, both, entries, fitEntries, xParam, yParam]);
+  }, [onX, both, entries, fitEntries, limits, xParam, yParam]);
   const [xl, xh] = zoom?.x ?? full.x;
   const [yl, yh] = zoom?.y ?? full.y;
   const plotW = Math.max(10, width - M.left - M.right);
@@ -105,6 +119,11 @@ export function ModeMap({
     };
     return [...both].sort((a, b) => area(b) - area(a));
   }, [both, xParam, yParam]);
+  const fade = (r: ModeRanges) => (highlight && highlight !== r.mode.id ? " dimmed" : "");
+  const painted = useMemo(
+    () => (highlight ? [...drawOrder.filter((r) => r.mode.id !== highlight), ...drawOrder.filter((r) => r.mode.id === highlight)] : drawOrder),
+    [drawOrder, highlight],
+  );
 
   // Modes under the pointer, smallest first (the one a click opens).
   const under = useMemo(() => {
@@ -226,8 +245,7 @@ export function ModeMap({
             </g>
           ))}
           <g clipPath="url(#mode-map-plot)">
-            {drawOrder.map((r) => {
-              const status = resultStatus(r.mode);
+            {painted.map((r) => {
               const xs = spanOf(r, xParam)!;
               const ys = spanOf(r, yParam)!;
               const x = sx(xs[0]);
@@ -236,7 +254,7 @@ export function ModeMap({
               return (
                 <rect
                   key={r.mode.id}
-                  className={`map-mode ${status.cls}${hovered ? " hovered" : ""}`}
+                  className={`map-mode ${paint(r.mode).cls}${hovered ? " hovered" : ""}${fade(r)}`}
                   x={x}
                   y={y}
                   width={Math.max(2, sx(xs[1]) - x)}
@@ -265,13 +283,12 @@ export function ModeMap({
               </text>
               <g clipPath="url(#mode-map-strip)">
                 {xOnly.map((r, i) => {
-                  const status = resultStatus(r.mode);
                   const xs = spanOf(r, xParam)!;
                   const x = sx(xs[0]);
                   return (
                     <rect
                       key={r.mode.id}
-                      className={`map-mode ${status.cls}${under[0]?.mode.id === r.mode.id ? " hovered" : ""}`}
+                      className={`map-mode ${paint(r.mode).cls}${under[0]?.mode.id === r.mode.id ? " hovered" : ""}${fade(r)}`}
                       x={x}
                       y={stripY + (i % 3) * 10}
                       width={Math.max(2, sx(xs[1]) - x)}
@@ -295,11 +312,14 @@ export function ModeMap({
               </g>
             </g>
           )}
-          {niceTicks(xl, xh, 6).map((t) => (
-            <text key={`x${t}`} className="viz-axis-label" x={sx(t)} y={HEIGHT - 10} textAnchor="middle">
-              {fmt(t)}
-            </text>
-          ))}
+          {/* Ticks under the axis title are left out. */}
+          {niceTicks(xl, xh, 6)
+            .filter((t) => sx(t) < M.left + plotW - 72)
+            .map((t) => (
+              <text key={`x${t}`} className="viz-axis-label" x={sx(t)} y={HEIGHT - 10} textAnchor="middle">
+                {fmt(t)}
+              </text>
+            ))}
           <text className="viz-axis-label map-axis-title" x={M.left + plotW} y={HEIGHT - 10} textAnchor="end">
             {X.short} ({X.unit})
           </text>
@@ -309,7 +329,7 @@ export function ModeMap({
           <div className="viz-tooltip" style={{ left: Math.min(hover.px + 14, Math.max(8, width - 250)), top: Math.max(4, hover.py - 10) }}>
             {under.slice(0, 5).map((r, i) => (
               <div key={r.mode.id} className={i === 0 ? "map-tip-first" : undefined}>
-                <span className={`viz-swatch ${resultStatus(r.mode).cls}`} /> {r.mode.name}{" "}
+                <span className={`viz-swatch ${paint(r.mode).cls}`} /> {r.mode.name}{" "}
                 <span className="hint-text">· {resultStatus(r.mode).label}</span>
                 {i === 0 && (
                   <div className="hint-text">

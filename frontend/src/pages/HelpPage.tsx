@@ -340,6 +340,20 @@ export function HelpPage() {
               Emitter&apos;s intercept entries are marked on both, as dots (matching a Mode) or crosses (outside every
               Mode); the axes fit the Modes unless you choose to fit the entries too.
             </p>
+            <p>
+              <strong>Colour</strong> switches between the last test result and <strong>By Mode</strong>, which gives
+              Modes a colour each so you can tell them apart. Eight colours at most are in use at once (more can&apos;t
+              be told apart reliably); the rest are grey. The first eight by name get one to start with. Click a Mode&apos;s
+              name to give it a colour or make it grey, and point at a name to pick that Mode out in both charts. The
+              choice is kept for each Emitter.
+            </p>
+            <p>
+              <strong>Axis ranges</strong> set where the RF, PRI and PW axes start and end, in place of fitting them to
+              this Emitter&apos;s Modes. Fill in either end, or both; a blank end still fits the Modes. The ranges stay
+              in this browser for every Emitter, so Emitters can be compared on the same scale. A Mode reaching past
+              them is cut at the edge, and in the ladders a Mode wholly outside gets an arrow (◂ ▸) with its nearest
+              value. <strong>Fit to the Modes</strong> clears them.
+            </p>
           </div>
           <div className="help-subsection" id="emitter-testing-tab">
             <h4>Test History tab</h4>

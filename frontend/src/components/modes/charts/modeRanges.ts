@@ -68,3 +68,32 @@ export function domainOf(spans: (Span | null | undefined)[], extra: number[] = [
   const pad = (hi - lo) * 0.04 || Math.max(Math.abs(lo) * 0.01, 1);
   return [lo - pad, hi + pad];
 }
+
+export type ChartParam = "rf" | "pri" | "pw";
+
+/** Axis bounds the user set for a parameter; a side left unset fits the data. */
+export interface AxisLimit {
+  min?: number;
+  max?: number;
+}
+export type AxisLimits = Partial<Record<ChartParam, AxisLimit>>;
+
+/** An axis from what fits the data, overridden by the user's bounds. Only one
+ * bound set and it's past the other end of the data: keep the data's width. */
+export function withLimits(auto: Span, limit: AxisLimit | undefined): Span {
+  if (!limit) return auto;
+  const lo = limit.min ?? auto[0];
+  const hi = limit.max ?? auto[1];
+  if (lo < hi) return [lo, hi];
+  const width = auto[1] - auto[0] || 1;
+  if (limit.min != null && limit.max == null) return [lo, lo + width];
+  if (limit.max != null && limit.min == null) return [hi - width, hi];
+  return auto;
+}
+
+/** How a Mode is painted: a colour class, and what that colour stands for. */
+export type Paint = (mode: Mode) => { cls: string; label: string };
+
+/** How many Modes can have a colour of their own at once — beyond eight,
+ * colours stop being told apart reliably, so the rest stay grey. */
+export const SERIES_SLOTS = 8;
