@@ -51,3 +51,25 @@ export function useUnreviewFinding(runId: string) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["ambiguityFindings", runId] }),
   });
 }
+
+/** Whether a language model is set up on the server — the AI buttons show only if so. */
+export function useAiStatus() {
+  return useQuery({ queryKey: ["aiStatus"], queryFn: () => ambiguityApi.aiStatus(), staleTime: 5 * 60_000 });
+}
+
+export function useExplainFinding(runId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ findingId, refresh }: { findingId: string; refresh?: boolean }) =>
+      ambiguityApi.explainFinding(findingId, refresh),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["ambiguityFindings", runId] }),
+  });
+}
+
+export function useSummariseRun(runId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (refresh: boolean) => ambiguityApi.summariseRun(runId, refresh),
+    onSuccess: (run) => qc.setQueryData(["ambiguityRun", runId], run),
+  });
+}

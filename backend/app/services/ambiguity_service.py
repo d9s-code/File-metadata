@@ -188,6 +188,7 @@ def compute_pairwise_findings(mode_lines: list[FlatModeLine], tolerance: dict | 
                 "details": {
                     "mode_a": {
                         "mode_name": a.mode_name,
+                        "pri_type": a.pri_type,
                         "ew_group_id": a.ew_group_id,
                         "ew_group_name": a.ew_group_name,
                         "source_id": a.source_id,
@@ -200,6 +201,7 @@ def compute_pairwise_findings(mode_lines: list[FlatModeLine], tolerance: dict | 
                     },
                     "mode_b": {
                         "mode_name": b.mode_name,
+                        "pri_type": b.pri_type,
                         "ew_group_id": b.ew_group_id,
                         "ew_group_name": b.ew_group_name,
                         "source_id": b.source_id,

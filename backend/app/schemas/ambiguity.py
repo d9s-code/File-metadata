@@ -29,6 +29,7 @@ class AmbiguityRunOut(BaseModel):
     created_by: UUID | None = None
     created_at: datetime
     completed_at: datetime | None = None
+    ai_summary: dict | None = None
 
 
 class AmbiguityFindingOut(BaseModel):
@@ -47,6 +48,7 @@ class AmbiguityFindingOut(BaseModel):
     reviewed_by: UUID | None = None
     reviewed_at: datetime | None = None
     reviewer_note: str | None = None
+    ai_explanation: dict | None = None
 
 
 class FindingReviewRequest(BaseModel):

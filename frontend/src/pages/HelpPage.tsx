@@ -532,6 +532,15 @@ export function HelpPage() {
             Emitter's most recently <strong>committed</strong> version — not live drafts — so results stay
             consistent with whatever was actually released.
           </p>
+          <p>
+            <strong>AI explanations</strong> (only if a language model is set up): select a finding and press{" "}
+            <strong>Explain with AI</strong> for why the two Modes can&apos;t be told apart, what separates them, and a
+            suggested action; <strong>Summarise with AI</strong> gives an overview of the whole run. The check still
+            computes every overlap itself — the model only reads the result and explains it. What it writes is a{" "}
+            <strong>draft</strong>: check it against the numbers, and if it mentions a number that wasn&apos;t in the
+            data it was given, that number is listed in a warning. The draft stays with the finding for everyone, and{" "}
+            <strong>Ask again</strong> replaces it. A finding with an AI suggestion is marked ✦ in the table.
+          </p>
         </div>
       </div>
 

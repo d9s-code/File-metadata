@@ -266,6 +266,15 @@ A check always runs against a specific **committed version** (the latest by defa
 
 Editors and Admins can **Acknowledge** a finding (with an optional note) to mark it as reviewed/accepted, and **Unacknowledge** it later if circumstances change. Acknowledging doesn't delete or hide the finding — it's a record that a human looked at it and made a call.
 
+### AI explanations (optional)
+
+When a language model is set up (`LLM_BASE_URL` — any OpenAI-compatible server, such as vLLM on the same network), the page offers two more things:
+
+- **Explain with AI** on a selected finding — why the two Modes can't be told apart, what (if anything) in the data separates them, and one suggested action (keep both, tighten the ranges, merge, add a distinguishing parameter, or check the source data), with the model's confidence. An Editor can acknowledge the finding with the suggestion as its note.
+- **Summarise with AI** for the run — an overview, what to look at first, and patterns across the findings.
+
+The model never does the overlap arithmetic: the check computes it, and the model is given only one finding's two Modes and their computed overlap, or a run's counts and 40 most serious findings — a few thousand tokens however many Modes are in scope. Its answers are drafts, kept with the finding or run and labelled with the model and who asked; any number in an answer that wasn't in its input is listed so it can be checked. `scripts/llm_eval.py` tries the model on a run's findings and writes a report for analysts to judge before anyone relies on it.
+
 ---
 
 ## 11. XML Export (PRS Format)

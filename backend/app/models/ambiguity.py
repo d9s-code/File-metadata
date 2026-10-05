@@ -33,6 +33,8 @@ class AmbiguityRun(UUIDPkMixin, Base):
     status: Mapped[AmbiguityRunStatus] = mapped_column(nullable=False, default=AmbiguityRunStatus.pending)
     tolerance_config: Mapped[dict] = mapped_column(JSONB, nullable=False)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # A language model's summary of the findings — a draft; see ai_review_service.
+    ai_summary: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
@@ -68,5 +70,7 @@ class AmbiguityFinding(UUIDPkMixin, Base):
     )
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     reviewer_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # A language model's explanation and recommendation — a draft; see ai_review_service.
+    ai_explanation: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     run: Mapped["AmbiguityRun"] = relationship(back_populates="findings")

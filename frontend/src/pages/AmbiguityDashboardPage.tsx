@@ -4,6 +4,7 @@ import type { AmbiguityFinding, AmbiguityRun, AmbiguityScopeType, ToleranceConfi
 import {
   useAmbiguityFindings,
   useAmbiguityRun,
+  useAiStatus,
   useAmbiguityRuns,
   useCreateAmbiguityRun,
 } from "../state/hooks/useAmbiguity";
@@ -16,6 +17,7 @@ import { AmbiguityMatrix } from "../components/ambiguity/AmbiguityMatrix";
 import { AmbiguitySummary } from "../components/ambiguity/AmbiguitySummary";
 import { FindingsTable } from "../components/ambiguity/FindingsTable";
 import { RfPriScatterPlot } from "../components/ambiguity/RfPriScatterPlot";
+import { AiFindingExplanation, AiRunSummary } from "../components/ambiguity/AiDrafts";
 import { ApiRequestError } from "../api/client";
 
 const RUN_VERSION_FIELD: Record<AmbiguityScopeType, keyof AmbiguityRun> = {
@@ -44,6 +46,7 @@ export function AmbiguityDashboardPage() {
   const { data: run } = useAmbiguityRun(runId);
   const { data: findings } = useAmbiguityFindings(run?.status === "complete" ? runId : null);
   const { user } = useAuth();
+  const aiEnabled = useAiStatus().data?.enabled ?? false;
 
   // Persist across a page refresh instead of forcing a brand-new analysis
   // every time: load the most recent complete run for this scope on mount,
@@ -143,6 +146,7 @@ export function AmbiguityDashboardPage() {
       {run?.status === "complete" && findings && (
         <>
           <AmbiguitySummary findings={findings} />
+          {aiEnabled && findings.length > 0 && <AiRunSummary run={run} />}
 
           <div className="card">
             <h4>Scope</h4>
@@ -190,6 +194,7 @@ export function AmbiguityDashboardPage() {
                 {selectedFinding.details.mode_a.mode_name} vs {selectedFinding.details.mode_b.mode_name}
               </h4>
               <RfPriScatterPlot finding={selectedFinding} />
+              {aiEnabled && <AiFindingExplanation finding={selectedFinding} runId={runId as string} />}
             </div>
           )}
 

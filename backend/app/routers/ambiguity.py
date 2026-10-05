@@ -14,11 +14,14 @@ from app.models.emitter_version import EmitterVersion
 from app.models.mdf import Mdf, MdfVersion
 from app.models.platform import Platform, PlatformVersion
 from app.schemas.ambiguity import AmbiguityFindingOut, AmbiguityRunCreate, AmbiguityRunOut, FindingReviewRequest
+from app.services import llm_client
+from app.services.ai_review_service import explain_finding, summarise_run
 from app.services.ambiguity_run_service import execute_ambiguity_run
 from app.services.ambiguity_service import DEFAULT_TOLERANCE
 from app.services.audit_service import apply_and_diff, record_audit
 
 router = APIRouter(prefix="/ambiguity", tags=["ambiguity"])
+ai_router = APIRouter(prefix="/ai", tags=["ai"])
 
 _SCOPE_MODELS = {
     AmbiguityScopeType.emitter: (Emitter, EmitterVersion, "emitter_id", "emitter_version_id"),
@@ -173,3 +176,59 @@ def unreview_finding(
     db.commit()
     db.refresh(finding)
     return finding
+
+
+@ai_router.get("/status")
+def ai_status(_=Depends(require_role(Role.viewer))) -> dict:
+    """Whether a language model is set up — the AI buttons show only if so."""
+    return {"enabled": llm_client.enabled(), "model": llm_client.settings.llm_model if llm_client.enabled() else None}
+
+
+def _ask(work):
+    """Run a language-model request, turning its failures into clear HTTP errors."""
+    try:
+        return work()
+    except llm_client.LlmNotConfigured as err:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(err)) from err
+    except llm_client.LlmError as err:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(err)) from err
+
+
+@router.post("/findings/{finding_id}/explain", response_model=AmbiguityFindingOut, dependencies=[Depends(verify_csrf)])
+def explain_ambiguity_finding(
+    finding_id: UUID,
+    refresh: bool = False,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.viewer)),
+) -> AmbiguityFinding:
+    """A language model's explanation of one finding, and a recommendation —
+    a draft, kept with the finding. Asked again only with refresh."""
+    finding = db.get(AmbiguityFinding, finding_id)
+    if finding is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Finding not found")
+    if finding.ai_explanation is None or refresh:
+        _ask(lambda: explain_finding(db, finding, user))
+        db.commit()
+        db.refresh(finding)
+    return finding
+
+
+@router.post("/runs/{run_id}/summary", response_model=AmbiguityRunOut, dependencies=[Depends(verify_csrf)])
+def summarise_ambiguity_run(
+    run_id: UUID,
+    refresh: bool = False,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.viewer)),
+) -> AmbiguityRun:
+    """A language model's overview of a run's findings — a draft, kept with
+    the run. Asked again only with refresh."""
+    run = db.get(AmbiguityRun, run_id)
+    if run is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Run not found")
+    if run.status != AmbiguityRunStatus.complete:
+        raise HTTPException(status.HTTP_409_CONFLICT, "The check hasn't finished yet")
+    if run.ai_summary is None or refresh:
+        _ask(lambda: summarise_run(db, run, user))
+        db.commit()
+        db.refresh(run)
+    return run

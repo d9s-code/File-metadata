@@ -23,6 +23,43 @@ export interface AmbiguityRun {
   created_by: string | null;
   created_at: string;
   completed_at: string | null;
+  ai_summary: AiRunSummary | null;
+}
+
+/** Who asked the language model, which model answered, and how long it took. */
+export interface AiStamp {
+  model: string;
+  generated_at: string;
+  generated_by: string | null;
+  seconds: number;
+  prompt_tokens: number | null;
+  completion_tokens: number | null;
+  /** Numbers in the answer that weren't in what the model was given. */
+  unverified_numbers: string[];
+}
+
+export type AiRecommendation =
+  | "keep_both"
+  | "tighten_ranges"
+  | "merge_modes"
+  | "add_distinguishing_parameter"
+  | "check_source_data";
+
+export interface AiFindingExplanation extends AiStamp {
+  explanation: string;
+  distinguishing: string;
+  recommendation: AiRecommendation;
+  recommendation_label: string;
+  recommendation_detail: string;
+  confidence: "low" | "medium" | "high";
+}
+
+export interface AiRunSummary extends AiStamp {
+  overview: string;
+  priorities: string[];
+  patterns: string[];
+  findings_given: number;
+  findings_total: number;
 }
 
 export interface ModeLineSnapshot {
@@ -64,6 +101,7 @@ export interface AmbiguityFinding {
   reviewed_by: string | null;
   reviewed_at: string | null;
   reviewer_note: string | null;
+  ai_explanation: AiFindingExplanation | null;
 }
 
 export interface AmbiguityRunCreateInput {
@@ -82,4 +120,9 @@ export const ambiguityApi = {
   reviewFinding: (findingId: string, reviewerNote?: string) =>
     api.post<AmbiguityFinding>(`/ambiguity/findings/${findingId}/review`, { reviewer_note: reviewerNote }),
   unreviewFinding: (findingId: string) => api.post<AmbiguityFinding>(`/ambiguity/findings/${findingId}/unreview`),
+  explainFinding: (findingId: string, refresh = false) =>
+    api.post<AmbiguityFinding>(`/ambiguity/findings/${findingId}/explain${refresh ? "?refresh=true" : ""}`),
+  summariseRun: (runId: string, refresh = false) =>
+    api.post<AmbiguityRun>(`/ambiguity/runs/${runId}/summary${refresh ? "?refresh=true" : ""}`),
+  aiStatus: () => api.get<{ enabled: boolean; model: string | null }>("/ai/status"),
 };

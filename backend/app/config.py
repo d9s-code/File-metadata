@@ -47,6 +47,15 @@ class Settings(BaseSettings):
 
     trash_retention_days: int = 30
 
+    # A language model behind an OpenAI-compatible API (e.g. vLLM), used to
+    # explain ambiguity findings and summarise runs. Unset: those buttons
+    # don't appear. LLM_BASE_URL is the address up to and including /v1.
+    llm_base_url: str | None = None
+    llm_model: str | None = None
+    llm_api_key: str | None = None
+    llm_timeout_seconds: float = 120.0
+    llm_max_tokens: int = 1200
+
     max_upload_bytes: int = 10 * 1024 * 1024
 
     cors_origins: list[str] = ["http://localhost:5173"]

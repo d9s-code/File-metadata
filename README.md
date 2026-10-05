@@ -251,6 +251,41 @@ as a service, or `scripts/backup_db.py --verify` and `scripts/purge_deleted.py` 
 Restore is deliberately a command-line step with a confirmation rather than a button, since
 it overwrites live data. See `docs/FEATURES.md#backup--restore` for more.
 
+## AI assistance (optional)
+
+With a language model on your network behind an OpenAI-compatible API (vLLM, for
+instance), the Ambiguity check page can **explain** a finding — why the two Modes can't be
+told apart, what separates them, and a suggested action — and **summarise** a whole run.
+Set on the backend:
+
+```
+LLM_BASE_URL=http://vllm-host:8000/v1   # up to and including /v1
+LLM_MODEL=...                           # only if the server serves several models
+LLM_API_KEY=...                         # only if the server wants one
+```
+
+Unset, nothing changes and the buttons don't appear. Requests go from the backend, never
+the browser.
+
+**The code finds, the model explains.** The ambiguity check itself still computes every
+overlap exactly; the model is given one finding at a time (the two Modes and the computed
+overlap) or, for a run, the counts and the 40 most serious findings — so a request stays a
+few thousand tokens however large the Emitter, Platform or MDF. Answers are kept with the
+finding or run as a **draft**, marked with the model and who asked, and any number in an
+answer that wasn't in what the model was given is listed for checking. Asking again
+replaces it.
+
+**Try it on your own data first.** In the backend container:
+
+```bash
+docker compose exec backend python scripts/llm_eval.py --check   # reachable? context size?
+docker compose exec backend python scripts/llm_eval.py --limit 20  # latest run's findings
+```
+
+The second writes `llm_eval.md` (what the model was given and answered, per finding) and
+`llm_eval.csv` (one row each, with empty *correct* / *useful* columns for an analyst), and
+saves nothing to the database unless `--save` is given.
+
 ## Database migrations
 
 `alembic/versions/` holds a single baseline migration, not an incremental history — a

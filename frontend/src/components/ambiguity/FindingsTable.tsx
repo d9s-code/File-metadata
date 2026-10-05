@@ -117,6 +117,12 @@ export function FindingsTable({
             >
               <td>
                 <SeverityBadge severity={f.combined_severity} />
+                {f.ai_explanation && (
+                  <span className="ai-mark" title={`AI suggestion: ${f.ai_explanation.recommendation_label}`}>
+                    {" "}
+                    ✦
+                  </span>
+                )}
               </td>
               <td>
                 {f.details.mode_a.mode_name}
