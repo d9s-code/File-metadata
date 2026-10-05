@@ -39,7 +39,9 @@ x-backend-env: &backend-env
   # the token's Outline account decides what can be read.
   # OUTLINE_URL: https://outline.app
   # OUTLINE_API_TOKEN: ol_api_...
-  # OUTLINE_COLLECTION: PRS
+  # A page and everything under it (its address), or a whole collection:
+  # OUTLINE_ROOT: https://outline.app/doc/prs-AbC123xyz
+  # OUTLINE_COLLECTION: Group 1
 
 services:
   backend:

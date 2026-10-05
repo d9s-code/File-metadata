@@ -292,19 +292,24 @@ The model can be given pages from an Outline wiki — the sensor logic, say — 
 for its answers. So far there's a read-only check of what it would get:
 
 ```bash
-docker compose exec backend python scripts/outline_probe.py                     # sign-in, collections
-docker compose exec backend python scripts/outline_probe.py --collection "PRS"  # pages and size
-docker compose exec backend python scripts/outline_probe.py --collection "PRS" --search "stagger"
-docker compose exec backend python scripts/outline_probe.py --collection "PRS" --sections  # every section
+docker compose exec backend python scripts/outline_probe.py --tree             # collections and pages, nested
+docker compose exec backend python scripts/outline_probe.py --root <page address>  # that page and all under it
+docker compose exec backend python scripts/outline_probe.py --root <page address> --search "stagger"
+docker compose exec backend python scripts/outline_probe.py --root <page address> --sections  # every section
 ```
+
+`--root` takes a page's address as copied from the browser (or its id, or exact title) and
+reads it with every page nested under it, however deep; `--collection NAME` reads a whole
+collection. Set the one you settle on as `OUTLINE_ROOT` (or `OUTLINE_COLLECTION`) on the
+backend; pages added under it later are picked up too.
 
 The model is given sections — the text under each heading, labelled with every heading
 above it and the page's place in the collection — so the structure in Outline matters:
 `--sections` marks sections too long to hand over whole (split them with sub-headings),
 too short to make sense alone, or under no heading at all.
 
-with `OUTLINE_URL`, `OUTLINE_API_TOKEN` (an Outline API key — Outline → Settings → API) and
-optionally `OUTLINE_COLLECTION` set on the backend. Only what that Outline account may read
+with `OUTLINE_URL` and `OUTLINE_API_TOKEN` (an Outline API key — Outline → Settings → API) set
+on the backend. Only what that Outline account may read
 is ever returned. If Outline runs on the same server, the backend container has to be able to
 reach that address: if the probe can't, either add the name to the backend service's
 `extra_hosts`, or put the backend on Outline's Docker network and use Outline's internal

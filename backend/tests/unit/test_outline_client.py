@@ -36,6 +36,8 @@ class FakeOutline:
             for i in range(pages)
         ]
         self.docs[0] = {**self.docs[0], "title": "Stagger logic", "text": STAGGER_PAGE}
+        for d in self.docs:
+            d.setdefault("collectionId", "col-prs")
         # One page whose listing leaves its text out.
         self.docs.append({**self.docs[-1], "id": "doc-lazy", "title": "Lazy page", "text": ""})
         self.calls: list[tuple[str, dict]] = []
@@ -70,7 +72,11 @@ class FakeOutline:
                 elif method == "documents.list":
                     self._send(200, {"data": fake.docs[offset : offset + limit]})
                 elif method == "documents.info":
-                    self._send(200, {"data": {"id": body["id"], "text": "Text fetched on its own."}})
+                    doc = next((d for d in fake.docs if body["id"] in (d["id"], d.get("urlId"))), None)
+                    if doc is None:
+                        self._send(404, {"error": "not_found"})
+                    else:
+                        self._send(200, {"data": {**doc, "text": doc["text"] or "Text fetched on its own."}})
                 elif method == "documents.search":
                     self._send(
                         200,
@@ -153,6 +159,34 @@ def test_section_paths_follow_the_headings_and_the_page_tree():
     ]
 
 
+def test_a_page_and_everything_under_it(outline, monkeypatch):
+    fake = outline()
+    # Group 1 (the collection) › PRS › PRS documentation › Annex, and an unrelated page.
+    fake.docs = [
+        {"id": "prs", "urlId": "AbC123xyz", "title": "PRS", "text": "Overview.", "url": "/doc/prs-AbC123xyz",
+         "parentDocumentId": None, "collectionId": "col-prs"},
+        {"id": "doc", "title": "PRS documentation", "text": "# Stagger\nStagger text.", "url": "/doc/prs-documentation-x1",
+         "parentDocumentId": "prs", "collectionId": "col-prs"},
+        {"id": "annex", "title": "Annex", "text": "Annex text.", "url": "/doc/annex-x2",
+         "parentDocumentId": "doc", "collectionId": "col-prs"},
+        {"id": "other", "title": "Holiday rota", "text": "Not this.", "url": "/doc/holiday-rota-x3",
+         "parentDocumentId": None, "collectionId": "col-prs"},
+    ]
+    monkeypatch.setattr(settings, "outline_root", "https://outline.app/doc/prs-AbC123xyz")
+    label, docs = outline_client.scope()
+    assert label == '"PRS" and the 2 pages under it, in collection "PRS"'
+    assert [d.title for d in docs] == ["PRS", "PRS documentation", "Annex"]
+    paths = outline_client.page_paths(docs)
+    assert outline_client.sections(docs[1], paths["doc"]) == [("PRS › PRS documentation › Stagger", "Stagger text.")]
+
+    # By its exact title too; and a title that isn't there says so.
+    monkeypatch.setattr(settings, "outline_root", "prs")
+    assert [d.title for d in outline_client.scope()[1]] == ["PRS", "PRS documentation", "Annex"]
+    monkeypatch.setattr(settings, "outline_root", "Nope")
+    with pytest.raises(outline_client.OutlineError, match='No page titled "Nope"'):
+        outline_client.scope()
+
+
 def test_a_wrong_token_says_so(outline, monkeypatch):
     outline()
     monkeypatch.setattr(settings, "outline_api_token", "wrong")
@@ -164,11 +198,14 @@ def test_the_probe_script_reports_size_and_search(outline, capsys, monkeypatch):
     outline()
     import scripts.outline_probe as probe
 
-    monkeypatch.setattr("sys.argv", ["outline_probe.py", "--collection", "PRS", "--search", "frame", "--sections"])
+    monkeypatch.setattr(
+        "sys.argv", ["outline_probe.py", "--tree", "--collection", "PRS", "--search", "frame", "--sections"]
+    )
     assert probe.main() == 0
     out = capsys.readouterr().out
     assert "Signed in as PRS reader (team EW)" in out
-    assert '"PRS": 2 pages' in out
+    assert 'Reading collection "PRS": 2 pages' in out
+    assert "    Lazy page" in out  # --tree
     assert "Stagger logic" in out
     assert "Small enough to send the whole collection" in out
     assert "Stagger logic: the frame is found" in out

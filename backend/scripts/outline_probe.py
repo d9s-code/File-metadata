@@ -1,16 +1,20 @@
 """Look at what the language model could be given from Outline — read-only.
 
     python scripts/outline_probe.py                       # sign-in check, list collections
-    python scripts/outline_probe.py --collection "PRS"    # that collection's pages and size
-    python scripts/outline_probe.py --collection "PRS" --search "stagger"
-    python scripts/outline_probe.py --collection "PRS" --sections   # every section, with what to fix
+    python scripts/outline_probe.py --tree                # ...and every page in them, nested
+    python scripts/outline_probe.py --root https://outline.app/doc/prs-AbC123xyz   # a page and all under it
+    python scripts/outline_probe.py --collection "Group 1"                         # a whole collection
+    python scripts/outline_probe.py --root ... --search "stagger"
+    python scripts/outline_probe.py --root ... --sections   # every section, with what to fix
 
 Run it where the backend runs (in Docker: docker compose exec backend python
 scripts/outline_probe.py), with OUTLINE_URL and OUTLINE_API_TOKEN set as for
-the app (and OUTLINE_COLLECTION to skip --collection).
+the app (and OUTLINE_ROOT or OUTLINE_COLLECTION to skip --root/--collection).
+--root takes a page's address as copied from the browser, its id, or its
+exact title.
 
-It signs in, lists the collections that account can read, and for one
-collection lists every page: how many sections (headings) it has, roughly
+It signs in, lists the collections that account can read, and for the page
+and everything under it (or a whole collection) lists every page: how many sections (headings) it has, roughly
 how many tokens, and when it last changed. Then it says whether the whole
 collection could go with every question, or only the relevant sections
 should. --search tries Outline's own search. --sections lists every section
@@ -42,7 +46,9 @@ SHORT_SECTION = 40
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--root", default=settings.outline_root, help="a page (address, id or title) and all under it")
     parser.add_argument("--collection", default=settings.outline_collection, help="collection name or id")
+    parser.add_argument("--tree", action="store_true", help="list every page in every collection, nested")
     parser.add_argument("--search", help="try Outline's search with this text")
     parser.add_argument("--sections", action="store_true", help="list every section, marking ones to split or merge")
     parser.add_argument("--dump", help="save every page as Markdown in this folder")
@@ -63,25 +69,26 @@ def main() -> int:
     print(f"\nCollections this account can read ({len(found)}):")
     for c in found:
         print(f"  {c['name']}  [{c['id']}]")
-    if not args.collection:
-        print("\nPass --collection NAME (or set OUTLINE_COLLECTION) to look inside one.")
+        if args.tree:
+            try:
+                pages = outline_client.documents(c["id"], with_text=False)
+            except outline_client.OutlineError as err:
+                print(f"    (couldn't list its pages: {err})")
+                continue
+            for path in sorted(outline_client.page_paths(pages).values(), key=str.lower):
+                print(f"    {path}")
+    if not args.root and not args.collection:
+        print("\nPass --root PAGE (its address) or --collection NAME to look inside — --tree shows what's there.")
         return 0
 
-    collection = next(
-        (c for c in found if c["id"] == args.collection or c["name"].strip().lower() == args.collection.strip().lower()),
-        None,
-    )
-    if collection is None:
-        print(f'\nNo collection "{args.collection}" that this account can read.')
-        return 1
-
+    settings.outline_root, settings.outline_collection = args.root, args.collection
     try:
-        docs = outline_client.documents(collection["id"])
+        label, docs = outline_client.scope()
     except outline_client.OutlineError as err:
-        print(f"Failed reading the pages: {err}")
+        print(f"\n{err}")
         return 1
 
-    print(f'\n"{collection["name"]}": {len(docs)} pages')
+    print(f"\nReading {label}: {len(docs)} pages")
     print(f"  {'tokens':>7}  {'sections':>8}  {'last changed':<12}  page")
     total = 0
     all_sections: list[tuple[str, str]] = []
@@ -143,7 +150,11 @@ def main() -> int:
     if args.search:
         print(f'\nOutline search for "{args.search}":')
         try:
-            hits = outline_client.search(args.search, collection["id"])
+            in_scope = {d.title for d in docs}
+            hits = [
+                h for h in outline_client.search(args.search, docs[0].collection_id if docs else None, limit=25)
+                if h["title"] in in_scope
+            ]
         except outline_client.OutlineError as err:
             print(f"  Failed: {err}")
             hits = []

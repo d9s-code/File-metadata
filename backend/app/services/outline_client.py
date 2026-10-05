@@ -35,6 +35,7 @@ class OutlineDocument:
     url: str
     updated_at: str | None
     parent_id: str | None
+    collection_id: str | None = None
 
 
 def enabled() -> bool:
@@ -124,17 +125,86 @@ def _document(d: dict) -> OutlineDocument:
         url=url if url.startswith("http") else f"{_base()}{url}",
         updated_at=d.get("updatedAt"),
         parent_id=d.get("parentDocumentId"),
+        collection_id=d.get("collectionId"),
     )
 
 
-def documents(collection_id: str) -> list[OutlineDocument]:
+def documents(collection_id: str, *, with_text: bool = True) -> list[OutlineDocument]:
     """Every published page in a collection, with its text (Markdown)."""
     docs = [_document(d) for d in _paged("documents.list", {"collectionId": collection_id})]
-    for doc in docs:
+    for doc in docs if with_text else []:
         # Some Outline versions leave the text out of listings.
         if not doc.text:
             doc.text = (call("documents.info", {"id": doc.id}).get("data") or {}).get("text") or ""
     return docs
+
+
+def document(ref: str) -> OutlineDocument:
+    """One page by its id or the short id at the end of its address."""
+    data = call("documents.info", {"id": ref}).get("data")
+    if not data:
+        raise OutlineError(f"No page {ref!r} that this account can read")
+    return _document(data)
+
+
+def _url_id(ref: str) -> str | None:
+    """The short id at the end of a page address: .../doc/prs-documentation-AbC123xyz → AbC123xyz."""
+    m = re.search(r"/doc/([^/?#]+)", ref)
+    return m.group(1).rsplit("-", 1)[-1] if m else None
+
+
+def find_page(ref: str) -> OutlineDocument:
+    """A page from its address (as copied from the browser), its id, or its exact title."""
+    url_id = _url_id(ref)
+    if url_id:
+        return document(url_id)
+    try:
+        return document(ref.strip())
+    except OutlineError:
+        pass
+    wanted = ref.strip().lower()
+    matches = [d for c in collections() for d in documents(c["id"], with_text=False) if d.title.strip().lower() == wanted]
+    if len(matches) == 1:
+        return matches[0]
+    if not matches:
+        raise OutlineError(f'No page titled "{ref}" that this account can read')
+    raise OutlineError(
+        f'{len(matches)} pages are titled "{ref}" — use the address of the one you mean: '
+        + ", ".join(m.url for m in matches)
+    )
+
+
+def subtree(docs: list[OutlineDocument], root_id: str) -> list[OutlineDocument]:
+    """A page and every page nested under it, at any depth."""
+    children: dict[str, list[OutlineDocument]] = {}
+    for d in docs:
+        if d.parent_id:
+            children.setdefault(d.parent_id, []).append(d)
+    root = next((d for d in docs if d.id == root_id), None)
+    out, todo = [], [root] if root else []
+    while todo:
+        d = todo.pop(0)
+        out.append(d)
+        todo += children.get(d.id, [])
+    return out
+
+
+def scope() -> tuple[str, list[OutlineDocument]]:
+    """What the model may be given, as set up: OUTLINE_ROOT's page and the
+    pages under it, or else all of OUTLINE_COLLECTION. With a label for it."""
+    if settings.outline_root:
+        root = find_page(settings.outline_root)
+        if not root.collection_id:
+            raise OutlineError(f"Outline didn't say which collection \"{root.title}\" is in")
+        docs = subtree(documents(root.collection_id), root.id)
+        name = next((c["name"] for c in collections() if c["id"] == root.collection_id), "?")
+        return f'"{root.title}" and the {len(docs) - 1} pages under it, in collection "{name}"', docs
+    if settings.outline_collection:
+        collection = find_collection(settings.outline_collection)
+        if collection is None:
+            raise OutlineError(f'No collection "{settings.outline_collection}" that this account can read')
+        return f'collection "{collection["name"]}"', documents(collection["id"])
+    raise OutlineNotConfigured("Say what to read: OUTLINE_ROOT (a page) or OUTLINE_COLLECTION")
 
 
 def search(query: str, collection_id: str | None = None, limit: int = 10) -> list[dict]:

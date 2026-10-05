@@ -64,6 +64,9 @@ class Settings(BaseSettings):
     outline_url: str | None = None
     outline_api_token: str | None = None
     outline_collection: str | None = None
+    # Or one page and everything nested under it — its address as copied
+    # from the browser (or its id, or its exact title). Takes precedence.
+    outline_root: str | None = None
     outline_ca_bundle: str | None = None
 
     max_upload_bytes: int = 10 * 1024 * 1024
