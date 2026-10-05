@@ -5,7 +5,7 @@ from fastapi import Cookie, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.enums import Role
-from app.core.security import decode_access_token
+from app.core.security import decode_access_token, session_predates_password_change
 from app.database import get_db
 from app.models.emitter import Emitter
 from app.models.ew_group import EwGroup
@@ -33,6 +33,8 @@ def get_current_user(
     user = db.get(User, UUID(payload["sub"]))
     if user is None or not user.is_active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found or inactive")
+    if session_predates_password_change(payload, user.password_changed_at):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "The password was changed — sign in again")
     return user
 
 

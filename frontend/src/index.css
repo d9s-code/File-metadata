@@ -4940,3 +4940,22 @@ label.map-axis select { font-size: 0.8rem; padding: 0.1rem 0.3rem; }
 .status-compact .status-badge {
   white-space: nowrap;
 }
+
+/* Top bar: your account menu, and changing your password */
+.navbar-account {
+  background: none;
+  color: var(--text);
+  border: 1px solid transparent;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.9rem;
+}
+.navbar-account:hover:not(:disabled) {
+  background: var(--hover-bg);
+  border-color: var(--border);
+}
+.change-password-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: min(22rem, 80vw);
+}

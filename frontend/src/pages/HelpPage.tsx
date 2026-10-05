@@ -164,6 +164,11 @@ export function HelpPage() {
             <span className="role-badge">admin</span> — everything an editor can do; the highest rank.
           </li>
         </ul>
+        <p>
+          <strong>Your password:</strong> click your name in the top bar → <strong>Change password…</strong>. You
+          need the current one; the new one must be at least 12 characters. Changing it signs you out everywhere
+          else. Passwords are only ever stored as a one-way hash, so not even a backup holds them.
+        </p>
         <p className="hint-text">
           Ranks are cumulative (viewer &lt; editor &lt; admin). A control that requires a role simply
           doesn't render for accounts below that rank, rather than showing a locked/disabled version of it.

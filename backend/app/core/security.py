@@ -6,7 +6,9 @@ from passlib.context import CryptContext
 
 from app.config import settings
 
-_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Passwords are never stored, only a salted bcrypt hash of each (work factor
+# 12) — one-way, so a database backup can't be turned back into passwords.
+_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
 
 MIN_PASSWORD_LENGTH = 12
 # bcrypt silently ignores everything past 72 bytes.
@@ -31,11 +33,23 @@ def verify_password(password: str, password_hash: str) -> bool:
     return _pwd_context.verify(password, password_hash)
 
 
-def create_access_token(user_id: UUID, role: str) -> str:
+def password_stamp(password_changed_at: datetime | None) -> int:
+    """When the password last changed, in milliseconds (0 if never) — carried in
+    each session token so a change can tell older sessions apart exactly."""
+    return int(password_changed_at.timestamp() * 1000) if password_changed_at else 0
+
+
+def session_predates_password_change(token_payload: dict, password_changed_at: datetime | None) -> bool:
+    """Whether a session was signed in before the password last changed."""
+    return int(token_payload.get("pwc", 0)) < password_stamp(password_changed_at)
+
+
+def create_access_token(user_id: UUID, role: str, password_changed_at: datetime | None = None) -> str:
     now = datetime.now(timezone.utc)
     payload = {
         "sub": str(user_id),
         "role": role,
+        "pwc": password_stamp(password_changed_at),
         "iat": now,
         "exp": now + timedelta(minutes=settings.jwt_expire_minutes),
     }

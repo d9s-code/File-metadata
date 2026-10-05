@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -58,6 +59,7 @@ def update_user(
         user.is_active = payload.is_active
     if payload.password:
         user.password_hash = hash_password(payload.password)
+        user.password_changed_at = datetime.now(timezone.utc)
         changes["password"] = "changed"
     record_audit(
         db,

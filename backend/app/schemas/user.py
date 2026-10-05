@@ -40,6 +40,13 @@ class UserOut(BaseModel):
     last_login_at: datetime | None = None
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+    _password_policy = field_validator("new_password")(_check_password)
+
+
 class LoginRequest(BaseModel):
     username: str
     password: str

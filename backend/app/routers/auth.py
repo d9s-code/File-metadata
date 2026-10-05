@@ -6,7 +6,7 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.core.csrf import CSRF_COOKIE_NAME, generate_csrf_token
+from app.core.csrf import CSRF_COOKIE_NAME, generate_csrf_token, verify_csrf
 from app.core.enums import AuditAction, AuditEntityType
 from app.core.rate_limit import (
     MAX_FAILURES_PER_IP,
@@ -20,7 +20,7 @@ from app.core.security import create_access_token, decode_access_token, hash_pas
 from app.database import get_db
 from app.deps import get_current_user
 from app.models.user import User
-from app.schemas.user import LoginRequest, UserOut
+from app.schemas.user import ChangePasswordRequest, LoginRequest, UserOut
 from app.services.audit_service import record_audit
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -69,7 +69,13 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
     db.commit()
     db.refresh(user)
 
-    token = create_access_token(user.id, user.role.value)
+    _start_session(response, user)
+    return user
+
+
+def _start_session(response: Response, user: User) -> None:
+    """The session cookie, and the CSRF cookie that goes with it."""
+    token = create_access_token(user.id, user.role.value, user.password_changed_at)
     response.set_cookie(
         "access_token",
         token,
@@ -86,7 +92,38 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
         samesite="strict",
         secure=settings.cookie_secure,
     )
-    return user
+
+
+@router.post("/change-password", dependencies=[Depends(verify_csrf)])
+def change_password(
+    payload: ChangePasswordRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """Your own password. Needs the current one — wrong guesses count toward
+    the same limit as signing in. Every other session of yours is signed out;
+    this one carries on with a fresh session."""
+    check_login_rate_limit(user_key(user.username))
+    if not verify_password(payload.current_password, user.password_hash):
+        record_login_failure(user_key(user.username))
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "The current password isn't right")
+    if verify_password(payload.new_password, user.password_hash):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "The new password must be different from the current one")
+    clear_login_failures(user_key(user.username))
+    user.password_hash = hash_password(payload.new_password)
+    user.password_changed_at = datetime.now(timezone.utc)
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.update,
+        entity_type=AuditEntityType.user.value,
+        entity_id=user.id,
+        summary=f"'{user.username}' changed their password",
+    )
+    db.commit()
+    _start_session(response, user)
+    return {"ok": True}
 
 
 @router.post("/logout")

@@ -3,10 +3,6 @@ import { dashboardApi } from "../../api/dashboard";
 
 const key = ["dashboard"] as const;
 
-export function useDashboard() {
-  return useQuery({ queryKey: key, queryFn: () => dashboardApi.get() });
-}
-
 // Each dashboard card has its own query, so a slow one only holds up itself.
 
 export function useDashboardOverview() {

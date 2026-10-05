@@ -316,6 +316,10 @@ Three roles, enforced by the backend on every request (not just hidden in the UI
 
 Authentication is local username/password (no external identity provider, matching the offline requirement), with the session stored in an httpOnly cookie and CSRF protection on every state-changing request.
 
+**Passwords** are never stored — only a salted bcrypt hash of each (work factor 12). A hash can't be turned back into the password, so a database backup (or a downloaded copy of one) doesn't give anyone the passwords; it's the standard, stronger alternative to encrypting them, which would need a key kept somewhere. Passwords must be at least 12 characters.
+
+**Changing your password**: click your name in the top bar → **Change password…**, give the current one and the new one twice. Wrong guesses at the current password count toward the same limit as signing in. Afterwards every other place you're signed in is signed out (this one carries on); an Admin resetting someone's password signs them out everywhere too. Both are recorded in the Audit Log.
+
 ---
 
 ## 14. Admin Panel

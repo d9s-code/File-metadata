@@ -3,6 +3,8 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { RequireRole } from "../../auth/RequireAuth";
 import { ThemeToggle } from "./ThemeToggle";
+import { MenuButton } from "./MenuButton";
+import { ChangePasswordModal } from "./ChangePasswordModal";
 import { useMyWork } from "../../state/hooks/useTasks";
 
 const LINKS: { to: string; label: string }[] = [
@@ -27,6 +29,7 @@ export function NavBar() {
   const myTasks = work?.tasks.length ?? 0;
   // On narrow windows the links fold behind a Menu button.
   const [menuOpen, setMenuOpen] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
   const { pathname } = useLocation();
   useEffect(() => setMenuOpen(false), [pathname]);
 
@@ -88,12 +91,20 @@ export function NavBar() {
         <ThemeToggle />
         {user && (
           <>
-            <span>
-              {user.username} <span className="role-badge">{user.role}</span>
-            </span>
-            <button className="link-button" onClick={() => void logout()}>
-              Sign out
-            </button>
+            <MenuButton
+              label={
+                <>
+                  {user.username} <span className="role-badge">{user.role}</span> ▾
+                </>
+              }
+              className="navbar-account"
+              ariaLabel="Your account"
+              items={[
+                { label: "Change password…", onSelect: () => setChangingPassword(true) },
+                { label: "Sign out", onSelect: () => void logout() },
+              ]}
+            />
+            {changingPassword && <ChangePasswordModal onClose={() => setChangingPassword(false)} />}
           </>
         )}
       </div>

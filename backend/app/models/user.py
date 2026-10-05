@@ -17,3 +17,6 @@ class User(UUIDPkMixin, TimestampMixin, Base):
     role: Mapped[Role] = mapped_column(nullable=False, default=Role.viewer)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Sessions signed in before this are no longer accepted — set whenever the
+    # password changes, so a changed (or reset) password signs out everywhere else.
+    password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
