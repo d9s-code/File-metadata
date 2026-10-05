@@ -328,24 +328,22 @@ export function HelpPage() {
           <div className="help-subsection" id="emitter-modes-charts">
             <h4>Modes charts</h4>
             <p>
-              <strong>Charts</strong> draws the Modes the filters leave, coloured by each Mode&apos;s last test result
-              (with the result named in the legend and on hover), using the engineered ranges the system recognises.
-              The <strong>parameter map</strong> puts each Mode on two parameters — RF × PRI by default; pick any two
-              of RF, PRI (a stagger&apos;s frame time) and PW with <strong>Across</strong>/<strong>Up</strong>, or{" "}
-              <strong>Swap</strong>, remembered in this browser (Modes without the upward parameter sit in a strip
-              underneath): overlapping Modes show as layered areas and hovering lists every Mode under
-              the pointer, empty space is what no Mode covers. Drag to zoom; click a Mode to open it in the table. The{" "}
-              <strong>range ladders</strong> give each Mode a row with its RF, PRI and PW in three separate panels — the solid bar is
-              what it was set to, the faint extension the engineered ± delta — so overlaps line up in a column. This
-              Emitter&apos;s intercept entries are marked on both, as dots (matching a Mode) or crosses (outside every
-              Mode); the axes fit the Modes unless you choose to fit the entries too.
+              <strong>Charts</strong> draws the Modes the filters leave as <strong>range ladders</strong>, using the
+              engineered ranges the system recognises: each Mode gets a row with its RF, PRI (a stagger&apos;s frame
+              time) and PW in three separate panels — the solid bar is what it was set to, the faint extension the
+              engineered ± delta — so overlaps line up in a column and gaps are values no Mode covers. Click a Mode&apos;s
+              name to open it in the table. This Emitter&apos;s intercept entries are ticks along the top of each panel
+              (orange when outside every Mode); the axes fit the Modes unless you choose to fit the entries too.
             </p>
             <p>
-              <strong>Colour</strong> switches between the last test result and <strong>By Mode</strong>, which gives
-              Modes a colour each so you can tell them apart. Eight colours at most are in use at once (more can&apos;t
-              be told apart reliably); the rest are grey. The first eight by name get one to start with. Click a Mode&apos;s
-              name to give it a colour or make it grey, and point at a name to pick that Mode out in both charts. The
-              choice is kept for each Emitter.
+              <strong>Colour</strong> switches between each Mode&apos;s last test result (named in the legend and on
+              hover) and <strong>By Mode</strong>, which gives Modes a colour each so you can tell them apart. Eight
+              colours at most are in use at once — more can&apos;t be told apart reliably — and the rest are grey; the
+              first eight by name get one to start with. Only the coloured Modes are listed above the chart, so the list
+              stays short however many Modes there are. Give another Mode a colour with <strong>+ Colour a Mode</strong>{" "}
+              or by clicking its square in the chart; click a listed Mode (or its square again) to make it grey, and
+              point at one to pick it out. <strong>Only the coloured Modes</strong> hides the rest. The choice is kept
+              for each Emitter.
             </p>
             <p>
               <strong>Axis ranges</strong> set where the RF, PRI and PW axes start and end, in place of fitting them to

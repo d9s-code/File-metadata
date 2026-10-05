@@ -97,3 +97,16 @@ export type Paint = (mode: Mode) => { cls: string; label: string };
 /** How many Modes can have a colour of their own at once — beyond eight,
  * colours stop being told apart reliably, so the rest stay grey. */
 export const SERIES_SLOTS = 8;
+
+/** An intercept entry as the charts draw it. */
+export interface ChartEntry {
+  rf: number;
+  /** PRI, or a stagger's frame time; null for CW. */
+  pri: number | null;
+  pw: number | null;
+  matched: boolean;
+  label: string;
+}
+
+export const spanOf = (r: ModeRanges, p: ChartParam): Span | null => (p === "rf" ? r.rf : p === "pri" ? r.pri : r.pw);
+export const valueOf = (e: ChartEntry, p: ChartParam): number | null => (p === "rf" ? e.rf : p === "pri" ? e.pri : e.pw);

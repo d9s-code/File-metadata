@@ -11,17 +11,17 @@ import {
   type AxisLimit,
   type AxisLimits,
   type ChartParam,
+  type ChartEntry,
   type ModeRanges,
   type Paint,
+  spanOf,
+  valueOf,
 } from "./modeRanges";
-import { ModeMap, spanOf, valueOf, type MapEntry, type MapParam } from "./ModeMap";
 import { ModeLadders } from "./ModeLadders";
 
-const AXES_KEY = "modeMapAxes";
 const COLOUR_KEY = "modeChartColour";
 const LIMITS_KEY = "modeChartLimits";
 const PICKED_KEY = (emitterId: string) => `modeChartColours:${emitterId}`;
-const PARAM_KEYS: MapParam[] = ["rf", "pri", "pw"];
 const LIMIT_PARAMS: { key: ChartParam; label: string; unit: string }[] = [
   { key: "rf", label: "RF", unit: "MHz" },
   { key: "pri", label: "PRI / frame time", unit: "µs" },
@@ -49,19 +49,6 @@ function write(key: string, value: unknown) {
   } catch {
     // Not remembered — fine.
   }
-}
-
-function readAxes(): { x: MapParam; y: MapParam } {
-  return read(
-    AXES_KEY,
-    (v) => {
-      const stored = v as { x?: string; y?: string } | null;
-      const x = PARAM_KEYS.find((p) => p === stored?.x);
-      const y = PARAM_KEYS.find((p) => p === stored?.y);
-      return x && y && x !== y ? { x, y } : null;
-    },
-    { x: "rf", y: "pri" },
-  );
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
@@ -96,8 +83,8 @@ function defaultPicked(allModes: Mode[]): Picked {
   return Object.fromEntries(sorted.slice(0, SERIES_SLOTS).map((m, i) => [m.id, i + 1]));
 }
 
-/** The Modes tab's Charts view: the Modes on two chosen parameters, and their
- * ranges per parameter, coloured by last test result or one colour per Mode,
+/** The Modes tab's Charts view: each Mode's ranges per parameter, coloured by
+ * last test result or one colour per Mode,
  * with this Emitter's intercept entries marked. The axes fit the Modes unless
  * the user sets their bounds. Shows the Modes the tab's filters leave;
  * entries are matched against all of them. */
@@ -115,13 +102,8 @@ export function ModeCharts({
   const { data: interceptEntries } = useEmitterInterceptEntries(emitterId);
   const [showEntries, setShowEntries] = useState(true);
   const [fitEntries, setFitEntries] = useState(false);
-  // Which two parameters the map shows, how Modes are coloured and the axis
-  // bounds — remembered in this browser, for every Emitter alike.
-  const [axes, setAxesState] = useState(readAxes);
-  function setAxes(x: MapParam, y: MapParam) {
-    setAxesState({ x, y });
-    write(AXES_KEY, { x, y });
-  }
+  // How Modes are coloured and the axis bounds — remembered in this browser,
+  // for every Emitter alike.
   const [colourBy, setColourByState] = useState<ColourBy>(() =>
     read<ColourBy>(COLOUR_KEY, (v) => (v === "mode" || v === "result" ? v : null), "result"),
   );
@@ -179,6 +161,7 @@ export function ModeCharts({
     setPicked({ ...picked, [mode.id]: slot });
   }
   const [highlight, setHighlight] = useState<string | null>(null);
+  const [onlyColoured, setOnlyColoured] = useState(false);
 
   const paint: Paint = useMemo(
     () =>
@@ -192,7 +175,7 @@ export function ModeCharts({
   );
 
   const ranges = useMemo(() => modes.map(modeRanges).filter((r): r is ModeRanges => !!r), [modes]);
-  const entries: MapEntry[] = useMemo(
+  const entries: ChartEntry[] = useMemo(
     () =>
       (interceptEntries ?? []).map((e) => ({
         rf: e.rf_mean_mhz,
@@ -218,17 +201,17 @@ export function ModeCharts({
     return out;
   }, [ranges]);
 
-  // Entries beyond every Mode's reach on the map's two parameters, on a side
-  // whose bound isn't set — off the chart unless fitted to them.
+  // Entries beyond every Mode's reach, on a side whose bound isn't set — off
+  // the charts unless fitted to them.
   const offChart = useMemo(() => {
-    const outside = (v: number | null, p: MapParam) => {
+    const outside = (v: number | null, p: ChartParam) => {
       const r = reach[p];
       const lim: AxisLimit = limits[p] ?? {};
       if (v == null || !r) return false;
       return (lim.min == null && v < r[0]) || (lim.max == null && v > r[1]);
     };
-    return entries.filter((e) => outside(valueOf(e, axes.x), axes.x) || outside(valueOf(e, axes.y), axes.y)).length;
-  }, [reach, limits, entries, axes]);
+    return entries.filter((e) => LIMIT_PARAMS.some(({ key }) => outside(valueOf(e, key), key))).length;
+  }, [reach, limits, entries]);
   // Modes reaching past the bounds the user set — cut at the edge.
   const pastBounds = useMemo(
     () =>
@@ -242,7 +225,12 @@ export function ModeCharts({
     [ranges, limits],
   );
   const anyBounds = Object.keys(limitText).length > 0;
-  const colouredShown = ranges.filter((r) => picked[r.mode.id]).length;
+  const byMode = colourBy === "mode";
+  // The coloured Modes, by colour; the grey ones by name for the picker.
+  const coloured = ranges.filter((r) => picked[r.mode.id]).sort((a, b) => picked[a.mode.id] - picked[b.mode.id]);
+  const grey = ranges.filter((r) => !picked[r.mode.id]).sort((a, b) => a.mode.name.localeCompare(b.mode.name));
+  const used = Object.keys(picked).length;
+  const drawn = byMode && onlyColoured ? coloured : ranges;
 
   return (
     <div className="mode-charts">
@@ -258,30 +246,67 @@ export function ModeCharts({
             By Mode
           </label>
         </div>
-        {colourBy === "mode" && ranges.length > 0 && (
+        {byMode && ranges.length > 0 && (
           <div className="chart-controls-row">
-            <strong>Modes</strong>
+            <strong>Coloured</strong>
+            {/* Only the coloured Modes are listed — eight at most, however many Modes there are. */}
             <span className="mode-legend" onPointerLeave={() => setHighlight(null)}>
-              {ranges.map((r) => {
-                const on = !!picked[r.mode.id];
-                return (
-                  <button
-                    key={r.mode.id}
-                    type="button"
-                    className={on ? "mode-legend-chip" : "mode-legend-chip off"}
-                    aria-pressed={on}
-                    title={on ? "Click to make it grey again" : "Click to give it a colour of its own"}
-                    onClick={() => toggleColour(r.mode)}
-                    onPointerEnter={() => setHighlight(r.mode.id)}
-                    onFocus={() => setHighlight(r.mode.id)}
-                    onBlur={() => setHighlight(null)}
-                  >
-                    <span className={`viz-swatch ${paint(r.mode).cls}`} />
-                    {r.mode.name}
-                  </button>
-                );
-              })}
+              {coloured.length === 0 && <span className="hint-text">None — every Mode is grey.</span>}
+              {coloured.map((r) => (
+                <button
+                  key={r.mode.id}
+                  type="button"
+                  className="mode-legend-chip"
+                  title="Point at it to pick it out in the chart; click to make it grey"
+                  aria-label={`${r.mode.name} — make grey`}
+                  onClick={() => toggleColour(r.mode)}
+                  onPointerEnter={() => setHighlight(r.mode.id)}
+                  onFocus={() => setHighlight(r.mode.id)}
+                  onBlur={() => setHighlight(null)}
+                >
+                  <span className={`viz-swatch ${paint(r.mode).cls}`} />
+                  {r.mode.name}
+                  <span className="mode-legend-x" aria-hidden>
+                    ×
+                  </span>
+                </button>
+              ))}
             </span>
+            {grey.length > 0 && (
+              <select
+                className="mode-colour-pick"
+                aria-label="Give a Mode a colour"
+                value=""
+                disabled={used >= SERIES_SLOTS}
+                title={used >= SERIES_SLOTS ? `All ${SERIES_SLOTS} colours are in use — make one grey first` : undefined}
+                onChange={(e) => {
+                  const mode = grey.find((r) => r.mode.id === e.target.value)?.mode;
+                  if (mode) toggleColour(mode);
+                }}
+              >
+                <option value="">
+                  {used >= SERIES_SLOTS ? `All ${SERIES_SLOTS} colours in use` : `+ Colour a Mode (${grey.length} grey)…`}
+                </option>
+                {grey.map((r) => (
+                  <option key={r.mode.id} value={r.mode.id}>
+                    {r.mode.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            <span className="hint-text">
+              <button type="button" className="link-button" onClick={() => setPicked(null)}>
+                First {SERIES_SLOTS} by name
+              </button>{" "}
+              ·{" "}
+              <button type="button" className="link-button" onClick={() => setPicked({})}>
+                All grey
+              </button>
+            </span>
+            <label className="inline-label">
+              <input type="checkbox" checked={onlyColoured} onChange={(e) => setOnlyColoured(e.target.checked)} />
+              Only the coloured Modes
+            </label>
           </div>
         )}
         <div className="chart-controls-row">
@@ -328,29 +353,31 @@ export function ModeCharts({
           Leave a box blank to fit the Modes on that side. The ranges are kept in this browser for every Emitter, so
           Emitters can be compared on the same scale.
           {pastBounds > 0 &&
-            ` ${pastBounds} Mode${pastBounds === 1 ? " reaches" : "s reach"} past them — cut at the edge, or marked ◂ ▸ in the ladders when wholly outside.`}
+            ` ${pastBounds} Mode${pastBounds === 1 ? " reaches" : "s reach"} past them — cut at the edge, or marked ◂ ▸ when wholly outside.`}
         </p>
       </div>
       <div className="viz-summary">
         <span className="viz-legend">
-          {colourBy === "result" ? (
+          {!byMode ? (
             (["pass", "partial", "fail", "untested"] as const).map((k) => (
               <span key={k}>
                 <span className={`viz-swatch ${RESULT_STATUS[k].cls}`} /> {RESULT_STATUS[k].label}
               </span>
             ))
           ) : (
-            <span>
-              <span className="viz-swatch series-other" /> Other Modes (no colour of their own)
-            </span>
+            !onlyColoured && (
+              <span>
+                <span className="viz-swatch series-other" /> Other Modes (no colour of their own)
+              </span>
+            )
           )}
           {entries.length > 0 && showEntries && (
             <>
               <span>
-                <span className="viz-swatch map-entry-swatch" /> Intercept entry matching a Mode
+                <span className="viz-swatch entry-tick" /> Intercept entry matching a Mode
               </span>
               <span>
-                <span className="map-cross-swatch">✕</span> Intercept entry outside every Mode
+                <span className="viz-swatch entry-tick out" /> Intercept entry outside every Mode
               </span>
             </>
           )}
@@ -364,20 +391,13 @@ export function ModeCharts({
         )}
       </div>
       <p className="hint-text">
-        {colourBy === "result" ? (
+        {!byMode ? (
           "Coloured by each Mode's last test result. "
         ) : (
           <>
-            One colour per Mode, {SERIES_SLOTS} at most at once ({colouredShown} shown) — click a name above to give
-            it a colour or make it grey; point at one to pick it out in the charts.{" "}
+            One colour per Mode, {SERIES_SLOTS} at most at once — add one with the list above or by clicking a
+            Mode&apos;s square in the chart; click again to make it grey.{" "}
             {full && <strong>All {SERIES_SLOTS} colours are in use — make one grey first. </strong>}
-            <button type="button" className="link-button" onClick={() => setPicked(null)}>
-              First {SERIES_SLOTS} by name
-            </button>{" "}
-            ·{" "}
-            <button type="button" className="link-button" onClick={() => setPicked({})}>
-              All grey
-            </button>{" "}
           </>
         )}
         Engineered ranges (raw ± delta), the ones the system recognises.
@@ -386,32 +406,21 @@ export function ModeCharts({
           <>
             {" "}
             {offChart} intercept entr{offChart === 1 ? "y lies" : "ies lie"} beyond every Mode
-            {fitEntries ? " — the axes are fitted to include them." : " and off the charts — "}
+            {fitEntries ? " — the axes are fitted to include them." : " and off the chart — "}
             <button type="button" className="link-button" onClick={() => setFitEntries(!fitEntries)}>
               {fitEntries ? "Fit to the Modes" : "Fit to Modes and entries"}
             </button>
           </>
         )}
       </p>
-      <ModeMap
-        ranges={ranges}
-        entries={shownEntries}
-        fitEntries={fitEntries}
-        limits={limits}
-        paint={paint}
-        highlight={colourBy === "mode" ? highlight : null}
-        xParam={axes.x}
-        yParam={axes.y}
-        onAxes={setAxes}
-        onOpen={onOpen}
-      />
       <ModeLadders
-        ranges={ranges}
+        ranges={drawn}
         entries={shownEntries}
         fitEntries={fitEntries}
         limits={limits}
         paint={paint}
-        highlight={colourBy === "mode" ? highlight : null}
+        highlight={byMode ? highlight : null}
+        onToggleColour={byMode ? toggleColour : undefined}
         onOpen={onOpen}
       />
     </div>

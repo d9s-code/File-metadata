@@ -5,12 +5,13 @@ import {
   resultStatus,
   withLimits,
   type AxisLimits,
+  type ChartEntry,
   type ModeRanges,
   type Paint,
   type Span,
+  valueOf,
 } from "./modeRanges";
 import type { Mode } from "../../../types/domain";
-import type { MapEntry } from "./ModeMap";
 
 const ROW = 20;
 const HEAD = 54;
@@ -52,14 +53,17 @@ export function ModeLadders({
   limits,
   paint,
   highlight,
+  onToggleColour,
   onOpen,
 }: {
   ranges: ModeRanges[];
-  entries: MapEntry[];
+  entries: ChartEntry[];
   fitEntries: boolean;
   limits: AxisLimits;
   paint: Paint;
   highlight: string | null;
+  /** When colouring by Mode: a click on a Mode's square gives it a colour or takes it away. */
+  onToggleColour?: (mode: Mode) => void;
   onOpen: (mode: Mode) => void;
 }) {
   const { ref, width } = useWidth<HTMLDivElement>();
@@ -75,12 +79,7 @@ export function ModeLadders({
   }, [ranges, sortBy]);
 
   const domains = useMemo(() => {
-    const entryValues = (p: Param) =>
-      p === "rf"
-        ? entries.map((e) => e.rf)
-        : p === "pri"
-          ? entries.flatMap((e) => (e.pri == null ? [] : [e.pri]))
-          : [];
+    const entryValues = (p: Param) => entries.flatMap((e) => (valueOf(e, p) == null ? [] : [valueOf(e, p)!]));
     return Object.fromEntries(
       PARAMS.map(({ key }) => [
         key,
@@ -191,8 +190,7 @@ export function ModeLadders({
                   </g>
                 ))}
                 {entries.map((e, k) => {
-                  const v =
-                    p.key === "rf" ? e.rf : p.key === "pri" ? e.pri : e.pw;
+                  const v = valueOf(e, p.key);
                   // Off this column's axis: left out rather than drawn over the next column.
                   if (v == null || v < lo || v > hi) return null;
                   return (
@@ -250,13 +248,18 @@ export function ModeLadders({
                     : ""}
                 </title>
                 <rect
-                  className={`ladder-dot ${colour}`}
+                  className={`ladder-dot ${colour}${onToggleColour ? " toggles" : ""}`}
                   x={2}
                   y={y + ROW / 2 - 4}
                   width={8}
                   height={8}
                   rx={2}
+                  onClick={onToggleColour && (() => onToggleColour(r.mode))}
                 />
+                {/* A bigger target than the square itself. */}
+                {onToggleColour && (
+                  <rect className="ladder-dot-hit" x={0} y={y} width={13} height={ROW} onClick={() => onToggleColour(r.mode)} />
+                )}
                 <text
                   className="ladder-name"
                   x={16}

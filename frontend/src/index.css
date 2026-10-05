@@ -4147,30 +4147,6 @@ body:has(.import-footer) .checkout-reminder-tab {
   gap: 0.6rem;
 }
 .mode-charts > .hint-text { margin: 0; }
-.viz-plot rect.map-mode {
-  fill-opacity: 0.16;
-  stroke-width: 1.5;
-  cursor: pointer;
-}
-.viz-plot rect.map-mode.hovered {
-  fill-opacity: 0.32;
-  stroke-width: 2.5;
-}
-.viz-plot .map-entry {
-  fill: var(--text);
-  stroke: var(--card-bg);
-  stroke-width: 2;
-  paint-order: stroke;
-}
-.viz-plot .map-entry-out {
-  stroke: var(--viz-out);
-  stroke-width: 2;
-  stroke-linecap: round;
-}
-.viz-plot .map-entry-out-dot { fill: var(--viz-out); }
-.viz-swatch.map-entry-swatch { background: var(--text); border-radius: 50%; }
-.map-cross-swatch { color: var(--viz-out); font-weight: 700; font-size: 0.8rem; }
-.map-tip-first { margin-bottom: 0.2rem; }
 .viz-plot .ladder-row-bg { fill: transparent; }
 .viz-plot .ladder-row.hovered .ladder-row-bg { fill: var(--hover-bg); }
 .viz-plot .ladder-name {
@@ -4183,6 +4159,10 @@ body:has(.import-footer) .checkout-reminder-tab {
 .viz-plot rect.ladder-eng { fill-opacity: 0.3; stroke: none; }
 .viz-plot rect.ladder-raw { stroke: none; }
 .viz-plot rect.ladder-dot { stroke: none; }
+.viz-plot rect.ladder-dot.toggles { cursor: pointer; }
+.viz-plot rect.ladder-dot-hit { fill: transparent; cursor: pointer; }
+.viz-swatch.entry-tick { width: 2px; height: 10px; background: var(--text); opacity: 0.55; border-radius: 0; }
+.viz-swatch.entry-tick.out { background: var(--viz-out); opacity: 1; width: 3px; }
 .viz-plot .ladder-entry { stroke: var(--text); stroke-width: 1; opacity: 0.55; }
 .viz-plot .ladder-entry-out { stroke: var(--viz-out); stroke-width: 1.5; }
 .ladder-sort { font-size: 0.8rem; padding: 0.1rem 0.3rem; }
@@ -4234,7 +4214,8 @@ body:has(.import-footer) .checkout-reminder-tab {
   font-size: 0.82rem;
   cursor: pointer;
 }
-.mode-legend-chip.off { color: var(--muted); }
+.mode-legend-x { color: var(--muted); margin-left: 0.1rem; }
+.mode-colour-pick { font-size: 0.82rem; padding: 0.1rem 0.3rem; max-width: 18rem; }
 .mode-legend-chip:hover, .mode-legend-chip:focus-visible { background: var(--hover-bg); }
 
 /* Simulation trend */
