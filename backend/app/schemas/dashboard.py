@@ -7,9 +7,9 @@ from app.schemas.audit_log import AuditLogOut
 
 class NeedsAttentionItem(BaseModel):
     message: str
-    entity_type: Literal["emitter", "mdf"]
+    entity_type: Literal["emitter", "platform", "mdf", "intercept"]
     entity_id: str
-    # stale | rework | sim | mdf — for grouping on the dashboard.
+    # stale | rework | sim | mdf | intercepts | ambiguity | locks — for grouping on the dashboard.
     category: str
 
 
@@ -68,3 +68,30 @@ class DashboardOut(BaseModel):
     recent_test_runs: list[RecentTestRun]
     needs_redo: list[NeedsRedoTestItem]
     recent_activity: list[AuditLogOut]
+
+
+class OverviewOut(BaseModel):
+    emitter_status_counts: dict[str, int]
+    mdf_status_counts: dict[str, int]
+    sim_line_counts: dict[str, int]
+    emitter_sim_status: list[EmitterSimStatus]
+
+
+class AttentionOut(BaseModel):
+    needs_attention: list[NeedsAttentionItem]
+    pending_approvals: list[PendingApprovalItem]
+
+
+class TestRunsOut(BaseModel):
+    recent_test_runs: list[RecentTestRun]
+    needs_redo: list[NeedsRedoTestItem]
+
+
+class ActivityOut(BaseModel):
+    recent_activity: list[AuditLogOut]
+
+
+class AdminOut(BaseModel):
+    failed_logins_24h: int
+    recent_failed_logins: list[AuditLogOut]
+    long_held_locks: list[NeedsAttentionItem]

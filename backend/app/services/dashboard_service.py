@@ -1,24 +1,44 @@
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
-from app.core.enums import EmitterStatus, MdfStatus, SourceStatus, TestResult
+from app.core.enums import (
+    AmbiguityRunStatus,
+    AmbiguityScopeType,
+    AmbiguitySeverity,
+    EmitterStatus,
+    MdfStatus,
+    Role,
+    SourceStatus,
+    TestResult,
+    TestScopeType,
+)
+from app.deps import has_role
+from app.models.ambiguity import AmbiguityFinding, AmbiguityRun
 from app.models.audit_log import AuditLog
 from app.models.emitter import Emitter
 from app.models.emitter_version import EmitterVersion
-from app.models.mdf import Mdf
+from app.models.ew_group import EwGroup
+from app.models.intercept import Intercept, InterceptEntry
+from app.models.mdf import Mdf, MdfPlatformLink
+from app.models.mode import Mode
+from app.models.platform import Platform
 from app.models.source import Source
+from app.models.user import User
 from app.models.test_line import TestLine
 from app.models.test_record import TestRecord, TestRecordLine
 from app.schemas.audit_log import AuditLogOut
 from app.services.emitter_validation_service import get_last_validation
+from app.services.intercept_match_service import entry_status, mode_ranges
 from app.services.readiness_service import compute_mdf_readiness_warnings
 from app.services.test_line_status_service import latest_line_outcomes
 
 STALE_DRAFT_DAYS = 7
 RECENT_ACTIVITY_LIMIT = 10
 RECENT_TEST_RUNS_LIMIT = 8
+# Held for editing longer than this, an Emitter is worth a word (as on the reminder panel).
+LONG_HELD_HOURS = 8
 # A SIM Test Line's latest outcome, or "untested" when no run included it yet.
 SIM_OUTCOME_KEYS = tuple(r.value for r in TestResult) + ("untested",)
 
@@ -42,64 +62,195 @@ def _compute_status_counts(db: Session) -> tuple[dict[str, int], dict[str, int]]
     return emitter_counts, mdf_counts
 
 
-def _compute_needs_attention(db: Session, sim_rows: list[dict]) -> list[dict]:
-    needs_attention: list[dict] = []
-
-    cutoff = datetime.now(timezone.utc) - timedelta(days=STALE_DRAFT_DAYS)
-    draft_emitters = (
-        db.query(Emitter).filter(Emitter.is_deleted.is_(False), Emitter.status == EmitterStatus.draft).all()
+def _stale_drafts(db: Session) -> list[dict]:
+    """In-progress Emitters with no commit for over a week — one query for all."""
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=STALE_DRAFT_DAYS)
+    last_commit = (
+        db.query(EmitterVersion.emitter_id, func.max(EmitterVersion.created_at).label("at"))
+        .group_by(EmitterVersion.emitter_id)
+        .subquery()
     )
-    for emitter in draft_emitters:
-        last_version = (
-            db.query(EmitterVersion)
-            .filter(EmitterVersion.emitter_id == emitter.id)
-            .order_by(EmitterVersion.version_number.desc())
-            .first()
-        )
-        last_activity = last_version.created_at if last_version else emitter.created_at
-        if last_activity < cutoff:
-            days = (datetime.now(timezone.utc) - last_activity).days
-            needs_attention.append(
-                {
-                    "message": f"Emitter '{emitter.name}' has been in progress with no commit for {days} days.",
-                    "entity_type": "emitter",
-                    "entity_id": str(emitter.id),
-                    "category": "stale",
-                }
-            )
-
-    deprecated_emitters = (
-        db.query(Emitter).filter(Emitter.is_deleted.is_(False), Emitter.status == EmitterStatus.deprecated).all()
+    rows = (
+        db.query(Emitter.id, Emitter.name, func.coalesce(last_commit.c.at, Emitter.created_at))
+        .outerjoin(last_commit, last_commit.c.emitter_id == Emitter.id)
+        .filter(Emitter.is_deleted.is_(False), Emitter.status == EmitterStatus.draft)
+        .all()
     )
-    for emitter in deprecated_emitters:
-        if emitter.rework_note:
-            message = f"Emitter '{emitter.name}' needs rework: {emitter.rework_note}"
-        else:
-            message = f"Emitter '{emitter.name}' needs rework."
-        needs_attention.append(
-            {"message": message, "entity_type": "emitter", "entity_id": str(emitter.id), "category": "rework"}
-        )
+    return [
+        {
+            "message": f"Emitter '{name}' has been in progress with no commit for {(now - last).days} days.",
+            "entity_type": "emitter",
+            "entity_id": str(id_),
+            "category": "stale",
+        }
+        for id_, name, last in sorted(rows, key=lambda r: r[2])
+        if last < cutoff
+    ]
 
-    needs_attention.extend(_sim_attention_items(sim_rows))
 
-    active_mdfs = (
+def _mdf_readiness(db: Session) -> list[dict]:
+    """Open readiness warnings on MDFs still in progress — pins loaded together,
+    and which have a passing test found in one query."""
+    mdfs = (
         db.query(Mdf)
+        .options(selectinload(Mdf.links).joinedload(MdfPlatformLink.platform_version))
         .filter(Mdf.is_deleted.is_(False), Mdf.status.notin_([MdfStatus.released, MdfStatus.deprecated]))
         .all()
     )
-    for mdf in active_mdfs:
-        warnings = compute_mdf_readiness_warnings(db, mdf)
-        for w in warnings:
-            needs_attention.append(
-                {
-                    "message": f"MDF '{mdf.name}': {w}",
-                    "entity_type": "mdf",
-                    "entity_id": str(mdf.id),
-                    "category": "mdf",
-                }
-            )
+    if not mdfs:
+        return []
+    passing = {
+        id_
+        for (id_,) in db.query(TestRecord.scope_id)
+        .filter(
+            TestRecord.scope_type == TestScopeType.mdf,
+            TestRecord.scope_id.in_([m.id for m in mdfs]),
+            TestRecord.result == TestResult.pass_,
+        )
+        .distinct()
+    }
+    return [
+        {"message": f"MDF '{mdf.name}': {w}", "entity_type": "mdf", "entity_id": str(mdf.id), "category": "mdf"}
+        for mdf in mdfs
+        for w in compute_mdf_readiness_warnings(db, mdf, has_passing_test=mdf.id in passing)
+    ]
 
-    return needs_attention
+
+def _uncovered_intercepts(db: Session) -> list[dict]:
+    """Intercepts with entries that no Mode of their Emitter covers (not even
+    nearly) — candidates for new Modes, via the Plan Modes page."""
+    modes_by_emitter: dict = {}
+    for mode, emitter_id in (
+        db.query(Mode, EwGroup.emitter_id)
+        .join(EwGroup, Mode.ew_group_id == EwGroup.id)
+        .join(Emitter, Emitter.id == EwGroup.emitter_id)
+        .filter(Emitter.is_deleted.is_(False))
+        .all()
+    ):
+        modes_by_emitter.setdefault(emitter_id, []).append(mode)
+    ranges = {emitter_id: mode_ranges(modes) for emitter_id, modes in modes_by_emitter.items()}
+    rows = (
+        db.query(InterceptEntry, Intercept.id, Intercept.name, Intercept.emitter_id, Emitter.name)
+        .join(Intercept, Intercept.id == InterceptEntry.intercept_id)
+        .join(Emitter, Emitter.id == Intercept.emitter_id)
+        .filter(Emitter.is_deleted.is_(False))
+        .all()
+    )
+    uncovered: dict = {}
+    for entry, intercept_id, intercept_name, emitter_id, emitter_name in rows:
+        if entry_status(entry, ranges.get(emitter_id, [])) == "none":
+            key = (intercept_id, intercept_name, emitter_name)
+            uncovered[key] = uncovered.get(key, 0) + 1
+    return [
+        {
+            "message": f"Intercept '{name}' ({emitter}): {n} {'entry' if n == 1 else 'entries'} no Mode covers.",
+            "entity_type": "intercept",
+            "entity_id": str(id_),
+            "category": "intercepts",
+        }
+        for (id_, name, emitter), n in sorted(uncovered.items(), key=lambda kv: -kv[1])
+    ]
+
+
+_SERIOUS = (AmbiguitySeverity.high, AmbiguitySeverity.exact_overlap)
+
+
+def _ambiguity_findings(db: Session) -> list[dict]:
+    """Unreviewed high-severity or exact-overlap findings in each Emitter's,
+    Platform's or MDF's latest completed ambiguity check."""
+    latest = (
+        db.query(AmbiguityRun.scope_type, AmbiguityRun.scope_id, func.max(AmbiguityRun.created_at).label("at"))
+        .filter(AmbiguityRun.status == AmbiguityRunStatus.complete)
+        .group_by(AmbiguityRun.scope_type, AmbiguityRun.scope_id)
+        .subquery()
+    )
+    rows = (
+        db.query(AmbiguityRun.scope_type, AmbiguityRun.scope_id, func.count(AmbiguityFinding.id))
+        .join(
+            latest,
+            (latest.c.scope_type == AmbiguityRun.scope_type)
+            & (latest.c.scope_id == AmbiguityRun.scope_id)
+            & (latest.c.at == AmbiguityRun.created_at),
+        )
+        .join(AmbiguityFinding, AmbiguityFinding.run_id == AmbiguityRun.id)
+        .filter(AmbiguityFinding.combined_severity.in_(_SERIOUS), AmbiguityFinding.reviewed_at.is_(None))
+        .group_by(AmbiguityRun.scope_type, AmbiguityRun.scope_id)
+        .all()
+    )
+    names: dict = {}
+    for scope, model in ((AmbiguityScopeType.emitter, Emitter), (AmbiguityScopeType.platform, Platform), (AmbiguityScopeType.mdf, Mdf)):
+        ids = [scope_id for scope_type, scope_id, _ in rows if scope_type == scope]
+        if ids:
+            for id_, name in db.query(model.id, model.name).filter(model.id.in_(ids), model.is_deleted.is_(False)):
+                names[(scope, id_)] = name
+    labels = {AmbiguityScopeType.emitter: "Emitter", AmbiguityScopeType.platform: "Platform", AmbiguityScopeType.mdf: "MDF"}
+    items = []
+    for scope_type, scope_id, n in sorted(rows, key=lambda r: -r[2]):
+        name = names.get((scope_type, scope_id))
+        if name is None:
+            continue  # deleted since
+        items.append(
+            {
+                "message": f"{labels[scope_type]} '{name}': {n} serious {'overlap' if n == 1 else 'overlaps'} unreviewed in its latest ambiguity check.",
+                "entity_type": scope_type.value,
+                "entity_id": str(scope_id),
+                "category": "ambiguity",
+            }
+        )
+    return items
+
+
+def long_held_locks(db: Session, exclude_user_id=None) -> list[dict]:
+    """Emitters held for editing over LONG_HELD_HOURS — nobody else can edit them."""
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=LONG_HELD_HOURS)
+    q = (
+        db.query(Emitter.id, Emitter.name, Emitter.checked_out_at, User.username)
+        .join(User, User.id == Emitter.checked_out_by_id)
+        .filter(Emitter.is_deleted.is_(False), Emitter.checked_out_at < cutoff)
+    )
+    if exclude_user_id is not None:
+        q = q.filter(Emitter.checked_out_by_id != exclude_user_id)
+    now = datetime.now(timezone.utc)
+    out = []
+    for id_, name, since, username in q.order_by(Emitter.checked_out_at).all():
+        hours = (now - since).total_seconds() / 3600
+        held = f"{int(hours // 24)} days" if hours >= 48 else f"{int(hours)} hours"
+        out.append(
+            {
+                "message": f"Emitter '{name}' has been held for editing by {username} for {held} — nobody else can edit it.",
+                "entity_type": "emitter",
+                "entity_id": str(id_),
+                "category": "locks",
+            }
+        )
+    return out
+
+
+def _compute_needs_attention(db: Session, sim_rows: list[dict], user: User | None = None) -> list[dict]:
+    """Everything worth a look, grouped by category. Edit locks aren't shown to
+    viewers (they can't edit anyway), and your own holds are on My work."""
+    items: list[dict] = []
+    items.extend(_stale_drafts(db))
+    items.extend(
+        {
+            "message": f"Emitter '{name}' needs rework: {note}" if note else f"Emitter '{name}' needs rework.",
+            "entity_type": "emitter",
+            "entity_id": str(id_),
+            "category": "rework",
+        }
+        for id_, name, note in db.query(Emitter.id, Emitter.name, Emitter.rework_note)
+        .filter(Emitter.is_deleted.is_(False), Emitter.status == EmitterStatus.deprecated)
+        .order_by(Emitter.name)
+        .all()
+    )
+    items.extend(_sim_attention_items(sim_rows))
+    items.extend(_mdf_readiness(db))
+    items.extend(_uncovered_intercepts(db))
+    items.extend(_ambiguity_findings(db))
+    if user is None or has_role(user, Role.editor):
+        items.extend(long_held_locks(db, exclude_user_id=user.id if user else None))
+    return items
 
 
 def _compute_pending_approvals(db: Session) -> list[dict]:
@@ -284,33 +435,69 @@ def _compute_needs_redo(db: Session) -> list[dict]:
     return needs_redo
 
 
-def _compute_recent_activity(db: Session, limit: int = RECENT_ACTIVITY_LIMIT) -> list[AuditLogOut]:
-    rows = (
-        db.query(AuditLog)
-        .options(joinedload(AuditLog.actor))
-        .order_by(AuditLog.created_at.desc())
-        .limit(limit)
-        .all()
-    )
+#: Audit actions left out of Recent Activity unless asked for: comings and
+#: goings, not changes.
+QUIET_ACTIONS = ("login", "logout", "login_failed", "checkout", "checkin")
+
+
+def _compute_recent_activity(db: Session, limit: int = RECENT_ACTIVITY_LIMIT, everything: bool = False) -> list[AuditLogOut]:
+    q = db.query(AuditLog).options(joinedload(AuditLog.actor))
+    if not everything:
+        q = q.filter(AuditLog.action.notin_(QUIET_ACTIONS))
+    rows = q.order_by(AuditLog.created_at.desc()).limit(limit).all()
     return [AuditLogOut.model_validate(r) for r in rows]
 
 
-def compute_dashboard(db: Session) -> dict:
+# --- Sections: each dashboard card loads its own, so a slow one holds up only itself.
+
+
+def overview_section(db: Session) -> dict:
     emitter_counts, mdf_counts = _compute_status_counts(db)
     sim_rows = _compute_emitter_sim_status(db)
     sim_line_counts = dict.fromkeys(SIM_OUTCOME_KEYS, 0)
     for row in sim_rows:
         for key, count in row["line_outcomes"].items():
             sim_line_counts[key] += count
-
     return {
         "emitter_status_counts": emitter_counts,
         "mdf_status_counts": mdf_counts,
-        "needs_attention": _compute_needs_attention(db, sim_rows),
-        "pending_approvals": _compute_pending_approvals(db),
         "sim_line_counts": sim_line_counts,
         "emitter_sim_status": sim_rows,
-        "recent_test_runs": _compute_recent_test_runs(db),
-        "needs_redo": _compute_needs_redo(db),
+    }
+
+
+def attention_section(db: Session, user: User | None = None) -> dict:
+    """Sources awaiting review go to those who can review them (editors and up)."""
+    sim_rows = _compute_emitter_sim_status(db)
+    return {
+        "needs_attention": _compute_needs_attention(db, sim_rows, user),
+        "pending_approvals": _compute_pending_approvals(db) if user is None or has_role(user, Role.editor) else [],
+    }
+
+
+def test_runs_section(db: Session) -> dict:
+    return {"recent_test_runs": _compute_recent_test_runs(db), "needs_redo": _compute_needs_redo(db)}
+
+
+def admin_section(db: Session) -> dict:
+    """For admins: failed sign-ins in the last day, and every long-held edit lock."""
+    since = datetime.now(timezone.utc) - timedelta(hours=24)
+    failed = db.query(AuditLog).filter(AuditLog.action == "login_failed", AuditLog.created_at >= since)
+    recent = failed.options(joinedload(AuditLog.actor)).order_by(AuditLog.created_at.desc()).limit(5).all()
+    return {
+        "failed_logins_24h": failed.count(),
+        "recent_failed_logins": [AuditLogOut.model_validate(r) for r in recent],
+        "long_held_locks": long_held_locks(db),
+    }
+
+
+def compute_dashboard(db: Session, user: User | None = None) -> dict:
+    """Everything at once — the sections together."""
+    overview = overview_section(db)
+    return {
+        **overview,
+        "needs_attention": _compute_needs_attention(db, overview["emitter_sim_status"], user),
+        "pending_approvals": _compute_pending_approvals(db) if user is None or has_role(user, Role.editor) else [],
+        **test_runs_section(db),
         "recent_activity": _compute_recent_activity(db),
     }

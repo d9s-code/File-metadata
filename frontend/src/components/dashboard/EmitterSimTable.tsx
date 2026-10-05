@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import type { EmitterSimStatus } from "../../api/dashboard";
+import type { EmitterSimStatus, SimOutcomeCounts } from "../../api/dashboard";
 import { emitterStatusLabel } from "../common/emitterStatusLabel";
 import { EmptyState } from "../common/EmptyState";
 import { testLink } from "../modes/TestDerivedBadge";
-import { SimOutcomeBar } from "./SimOutcomeBar";
+import { SimOutcomeBar, SimOutcomeLegend } from "./SimOutcomeBar";
 
 type Filter = "problems" | "with_lines" | "all";
 
@@ -16,10 +16,14 @@ function needsLook(r: EmitterSimStatus): boolean {
   return r.line_count > 0 && (wrongCount(r) > 0 || r.line_outcomes.untested > 0 || r.changed_since_validation);
 }
 
-/** One compact row per Emitter — searchable, filterable and scrolling
- * inside a fixed height, so it stays the same size however many Emitters
- * there are. Worst first: missed/misclassified lines, then untested ones. */
-export function EmitterSimTable({ rows }: { rows: EmitterSimStatus[] }) {
+/** Simulation validation: the system-wide picture on top (how every SIM Test
+ * Line did in its latest run), then one compact row per Emitter — searchable,
+ * filterable and scrolling inside a fixed height. Worst first: missed or
+ * misclassified lines, then untested ones. */
+export function EmitterSimTable({ rows, counts }: { rows: EmitterSimStatus[]; counts: SimOutcomeCounts }) {
+  const withLines = rows.filter((r) => r.line_count > 0);
+  const allCorrect = withLines.filter((r) => r.line_outcomes.pass === r.line_count).length;
+  const neverTested = withLines.filter((r) => r.last_validated_at === null).length;
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("with_lines");
 
@@ -39,7 +43,7 @@ export function EmitterSimTable({ rows }: { rows: EmitterSimStatus[] }) {
   return (
     <div className="card dashboard-wide">
       <div className="dashboard-card-header">
-        <h4>Emitters by SIM Test Line status</h4>
+        <h4>Simulation validation</h4>
         <div className="dashboard-card-tools">
           <input
             type="search"
@@ -55,6 +59,19 @@ export function EmitterSimTable({ rows }: { rows: EmitterSimStatus[] }) {
           </select>
         </div>
       </div>
+      {withLines.length > 0 && (
+        <div className="sim-summary">
+          <p className="sim-headline">
+            <strong>
+              {allCorrect} / {withLines.length}
+            </strong>{" "}
+            Emitters had every SIM Test Line correct in their latest run
+            {neverTested > 0 && <span className="hint-text"> · {neverTested} never tested</span>}
+          </p>
+          <SimOutcomeBar counts={counts} />
+          <SimOutcomeLegend counts={counts} />
+        </div>
+      )}
       {shown.length === 0 ? (
         <EmptyState
           icon="✓"

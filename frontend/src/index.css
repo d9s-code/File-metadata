@@ -1329,24 +1329,6 @@ label {
   margin-left: 0.2rem;
 }
 
-.status-tiles { margin-bottom: 1rem; }
-.status-tile-row {
-  display: flex;
-  gap: 1.25rem;
-  flex-wrap: wrap;
-}
-.status-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.4rem;
-}
-.status-tile-count {
-  font-size: 1.9rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
 /* A fixed column count rather than "as many as fit": the wide cards below
    span a set number of columns, which only lines up when the count is
    known — auto-fill left holes at 1920px. */
@@ -1374,12 +1356,6 @@ label {
   .dashboard-grid {
     grid-template-columns: minmax(0, 1fr);
   }
-}
-.lifecycle-card .status-tile-row {
-  gap: 0.9rem 1.1rem;
-}
-.lifecycle-card .status-tile-count {
-  font-size: 1.5rem;
 }
 .lifecycle-card h4 a {
   color: inherit;
@@ -1446,12 +1422,6 @@ label {
 }
 .data-table td.nowrap {
   white-space: nowrap;
-}
-.attention-group + .attention-group {
-  margin-top: 0.6rem;
-}
-.attention-group h5 {
-  margin: 0 0 0.3rem;
 }
 
 /* SIM Test Line outcomes as one stacked bar. Colours match the outcome
@@ -1555,36 +1525,6 @@ label {
   font-size: 0.8rem;
   color: var(--muted);
   white-space: nowrap;
-}
-
-.attention-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  font-size: 0.9rem;
-}
-.attention-item {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 0.55rem 0.7rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  color: var(--text);
-  text-decoration: none;
-  background: var(--card-bg);
-  transition: background 0.15s var(--ease), border-color 0.15s var(--ease);
-}
-a.attention-item:hover {
-  background: var(--hover-bg);
-  border-color: var(--primary);
-}
-.attention-item::before {
-  content: "⚠ ";
-  color: var(--badge-amber-fg);
 }
 
 .severity-badge {
@@ -4878,4 +4818,125 @@ label.map-axis select { font-size: 0.8rem; padding: 0.1rem 0.3rem; }
   .line-row-inputs > label:not(.line-range-check) {
     width: calc(50% - 0.3rem);
   }
+}
+
+/* Dashboard: Needs Attention, one line per item */
+.attention-card .dashboard-card-header h4 .section-count {
+  margin-left: 0.3rem;
+}
+.attention-group + .attention-group {
+  margin-top: 0.35rem;
+}
+.attention-group-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.25rem 0.2rem;
+  background: none;
+  color: var(--text);
+  text-align: left;
+  font-size: 0.88rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+}
+.attention-group-head:hover:not(:disabled) {
+  background: var(--hover-bg);
+}
+.attention-group-title {
+  flex: none;
+}
+.attention-lines {
+  list-style: none;
+  margin: 0.1rem 0 0.2rem;
+  padding: 0 0 0 1.3rem;
+}
+.attention-lines li {
+  padding: 0.18rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.86rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.attention-lines li:last-child {
+  border-bottom: none;
+}
+.attention-lines a {
+  color: var(--text);
+  text-decoration: none;
+}
+.attention-lines a:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+.attention-more {
+  margin-left: 1.3rem;
+}
+
+/* Dashboard: status counts, compact */
+.status-compact {
+  list-style: none;
+  margin: 0.2rem 0 0.4rem;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: 0.35rem 0.75rem;
+}
+.status-compact li {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.status-compact-count {
+  min-width: 2ch;
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.status-compact li.zero {
+  opacity: 0.45;
+}
+.lifecycle-second {
+  margin-top: 0.6rem;
+}
+
+/* Dashboard: Simulation validation summary above its table */
+.sim-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.6rem;
+}
+.sim-summary .sim-headline {
+  margin: 0;
+}
+
+/* Dashboard: Admin card */
+.admin-card section + section {
+  margin-top: 0.6rem;
+}
+.admin-card h5 {
+  margin: 0 0 0.25rem;
+  font-size: 0.86rem;
+}
+.section-count.warn {
+  color: var(--badge-red-fg);
+  font-weight: 700;
+}
+.admin-card-list {
+  list-style: none;
+  margin: 0 0 0.3rem;
+  padding: 0;
+  font-size: 0.84rem;
+}
+.admin-card-list li {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0.1rem 0;
+}
+.status-compact .status-badge {
+  white-space: nowrap;
 }

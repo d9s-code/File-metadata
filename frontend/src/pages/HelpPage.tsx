@@ -174,7 +174,7 @@ export function HelpPage() {
         <h2>Dashboard</h2>
         <p>
           The landing page after login, and the best place to start when you&rsquo;re not sure where
-          something stands:
+          something stands. Each card loads on its own.
         </p>
         <ul>
           <li>
@@ -182,36 +182,34 @@ export function HelpPage() {
             assigned to you, and the Emitters you&apos;re editing now. See <a href="#tasks">Tasks &amp; assignment</a>.
           </li>
           <li>
+            <strong>Needs Attention</strong> — one line per item, grouped: Simulation (SIM Test Lines missed or
+            misclassified, an Emitter in Testing never simulated, one changed since its last simulation), Needs rework,
+            Sources awaiting review, Intercepts with entries no Mode covers, unreviewed serious overlaps from the latest
+            ambiguity check, Emitters held for editing over 8 hours, stalled Emitters and MDF readiness. Click a group
+            to fold it; click an item to go to it.
+          </li>
+          <li>
             <strong>Emitters</strong> and <strong>MDFs</strong> — how many are at each lifecycle stage.
           </li>
           <li>
-            <strong>Simulation Validation</strong> — every SIM Test Line&rsquo;s latest outcome across all
-            Emitters (correct, misclassified, missed, inconclusive, untested), and how many Emitters had
-            every line correct in their latest run.
+            <strong>Admin</strong> (admins only) — failed sign-ins in the last day, and long-held edit locks.
           </li>
           <li>
-            <strong>Needs Attention</strong> — grouped: SIM Test Lines missed or misclassified in their latest
-            run, an Emitter in Testing that was never checked against a simulation, an Emitter changed after
-            its last simulation test, Emitters needing rework, Sources awaiting review, stalled Emitters and
-            MDF readiness warnings. Click any item to jump straight to it.
-          </li>
-          <li>
-            <strong>Emitters by SIM Test Line status</strong> — one row per Emitter, worst first, with a
-            search box and a filter (needing a look / with SIM Test Lines / all). It scrolls inside a fixed
-            height, so it stays compact however many Emitters there are.
+            <strong>Simulation validation</strong> — every SIM Test Line&rsquo;s latest outcome as one bar, then
+            one row per Emitter, worst first, with a search box and a filter.
           </li>
           <li>
             <strong>Test Runs</strong> — the latest runs with their line outcomes, and failed or partial runs
             that still need a redo.
           </li>
           <li>
-            <strong>Backup</strong> — how long since the last backup, how many changes have been made since, and
-            which Emitters, Platforms and MDFs were added, changed or removed. The more that changes, the sooner a
-            backup is due — the bar fills toward that, and the card turns amber when it&apos;s due and red when
-            it&apos;s overdue. See <a href="#admin-backups">Backups</a>.
+            <strong>Recent Activity</strong> — the latest changes from the Audit Log; tick{" "}
+            <em>Sign-ins &amp; edit locks too</em> to include those.
           </li>
           <li>
-            <strong>Recent Activity</strong> — the last few entries from the Audit Log.
+            <strong>Backup</strong> — how long since the last backup, how many changes have been made since, and
+            which Emitters, Platforms and MDFs were added, changed or removed. The more that changes, the sooner a
+            backup is due. See <a href="#admin-backups">Backups</a>.
           </li>
         </ul>
       </div>

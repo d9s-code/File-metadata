@@ -1,5 +1,6 @@
 import { statusLabel } from "../common/emitterStatusLabel";
 
+/** How many sit at each stage, compactly: one line each, zeros faded back. */
 export function StatusTiles({
   counts,
   labelFor = statusLabel,
@@ -8,13 +9,13 @@ export function StatusTiles({
   labelFor?: (status: string) => string;
 }) {
   return (
-    <div className="status-tile-row">
+    <ul className="status-compact">
       {Object.entries(counts).map(([status, count]) => (
-        <div key={status} className="status-tile">
-          <span className="status-tile-count">{count}</span>
+        <li key={status} className={count === 0 ? "zero" : undefined}>
+          <span className="status-compact-count">{count}</span>
           <span className={`status-badge status-${status}`}>{labelFor(status)}</span>
-        </div>
+        </li>
       ))}
-    </div>
+    </ul>
   );
 }

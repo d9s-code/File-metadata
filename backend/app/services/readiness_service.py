@@ -9,7 +9,9 @@ from app.models.mdf import Mdf
 from app.models.test_record import TestRecord
 
 
-def compute_mdf_readiness_warnings(db: Session, mdf: Mdf) -> list[str]:
+def compute_mdf_readiness_warnings(db: Session, mdf: Mdf, has_passing_test: bool | None = None) -> list[str]:
+    """`has_passing_test` can be given by a caller checking many MDFs at once
+    (the dashboard), so it isn't looked up one MDF at a time."""
     warnings: list[str] = []
 
     referenced_emitters: dict[str, dict] = {}
@@ -30,16 +32,17 @@ def compute_mdf_readiness_warnings(db: Session, mdf: Mdf) -> list[str]:
                 f"'Operational' (via pinned platforms): {names}"
             )
 
-    has_passing_test = (
-        db.query(TestRecord)
-        .filter(
-            TestRecord.scope_type == TestScopeType.mdf,
-            TestRecord.scope_id == mdf.id,
-            TestRecord.result == TestResult.pass_,
+    if has_passing_test is None:
+        has_passing_test = (
+            db.query(TestRecord)
+            .filter(
+                TestRecord.scope_type == TestScopeType.mdf,
+                TestRecord.scope_id == mdf.id,
+                TestRecord.result == TestResult.pass_,
+            )
+            .first()
+            is not None
         )
-        .first()
-        is not None
-    )
     if not has_passing_test:
         warnings.append("No passing test on file for this MDF.")
 

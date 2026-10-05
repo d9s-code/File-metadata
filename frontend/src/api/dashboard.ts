@@ -3,9 +3,9 @@ import type { AuditLogEntry, EmitterStatus, TestResult, TestType } from "../type
 
 export interface NeedsAttentionItem {
   message: string;
-  entity_type: "emitter" | "mdf";
+  entity_type: "emitter" | "platform" | "mdf" | "intercept";
   entity_id: string;
-  category: "stale" | "rework" | "sim" | "mdf";
+  category: "stale" | "rework" | "sim" | "mdf" | "intercepts" | "ambiguity" | "locks";
 }
 
 export interface PendingApprovalItem {
@@ -65,6 +65,26 @@ export interface Dashboard {
   recent_activity: AuditLogEntry[];
 }
 
+export type DashboardOverview = Pick<
+  Dashboard,
+  "emitter_status_counts" | "mdf_status_counts" | "sim_line_counts" | "emitter_sim_status"
+>;
+export type DashboardAttention = Pick<Dashboard, "needs_attention" | "pending_approvals">;
+export type DashboardTestRuns = Pick<Dashboard, "recent_test_runs" | "needs_redo">;
+
+export interface DashboardAdmin {
+  failed_logins_24h: number;
+  recent_failed_logins: AuditLogEntry[];
+  long_held_locks: NeedsAttentionItem[];
+}
+
 export const dashboardApi = {
   get: () => api.get<Dashboard>("/dashboard"),
+  // One section per card, so each loads on its own.
+  overview: () => api.get<DashboardOverview>("/dashboard/overview"),
+  attention: () => api.get<DashboardAttention>("/dashboard/attention"),
+  testRuns: () => api.get<DashboardTestRuns>("/dashboard/test-runs"),
+  activity: (everything: boolean) =>
+    api.get<{ recent_activity: AuditLogEntry[] }>(`/dashboard/activity${everything ? "?everything=true" : ""}`),
+  admin: () => api.get<DashboardAdmin>("/dashboard/admin"),
 };
