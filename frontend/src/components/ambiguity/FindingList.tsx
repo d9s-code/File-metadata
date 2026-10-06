@@ -1,7 +1,7 @@
 import { useEffect, useRef, type KeyboardEvent } from "react";
 import type { AmbiguityFinding } from "../../api/ambiguity";
 import { SeverityBadge } from "./SeverityBadge";
-import { PARAMS, findingStatus, limitingParam, overlapPct, pct } from "./ambiguityText";
+import { PARAMS, findingStatus, limitingParam, overlapPct, pct, priLabel } from "./ambiguityText";
 
 const STATUS_MARK = { open: "", acknowledged: "✓", merged: "⇄" } as const;
 const STATUS_TITLE = { open: "", acknowledged: "Acknowledged", merged: "Modes merged" } as const;
@@ -69,7 +69,7 @@ export function FindingList({
                   if (v == null) return null;
                   return (
                     <span key={key} className={key === limiting ? "limiting" : undefined}>
-                      {label} {pct(v)}
+                      {key === "pri" ? priLabel(f) : label} {pct(v)}
                     </span>
                   );
                 })}

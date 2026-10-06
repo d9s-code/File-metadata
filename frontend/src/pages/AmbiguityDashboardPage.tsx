@@ -27,6 +27,7 @@ import {
   SEVERITY_RANK,
   findingStatus,
   marginsApplied,
+  rulesCurrent,
   scopeName,
   type FindingStatus,
 } from "../components/ambiguity/ambiguityText";
@@ -202,8 +203,12 @@ export function AmbiguityDashboardPage() {
                     {scopeName(scopeType)} saved again since (now version {latestVersion?.version_number}) — run the check again for current results.
                   </span>
                 )}
-                {!marginsApplied(run) && (
-                  <span className="amb-stale">This older check compared ranges without their margins — run it again to include them.</span>
+                {!rulesCurrent(run) && (
+                  <span className="amb-stale">
+                    This check used older rules
+                    {marginsApplied(run) ? "" : " (without margins)"} — before PRI type, jitter and frame-time matching counted.
+                    Run it again for the current rules.
+                  </span>
                 )}
               </>
             ) : run?.status === "failed" ? (

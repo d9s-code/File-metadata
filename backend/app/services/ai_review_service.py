@@ -110,6 +110,9 @@ def _mode_block(label: str, side: dict, pri_type: str, notes: str | None) -> str
         parts.append(f"  PRI stagger sequence: {seq or 'not set'} µs")
         if line.get("explicit_frame_time_us") is not None:
             parts.append(f"  Frame time: {_n(line['explicit_frame_time_us'])} µs")
+        if line.get("pri_range_matching"):
+            margin = line.get("frame_time_delta_us")
+            parts.append(f"  Range matching on: matched on its frame time{f' (margin ±{_n(margin)} µs)' if margin else ''}")
     else:
         parts.append("  PRI: none (no PRI for this type)")
     parts.append(f"  PW: {_span(line.get('pw_min_us'), line.get('pw_max_us'), 'µs', line.get('pw_delta'))}")
@@ -149,11 +152,16 @@ def finding_context(db: Session, finding: AmbiguityFinding) -> str:
     a, b = details.get("mode_a") or {}, details.get("mode_b") or {}
     notes = {m.id: m.notes for m in db.query(Mode).filter(Mode.id.in_([finding.mode_id_a, finding.mode_id_b]))}
     tol = finding.run.tolerance_config or {}
-    pri = (
-        f"PRI {_n(finding.pri_overlap_pct)}% ({finding.pri_comparison_type})"
-        if finding.pri_overlap_pct is not None
-        else f"PRI not compared ({finding.pri_comparison_type}: at least one has no PRI)"
+    basis = {"frame_time": "frame time", "steps": "identical stagger steps", "range": "range"}.get(
+        details.get("pri_basis") or "", ""
     )
+    pri = (
+        f"PRI {_n(finding.pri_overlap_pct)}% ({finding.pri_comparison_type}{', on ' + basis if basis else ''})"
+        if finding.pri_overlap_pct is not None
+        else f"PRI not compared ({finding.pri_comparison_type}: no PRI)"
+    )
+    if details.get("jitter_overlap_pct") is not None:
+        pri += f", jitter {_n(details['jitter_overlap_pct'])}%"
     return "\n".join(
         [
             f"Ambiguity check of {scope_label(db, finding.run)}.",

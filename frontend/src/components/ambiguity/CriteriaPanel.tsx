@@ -57,17 +57,31 @@ export function CriteriaPanel({
     <div className="criteria-panel">
       <ol className="criteria-steps">
         <li>
-          <strong>Every pair of Modes</strong> is compared on RF, PRI and PW, each range <strong>widened by its ± margin</strong>{" "}
-          — the ranges the sensor matches with.
+          Only Modes of the <strong>same PRI type</strong> are compared — a different type tells them apart.
+        </li>
+        <li>
+          Each pair is compared on <strong>RF, PRI and PW</strong>, each range <strong>widened by its ± margin</strong> —
+          the ranges the sensor matches with — and on <strong>jitter</strong> when both are Fixed with jitter:
+          <ul className="criteria-levels">
+            <li>
+              <strong>Fixed:</strong> PRI as a range. If only one of the two has jitter, they&apos;re told apart.
+            </li>
+            <li>
+              <strong>Stagger with range matching on:</strong> PRI is the frame time (± frame margin). If only one of the
+              two has range matching on, they&apos;re told apart.
+            </li>
+            <li>
+              <strong>Stagger without range matching:</strong> PRI is the share of steps that are identical.
+            </li>
+            <li>
+              <strong>CW and X-let:</strong> no PRI — RF and PW only.
+            </li>
+          </ul>
         </li>
         <li>
           For each parameter, the <strong>overlap</strong> is how much of the <em>narrower</em> of the two ranges the
-          other covers — so a narrow Mode inside a wide one is 100%. Two staggers overlap on the share of their steps
-          that are identical. CW and X-let have no PRI, so they're compared on RF and PW only.
-        </li>
-        <li>
-          A pair is a <strong>finding</strong> only if it overlaps on <em>every</em> parameter compared — one clear gap
-          is enough to tell them apart.
+          other covers — so a narrow Mode inside a wide one is 100%. A pair is a <strong>finding</strong> only if it
+          overlaps on <em>every</em> parameter compared — one clear gap is enough to tell them apart.
         </li>
         <li>
           Its <strong>severity</strong> is set by the parameter that overlaps <em>least</em>:

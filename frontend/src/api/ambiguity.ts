@@ -11,6 +11,8 @@ export interface ToleranceConfig {
   /** Compare each range widened by its ± margin. Absent on checks made before
    * margins were used — those compared the ranges as typed. */
   apply_margins?: boolean;
+  /** 2: PRI type, range-matched frame time and jitter rules. Absent on older checks. */
+  rules_version?: number;
 }
 
 export interface AmbiguityRun {
@@ -77,7 +79,7 @@ export interface ModeLineSnapshot {
   pri_stagger_values_us: number[] | null;
 }
 
-export type OverlapParam = "rf" | "pw" | "pri";
+export type OverlapParam = "rf" | "pw" | "pri" | "jitter";
 
 /** One side's ranges as the check compared them. */
 export interface ComparedSide {
@@ -85,6 +87,9 @@ export interface ComparedSide {
   pw: [number, number];
   pri: [number, number] | null;
   stagger: number[] | null;
+  /** A range-matched Stagger's frame time window, when that's what was compared. */
+  frame_time?: [number, number] | null;
+  jitter?: [number, number] | null;
 }
 
 export interface FindingModeSide {
@@ -117,6 +122,9 @@ export interface AmbiguityFinding {
     /** On checks made since margins were used: */
     margins_applied?: boolean;
     limiting?: OverlapParam;
+    jitter_overlap_pct?: number | null;
+    /** What PRI was compared on: a Fixed range, identical Stagger steps, or Stagger frame time. */
+    pri_basis?: "range" | "steps" | "frame_time" | null;
     compared?: { mode_a: ComparedSide; mode_b: ComparedSide };
   };
   reviewed_by: string | null;

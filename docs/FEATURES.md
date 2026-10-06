@@ -235,18 +235,18 @@ The core analytical feature: detecting when two Modes' parameter spaces overlap 
 
 ### How it works
 
-Each Mode Line is treated as an RF × PW × PRI box. For every pair of Modes in scope:
+Each Mode Line is treated as an RF × PW × PRI box (plus jitter for Fixed PRI). RF and PW always compare as range overlaps; how PRI compares, and whether a pair can be ambiguous at all, is below.
 
-- **RF and PW** always compare as simple range overlaps.
-- **PRI** comparison depends on the pair of PRI Types involved:
-  - Fixed vs. Fixed → range overlap
-  - Stagger vs. Stagger → shared discrete values
-  - Fixed vs. Stagger → what fraction of the stagger's values fall inside the fixed range
-  - Anything vs. **CW or Xlet** → PRI has no value to compare, so the check degrades to **RF+PW only** (flagged explicitly, not silently ignored)
+Each parameter gets an overlap percentage (`intersection ÷ smaller of the two ranges`, so a narrow mode fully contained in a wide one still reads as highly ambiguous). A pair is a finding only if every compared parameter overlaps, and its severity comes from the parameter that overlaps least, bucketed by a configurable **tolerance** (low / high / exact thresholds, editable by Editors and Admins) into `low`, `medium`, `high` or `exact_overlap`.
 
-Each dimension gets an overlap percentage (`intersection ÷ smaller of the two ranges`, so a narrow mode fully contained in a wide one still reads as highly ambiguous). Overall severity buckets from a configurable **tolerance** (low / high / exact thresholds, editable by Editors and Admins) into: `none`, `low`, `medium`, `high`, or `exact_overlap`.
+Ranges are compared **with their ± margins** — each Mode's RF, PRI and PW range widened by its delta, the ranges the sensor actually matches with. Which pairs can be ambiguous at all:
 
-Ranges are compared **with their ± margins** — each Mode's RF, PRI and PW range widened by its delta, the ranges the sensor actually matches with (checks made before this compared ranges as typed, and the page says so). Stagger sequences still overlap only on identical step values. Every finding records the ranges it compared and which parameter set its severity, and the page spells the rules out in words, with the thresholds in the sentences.
+- **Same PRI type only** — a different PRI type tells two Modes apart.
+- **Fixed vs Fixed** — PRI as a range; when both have **jitter**, jitter is compared as another parameter; if only one has jitter (0–0 counts as none), they're told apart.
+- **Stagger vs Stagger** — with **range matching** on both, PRI is compared on the **frame time** (± frame margin); with it on only one, they're told apart; with it on neither, on the share of identical steps.
+- **CW vs CW, X-let vs X-let** — RF and PW only.
+
+Checks made under older rules say so on the page. Every finding records the ranges it compared and which parameter set its severity, and the page spells the rules out in words, with the thresholds in the sentences.
 
 ### Three scopes
 

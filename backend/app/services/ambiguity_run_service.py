@@ -57,6 +57,7 @@ def _prior_reviewed_findings(db, run: AmbiguityRun) -> list[dict]:
             "rf_overlap_pct": float(pf.rf_overlap_pct),
             "pw_overlap_pct": float(pf.pw_overlap_pct),
             "pri_overlap_pct": float(pf.pri_overlap_pct) if pf.pri_overlap_pct is not None else None,
+            "jitter_overlap_pct": (pf.details or {}).get("jitter_overlap_pct"),
             "combined_severity": pf.combined_severity.value,
             "reviewed_by": pf.reviewed_by,
             "reviewed_at": pf.reviewed_at,

@@ -4,11 +4,17 @@ committed version snapshot (never the live draft — see AmbiguityRun).
 Each mode_line is treated as an RF x PW x PRI box — by default the box the
 sensor matches with: each range widened by its ± margin (rf_delta, pw_delta,
 pri_delta). A run's tolerance_config records that as apply_margins; runs
-made before it existed compared the ranges as typed. RF/PW always compare as
-ranges. PRI comparison depends on the pair of PRI types: Fixed-vs-Fixed is
-range overlap, Stagger compares discrete values against the other side's
-range/set, and CW/Xlet carry no PRI value so the comparison degrades to
-RF+PW-only (pri_overlap_pct is None, flagged via pri_comparison_type).
+made before it existed compared the ranges as typed. RF and PW always
+compare as ranges.
+
+Which pairs can be ambiguous at all (rules_version 2):
+- Only Modes of the same PRI type — a different type tells them apart.
+- Two Fixed: PRI compares as ranges; both with jitter are compared on jitter
+  too; only one with jitter tells them apart.
+- Two Staggers: both with PRI range matching on are compared on their frame
+  time (± frame margin); neither, on their identical steps; only one with
+  range matching on tells them apart.
+- Two CW or two X-let: RF and PW only (pri_overlap_pct is None).
 """
 
 from dataclasses import dataclass, field
@@ -16,12 +22,19 @@ from itertools import combinations
 from typing import Any
 
 from app.services.delta import apply_delta
+from app.services.frametime_service import effective_frametime_us
 from app.services.snapshots import rejected_source_ids
 
-DEFAULT_TOLERANCE = {"low_threshold": 30.0, "high_threshold": 70.0, "exact_threshold": 99.0, "apply_margins": True}
+DEFAULT_TOLERANCE = {
+    "low_threshold": 30.0,
+    "high_threshold": 70.0,
+    "exact_threshold": 99.0,
+    "apply_margins": True,
+    "rules_version": 2,
+}
 
 # Which parameter each overlap percentage belongs to, for "decided by".
-_PARAMS = ("rf", "pw", "pri")
+_PARAMS = ("rf", "pw", "pri", "jitter")
 
 
 @dataclass
@@ -126,35 +139,10 @@ def _stagger_values_overlap_pct(values_a: list[float], values_b: list[float]) ->
     return round(100.0 * len(shared) / min(len(set_a), len(set_b)), 2)
 
 
-def _stagger_vs_range_overlap_pct(stagger_values: list[float], range_min: float, range_max: float) -> float:
-    if not stagger_values:
-        return 0.0
-    in_range = sum(1 for v in stagger_values if range_min <= v <= range_max)
-    return round(100.0 * in_range / len(stagger_values), 2)
-
-
-def compute_pri_overlap(line_a: dict, type_a: str, line_b: dict, type_b: str) -> tuple[float | None, str]:
-    comparison_type = "-".join(sorted([type_a, type_b]))
-
-    if type_a in ("cw", "xlet") or type_b in ("cw", "xlet"):
-        return None, comparison_type
-
-    if type_a == "fixed" and type_b == "fixed":
-        pct = _range_overlap_pct(line_a["pri_min_us"], line_a["pri_max_us"], line_b["pri_min_us"], line_b["pri_max_us"])
-    elif type_a == "stagger" and type_b == "stagger":
-        pct = _stagger_values_overlap_pct(line_a["pri_stagger_values_us"] or [], line_b["pri_stagger_values_us"] or [])
-    elif type_a == "fixed" and type_b == "stagger":
-        pct = _stagger_vs_range_overlap_pct(line_b["pri_stagger_values_us"] or [], line_a["pri_min_us"], line_a["pri_max_us"])
-    elif type_a == "stagger" and type_b == "fixed":
-        pct = _stagger_vs_range_overlap_pct(line_a["pri_stagger_values_us"] or [], line_b["pri_min_us"], line_b["pri_max_us"])
-    else:
-        return None, comparison_type
-
-    return pct, comparison_type
-
-
-def compute_severity(rf_pct: float, pw_pct: float, pri_pct: float | None, tolerance: dict) -> str:
-    dims = [rf_pct, pw_pct] + ([pri_pct] if pri_pct is not None else [])
+def compute_severity(
+    rf_pct: float, pw_pct: float, pri_pct: float | None, tolerance: dict, jitter_pct: float | None = None
+) -> str:
+    dims = [rf_pct, pw_pct] + [d for d in (pri_pct, jitter_pct) if d is not None]
     if any(d <= 0 for d in dims):
         return "none"
     exact = tolerance.get("exact_threshold", DEFAULT_TOLERANCE["exact_threshold"])
@@ -186,14 +174,62 @@ def compared_line(line: dict, apply_margins: bool) -> dict:
     return out
 
 
-def _compared(line: dict, pri_type: str) -> dict:
+def has_jitter(line: dict) -> bool:
+    """Jitter recorded — a 0–0 or empty jitter range is no jitter."""
+    return any(v not in (None, 0) for v in (line.get("jitter_min_us"), line.get("jitter_max_us")))
+
+
+def _jitter_span(line: dict) -> tuple[float, float]:
+    lo, hi = line.get("jitter_min_us"), line.get("jitter_max_us")
+    lo = hi if lo is None else lo
+    hi = lo if hi is None else hi
+    return float(lo), float(hi)
+
+
+def frame_window(line: dict, apply_margins: bool) -> tuple[float, float] | None:
+    """A Stagger's frame time, widened by its frame margin: what range matching
+    compares."""
+    frame = effective_frametime_us(line.get("pri_stagger_values_us"), line.get("explicit_frame_time_us"))
+    if frame is None:
+        return None
+    return apply_delta(frame, frame, line.get("frame_time_delta_us") if apply_margins else None)
+
+
+def _compared(line: dict, pri_type: str, frame: tuple[float, float] | None = None, jitter: bool = False) -> dict:
     """What a finding records about one side: the ranges actually compared."""
     return {
         "rf": [line["rf_min_mhz"], line["rf_max_mhz"]],
         "pw": [line["pw_min_us"], line["pw_max_us"]],
         "pri": [line["pri_min_us"], line["pri_max_us"]] if pri_type == "fixed" else None,
-        "stagger": line.get("pri_stagger_values_us") if pri_type == "stagger" else None,
+        "stagger": line.get("pri_stagger_values_us") if pri_type == "stagger" and frame is None else None,
+        "frame_time": list(frame) if frame is not None else None,
+        "jitter": list(_jitter_span(line)) if jitter else None,
     }
+
+
+def _pri_and_jitter(a: FlatModeLine, b: FlatModeLine, la: dict, lb: dict, apply_margins: bool):
+    """For a same-type pair: (pri %, jitter %, what PRI was compared on, frame
+    windows) — or None when the rules say they can be told apart outright."""
+    t = a.pri_type
+    if t == "fixed":
+        pri_pct = _range_overlap_pct(la["pri_min_us"], la["pri_max_us"], lb["pri_min_us"], lb["pri_max_us"])
+        ja, jb = has_jitter(a.line), has_jitter(b.line)
+        if ja != jb:
+            return None  # Only one jitters.
+        jitter_pct = _range_overlap_pct(*_jitter_span(a.line), *_jitter_span(b.line)) if ja else None
+        return pri_pct, jitter_pct, "range", None
+    if t == "stagger":
+        ra, rb = bool(a.line.get("pri_range_matching")), bool(b.line.get("pri_range_matching"))
+        if ra != rb:
+            return None  # Only one is matched on its frame time.
+        if ra:
+            fa, fb = frame_window(a.line, apply_margins), frame_window(b.line, apply_margins)
+            if fa is None or fb is None:
+                return None
+            return _range_overlap_pct(*fa, *fb), None, "frame_time", (fa, fb)
+        steps = _stagger_values_overlap_pct(la.get("pri_stagger_values_us") or [], lb.get("pri_stagger_values_us") or [])
+        return steps, None, "steps", None
+    return None, None, None, None  # CW, X-let: no PRI.
 
 
 def compute_pairwise_findings(mode_lines: list[FlatModeLine], tolerance: dict | None = None) -> list[dict[str, Any]]:
@@ -203,16 +239,22 @@ def compute_pairwise_findings(mode_lines: list[FlatModeLine], tolerance: dict | 
     lines = {id(m): compared_line(m.line, apply_margins) for m in mode_lines}
 
     for a, b in combinations(mode_lines, 2):
+        if a.pri_type != b.pri_type:
+            continue  # A different PRI type tells them apart.
         la, lb = lines[id(a)], lines[id(b)]
+        pri = _pri_and_jitter(a, b, la, lb, apply_margins)
+        if pri is None:
+            continue
+        pri_pct, jitter_pct, pri_basis, frames = pri
         rf_pct = _range_overlap_pct(la["rf_min_mhz"], la["rf_max_mhz"], lb["rf_min_mhz"], lb["rf_max_mhz"])
         pw_pct = _range_overlap_pct(la["pw_min_us"], la["pw_max_us"], lb["pw_min_us"], lb["pw_max_us"])
-        pri_pct, comparison_type = compute_pri_overlap(la, a.pri_type, lb, b.pri_type)
-        severity = compute_severity(rf_pct, pw_pct, pri_pct, tolerance)
+        comparison_type = f"{a.pri_type}-{b.pri_type}"
+        severity = compute_severity(rf_pct, pw_pct, pri_pct, tolerance, jitter_pct)
 
         if severity == "none":
             continue  # No overlap at all in some dimension — not a finding worth storing.
         # The parameter that overlaps least is the one that set the severity.
-        pcts = {"rf": rf_pct, "pw": pw_pct, "pri": pri_pct}
+        pcts = {"rf": rf_pct, "pw": pw_pct, "pri": pri_pct, "jitter": jitter_pct}
         limiting = min((p for p in _PARAMS if pcts[p] is not None), key=lambda p: pcts[p])
 
         findings.append(
@@ -226,8 +268,14 @@ def compute_pairwise_findings(mode_lines: list[FlatModeLine], tolerance: dict | 
                 "combined_severity": severity,
                 "details": {
                     "margins_applied": apply_margins,
+                    "rules_version": tolerance.get("rules_version"),
                     "limiting": limiting,
-                    "compared": {"mode_a": _compared(la, a.pri_type), "mode_b": _compared(lb, b.pri_type)},
+                    "jitter_overlap_pct": jitter_pct,
+                    "pri_basis": pri_basis,
+                    "compared": {
+                        "mode_a": _compared(la, a.pri_type, frames[0] if frames else None, jitter_pct is not None),
+                        "mode_b": _compared(lb, b.pri_type, frames[1] if frames else None, jitter_pct is not None),
+                    },
                     "mode_a": {
                         "mode_name": a.mode_name,
                         "pri_type": a.pri_type,
@@ -282,6 +330,7 @@ def carry_forward_reviews(new_findings: list[dict[str, Any]], prior_reviewed: li
             and prior["rf_overlap_pct"] == f["rf_overlap_pct"]
             and prior["pw_overlap_pct"] == f["pw_overlap_pct"]
             and prior["pri_overlap_pct"] == f["pri_overlap_pct"]
+            and prior.get("jitter_overlap_pct") == (f.get("details") or {}).get("jitter_overlap_pct")
         ):
             f["reviewed_by"] = prior["reviewed_by"]
             f["reviewed_at"] = prior["reviewed_at"]

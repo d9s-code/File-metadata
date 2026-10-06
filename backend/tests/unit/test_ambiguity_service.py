@@ -2,7 +2,6 @@ from app.services.ambiguity_service import (
     FlatModeLine,
     carry_forward_reviews,
     compute_pairwise_findings,
-    compute_pri_overlap,
     compute_severity,
     flatten_emitter_snapshot,
     flatten_mdf_snapshot,
@@ -82,35 +81,61 @@ def test_disjoint_rf_produces_no_finding_regardless_of_pw_pri():
     assert compute_pairwise_findings([a, b]) == []
 
 
-def test_fixed_vs_stagger_partial_overlap_percentage():
-    a = _mode("a", "fixed", _line(pri_min=800, pri_max=1200))
-    b = _mode("b", "stagger", _line(stagger=[800, 850, 2000]))
-    pct, comparison_type = compute_pri_overlap(a.line, "fixed", b.line, "stagger")
-    assert comparison_type == "fixed-stagger"
-    assert abs(pct - (2 / 3 * 100)) < 0.01
+def test_different_pri_types_are_never_ambiguous():
+    fixed = _mode("f", "fixed", _line(pri_min=800, pri_max=1200))
+    stagger = _mode("s", "stagger", _line(stagger=[800, 850, 900]))
+    cw = _mode("c", "cw", _line())
+    xlet = _mode("x", "xlet", _line())
+    assert compute_pairwise_findings([fixed, stagger, cw, xlet]) == []
 
 
-def test_stagger_vs_stagger_shared_values():
-    a_line = _line(stagger=[800, 850, 900])
-    b_line = _line(stagger=[850, 900, 999])
-    pct, _ = compute_pri_overlap(a_line, "stagger", b_line, "stagger")
-    assert abs(pct - (2 / 3 * 100)) < 0.01
+def test_two_cw_modes_are_compared_on_rf_and_pw_only():
+    [finding] = compute_pairwise_findings([_mode("a", "cw", _line()), _mode("b", "cw", _line())])
+    assert finding["pri_overlap_pct"] is None
+    assert finding["pri_comparison_type"] == "cw-cw"
+    assert finding["combined_severity"] == "exact_overlap"
 
 
-def test_cw_vs_anything_is_non_comparable_and_severity_from_rf_pw_only():
-    a = _mode("a", "cw", _line())
-    b = _mode("b", "fixed", _line(pri_min=800, pri_max=1200))
-    findings = compute_pairwise_findings([a, b])
-    assert findings[0]["pri_overlap_pct"] is None
-    assert findings[0]["pri_comparison_type"] == "cw-fixed"
-    # RF and PW are both fully overlapping and PRI is non-comparable -> exact_overlap driven by RF+PW alone
-    assert findings[0]["combined_severity"] == "exact_overlap"
+def test_staggers_without_range_matching_compare_identical_steps():
+    a = _mode("a", "stagger", _line(stagger=[800, 850, 900]))
+    b = _mode("b", "stagger", _line(stagger=[850, 900, 999]))
+    [finding] = compute_pairwise_findings([a, b])
+    assert abs(finding["pri_overlap_pct"] - (2 / 3 * 100)) < 0.01
+    assert finding["details"]["pri_basis"] == "steps"
 
 
-def test_xlet_is_also_non_comparable():
-    pct, comparison_type = compute_pri_overlap(_line(), "xlet", _line(pri_min=1, pri_max=2), "fixed")
-    assert pct is None
-    assert comparison_type == "fixed-xlet"
+def test_staggers_with_range_matching_compare_frame_time():
+    # Different steps, same frame time (2550): matched on frame time, they overlap fully.
+    a = _mode("a", "stagger", {**_line(stagger=[800, 850, 900]), "pri_range_matching": True, "frame_time_delta_us": 5})
+    b = _mode("b", "stagger", {**_line(stagger=[700, 900, 950]), "pri_range_matching": True, "frame_time_delta_us": 5})
+    [finding] = compute_pairwise_findings([a, b])
+    assert finding["pri_overlap_pct"] == 100.0
+    assert finding["details"]["pri_basis"] == "frame_time"
+    assert finding["details"]["compared"]["mode_a"]["frame_time"] == [2545, 2555]
+    assert finding["details"]["compared"]["mode_a"]["stagger"] is None
+
+
+def test_only_one_stagger_with_range_matching_is_never_ambiguous():
+    a = _mode("a", "stagger", {**_line(stagger=[800, 850, 900]), "pri_range_matching": True})
+    b = _mode("b", "stagger", _line(stagger=[800, 850, 900]))
+    assert compute_pairwise_findings([a, b]) == []
+
+
+def test_jitter_counts_when_both_have_it_and_only_one_having_it_tells_them_apart():
+    with_jitter = lambda lo, hi: {**_line(pri_min=800, pri_max=1200), "jitter_min_us": lo, "jitter_max_us": hi}  # noqa: E731
+    # Both jitter: 5–15 vs 10–30 overlap 5 of the narrower 10 → 50%, the least → sets the severity.
+    [finding] = compute_pairwise_findings([_mode("a", "fixed", with_jitter(5, 15)), _mode("b", "fixed", with_jitter(10, 30))])
+    assert finding["details"]["jitter_overlap_pct"] == 50.0
+    assert finding["details"]["limiting"] == "jitter"
+    assert finding["combined_severity"] == "medium"
+    assert finding["details"]["compared"]["mode_b"]["jitter"] == [10, 30]
+    # Jitter that doesn't overlap tells them apart.
+    assert compute_pairwise_findings([_mode("a", "fixed", with_jitter(5, 15)), _mode("b", "fixed", with_jitter(20, 30))]) == []
+    # Only one has jitter (0–0 counts as none).
+    assert compute_pairwise_findings([_mode("a", "fixed", with_jitter(5, 15)), _mode("b", "fixed", with_jitter(0, 0))]) == []
+    # Neither: judged without jitter.
+    [plain] = compute_pairwise_findings([_mode("a", "fixed", with_jitter(None, None)), _mode("b", "fixed", with_jitter(0, 0))])
+    assert plain["details"]["jitter_overlap_pct"] is None
 
 
 def test_severity_buckets_by_threshold():

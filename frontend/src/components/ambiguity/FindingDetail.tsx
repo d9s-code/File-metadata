@@ -6,7 +6,7 @@ import { useReviewFinding, useUnreviewFinding } from "../../state/hooks/useAmbig
 import { SeverityBadge } from "./SeverityBadge";
 import { AiFindingExplanation } from "./AiDrafts";
 import { MergeDialog } from "./MergeDialog";
-import { PARAMS, comparedSides, limitingParam, num, overlapPct, pct, rangeText } from "./ambiguityText";
+import { PARAMS, comparedSides, limitingParam, num, overlapPct, pct, priLabel, rangeText } from "./ambiguityText";
 
 /** Two ranges on one scale: A above B, the part they share shaded. */
 function RangePair({ a, b }: { a: [number, number]; b: [number, number] }) {
@@ -67,9 +67,11 @@ function ParamRow({
   value: number | null;
   limiting: boolean;
 }) {
-  const ra = param === "rf" ? a.rf : param === "pw" ? a.pw : a.pri;
-  const rb = param === "rf" ? b.rf : param === "pw" ? b.pw : b.pri;
-  const staggers = param === "pri" && a.stagger && b.stagger;
+  const pick = (s: ComparedSide) =>
+    param === "rf" ? s.rf : param === "pw" ? s.pw : param === "jitter" ? (s.jitter ?? null) : (s.pri ?? s.frame_time ?? null);
+  const ra = pick(a);
+  const rb = pick(b);
+  const staggers = param === "pri" && !ra && a.stagger && b.stagger;
   const text = (r: [number, number] | null, s: number[] | null) => (r ? rangeText(r) : s ? s.map(num).join(", ") : "—");
   return (
     <div className={`param-row${limiting ? " limiting" : ""}`}>
@@ -122,7 +124,7 @@ export function FindingDetail({
   const limiting = limitingParam(finding);
   const sameEmitter = mode_a.emitter_id === mode_b.emitter_id;
   const gone = !finding.resolution && (goneModeIds.has(finding.mode_id_a) || goneModeIds.has(finding.mode_id_b));
-  const params = PARAMS.filter((p) => p.key !== "pri" || overlapPct(finding, "pri") != null || a.pri || b.pri || a.stagger || b.stagger);
+  const params = PARAMS.filter((p) => overlapPct(finding, p.key) != null);
 
   return (
     <div className="finding-detail">
@@ -143,7 +145,7 @@ export function FindingDetail({
           <ParamRow
             key={p.key}
             param={p.key}
-            label={p.label}
+            label={p.key === "pri" ? priLabel(finding) : p.label}
             unit={p.unit}
             a={a}
             b={b}
@@ -155,7 +157,9 @@ export function FindingDetail({
       <p className="hint-text">
         {marginsApplied ? "Ranges include each Mode's ± margin." : "This check compared the ranges as typed, without margins."}{" "}
         Overlap is the share of the narrower range the other covers.
-        {finding.pri_overlap_pct == null && " PRI isn't compared: at least one of them has no PRI (CW or X-let)."}
+        {finding.details.pri_basis === "frame_time" && " Both use range matching, so PRI is compared on frame time (± frame margin)."}
+        {finding.details.pri_basis === "steps" && " PRI is the share of stagger steps that are identical."}
+        {finding.pri_overlap_pct == null && " CW and X-let have no PRI, so it isn't compared."}
       </p>
 
       {finding.resolution ? (

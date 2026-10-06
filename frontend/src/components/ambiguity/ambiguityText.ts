@@ -12,6 +12,7 @@ export const PARAMS: { key: OverlapParam; label: string; unit: string }[] = [
   { key: "rf", label: "RF", unit: "MHz" },
   { key: "pri", label: "PRI", unit: "µs" },
   { key: "pw", label: "PW", unit: "µs" },
+  { key: "jitter", label: "Jitter", unit: "µs" },
 ];
 
 export const SEVERITY_ORDER: AmbiguitySeverity[] = ["exact_overlap", "high", "medium", "low"];
@@ -34,7 +35,13 @@ export function findingStatus(f: AmbiguityFinding): FindingStatus {
 }
 
 export function overlapPct(f: AmbiguityFinding, p: OverlapParam): number | null {
+  if (p === "jitter") return f.details.jitter_overlap_pct ?? null;
   return p === "rf" ? f.rf_overlap_pct : p === "pw" ? f.pw_overlap_pct : f.pri_overlap_pct;
+}
+
+/** The PRI row's name: what PRI was compared on. */
+export function priLabel(f: AmbiguityFinding): string {
+  return f.details.pri_basis === "frame_time" ? "PRI frame time" : f.details.pri_basis === "steps" ? "PRI steps" : "PRI";
 }
 
 /** The parameter that overlaps least — the one that set the severity. */
@@ -49,6 +56,11 @@ export function limitingParam(f: AmbiguityFinding): OverlapParam {
  * margins were used compared them as typed). */
 export function marginsApplied(run: AmbiguityRun | undefined): boolean {
   return run?.tolerance_config?.apply_margins === true;
+}
+
+/** Whether this check used the current rules (PRI type, frame time, jitter). */
+export function rulesCurrent(run: AmbiguityRun | undefined): boolean {
+  return (run?.tolerance_config?.rules_version ?? 0) >= 2;
 }
 
 function typedSide(side: FindingModeSide): ComparedSide {

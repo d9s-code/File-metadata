@@ -532,15 +532,20 @@ export function HelpPage() {
             for a Platform or an MDF, across all their Emitters.
           </p>
           <p>
-            <strong>How it decides.</strong> Each Mode&apos;s RF, PRI and PW ranges are widened by their ± margins — the
-            ranges the sensor matches with. For each parameter, the overlap is how much of the <em>narrower</em> of the two
-            ranges the other covers, so a narrow Mode inside a wide one is 100%. Two staggers overlap on the share of their
-            steps that are identical; CW and X-let have no PRI, so they&apos;re compared on RF and PW only. A pair is a
-            finding only if it overlaps on <em>every</em> parameter — one clear gap tells them apart. Its severity comes
+            <strong>How it decides.</strong> Only Modes of the <strong>same PRI type</strong> are compared — a different
+            type tells them apart. Each Mode&apos;s RF, PRI and PW ranges are widened by their ± margins — the ranges the
+            sensor matches with. <strong>Fixed</strong> PRI compares as a range, and when both Modes have{" "}
+            <strong>jitter</strong> it&apos;s compared too; if only one has jitter, they&apos;re told apart. A{" "}
+            <strong>Stagger</strong> with <strong>range matching</strong> on is compared on its <strong>frame time</strong>{" "}
+            (± frame margin); if only one of two Staggers has range matching on, they&apos;re told apart; without range
+            matching, Staggers overlap on the share of their steps that are identical. CW and X-let have no PRI, so
+            they&apos;re compared on RF and PW only. For each parameter, the overlap is how much of the <em>narrower</em>{" "}
+            of the two ranges the other covers, so a narrow Mode inside a wide one is 100%. A pair is a finding only if it
+            overlaps on <em>every</em> parameter compared — one clear gap tells them apart. Its severity comes
             from the parameter that overlaps <em>least</em>: <strong>Exact</strong> when every parameter overlaps at least
             99%, <strong>High</strong> when the least is 70% or more, <strong>Medium</strong> between 30% and 70%,{" "}
             <strong>Low</strong> under 30%. Editors can change those numbers under <strong>How it works</strong>, where the
-            check is run. Checks made before margins were used compared the ranges as typed, and say so.
+            check is run. Checks made under older rules say so — run them again.
           </p>
           <p>
             <strong>The page.</strong> The findings are listed on the left — open ones first, worst first — with each
