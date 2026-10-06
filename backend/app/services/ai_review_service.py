@@ -160,7 +160,12 @@ def finding_context(db: Session, finding: AmbiguityFinding) -> str:
             f"Severity: {SEVERITY_LABELS.get(finding.combined_severity.value, finding.combined_severity.value)} "
             f"(thresholds: low under {_n(tol.get('low_threshold'))}%, high from {_n(tol.get('high_threshold'))}%, "
             f"exact from {_n(tol.get('exact_threshold'))}% on every parameter).",
-            f"Computed overlap: RF {_n(finding.rf_overlap_pct)}%, PW {_n(finding.pw_overlap_pct)}%, {pri}.",
+            f"Computed overlap: RF {_n(finding.rf_overlap_pct)}%, PW {_n(finding.pw_overlap_pct)}%, {pri}"
+            + (
+                " — on each range widened by its margin, as the sensor matches."
+                if details.get("margins_applied")
+                else " — on the ranges as typed, margins not included."
+            ),
             "",
             _mode_block("Mode A", a, _pri_type(a, finding.pri_comparison_type, True), notes.get(finding.mode_id_a)),
             "",

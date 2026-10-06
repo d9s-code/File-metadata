@@ -72,5 +72,7 @@ class AmbiguityFinding(UUIDPkMixin, Base):
     reviewer_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     # A language model's explanation and recommendation — a draft; see ai_review_service.
     ai_explanation: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # What was done about it from the ambiguity page (e.g. its Modes merged).
+    resolution: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     run: Mapped["AmbiguityRun"] = relationship(back_populates="findings")

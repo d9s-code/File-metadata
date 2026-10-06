@@ -22,6 +22,20 @@ def _validate_delta(v: float | None) -> float | None:
     return v
 
 
+# Line fields the DSL text doesn't carry — left out when re-rendering it.
+NON_DSL_LINE_FIELDS = {
+    "type_data",
+    "rf_delta",
+    "pw_delta",
+    "pri_delta",
+    "frame_time_delta_us",
+    "explicit_frame_time_us",
+    "rf_range_matching",
+    "pw_range_matching",
+    "pri_range_matching",
+}
+
+
 class ModeLineFields(BaseModel):
     rf_min_mhz: float
     rf_max_mhz: float

@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -49,7 +50,13 @@ class AmbiguityFindingOut(BaseModel):
     reviewed_at: datetime | None = None
     reviewer_note: str | None = None
     ai_explanation: dict | None = None
+    resolution: dict | None = None
 
 
 class FindingReviewRequest(BaseModel):
     reviewer_note: str | None = None
+
+
+class MergeRequest(BaseModel):
+    # Which of the finding's two Modes to keep: "a" or "b".
+    keep: Literal["a", "b"]

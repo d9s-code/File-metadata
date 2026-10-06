@@ -218,3 +218,31 @@ def test_carry_forward_reviews_handles_empty_prior_list():
     new = [_unreviewed()]
     carry_forward_reviews(new, [])
     assert "reviewed_by" not in new[0]
+
+
+def test_margins_widen_the_ranges_compared_unless_turned_off():
+    # RF 2900–3000 and 3005–3100 don't touch as typed; ±5 MHz margins make them meet.
+    a = {**_line(rf=(2900, 3000)), "rf_delta": 5, "pw_delta": 0.1}
+    b = {**_line(rf=(3005, 3100)), "rf_delta": 5, "pw_delta": 0.1}
+    assert compute_pairwise_findings([_mode("a", "cw", a), _mode("b", "cw", b)], {"apply_margins": False}) == []
+
+    [finding] = compute_pairwise_findings([_mode("a", "cw", a), _mode("b", "cw", b)])
+    assert finding["details"]["margins_applied"] is True
+    assert finding["details"]["compared"]["mode_a"]["rf"] == [2895, 3005]
+    assert finding["details"]["compared"]["mode_b"]["rf"] == [3000, 3105]
+    assert finding["details"]["compared"]["mode_a"]["pw"] == [0.4, 1.3]
+    assert finding["rf_overlap_pct"] == 4.76  # 5 MHz of the narrower 105
+    assert finding["details"]["limiting"] == "rf"
+
+
+def test_stagger_steps_still_match_only_when_identical_with_margins():
+    a = {**_line(stagger=[800, 850]), "pri_delta": 5}
+    b = {**_line(stagger=[801, 851]), "pri_delta": 5}
+    assert compute_pairwise_findings([_mode("a", "stagger", a), _mode("b", "stagger", b)]) == []
+
+
+def test_the_limiting_parameter_is_the_one_overlapping_least():
+    a = _line(rf=(2900, 3100), pw=(0.5, 1.0), pri_min=800, pri_max=1200)
+    b = _line(rf=(2900, 3100), pw=(0.9, 1.4), pri_min=800, pri_max=1200)
+    [finding] = compute_pairwise_findings([_mode("a", "fixed", a), _mode("b", "fixed", b)])
+    assert finding["details"]["limiting"] == "pw"

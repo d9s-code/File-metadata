@@ -527,10 +527,38 @@ export function HelpPage() {
         <div className="help-subsection" id="emitter-ambiguity">
           <h3>Ambiguity check</h3>
           <p>
-            Compares Modes' RF/PRI/PW ranges against each other and flags pairs that overlap closely
-            enough to be confused by a receiver, bucketed by severity. It only ever reads from the
-            Emitter's most recently <strong>committed</strong> version — not live drafts — so results stay
-            consistent with whatever was actually released.
+            Compares every pair of Modes and flags the ones a receiver could confuse. It reads the latest{" "}
+            <strong>saved</strong> version — never unsaved edits — so results match what was released. The same check runs
+            for a Platform or an MDF, across all their Emitters.
+          </p>
+          <p>
+            <strong>How it decides.</strong> Each Mode&apos;s RF, PRI and PW ranges are widened by their ± margins — the
+            ranges the sensor matches with. For each parameter, the overlap is how much of the <em>narrower</em> of the two
+            ranges the other covers, so a narrow Mode inside a wide one is 100%. Two staggers overlap on the share of their
+            steps that are identical; CW and X-let have no PRI, so they&apos;re compared on RF and PW only. A pair is a
+            finding only if it overlaps on <em>every</em> parameter — one clear gap tells them apart. Its severity comes
+            from the parameter that overlaps <em>least</em>: <strong>Exact</strong> when every parameter overlaps at least
+            99%, <strong>High</strong> when the least is 70% or more, <strong>Medium</strong> between 30% and 70%,{" "}
+            <strong>Low</strong> under 30%. Editors can change those numbers under <strong>How it works</strong>, where the
+            check is run. Checks made before margins were used compared the ranges as typed, and say so.
+          </p>
+          <p>
+            <strong>The page.</strong> The findings are listed on the left — open ones first, worst first — with each
+            parameter&apos;s overlap and the one that set the severity in bold; the chips above filter by status and
+            severity, and arrow keys move through the list. The selected finding is on the right: both Modes&apos; ranges
+            drawn to scale with the overlap shaded. <strong>Modes involved</strong> lists the Modes in the most findings —
+            changing one of those often clears many. <strong>Matrix</strong> shows every pair at once; click a cell to open
+            it.
+          </p>
+          <p>
+            <strong>Handling a finding.</strong> <strong>Open A / Open B</strong> takes you to either Mode in its Emitter
+            to change it. <strong>Merge</strong> is for two Modes that are really the same: pick the one to keep, see what
+            changes — its ranges become the union of both with the wider margin, the other is deleted, and its test
+            history and intercept links move to the kept Mode — including any new overlap the wider ranges would cause
+            with other Modes. It changes the Emitter&apos;s unsaved edits, so the Emitter must be checked out by you (the
+            dialog can do that); save a version and run the check again to see the result. Findings that involved the
+            deleted Mode are marked until then. <strong>Acknowledge</strong> marks a finding as known and acceptable, with
+            an optional reason; it carries over to later checks while the pair&apos;s overlap doesn&apos;t change.
           </p>
           <p>
             <strong>AI explanations</strong> (only if a language model is set up): select a finding and press{" "}

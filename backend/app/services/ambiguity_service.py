@@ -1,7 +1,10 @@
 """Pairwise ambiguity analysis over a set of Mode lines extracted from a
 committed version snapshot (never the live draft — see AmbiguityRun).
 
-Each mode_line is treated as an RF x PW x PRI box. RF/PW always compare as
+Each mode_line is treated as an RF x PW x PRI box — by default the box the
+sensor matches with: each range widened by its ± margin (rf_delta, pw_delta,
+pri_delta). A run's tolerance_config records that as apply_margins; runs
+made before it existed compared the ranges as typed. RF/PW always compare as
 ranges. PRI comparison depends on the pair of PRI types: Fixed-vs-Fixed is
 range overlap, Stagger compares discrete values against the other side's
 range/set, and CW/Xlet carry no PRI value so the comparison degrades to
@@ -12,9 +15,13 @@ from dataclasses import dataclass, field
 from itertools import combinations
 from typing import Any
 
+from app.services.delta import apply_delta
 from app.services.snapshots import rejected_source_ids
 
-DEFAULT_TOLERANCE = {"low_threshold": 30.0, "high_threshold": 70.0, "exact_threshold": 99.0}
+DEFAULT_TOLERANCE = {"low_threshold": 30.0, "high_threshold": 70.0, "exact_threshold": 99.0, "apply_margins": True}
+
+# Which parameter each overlap percentage belongs to, for "decided by".
+_PARAMS = ("rf", "pw", "pri")
 
 
 @dataclass
@@ -163,18 +170,50 @@ def compute_severity(rf_pct: float, pw_pct: float, pri_pct: float | None, tolera
     return "high"
 
 
+def compared_line(line: dict, apply_margins: bool) -> dict:
+    """The line as the check compares it: with margins, each range widened by
+    its ± delta, as the sensor matches. A stagger's step values stay as they
+    are — two staggers overlap only on identical steps."""
+    if not apply_margins:
+        return line
+    out = dict(line)
+    for lo, hi, delta in (
+        ("rf_min_mhz", "rf_max_mhz", "rf_delta"),
+        ("pw_min_us", "pw_max_us", "pw_delta"),
+        ("pri_min_us", "pri_max_us", "pri_delta"),
+    ):
+        out[lo], out[hi] = apply_delta(line.get(lo), line.get(hi), line.get(delta))
+    return out
+
+
+def _compared(line: dict, pri_type: str) -> dict:
+    """What a finding records about one side: the ranges actually compared."""
+    return {
+        "rf": [line["rf_min_mhz"], line["rf_max_mhz"]],
+        "pw": [line["pw_min_us"], line["pw_max_us"]],
+        "pri": [line["pri_min_us"], line["pri_max_us"]] if pri_type == "fixed" else None,
+        "stagger": line.get("pri_stagger_values_us") if pri_type == "stagger" else None,
+    }
+
+
 def compute_pairwise_findings(mode_lines: list[FlatModeLine], tolerance: dict | None = None) -> list[dict[str, Any]]:
-    tolerance = tolerance or DEFAULT_TOLERANCE
+    tolerance = {**DEFAULT_TOLERANCE, **(tolerance or {})}
+    apply_margins = bool(tolerance.get("apply_margins", True))
     findings: list[dict[str, Any]] = []
+    lines = {id(m): compared_line(m.line, apply_margins) for m in mode_lines}
 
     for a, b in combinations(mode_lines, 2):
-        rf_pct = _range_overlap_pct(a.line["rf_min_mhz"], a.line["rf_max_mhz"], b.line["rf_min_mhz"], b.line["rf_max_mhz"])
-        pw_pct = _range_overlap_pct(a.line["pw_min_us"], a.line["pw_max_us"], b.line["pw_min_us"], b.line["pw_max_us"])
-        pri_pct, comparison_type = compute_pri_overlap(a.line, a.pri_type, b.line, b.pri_type)
+        la, lb = lines[id(a)], lines[id(b)]
+        rf_pct = _range_overlap_pct(la["rf_min_mhz"], la["rf_max_mhz"], lb["rf_min_mhz"], lb["rf_max_mhz"])
+        pw_pct = _range_overlap_pct(la["pw_min_us"], la["pw_max_us"], lb["pw_min_us"], lb["pw_max_us"])
+        pri_pct, comparison_type = compute_pri_overlap(la, a.pri_type, lb, b.pri_type)
         severity = compute_severity(rf_pct, pw_pct, pri_pct, tolerance)
 
         if severity == "none":
             continue  # No overlap at all in some dimension — not a finding worth storing.
+        # The parameter that overlaps least is the one that set the severity.
+        pcts = {"rf": rf_pct, "pw": pw_pct, "pri": pri_pct}
+        limiting = min((p for p in _PARAMS if pcts[p] is not None), key=lambda p: pcts[p])
 
         findings.append(
             {
@@ -186,6 +225,9 @@ def compute_pairwise_findings(mode_lines: list[FlatModeLine], tolerance: dict | 
                 "pri_comparison_type": comparison_type,
                 "combined_severity": severity,
                 "details": {
+                    "margins_applied": apply_margins,
+                    "limiting": limiting,
+                    "compared": {"mode_a": _compared(la, a.pri_type), "mode_b": _compared(lb, b.pri_type)},
                     "mode_a": {
                         "mode_name": a.mode_name,
                         "pri_type": a.pri_type,

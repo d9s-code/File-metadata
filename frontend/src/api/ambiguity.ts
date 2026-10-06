@@ -8,6 +8,9 @@ export interface ToleranceConfig {
   low_threshold: number;
   high_threshold: number;
   exact_threshold: number;
+  /** Compare each range widened by its ± margin. Absent on checks made before
+   * margins were used — those compared the ranges as typed. */
+  apply_margins?: boolean;
 }
 
 export interface AmbiguityRun {
@@ -74,8 +77,19 @@ export interface ModeLineSnapshot {
   pri_stagger_values_us: number[] | null;
 }
 
+export type OverlapParam = "rf" | "pw" | "pri";
+
+/** One side's ranges as the check compared them. */
+export interface ComparedSide {
+  rf: [number, number];
+  pw: [number, number];
+  pri: [number, number] | null;
+  stagger: number[] | null;
+}
+
 export interface FindingModeSide {
   mode_name: string;
+  pri_type?: string;
   ew_group_id: string;
   ew_group_name: string;
   source_id: string;
@@ -97,11 +111,46 @@ export interface AmbiguityFinding {
   pri_overlap_pct: number | null;
   pri_comparison_type: string;
   combined_severity: AmbiguitySeverity;
-  details: { mode_a: FindingModeSide; mode_b: FindingModeSide };
+  details: {
+    mode_a: FindingModeSide;
+    mode_b: FindingModeSide;
+    /** On checks made since margins were used: */
+    margins_applied?: boolean;
+    limiting?: OverlapParam;
+    compared?: { mode_a: ComparedSide; mode_b: ComparedSide };
+  };
   reviewed_by: string | null;
   reviewed_at: string | null;
   reviewer_note: string | null;
   ai_explanation: AiFindingExplanation | null;
+  resolution: FindingResolution | null;
+}
+
+/** What was done about a finding from this page. */
+export interface FindingResolution {
+  action: "merged";
+  kept_mode_id: string;
+  kept_name: string;
+  removed_mode_id: string;
+  removed_name: string;
+  by: string;
+  at: string;
+}
+
+export interface MergeSpans {
+  rf: [number, number];
+  pw: [number, number];
+  pri?: [number, number];
+  stagger?: number[];
+}
+
+export interface MergePlan {
+  keep: "a" | "b";
+  kept: { id: string; name: string; before: MergeSpans; after: MergeSpans };
+  removed: { id: string; name: string; source_name: string; spans: MergeSpans };
+  links_moved: { intercept_entries: number; test_records: number; test_record_lines: number; test_lines: number };
+  new_overlaps: { mode_id: string; mode_name: string; before: AmbiguitySeverity | "none"; after: AmbiguitySeverity }[];
+  emitter: { id: string; name: string; checked_out_by_id: string | null };
 }
 
 export interface AmbiguityRunCreateInput {
@@ -124,5 +173,9 @@ export const ambiguityApi = {
     api.post<AmbiguityFinding>(`/ambiguity/findings/${findingId}/explain${refresh ? "?refresh=true" : ""}`),
   summariseRun: (runId: string, refresh = false) =>
     api.post<AmbiguityRun>(`/ambiguity/runs/${runId}/summary${refresh ? "?refresh=true" : ""}`),
+  mergePreview: (findingId: string, keep: "a" | "b") =>
+    api.post<MergePlan>(`/ambiguity/findings/${findingId}/merge-preview`, { keep }),
+  merge: (findingId: string, keep: "a" | "b") =>
+    api.post<AmbiguityFinding>(`/ambiguity/findings/${findingId}/merge`, { keep }),
   aiStatus: () => api.get<{ enabled: boolean; model: string | null }>("/ai/status"),
 };

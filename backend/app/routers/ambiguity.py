@@ -12,8 +12,16 @@ from app.models.ambiguity import AmbiguityFinding, AmbiguityRun
 from app.models.emitter import Emitter
 from app.models.emitter_version import EmitterVersion
 from app.models.mdf import Mdf, MdfVersion
+from app.models.mode import Mode
 from app.models.platform import Platform, PlatformVersion
-from app.schemas.ambiguity import AmbiguityFindingOut, AmbiguityRunCreate, AmbiguityRunOut, FindingReviewRequest
+from app.schemas.ambiguity import (
+    AmbiguityFindingOut,
+    AmbiguityRunCreate,
+    AmbiguityRunOut,
+    FindingReviewRequest,
+    MergeRequest,
+)
+from app.services import checkout_service, mode_merge_service
 from app.services import llm_client
 from app.services.ai_review_service import explain_finding, summarise_run
 from app.services.ambiguity_run_service import execute_ambiguity_run
@@ -66,7 +74,7 @@ def create_ambiguity_run(
     run = AmbiguityRun(
         scope_type=payload.scope_type,
         scope_id=payload.scope_id,
-        tolerance_config=payload.tolerance_config or DEFAULT_TOLERANCE,
+        tolerance_config={**DEFAULT_TOLERANCE, **(payload.tolerance_config or {})},
         created_by=user.id,
         **{version_fk_field: version.id},
     )
@@ -232,3 +240,54 @@ def summarise_ambiguity_run(
         db.commit()
         db.refresh(run)
     return run
+
+
+def _merge_finding(db: Session, finding_id: UUID) -> AmbiguityFinding:
+    finding = db.get(AmbiguityFinding, finding_id)
+    if finding is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Finding not found")
+    if finding.resolution is not None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "This finding's Modes have already been merged")
+    return finding
+
+
+@router.post("/findings/{finding_id}/merge-preview", dependencies=[Depends(verify_csrf)])
+def preview_merge(
+    finding_id: UUID, payload: MergeRequest, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
+) -> dict:
+    """What merging this finding's two Modes would do — nothing is changed."""
+    finding = _merge_finding(db, finding_id)
+    try:
+        return mode_merge_service.plan(db, finding, payload.keep)
+    except mode_merge_service.MergeProblem as err:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(err)) from err
+
+
+@router.post("/findings/{finding_id}/merge", response_model=AmbiguityFindingOut, dependencies=[Depends(verify_csrf)])
+def merge_finding_modes(
+    finding_id: UUID, payload: MergeRequest, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))
+) -> AmbiguityFinding:
+    """Keep one of the finding's two Modes, widened to cover both, and delete
+    the other — in the Emitter's draft, so it must be checked out by you."""
+    finding = _merge_finding(db, finding_id)
+    kept_id = finding.mode_id_a if payload.keep == "a" else finding.mode_id_b
+    kept = db.get(Mode, kept_id)
+    if kept is not None:
+        emitter = db.get(Emitter, kept.source.emitter_id)
+        try:
+            checkout_service.assert_checked_out_by(emitter, user.id)
+        except checkout_service.NotCheckedOutByUser:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                f'Start editing "{emitter.name}" first — a merge changes its Modes'
+                if emitter.checked_out_by_id is None
+                else f'"{emitter.name}" is being edited by someone else',
+            )
+    try:
+        mode_merge_service.apply(db, finding, payload.keep, user)
+    except mode_merge_service.MergeProblem as err:
+        db.rollback()
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(err)) from err
+    db.commit()
+    db.refresh(finding)
+    return finding

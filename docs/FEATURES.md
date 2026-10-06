@@ -246,6 +246,8 @@ Each Mode Line is treated as an RF × PW × PRI box. For every pair of Modes in 
 
 Each dimension gets an overlap percentage (`intersection ÷ smaller of the two ranges`, so a narrow mode fully contained in a wide one still reads as highly ambiguous). Overall severity buckets from a configurable **tolerance** (low / high / exact thresholds, editable by Editors and Admins) into: `none`, `low`, `medium`, `high`, or `exact_overlap`.
 
+Ranges are compared **with their ± margins** — each Mode's RF, PRI and PW range widened by its delta, the ranges the sensor actually matches with (checks made before this compared ranges as typed, and the page says so). Stagger sequences still overlap only on identical step values. Every finding records the ranges it compared and which parameter set its severity, and the page spells the rules out in words, with the thresholds in the sentences.
+
 ### Three scopes
 
 Run a check at three levels, each reusing the same engine:
@@ -256,15 +258,17 @@ Run a check at three levels, each reusing the same engine:
 
 A check always runs against a specific **committed version** (the latest by default), never the live draft — so results are reproducible and tied to a known snapshot, not a moving target. Runs execute in the background; the page polls until it completes.
 
-### Visualization
+### The page
 
-- **Ambiguity Matrix** — a clickable heatmap: one row/column per Mode involved in at least one finding, cell color = severity.
-- **RF/PW/PRI range comparison** — click a matrix cell (or a row in the findings table) to see a side-by-side range-bar chart for that specific pair, including a discrete-point view for Stagger sequences.
-- **Findings table** — every flagged pair with its per-dimension overlap percentages, filterable by severity.
+- **Findings list beside a detail panel** — open findings first, worst first, each with its per-parameter overlap and the deciding parameter in bold; filter chips for status (open / acknowledged / merged) and severity, plus Mode search, EW Group and Source filters; arrow keys move through the list. The selected finding shows both Modes' compared ranges drawn to scale with the overlap shaded (stagger steps as dots, shared steps ringed).
+- **Modes involved** — the Modes in the most findings, worst first; click one to see its findings.
+- **Matrix** — every Mode in a finding against every other, coloured by severity; a cell opens that finding.
 
-### Review workflow
+### Handling findings
 
-Editors and Admins can **Acknowledge** a finding (with an optional note) to mark it as reviewed/accepted, and **Unacknowledge** it later if circumstances change. Acknowledging doesn't delete or hide the finding — it's a record that a human looked at it and made a call.
+- **Open A / Open B** — straight to either Mode in its Emitter.
+- **Merge** (Editors) — for two Modes of the same Emitter that are really the same: keep one, widened to the union of both ranges with the wider margin, and delete the other. A preview shows the before/after ranges, what moves (test records, test line results, SIM test lines and intercept links all move to the kept Mode; its notes record the merge and keep the other's notes) and any new or worse overlap the wider ranges would cause with the Emitter's other Modes. It changes the Emitter's live data, so it needs the Emitter checked out (the dialog can check it out); a version then has to be saved and the check run again. The finding records the merge, and others involving the deleted Mode are marked until the next run. Different PRI types, or staggers with different sequences, can't be merged.
+- **Acknowledge** (Editors) — known and acceptable, with an optional reason; carried to later runs while the pair's overlap is unchanged. **Undo** reverses it. Acknowledging doesn't delete or hide the finding — it's a record that a human looked at it and made a call.
 
 ### AI explanations (optional)
 

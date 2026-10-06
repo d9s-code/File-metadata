@@ -26,6 +26,7 @@ from app.schemas.mode import (
     ModeCreateFromDsl,
     ModeOut,
     ModeUpdate,
+    NON_DSL_LINE_FIELDS,
     require_manual_deltas,
     validate_pri_type_fields,
 )
@@ -37,17 +38,7 @@ from app.services.mode_test_status_service import attach_mode_extras
 router = APIRouter(prefix="/ew-groups/{ew_group_id}/modes", tags=["modes"])
 
 # ModeLineFields columns that aren't part of the rendered DSL line text.
-_NON_DSL_LINE_FIELDS = {
-    "type_data",
-    "rf_delta",
-    "pw_delta",
-    "pri_delta",
-    "frame_time_delta_us",
-    "explicit_frame_time_us",
-    "rf_range_matching",
-    "pw_range_matching",
-    "pri_range_matching",
-}
+_NON_DSL_LINE_FIELDS = NON_DSL_LINE_FIELDS
 
 
 def _get_ew_group_or_404(db: Session, ew_group_id: UUID) -> EwGroup:

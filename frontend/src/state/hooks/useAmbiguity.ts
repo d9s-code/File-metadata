@@ -73,3 +73,26 @@ export function useSummariseRun(runId: string) {
     onSuccess: (run) => qc.setQueryData(["ambiguityRun", runId], run),
   });
 }
+
+export function useMergePreview(findingId: string, keep: "a" | "b" | null) {
+  return useQuery({
+    queryKey: ["ambiguityMergePreview", findingId, keep],
+    queryFn: () => ambiguityApi.mergePreview(findingId, keep as "a" | "b"),
+    enabled: !!keep,
+    retry: false,
+  });
+}
+
+export function useMergeFinding(runId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ findingId, keep }: { findingId: string; keep: "a" | "b" }) => ambiguityApi.merge(findingId, keep),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["ambiguityFindings", runId] });
+      qc.invalidateQueries({ queryKey: ["ambiguityMergePreview"] });
+      // The Emitter's Modes changed.
+      qc.invalidateQueries({ queryKey: ["emitters"] });
+      qc.invalidateQueries({ queryKey: ["modes"] });
+    },
+  });
+}
