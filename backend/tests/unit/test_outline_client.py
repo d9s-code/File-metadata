@@ -61,6 +61,10 @@ class FakeOutline:
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])) or b"{}")
                 method = self.path.removeprefix("/api/")
                 fake.calls.append((method, body))
+                # Like Outline with FORCE_HTTPS: plain HTTP from no proxy is refused.
+                if self.headers.get("X-Forwarded-Proto") != "https":
+                    self._send(405, {"error": "Please use HTTPS when submitting data to this server"})
+                    return
                 if self.headers.get("Authorization") != f"Bearer {TOKEN}":
                     self._send(401, {"error": "authentication_required"})
                     return
@@ -191,6 +195,13 @@ def test_links_use_the_public_address_when_reached_another_way(outline, monkeypa
     outline()
     monkeypatch.setattr(settings, "outline_public_url", "https://outline.app/")
     assert outline_client.documents("col-prs")[0].url == "https://outline.app/doc/page-0"
+
+
+def test_https_to_a_plain_http_address_says_so(outline, monkeypatch):
+    outline()
+    monkeypatch.setattr(settings, "outline_url", settings.outline_url.replace("http://", "https://"))
+    with pytest.raises(outline_client.OutlineError, match="answers in plain HTTP"):
+        outline_client.whoami()
 
 
 def test_a_wrong_token_says_so(outline, monkeypatch):

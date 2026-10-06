@@ -54,6 +54,19 @@ def _context() -> ssl.SSLContext | None:
     return None
 
 
+def _tls_problem(err: ssl.SSLError) -> str:
+    """What a failed secure connection means, in terms of what to change."""
+    reason = getattr(err, "reason", None) or str(err)
+    if "WRONG_VERSION_NUMBER" in str(reason).upper() or "record layer failure" in str(err).lower():
+        return f"{_base()} answers in plain HTTP, not HTTPS — use http:// in OUTLINE_URL"
+    if isinstance(err, ssl.SSLCertVerificationError) or "CERTIFICATE_VERIFY_FAILED" in str(err).upper():
+        return (
+            f"Outline's certificate wasn't accepted ({getattr(err, 'verify_message', None) or reason}) — "
+            "set OUTLINE_CA_BUNDLE to your CA's file, or reach Outline's container directly over http://"
+        )
+    return f"Couldn't make a secure connection to Outline ({reason})"
+
+
 def call(method: str, body: dict | None = None, timeout: float = 30) -> dict:
     """POST /api/<method> and return its JSON."""
     req = urllib.request.Request(
@@ -63,6 +76,11 @@ def call(method: str, body: dict | None = None, timeout: float = 30) -> dict:
             "Content-Type": "application/json",
             "Accept": "application/json",
             "Authorization": f"Bearer {settings.outline_api_token}",
+            # Outline with FORCE_HTTPS on refuses plain-HTTP API calls unless
+            # they came through a proxy that ended HTTPS — which is what this
+            # header says. Reached straight over a Docker network, there's no
+            # proxy to add it; through one, the proxy sets its own.
+            "X-Forwarded-Proto": "https",
         },
         method="POST",
     )
@@ -71,18 +89,22 @@ def call(method: str, body: dict | None = None, timeout: float = 30) -> dict:
             return json.loads(resp.read().decode() or "{}")
     except urllib.error.HTTPError as err:
         detail = err.read().decode(errors="replace")[:300]
-        hint = {401: " — is OUTLINE_API_TOKEN right?", 403: " — that account may not read this"}.get(err.code, "")
+        if err.code in (403, 405) and "https" in detail.lower():
+            hint = " — Outline wants HTTPS; is OUTLINE_URL the right address?"
+        else:
+            hint = {
+                401: " — is OUTLINE_API_TOKEN right?",
+                403: " — that account may not read this",
+                404: " — is OUTLINE_URL Outline's address (without /api)?",
+                405: " — is OUTLINE_URL Outline's address (without /api)?",
+            }.get(err.code, "")
         raise OutlineError(f"Outline answered {err.code}{hint}: {detail}") from err
     except ssl.SSLError as err:
-        raise OutlineError(
-            f"Outline's certificate wasn't accepted ({err.reason}) — set OUTLINE_CA_BUNDLE to your CA's file"
-        ) from err
+        raise OutlineError(_tls_problem(err)) from err
     except (urllib.error.URLError, TimeoutError, OSError) as err:
         reason = getattr(err, "reason", err)
         if isinstance(reason, ssl.SSLError):
-            raise OutlineError(
-                f"Outline's certificate wasn't accepted ({reason.reason}) — set OUTLINE_CA_BUNDLE to your CA's file"
-            ) from err
+            raise OutlineError(_tls_problem(reason)) from err
         raise OutlineError(f"Couldn't reach Outline at {_base()}: {reason}") from err
     except json.JSONDecodeError as err:
         raise OutlineError("Outline sent something that isn't JSON — is OUTLINE_URL the wiki's address?") from err
