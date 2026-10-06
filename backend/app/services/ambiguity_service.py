@@ -9,8 +9,8 @@ compare as ranges.
 
 Which pairs can be ambiguous at all (rules_version 2):
 - Only Modes of the same PRI type — a different type tells them apart.
-- Two Fixed: PRI compares as ranges; both with jitter are compared on jitter
-  too; only one with jitter tells them apart.
+- Two Fixed: PRI and jitter both compare as ranges (a Fixed Mode always has
+  jitter; 0–0 is a steady PRI, not "no jitter").
 - Two Staggers: both with PRI range matching on are compared on their frame
   time (± frame margin); neither, on their identical steps; only one with
   range matching on tells them apart.
@@ -174,16 +174,13 @@ def compared_line(line: dict, apply_margins: bool) -> dict:
     return out
 
 
-def has_jitter(line: dict) -> bool:
-    """Jitter recorded — a 0–0 or empty jitter range is no jitter."""
-    return any(v not in (None, 0) for v in (line.get("jitter_min_us"), line.get("jitter_max_us")))
-
-
 def _jitter_span(line: dict) -> tuple[float, float]:
+    """A Fixed Mode's jitter range. Every Fixed Mode has one (the form requires
+    it); a missing end, from data older than that, reads as the other end or 0."""
     lo, hi = line.get("jitter_min_us"), line.get("jitter_max_us")
     lo = hi if lo is None else lo
     hi = lo if hi is None else hi
-    return float(lo), float(hi)
+    return float(lo or 0), float(hi or 0)
 
 
 def frame_window(line: dict, apply_margins: bool) -> tuple[float, float] | None:
@@ -213,10 +210,7 @@ def _pri_and_jitter(a: FlatModeLine, b: FlatModeLine, la: dict, lb: dict, apply_
     t = a.pri_type
     if t == "fixed":
         pri_pct = _range_overlap_pct(la["pri_min_us"], la["pri_max_us"], lb["pri_min_us"], lb["pri_max_us"])
-        ja, jb = has_jitter(a.line), has_jitter(b.line)
-        if ja != jb:
-            return None  # Only one jitters.
-        jitter_pct = _range_overlap_pct(*_jitter_span(a.line), *_jitter_span(b.line)) if ja else None
+        jitter_pct = _range_overlap_pct(*_jitter_span(a.line), *_jitter_span(b.line))
         return pri_pct, jitter_pct, "range", None
     if t == "stagger":
         ra, rb = bool(a.line.get("pri_range_matching")), bool(b.line.get("pri_range_matching"))

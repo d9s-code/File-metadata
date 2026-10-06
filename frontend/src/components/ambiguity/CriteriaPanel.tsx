@@ -61,10 +61,10 @@ export function CriteriaPanel({
         </li>
         <li>
           Each pair is compared on <strong>RF, PRI and PW</strong>, each range <strong>widened by its ± margin</strong> —
-          the ranges the sensor matches with — and on <strong>jitter</strong> when both are Fixed with jitter:
+          the ranges the sensor matches with — and on <strong>jitter</strong> when both are Fixed:
           <ul className="criteria-levels">
             <li>
-              <strong>Fixed:</strong> PRI as a range. If only one of the two has jitter, they&apos;re told apart.
+              <strong>Fixed:</strong> PRI and jitter, each as a range (a jitter of 0–0 is a steady PRI).
             </li>
             <li>
               <strong>Stagger with range matching on:</strong> PRI is the frame time (± frame margin). If only one of the

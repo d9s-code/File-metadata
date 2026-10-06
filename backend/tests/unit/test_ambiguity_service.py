@@ -121,9 +121,9 @@ def test_only_one_stagger_with_range_matching_is_never_ambiguous():
     assert compute_pairwise_findings([a, b]) == []
 
 
-def test_jitter_counts_when_both_have_it_and_only_one_having_it_tells_them_apart():
+def test_fixed_modes_are_always_compared_on_jitter():
     with_jitter = lambda lo, hi: {**_line(pri_min=800, pri_max=1200), "jitter_min_us": lo, "jitter_max_us": hi}  # noqa: E731
-    # Both jitter: 5–15 vs 10–30 overlap 5 of the narrower 10 → 50%, the least → sets the severity.
+    # 5–15 vs 10–30 overlap 5 of the narrower 10 → 50%, the least → sets the severity.
     [finding] = compute_pairwise_findings([_mode("a", "fixed", with_jitter(5, 15)), _mode("b", "fixed", with_jitter(10, 30))])
     assert finding["details"]["jitter_overlap_pct"] == 50.0
     assert finding["details"]["limiting"] == "jitter"
@@ -131,11 +131,10 @@ def test_jitter_counts_when_both_have_it_and_only_one_having_it_tells_them_apart
     assert finding["details"]["compared"]["mode_b"]["jitter"] == [10, 30]
     # Jitter that doesn't overlap tells them apart.
     assert compute_pairwise_findings([_mode("a", "fixed", with_jitter(5, 15)), _mode("b", "fixed", with_jitter(20, 30))]) == []
-    # Only one has jitter (0–0 counts as none).
-    assert compute_pairwise_findings([_mode("a", "fixed", with_jitter(5, 15)), _mode("b", "fixed", with_jitter(0, 0))]) == []
-    # Neither: judged without jitter.
-    [plain] = compute_pairwise_findings([_mode("a", "fixed", with_jitter(None, None)), _mode("b", "fixed", with_jitter(0, 0))])
-    assert plain["details"]["jitter_overlap_pct"] is None
+    # 0–0 is a steady PRI: inside 0–10, outside 5–15.
+    [steady] = compute_pairwise_findings([_mode("a", "fixed", with_jitter(0, 0)), _mode("b", "fixed", with_jitter(0, 10))])
+    assert steady["details"]["jitter_overlap_pct"] == 100.0
+    assert compute_pairwise_findings([_mode("a", "fixed", with_jitter(0, 0)), _mode("b", "fixed", with_jitter(5, 15))]) == []
 
 
 def test_severity_buckets_by_threshold():

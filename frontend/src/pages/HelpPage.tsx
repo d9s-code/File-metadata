@@ -534,8 +534,8 @@ export function HelpPage() {
           <p>
             <strong>How it decides.</strong> Only Modes of the <strong>same PRI type</strong> are compared — a different
             type tells them apart. Each Mode&apos;s RF, PRI and PW ranges are widened by their ± margins — the ranges the
-            sensor matches with. <strong>Fixed</strong> PRI compares as a range, and when both Modes have{" "}
-            <strong>jitter</strong> it&apos;s compared too; if only one has jitter, they&apos;re told apart. A{" "}
+            sensor matches with. Two <strong>Fixed</strong> Modes are compared on PRI and on <strong>jitter</strong>, each
+            as a range (a jitter of 0–0 is a steady PRI, so it only overlaps jitter ranges that include 0). A{" "}
             <strong>Stagger</strong> with <strong>range matching</strong> on is compared on its <strong>frame time</strong>{" "}
             (± frame margin); if only one of two Staggers has range matching on, they&apos;re told apart; without range
             matching, Staggers overlap on the share of their steps that are identical. CW and X-let have no PRI, so

@@ -242,7 +242,7 @@ Each parameter gets an overlap percentage (`intersection ÷ smaller of the two r
 Ranges are compared **with their ± margins** — each Mode's RF, PRI and PW range widened by its delta, the ranges the sensor actually matches with. Which pairs can be ambiguous at all:
 
 - **Same PRI type only** — a different PRI type tells two Modes apart.
-- **Fixed vs Fixed** — PRI as a range; when both have **jitter**, jitter is compared as another parameter; if only one has jitter (0–0 counts as none), they're told apart.
+- **Fixed vs Fixed** — PRI and **jitter**, each as a range; jitter is a parameter like the others and can set the severity. Every Fixed Mode has jitter; 0–0 is a steady PRI.
 - **Stagger vs Stagger** — with **range matching** on both, PRI is compared on the **frame time** (± frame margin); with it on only one, they're told apart; with it on neither, on the share of identical steps.
 - **CW vs CW, X-let vs X-let** — RF and PW only.
 
