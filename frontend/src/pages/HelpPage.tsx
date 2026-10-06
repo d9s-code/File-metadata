@@ -832,6 +832,17 @@ export function HelpPage() {
             loses that provenance link.
           </p>
           <p>
+            <strong>Turn into Source.</strong> Under the description, an Intercept that isn&apos;t a Source yet has a{" "}
+            <strong>Turn into Source</strong> button (Editors, with the Emitter checked out — the page offers to check
+            it out). It adds a Source to the Emitter that stands for this Intercept — same name, date and description,
+            type &quot;Intercept&quot;, starting <strong>Pending review</strong> — so a Mode can have the Intercept as
+            its Source. It&apos;s only a link: nothing is copied from the entries into it, and Modes already made from
+            the entries stay in the Source they&apos;re in. From then on, new Modes made from its entries (one at a time
+            or with Plan Modes) start on that Source. The Source shows &quot;Stands for Intercept …&quot; with a link
+            back; deleting the Intercept keeps the Source and its Modes, unlinked. Like any Source it&apos;s part of the
+            Emitter&apos;s unsaved changes until a version is saved.
+          </p>
+          <p>
             <strong>Reports.</strong> For an imported Intercept, click an entry&apos;s report count to list the
             reports it was built from, or switch the card to <strong>Reports</strong> to list every report — or
             just those in no entry (left out at import, or their entry was deleted). Both tables sort by clicking a

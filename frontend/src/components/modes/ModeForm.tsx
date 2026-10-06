@@ -32,6 +32,7 @@ export function ModeForm({
   sources,
   functionGroups,
   defaultEwGroupId,
+  defaultSourceId,
   fixedDerivedFromTestRecordId,
   fixedDerivedFromInterceptEntryId,
   onStage,
@@ -45,6 +46,8 @@ export function ModeForm({
   sources: Source[];
   functionGroups?: FunctionGroup[];
   defaultEwGroupId?: string;
+  /** The Source to start on, when it's one of `sources` (else the first). */
+  defaultSourceId?: string | null;
   /** When set, this Mode is always linked as derived from this one Test
    * Record — the usual "is this test-derived?" toggle/picker is hidden. */
   fixedDerivedFromTestRecordId?: string;
@@ -74,7 +77,9 @@ export function ModeForm({
   onClose?: () => void;
 }) {
   const [ewGroupId, setEwGroupId] = useState(defaultEwGroupId || ewGroups[0]?.id || "");
-  const [sourceId, setSourceId] = useState(sources[0]?.id ?? "");
+  const [sourceId, setSourceId] = useState(
+    (defaultSourceId && sources.some((s) => s.id === defaultSourceId) ? defaultSourceId : sources[0]?.id) ?? "",
+  );
   const [name, setName] = useState("");
   // Until someone types a name, the form keeps suggesting one.
   const [nameTyped, setNameTyped] = useState(false);

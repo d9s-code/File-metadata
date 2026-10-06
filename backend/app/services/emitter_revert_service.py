@@ -36,6 +36,7 @@ from app.models.mode import (
     ModeElement,
     ModeLine,
 )
+from app.models.intercept import Intercept
 from app.models.source import Source
 from app.models.test_line import TestLine
 
@@ -72,6 +73,12 @@ def reconcile_emitter_to_snapshot(db: Session, emitter: Emitter, snapshot: dict)
         if "status" in s_snap:
             source.status = SourceStatus(s_snap["status"])
             source.rejection_reason = s_snap.get("rejection_reason")
+        if "source_type" in s_snap:
+            source.source_type = s_snap["source_type"]
+        if "intercept_id" in s_snap:
+            # The Intercept may have been deleted since; then the link stays clear.
+            intercept_id = uuid.UUID(s_snap["intercept_id"]) if s_snap["intercept_id"] else None
+            source.intercept_id = intercept_id if intercept_id and db.get(Intercept, intercept_id) else None
         db.flush()
         _reconcile_elements(db, source, s_snap.get("elements", []))
 

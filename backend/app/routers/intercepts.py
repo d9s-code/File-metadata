@@ -3,6 +3,7 @@ import io
 import json
 import uuid as uuid_mod
 from collections import Counter
+from datetime import date
 from decimal import Decimal
 from typing import Annotated, Literal
 from uuid import UUID
@@ -15,13 +16,15 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.csrf import verify_csrf
-from app.core.enums import AuditAction, AuditEntityType, PriType, Role
+from app.core.enums import AuditAction, AuditEntityType, PriType, Role, SourceStatus
 from app.database import get_db
 from app.deps import require_role
 from app.models.emitter import Emitter
 from app.models.ew_group import EwGroup
 from app.models.intercept import Intercept, InterceptEntry, InterceptEntryMode, InterceptNote, InterceptReport
 from app.models.mode import Mode
+from app.models.source import Source
+from app.services import checkout_service
 from app.schemas.intercept import (
     PROVENANCE_FIELDS,
     EntryIds,
@@ -283,6 +286,53 @@ def get_intercept(
     intercept_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
 ) -> Intercept:
     return _attach_entry_count(db, _get_intercept_or_404(db, intercept_id))
+
+
+@router.post(
+    "/{intercept_id}/source", response_model=InterceptOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(verify_csrf)]
+)
+def turn_into_source(intercept_id: UUID, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))) -> Intercept:
+    """Make a Source that stands for this Intercept, so Modes can have it as
+    their Source. Only a link: nothing is copied from the entries. It starts
+    pending review, like an imported Source, and belongs to the Emitter's
+    unsaved changes — so the Emitter must be checked out by you."""
+    intercept = _get_intercept_or_404(db, intercept_id)
+    if intercept.source is not None:
+        raise HTTPException(status.HTTP_409_CONFLICT, f'"{intercept.name}" is already a Source: "{intercept.source.name}"')
+    emitter = db.get(Emitter, intercept.emitter_id)
+    try:
+        checkout_service.assert_checked_out_by(emitter, user.id)
+    except checkout_service.NotCheckedOutByUser:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f'Start editing "{emitter.name}" first — the Source is added to it'
+            if emitter.checked_out_by_id is None
+            else f'"{emitter.name}" is being edited by someone else',
+        )
+    source = Source(
+        emitter_id=emitter.id,
+        name=intercept.name,
+        description=intercept.description,
+        source_type="Intercept",
+        source_date=intercept.intercepted_on or date.today(),
+        status=SourceStatus.pending_review,
+        intercept_id=intercept.id,
+    )
+    db.add(source)
+    db.flush()
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.create,
+        entity_type=AuditEntityType.source.value,
+        entity_id=source.id,
+        summary=f"Turned Intercept '{intercept.name}' into a Source",
+        changes={"name": source.name, "source_type": "Intercept", "intercept_id": str(intercept.id), "status": "pending_review"},
+        emitter_id=emitter.id,
+    )
+    db.commit()
+    db.refresh(intercept)
+    return _attach_entry_count(db, intercept)
 
 
 @router.post("", response_model=InterceptOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(verify_csrf)])

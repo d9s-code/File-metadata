@@ -47,8 +47,16 @@ class Source(UUIDPkMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("source_groups.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
+    # The Intercept this Source stands for, when made with "Turn into Source"
+    # on it — so Modes can have an Intercept as their Source. One Source per
+    # Intercept; cleared if the Intercept is deleted.
+    intercept_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("intercepts.id", ondelete="SET NULL"), nullable=True, unique=True, index=True
+    )
+
     emitter: Mapped["Emitter"] = relationship(back_populates="sources")  # noqa: F821
     group: Mapped["SourceGroup | None"] = relationship(back_populates="sources")  # noqa: F821
+    intercept: Mapped["Intercept | None"] = relationship(back_populates="source")  # noqa: F821
     modes: Mapped[list["Mode"]] = relationship(back_populates="source")  # noqa: F821
     elements: Mapped[list["ModeElement"]] = relationship(  # noqa: F821
         back_populates="source", cascade="all, delete-orphan", order_by="ModeElement.sort_order"
@@ -62,3 +70,7 @@ class Source(UUIDPkMixin, TimestampMixin, Base):
     notes: Mapped[list["SourceNote"]] = relationship(  # noqa: F821
         back_populates="source", cascade="all, delete-orphan", order_by="SourceNote.created_at.desc()"
     )
+
+    @property
+    def intercept_name(self) -> str | None:
+        return self.intercept.name if self.intercept is not None else None

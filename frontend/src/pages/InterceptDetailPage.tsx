@@ -45,7 +45,8 @@ import {
 } from "../components/intercepts/charts/EntryCharts";
 import type { Range, RangeParam } from "../components/intercepts/charts/ImportCharts";
 import { ReportsTable } from "../components/intercepts/ReportsTable";
-import { useInterceptReports } from "../state/hooks/useIntercepts";
+import { useInterceptReports, useTurnInterceptIntoSource } from "../state/hooks/useIntercepts";
+import { useCheckoutEmitter } from "../state/hooks/useEmitterCheckout";
 import type { Emitter, InterceptEntry, Mode } from "../types/domain";
 
 const PAGE_SIZE = 100;
@@ -68,7 +69,17 @@ function MeasuredValue({ mean, min, max }: { mean: number | null; min?: number |
   );
 }
 
-function CreateModeFromEntry({ entry, emitterId, onClose }: { entry: InterceptEntry; emitterId: string; onClose: () => void }) {
+function CreateModeFromEntry({
+  entry,
+  emitterId,
+  defaultSourceId,
+  onClose,
+}: {
+  entry: InterceptEntry;
+  emitterId: string;
+  defaultSourceId: string | null;
+  onClose: () => void;
+}) {
   const { data: ewGroups } = useEwGroups(emitterId);
   const { data: sources } = useSources(emitterId);
   const { data: functionGroups } = useFunctionGroups(emitterId);
@@ -87,6 +98,7 @@ function CreateModeFromEntry({ entry, emitterId, onClose }: { entry: InterceptEn
         emitterId={emitterId}
         ewGroups={ewGroups}
         sources={sources}
+        defaultSourceId={defaultSourceId}
         functionGroups={functionGroups}
         fixedDerivedFromInterceptEntryId={entry.id}
         prefillOnOpen
@@ -156,6 +168,7 @@ function EntryRow({
   columns,
   hasReports,
   multiFile,
+  interceptSourceId,
 }: {
   entry: InterceptEntry;
   emitter: Emitter | undefined;
@@ -172,6 +185,8 @@ function EntryRow({
   /** The Intercept keeps its reports, so this entry's can be listed. */
   hasReports: boolean;
   multiFile: boolean;
+  /** The Intercept's own Source, if it has one — new Modes start on it. */
+  interceptSourceId: string | null;
 }) {
   const [showCreateMode, setShowCreateMode] = useState(false);
   const [showReports, setShowReports] = useState(false);
@@ -297,7 +312,12 @@ function EntryRow({
       {showCreateMode && isMine && (
         <tr>
           <td colSpan={columns}>
-            <CreateModeFromEntry entry={entry} emitterId={emitterId} onClose={() => setShowCreateMode(false)} />
+            <CreateModeFromEntry
+              entry={entry}
+              emitterId={emitterId}
+              defaultSourceId={interceptSourceId}
+              onClose={() => setShowCreateMode(false)}
+            />
           </td>
         </tr>
       )}
@@ -351,6 +371,8 @@ export function InterceptDetailPage() {
   const deleteEntries = useDeleteInterceptEntries(interceptId ?? "");
   const mergeEntries = useMergeInterceptEntries(interceptId ?? "");
   const deleteIntercept = useDeleteIntercept();
+  const turnIntoSource = useTurnInterceptIntoSource(interceptId ?? "", intercept?.emitter_id ?? "");
+  const checkout = useCheckoutEmitter(intercept?.emitter_id ?? "");
   const { confirmDelete, dialog } = useConfirmDialog();
 
   const canWrite = useHasRole("editor");
@@ -603,6 +625,56 @@ export function InterceptDetailPage() {
         )}
       </p>
       {intercept.description && <p className="muted">{intercept.description}</p>}
+      <div className="intercept-source">
+        {intercept.source_id ? (
+          <>
+            <span>
+              <strong>Source:</strong>{" "}
+              <Link to={`/emitters/${intercept.emitter_id}?tab=setup&source=${intercept.source_id}`}>{intercept.source_name}</Link>
+            </span>
+            {intercept.source_status && intercept.source_status !== "approved" && (
+              <span className={`status-badge status-${intercept.source_status}`}>
+                {intercept.source_status === "pending_review" ? "Pending review" : "Rejected"}
+              </span>
+            )}
+            <span className="hint-text">Modes can have this Intercept as their Source; new ones from its entries start on it.</span>
+          </>
+        ) : (
+          canWrite &&
+          emitter && (
+            <>
+              <span className="hint-text">Not a Source yet — Modes made from it are filed under another Source.</span>
+              {isMine ? (
+                <button
+                  type="button"
+                  className="button secondary small"
+                  disabled={turnIntoSource.isPending}
+                  onClick={() =>
+                    turnIntoSource.mutate(undefined, {
+                      onError: (err) => setError(err instanceof ApiRequestError ? err.message : "Couldn't make the Source"),
+                    })
+                  }
+                  title="Adds a Source that stands for this Intercept (pending review), so Modes can have it as their Source"
+                >
+                  Turn into Source
+                </button>
+              ) : emitter.checked_out_by_id ? (
+                <span className="hint-text">{emitter.name} is being edited by {emitter.checked_out_by_username ?? "someone else"}.</span>
+              ) : (
+                <button
+                  type="button"
+                  className="button small start-editing-button"
+                  disabled={checkout.isPending}
+                  onClick={() => checkout.mutate()}
+                  title="Turning it into a Source adds it to the Emitter, which has to be checked out"
+                >
+                  ✎ Start editing {emitter.name} to turn it into a Source
+                </button>
+              )}
+            </>
+          )
+        )}
+      </div>
       {error && <div className="error-text">{error}</div>}
 
       <section className="card">
@@ -911,6 +983,7 @@ export function InterceptDetailPage() {
                     key={entry.id}
                     entry={entry}
                     emitter={emitter}
+                    interceptSourceId={intercept.source_id}
                     match={match}
                     modeById={modeById}
                     isMine={isMine}

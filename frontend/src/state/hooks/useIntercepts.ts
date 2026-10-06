@@ -1,4 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { sourcesKey } from "./useSources";
 import {
   interceptsApi,
   type InterceptEntryInput,
@@ -197,6 +198,19 @@ export function useImportInterceptEntries() {
       qc.invalidateQueries({ queryKey: ["intercepts"] });
       qc.invalidateQueries({ queryKey: ["intercept"] });
       qc.invalidateQueries({ queryKey: ["intercept-entries"] });
+    },
+  });
+}
+
+/** "Turn into Source": a Source that stands for this Intercept. */
+export function useTurnInterceptIntoSource(interceptId: string, emitterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => interceptsApi.turnIntoSource(interceptId),
+    onSuccess: (intercept) => {
+      qc.setQueryData(interceptKey(interceptId), intercept);
+      qc.invalidateQueries({ queryKey: ["intercepts"] });
+      qc.invalidateQueries({ queryKey: sourcesKey(emitterId) });
     },
   });
 }

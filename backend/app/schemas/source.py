@@ -41,6 +41,9 @@ class SourceOut(BaseModel):
     rejection_reason: str | None = None
     import_batch_id: UUID | None = None
     group_id: UUID | None = None
+    # Set when this Source stands for an Intercept.
+    intercept_id: UUID | None = None
+    intercept_name: str | None = None
     created_at: datetime
     updated_at: datetime
 

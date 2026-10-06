@@ -144,10 +144,11 @@ export function MergeDialog({ finding, runId, onClose }: { finding: AmbiguityFin
                     <span>{plan.emitter.name} isn&apos;t being edited — a merge changes its Modes.</span>
                     <button
                       type="button"
+                      className="start-editing-button"
                       disabled={checkout.isPending}
                       onClick={() => checkout.mutate(undefined, { onSuccess: () => void preview.refetch() })}
                     >
-                      Start editing {plan.emitter.name}
+                      ✎ Start editing {plan.emitter.name}
                     </button>
                   </>
                 )}

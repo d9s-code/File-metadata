@@ -34,6 +34,8 @@ class Intercept(UUIDPkMixin, TimestampMixin, Base):
     grouping_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
 
     emitter: Mapped["Emitter"] = relationship(back_populates="intercepts")  # noqa: F821
+    # The Source made from it with "Turn into Source", if any.
+    source: Mapped["Source | None"] = relationship(back_populates="intercept", uselist=False)  # noqa: F821
     entries: Mapped[list["InterceptEntry"]] = relationship(
         back_populates="intercept", cascade="all, delete-orphan", order_by="InterceptEntry.created_at.desc()"
     )
@@ -45,6 +47,18 @@ class Intercept(UUIDPkMixin, TimestampMixin, Base):
     reports: Mapped[list["InterceptReport"]] = relationship(
         back_populates="intercept", cascade="all, delete-orphan", passive_deletes=True
     )
+
+    @property
+    def source_id(self):
+        return self.source.id if self.source is not None else None
+
+    @property
+    def source_name(self) -> str | None:
+        return self.source.name if self.source is not None else None
+
+    @property
+    def source_status(self) -> str | None:
+        return self.source.status.value if self.source is not None else None
 
 
 class InterceptNote(UUIDPkMixin, Base):

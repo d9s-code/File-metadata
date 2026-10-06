@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { JsonImportModal } from "../common/JsonImportModal";
 import type { EwGroup, Source } from "../../types/domain";
 import { useApproveSource, useDeleteSource } from "../../state/hooks/useSources";
@@ -214,6 +215,11 @@ function SourceOverlay({
               )}
             </h3>
             <div className="hint-text">
+              {source.intercept_id && (
+                <>
+                  Stands for Intercept <Link to={`/intercepts/${source.intercept_id}`}>{source.intercept_name}</Link> ·{" "}
+                </>
+              )}
               Last updated {source.source_date}
               {source.rf_legacy_term && ` · ${source.rf_legacy_term}`}
               {source.pri_legacy_term && ` · PRI: ${source.pri_legacy_term}`}
@@ -483,6 +489,11 @@ export function SourcesTable({
                           </td>
                           <td>
                             {s.name}
+                            {s.intercept_id && (
+                              <Link className="source-intercept-link" to={`/intercepts/${s.intercept_id}`} title="This Source stands for an Intercept">
+                                Intercept
+                              </Link>
+                            )}
                             {s.status !== "approved" && (
                               <span className={`status-badge status-${s.status}`}>{statusLabel(s.status)}</span>
                             )}

@@ -144,6 +144,9 @@ export interface Source {
   rejection_reason: string | null;
   import_batch_id: string | null;
   group_id: string | null;
+  /** Set when this Source stands for an Intercept. */
+  intercept_id: string | null;
+  intercept_name: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -289,6 +292,10 @@ export interface Intercept {
   report_count: number;
   /** Bumped whenever which report is in which entry changes. */
   grouping_version: number;
+  /** The Source made from it with "Turn into Source", if any. */
+  source_id: string | null;
+  source_name: string | null;
+  source_status: SourceStatus | null;
 }
 
 /** One report kept from an imported file. */

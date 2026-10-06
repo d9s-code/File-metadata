@@ -140,6 +140,10 @@ Sources are scoped per-Emitter — each Emitter curates its own list.
 
 A Source can't be deleted while it still has Modes attached.
 
+### Intercepts as Sources
+
+**Turn into Source** on an Intercept (Editors, with the Emitter checked out) adds a Source that stands for it — the Intercept's name, date and description, type "Intercept", starting `pending_review` — so a Mode can have the Intercept as its Source rather than an unrelated document. It's only a link: nothing is derived from the entries (no Elements), and Modes already made from the entries stay where they are. New Modes made from its entries (one at a time, or with Plan Modes) start on that Source. The Source shows "Stands for Intercept …" and the Intercept links to its Source; one Source per Intercept. The link is part of the Emitter's version (it survives save, discard and revert), and deleting the Intercept leaves the Source and its Modes in place, unlinked.
+
 ### Import
 
 Beyond typing a DSL line or building Elements by hand, a Source's Elements and Parameter Sequences can be bulk-imported from a structured JSON payload — one `POST /emitters/{emitter_id}/imports` call creates a new Source (starting `pending_review`, same as any imported data) per "parametric set" in the payload, each carrying its own Elements/Sequences. A `/validate` dry-run endpoint checks the payload (cross-object checks like duplicate Source names within one import) without writing anything, returning field-path-addressable issues suitable for a pre-commit review UI.

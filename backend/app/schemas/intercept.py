@@ -350,3 +350,7 @@ class InterceptOut(BaseModel):
     # Reports kept from imported files — what the entries can be regrouped from.
     report_count: int = 0
     grouping_version: int = 0
+    # The Source made from it with "Turn into Source", if any.
+    source_id: UUID | None = None
+    source_name: str | None = None
+    source_status: str | None = None

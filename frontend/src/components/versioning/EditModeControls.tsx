@@ -103,8 +103,8 @@ export function EditModeControls({
   return (
     <RequireRole minimum="editor">
       {!isCheckedOut ? (
-        <button className="button primary" disabled={checkout.isPending} onClick={() => void handleCheckout()}>
-          Start editing
+        <button className="button start-editing-button" disabled={checkout.isPending} onClick={() => void handleCheckout()}>
+          ✎ Start editing
         </button>
       ) : isMine ? (
         <>

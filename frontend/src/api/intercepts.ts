@@ -114,6 +114,8 @@ export const interceptsApi = {
     return api.get<Intercept[]>(`/intercepts${qs ? `?${qs}` : ""}`);
   },
   get: (interceptId: string) => api.get<Intercept>(`/intercepts/${interceptId}`),
+  /** Make a Source that stands for this Intercept. */
+  turnIntoSource: (interceptId: string) => api.post<Intercept>(`/intercepts/${interceptId}/source`),
   create: (input: InterceptInput) => api.post<Intercept>("/intercepts", input),
   /** A new Intercept, its entries and the reports they came from, in one transaction. */
   importNew: (intercept: InterceptInput, entries: InterceptEntryInput[], reports?: ReportsUpload) =>

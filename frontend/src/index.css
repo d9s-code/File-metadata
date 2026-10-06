@@ -27,6 +27,10 @@
   --on-primary: #ffffff;
   --accent: #7c3aed;
   --accent-hover: #6425d0;
+  /* Calls to action that unlock everything else (Start editing). */
+  --attention: #c2410c;
+  --attention-hover: #9a3412;
+  --on-attention: #ffffff;
   --error: #b3261e;
   --success: #065f46;
   --code-bg: #f1f3f5;
@@ -95,6 +99,9 @@
     --on-primary: #0b1a33;
     --accent: #a78bfa;
     --accent-hover: #c4b5fd;
+    --attention: #fb923c;
+    --attention-hover: #fdba74;
+    --on-attention: #1f1305;
     --error: #f87171;
     --success: #34d399;
     --code-bg: #262b33;
@@ -148,6 +155,9 @@
   --primary: #6ea8fe;
   --primary-hover: #8fbcff;
     --on-primary: #0b1a33;
+  --attention: #fb923c;
+  --attention-hover: #fdba74;
+  --on-attention: #1f1305;
   --error: #f87171;
   --success: #34d399;
   --code-bg: #262b33;
@@ -322,6 +332,22 @@ button:disabled {
 }
 .accent-button:hover {
   background: var(--accent-hover);
+}
+
+/* Start editing: everything on an Emitter is locked until it's pressed, so
+   it stands out from the blue buttons around it. */
+button.start-editing-button,
+.button.start-editing-button {
+  background: var(--attention);
+  color: var(--on-attention);
+  border: none;
+  font-weight: 600;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--attention) 25%, transparent), var(--shadow-sm);
+}
+button.start-editing-button:hover:not(:disabled),
+.button.start-editing-button:hover:not(:disabled) {
+  background: var(--attention-hover);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--attention) 30%, transparent), var(--shadow-md);
 }
 
 .info-popover-trigger {
@@ -5174,3 +5200,11 @@ label.map-axis select { font-size: 0.8rem; padding: 0.1rem 0.3rem; }
 .merge-done p { margin: 0 0 0.6rem; }
 .modes-involved-row { cursor: pointer; }
 .modes-involved-row:hover { background: var(--hover-bg); }
+
+/* An Intercept's link to its Source */
+.intercept-source { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.8rem; margin: 0.2rem 0 0.8rem; font-size: 0.9rem; }
+.source-intercept-link {
+  margin-left: 0.4rem; padding: 0.05rem 0.4rem; border: 1px solid var(--border); border-radius: 999px;
+  font-size: 0.72rem; text-decoration: none; color: var(--primary);
+}
+.source-intercept-link:hover { background: var(--hover-bg); }

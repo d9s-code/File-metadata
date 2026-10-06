@@ -339,7 +339,9 @@ export function InterceptModePlanPage() {
   const needsCw = toCreate.some((r) => r.entry.pri_type === "cw");
   const types = new Set(toCreate.map((r) => r.entry.pri_type));
   const group = ewGroupId || ewGroups?.[0]?.id || "";
-  const source = sourceId || sources?.[0]?.id || "";
+  // Its own Source when it has one, else the first.
+  const ownSource = intercept.source_id && sources?.some((s) => s.id === intercept.source_id) ? intercept.source_id : null;
+  const source = sourceId || ownSource || sources?.[0]?.id || "";
   const namePrefix = (prefix ?? intercept.name.slice(0, 150)).trim();
   const nothing = toCreate.length === 0 && toWiden.length === 0;
   const tooMany = toCreate.length > MAX_NEW_MODES;

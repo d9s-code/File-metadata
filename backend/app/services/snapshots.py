@@ -119,6 +119,8 @@ def build_emitter_snapshot(emitter: Emitter) -> dict:
                 "source_date": s.source_date.isoformat(),
                 "status": s.status.value,
                 "rejection_reason": s.rejection_reason,
+                "source_type": s.source_type,
+                "intercept_id": str(s.intercept_id) if s.intercept_id else None,
                 "elements": [_mode_element_dict(e) for e in sorted(s.elements, key=lambda e: e.sort_order)],
             }
             for s in sorted(emitter.sources, key=lambda s: s.name)
