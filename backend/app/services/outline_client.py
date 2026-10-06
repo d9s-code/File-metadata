@@ -91,6 +91,10 @@ def call(method: str, body: dict | None = None, timeout: float = 30) -> dict:
         detail = err.read().decode(errors="replace")[:300]
         if err.code in (403, 405) and "https" in detail.lower():
             hint = " — Outline wants HTTPS; is OUTLINE_URL the right address?"
+        elif err.code == 401 and method != "auth.info":
+            # Signing in worked, so the token is fine: Outline treats a key
+            # whose scopes leave this method out as no key at all.
+            hint = f" — the API key's scopes probably don't include {method} (give it read access)"
         else:
             hint = {
                 401: " — is OUTLINE_API_TOKEN right?",

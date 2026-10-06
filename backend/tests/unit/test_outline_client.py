@@ -211,6 +211,15 @@ def test_a_wrong_token_says_so(outline, monkeypatch):
         outline_client.whoami()
 
 
+def test_a_key_scoped_too_narrowly_says_so(outline, monkeypatch):
+    """Outline answers 401, not 403, on documents.info when the key's scopes
+    leave it out: the hint must point at the scopes, not the token."""
+    outline()
+    monkeypatch.setattr(settings, "outline_api_token", "wrong")
+    with pytest.raises(outline_client.OutlineError, match="scopes probably don't include documents.info"):
+        outline_client.document("abc123")
+
+
 def test_the_probe_script_reports_size_and_search(outline, capsys, monkeypatch):
     outline()
     import scripts.outline_probe as probe
