@@ -68,6 +68,10 @@ class Settings(BaseSettings):
     # from the browser (or its id, or its exact title). Takes precedence.
     outline_root: str | None = None
     outline_ca_bundle: str | None = None
+    # When OUTLINE_URL is an address only the server can use (Outline's
+    # container on a shared Docker network, say), the address people open
+    # it at — for the links back to Outline. Defaults to OUTLINE_URL.
+    outline_public_url: str | None = None
 
     max_upload_bytes: int = 10 * 1024 * 1024
 

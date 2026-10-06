@@ -122,7 +122,7 @@ def _document(d: dict) -> OutlineDocument:
         id=d["id"],
         title=d.get("title") or "(untitled)",
         text=d.get("text") or "",
-        url=url if url.startswith("http") else f"{_base()}{url}",
+        url=url if url.startswith("http") else f"{(settings.outline_public_url or _base()).rstrip('/')}{url}",
         updated_at=d.get("updatedAt"),
         parent_id=d.get("parentDocumentId"),
         collection_id=d.get("collectionId"),

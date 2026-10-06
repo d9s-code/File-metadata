@@ -187,6 +187,12 @@ def test_a_page_and_everything_under_it(outline, monkeypatch):
         outline_client.scope()
 
 
+def test_links_use_the_public_address_when_reached_another_way(outline, monkeypatch):
+    outline()
+    monkeypatch.setattr(settings, "outline_public_url", "https://outline.app/")
+    assert outline_client.documents("col-prs")[0].url == "https://outline.app/doc/page-0"
+
+
 def test_a_wrong_token_says_so(outline, monkeypatch):
     outline()
     monkeypatch.setattr(settings, "outline_api_token", "wrong")

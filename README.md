@@ -311,9 +311,14 @@ too short to make sense alone, or under no heading at all.
 with `OUTLINE_URL` and `OUTLINE_API_TOKEN` (an Outline API key — Outline → Settings → API) set
 on the backend. Only what that Outline account may read
 is ever returned. If Outline runs on the same server, the backend container has to be able to
-reach that address: if the probe can't, either add the name to the backend service's
-`extra_hosts`, or put the backend on Outline's Docker network and use Outline's internal
-address. A certificate from your own authority needs `OUTLINE_CA_BUNDLE`.
+reach that address. Either:
+
+- **through Traefik (or whichever proxy) by name** — if the container can't resolve the
+  name, add `extra_hosts: ["outline.app:host-gateway"]` to the backend service; a
+  certificate from your own authority needs `OUTLINE_CA_BUNDLE`; or
+- **straight to Outline's container** — put the backend on a Docker network Outline is on,
+  set `OUTLINE_URL=http://<outline container>:3000` and `OUTLINE_PUBLIC_URL` to the address
+  people open, which the links back to Outline use.
 
 ## Database migrations
 
