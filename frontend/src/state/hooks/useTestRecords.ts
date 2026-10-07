@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { testRecordsApi, type TestRecordInput } from "../../api/testRecords";
+import { testDraftsApi, testRecordsApi, type TestRecordInput } from "../../api/testRecords";
 import { mdfReadinessKey } from "./useMdfs";
 import { testLinesKey } from "./useTestLines";
 import { emitterModesKey } from "./useModes";
@@ -12,6 +12,24 @@ function invalidateEmitterTestState(qc: ReturnType<typeof useQueryClient>, emitt
   qc.invalidateQueries({ queryKey: testLinesKey(emitterId) });
   qc.invalidateQueries({ queryKey: emitterModesKey(emitterId) });
   qc.invalidateQueries({ queryKey: emittersKey });
+  qc.invalidateQueries({ queryKey: testDraftsKey(emitterId) });
+}
+
+export function testDraftsKey(emitterId: string) {
+  return ["testDrafts", emitterId] as const;
+}
+
+/** Test runs in progress on an Emitter. */
+export function useEmitterTestDrafts(emitterId: string) {
+  return useQuery({ queryKey: testDraftsKey(emitterId), queryFn: () => testDraftsApi.list(emitterId), enabled: !!emitterId });
+}
+
+export function useDiscardTestDraft(emitterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => testDraftsApi.discard(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: testDraftsKey(emitterId) }),
+  });
 }
 
 export function testRecordsKey(scope: "emitter" | "mdf", id: string) {

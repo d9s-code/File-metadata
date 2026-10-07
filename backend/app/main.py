@@ -25,6 +25,7 @@ from app.routers import (
     source_groups,
     sources,
     tasks,
+    test_drafts,
     test_lines,
     test_records,
     trash,
@@ -71,6 +72,7 @@ app.include_router(mdfs.router)
 app.include_router(test_records.emitter_router)
 app.include_router(test_records.mdf_router)
 app.include_router(test_lines.router)
+app.include_router(test_drafts.router)
 app.include_router(dashboard.router)
 app.include_router(ambiguity.router)
 app.include_router(ambiguity.ai_router)

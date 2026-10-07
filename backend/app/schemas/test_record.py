@@ -93,6 +93,8 @@ class TestRecordLineResultIn(BaseModel):
     outcome: TestResult
     # Which of this Emitter's Modes the system reported for this line — any number.
     intercepted_mode_ids: list[UUID] = []
+    # Reported as Default Unknown (no Mode matched) — with or without Modes.
+    intercepted_as_unknown: bool = False
     notes: str | None = None
     # The intercepted parameters — same shape as TestRecordModeResultIn's.
     observed_values: list[dict] | None = None
@@ -142,6 +144,8 @@ class TestRecordCreate(BaseModel):
     # worst-of-N aggregate computed from mode_results (see _create_test_record).
     # A Function Group not present here just gets its computed aggregate.
     function_group_overrides: dict[UUID, TestResult] = {}
+    # The draft this run was filled in as, deleted once it's logged.
+    draft_id: UUID | None = None
 
     @field_validator("test_type")
     @classmethod
@@ -205,6 +209,7 @@ class TestRecordLineOut(BaseModel):
     test_line_label: str = Field(validation_alias=AliasPath("test_line", "label"))
     outcome: TestResult
     intercepted_modes: list[InterceptedModeOut] = []
+    intercepted_as_unknown: bool = False
     notes: str | None = None
     observed_values: list[dict] | None = None
 
@@ -230,3 +235,31 @@ class TestRecordOut(BaseModel):
     modes: list[TestRecordModeOut] = []
     function_groups: list[TestRecordFunctionGroupOut] = []
     lines: list[TestRecordLineOut] = []
+
+
+class TestRunDraftSave(BaseModel):
+    title: str = Field(default="", max_length=500)
+    test_type: TestType
+    summary: str | None = Field(default=None, max_length=300)
+    state: dict
+    # The version this save builds on (omitted when creating).
+    version: int | None = None
+
+
+class TestRunDraftOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    emitter_id: UUID
+    title: str
+    test_type: str
+    summary: str | None = None
+    version: int
+    created_at: datetime
+    updated_at: datetime
+    created_by_username: str | None = None
+    updated_by_username: str | None = None
+
+
+class TestRunDraftFull(TestRunDraftOut):
+    state: dict

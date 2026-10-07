@@ -7,6 +7,10 @@ export interface ModeNameOption {
 }
 
 const LIST_MAX_HEIGHT = 256;
+
+/** Not a Mode: the sensor's "no Mode matched" report. Offered first, and
+ * kept apart from the Mode ids when the run is logged. */
+export const DEFAULT_UNKNOWN: ModeNameOption = { id: "default-unknown", name: "Default Unknown" };
 const VIEWPORT_MARGIN = 8;
 
 /**
@@ -38,7 +42,12 @@ export function ModeMultiSelect({
   const selectedSet = useMemo(() => new Set(selected), [selected]);
   // By name, numbers in natural order ("Track 2" before "Track 10").
   const sortedModes = useMemo(
-    () => [...modes].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })),
+    () =>
+      [...modes].sort(
+        (a, b) =>
+          Number(b.id === DEFAULT_UNKNOWN.id) - Number(a.id === DEFAULT_UNKNOWN.id) ||
+          a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }),
+      ),
     [modes],
   );
   const matches = useMemo(() => {
@@ -132,7 +141,7 @@ export function ModeMultiSelect({
     return (
       <div className="mode-multi-select mode-multi-select-disabled">
         {selected.map((id) => (
-          <span key={id} className="mode-chip mode-chip-selected-static">
+          <span key={id} className={id === DEFAULT_UNKNOWN.id ? "mode-chip mode-chip-selected-static mode-chip-unknown" : "mode-chip mode-chip-selected-static"}>
             {nameOf.get(id) ?? "(deleted Mode)"}
           </span>
         ))}
@@ -143,7 +152,7 @@ export function ModeMultiSelect({
   return (
     <div ref={fieldRef} className="mode-multi-select" onClick={() => inputRef.current?.focus()}>
       {selected.map((id) => (
-        <span key={id} className="mode-chip mode-chip-selected-static">
+        <span key={id} className={id === DEFAULT_UNKNOWN.id ? "mode-chip mode-chip-selected-static mode-chip-unknown" : "mode-chip mode-chip-selected-static"}>
           {nameOf.get(id) ?? "(deleted Mode)"}
           <button
             type="button"

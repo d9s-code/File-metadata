@@ -1,7 +1,7 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import Date, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -153,6 +153,9 @@ class TestRecordLine(UUIDPkMixin, Base):
     outcome: Mapped[TestResult] = mapped_column(nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     observed_values: Mapped[list[dict] | None] = mapped_column(JSONB, nullable=True)
+    # The system reported it as Default Unknown — the sensor's "no Mode
+    # matched" — alongside or instead of any of the Emitter's Modes.
+    intercepted_as_unknown: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
 
     test_record: Mapped["TestRecord"] = relationship(back_populates="lines")
     test_line: Mapped["TestLine"] = relationship()  # noqa: F821
@@ -178,3 +181,30 @@ class TestRecordLineMode(UUIDPkMixin, Base):
 
     test_record_line: Mapped["TestRecordLine"] = relationship(back_populates="intercepted_modes")
     mode: Mapped["Mode"] = relationship()  # noqa: F821
+
+
+class TestRunDraft(UUIDPkMixin, TimestampMixin, Base):
+    """A test run being filled in — saved as it's typed, so it survives a
+    reload and can be finished later (by anyone who can log tests). `state`
+    is the run page's form as it stands, kept as the page sends it;
+    logging the run turns it into a TestRecord and deletes the draft.
+    `version` goes up with each save, so two people saving the same draft
+    don't silently overwrite each other."""
+
+    __tablename__ = "test_run_drafts"
+
+    emitter_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("emitters.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    title: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    test_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    # A line for the list, written by the page: "12 of 40 SIM lines filled in".
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    state: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    updated_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )

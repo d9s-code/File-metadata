@@ -52,6 +52,8 @@ export interface TestRecordLineResult {
   outcome: TestResult;
   /** The Emitter's Modes the system reported for this line — any number. */
   intercepted_modes: { mode_id: string; mode_name: string }[];
+  /** Reported as Default Unknown — no Mode matched. */
+  intercepted_as_unknown: boolean;
   notes: string | null;
   /** Intercepted parameters — zero or more sets. */
   observed_values: ObservedValues[] | null;
@@ -90,6 +92,7 @@ export interface TestRecordLineResultInput {
   test_line_id: string;
   outcome: TestResult;
   intercepted_mode_ids?: string[];
+  intercepted_as_unknown?: boolean;
   notes?: string;
   observed_values?: ObservedValues[];
 }
@@ -115,7 +118,44 @@ export interface TestRecordInput {
   /** Per-Function-Group manual override of the computed worst-of-N aggregate
    * — a Function Group not present here just gets its computed result. */
   function_group_overrides?: Record<string, TestResult>;
+  /** The run in progress this was filled in as — deleted once logged. */
+  draft_id?: string;
 }
+
+/** A test run being filled in, saved as it's typed. */
+export interface TestRunDraft {
+  id: string;
+  emitter_id: string;
+  title: string;
+  test_type: TestType;
+  summary: string | null;
+  version: number;
+  created_at: string;
+  updated_at: string;
+  created_by_username: string | null;
+  updated_by_username: string | null;
+}
+
+export interface TestRunDraftFull<S = unknown> extends TestRunDraft {
+  state: S;
+}
+
+export interface TestRunDraftSave<S = unknown> {
+  title: string;
+  test_type: TestType;
+  summary: string;
+  state: S;
+  version?: number;
+}
+
+export const testDraftsApi = {
+  list: (emitterId: string) => api.get<TestRunDraft[]>(`/emitters/${emitterId}/test-drafts`),
+  get: <S>(id: string) => api.get<TestRunDraftFull<S>>(`/test-drafts/${id}`),
+  create: <S>(emitterId: string, body: TestRunDraftSave<S>) =>
+    api.post<TestRunDraftFull<S>>(`/emitters/${emitterId}/test-drafts`, body),
+  save: <S>(id: string, body: TestRunDraftSave<S>) => api.put<TestRunDraft>(`/test-drafts/${id}`, body),
+  discard: (id: string) => api.delete<void>(`/test-drafts/${id}`),
+};
 
 export const testRecordsApi = {
   listForEmitter: (emitterId: string) => api.get<TestRecord[]>(`/emitters/${emitterId}/test-records`),

@@ -36,5 +36,6 @@ from app.models.test_record import (  # noqa: F401
     TestRecordLine,
     TestRecordLineMode,
     TestRecordMode,
+    TestRunDraft,
 )
 from app.models.user import User  # noqa: F401

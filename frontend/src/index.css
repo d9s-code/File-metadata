@@ -617,7 +617,9 @@ label {
 .page {
   max-width: min(1680px, 96vw);
   margin: 0 auto;
-  padding: 1.25rem 1.5rem 2rem;
+  /* Room at the bottom to scroll the last buttons clear of the corner
+     panels (the editing reminder, the AI chat button). */
+  padding: 1.25rem 1.5rem 6rem;
 }
 
 .centered-page {
@@ -3818,6 +3820,10 @@ label.grow {
   padding: 0.6rem 0.8rem;
   font-size: 0.88rem;
 }
+/* While it's open, the page can scroll its last buttons up past it. */
+.checkout-reminder ~ .page {
+  padding-bottom: calc(min(40vh, 18rem) + 2rem);
+}
 .checkout-reminder.long-held {
   border-left-color: var(--error);
 }
@@ -5142,8 +5148,12 @@ a.ai-cite:hover { text-decoration: underline; }
 .criteria-panel { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); font-size: 0.9rem; }
 .criteria-steps { margin: 0 0 0.6rem 1.1rem; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
 .criteria-levels { list-style: none; margin: 0.35rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.amb-runbar-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem; }
+.run-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.4rem 0.75rem; }
+.run-thresholds { font-size: 0.82rem; }
+.run-thresholds.editing { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.6rem; }
+.criteria-threshold { flex-direction: row; align-items: center; gap: 0.3rem; font-size: 0.8rem; }
 .criteria-threshold input { width: 4.2rem; padding: 0.1rem 0.3rem; margin: 0 0.15rem; }
-.criteria-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.9rem; }
 
 .amb-chips { display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; margin: 0.8rem 0 0.4rem; }
 .amb-chip-group { display: inline-flex; flex-wrap: wrap; gap: 0.3rem; }
@@ -5328,3 +5338,23 @@ a.ai-cite:hover { text-decoration: underline; }
 .settings-row > span { display: flex; flex-direction: column; gap: 0.1rem; }
 .settings-row.disabled { opacity: 0.55; cursor: default; }
 .settings-row strong { color: var(--text); font-size: 0.9rem; }
+
+/* Default Unknown among the Modes a SIM line was intercepted as. */
+.mode-chip-unknown { background: var(--badge-amber-bg); color: var(--badge-amber-fg); }
+
+/* Test runs in progress, on Test History. */
+.test-drafts { margin: 0 0 0.75rem; padding: 0.5rem 0.75rem; border: 1px dashed var(--border); border-radius: var(--radius-md); }
+.test-drafts h5 { margin: 0 0 0.35rem; }
+.test-drafts ul { list-style: none; margin: 0; padding: 0; }
+.test-drafts li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; padding: 0.3rem 0; }
+.test-drafts li + li { border-top: 1px solid var(--border); }
+.test-drafts li .hint-text { flex: 1; min-width: 12rem; }
+.test-draft-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: var(--badge-amber-bg);
+  color: var(--badge-amber-fg);
+}
+.save-line { margin: -0.4rem 0 0.8rem; font-size: 0.85rem; }

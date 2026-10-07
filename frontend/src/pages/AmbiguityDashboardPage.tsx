@@ -15,7 +15,7 @@ import { useEmitter } from "../state/hooks/useEmitters";
 import { usePlatform } from "../state/hooks/usePlatforms";
 import { useMdf } from "../state/hooks/useMdfs";
 import { useAuth } from "../auth/AuthContext";
-import { CriteriaPanel } from "../components/ambiguity/CriteriaPanel";
+import { HowItDecides, RunControls } from "../components/ambiguity/CriteriaPanel";
 import { AmbiguityMatrix } from "../components/ambiguity/AmbiguityMatrix";
 import { FindingList } from "../components/ambiguity/FindingList";
 import { FindingDetail } from "../components/ambiguity/FindingDetail";
@@ -27,6 +27,7 @@ import {
   SEVERITY_RANK,
   findingStatus,
   marginsApplied,
+  DEFAULT_THRESHOLDS,
   rulesCurrent,
   scopeName,
   type FindingStatus,
@@ -65,6 +66,8 @@ export function AmbiguityDashboardPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [criteriaOpen, setCriteriaOpen] = useState(false);
+  // The thresholds the next check runs with: the shown check's, or the defaults.
+  const [thresholds, setThresholds] = useState<ToleranceConfig>(DEFAULT_THRESHOLDS);
   const [view, setView] = useState<View>("findings");
   const [status, setStatus] = useState<FindingStatus | "">("");
   const [severity, setSeverity] = useState<AmbiguitySeverity | "">("");
@@ -92,8 +95,11 @@ export function AmbiguityDashboardPage() {
     if (autoSelected.current || runId !== null || !priorRuns) return;
     autoSelected.current = true;
     const latest = priorRuns.find((r) => r.status === "complete");
-    if (latest) setRunId(latest.id);
-    else setCriteriaOpen(true);
+    if (latest) {
+      setRunId(latest.id);
+      const t = latest.tolerance_config;
+      setThresholds({ low_threshold: t.low_threshold, high_threshold: t.high_threshold, exact_threshold: t.exact_threshold });
+    }
   }, [priorRuns, runId]);
 
   // Is the check still current, or has the scope been saved again since?
@@ -208,11 +214,16 @@ export function AmbiguityDashboardPage() {
             ) : run?.status === "complete" ? (
               <>
                 <span>
-                  Checked {runVersion ? `version ${runVersion.version_number}` : "the saved version"} on{" "}
-                  {new Date(run.created_at).toLocaleString()}
-                  {run.created_by && run.created_by === user?.id ? " by you" : ""} ·{" "}
-                  {marginsApplied(run) ? "ranges with margins" : "ranges as typed"} · thresholds {run.tolerance_config.low_threshold} /{" "}
-                  {run.tolerance_config.high_threshold} / {run.tolerance_config.exact_threshold}%
+                  Checked {runVersion ? `version ${runVersion.version_number}` : "the saved version"} ·{" "}
+                  {new Date(run.created_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
+                  {run.created_by && run.created_by === user?.id ? " by you" : ""}
+                  <span
+                    className="hint-text"
+                    title={`Thresholds ${run.tolerance_config.low_threshold} / ${run.tolerance_config.high_threshold} / ${run.tolerance_config.exact_threshold}%`}
+                  >
+                    {" "}
+                    · {marginsApplied(run) ? "with margins" : "ranges as typed"}
+                  </span>
                 </span>
                 {isStale && (
                   <span className="amb-stale">
@@ -232,16 +243,23 @@ export function AmbiguityDashboardPage() {
             ) : runsLoading ? (
               <span className="hint-text">Loading…</span>
             ) : (
-              <span>No check has been run yet. It compares every pair of Modes and flags the ones a receiver could confuse.</span>
+              <span>Not checked yet. The check compares every pair of Modes and flags the ones the sensor could confuse.</span>
             )}
           </div>
           <div className="amb-runbar-actions">
-            <button type="button" className={criteriaOpen ? "link-button" : undefined} onClick={() => setCriteriaOpen((o) => !o)}>
-              {criteriaOpen ? "Hide how it works" : run ? "How it works · run again" : "How it works · run"}
+            <RunControls
+              thresholds={thresholds}
+              onThresholds={setThresholds}
+              onRun={handleRun}
+              running={!!running}
+              hasRun={!!run}
+            />
+            <button type="button" className="link-button" aria-expanded={criteriaOpen} onClick={() => setCriteriaOpen((o) => !o)}>
+              {criteriaOpen ? "Hide how it decides" : "How it decides"}
             </button>
           </div>
         </div>
-        {criteriaOpen && <CriteriaPanel onRun={handleRun} running={!!running} initial={run?.tolerance_config} />}
+        {criteriaOpen && <HowItDecides thresholds={thresholds} />}
         {error && <div className="error-text">{error}</div>}
       </div>
 

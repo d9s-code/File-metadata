@@ -4,55 +4,80 @@ import { useAuth } from "../../auth/AuthContext";
 import { SeverityBadge } from "./SeverityBadge";
 import { DEFAULT_THRESHOLDS, severityRule } from "./ambiguityText";
 
-function Threshold({
-  value,
-  onChange,
-  editable,
-  label,
-}: {
-  value: number;
-  onChange: (v: number) => void;
-  editable: boolean;
-  label: string;
-}) {
-  if (!editable) return <strong>{value}%</strong>;
+export function thresholdsValid(t: ToleranceConfig): boolean {
+  return t.low_threshold >= 0 && t.low_threshold < t.high_threshold && t.high_threshold <= t.exact_threshold && t.exact_threshold <= 100;
+}
+
+function ThresholdInput({ value, onChange, label }: { value: number; onChange: (v: number) => void; label: string }) {
   return (
-    <span className="criteria-threshold">
-      <input
-        type="number"
-        min={0}
-        max={100}
-        value={value}
-        aria-label={label}
-        onChange={(e) => onChange(Number(e.target.value))}
-      />
-      %
-    </span>
+    <label className="criteria-threshold">
+      {label}
+      <span>
+        <input type="number" min={0} max={100} value={value} aria-label={`${label} (%)`} onChange={(e) => onChange(Number(e.target.value))} />%
+      </span>
+    </label>
   );
 }
 
-/** How the check decides, in words — with the thresholds in the sentences
- * (editable by Editors) — and the button to run it. */
-export function CriteriaPanel({
+/** The run bar's controls: Run, and the severity thresholds as one line —
+ * which an Editor can change before running. */
+export function RunControls({
+  thresholds,
+  onThresholds,
   onRun,
   running,
-  initial,
+  hasRun,
 }: {
-  onRun: (tolerance: ToleranceConfig) => void;
+  thresholds: ToleranceConfig;
+  onThresholds: (t: ToleranceConfig) => void;
+  onRun: (t: ToleranceConfig) => void;
   running: boolean;
-  initial?: ToleranceConfig;
+  hasRun: boolean;
 }) {
   const { user } = useAuth();
   const editable = user?.role === "editor" || user?.role === "admin";
-  const [t, setT] = useState<ToleranceConfig>({
-    low_threshold: initial?.low_threshold ?? DEFAULT_THRESHOLDS.low_threshold,
-    high_threshold: initial?.high_threshold ?? DEFAULT_THRESHOLDS.high_threshold,
-    exact_threshold: initial?.exact_threshold ?? DEFAULT_THRESHOLDS.exact_threshold,
-  });
-  const set = (k: keyof ToleranceConfig) => (v: number) => setT((prev) => ({ ...prev, [k]: v }));
-  const invalid =
-    !(t.low_threshold >= 0 && t.low_threshold < t.high_threshold && t.high_threshold <= t.exact_threshold && t.exact_threshold <= 100);
+  const [editing, setEditing] = useState(false);
+  const t = thresholds;
+  const valid = thresholdsValid(t);
+  const set = (k: keyof ToleranceConfig) => (v: number) => onThresholds({ ...t, [k]: v });
 
+  return (
+    <div className="run-controls">
+      <button type="button" onClick={() => onRun(t)} disabled={running || !valid}>
+        {running ? "Checking…" : hasRun ? "Run again" : "Run the check"}
+      </button>
+      {editing ? (
+        <span className="run-thresholds editing">
+          <ThresholdInput label="Low under" value={t.low_threshold} onChange={set("low_threshold")} />
+          <ThresholdInput label="High from" value={t.high_threshold} onChange={set("high_threshold")} />
+          <ThresholdInput label="Exact from" value={t.exact_threshold} onChange={set("exact_threshold")} />
+          <button type="button" className="link-button" onClick={() => setEditing(false)} disabled={!valid}>
+            Done
+          </button>
+          <button type="button" className="link-button" onClick={() => onThresholds(DEFAULT_THRESHOLDS)}>
+            Reset
+          </button>
+          {!valid && <span className="error-text">They must rise: low &lt; high ≤ exact ≤ 100.</span>}
+        </span>
+      ) : (
+        <span className="run-thresholds hint-text">
+          Severity: low under {t.low_threshold}% · high from {t.high_threshold}% · exact from {t.exact_threshold}%
+          {editable && (
+            <>
+              {" "}
+              <button type="button" className="link-button" onClick={() => setEditing(true)}>
+                Change
+              </button>
+            </>
+          )}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** How the check decides, in words — behind "How it decides". */
+export function HowItDecides({ thresholds: t }: { thresholds: ToleranceConfig }) {
   return (
     <div className="criteria-panel">
       <ol className="criteria-steps">
@@ -89,46 +114,20 @@ export function CriteriaPanel({
             {severityRule(t).map(({ severity }) => (
               <li key={severity}>
                 <SeverityBadge severity={severity} />{" "}
-                {severity === "exact_overlap" && (
-                  <>
-                    every parameter overlaps at least{" "}
-                    <Threshold value={t.exact_threshold} onChange={set("exact_threshold")} editable={editable} label="Exact from (%)" />
-                  </>
-                )}
-                {severity === "high" && (
-                  <>
-                    the least-overlapping parameter is at{" "}
-                    <Threshold value={t.high_threshold} onChange={set("high_threshold")} editable={editable} label="High from (%)" /> or more
-                  </>
-                )}
+                {severity === "exact_overlap" && <>every parameter overlaps at least {t.exact_threshold}%</>}
+                {severity === "high" && <>the least-overlapping parameter is at {t.high_threshold}% or more</>}
                 {severity === "medium" && (
                   <>
-                    it's between {t.low_threshold}% and {t.high_threshold}%
+                    it&apos;s between {t.low_threshold}% and {t.high_threshold}%
                   </>
                 )}
-                {severity === "low" && (
-                  <>
-                    it's under{" "}
-                    <Threshold value={t.low_threshold} onChange={set("low_threshold")} editable={editable} label="Low under (%)" />
-                  </>
-                )}
+                {severity === "low" && <>it&apos;s under {t.low_threshold}%</>}
               </li>
             ))}
           </ul>
         </li>
       </ol>
-      <div className="criteria-actions">
-        <button type="button" onClick={() => onRun(t)} disabled={running || invalid}>
-          {running ? "Checking…" : "Run the check"}
-        </button>
-        {invalid && <span className="error-text">The thresholds must rise: low &lt; high ≤ exact ≤ 100.</span>}
-        {editable && !invalid && (
-          <button type="button" className="link-button" onClick={() => setT(DEFAULT_THRESHOLDS)}>
-            Reset to 30 / 70 / 99
-          </button>
-        )}
-        <span className="hint-text">It reads the latest saved version, never unsaved edits.</span>
-      </div>
+      <p className="hint-text">It reads the latest saved version, never unsaved edits.</p>
     </div>
   );
 }

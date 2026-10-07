@@ -213,7 +213,11 @@ export function TestRunDetailPage() {
                   <td>
                     <span className={`test-result-badge test-result-${l.outcome}`}>{lineOutcomeLabel(l.outcome)}</span>
                   </td>
-                  <td>{l.intercepted_modes.length ? l.intercepted_modes.map((m) => m.mode_name).join(", ") : "—"}</td>
+                  <td>
+                    {l.intercepted_as_unknown || l.intercepted_modes.length
+                      ? [...(l.intercepted_as_unknown ? ["Default Unknown"] : []), ...l.intercepted_modes.map((m) => m.mode_name)].join(", ")
+                      : "—"}
+                  </td>
                   <td>
                     <ParamLines lines={formatObservedValueLines(l.observed_values)} />
                   </td>

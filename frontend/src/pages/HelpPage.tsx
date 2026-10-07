@@ -378,12 +378,21 @@ export function HelpPage() {
                 Manual, or pick Value and write one in (e.g. 50 ms); it applies to the whole run.
               </li>
               <li>
+                A run is <strong>saved as you fill it in</strong> — the line under the title says when it last was —
+                so a reload or a closed tab loses nothing. Leave it half done and it waits under{" "}
+                <strong>In progress</strong> on Test History, where anyone who can log tests can{" "}
+                <strong>Continue</strong> it or <strong>Discard</strong> it. Nothing counts — results, SIM line status,
+                the dashboard — until it&apos;s logged with <strong>Log test run</strong>. If two people save the same run,
+                the second is told to reload rather than overwrite the first.
+              </li>
+              <li>
                 A simulation run is a table with one row per SIM Test Line. Every line starts included and{" "}
                 <span className="test-result-badge test-result-pass">correct</span>; change the outcome to{" "}
                 <span className="test-result-badge test-result-partial">misclassified</span>,{" "}
                 <span className="test-result-badge test-result-fail">missed</span> or{" "}
                 <span className="test-result-badge test-result-inconclusive">inconclusive</span> where needed,
-                flag every Mode the system reported under <strong>Intercepted as</strong> — type to search
+                flag what the system reported under <strong>Intercepted as</strong> —{" "}
+                <strong>Default Unknown</strong> (listed first) when it reported no Mode, or the Modes it did; type to search
                 the Emitter&rsquo;s Modes and click (or press Enter) to add as many as apply; the list stays
                 open between picks, and <strong>+ Add all N matches</strong> adds everything the search
                 found — and use <strong>+ Log</strong> to record the intercepted parameters as means — RF mean, PRI mean and jitter mean (Fixed), PW
@@ -544,8 +553,9 @@ export function HelpPage() {
             overlaps on <em>every</em> parameter compared — one clear gap tells them apart. Its severity comes
             from the parameter that overlaps <em>least</em>: <strong>Exact</strong> when every parameter overlaps at least
             99%, <strong>High</strong> when the least is 70% or more, <strong>Medium</strong> between 30% and 70%,{" "}
-            <strong>Low</strong> under 30%. Editors can change those numbers under <strong>How it works</strong>, where the
-            check is run. Checks made under older rules say so — run them again.
+            <strong>Low</strong> under 30%. <strong>Run the check</strong> (or <strong>Run again</strong>) is at the
+            top right, with those numbers next to it — Editors can <strong>Change</strong> them before running. This
+            explanation is behind <strong>How it decides</strong>. Checks made under older rules say so — run them again.
           </p>
           <p>
             <strong>The page.</strong> The findings are listed on the left — open ones first, worst first — with each

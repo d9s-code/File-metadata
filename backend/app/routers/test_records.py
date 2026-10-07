@@ -19,6 +19,7 @@ from app.models.test_record import (
     TestRecordLine,
     TestRecordLineMode,
     TestRecordMode,
+    TestRunDraft,
 )
 from app.schemas.test_record import TestRecordCreate, TestRecordOut
 from app.services.audit_service import record_audit
@@ -140,6 +141,7 @@ def _create_test_record(
                 outcome=lr.outcome,
                 notes=lr.notes,
                 observed_values=lr.observed_values,
+                intercepted_as_unknown=lr.intercepted_as_unknown,
                 intercepted_modes=[TestRecordLineMode(mode_id=mid) for mid in lr.intercepted_mode_ids],
             )
         )
@@ -172,6 +174,12 @@ def _create_test_record(
                     override_result=payload.function_group_overrides.get(fg_id),
                 )
             )
+
+    if payload.draft_id is not None:
+        # Logged: the draft it was filled in as is done with.
+        db.query(TestRunDraft).filter(
+            TestRunDraft.id == payload.draft_id, TestRunDraft.emitter_id == emitter_id
+        ).delete(synchronize_session=False)
 
     record_audit(
         db,
