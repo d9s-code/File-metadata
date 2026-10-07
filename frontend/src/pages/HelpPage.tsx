@@ -244,6 +244,10 @@ export function HelpPage() {
             Groups or Sources yet opens straight to the EW Groups & Sources tab instead of Modes.
           </p>
           <p>
+            Changing the status doesn&apos;t need <strong>Start editing</strong> — any Editor can, even while someone
+            else is editing. It&apos;s saved as a new version of the <em>last saved</em> version with only the status
+            changed (so the Emitter must have been saved at least once); anything being edited stays unsaved, and the
+            Changes panel says the status moved while you were editing.{" "}
             Status moves <strong>In progress</strong> → <strong>Testing</strong> →{" "}
             <strong>Operational</strong> → <strong>Needs rework</strong> (and back to In progress from
             there to start fixing it). Moving from Operational to Needs rework requires a note explaining

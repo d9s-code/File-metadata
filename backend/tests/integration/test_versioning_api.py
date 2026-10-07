@@ -150,10 +150,11 @@ def test_live_diff_shows_uncommitted_change_and_clears_after_commit(editor_clien
 
 def test_status_transition_commits_a_version(editor_client, emitter_ctx):
     emitter_id = emitter_ctx["emitter"]["id"]
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "v1"})
     resp = editor_client.post(f"/emitters/{emitter_id}/status", json={"new_status": "in_review"})
     assert resp.status_code == 200, resp.text
     version = resp.json()
-    assert version["version_number"] == 1
+    assert version["version_number"] == 2
     # Written with the names people see, not the stored values.
     assert version["change_summary"] == "Status: In progress → Testing"
 
@@ -171,6 +172,7 @@ def test_status_change_shows_status_names_in_the_version_diff(editor_client, emi
 
 def test_status_transition_rejects_illegal_jump(editor_client, emitter_ctx):
     emitter_id = emitter_ctx["emitter"]["id"]
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "v1"})
     # draft -> validated is not a legal direct transition (must pass through in_review)
     resp = editor_client.post(f"/emitters/{emitter_id}/status", json={"new_status": "validated"})
     assert resp.status_code == 409
@@ -179,8 +181,46 @@ def test_status_transition_rejects_illegal_jump(editor_client, emitter_ctx):
 
 def test_status_transition_rejects_unknown_status(editor_client, emitter_ctx):
     emitter_id = emitter_ctx["emitter"]["id"]
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "v1"})
     resp = editor_client.post(f"/emitters/{emitter_id}/status", json={"new_status": "nonexistent"})
     assert resp.status_code == 422
+
+
+def test_status_needs_a_saved_version(editor_client, emitter_ctx):
+    resp = editor_client.post(f"/emitters/{emitter_ctx['emitter']['id']}/status", json={"new_status": "in_review"})
+    assert resp.status_code == 409
+    assert "Save a version first" in resp.json()["detail"]
+
+
+def test_status_changes_without_the_checkout_and_leaves_unsaved_edits_alone(
+    editor_client, admin_client, viewer_client, emitter_ctx
+):
+    emitter_id = emitter_ctx["emitter"]["id"]
+    _add_mode(editor_client, emitter_ctx, "Saved Mode")
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "v1"})
+    # The editor carries on editing: an unsaved Mode.
+    editor_client.post(f"/emitters/{emitter_id}/checkout")
+    _add_mode(editor_client, emitter_ctx, "Unsaved Mode")
+
+    # Someone else moves it to Testing while it's checked out by the editor.
+    resp = admin_client.post(f"/emitters/{emitter_id}/status", json={"new_status": "in_review"})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["version_number"] == 2
+    snapshot = admin_client.get(f"/emitters/{emitter_id}/versions/2").json()["snapshot"]
+    names = [m["name"] for g in snapshot["ew_groups"] for m in g["modes"]]
+    assert names == ["Saved Mode"]  # the unsaved Mode isn't swept in
+    assert snapshot["status"] == "in_review"
+
+    # The editor's unsaved work is still there, and saves with the new status.
+    emitter = editor_client.get(f"/emitters/{emitter_id}").json()
+    assert emitter["status"] == "in_review" and emitter["checked_out_by_username"] == "editor_t"
+    v3 = editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "more modes"}).json()
+    snapshot = editor_client.get(f"/emitters/{emitter_id}/versions/{v3['version_number']}").json()["snapshot"]
+    assert sorted(m["name"] for g in snapshot["ew_groups"] for m in g["modes"]) == ["Saved Mode", "Unsaved Mode"]
+    assert snapshot["status"] == "in_review"
+
+    # Still Editors only.
+    assert viewer_client.post(f"/emitters/{emitter_id}/status", json={"new_status": "draft"}).status_code == 403
 
 
 def test_viewer_cannot_commit_version(viewer_client, editor_client, emitter_ctx):

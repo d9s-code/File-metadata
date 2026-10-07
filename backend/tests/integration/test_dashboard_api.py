@@ -57,6 +57,7 @@ FIXED_LINE = {
 def test_dashboard_flags_needs_rework_emitter(editor_client):
     emitter = editor_client.post("/emitters", json={"name": "Dash Rework Emitter"}).json()
     eid = emitter["id"]
+    editor_client.post(f"/emitters/{eid}/versions", json={"change_summary": "v1"})
     editor_client.post(f"/emitters/{eid}/status", json={"new_status": "in_review"})
     editor_client.post(f"/emitters/{eid}/status", json={"new_status": "validated", "note": "Looks good."})
 

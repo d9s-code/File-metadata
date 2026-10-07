@@ -151,7 +151,7 @@ export function EditModeControls({
             Saving creates a new, permanent version of this Emitter — it shows up in Version History with your
             summary below and can be reverted to later — and ends your editing session.
           </p>
-          <LiveDiffPanel emitterId={emitter.id} />
+          <LiveDiffPanel emitterId={emitter.id} since={emitter.checked_out_at} />
           <label>
             What changed? (required)
             <textarea
@@ -186,10 +186,23 @@ export function EditModeControls({
   );
 }
 
-export function LiveDiffPanel({ emitterId }: { emitterId: string }) {
+export function LiveDiffPanel({ emitterId, since }: { emitterId: string; since?: string | null }) {
   const { data: diff, isLoading } = useEmitterLiveDiff(emitterId);
+  const { data: versions } = useEmitterVersions(emitterId);
+  // Status changes are saved as versions of their own (never with unsaved
+  // edits), so they're not among the changes below — say so if one was
+  // made since editing started.
+  const statusChanges = since
+    ? (versions ?? []).filter((v) => v.change_summary?.startsWith("Status:") && v.created_at > since)
+    : [];
   return (
     <div className="live-diff-panel">
+      {statusChanges.map((v) => (
+        <p key={v.id} className="hint-text live-diff-status">
+          Since you started editing: {v.change_summary} — saved as version {v.version_number}
+          {v.created_by_username ? ` by ${v.created_by_username}` : ""}. Your edits below keep the new status.
+        </p>
+      ))}
       {isLoading ? (
         <p className="hint-text">Loading changes…</p>
       ) : diff ? (

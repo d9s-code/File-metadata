@@ -171,7 +171,9 @@ Emitters and MDFs additionally carry a **status** that moves through a fixed set
 - **Emitter status**: `draft` → `in_review` → `validated` → `deprecated`
 - **MDF status**: `draft` → `pending_review` → `approved` → `released` → `deprecated`
 
-Every status transition automatically commits a new version with an auto-filled summary (e.g. "Status: draft → in_review"), so your status history *is* your version history — nothing extra to look up.
+Every status transition automatically commits a new version with an auto-filled summary (e.g. "Status: In progress → Testing"), so your status history *is* your version history — nothing extra to look up.
+
+An Emitter's status describes its saved content, so changing it doesn't need **Start editing**: any Editor can, even while someone else holds the Emitter. The new version is the **last saved version with only the status changed** — never the live draft, so unsaved edits aren't swept into a version titled as a status change; they stay unsaved, and take the new status with them when they're saved. An Emitter never saved can't change status ("Save a version first"). While editing, the Changes panel notes any status change saved since editing began. Each change is in the audit log, with its note where one is required.
 
 ---
 
