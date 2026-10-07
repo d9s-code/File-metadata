@@ -22,7 +22,7 @@ from app.schemas.ambiguity import (
     MergeRequest,
 )
 from app.services import checkout_service, mode_merge_service
-from app.services import llm_client
+from app.services import knowledge_service, llm_client, outline_client
 from app.services.ai_review_service import explain_finding, summarise_run
 from app.services.ambiguity_run_service import execute_ambiguity_run
 from app.services.ambiguity_service import DEFAULT_TOLERANCE
@@ -187,9 +187,29 @@ def unreview_finding(
 
 
 @ai_router.get("/status")
-def ai_status(_=Depends(require_role(Role.viewer))) -> dict:
-    """Whether a language model is set up — the AI buttons show only if so."""
-    return {"enabled": llm_client.enabled(), "model": llm_client.settings.llm_model if llm_client.enabled() else None}
+def ai_status(db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))) -> dict:
+    """Whether a language model is set up — the AI buttons show only if so —
+    and the documentation it's given as background, if any."""
+    return {
+        "enabled": llm_client.enabled(),
+        "model": llm_client.settings.llm_model if llm_client.enabled() else None,
+        "documentation": knowledge_service.status(db) if knowledge_service.enabled() else None,
+    }
+
+
+@ai_router.post("/documentation/sync", dependencies=[Depends(verify_csrf)])
+def sync_documentation(_=Depends(require_role(Role.admin))) -> dict:
+    """Copy the documentation from Outline now, rather than when it's next
+    over OUTLINE_SYNC_MINUTES old."""
+    if not knowledge_service.enabled():
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "No documentation is set up — set OUTLINE_URL, OUTLINE_API_TOKEN and OUTLINE_ROOT or OUTLINE_COLLECTION",
+        )
+    try:
+        return knowledge_service.sync()
+    except outline_client.OutlineError as err:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(err)) from err
 
 
 def _ask(work):

@@ -1,11 +1,120 @@
-import type { ReactNode } from "react";
-import type { AiStamp, AmbiguityFinding, AmbiguityRun } from "../../api/ambiguity";
+import { Fragment, type ReactNode } from "react";
+import type { AiSource, AiStamp, AmbiguityFinding, AmbiguityRun } from "../../api/ambiguity";
 import { ApiRequestError } from "../../api/client";
 import { RequireRole } from "../../auth/RequireAuth";
-import { useExplainFinding, useReviewFinding, useSummariseRun } from "../../state/hooks/useAmbiguity";
+import {
+  useAiStatus,
+  useExplainFinding,
+  useReviewFinding,
+  useSummariseRun,
+  useSyncDocumentation,
+} from "../../state/hooks/useAmbiguity";
+import { relativeTime } from "../common/backupFormat";
 
 function message(err: unknown) {
   return err instanceof ApiRequestError ? err.message : "The language model couldn't be asked";
+}
+
+/** The model's text with its [S1] citations as links to that section in
+ * Outline — or marked, if it cites a section it wasn't given. */
+function Cited({ text, sources }: { text: string; sources?: AiSource[] }) {
+  const byRef = new Map((sources ?? []).map((s) => [s.ref, s]));
+  return (
+    <>
+      {text.split(/(\[S\d+\])/).map((part, i) => {
+        const ref = /^\[(S\d+)\]$/.exec(part)?.[1];
+        if (!ref) return <Fragment key={i}>{part}</Fragment>;
+        const source = byRef.get(ref);
+        return source ? (
+          <a key={i} className="ai-cite" href={source.url} target="_blank" rel="noreferrer" title={source.path}>
+            {ref}
+          </a>
+        ) : (
+          <span key={i} className="ai-cite ai-cite-unknown" title="Not a section it was given">
+            {ref}
+          </span>
+        );
+      })}
+    </>
+  );
+}
+
+/** Which documentation the model was given, which it cited, and any
+ * citation of a section it wasn't given. */
+function SourcesList({ stamp }: { stamp: AiStamp }) {
+  if (!stamp.documentation) return null; // none set up, or a draft from before
+  const sources = stamp.sources ?? [];
+  const cited = sources.filter((s) => s.cited);
+  const others = sources.filter((s) => !s.cited);
+  const label = stamp.documentation.label ?? "the documentation";
+  const item = (s: AiSource) => (
+    <li key={s.ref}>
+      <span className="ai-cite">{s.ref}</span>{" "}
+      <a href={s.url} target="_blank" rel="noreferrer">
+        {s.path}
+      </a>
+    </li>
+  );
+  return (
+    <div className="ai-sources">
+      {sources.length === 0 ? (
+        <p className="hint-text">Nothing in {label} matched this question — answered from the data alone.</p>
+      ) : (
+        <>
+          <strong>Documentation cited</strong>
+          {cited.length === 0 ? (
+            <span className="hint-text"> — none of the {sources.length} sections it was given.</span>
+          ) : (
+            <ul className="ai-sources-list">{cited.map(item)}</ul>
+          )}
+          {others.length > 0 && (
+            <details>
+              <summary className="hint-text">Also given, not cited ({others.length})</summary>
+              <ul className="ai-sources-list">{others.map(item)}</ul>
+            </details>
+          )}
+        </>
+      )}
+      {(stamp.unknown_citations ?? []).length > 0 && (
+        <p className="ai-draft-warning" role="note">
+          ⚠ Cites <strong>{stamp.unknown_citations!.join(", ")}</strong>, which it wasn&apos;t given — treat what it
+          says there as unsupported.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** What the model is given as background: the copy of the Outline
+ * documentation, how fresh it is, and (for an Admin) Sync now. */
+export function DocumentationLine() {
+  const doc = useAiStatus().data?.documentation;
+  const sync = useSyncDocumentation();
+  if (!doc) return null;
+  return (
+    <p className="hint-text ai-docs-line">
+      {doc.synced_at ? (
+        <>
+          Background: {doc.label} — {doc.sections} sections ({doc.tokens < 1000 ? `${doc.tokens} tokens` : `about ${Math.round(doc.tokens / 1000)}k tokens`}), copied{" "}
+          {relativeTime(doc.synced_at)}. The sections that match each question go with it.
+        </>
+      ) : (
+        <>Background: the documentation in Outline — not copied yet; it&apos;s copied on the first question.</>
+      )}
+      {doc.error && (
+        <span className="error-text">
+          {" "}
+          Last refresh failed{doc.tried_at ? ` ${relativeTime(doc.tried_at)}` : ""}: {doc.error}
+        </span>
+      )}{" "}
+      <RequireRole minimum="admin">
+        <button type="button" className="link-button" disabled={sync.isPending} onClick={() => sync.mutate()}>
+          {sync.isPending ? "Syncing…" : "Sync now"}
+        </button>
+        {sync.isError && <span className="error-text"> {message(sync.error)}</span>}
+      </RequireRole>
+    </p>
+  );
 }
 
 /** The frame every AI answer sits in: plainly a draft, with who asked and
@@ -40,9 +149,11 @@ function DraftFrame({
         </p>
       )}
       {children}
+      <SourcesList stamp={stamp} />
       <p className="hint-text ai-draft-foot">
-        Written by a language model from the computed overlap above. It can be wrong — check it against the numbers,
-        and re-run the check after any change.
+        Written by a language model from the computed overlap above
+        {(stamp.sources ?? []).length > 0 ? " and the documentation sections listed" : ""}. It can be wrong — check it
+        against the numbers, and re-run the check after any change.
       </p>
     </div>
   );
@@ -82,12 +193,15 @@ export function AiFindingExplanation({ finding, runId }: { finding: AmbiguityFin
 
   return (
     <DraftFrame stamp={ai} asking={asking} onAgain={() => explain.mutate({ findingId: finding.id, refresh: true })}>
-      <p>{ai.explanation}</p>
       <p>
-        <strong>What tells them apart:</strong> {ai.distinguishing}
+        <Cited text={ai.explanation} sources={ai.sources} />
       </p>
       <p>
-        <strong>Suggested: {ai.recommendation_label}.</strong> {ai.recommendation_detail}{" "}
+        <strong>What tells them apart:</strong> <Cited text={ai.distinguishing} sources={ai.sources} />
+      </p>
+      <p>
+        <strong>Suggested: {ai.recommendation_label}.</strong>{" "}
+        <Cited text={ai.recommendation_detail} sources={ai.sources} />{" "}
         <span className="hint-text">(confidence: {ai.confidence})</span>
       </p>
       {explain.isError && <p className="error-text">{message(explain.error)}</p>}
@@ -100,7 +214,7 @@ export function AiFindingExplanation({ finding, runId }: { finding: AmbiguityFin
             onClick={() =>
               review.mutate({
                 findingId: finding.id,
-                note: `AI suggestion (${ai.model}): ${ai.recommendation_label} — ${ai.recommendation_detail}`,
+                note: `AI suggestion (${ai.model}): ${ai.recommendation_label} — ${ai.recommendation_detail.replace(/\s*\[S\d+\]/g, "")}`,
               })
             }
           >
@@ -121,6 +235,7 @@ export function AiRunSummary({ run }: { run: AmbiguityRun }) {
   return (
     <div className="card">
       <h4>AI overview</h4>
+      <DocumentationLine />
       {!ai ? (
         <div className="ai-ask">
           <button type="button" disabled={summarise.isPending} onClick={() => summarise.mutate(false)}>
@@ -135,13 +250,17 @@ export function AiRunSummary({ run }: { run: AmbiguityRun }) {
         </div>
       ) : (
         <DraftFrame stamp={ai} asking={summarise.isPending} onAgain={() => summarise.mutate(true)}>
-          <p>{ai.overview}</p>
+          <p>
+            <Cited text={ai.overview} sources={ai.sources} />
+          </p>
           {ai.priorities.length > 0 && (
             <>
               <strong>Look at first</strong>
               <ol className="ai-draft-list">
                 {ai.priorities.map((p, i) => (
-                  <li key={i}>{p}</li>
+                  <li key={i}>
+                    <Cited text={p} sources={ai.sources} />
+                  </li>
                 ))}
               </ol>
             </>
@@ -151,7 +270,9 @@ export function AiRunSummary({ run }: { run: AmbiguityRun }) {
               <strong>Patterns</strong>
               <ul className="ai-draft-list">
                 {ai.patterns.map((p, i) => (
-                  <li key={i}>{p}</li>
+                  <li key={i}>
+                    <Cited text={p} sources={ai.sources} />
+                  </li>
                 ))}
               </ul>
             </>

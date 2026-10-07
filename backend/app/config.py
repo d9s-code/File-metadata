@@ -72,6 +72,12 @@ class Settings(BaseSettings):
     # container on a shared Docker network, say), the address people open
     # it at — for the links back to Outline. Defaults to OUTLINE_URL.
     outline_public_url: str | None = None
+    # The language model is given the sections of those pages most relevant
+    # to each question, up to about this many tokens (all of them, if they
+    # fit). The app keeps a copy, refreshed from Outline when it's older than
+    # OUTLINE_SYNC_MINUTES (or by an Admin's "Sync now").
+    outline_context_tokens: int = 6000
+    outline_sync_minutes: int = 60
 
     max_upload_bytes: int = 10 * 1024 * 1024
 

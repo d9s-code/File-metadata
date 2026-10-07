@@ -283,6 +283,16 @@ When a language model is set up (`LLM_BASE_URL` — any OpenAI-compatible server
 
 The model never does the overlap arithmetic: the check computes it, and the model is given only one finding's two Modes and their computed overlap, or a run's counts and 40 most serious findings — a few thousand tokens however many Modes are in scope. Its answers are drafts, kept with the finding or run and labelled with the model and who asked; any number in an answer that wasn't in its input is listed so it can be checked. `scripts/llm_eval.py` tries the model on a run's findings and writes a report for analysts to judge before anyone relies on it.
 
+#### The team's documentation as background
+
+With Outline set up (`OUTLINE_URL`, `OUTLINE_API_TOKEN` and `OUTLINE_ROOT` for a page and everything under it, or `OUTLINE_COLLECTION` for a whole collection), the model is also given the documentation that bears on each question:
+
+- **A copy, kept fresh.** The app copies the pages, split at their headings (long sections in parts of about 1,200 tokens), into its own database. The copy is refreshed on the next question once it's older than `OUTLINE_SYNC_MINUTES` (60), or at once with **Sync now** (Admins, at the top of the AI overview). If Outline can't be reached, questions go ahead with the last copy and the error is shown there.
+- **Only what's relevant.** If the whole copy fits in `OUTLINE_CONTEXT_TOKENS` (6,000) it goes with every question. Otherwise the sections that best match the question's words do, in reading order: the PRI types involved and range matching count double; the parameters, ambiguity terms and the Modes' notes count once. The search is language-neutral (words match as prefixes, so "stagger" finds "staggered"; RF, PW, PRI and CW only as whole words).
+- **Cited.** The sections are numbered and the model is told to cite the one a sentence relies on, as [S2], and not to let the documentation override the numbers. Citations link to the heading in Outline; under the draft, **Documentation cited** lists them, and **Also given, not cited** the rest. A citation of a section that wasn't given is flagged.
+
+`scripts/outline_probe.py --sections` shows how the documentation splits, and which sections are too long, too short or without a heading.
+
 ---
 
 ## 11. XML Export (PRS Format)

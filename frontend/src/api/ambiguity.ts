@@ -41,6 +41,38 @@ export interface AiStamp {
   completion_tokens: number | null;
   /** Numbers in the answer that weren't in what the model was given. */
   unverified_numbers: string[];
+  /** The documentation sections it was given, and which it cited (absent on
+   * drafts from before documentation was given). */
+  sources?: AiSource[];
+  /** Citations of sections it wasn't given. */
+  unknown_citations?: string[];
+  /** Where the documentation came from — null if none was set up. */
+  documentation?: { label: string | null; synced_at: string | null } | null;
+}
+
+export interface AiSource {
+  ref: string;
+  path: string;
+  url: string;
+  cited: boolean;
+}
+
+/** The copy of the Outline documentation the model is given as background. */
+export interface DocumentationStatus {
+  enabled: boolean;
+  label: string | null;
+  synced_at: string | null;
+  pages: number;
+  sections: number;
+  tokens: number;
+  error: string | null;
+  tried_at: string | null;
+}
+
+export interface AiStatus {
+  enabled: boolean;
+  model: string | null;
+  documentation: DocumentationStatus | null;
 }
 
 export type AiRecommendation =
@@ -185,5 +217,6 @@ export const ambiguityApi = {
     api.post<MergePlan>(`/ambiguity/findings/${findingId}/merge-preview`, { keep }),
   merge: (findingId: string, keep: "a" | "b") =>
     api.post<AmbiguityFinding>(`/ambiguity/findings/${findingId}/merge`, { keep }),
-  aiStatus: () => api.get<{ enabled: boolean; model: string | null }>("/ai/status"),
+  aiStatus: () => api.get<AiStatus>("/ai/status"),
+  syncDocumentation: () => api.post<DocumentationStatus>("/ai/documentation/sync"),
 };

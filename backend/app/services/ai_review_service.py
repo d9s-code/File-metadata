@@ -8,6 +8,10 @@ told apart and what might be done about it. For a whole run it gets the
 counts and the most serious findings, already computed, and writes an
 overview. Either way the input stays small however many Modes the scope has.
 
+With Outline set up, the sections of the team's documentation that match
+the question go with it as background (knowledge_service), numbered so the
+model can cite them; the answer keeps which ones it was given and cited.
+
 What it writes is a draft. It's kept with the finding or run, marked with
 the model and who asked, and any number in it that isn't in what it was
 given is listed, so a reader knows which figures to check.
@@ -27,7 +31,7 @@ from app.models.emitter import Emitter
 from app.models.mdf import Mdf
 from app.models.mode import Mode
 from app.models.platform import Platform
-from app.services import llm_client
+from app.services import knowledge_service, llm_client
 
 # The most serious findings a run summary is given, one line each.
 SUMMARY_FINDINGS = 40
@@ -47,9 +51,30 @@ Don't recompute them.
 - If the data doesn't show something, say so instead of guessing.
 - Be brief and concrete. Plain English, no headings."""
 
+SYSTEM_DOCS = """
+
+After the data you are given background: numbered sections of the team's own documentation of how the sensor \
+works. Use them to explain how the sensor treats these Modes and to back your recommendation, citing the section \
+right after the sentence that relies on it, like [S2]. Cite a section only for what it actually says. The \
+documentation never overrides the numbers given. Where it doesn't cover something, say so rather than guess."""
+
+# What a question is about, as words to find the documentation sections on
+# it: the PRI types involved (counted double) and what every Mode has.
+PRI_TYPE_TERMS = {
+    "fixed": ["fixed PRI", "constant PRI", "jitter"],
+    "stagger": ["stagger", "frame time"],
+    "cw": ["CW", "continuous wave"],
+    "xlet": ["X-let", "xlet"],
+}
+PARAMETER_TERMS = {"rf": ["RF", "frequency"], "pw": ["PW", "pulse width"], "pri": ["PRI", "pulse repetition"], "jitter": ["jitter"]}
+GENERAL_TERMS = ["ambiguity", "ambiguous", "margin", "tolerance", "matching", "overlap", "RF", "PW", "PRI"]
+
 
 class FindingExplanation(BaseModel):
-    explanation: str = Field(description="2–4 sentences: why these two Modes can't be told apart, citing the values")
+    explanation: str = Field(
+        description="2–4 sentences: why these two Modes can't be told apart, citing the values "
+        "(and any background section relied on, as [S1])"
+    )
     distinguishing: str = Field(description="What, if anything, in the data tells them apart; 'Nothing in the data' if so")
     recommendation: Literal[
         "keep_both", "tighten_ranges", "merge_modes", "add_distinguishing_parameter", "check_source_data"
@@ -253,6 +278,53 @@ def unverified_numbers(answer_text: str, context: str) -> list[str]:
     return out
 
 
+def finding_terms(db: Session, finding: AmbiguityFinding) -> tuple[list[str], list[str]]:
+    """The words to find documentation on one finding by: specific (its PRI
+    types, range matching) and general (the parameters, the notes)."""
+    details = finding.details or {}
+    a, b = details.get("mode_a") or {}, details.get("mode_b") or {}
+    specific = ["ambiguity", "ambiguous"]
+    for side, first in ((a, True), (b, False)):
+        specific += PRI_TYPE_TERMS.get(_pri_type(side, finding.pri_comparison_type, first), [])
+        if (side.get("line") or {}).get("pri_range_matching"):
+            specific.append("range matching")
+    general = list(GENERAL_TERMS) + PARAMETER_TERMS.get(details.get("limiting") or "", [])
+    notes = db.query(Mode.notes).filter(Mode.id.in_([finding.mode_id_a, finding.mode_id_b])).all()
+    general += knowledge_service.note_words([n for (n,) in notes])
+    return specific, general
+
+
+def run_terms(findings: list[AmbiguityFinding]) -> tuple[list[str], list[str]]:
+    specific = ["ambiguity", "ambiguous"]
+    for kind in sorted({k for f in findings for k in (f.pri_comparison_type or "").split("-")}):
+        specific += PRI_TYPE_TERMS.get(kind, [])
+    return specific, list(GENERAL_TERMS)
+
+
+def _with_docs(db: Session, system: str, context: str, terms: tuple[list[str], list[str]]):
+    """The documentation sections for this question added to what the model
+    is given — none if Outline isn't set up or nothing matches."""
+    knowledge_service.ensure_fresh(db)
+    sources = knowledge_service.select_sections(db, *terms) if knowledge_service.enabled() else []
+    if not sources:
+        return system, context, sources
+    return system + SYSTEM_DOCS, context + "\n\n" + knowledge_service.background(sources), sources
+
+
+def _docs_result(db: Session, sources, answer_text: str) -> dict:
+    listed, unknown = knowledge_service.cited(sources, answer_text)
+    state = knowledge_service.status(db)
+    return {
+        "sources": listed,
+        "unknown_citations": unknown,
+        "documentation": (
+            {"label": state["label"], "synced_at": state["synced_at"].isoformat() if state["synced_at"] else None}
+            if knowledge_service.enabled()
+            else None
+        ),
+    }
+
+
 def _stamp(meta: llm_client.LlmReply, user) -> dict:
     return {
         "model": meta.model,
@@ -271,12 +343,14 @@ def explain_finding(db: Session, finding: AmbiguityFinding, user) -> dict:
         + "\n\nYou are given one finding from an ambiguity check: two Modes and how much they overlap. "
         "Explain why they can't be told apart, say what (if anything) separates them, and recommend one action."
     )
+    system, context, sources = _with_docs(db, system, context, finding_terms(db, finding))
     answer, meta = llm_client.chat_json(system, context, FindingExplanation)
     text = " ".join([answer.explanation, answer.distinguishing, answer.recommendation_detail])
     result = {
         **answer.model_dump(),
         "recommendation_label": RECOMMENDATION_LABELS[answer.recommendation],
         "unverified_numbers": unverified_numbers(text, context),
+        **_docs_result(db, sources, text),
         **_stamp(meta, user),
     }
     finding.ai_explanation = result
@@ -292,6 +366,7 @@ def summarise_run(db: Session, run: AmbiguityRun, user) -> dict:
         "Summarise how ambiguous this scope is, what to look at first, and any patterns. Refer to Modes and "
         "Emitters by the names given."
     )
+    system, context, sources = _with_docs(db, system, context, run_terms(findings))
     answer, meta = llm_client.chat_json(system, context, RunSummary)
     answer.priorities = answer.priorities[:5]
     answer.patterns = answer.patterns[:4]
@@ -301,6 +376,7 @@ def summarise_run(db: Session, run: AmbiguityRun, user) -> dict:
         "findings_given": min(len(findings), SUMMARY_FINDINGS),
         "findings_total": len(findings),
         "unverified_numbers": unverified_numbers(text, context),
+        **_docs_result(db, sources, text),
         **_stamp(meta, user),
     }
     run.ai_summary = result

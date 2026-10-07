@@ -57,6 +57,15 @@ export function useAiStatus() {
   return useQuery({ queryKey: ["aiStatus"], queryFn: () => ambiguityApi.aiStatus(), staleTime: 5 * 60_000 });
 }
 
+/** Admin: copy the documentation from Outline now. */
+export function useSyncDocumentation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => ambiguityApi.syncDocumentation(),
+    onSettled: () => qc.invalidateQueries({ queryKey: ["aiStatus"] }),
+  });
+}
+
 export function useExplainFinding(runId: string) {
   const qc = useQueryClient();
   return useMutation({

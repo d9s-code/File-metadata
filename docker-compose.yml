@@ -42,6 +42,8 @@ x-backend-env: &backend-env
   # A page and everything under it (its address), or a whole collection:
   # OUTLINE_ROOT: https://outline.app/doc/prs-AbC123xyz
   # OUTLINE_COLLECTION: Group 1
+  # The relevant sections, up to about this many tokens, go with each question:
+  # OUTLINE_CONTEXT_TOKENS: "6000"
 
 services:
   backend:

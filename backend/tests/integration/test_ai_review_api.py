@@ -98,7 +98,7 @@ def _finding(client, emitter_id):
 
 
 def test_nothing_is_asked_without_a_model_set_up(editor_client, emitter_with_two_overlapping_modes):  # noqa: F811
-    assert editor_client.get("/ai/status").json() == {"enabled": False, "model": None}
+    assert editor_client.get("/ai/status").json() == {"enabled": False, "model": None, "documentation": None}
     _, finding = _finding(editor_client, emitter_with_two_overlapping_modes["emitter"]["id"])
     resp = editor_client.post(f"/ambiguity/findings/{finding['id']}/explain")
     assert resp.status_code == 503

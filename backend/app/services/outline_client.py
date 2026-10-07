@@ -10,6 +10,7 @@ Only the standard library is used, so nothing extra is needed offline.
 import json
 import re
 import ssl
+import unicodedata
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -269,24 +270,58 @@ def sections(doc: OutlineDocument, page_path: str | None = None) -> list[tuple[s
     question would be given, each citable on its own. The path carries every
     heading above the piece, so "Stagger" under "Pulse processing" reads
     "Page › Pulse processing › Stagger"."""
+    return [(path, text) for path, _, text in anchored_sections(doc, page_path)]
+
+
+def anchored_sections(doc: OutlineDocument, page_path: str | None = None) -> list[tuple[str, str | None, str]]:
+    """As sections(), with each piece's heading anchor in Outline ("h-…",
+    None for the text above the first heading) to link straight to it."""
     root = page_path or doc.title
     marks = list(_HEADING.finditer(doc.text))
     if not marks:
-        return [(root, doc.text.strip())] if doc.text.strip() else []
-    out = []
+        return [(root, None, doc.text.strip())] if doc.text.strip() else []
+    out: list[tuple[str, str | None, str]] = []
     intro = doc.text[: marks[0].start()].strip()
     if intro:
-        out.append((root, intro))
+        out.append((root, None, intro))
     stack: list[tuple[int, str]] = []  # (level, heading) above the current one
+    seen: dict[str, int] = {}
     for i, m in enumerate(marks):
-        level = len(m.group(1))
+        level, heading = len(m.group(1)), _plain(m.group(2))
         while stack and stack[-1][0] >= level:
             stack.pop()
-        stack.append((level, m.group(2)))
+        stack.append((level, heading))
+        slug = heading_anchor(heading)
+        anchor = f"{slug}-{seen[slug]}" if seen.get(slug) else slug
+        seen[slug] = seen.get(slug, 0) + 1
         body = doc.text[m.end() : marks[i + 1].start() if i + 1 < len(marks) else len(doc.text)].strip()
         if body:
-            out.append((" › ".join([root, *(h for _, h in stack)]), body))
+            out.append((" › ".join([root, *(h for _, h in stack)]), anchor, body))
     return out
+
+
+_LINK = re.compile(r"!?\[([^\]]*)\]\([^)]*\)")
+# As the slug library Outline uses spells them, before punctuation is dropped.
+_TRANSLIT = str.maketrans(
+    {"æ": "ae", "Æ": "AE", "ø": "o", "Ø": "O", "ß": "ss", "œ": "oe", "đ": "d", "ł": "l", "µ": "u"}
+    | {"&": "and", "$": "dollar", "%": "percent", "<": "less", ">": "greater", "|": "or"}
+)
+_SLUG_REMOVE = re.compile(r"[!\"#$%&'.()*+,/:;<=>?@\[\]\\^_`{|}~]")
+
+
+def _plain(heading: str) -> str:
+    """A Markdown heading as Outline shows it: no links, emphasis or escapes."""
+    return re.sub(r"[*`]|\\(?=\S)", "", _LINK.sub(r"\1", heading)).strip()
+
+
+def heading_anchor(heading: str) -> str:
+    """Outline's id for a heading, as in its links: "h-" and the heading
+    lowercased, punctuation dropped, spaces as dashes (a repeat of the same
+    heading on a page gets "-1", "-2" — see anchored_sections)."""
+    text = unicodedata.normalize("NFKD", heading.translate(_TRANSLIT))
+    text = "".join(c for c in text if not unicodedata.combining(c))
+    text = _SLUG_REMOVE.sub("", text).strip().lower()
+    return "h-" + re.sub(r"\s+", "-", text)
 
 
 def estimate_tokens(text: str) -> int:

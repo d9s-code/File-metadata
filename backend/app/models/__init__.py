@@ -19,6 +19,7 @@ from app.models.intercept import (  # noqa: F401
     InterceptNote,
     InterceptReport,
 )
+from app.models.knowledge import KnowledgeSection, KnowledgeSync  # noqa: F401
 from app.models.mdf import Mdf, MdfPlatformLink, MdfVersion  # noqa: F401
 from app.models.mdf_note import MdfNote  # noqa: F401
 from app.models.mode import Mode, ModeElement, ModeGenerationBatch, ModeLine  # noqa: F401

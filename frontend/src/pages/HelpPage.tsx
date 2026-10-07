@@ -574,6 +574,16 @@ export function HelpPage() {
             data it was given, that number is listed in a warning. The draft stays with the finding for everyone, and{" "}
             <strong>Ask again</strong> replaces it. A finding with an AI suggestion is marked ✦ in the table.
           </p>
+          <p>
+            <strong>Documentation as background</strong> (only if Outline is set up): the sections of the team&apos;s
+            Outline documentation that match the question — the PRI types involved, range matching, the parameters, the
+            Modes&apos; notes — go to the model with it, numbered. Where the answer relies on one it cites it, like{" "}
+            <span className="ai-cite">S2</span>; click it to open that heading in Outline. Under the draft,{" "}
+            <strong>Documentation cited</strong> lists what it cited, and <strong>Also given, not cited</strong> the
+            rest of what it was given. A citation of a section it wasn&apos;t given is flagged. The app keeps a copy of
+            the documentation, refreshed when it&apos;s more than an hour old; the line at the top of the AI overview
+            says how fresh it is, and an Admin can press <strong>Sync now</strong> after changing pages in Outline.
+          </p>
         </div>
       </div>
 
