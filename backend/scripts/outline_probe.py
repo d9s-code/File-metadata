@@ -9,7 +9,8 @@
 
 Run it where the backend runs (in Docker: docker compose exec backend python
 scripts/outline_probe.py), with OUTLINE_URL and OUTLINE_API_TOKEN set as for
-the app (and OUTLINE_ROOT or OUTLINE_COLLECTION to skip --root/--collection).
+the app (and OUTLINE_ROOT or OUTLINE_COLLECTION to skip --root/--collection;
+--root or --collection replaces both, and OUTLINE_ROOT wins if both are set).
 --root takes a page's address as copied from the browser, its id, or its
 exact title.
 
@@ -46,13 +47,17 @@ SHORT_SECTION = 40
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--root", default=settings.outline_root, help="a page (address, id or title) and all under it")
-    parser.add_argument("--collection", default=settings.outline_collection, help="collection name or id")
+    parser.add_argument("--root", help="a page (address, id or title) and all under it (default: OUTLINE_ROOT)")
+    parser.add_argument("--collection", help="collection name or id (default: OUTLINE_COLLECTION)")
     parser.add_argument("--tree", action="store_true", help="list every page in every collection, nested")
     parser.add_argument("--search", help="try Outline's search with this text")
     parser.add_argument("--sections", action="store_true", help="list every section, marking ones to split or merge")
     parser.add_argument("--dump", help="save every page as Markdown in this folder")
     args = parser.parse_args()
+    # Either option replaces both settings, so --collection isn't overruled
+    # by an OUTLINE_ROOT left in the environment (the root wins in the app).
+    if not args.root and not args.collection:
+        args.root, args.collection = settings.outline_root, settings.outline_collection
 
     if not outline_client.enabled():
         print("Set OUTLINE_URL (e.g. https://outline.app) and OUTLINE_API_TOKEN first.")
