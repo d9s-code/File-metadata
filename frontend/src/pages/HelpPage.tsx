@@ -145,6 +145,10 @@ export function HelpPage() {
           other document — and optionally to individual <strong>Elements</strong>: the raw RF/PRI/PW value
           entries extracted from that Source, kept as supporting evidence.
         </p>
+        <p>
+          <strong>Tables:</strong> drag the right edge of a column&apos;s heading to make it wider or narrower;
+          double-click the edge to put it back. Widths are remembered in this browser for that table.
+        </p>
       </div>
 
       <div className="card" id="roles">
@@ -393,11 +397,13 @@ export function HelpPage() {
                 <span className="test-result-badge test-result-inconclusive">inconclusive</span> where needed,
                 flag what the system reported under <strong>Intercepted as</strong> —{" "}
                 <strong>Default Unknown</strong> (listed first) when it reported no Mode, or the Modes it did; type to search
-                the Emitter&rsquo;s Modes and click (or press Enter) to add as many as apply; the list stays
+                the Emitter&rsquo;s Modes — every word you type is matched anywhere in the name, so &ldquo;scan 6&rdquo; finds
+                scan_fixed_6 — and click (or press Enter) to add as many as apply; the list stays
                 open between picks, and <strong>+ Add all N matches</strong> adds everything the search
                 found — and use <strong>+ Log</strong> to record the intercepted parameters as means — RF mean, PRI mean and jitter mean (Fixed), PW
                 mean; a Stagger set takes its sequence and the measured <strong>frame time</strong> instead.
-                Add more than one set if it was measured more than once; each shows on its own line.
+                Add more than one set if it was measured more than once; each is a row in the small table in the
+                cell. Notes grow as you write.
               </li>
               <li>
                 An intercept run is a table with one row per Mode: tick the Modes that were intercepted, then

@@ -3,7 +3,10 @@ import type { ObservedValues } from "../../api/testRecords";
 import type { TestResult } from "../../types/domain";
 import { ModeMultiSelect, type ModeNameOption } from "./ModeMultiSelect";
 import { ObservedValuesEditor } from "./ObservedValuesEditor";
-import { formatObservedValueLines, lineOutcomeLabel, TEST_RESULTS } from "./testFormat";
+import { ObservedValuesTable } from "./ObservedValuesTable";
+import { AutoGrowTextarea } from "../common/AutoGrowTextarea";
+import { lineOutcomeLabel, nonEmptySets, TEST_RESULTS } from "./testFormat";
+import { matchesWords, searchWords } from "../../utils/wordSearch";
 
 export interface SimLineOption {
   id: string;
@@ -40,8 +43,8 @@ export function SimLineResultsTable({
   const [paramsOpen, setParamsOpen] = useState<Set<string>>(new Set());
 
   const visible = useMemo(() => {
-    const q = filter.trim().toLowerCase();
-    return q ? lines.filter((l) => l.label.toLowerCase().includes(q)) : lines;
+    const words = searchWords(filter);
+    return words.length ? lines.filter((l) => matchesWords(l.label, words)) : lines;
   }, [lines, filter]);
 
   const includedCount = lines.filter((l) => entries[l.id]?.included).length;
@@ -91,7 +94,7 @@ export function SimLineResultsTable({
         </button>
       </div>
 
-      <table className="data-table test-results-table">
+      <table className="data-table test-results-table" data-resize-key="test-run-sim-lines">
         <thead>
           <tr>
             <th>In run</th>
@@ -106,7 +109,7 @@ export function SimLineResultsTable({
           {visible.map((l) => {
             const entry = entries[l.id] ?? blankSimLineEntry();
             const off = !entry.included;
-            const paramLines = formatObservedValueLines(entry.observedValues);
+            const logged = nonEmptySets(entry.observedValues).length > 0;
             return (
               <Fragment key={l.id}>
                 <tr className={off ? "row-excluded" : undefined}>
@@ -143,18 +146,14 @@ export function SimLineResultsTable({
                     />
                   </td>
                   <td>
-                    {paramLines.map((p, i) => (
-                      <div key={i} className="param-summary">
-                        {p}
-                      </div>
-                    ))}
+                    <ObservedValuesTable sets={entry.observedValues} empty="" />
                     <button type="button" className="link-button" disabled={off} onClick={() => toggleParams(l.id)}>
-                      {paramsOpen.has(l.id) ? "Done" : paramLines.length ? "Edit" : "+ Log"}
+                      {paramsOpen.has(l.id) ? "Done" : logged ? "Edit" : "+ Log"}
                     </button>
                   </td>
                   <td>
-                    <input
-                      type="text"
+<AutoGrowTextarea
+                      className="notes-field"
                       value={entry.notes}
                       disabled={off}
                       placeholder="What happened"

@@ -6,6 +6,8 @@ If you just want to see it running, start with the [README](../README.md). This 
 
 ---
 
+**Tables everywhere:** drag the right edge of a column heading to resize the column; double-click it to put it back. Widths are remembered per table in the browser.
+
 ## 1. Emitters
 
 An **Emitter** is the top-level record for a single RF emitter profile. It has a **name** (unique) and an optional **designation** (e.g. a platform-independent reporting name), plus a free-text description.
@@ -206,6 +208,8 @@ A **Test Record** (a test run) logs validation against either an Emitter or an M
 
 - **Simulation** — checked against the Emitter's **SIM Test Lines**, the simulated signals imported (with the date they were created in the simulator) on the Test History tab. Each line in the run gets an outcome (correct / misclassified / missed / inconclusive), any number of **intercepted Modes** (what the system reported for it), and optionally the **intercepted parameters** (RF, PW, PRI) that were measured.
 - **Intercept** — a real-world intercept, checked against the Emitter's own Modes: each intercepted Mode gets a result, intercepted parameters and notes.
+
+Searching the Modes (under Intercepted as, and the row filters) matches every typed word anywhere in the name, in any order, with `_ - . /` counting as spaces — "scan 6" finds `scan_fixed_6`. Intercepted parameters show as a small table inside the cell (one row per set, units in the headings), on the run page and in the finished report; notes grow as they're written and keep their line breaks.
 
 A SIM line's intercepted Modes can include **Default Unknown** — the system reporting no Mode at all — on its own or alongside Modes; it's offered first in the list.
 

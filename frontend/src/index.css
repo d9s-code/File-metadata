@@ -1176,6 +1176,25 @@ label {
   scroll-padding-inline-end: 3.5rem;
 }
 
+/* Resizable columns (utils/columnResize): a header's right edge is the
+   handle; a table someone has resized lets its cells take any width. */
+.data-table th { position: relative; }
+.data-table th:hover::after {
+  content: "";
+  position: absolute;
+  top: 20%;
+  bottom: 20%;
+  right: 0;
+  width: 3px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--primary) 35%, transparent);
+  pointer-events: none;
+}
+body.col-resize-edge, body.col-resize-edge *, body.col-resizing, body.col-resizing * { cursor: col-resize !important; }
+body.col-resizing { user-select: none; }
+.data-table.cols-resized th,
+.data-table.cols-resized td:not([colspan]) { max-width: none; overflow-wrap: anywhere; }
+
 /* A column pinned to the right edge of a horizontally scrolling table, so
    its controls stay reachable however wide the table gets. */
 .data-table .sticky-end {
@@ -2642,9 +2661,43 @@ a.link-as-button.accent-button:hover {
 .params-editor-row td {
   background: var(--active-bg);
 }
-.param-summary {
+/* Intercepted parameters inside a table cell: small unit headings, the
+   values in plain text, wrapping rather than spilling out of the column. */
+.observed-values {
+  border-collapse: collapse;
   font-size: 0.82rem;
+  margin: 0 0 0.2rem;
+  max-width: 100%;
+}
+.observed-values th {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: left;
+  padding: 0 0.6rem 0.1rem 0;
+  border: none;
   white-space: nowrap;
+}
+.observed-values td {
+  padding: 0.05rem 0.6rem 0.05rem 0;
+  border: none;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
+.observed-values tr + tr td { border-top: 1px dotted var(--border); }
+.data-table td.pre-wrap { white-space: pre-wrap; }
+/* Notes in a test run: grow with what's written, wrap inside the column. */
+.notes-field {
+  width: 100%;
+  min-width: 10rem;
+  resize: vertical;
+  min-height: 2rem;
+  max-height: 12rem;
+  overflow-y: auto;
+  font: inherit;
+  font-size: 0.88rem;
+  padding: 0.3rem 0.45rem;
 }
 .outcome-select.test-result-fail,
 .outcome-select.test-result-partial,

@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
+import { matchesWords, searchWords } from "../../utils/wordSearch";
 
 export interface ModeNameOption {
   id: string;
@@ -51,8 +52,9 @@ export function ModeMultiSelect({
     [modes],
   );
   const matches = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return q ? sortedModes.filter((m) => m.name.toLowerCase().includes(q)) : sortedModes;
+    // Every word typed, anywhere in the name: "scan 6" finds "scan_fixed_6".
+    const words = searchWords(query);
+    return words.length ? sortedModes.filter((m) => matchesWords(m.name, words)) : sortedModes;
   }, [sortedModes, query]);
   const unselectedMatches = matches.filter((m) => !selectedSet.has(m.id));
   const showAddAll = query.trim() !== "" && unselectedMatches.length > 1;

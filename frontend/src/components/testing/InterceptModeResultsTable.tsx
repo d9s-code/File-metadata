@@ -2,7 +2,10 @@ import { Fragment, useMemo, useState } from "react";
 import type { ObservedValues } from "../../api/testRecords";
 import type { FunctionGroup, TestResult } from "../../types/domain";
 import { ObservedValuesEditor } from "./ObservedValuesEditor";
-import { formatObservedValueLines, TEST_RESULTS } from "./testFormat";
+import { ObservedValuesTable } from "./ObservedValuesTable";
+import { AutoGrowTextarea } from "../common/AutoGrowTextarea";
+import { nonEmptySets, TEST_RESULTS } from "./testFormat";
+import { matchesWords, searchWords } from "../../utils/wordSearch";
 
 export interface InterceptModeOption {
   id: string;
@@ -41,10 +44,8 @@ export function InterceptModeResultsTable({
   const groupName = new Map((functionGroups ?? []).map((g) => [g.id, g.name]));
 
   const visible = useMemo(() => {
-    const q = filter.trim().toLowerCase();
-    return modes.filter(
-      (m) => (!q || m.name.toLowerCase().includes(q)) && (!onlyIntercepted || entries[m.id]?.included),
-    );
+    const words = searchWords(filter);
+    return modes.filter((m) => matchesWords(m.name, words) && (!onlyIntercepted || entries[m.id]?.included));
   }, [modes, filter, onlyIntercepted, entries]);
 
   const includedCount = modes.filter((m) => entries[m.id]?.included).length;
@@ -73,7 +74,7 @@ export function InterceptModeResultsTable({
         <span className="hint-text">{includedCount} intercepted</span>
       </div>
 
-      <table className="data-table test-results-table">
+      <table className="data-table test-results-table" data-resize-key="test-run-intercept-modes">
         <thead>
           <tr>
             <th>Intercepted</th>
@@ -88,7 +89,7 @@ export function InterceptModeResultsTable({
           {visible.map((m) => {
             const entry = entries[m.id] ?? blankInterceptModeEntry();
             const off = !entry.included;
-            const paramLines = formatObservedValueLines(entry.observedValues);
+            const logged = nonEmptySets(entry.observedValues).length > 0;
             return (
               <Fragment key={m.id}>
                 <tr className={off ? "row-excluded" : undefined}>
@@ -125,18 +126,14 @@ export function InterceptModeResultsTable({
                     </select>
                   </td>
                   <td>
-                    {paramLines.map((p, i) => (
-                      <div key={i} className="param-summary">
-                        {p}
-                      </div>
-                    ))}
+                    <ObservedValuesTable sets={entry.observedValues} empty="" />
                     <button type="button" className="link-button" disabled={off} onClick={() => toggleParams(m.id)}>
-                      {paramsOpen.has(m.id) ? "Done" : paramLines.length ? "Edit" : "+ Log"}
+                      {paramsOpen.has(m.id) ? "Done" : logged ? "Edit" : "+ Log"}
                     </button>
                   </td>
                   <td>
-                    <input
-                      type="text"
+<AutoGrowTextarea
+                      className="notes-field"
                       value={entry.notes}
                       disabled={off}
                       placeholder="What happened"

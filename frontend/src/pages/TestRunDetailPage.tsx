@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ObservedValuesTable } from "../components/testing/ObservedValuesTable";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useEmitter } from "../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../state/hooks/useEmitterCheckout";
@@ -14,25 +15,12 @@ import { useEmitterVersions } from "../state/hooks/useEmitterVersions";
 import type { TestRecord } from "../api/testRecords";
 import type { TestResult } from "../types/domain";
 import {
-  formatObservedValueLines,
   lineOutcomeLabel,
   TEST_RESULTS,
   observedValueOptions,
   testTypeLabel,
 } from "../components/testing/testFormat";
 
-function ParamLines({ lines }: { lines: string[] }) {
-  if (lines.length === 0) return <>—</>;
-  return (
-    <>
-      {lines.map((p, i) => (
-        <div key={i} className="param-summary">
-          {p}
-        </div>
-      ))}
-    </>
-  );
-}
 
 function countOf<T>(items: T[], key: (item: T) => TestResult | null): [TestResult, number][] {
   return TEST_RESULTS.map((r) => [r, items.filter((i) => key(i) === r).length] as [TestResult, number]).filter(([, n]) => n > 0);
@@ -219,9 +207,9 @@ export function TestRunDetailPage() {
                       : "—"}
                   </td>
                   <td>
-                    <ParamLines lines={formatObservedValueLines(l.observed_values)} />
+                    <ObservedValuesTable sets={l.observed_values} />
                   </td>
-                  <td>{l.notes ?? "—"}</td>
+                  <td className="pre-wrap">{l.notes ?? "—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -247,9 +235,9 @@ export function TestRunDetailPage() {
                   <td>{m.mode_name}</td>
                   <td>{m.result && <span className={`test-result-badge test-result-${m.result}`}>{m.result}</span>}</td>
                   <td>
-                    <ParamLines lines={formatObservedValueLines(m.observed_values)} />
+                    <ObservedValuesTable sets={m.observed_values} />
                   </td>
-                  <td>{m.notes ?? "—"}</td>
+                  <td className="pre-wrap">{m.notes ?? "—"}</td>
                 </tr>
               ))}
             </tbody>
