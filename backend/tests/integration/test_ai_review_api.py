@@ -22,8 +22,13 @@ EXPLANATION = {
     "confidence": "high",
 }
 SUMMARY = {
-    "overview": "One exact overlap, between Mode 1 and Mode 2.",
-    "priorities": ["Mode 1 × Mode 2"],
+    "verdict": "One exact overlap, between Mode 1 and Mode 2.",
+    # F1 is the one finding; F7 and the repeat of F1 must be dropped.
+    "priorities": [
+        {"finding": "F1", "why": "Identical ranges", "action": "merge_modes"},
+        {"finding": "F7", "why": "Not a finding it was given", "action": "keep_both"},
+        {"finding": "f1", "why": "Twice", "action": "keep_both"},
+    ],
     "patterns": ["Identical Modes in one EW group"],
 }
 
@@ -34,6 +39,8 @@ class FakeLlm:
     def __init__(self):
         self.requests: list[dict] = []
         self.reply: dict = EXPLANATION
+        # Replies for successive requests (a chat's lookups), before `reply`.
+        self.replies: list[dict] = []
         self.raw_content: str | None = None
         self.reject_options: set[str] = set()
 
@@ -65,7 +72,8 @@ class FakeLlm:
                 if rejected:
                     self._send(400, {"error": f"unknown option {sorted(rejected)}"})
                     return
-                content = fake.raw_content if fake.raw_content is not None else json.dumps(fake.reply)
+                reply = fake.replies.pop(0) if fake.replies else fake.reply
+                content = fake.raw_content if fake.raw_content is not None else json.dumps(reply)
                 self._send(
                     200,
                     {
@@ -180,11 +188,18 @@ def test_a_run_summary_gets_counts_and_the_serious_findings(
     resp = editor_client.post(f"/ambiguity/runs/{run['id']}/summary")
     assert resp.status_code == 200, resp.text
     summary = resp.json()["ai_summary"]
-    assert summary["overview"].startswith("One exact overlap")
+    assert summary["verdict"].startswith("One exact overlap")
     assert summary["findings_total"] == 1
     context = fake_llm.requests[0]["messages"][1]["content"]
     assert "By severity: exact overlap 1, high 0, medium 0, low 0." in context
-    assert "Mode 1 (Ambiguity Emitter) × Mode 2 (Ambiguity Emitter)" in context or "Mode 2 (Ambiguity Emitter) × Mode 1" in context
+    assert "F1. Mode 1 (Ambiguity Emitter) × Mode 2 (Ambiguity Emitter)" in context or "F1. Mode 2 (Ambiguity Emitter) × Mode 1" in context
+
+    # The table rows: pair and severity from the finding itself, not the model.
+    findings = editor_client.get(f"/ambiguity/runs/{run['id']}/findings").json()
+    [row] = summary["priorities"]
+    assert row["finding_id"] == findings[0]["id"] and row["severity"] == "exact_overlap"
+    assert row["pair"].startswith("Mode") and " × " in row["pair"]
+    assert row["action_label"] == "Merge the two Modes" and row["why"] == "Identical ranges"
     assert editor_client.get(f"/ambiguity/runs/{run['id']}").json()["ai_summary"]["model"] == "fake-gemma"
 
 

@@ -5,6 +5,7 @@ import { RequireRole } from "../../auth/RequireAuth";
 import { ThemeToggle } from "./ThemeToggle";
 import { MenuButton } from "./MenuButton";
 import { ChangePasswordModal } from "./ChangePasswordModal";
+import { SettingsModal } from "./SettingsModal";
 import { useMyWork } from "../../state/hooks/useTasks";
 
 const LINKS: { to: string; label: string }[] = [
@@ -30,6 +31,7 @@ export function NavBar() {
   // On narrow windows the links fold behind a Menu button.
   const [menuOpen, setMenuOpen] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const { pathname } = useLocation();
   useEffect(() => setMenuOpen(false), [pathname]);
 
@@ -100,11 +102,13 @@ export function NavBar() {
               className="navbar-account"
               ariaLabel="Your account"
               items={[
+                { label: "Settings…", onSelect: () => setShowSettings(true) },
                 { label: "Change password…", onSelect: () => setChangingPassword(true) },
                 { label: "Sign out", onSelect: () => void logout() },
               ]}
             />
             {changingPassword && <ChangePasswordModal onClose={() => setChangingPassword(false)} />}
+            {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
           </>
         )}
       </div>

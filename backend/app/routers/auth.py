@@ -20,7 +20,7 @@ from app.core.security import create_access_token, decode_access_token, hash_pas
 from app.database import get_db
 from app.deps import get_current_user
 from app.models.user import User
-from app.schemas.user import ChangePasswordRequest, LoginRequest, UserOut
+from app.schemas.user import ChangePasswordRequest, LoginRequest, PreferencesUpdate, UserOut
 from app.services.audit_service import record_audit
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -149,4 +149,16 @@ def logout(response: Response, access_token: str | None = Cookie(default=None), 
 
 @router.get("/me", response_model=UserOut)
 def me(user: User = Depends(get_current_user)) -> User:
+    return user
+
+
+@router.patch("/me/preferences", response_model=UserOut, dependencies=[Depends(verify_csrf)])
+def update_preferences(
+    payload: PreferencesUpdate, db: Session = Depends(get_db), user: User = Depends(get_current_user)
+) -> User:
+    """Your own settings — which optional features you see."""
+    changes = payload.model_dump(exclude_none=True)
+    user.preferences = {**(user.preferences or {}), **changes}
+    db.commit()
+    db.refresh(user)
     return user

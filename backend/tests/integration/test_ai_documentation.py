@@ -127,7 +127,7 @@ def test_the_summary_goes_ahead_without_documentation_when_outline_is_down(
     resp = editor_client.post(f"/ambiguity/runs/{run['id']}/summary")
     assert resp.status_code == 200, resp.text
     summary = resp.json()["ai_summary"]
-    assert summary["sources"] == [] and summary["overview"] == SUMMARY["overview"]
+    assert summary["sources"] == [] and summary["verdict"] == SUMMARY["verdict"]
     assert "Background" not in fake_llm.requests[0]["messages"][1]["content"]
     status = editor_client.get("/ai/status").json()["documentation"]
     assert "401" in status["error"]

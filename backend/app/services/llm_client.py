@@ -116,11 +116,19 @@ def _parse(content: str, schema: type[T]) -> T:
 
 def chat_json(system: str, user: str, schema: type[T], *, max_tokens: int | None = None) -> tuple[T, LlmReply]:
     """Ask the model, and get its answer as `schema`."""
+    return chat_json_messages(system, [{"role": "user", "content": user}], schema, max_tokens=max_tokens)
+
+
+def chat_json_messages(
+    system: str, messages: list[dict], schema: type[T], *, max_tokens: int | None = None
+) -> tuple[T, LlmReply]:
+    """As chat_json, with a conversation so far: user and assistant turns,
+    the last one the user's."""
     model = model_name()
     json_schema = schema.model_json_schema()
     base_body = {
         "model": model,
-        "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+        "messages": [{"role": "system", "content": system}, *messages],
         "temperature": 0.2,
         "max_tokens": max_tokens or settings.llm_max_tokens,
     }
@@ -139,7 +147,7 @@ def chat_json(system: str, user: str, schema: type[T], *, max_tokens: int | None
                     "role": "system",
                     "content": f"{system}\n\nAnswer with only a JSON object matching this schema:\n{json.dumps(json_schema)}",
                 },
-                {"role": "user", "content": user},
+                *messages,
             ]
         try:
             reply = _request("POST", "/chat/completions", body)

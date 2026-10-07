@@ -4,6 +4,7 @@ import { AuthProvider } from "./auth/AuthContext";
 import { RequireAuth, RequireAdmin } from "./auth/RequireAuth";
 import { ThemeProvider } from "./theme/ThemeContext";
 import { NavBar } from "./components/common/NavBar";
+import { ChatWidget } from "./components/ai/ChatWidget";
 import { BackupWarning } from "./components/common/BackupWarning";
 import { LoginPage } from "./pages/LoginPage";
 import { EmittersListPage } from "./pages/EmittersListPage";
@@ -288,6 +289,7 @@ export default function App() {
               />
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
             </Routes>
+            <ChatWidget />
           </AuthProvider>
         </BrowserRouter>
       </QueryClientProvider>

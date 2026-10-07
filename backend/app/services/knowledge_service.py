@@ -145,7 +145,7 @@ def ensure_fresh(db: Session) -> None:
 
 
 # Words that would match nearly every section, left out of a question's words.
-_STOP = set(
+STOP_WORDS = set(
     "the and for with that this from are was were has have not but its into than then them they when what which "
     "who will would can could should may also only both each more most some such very just over under about "
     "mode modes".split()
@@ -173,7 +173,7 @@ def note_words(notes: list[str | None], limit: int = 12) -> list[str]:
     out: list[str] = []
     for note in notes:
         for w in re.findall(r"[^\W\d_]{4,}", (note or "").lower()):
-            if w not in _STOP and w not in out:
+            if w not in STOP_WORDS and w not in out:
                 out.append(w)
     return out[:limit]
 

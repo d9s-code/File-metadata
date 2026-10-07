@@ -3,6 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
+from app.core import preferences as user_preferences
 from app.core.enums import Role
 from app.core.security import password_policy_error
 
@@ -38,6 +39,12 @@ class UserOut(BaseModel):
     is_active: bool
     created_at: datetime
     last_login_at: datetime | None = None
+    preferences: dict[str, bool] = {}
+
+    @field_validator("preferences", mode="before")
+    @classmethod
+    def _with_defaults(cls, value):
+        return user_preferences.resolved(value)
 
 
 class ChangePasswordRequest(BaseModel):
@@ -50,3 +57,13 @@ class ChangePasswordRequest(BaseModel):
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+
+class PreferencesUpdate(BaseModel):
+    """Settings to change; the rest stay as they are."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ai_chat: bool | None = None
+    ai_chat_page: bool | None = None
+    ai_drafts: bool | None = None

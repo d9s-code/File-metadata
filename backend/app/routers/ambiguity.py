@@ -1,7 +1,9 @@
 from datetime import datetime, timezone
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.csrf import verify_csrf
@@ -22,7 +24,8 @@ from app.schemas.ambiguity import (
     MergeRequest,
 )
 from app.services import checkout_service, mode_merge_service
-from app.services import knowledge_service, llm_client, outline_client
+from app.core import preferences as user_preferences
+from app.services import ai_chat_service, knowledge_service, llm_client, outline_client
 from app.services.ai_review_service import explain_finding, summarise_run
 from app.services.ambiguity_run_service import execute_ambiguity_run
 from app.services.ambiguity_service import DEFAULT_TOLERANCE
@@ -195,6 +198,29 @@ def ai_status(db: Session = Depends(get_db), _=Depends(require_role(Role.viewer)
         "model": llm_client.settings.llm_model if llm_client.enabled() else None,
         "documentation": knowledge_service.status(db) if knowledge_service.enabled() else None,
     }
+
+
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(max_length=8_000)
+
+
+class ChatRequest(BaseModel):
+    messages: list[ChatMessage] = Field(min_length=1, max_length=40)
+    # The page the question was asked on (its path), so "this Emitter" works.
+    page: str | None = Field(None, max_length=300)
+
+
+@ai_router.post("/chat", dependencies=[Depends(verify_csrf)])
+def ai_chat(payload: ChatRequest, db: Session = Depends(get_db), user=Depends(require_role(Role.viewer))) -> dict:
+    """A chat with the language model, which may look things up in the
+    library (read-only) and the documentation before it answers. Nothing is
+    kept: the conversation so far comes with each question."""
+    page = payload.page if user_preferences.resolved(user.preferences)["ai_chat_page"] else None
+    try:
+        return _ask(lambda: ai_chat_service.chat(db, [m.model_dump() for m in payload.messages], page))
+    except ValueError as err:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(err)) from err
 
 
 @ai_router.post("/documentation/sync", dependencies=[Depends(verify_csrf)])

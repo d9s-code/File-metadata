@@ -91,9 +91,23 @@ export interface AiFindingExplanation extends AiStamp {
   confidence: "low" | "medium" | "high";
 }
 
+/** A finding the summary says to look at first. Pair and severity come
+ * from the finding itself; why and action are the model's. */
+export interface AiPriority {
+  finding_id: string;
+  label: string;
+  pair: string;
+  severity: AmbiguitySeverity;
+  why: string;
+  action: AiRecommendation;
+  action_label: string;
+}
+
 export interface AiRunSummary extends AiStamp {
-  overview: string;
-  priorities: string[];
+  verdict?: string;
+  /** Summaries from before the table: free text. */
+  overview?: string;
+  priorities: (AiPriority | string)[];
   patterns: string[];
   findings_given: number;
   findings_total: number;

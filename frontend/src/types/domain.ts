@@ -23,6 +23,17 @@ export interface User {
   is_active: boolean;
   created_at: string;
   last_login_at: string | null;
+  /** Their own settings: which optional features they see. */
+  preferences: UserPreferences;
+}
+
+export interface UserPreferences {
+  /** The ✦ chat button in the corner. */
+  ai_chat: boolean;
+  /** The chat is told which page you're on. */
+  ai_chat_page: boolean;
+  /** Explain / Summarise with AI on the ambiguity page. */
+  ai_drafts: boolean;
 }
 
 export interface EmitterSummary {

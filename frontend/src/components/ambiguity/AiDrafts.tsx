@@ -10,6 +10,7 @@ import {
   useSyncDocumentation,
 } from "../../state/hooks/useAmbiguity";
 import { relativeTime } from "../common/backupFormat";
+import { SeverityBadge } from "./SeverityBadge";
 
 function message(err: unknown) {
   return err instanceof ApiRequestError ? err.message : "The language model couldn't be asked";
@@ -17,7 +18,7 @@ function message(err: unknown) {
 
 /** The model's text with its [S1] citations as links to that section in
  * Outline — or marked, if it cites a section it wasn't given. */
-function Cited({ text, sources }: { text: string; sources?: AiSource[] }) {
+export function Cited({ text, sources }: { text: string; sources?: AiSource[] }) {
   const byRef = new Map((sources ?? []).map((s) => [s.ref, s]));
   return (
     <>
@@ -228,7 +229,14 @@ export function AiFindingExplanation({ finding, runId }: { finding: AmbiguityFin
 
 /** For the whole run: the model's overview of the findings, or the button to
  * ask for it. */
-export function AiRunSummary({ run }: { run: AmbiguityRun }) {
+export function AiRunSummary({
+  run,
+  onSelectFinding,
+}: {
+  run: AmbiguityRun;
+  /** Opens a finding the summary lists. */
+  onSelectFinding?: (findingId: string) => void;
+}) {
   const summarise = useSummariseRun(run.id);
   const ai = run.ai_summary;
 
@@ -250,32 +258,58 @@ export function AiRunSummary({ run }: { run: AmbiguityRun }) {
         </div>
       ) : (
         <DraftFrame stamp={ai} asking={summarise.isPending} onAgain={() => summarise.mutate(true)}>
-          <p>
-            <Cited text={ai.overview} sources={ai.sources} />
+          <p className="ai-verdict">
+            <Cited text={ai.verdict ?? ai.overview ?? ""} sources={ai.sources} />
           </p>
           {ai.priorities.length > 0 && (
-            <>
-              <strong>Look at first</strong>
-              <ol className="ai-draft-list">
-                {ai.priorities.map((p, i) => (
-                  <li key={i}>
-                    <Cited text={p} sources={ai.sources} />
-                  </li>
-                ))}
-              </ol>
-            </>
+            <table className="ai-priorities">
+              <thead>
+                <tr>
+                  <th>Look at first</th>
+                  <th>Severity</th>
+                  <th>Why</th>
+                  <th>Suggested</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ai.priorities.map((p, i) =>
+                  typeof p === "string" ? (
+                    <tr key={i}>
+                      <td colSpan={4}>
+                        <Cited text={p} sources={ai.sources} />
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr
+                      key={p.finding_id}
+                      className={onSelectFinding ? "ai-priority-row" : undefined}
+                      onClick={onSelectFinding ? () => onSelectFinding(p.finding_id) : undefined}
+                      title={onSelectFinding ? "Open this finding" : undefined}
+                    >
+                      <td>{p.pair}</td>
+                      <td>
+                        <SeverityBadge severity={p.severity} />
+                      </td>
+                      <td>
+                        <Cited text={p.why} sources={ai.sources} />
+                      </td>
+                      <td>{p.action_label}</td>
+                    </tr>
+                  ),
+                )}
+              </tbody>
+            </table>
           )}
           {ai.patterns.length > 0 && (
-            <>
-              <strong>Patterns</strong>
-              <ul className="ai-draft-list">
-                {ai.patterns.map((p, i) => (
-                  <li key={i}>
-                    <Cited text={p} sources={ai.sources} />
-                  </li>
-                ))}
-              </ul>
-            </>
+            <p className="ai-patterns">
+              <strong>Patterns:</strong>{" "}
+              {ai.patterns.map((p, i) => (
+                <Fragment key={i}>
+                  {i > 0 && " · "}
+                  <Cited text={p} sources={ai.sources} />
+                </Fragment>
+              ))}
+            </p>
           )}
           {ai.findings_total > ai.findings_given && (
             <p className="hint-text">

@@ -1,5 +1,5 @@
 import { api } from "./client";
-import type { User } from "../types/domain";
+import type { User, UserPreferences } from "../types/domain";
 
 export const authApi = {
   login: (username: string, password: string) => api.post<User>("/auth/login", { username, password }),
@@ -7,4 +7,5 @@ export const authApi = {
   me: () => api.get<User>("/auth/me"),
   changePassword: (currentPassword: string, newPassword: string) =>
     api.post<{ ok: boolean }>("/auth/change-password", { current_password: currentPassword, new_password: newPassword }),
+  updatePreferences: (changes: Partial<UserPreferences>) => api.patch<User>("/auth/me/preferences", changes),
 };

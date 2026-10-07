@@ -584,6 +584,25 @@ export function HelpPage() {
             the documentation, refreshed when it&apos;s more than an hour old; the line at the top of the AI overview
             says how fresh it is, and an Admin can press <strong>Sync now</strong> after changing pages in Outline.
           </p>
+          <p>
+            The <strong>AI overview</strong> of a check is a one- or two-sentence verdict, then a table of the
+            findings to look at first — the pair and severity as the check found them, the model&apos;s reason and a
+            suggested action. Click a row to open that finding.
+          </p>
+          <p>
+            <strong>AI chat</strong>: the <strong>✦ Ask AI</strong> button in the bottom-right corner of every page
+            opens a chat with the model. Before answering it can look things up — read-only — in the library: search
+            by name, an Emitter&apos;s Modes, a Platform&apos;s Emitters, the Modes a signal with given RF, PRI and PW
+            would match, an Emitter&apos;s latest ambiguity check, an Intercept — and in the documentation. Under each
+            answer, the lookups it made and the documentation it cited; numbers that weren&apos;t in anything it looked
+            up are flagged. It knows which page you&apos;re on, so &ldquo;this Emitter&rdquo; works. It can&apos;t
+            change anything, and it never sees users or the audit log. The conversation stays in your browser tab;{" "}
+            <strong>New chat</strong> starts over.
+          </p>
+          <p>
+            <strong>Settings</strong> (your name, top right → Settings…) lets you switch off the AI chat, telling it
+            which page you&apos;re on, or the AI drafts on the ambiguity page — for you only, wherever you sign in.
+          </p>
         </div>
       </div>
 

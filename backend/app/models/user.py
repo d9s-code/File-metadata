@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, String
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.enums import Role
@@ -20,3 +21,7 @@ class User(UUIDPkMixin, TimestampMixin, Base):
     # Sessions signed in before this are no longer accepted — set whenever the
     # password changes, so a changed (or reset) password signs out everywhere else.
     password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Each person's own settings — which optional features they see. Only
+    # the keys in app.core.preferences mean anything; missing ones take
+    # their default.
+    preferences: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")

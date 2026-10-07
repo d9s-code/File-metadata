@@ -73,7 +73,8 @@ export function AmbiguityDashboardPage() {
   const [source, setSource] = useState("");
 
   const { user } = useAuth();
-  const aiEnabled = useAiStatus().data?.enabled ?? false;
+  // Set up on the server, and not switched off in the person's settings.
+  const aiEnabled = (useAiStatus().data?.enabled ?? false) && (user?.preferences.ai_drafts ?? true);
   const createRun = useCreateAmbiguityRun();
   const { data: run } = useAmbiguityRun(runId);
   const { data: findings } = useAmbiguityFindings(run?.status === "complete" ? runId : null);
@@ -157,6 +158,21 @@ export function AmbiguityDashboardPage() {
     if (!shown.some((f) => f.id === selectedId)) setSelectedId(shown[0]?.id ?? null);
   }, [shown, selectedId, view]);
   const selected = all.find((f) => f.id === selectedId) ?? null;
+
+  // From the AI overview's table: open that finding, clearing any filter
+  // that would hide it.
+  function openFinding(id: string) {
+    if (!shown.some((f) => f.id === id)) {
+      setStatus("");
+      setSeverity("");
+      setSearch("");
+      setEwGroup("");
+      setSource("");
+    }
+    setView("findings");
+    setSelectedId(id);
+    requestAnimationFrame(() => document.querySelector(".finding-detail")?.scrollIntoView({ block: "nearest" }));
+  }
 
   async function handleRun(tolerance: ToleranceConfig) {
     setError(null);
@@ -269,7 +285,7 @@ export function AmbiguityDashboardPage() {
                 </span>
               </div>
 
-              {aiEnabled && <AiRunSummary run={run} />}
+              {aiEnabled && <AiRunSummary run={run} onSelectFinding={openFinding} />}
 
               <div className="amb-toolbar">
                 <span className="amb-views" role="tablist">

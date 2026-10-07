@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { authApi } from "../api/auth";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiRequestError, SESSION_EXPIRED_EVENT } from "../api/client";
-import type { User } from "../types/domain";
+import type { User, UserPreferences } from "../types/domain";
 
 interface AuthContextValue {
   user: User | null;
@@ -11,6 +11,8 @@ interface AuthContextValue {
   logout: () => Promise<void>;
   /** True once a request has come back 401 mid-session, until the next login. */
   sessionExpired: boolean;
+  /** Change your own settings; the user (and what's shown) updates at once. */
+  updatePreferences: (changes: Partial<UserPreferences>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -54,7 +56,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  return <AuthContext.Provider value={{ user, loading, login, logout, sessionExpired }}>{children}</AuthContext.Provider>;
+  const updatePreferences = useCallback(async (changes: Partial<UserPreferences>) => {
+    setUser(await authApi.updatePreferences(changes));
+  }, []);
+
+  return (
+    <AuthContext.Provider value={{ user, loading, login, logout, sessionExpired, updatePreferences }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth(): AuthContextValue {

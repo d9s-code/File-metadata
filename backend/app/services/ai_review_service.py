@@ -70,23 +70,35 @@ PARAMETER_TERMS = {"rf": ["RF", "frequency"], "pw": ["PW", "pulse width"], "pri"
 GENERAL_TERMS = ["ambiguity", "ambiguous", "margin", "tolerance", "matching", "overlap", "RF", "PW", "PRI"]
 
 
+Recommendation = Literal[
+    "keep_both", "tighten_ranges", "merge_modes", "add_distinguishing_parameter", "check_source_data"
+]
+
+
 class FindingExplanation(BaseModel):
     explanation: str = Field(
         description="2–4 sentences: why these two Modes can't be told apart, citing the values "
         "(and any background section relied on, as [S1])"
     )
     distinguishing: str = Field(description="What, if anything, in the data tells them apart; 'Nothing in the data' if so")
-    recommendation: Literal[
-        "keep_both", "tighten_ranges", "merge_modes", "add_distinguishing_parameter", "check_source_data"
-    ]
+    recommendation: Recommendation
     recommendation_detail: str = Field(description="1–2 sentences: what exactly to change, and on which Mode")
     confidence: Literal["low", "medium", "high"]
 
 
+class Priority(BaseModel):
+    finding: str = Field(description="The finding's label as given, e.g. F3")
+    why: str = Field(description="Under 15 words: why it matters, citing the values")
+    action: Recommendation
+
+
 class RunSummary(BaseModel):
-    overview: str = Field(description="3–5 sentences: how ambiguous this scope is overall, and where")
-    priorities: list[str] = Field(description="Up to 5 findings or groups to look at first, most important first")
-    patterns: list[str] = Field(description="Up to 4 patterns seen across the findings, e.g. a crowded band")
+    verdict: str = Field(
+        description="1–2 sentences: how ambiguous this scope is and where the trouble is "
+        "(cite a background section relied on as [S1])"
+    )
+    priorities: list[Priority] = Field(description="Up to 6 findings to look at first, most important first")
+    patterns: list[str] = Field(description="Up to 3 patterns across the findings, under 12 words each")
 
 
 RECOMMENDATION_LABELS = {
@@ -207,16 +219,26 @@ def finding_context(db: Session, finding: AmbiguityFinding) -> str:
     )
 
 
-def _finding_line(f: AmbiguityFinding) -> str:
+def pair_label(f: AmbiguityFinding) -> str:
     d = f.details or {}
     a, b = d.get("mode_a") or {}, d.get("mode_b") or {}
+    return f"{a.get('mode_name')} ({a.get('emitter_name')}) × {b.get('mode_name')} ({b.get('emitter_name')})"
+
+
+def _finding_line(f: AmbiguityFinding, label: str = "-") -> str:
     pri = f"PRI {_n(f.pri_overlap_pct)}%" if f.pri_overlap_pct is not None else "no PRI compared"
     reviewed = " — reviewed" if f.reviewed_by else ""
     return (
-        f"- {a.get('mode_name')} ({a.get('emitter_name')}) × {b.get('mode_name')} ({b.get('emitter_name')}): "
+        f"{label} {pair_label(f)}: "
         f"{SEVERITY_LABELS.get(f.combined_severity.value)}; RF {_n(f.rf_overlap_pct)}%, PW {_n(f.pw_overlap_pct)}%, {pri}"
         f"{reviewed}"
     )
+
+
+def top_findings(findings: list[AmbiguityFinding]) -> list[AmbiguityFinding]:
+    """The findings a summary is given, labelled F1, F2 … in this order."""
+    ranked = sorted(findings, key=lambda f: (SEVERITY_ORDER.get(f.combined_severity.value, 9), bool(f.reviewed_by)))
+    return ranked[:SUMMARY_FINDINGS]
 
 
 def run_context(db: Session, run: AmbiguityRun, findings: list[AmbiguityFinding]) -> str:
@@ -229,8 +251,7 @@ def run_context(db: Session, run: AmbiguityRun, findings: list[AmbiguityFinding]
             d = f.details or {}
             names = sorted({(d.get("mode_a") or {}).get("emitter_name"), (d.get("mode_b") or {}).get("emitter_name")})
             pairs[" × ".join(n or "?" for n in names) if len(names) == 2 else f"within {names[0]}"] += 1
-    ranked = sorted(findings, key=lambda f: (SEVERITY_ORDER.get(f.combined_severity.value, 9), bool(f.reviewed_by)))
-    top = ranked[:SUMMARY_FINDINGS]
+    top = top_findings(findings)
     lines = [
         f"Ambiguity check of {scope_label(db, run)}: {len(findings)} findings, {reviewed} already reviewed.",
         "By severity: "
@@ -240,8 +261,8 @@ def run_context(db: Session, run: AmbiguityRun, findings: list[AmbiguityFinding]
     if pairs:
         lines.append("High and exact findings by Emitter (or between two Emitters):")
         lines += [f"- {k}: {v}" for k, v in pairs.most_common(12)]
-    lines += ["", f"The {len(top)} most serious findings (unreviewed first within each severity):"] + [
-        _finding_line(f) for f in top
+    lines += ["", f"The {len(top)} most serious findings (unreviewed first within each severity), labelled:"] + [
+        _finding_line(f, f"F{i}.") for i, f in enumerate(top, start=1)
     ]
     if len(findings) > len(top):
         lines.append(f"(and {len(findings) - len(top)} less serious findings not listed)")
@@ -357,22 +378,50 @@ def explain_finding(db: Session, finding: AmbiguityFinding, user) -> dict:
     return result
 
 
+def summary_priorities(findings: list[AmbiguityFinding], picked: list[Priority]) -> list[dict]:
+    """The model's picks as rows: the pair and severity from the finding
+    itself (never as the model retold them), its why and action. Picks of a
+    finding it wasn't given, or of one twice, are dropped."""
+    by_label = {f"F{i}": f for i, f in enumerate(top_findings(findings), start=1)}
+    rows, seen = [], set()
+    for p in picked:
+        label = p.finding.strip().upper()
+        f = by_label.get(label if label.startswith("F") else f"F{label}")
+        if f is None or f.id in seen:
+            continue
+        seen.add(f.id)
+        rows.append(
+            {
+                "finding_id": str(f.id),
+                "label": label,
+                "pair": pair_label(f),
+                "severity": f.combined_severity.value,
+                "why": p.why,
+                "action": p.action,
+                "action_label": RECOMMENDATION_LABELS[p.action],
+            }
+        )
+    return rows[:6]
+
+
 def summarise_run(db: Session, run: AmbiguityRun, user) -> dict:
     findings = db.query(AmbiguityFinding).filter(AmbiguityFinding.run_id == run.id).all()
     context = run_context(db, run, findings)
     system = (
         SYSTEM_BASE
-        + "\n\nYou are given the results of an ambiguity check: counts, and its most serious findings. "
-        "Summarise how ambiguous this scope is, what to look at first, and any patterns. Refer to Modes and "
-        "Emitters by the names given."
+        + "\n\nYou are given the results of an ambiguity check: counts, and its most serious findings, each "
+        "labelled F1, F2 …. Give a short verdict, then pick the findings to look at first — by their label — "
+        "each with why and one action, then any patterns. Keep every item short."
     )
     system, context, sources = _with_docs(db, system, context, run_terms(findings))
     answer, meta = llm_client.chat_json(system, context, RunSummary)
-    answer.priorities = answer.priorities[:5]
-    answer.patterns = answer.patterns[:4]
-    text = " ".join([answer.overview, *answer.priorities, *answer.patterns])
+    priorities = summary_priorities(findings, answer.priorities)
+    patterns = answer.patterns[:3]
+    text = " ".join([answer.verdict, *(p["why"] for p in priorities), *patterns])
     result = {
-        **answer.model_dump(),
+        "verdict": answer.verdict,
+        "priorities": priorities,
+        "patterns": patterns,
         "findings_given": min(len(findings), SUMMARY_FINDINGS),
         "findings_total": len(findings),
         "unverified_numbers": unverified_numbers(text, context),

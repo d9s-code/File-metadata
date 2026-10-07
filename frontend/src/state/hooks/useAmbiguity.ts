@@ -53,8 +53,8 @@ export function useUnreviewFinding(runId: string) {
 }
 
 /** Whether a language model is set up on the server — the AI buttons show only if so. */
-export function useAiStatus() {
-  return useQuery({ queryKey: ["aiStatus"], queryFn: () => ambiguityApi.aiStatus(), staleTime: 5 * 60_000 });
+export function useAiStatus({ enabled = true }: { enabled?: boolean } = {}) {
+  return useQuery({ queryKey: ["aiStatus"], queryFn: () => ambiguityApi.aiStatus(), staleTime: 5 * 60_000, enabled });
 }
 
 /** Admin: copy the documentation from Outline now. */
