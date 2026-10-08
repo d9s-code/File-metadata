@@ -27,7 +27,7 @@ function compareGroups(a: MergedElementGroup, b: MergedElementGroup, key: Elemen
 
 const ELEMENT_TYPES: ElementType[] = ["rf", "pri", "pw", "scan"];
 
-const VARIANT_STYLES: Record<string, { label: string; bg: string; fg: string; border: string }> = {
+export const VARIANT_STYLES: Record<string, { label: string; bg: string; fg: string; border: string }> = {
   typical: { label: "typical", bg: "var(--badge-blue-bg)", fg: "var(--badge-blue-fg)", border: "var(--badge-blue-fg)" },
   discrete: { label: "discrete", bg: "var(--badge-green-bg)", fg: "var(--badge-green-fg)", border: "var(--badge-green-fg)" },
   most_probable: { label: "most-probable", bg: "#7c2d12", fg: "#fed7aa", border: "#ea580c" },

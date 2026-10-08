@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Modal } from "../common/Modal";
 import { elementsApi } from "../../api/elements";
 import { parameterSequencesApi } from "../../api/parameterSequences";
-import { elementsKey } from "../../state/hooks/useElements";
+import { elementOverviewKey, elementsKey } from "../../state/hooks/useElements";
 import { parameterSequencesKey } from "../../state/hooks/useParameterSequences";
 import { ApiRequestError } from "../../api/client";
 import type { ElementType, ElementVariant } from "../../types/domain";
@@ -144,6 +144,7 @@ export function SourceBatchAddModal({
 
       for (const sourceId of sourceIds) {
         qc.invalidateQueries({ queryKey: elementsKey(emitterId, sourceId) });
+        qc.invalidateQueries({ queryKey: elementOverviewKey(emitterId) });
         qc.invalidateQueries({ queryKey: parameterSequencesKey(emitterId, sourceId) });
       }
 

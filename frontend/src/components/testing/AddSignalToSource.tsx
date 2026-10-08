@@ -6,7 +6,7 @@ import { parameterSequencesApi } from "../../api/parameterSequences";
 import { sourcesApi } from "../../api/sources";
 import type { TestRecordSignal } from "../../api/testRecords";
 import type { Source } from "../../types/domain";
-import { elementsKey } from "../../state/hooks/useElements";
+import { elementOverviewKey, elementsKey } from "../../state/hooks/useElements";
 import { parameterSequencesKey } from "../../state/hooks/useParameterSequences";
 import { sourcesKey } from "../../state/hooks/useSources";
 import { signalElements, signalSequence } from "./signalToSource";
@@ -78,6 +78,7 @@ export function AddSignalToSource({
           await elementsApi.create(emitterId, sourceId_, { ...element, sort_order: i });
         }
         await qc.invalidateQueries({ queryKey: elementsKey(emitterId, sourceId_) });
+        await qc.invalidateQueries({ queryKey: elementOverviewKey(emitterId) });
         setDone(`Added ${elements.length} Element${elements.length === 1 ? "" : "s"}`);
       }
       setOpen(false);

@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, computed_field, model_validator
@@ -120,6 +121,44 @@ class CartesianProductRequest(BaseModel):
     rf_range_matching: bool = False
     pw_range_matching: bool = False
     pri_range_matching: bool = False
+
+
+class ElementOccurrence(BaseModel):
+    element_id: UUID
+    source_id: UUID
+    source_name: str
+    source_status: str
+    variant: str | None = None
+    label: str | None = None
+    delta: float | None = None
+
+
+class ElementOverviewRow(BaseModel):
+    """One distinct Element (type and values) and every Source that has it."""
+
+    element_type: str
+    value_min: float | None = None
+    value_max: float | None = None
+    stagger_values: list[float] | None = None
+    jitter_min: float | None = None
+    jitter_max: float | None = None
+    occurrences: list[ElementOccurrence]
+
+
+class CartesianRunOut(BaseModel):
+    """One entry of a Source's generation log."""
+
+    id: UUID
+    created_at: datetime
+    created_by_username: str | None = None
+    ew_group_name: str
+    name_prefix: str
+    note: str | None = None
+    # {"elements": [...], "sequence_steps": [...], "range_matching": {...}}
+    inputs: dict
+    mode_names: list[str]
+    # How many of its Modes are still there (0 once they're deleted).
+    modes_remaining: int
 
 
 class CartesianProductResult(BaseModel):

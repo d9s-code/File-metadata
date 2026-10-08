@@ -26,6 +26,8 @@ from app.models.user import User
 from app.schemas.emitter import EmitterCheckoutOut, EmitterCreate, EmitterOut, EmitterUpdate
 from app.schemas.emitter_note import EmitterNoteCreate, EmitterNoteOut
 from app.schemas.task import EmitterAssign
+from app.schemas.mode_element import ElementOverviewRow
+from app.services.element_overview import element_overview
 from app.schemas.mode import ModeBatchEditRequest, ModeBatchEditResult, ModeGenerationBatchOut, ModeOut
 from app.schemas.emitter_version import (
     CommitEmitterVersionRequest,
@@ -525,6 +527,17 @@ def batch_edit_modes(
     )
     db.commit()
     return ModeBatchEditResult(updated_mode_ids=updated_ids, count=len(updated_ids))
+
+
+@router.get("/{emitter_id}/element-overview", response_model=list[ElementOverviewRow])
+def get_element_overview(
+    emitter_id: UUID,
+    db: Session = Depends(get_db),
+    _=Depends(require_role(Role.viewer)),
+) -> list[dict]:
+    """Every distinct Element across the Emitter's Sources, with where each is."""
+    _get_emitter_or_404(db, emitter_id)
+    return element_overview(db, emitter_id)
 
 
 @router.get("/{emitter_id}/generation-batches", response_model=list[ModeGenerationBatchOut])

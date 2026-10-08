@@ -707,3 +707,57 @@ def test_dsl_parse_and_render_endpoints(viewer_client):
     )
     assert resp.status_code == 200
     assert resp.json()["text"] == "RF 2900-3100 PRI CW PW 0.5-1.2"
+
+
+def test_each_cartesian_run_is_logged_on_its_source_and_outlives_its_modes(editor_client, emitter_ctx):
+    url = _elements_url(emitter_ctx)
+    rf = editor_client.post(url, json={"element_type": "rf", "value_min": 2900, "value_max": 3100, "label": "RF A"}).json()
+    pw = editor_client.post(url, json={"element_type": "pw", "value_min": 0.5, "value_max": 1.2}).json()
+    pri = editor_client.post(url, json={"element_type": "pri", "value_min": 800, "value_max": 1200, "delta": 5}).json()
+    resp = editor_client.post(
+        f"{url}/cartesian-product",
+        json={
+            "ew_group_id": emitter_ctx["ew_group"]["id"],
+            "rf_element_ids": [rf["id"]],
+            "pw_element_ids": [pw["id"]],
+            "pri_element_ids": [pri["id"]],
+            "name_prefix": "Logged",
+            "batch_note": "first try",
+            "pri_delta_overrides": {pri["id"]: 12},
+            "pri_range_matching": True,
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+    log_url = f"/emitters/{emitter_ctx['emitter']['id']}/sources/{emitter_ctx['source']['id']}/cartesian-runs"
+    [run] = editor_client.get(log_url).json()
+    assert run["name_prefix"] == "Logged" and run["note"] == "first try"
+    assert run["ew_group_name"] == "Group A" and run["created_by_username"] == "editor_t"
+    assert run["mode_names"] == ["Logged 1"] and run["modes_remaining"] == 1
+    used = {e["element_type"]: e for e in run["inputs"]["elements"]}
+    assert used["rf"]["label"] == "RF A" and used["rf"]["value_min"] == 2900
+    assert used["pri"]["delta"] == 12 and used["pri"]["delta_overridden"] is True
+    assert run["inputs"]["range_matching"] == {"rf": False, "pri": True, "pw": False}
+
+    # Deleting the batch's Modes keeps the entry.
+    batches = editor_client.get(f"/emitters/{emitter_ctx['emitter']['id']}/generation-batches").json()
+    editor_client.delete(f"/emitters/{emitter_ctx['emitter']['id']}/generation-batches/{batches[0]['id']}")
+    [run] = editor_client.get(log_url).json()
+    assert run["modes_remaining"] == 0 and run["mode_names"] == ["Logged 1"]
+
+
+def test_element_overview_merges_the_same_values_across_sources(editor_client, emitter_ctx):
+    eid = emitter_ctx["emitter"]["id"]
+    other = editor_client.post(f"/emitters/{eid}/sources", json={"name": "Source B", "source_date": "2025-03-01"}).json()
+    url_a = _elements_url(emitter_ctx)
+    url_b = f"/emitters/{eid}/sources/{other['id']}/elements"
+    editor_client.post(url_a, json={"element_type": "rf", "value_min": 2900, "value_max": 3100, "variant": "typical"})
+    editor_client.post(url_b, json={"element_type": "rf", "value_min": 2900, "value_max": 3100, "variant": "intercept", "delta": 2})
+    editor_client.post(url_b, json={"element_type": "rf", "value_min": 5000, "value_max": 5100})
+    editor_client.post(url_a, json={"element_type": "pri", "stagger_values": [800, 850], "delta": 5})
+
+    rows = editor_client.get(f"/emitters/{eid}/element-overview").json()
+    assert [(r["element_type"], r["value_min"]) for r in rows] == [("rf", 2900), ("rf", 5000), ("pri", None)]
+    shared = rows[0]["occurrences"]
+    assert {(o["source_name"], o["variant"]) for o in shared} == {("Source A", "typical"), ("Source B", "intercept")}
+    assert rows[2]["stagger_values"] == [800, 850]

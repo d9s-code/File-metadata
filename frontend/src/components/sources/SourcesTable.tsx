@@ -26,6 +26,7 @@ import { useSortableTable } from "../common/useSortableTable";
 import { compareStrings } from "../common/sortUtils";
 import { statusLabel } from "../common/emitterStatusLabel";
 import { modeSourceIds } from "../modes/modeFormat";
+import { GenerationLog } from "./GenerationLog";
 
 const UNGROUPED_KEY = "__ungrouped__";
 
@@ -92,7 +93,7 @@ function SourceNotesEditor({ emitterId, source }: { emitterId: string; source: S
   );
 }
 
-type SourceDetailTab = "elements" | "sequences" | "generate" | "notes";
+type SourceDetailTab = "elements" | "sequences" | "generate" | "log" | "notes";
 
 /** An opened Source, as tabs rather than one long stack: its Elements, its
  * Parameter Sequences, Cartesian Product (generate Modes), and its notes
@@ -116,6 +117,7 @@ function SourceDetailTabs({
     ["elements", "Elements"],
     ["sequences", "Sequences"],
     ["generate", "Generate Modes"],
+    ["log", "Generation log"],
     ["notes", noteCount > 0 ? `Analyst notes (${noteCount}) & coverage` : "Analyst notes & coverage"],
   ];
   return (
@@ -142,6 +144,7 @@ function SourceDetailTabs({
           <CartesianProductButton emitterId={emitterId} sourceId={source.id} ewGroups={ewGroups} />
         </RequireRole>
       )}
+      {tab === "log" && <GenerationLog emitterId={emitterId} sourceId={source.id} />}
       {tab === "notes" && (
         <>
           <h5 className="mt-0">Analyst notes</h5>

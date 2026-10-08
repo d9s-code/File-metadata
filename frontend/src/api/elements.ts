@@ -49,6 +49,64 @@ export interface CartesianProductResult {
   count: number;
 }
 
+/** One distinct Element (type and values) across the Emitter's Sources. */
+export interface ElementOverviewRow {
+  element_type: ElementType;
+  value_min: number | null;
+  value_max: number | null;
+  stagger_values: number[] | null;
+  jitter_min: number | null;
+  jitter_max: number | null;
+  occurrences: {
+    element_id: string;
+    source_id: string;
+    source_name: string;
+    source_status: string;
+    variant: ElementVariant | null;
+    label: string | null;
+    delta: number | null;
+  }[];
+}
+
+/** An Element as it was used in a cartesian run (delta: the margin used). */
+export interface CartesianRunElement {
+  element_type: ElementType;
+  label: string | null;
+  variant: ElementVariant | null;
+  value_min: number | null;
+  value_max: number | null;
+  stagger_values: number[] | null;
+  jitter_min: number | null;
+  jitter_max: number | null;
+  delta: number | null;
+  delta_overridden: boolean;
+}
+
+/** One entry of a Source's generation log. */
+export interface CartesianRun {
+  id: string;
+  created_at: string;
+  created_by_username: string | null;
+  ew_group_name: string;
+  name_prefix: string;
+  note: string | null;
+  inputs: {
+    elements: CartesianRunElement[];
+    sequence_steps: {
+      sequence_label: string | null;
+      variant: ElementVariant | null;
+      order: number;
+      values: Record<string, number>;
+      rf_delta: number | null;
+      pw_delta: number | null;
+      pri_delta: number | null;
+    }[];
+    range_matching: { rf: boolean; pri: boolean; pw: boolean };
+  };
+  mode_names: string[];
+  modes_remaining: number;
+}
+
 function base(emitterId: string, sourceId: string) {
   return `/emitters/${emitterId}/sources/${sourceId}/elements`;
 }
@@ -59,6 +117,9 @@ export const elementsApi = {
     api.post<ModeElement>(base(emitterId, sourceId), input),
   delete: (emitterId: string, sourceId: string, elementId: string) =>
     api.delete<void>(`${base(emitterId, sourceId)}/${elementId}`),
+  overview: (emitterId: string) => api.get<ElementOverviewRow[]>(`/emitters/${emitterId}/element-overview`),
+  cartesianRuns: (emitterId: string, sourceId: string) =>
+    api.get<CartesianRun[]>(`/emitters/${emitterId}/sources/${sourceId}/cartesian-runs`),
   cartesianProduct: (emitterId: string, sourceId: string, input: CartesianProductInput) =>
     api.post<CartesianProductResult>(`${base(emitterId, sourceId)}/cartesian-product`, input),
 };

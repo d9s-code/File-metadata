@@ -81,6 +81,10 @@ Then use the **Cartesian Product** tool: pick one or more RF elements, PW elemen
 
 Mixing Fixed-style and Stagger PRI elements in a single cartesian-product run is rejected — pick one shape per run so the resulting batch is predictable.
 
+Each run is kept in the Source's **Generation log** tab, newest first: when and by whom, the EW Group, name prefix and note, the Elements or Sequence steps combined (values, variant, and the margin used — marked when it was overridden for that run), range matching, and the Modes it made, with how many are still there. An entry outlives its Modes: deleting the generation batch leaves it in the log.
+
+The **Element overview** (Setup tab, under the Sources) lists every distinct Element across all of the Emitter's Sources: the same type and values in several Sources (or twice in one) is one row, listing each Source with its variant, label and margin. Filter by type, by variant, or to Elements found in more than one Source; each Source links to it.
+
 ### Raw vs. engineered values
 
 An element's min/max is the **raw** value — pulled straight from the source, exactly as reported, with no adjustment. Separately, an RF, PW, or Fixed-style PRI element (not Stagger, for which delta means something different — see Frame Time below) can carry an optional **delta**: a symmetric ± tolerance margin representing sensor/collection measurement uncertainty. When a delta is set, the app computes the element's **engineered** range (`raw min − delta` to `raw max + delta`) and shows it alongside the raw value wherever the element appears — the raw value itself is never overwritten.

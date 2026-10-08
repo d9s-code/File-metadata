@@ -7,6 +7,7 @@ from app.core.csrf import verify_csrf
 from app.core.enums import AuditAction, AuditEntityType, Role, SourceStatus
 from app.database import get_db
 from app.deps import require_emitter_checkout, require_role
+from app.models.cartesian_run import CartesianRun
 from app.models.emitter import Emitter
 from app.models.ew_group import EwGroup
 from app.models.mode import ModeElement
@@ -17,6 +18,7 @@ from app.models.source_note import SourceNote
 from app.schemas.mode_element import (
     CartesianProductRequest,
     CartesianProductResult,
+    CartesianRunOut,
     FrametimeResponse,
     ModeElementCreate,
     ModeElementOut,
@@ -28,6 +30,7 @@ from app.schemas.parameter_sequence import (
 )
 from app.schemas.source import SourceCreate, SourceOut, SourceRejectRequest, SourceUpdate
 from app.schemas.source_note import SourceNoteCreate, SourceNoteOut
+from app.services.cartesian_log import modes_remaining, record_cartesian_run
 from app.services.mode_sources import set_mode_sources
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.cartesian_service import CartesianProductError, run_cartesian_product
@@ -573,6 +576,38 @@ def get_frametime(
     )
 
 
+@router.get("/{source_id}/cartesian-runs", response_model=list[CartesianRunOut])
+def list_cartesian_runs(
+    emitter_id: UUID,
+    source_id: UUID,
+    db: Session = Depends(get_db),
+    _=Depends(require_role(Role.viewer)),
+) -> list[CartesianRunOut]:
+    """The Source's generation log: every cartesian run, newest first."""
+    _get_source_or_404(db, emitter_id, source_id)
+    runs = (
+        db.query(CartesianRun)
+        .filter(CartesianRun.source_id == source_id)
+        .order_by(CartesianRun.created_at.desc())
+        .all()
+    )
+    remaining = modes_remaining(db, runs)
+    return [
+        CartesianRunOut(
+            id=r.id,
+            created_at=r.created_at,
+            created_by_username=r.creator.username if r.creator else None,
+            ew_group_name=r.ew_group_name,
+            name_prefix=r.name_prefix,
+            note=r.note,
+            inputs=r.inputs,
+            mode_names=r.mode_names,
+            modes_remaining=remaining.get(r.batch_id, 0) if r.batch_id else 0,
+        )
+        for r in runs
+    ]
+
+
 @router.post(
     "/{source_id}/elements/cartesian-product",
     response_model=CartesianProductResult,
@@ -614,6 +649,7 @@ def cartesian_product(
         )
     except CartesianProductError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    record_cartesian_run(db, source=source, ew_group=ew_group, payload=payload, created=created, user_id=user.id)
     record_audit(
         db,
         actor_id=user.id,
