@@ -53,3 +53,6 @@ def test_without_a_built_frontend_it_is_just_the_api():
     client = TestClient(Site(api, None))
     assert client.get("/health").json() == {"ok": True}
     assert client.get("/api/health").json() == {"ok": True}
+    # Opening the site says why there are no pages, not a bare API 404.
+    root = client.get("/")
+    assert root.status_code == 404 and "no index.html" in root.text

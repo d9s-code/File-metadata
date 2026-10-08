@@ -11,6 +11,7 @@ runs the API alone for development. The security headers the frontend's
 nginx used to add go on every response.
 """
 
+import logging
 import os
 from pathlib import Path
 
@@ -21,8 +22,16 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.main import app as api
 
+logger = logging.getLogger("uvicorn.error")
+
 STATIC_DIR = Path(os.environ.get("STATIC_DIR", "/app/static"))
 API_PREFIX = "/api"
+
+NO_FRONTEND = (
+    "The pages aren't in this image: there's no index.html in {dir}. The API is up under /api.\n"
+    "Rebuild the image from the repository root (docker compose build app, or "
+    "scripts/offline/build-images.sh), which builds the frontend into it, then docker compose up -d.\n"
+)
 
 # 'unsafe-inline' for styles only: React style={{...}} props and the charts
 # render inline style attributes. Scripts stay 'self'-only.
@@ -86,6 +95,8 @@ class Site:
             await self.api(inner, receive, _with_headers(send))
         elif self.frontend is not None:
             await self.frontend(scope, receive, _with_headers(send))
+        elif path == "/":
+            await PlainTextResponse(NO_FRONTEND.format(dir=STATIC_DIR), status_code=404)(scope, receive, send)
         else:
             await self.api(scope, receive, send)
 
@@ -100,4 +111,9 @@ def _with_headers(send: Send) -> Send:
     return wrapped
 
 
-site = Site(api, Frontend(directory=STATIC_DIR) if (STATIC_DIR / "index.html").is_file() else None)
+if (STATIC_DIR / "index.html").is_file():
+    logger.info("Serving the pages from %s and the API under %s", STATIC_DIR, API_PREFIX)
+    site = Site(api, Frontend(directory=STATIC_DIR))
+else:
+    logger.warning("No index.html in %s: serving the API only. Rebuild the image to include the pages.", STATIC_DIR)
+    site = Site(api, None)
