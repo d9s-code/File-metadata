@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -80,16 +80,6 @@ app.include_router(audit_log.router)
 app.include_router(trash.router)
 app.include_router(backups.router)
 app.include_router(backups.status_router)
-
-
-@app.get("/", include_in_schema=False)
-def root():
-    """Opened in a browser, this means the API is running on its own — say
-    so, rather than a bare 404."""
-    return PlainTextResponse(
-        "This is the API alone (uvicorn app.main:app). In the single container the start command must be\n"
-        "uvicorn app.site:site ..., which also serves the pages — check the app service's command in docker-compose.yml.\n"
-    )
 
 
 @app.get("/health")
