@@ -40,12 +40,6 @@ class Mode(UUIDPkMixin, TimestampMixin, Base):
     generation_batch_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("mode_generation_batches.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    # Optional — which Function Group this Mode serves, independent of its
-    # (required) EW Group. SET NULL rather than CASCADE: deleting a Function
-    # Group shouldn't take its Modes down with it.
-    function_group_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("function_groups.id", ondelete="SET NULL"), nullable=True, index=True
-    )
 
     ew_group: Mapped["EwGroup"] = relationship(back_populates="modes")  # noqa: F821
     source: Mapped["Source"] = relationship(back_populates="modes")  # noqa: F821
@@ -53,7 +47,6 @@ class Mode(UUIDPkMixin, TimestampMixin, Base):
         back_populates="mode", cascade="all, delete-orphan", uselist=False
     )
     generation_batch: Mapped["ModeGenerationBatch | None"] = relationship(back_populates="modes")
-    function_group: Mapped["FunctionGroup | None"] = relationship(back_populates="modes")  # noqa: F821
     # A Mode can come from more than one Source: source_id is the first, these
     # are the rest, in order. Use source_ids / set_mode_sources, not these rows.
     extra_source_links: Mapped[list["ModeExtraSource"]] = relationship(

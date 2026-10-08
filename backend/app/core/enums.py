@@ -178,6 +178,7 @@ class AuditEntityType(str, enum.Enum):
     emitter = "emitter"
     emitter_note = "emitter_note"
     ew_group = "ew_group"
+    # Function Groups were removed; kept so their older audit entries still read.
     function_group = "function_group"
     ambiguity_finding = "ambiguity_finding"
     customer = "customer"

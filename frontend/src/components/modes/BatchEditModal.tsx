@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Modal } from "../common/Modal";
 import { useBatchEditModes } from "../../state/hooks/useModes";
 import { ApiRequestError } from "../../api/client";
-import type { EwGroup, FunctionGroup, Source } from "../../types/domain";
+import type { EwGroup, Source } from "../../types/domain";
 import type { BatchModeFieldEdit, ModeBatchEditError } from "../../api/modes";
 
 type TriState = "" | "true" | "false";
@@ -19,7 +19,6 @@ export function BatchEditModal({
   emitterId,
   modeIds,
   ewGroups,
-  functionGroups,
   sources,
   onClose,
   onDone,
@@ -27,7 +26,6 @@ export function BatchEditModal({
   emitterId: string;
   modeIds: string[];
   ewGroups: EwGroup[];
-  functionGroups?: FunctionGroup[];
   sources?: Source[];
   onClose: () => void;
   onDone: () => void;
@@ -37,7 +35,6 @@ export function BatchEditModal({
   const [ewGroupId, setEwGroupId] = useState("");
   // "add:<id>" adds that Source to each Mode; "set:<id>" makes it each one's only Source.
   const [sourceChange, setSourceChange] = useState("");
-  const [functionGroupId, setFunctionGroupId] = useState("");
   const [notes, setNotes] = useState("");
   const [rfRangeMatching, setRfRangeMatching] = useState<TriState>("");
   const [pwRangeMatching, setPwRangeMatching] = useState<TriState>("");
@@ -73,7 +70,6 @@ export function BatchEditModal({
     if (ewGroupId) fields.ew_group_id = ewGroupId;
     if (sourceChange.startsWith("add:")) fields.add_source_id = sourceChange.slice(4);
     if (sourceChange.startsWith("set:")) fields.source_id = sourceChange.slice(4);
-    if (functionGroupId) fields.function_group_id = functionGroupId;
     if (notes.trim() !== "") fields.notes = notes;
     const quality = numOrUndefined(confirmationQuality);
     if (quality !== undefined) fields.confirmation_quality = quality;
@@ -185,17 +181,6 @@ export function BatchEditModal({
                 </select>
               </label>
             )}
-            <label>
-              Function Group
-              <select value={functionGroupId} onChange={(e) => setFunctionGroupId(e.target.value)}>
-                <option value="">— leave unchanged —</option>
-                {(functionGroups ?? []).map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
-                  </option>
-                ))}
-              </select>
-            </label>
           </div>
         </div>
 

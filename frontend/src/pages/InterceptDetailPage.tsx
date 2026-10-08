@@ -2,7 +2,6 @@ import { useCallback, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useEmitter } from "../state/hooks/useEmitters";
 import { useEwGroups } from "../state/hooks/useEwGroups";
-import { useFunctionGroups } from "../state/hooks/useFunctionGroups";
 import { useSources } from "../state/hooks/useSources";
 import { useEmitterModes } from "../state/hooks/useModes";
 import { useEmitterCheckoutState } from "../state/hooks/useEmitterCheckout";
@@ -82,7 +81,6 @@ function CreateModeFromEntry({
 }) {
   const { data: ewGroups } = useEwGroups(emitterId);
   const { data: sources } = useSources(emitterId);
-  const { data: functionGroups } = useFunctionGroups(emitterId);
   const priLabel = entry.pri_type === "stagger" ? "Frame time" : "PRI";
   const prefilled = entry.pri_type === "cw" ? "RF" : `RF/${priLabel}/PW`;
   // ModeForm picks its default EW Group and Source when it mounts, so wait for them.
@@ -99,7 +97,6 @@ function CreateModeFromEntry({
         ewGroups={ewGroups}
         sources={sources}
         defaultSourceId={defaultSourceId}
-        functionGroups={functionGroups}
         fixedDerivedFromInterceptEntryId={entry.id}
         prefillOnOpen
         observedValueOptions={[

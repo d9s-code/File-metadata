@@ -861,25 +861,6 @@ label {
   gap: 0.2rem;
 }
 
-.test-record-function-group-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-  margin-top: 0.35rem;
-}
-
-.function-group-ratings {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.5rem 0;
-}
-.function-group-rating-row {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-
 .form-row {
   display: flex;
   gap: 0.5rem;

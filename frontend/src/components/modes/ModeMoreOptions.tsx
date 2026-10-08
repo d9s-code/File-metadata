@@ -1,5 +1,4 @@
 import { useState, type ReactNode } from "react";
-import type { FunctionGroup } from "../../types/domain";
 import { DerivedFromPicker } from "./DerivedFromPicker";
 
 /** Written to the PRS export — 100 % and 2 unless a Mode says otherwise. */
@@ -7,7 +6,6 @@ export const DEFAULT_CONFIRMATION_QUALITY = 100;
 export const DEFAULT_CONFIRMATION_QUANTITY = 2;
 
 export interface MoreOptionsValues {
-  functionGroupId: string;
   quality: string;
   quantity: string;
   notes: string;
@@ -23,12 +21,11 @@ export function confirmationProblem(quality: string, quantity: string): string |
   return null;
 }
 
-/** The fields most Modes leave alone — Function Group, confirmation, notes,
+/** The fields most Modes leave alone — confirmation, notes,
  * test-derived — folded into one line that says what they're set to. */
 export function ModeMoreOptions({
   values,
   onChange,
-  functionGroups,
   emitterId,
   showDerived,
   forceOpen,
@@ -36,7 +33,6 @@ export function ModeMoreOptions({
 }: {
   values: MoreOptionsValues;
   onChange: (part: Partial<MoreOptionsValues>) => void;
-  functionGroups?: FunctionGroup[];
   emitterId: string;
   /** Offer "test-derived" — not when the form already fixes where the Mode came from. */
   showDerived: boolean;
@@ -48,10 +44,8 @@ export function ModeMoreOptions({
   const [showPicker, setShowPicker] = useState(values.derivedFrom.size > 0);
   const problem = confirmationProblem(values.quality, values.quantity);
   const isOpen = open || !!forceOpen || !!problem;
-  const fg = (functionGroups ?? []).find((g) => g.id === values.functionGroupId);
   const summary = [
     `Confirmation ${values.quality || "?"} % × ${values.quantity || "?"}`,
-    fg ? `Function Group ${fg.name}` : "no Function Group",
     values.notes.trim() ? "has notes" : "no notes",
     values.derivedFrom.size > 0 && `test-derived (${values.derivedFrom.size})`,
   ]
@@ -67,17 +61,6 @@ export function ModeMoreOptions({
       {isOpen && (
         <div className="mode-more-body">
           <div className="mode-form-grid">
-            <label>
-              Function Group
-              <select value={values.functionGroupId} onChange={(e) => onChange({ functionGroupId: e.target.value })}>
-                <option value="">None</option>
-                {(functionGroups ?? []).map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
-                  </option>
-                ))}
-              </select>
-            </label>
             <label title="Written to the PRS export">
               Confirmation quality (0–100)
               <input

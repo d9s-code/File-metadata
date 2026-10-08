@@ -1,7 +1,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { useUpdateMode } from "../../state/hooks/useModes";
 import { ApiRequestError } from "../../api/client";
-import type { FunctionGroup, Mode, Source } from "../../types/domain";
+import type { Mode, Source } from "../../types/domain";
 import { lineValuesFrom } from "./modeLine";
 import { modeSourceIds } from "./modeFormat";
 import { SourcesPicker } from "./SourcesPicker";
@@ -15,13 +15,11 @@ import { ModeMoreOptions, confirmationProblem, type MoreOptionsValues } from "./
 export function ModeEditForm({
   emitterId,
   mode,
-  functionGroups,
   sources,
   onDone,
 }: {
   emitterId: string;
   mode: Mode;
-  functionGroups?: FunctionGroup[];
   sources?: Source[];
   onDone: () => void;
 }) {
@@ -29,7 +27,6 @@ export function ModeEditForm({
   const line = useModeLine(lineValuesFrom(mode.pri_type, mode.line), mode.line?.explicit_frame_time_us);
   const [sourceIds, setSourceIds] = useState<string[]>(modeSourceIds(mode));
   const [options, setOptions] = useState<MoreOptionsValues>({
-    functionGroupId: mode.function_group_id ?? "",
     quality: String(mode.confirmation_quality),
     quantity: String(mode.confirmation_quantity),
     notes: mode.notes ?? "",
@@ -57,7 +54,6 @@ export function ModeEditForm({
         input: {
           notes: options.notes.trim() || null,
           source_ids: sourceIds.join() !== modeSourceIds(mode).join() ? sourceIds : undefined,
-          function_group_id: options.functionGroupId || null,
           pri_type: priType !== mode.pri_type ? priType : undefined,
           confirmation_quality: Number(options.quality),
           confirmation_quantity: Number(options.quantity),
@@ -92,7 +88,6 @@ export function ModeEditForm({
       <ModeMoreOptions
         values={options}
         onChange={(part) => setOptions((o) => ({ ...o, ...part }))}
-        functionGroups={functionGroups}
         emitterId={emitterId}
         showDerived
         forceOpen={optionsForced}

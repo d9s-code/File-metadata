@@ -1,5 +1,5 @@
 import { Fragment, useState, type ReactNode } from "react";
-import type { EwGroup, FunctionGroup, Mode, ModeGenerationBatch, Source } from "../../types/domain";
+import type { EwGroup, Mode, ModeGenerationBatch, Source } from "../../types/domain";
 import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 import { HoverInfo } from "../common/InfoPopover";
@@ -48,7 +48,6 @@ type ModeColumnId =
   | "confirmation_quality"
   | "confirmation_quantity"
   | "ew_group"
-  | "function_group"
   | "source"
   | "last_tested";
 
@@ -72,7 +71,6 @@ const MODE_COLUMNS: (ToggleableColumn<ModeColumnId> & { sortKey?: ModeSortKey; t
   { id: "confirmation_quality", label: "Confirmation Quality", sortKey: "confirmation_quality", type: "number" },
   { id: "confirmation_quantity", label: "Confirmation Quantity", sortKey: "confirmation_quantity", type: "number" },
   { id: "ew_group", label: "EW Group", sortKey: "ew_group" },
-  { id: "function_group", label: "Function Group", sortKey: "function_group" },
   { id: "source", label: "Sources", sortKey: "source" },
   { id: "last_tested", label: "Last seen", sortKey: "last_tested", type: "date" },
 ];
@@ -94,7 +92,6 @@ export function ModesTable({
   collapseBatches,
   ewGroupsById,
   sourcesById,
-  functionGroupsById,
   sortKey,
   sortDir,
   onSort,
@@ -112,7 +109,6 @@ export function ModesTable({
   collapseBatches: boolean;
   ewGroupsById: Record<string, EwGroup>;
   sourcesById: Record<string, Source>;
-  functionGroupsById: Record<string, FunctionGroup>;
   sortKey: ModeSortKey;
   sortDir: SortDir;
   onSort: (key: ModeSortKey, dir: SortDir) => void;
@@ -231,9 +227,6 @@ export function ModesTable({
           )}
         </td>
       ),
-      function_group: () => (
-        <td>{m.function_group_id ? functionGroupsById[m.function_group_id]?.name ?? "—" : "—"}</td>
-      ),
       source: () => (
         <td>
           <ModeSourcesList emitterId={emitterId} mode={m} sourcesById={sourcesById} />
@@ -308,7 +301,6 @@ export function ModesTable({
                     <ModeEditForm
                       emitterId={emitterId}
                       mode={m}
-                      functionGroups={Object.values(functionGroupsById)}
                       sources={Object.values(sourcesById)}
                       onDone={() => setEditingModeId(null)}
                     />
@@ -322,7 +314,6 @@ export function ModesTable({
                       emitterId={emitterId}
                       ewGroups={Object.values(ewGroupsById)}
                       sources={Object.values(sourcesById)}
-                      functionGroups={Object.values(functionGroupsById)}
                       duplicateFrom={m}
                       onClose={() => setDuplicatingModeId(null)}
                     />

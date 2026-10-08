@@ -28,7 +28,6 @@ from sqlalchemy.orm import Session
 from app.core.enums import ElementType, EmitterStatus, PriType, SourceStatus
 from app.models.emitter import Emitter
 from app.models.ew_group import EwGroup
-from app.models.function_group import FunctionGroup
 from app.models.mode import (
     ModeExtraSource,
     DEFAULT_CONFIRMATION_QUALITY,
@@ -160,21 +159,6 @@ def _reconcile_elements(db: Session, source: Source, element_snaps: list[dict]) 
             db.delete(element)
 
 
-def _resolve_function_group_id(db: Session, emitter_id: uuid.UUID, raw_id: str | None) -> uuid.UUID | None:
-    """FunctionGroups aren't part of the versioned snapshot tree themselves
-    (only their id/name are recorded on each Mode), so a target snapshot's
-    function_group_id may reference a group since deleted — fall back to
-    None rather than let a stale FK 500 the request.
-    """
-    if raw_id is None:
-        return None
-    fg_id = uuid.UUID(raw_id)
-    fg = db.get(FunctionGroup, fg_id)
-    if fg is None or fg.emitter_id != emitter_id:
-        return None
-    return fg_id
-
-
 def _reconcile_modes(db: Session, group: EwGroup, *, mode_snaps: list[dict]) -> None:
     live = {str(m.id): m for m in group.modes}
     for m_snap in mode_snaps:
@@ -198,7 +182,6 @@ def _reconcile_modes(db: Session, group: EwGroup, *, mode_snaps: list[dict]) -> 
         if "confirmation_quality" in m_snap:
             mode.confirmation_quality = m_snap["confirmation_quality"]
             mode.confirmation_quantity = m_snap["confirmation_quantity"]
-        mode.function_group_id = _resolve_function_group_id(db, group.emitter_id, m_snap.get("function_group_id"))
         mode.extra_source_links = _extra_source_links(m_snap.get("extra_source_ids", []))
         _reconcile_mode_line(db, mode, m_snap.get("line"))
 
@@ -252,8 +235,7 @@ def _reconcile_test_lines(
             db.add(line)
         line.label = tl_snap["label"]
         raw_mode_id = tl_snap.get("expected_mode_id")
-        # Falls back to None rather than a stale FK — same defensive
-        # reasoning as _resolve_function_group_id, in case a Test Line ever
+        # Falls back to None rather than a stale FK, in case a Test Line ever
         # ends up referencing a Mode outside this Emitter's own snapshot.
         line.expected_mode_id = uuid.UUID(raw_mode_id) if raw_mode_id in valid_mode_ids else None
         line.expected_parameters = tl_snap.get("expected_parameters")
@@ -310,21 +292,6 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
                 )
             )
 
-    # FunctionGroups aren't part of the snapshot tree as their own entities —
-    # each Mode only records the id/name of the group it belonged to — so
-    # fidelity here means recreating one new FunctionGroup per distinct
-    # (id, name) referenced, rather than copying rows that were never
-    # snapshotted in the first place.
-    function_group_id_map: dict[str, uuid.UUID] = {}
-    for g_snap in source_snapshot.get("ew_groups", []):
-        for m_snap in g_snap.get("modes", []):
-            old_fg_id = m_snap.get("function_group_id")
-            if old_fg_id is not None and old_fg_id not in function_group_id_map:
-                new_fg = FunctionGroup(emitter_id=new_emitter.id, name=m_snap.get("function_group_name") or "Unnamed")
-                db.add(new_fg)
-                db.flush()
-                function_group_id_map[old_fg_id] = new_fg.id
-
     mode_id_map: dict[str, uuid.UUID] = {}
     for g_snap in source_snapshot.get("ew_groups", []):
         new_group = EwGroup(
@@ -348,7 +315,6 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
                 sort_order=m_snap.get("sort_order", 0),
                 confirmation_quality=m_snap.get("confirmation_quality", DEFAULT_CONFIRMATION_QUALITY),
                 confirmation_quantity=m_snap.get("confirmation_quantity", DEFAULT_CONFIRMATION_QUANTITY),
-                function_group_id=function_group_id_map.get(m_snap.get("function_group_id")),
             )
             new_mode.extra_source_links = [
                 ModeExtraSource(source_id=source_id_map[sid], sort_order=i)

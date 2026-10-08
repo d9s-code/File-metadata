@@ -11,7 +11,6 @@ from app.deps import require_ew_group_checkout, require_role
 from app.dsl.exceptions import DslSyntaxError
 from app.dsl.renderer import render_mode_line
 from app.models.ew_group import EwGroup
-from app.models.function_group import FunctionGroup
 from app.core.enums import PriType
 from app.models.intercept import Intercept, InterceptEntry, InterceptEntryMode
 from app.models.mode import Mode, ModeGenerationBatch, ModeLine
@@ -47,14 +46,6 @@ def _get_ew_group_or_404(db: Session, ew_group_id: UUID) -> EwGroup:
     if ew_group is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "EW Group not found")
     return ew_group
-
-
-def _check_function_group(db: Session, *, function_group_id: UUID | None, emitter_id: UUID) -> None:
-    if function_group_id is None:
-        return
-    group = db.get(FunctionGroup, function_group_id)
-    if group is None or group.emitter_id != emitter_id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Function Group not found in this Emitter")
 
 
 def _link_derived_test_records(db: Session, *, mode_id: UUID, test_record_ids: list[UUID]) -> None:
@@ -109,7 +100,6 @@ def create_mode(
 ) -> Mode:
     ew_group = _get_ew_group_or_404(db, ew_group_id)
     sources = resolve_sources(db, emitter_id=ew_group.emitter_id, source_ids=payload.all_source_ids())
-    _check_function_group(db, function_group_id=payload.function_group_id, emitter_id=ew_group.emitter_id)
 
     mode = Mode(
         ew_group_id=ew_group_id,
@@ -119,7 +109,6 @@ def create_mode(
         sort_order=payload.sort_order,
         confirmation_quality=payload.confirmation_quality,
         confirmation_quantity=payload.confirmation_quantity,
-        function_group_id=payload.function_group_id,
     )
     set_mode_sources(mode, sources)
     db.add(mode)
@@ -182,7 +171,6 @@ def create_mode_from_dsl_text(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "Source and EW Group must belong to the same Emitter",
         )
-    _check_function_group(db, function_group_id=payload.function_group_id, emitter_id=ew_group.emitter_id)
     try:
         mode = create_mode_from_dsl(
             db,
@@ -192,7 +180,6 @@ def create_mode_from_dsl_text(
             dsl_text=payload.dsl_text,
             notes=payload.notes,
             sort_order=payload.sort_order,
-            function_group_id=payload.function_group_id,
             confirmation_quality=payload.confirmation_quality,
             confirmation_quantity=payload.confirmation_quantity,
         )
@@ -241,8 +228,6 @@ def update_mode(
     new_sources = (
         resolve_sources(db, emitter_id=mode.source.emitter_id, source_ids=new_source_ids) if new_source_ids else None
     )
-    if "function_group_id" in data:
-        _check_function_group(db, function_group_id=data["function_group_id"], emitter_id=mode.source.emitter_id)
     if "pri_type" in data and data["pri_type"] != mode.pri_type and payload.line is None:
         # The old type's PRI fields (e.g. Fixed's jitter) are meaningless
         # under the new one (e.g. Stagger's sequence) — there's no partial
@@ -309,7 +294,7 @@ def delete_mode(
     mode_snapshot = snapshot(
         mode,
         [
-            "name", "pri_type", "notes", "sort_order", "source_id", "function_group_id",
+            "name", "pri_type", "notes", "sort_order", "source_id",
             "confirmation_quality", "confirmation_quantity",
         ],
     )
@@ -416,7 +401,6 @@ def create_modes_from_intercept(
     source = db.get(Source, payload.source_id)
     if source is None or source.emitter_id != ew_group.emitter_id:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Source and EW Group must belong to the same Emitter")
-    _check_function_group(db, function_group_id=payload.function_group_id, emitter_id=ew_group.emitter_id)
     wanted = set(payload.entry_ids)
     entries = (
         db.query(InterceptEntry)
@@ -472,7 +456,6 @@ def create_modes_from_intercept(
             sort_order=base_sort + len(created) + 1,
             confirmation_quality=payload.confirmation_quality,
             confirmation_quantity=payload.confirmation_quantity,
-            function_group_id=payload.function_group_id,
             generation_batch_id=batch.id,
         )
         db.add(mode)
@@ -568,7 +551,6 @@ def apply_intercept_mode_plan(
             raise HTTPException(
                 status.HTTP_422_UNPROCESSABLE_CONTENT, "Source and EW Group must belong to the same Emitter"
             )
-        _check_function_group(db, function_group_id=payload.function_group_id, emitter_id=emitter_id)
 
     # Check everything before writing anything.
     for i, planned in enumerate(payload.new_modes):
@@ -646,7 +628,6 @@ def apply_intercept_mode_plan(
                 sort_order=base_sort + len(created) + 1,
                 confirmation_quality=payload.confirmation_quality,
                 confirmation_quantity=payload.confirmation_quantity,
-                function_group_id=payload.function_group_id,
                 generation_batch_id=batch.id,
             )
             db.add(mode)

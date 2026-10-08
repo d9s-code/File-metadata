@@ -9,7 +9,6 @@ import { useEmitter } from "../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../state/hooks/useEmitterCheckout";
 import { useEwGroups } from "../state/hooks/useEwGroups";
 import { useSources } from "../state/hooks/useSources";
-import { useFunctionGroups } from "../state/hooks/useFunctionGroups";
 import { emitterModesKey, useEmitterModes } from "../state/hooks/useModes";
 import { useEmitterTestLines } from "../state/hooks/useTestLines";
 import {
@@ -51,7 +50,6 @@ interface RunState {
   resultOverrideNote?: string;
   lineEntries: Record<string, SimLineEntry>;
   modeEntries: Record<string, InterceptModeEntry>;
-  functionGroupOverrides: Record<string, TestResult | "">;
   stagedModes: { key: string; ewGroupId: string; input: ModeCreateInput }[];
 }
 
@@ -121,7 +119,6 @@ export function TestRunNewPage() {
   const { canEdit } = useEmitterCheckoutState(emitter);
   const { data: ewGroups } = useEwGroups(emitterId);
   const { data: sources } = useSources(emitterId);
-  const { data: functionGroups } = useFunctionGroups(emitterId);
   const { data: modes } = useEmitterModes(emitterId);
   const { data: testLines } = useEmitterTestLines(emitterId);
   const { data: records } = useEmitterTestRecords(emitterId);
@@ -144,7 +141,6 @@ export function TestRunNewPage() {
   const [resultOverrideNote, setResultOverrideNote] = useState("");
   const [lineEntries, setLineEntries] = useState<Record<string, SimLineEntry>>({});
   const [modeEntries, setModeEntries] = useState<Record<string, InterceptModeEntry>>({});
-  const [functionGroupOverrides, setFunctionGroupOverrides] = useState<Record<string, TestResult | "">>({});
   const [stagingKeys, setStagingKeys] = useState<string[]>([]);
   const [stagedModes, setStagedModes] = useState<{ key: string; ewGroupId: string; input: ModeCreateInput }[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -170,10 +166,9 @@ export function TestRunNewPage() {
       resultOverrideNote,
       lineEntries,
       modeEntries,
-      functionGroupOverrides,
       stagedModes,
     }),
-    [testType, title, testDate, testTime, simCreatedDate, interceptDate, dwell, retestsId, copyFromId, notes, manualResult, resultOverride, resultOverrideNote, lineEntries, modeEntries, functionGroupOverrides, stagedModes],
+    [testType, title, testDate, testTime, simCreatedDate, interceptDate, dwell, retestsId, copyFromId, notes, manualResult, resultOverride, resultOverrideNote, lineEntries, modeEntries, stagedModes],
   );
 
   function applyState(s: Partial<RunState>) {
@@ -192,7 +187,6 @@ export function TestRunNewPage() {
     if (s.resultOverrideNote !== undefined) setResultOverrideNote(s.resultOverrideNote);
     if (s.lineEntries) setLineEntries(s.lineEntries);
     if (s.modeEntries) setModeEntries(s.modeEntries);
-    if (s.functionGroupOverrides) setFunctionGroupOverrides(s.functionGroupOverrides);
     if (s.stagedModes) setStagedModes(s.stagedModes);
   }
 
@@ -340,19 +334,6 @@ export function TestRunNewPage() {
     : computeOverallResult(includedModes.map(([, e]) => e.result));
   const canAddModes = canEdit && (ewGroups?.length ?? 0) > 0 && (sources?.length ?? 0) > 0;
 
-  // Worst-of per Function Group across the intercepted Modes — what the
-  // override dropdowns are judged against. Intercept tests only.
-  const groupComputed: Record<string, TestResult> = {};
-  if (!isSimulation) {
-    const byGroup = new Map<string, TestResult[]>();
-    for (const m of modes) {
-      const e = modeEntries[m.id];
-      if (!m.function_group_id || !e?.included) continue;
-      byGroup.set(m.function_group_id, [...(byGroup.get(m.function_group_id) ?? []), e.result]);
-    }
-    for (const [id, results] of byGroup) groupComputed[id] = computeOverallResult(results) as TestResult;
-  }
-  const ratedGroups = (functionGroups ?? []).filter((g) => groupComputed[g.id]);
 
   latest.current = {
     json,
@@ -419,10 +400,6 @@ export function TestRunNewPage() {
           observed_values: nonEmptySets(entry.observedValues).length ? nonEmptySets(entry.observedValues) : undefined,
           notes: entry.notes.trim() || undefined,
         }));
-    const overrides = Object.fromEntries(Object.entries(functionGroupOverrides).filter(([, v]) => v !== "")) as Record<
-      string,
-      TestResult
-    >;
     let record: TestRecord;
     // From here the run is being logged: no more saving it as a draft.
     logging.current = true;
@@ -440,7 +417,6 @@ export function TestRunNewPage() {
         mode_results: modeResults.length ? modeResults : undefined,
         result: lineResults.length || modeResults.length ? undefined : manualResult,
         retests_test_record_id: retestsId || undefined,
-        function_group_overrides: Object.keys(overrides).length ? overrides : undefined,
         draft_id: draftId.current ?? undefined,
         result_override: derived && resultOverride && resultOverride !== derived ? resultOverride : undefined,
         result_override_note:
@@ -564,7 +540,6 @@ export function TestRunNewPage() {
               modes={modes}
               entries={modeEntries}
               onChange={(id, entry) => setModeEntries((prev) => ({ ...prev, [id]: entry }))}
-              functionGroups={functionGroups}
             />
           )}
 
@@ -610,33 +585,6 @@ export function TestRunNewPage() {
             )}
           </p>
 
-          {ratedGroups.length > 0 && (
-            <div className="function-group-ratings">
-              <span className="param-row-label">Function Group ratings</span>
-              {ratedGroups.map((g) => (
-                <div key={g.id} className="function-group-rating-row">
-                  <span>{g.name}</span>
-                  <span className={`test-result-badge test-result-${groupComputed[g.id]}`}>{groupComputed[g.id]}</span>
-                  <label className="inline-date-label">
-                    Override
-                    <select
-                      value={functionGroupOverrides[g.id] ?? ""}
-                      onChange={(e) =>
-                        setFunctionGroupOverrides((prev) => ({ ...prev, [g.id]: e.target.value as TestResult | "" }))
-                      }
-                    >
-                      <option value="">use computed</option>
-                      {TEST_RESULTS.map((r) => (
-                        <option key={r} value={r}>
-                          {r}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         {stagedModes.length > 0 && (
@@ -681,7 +629,6 @@ export function TestRunNewPage() {
               emitterId={emitterId}
               ewGroups={ewGroups ?? []}
               sources={sources ?? []}
-              functionGroups={functionGroups}
               onStage={(ewGroupId, input) => {
                 setStagedModes((prev) => [...prev, { key: k, ewGroupId, input }]);
                 setStagingKeys((keys) => keys.filter((x) => x !== k));

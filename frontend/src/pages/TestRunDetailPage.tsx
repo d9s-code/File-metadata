@@ -5,7 +5,6 @@ import { useEmitter } from "../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../state/hooks/useEmitterCheckout";
 import { useEwGroups } from "../state/hooks/useEwGroups";
 import { useSources } from "../state/hooks/useSources";
-import { useFunctionGroups } from "../state/hooks/useFunctionGroups";
 import { useChangeTestResult, useDeleteEmitterTestRecord, useEmitterTestRecords } from "../state/hooks/useTestRecords";
 import { RequireRole } from "../auth/RequireAuth";
 import { LoadingState } from "../components/common/LoadingState";
@@ -86,7 +85,6 @@ export function TestRunDetailPage() {
   const { data: records, isLoading } = useEmitterTestRecords(emitterId);
   const { data: ewGroups } = useEwGroups(emitterId);
   const { data: sources } = useSources(emitterId);
-  const { data: functionGroups } = useFunctionGroups(emitterId);
   const del = useDeleteEmitterTestRecord(emitterId);
   const { data: versions } = useEmitterVersions(emitterId);
   const { confirmDelete, dialog } = useConfirmDialog();
@@ -182,7 +180,6 @@ export function TestRunDetailPage() {
               emitterId={emitterId}
               ewGroups={ewGroups ?? []}
               sources={sources ?? []}
-              functionGroups={functionGroups}
               fixedDerivedFromTestRecordId={record.id}
               observedValueOptions={observedValueOptions([
                 ...record.lines.map((l) => ({ id: l.test_line_id, name: l.test_line_label, sets: l.observed_values })),
@@ -255,27 +252,6 @@ export function TestRunDetailPage() {
               ))}
             </tbody>
           </table>
-        </div>
-      )}
-
-      {record.function_groups.length > 0 && (
-        <div className="card">
-          <h4>Function Group ratings</h4>
-          <div className="test-record-function-group-badges">
-            {record.function_groups.map((fg) => (
-              <span
-                key={fg.function_group_id}
-                className={`status-badge test-result-${fg.override_result ?? fg.computed_result}`}
-                title={
-                  fg.override_result
-                    ? `Computed: ${fg.computed_result} — overridden to ${fg.override_result}`
-                    : `Computed: ${fg.computed_result}`
-                }
-              >
-                {fg.function_group_name}: {fg.override_result ?? fg.computed_result}
-              </span>
-            ))}
-          </div>
         </div>
       )}
 

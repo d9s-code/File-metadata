@@ -161,28 +161,24 @@ def test_discard_with_no_committed_version_is_409(editor_client):
     assert resp.status_code == 409
 
 
-def test_discard_reverts_an_uncommitted_function_group_assignment(editor_client):
-    # Regression test: reconcile_emitter_to_snapshot used to leave
-    # Mode.function_group_id untouched entirely, so a batch-edit assignment
-    # survived both discard and revert instead of being rolled back with
-    # everything else.
+def test_discard_reverts_an_uncommitted_change_to_a_modes_sources(editor_client):
     ctx = _setup_emitter_with_two_versions(editor_client)
     emitter_id = ctx["emitter"]["id"]
     mode_id = ctx["mode"]["id"]
+    before = editor_client.get(f"/emitters/{emitter_id}/modes").json()[0]["source_names"]
 
-    fg = editor_client.post(f"/emitters/{emitter_id}/function-groups", json={"name": "FG"}).json()
+    extra = editor_client.post(
+        f"/emitters/{emitter_id}/sources", json={"name": "Second report", "source_date": "2025-03-01"}
+    ).json()
     editor_client.post(
         f"/emitters/{emitter_id}/modes/batch-edit",
-        json={"mode_ids": [mode_id], "fields": {"function_group_id": fg["id"]}},
+        json={"mode_ids": [mode_id], "fields": {"add_source_id": extra["id"]}},
     )
-    modes = editor_client.get(f"/emitters/{emitter_id}/modes").json()
-    assert modes[0]["function_group_id"] == fg["id"]
+    assert editor_client.get(f"/emitters/{emitter_id}/modes").json()[0]["source_names"] == [*before, "Second report"]
 
     resp = editor_client.post(f"/emitters/{emitter_id}/discard")
     assert resp.status_code == 200, resp.text
-
-    modes = editor_client.get(f"/emitters/{emitter_id}/modes").json()
-    assert modes[0]["function_group_id"] is None
+    assert editor_client.get(f"/emitters/{emitter_id}/modes").json()[0]["source_names"] == before
 
 
 def test_revert_to_pre_fork_version_is_409(editor_client):

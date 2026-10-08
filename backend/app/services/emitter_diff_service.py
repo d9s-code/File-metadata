@@ -57,7 +57,6 @@ MODE_FIELD_LABELS = {
     "pri_type": "PRI Type",
     "notes": "Notes",
     "sources": "Sources",
-    "function_group_name": "Function Group",
     "confirmation_quality": "Confirmation Quality (%)",
     "confirmation_quantity": "Confirmation Quantity",
 }

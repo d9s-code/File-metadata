@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useCreateMode, useEmitterModes } from "../../state/hooks/useModes";
 import { ApiRequestError } from "../../api/client";
-import type { EwGroup, FunctionGroup, Mode, Source } from "../../types/domain";
+import type { EwGroup, Mode, Source } from "../../types/domain";
 import type { ModeCreateInput } from "../../api/modes";
 import type { ObservedValueOption } from "../testing/testFormat";
 import { BLANK_LINE, lineValuesFrom, nameAfter, nextFreeName } from "./modeLine";
@@ -17,7 +17,6 @@ import {
 } from "./ModeMoreOptions";
 
 const DEFAULT_OPTIONS: MoreOptionsValues = {
-  functionGroupId: "",
   quality: String(DEFAULT_CONFIRMATION_QUALITY),
   quantity: String(DEFAULT_CONFIRMATION_QUANTITY),
   notes: "",
@@ -32,7 +31,6 @@ export function ModeForm({
   emitterId,
   ewGroups,
   sources,
-  functionGroups,
   defaultEwGroupId,
   defaultSourceId,
   fixedDerivedFromTestRecordId,
@@ -46,7 +44,6 @@ export function ModeForm({
   emitterId: string;
   ewGroups: EwGroup[];
   sources: Source[];
-  functionGroups?: FunctionGroup[];
   defaultEwGroupId?: string;
   /** The Source to start on, when it's one of `sources` (else the first). */
   defaultSourceId?: string | null;
@@ -126,7 +123,6 @@ export function ModeForm({
     loadLine(lineValuesFrom(mode.pri_type, mode.line), mode.line?.explicit_frame_time_us);
     // Provenance isn't copied — a copy wasn't itself derived from that test.
     setOptions({
-      functionGroupId: mode.function_group_id ?? "",
       quality: String(mode.confirmation_quality),
       quantity: String(mode.confirmation_quantity),
       notes: mode.notes ?? "",
@@ -214,7 +210,6 @@ export function ModeForm({
       confirmation_quality: Number(options.quality),
       confirmation_quantity: Number(options.quantity),
       line: line.payload(),
-      function_group_id: options.functionGroupId || null,
     };
     if (onStage) {
       onStage(ewGroupId, payload);
@@ -361,7 +356,6 @@ export function ModeForm({
       <ModeMoreOptions
         values={options}
         onChange={(part) => setOptions((o) => ({ ...o, ...part }))}
-        functionGroups={functionGroups}
         emitterId={emitterId}
         showDerived={!fixedOrigin && !onStage}
         forceOpen={optionsForced}

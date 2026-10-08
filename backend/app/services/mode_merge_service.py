@@ -240,7 +240,7 @@ def apply(db: Session, finding: AmbiguityFinding, keep: str, user) -> dict:
 
     _move_links(db, kept.id, removed.id)
 
-    removed_snapshot = snapshot(removed, ["name", "pri_type", "notes", "source_id", "function_group_id"])
+    removed_snapshot = snapshot(removed, ["name", "pri_type", "notes", "source_id"])
     removed_snapshot["source_ids"] = [str(sid) for sid in removed.source_ids]
     removed_snapshot["line"] = flat[str(removed.id)].line
     record_audit(

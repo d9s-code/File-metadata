@@ -38,13 +38,6 @@ export interface TestRecordModeLink {
   observed_values: ObservedValues[] | null;
 }
 
-export interface TestRecordFunctionGroupResult {
-  function_group_id: string;
-  function_group_name: string;
-  computed_result: TestResult;
-  override_result: TestResult | null;
-}
-
 export interface TestRecordLineResult {
   test_line_id: string;
   test_line_label: string;
@@ -82,7 +75,6 @@ export interface TestRecord {
   created_at: string;
   retests_test_record_id: string | null;
   modes: TestRecordModeLink[];
-  function_groups: TestRecordFunctionGroupResult[];
   lines: TestRecordLineResult[];
 }
 
@@ -122,9 +114,6 @@ export interface TestRecordInput {
   result?: TestResult;
   /** Optional pointer to an earlier test record this one re-runs. */
   retests_test_record_id?: string;
-  /** Per-Function-Group manual override of the computed worst-of-N aggregate
-   * — a Function Group not present here just gets its computed result. */
-  function_group_overrides?: Record<string, TestResult>;
   /** The run in progress this was filled in as — deleted once logged. */
   draft_id?: string;
   /** The tester's call over the worked-out result, with why (required). */

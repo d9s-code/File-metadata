@@ -10,7 +10,6 @@ from app.models.emitter import Emitter  # noqa: F401
 from app.models.emitter_note import EmitterNote  # noqa: F401
 from app.models.emitter_version import EmitterVersion  # noqa: F401
 from app.models.ew_group import EwGroup  # noqa: F401
-from app.models.function_group import FunctionGroup  # noqa: F401
 from app.models.import_batch import ImportBatch  # noqa: F401
 from app.models.intercept import (  # noqa: F401
     Intercept,
@@ -32,7 +31,6 @@ from app.models.task import Task, TaskNote  # noqa: F401
 from app.models.test_line import TestLine  # noqa: F401
 from app.models.test_record import (  # noqa: F401
     TestRecord,
-    TestRecordFunctionGroup,
     TestRecordLine,
     TestRecordLineMode,
     TestRecordMode,

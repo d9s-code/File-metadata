@@ -3,12 +3,10 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { useEmitter, useUpdateEmitter } from "../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../state/hooks/useEmitterCheckout";
 import { useEwGroups } from "../state/hooks/useEwGroups";
-import { useFunctionGroups } from "../state/hooks/useFunctionGroups";
 import { useSources } from "../state/hooks/useSources";
 import { useCreateEmitterNote, useDeleteEmitterNote, useEmitterNotes } from "../state/hooks/useEmitterNotes";
 import { emittersApi } from "../api/emitters";
 import { EwGroupsTable } from "../components/ewGroups/EwGroupsTable";
-import { FunctionGroupsTable } from "../components/functionGroups/FunctionGroupsTable";
 import { SourcesTable } from "../components/sources/SourcesTable";
 import { ModesSection } from "../components/modes/ModesSection";
 import { EmitterIntercepts } from "../components/intercepts/EmitterIntercepts";
@@ -69,7 +67,6 @@ export function EmitterEditorPage() {
   const { data: emitter, isLoading } = useEmitter(emitterId);
   const { canEdit, isMine } = useEmitterCheckoutState(emitter);
   const { data: ewGroups, isLoading: ewGroupsLoading } = useEwGroups(emitterId ?? "");
-  const { data: functionGroups } = useFunctionGroups(emitterId ?? "");
   const { data: sources, isLoading: sourcesLoading } = useSources(emitterId ?? "");
   const { mutate: updateEmitter, isPending: isUpdating } = useUpdateEmitter();
   const { data: emitterNotes, isLoading: notesLoading } = useEmitterNotes(emitterId ?? "");
@@ -340,14 +337,12 @@ export function EmitterEditorPage() {
           emitterId={emitter.id}
           ewGroups={ewGroups ?? []}
           sources={sources ?? []}
-          functionGroups={functionGroups ?? []}
           linkedModeName={searchParams.get("mode") ?? undefined}
         />
       </div>
 
       <div hidden={tab !== "setup"}>
         <EwGroupsTable emitterId={emitter.id} ewGroups={ewGroups ?? []} />
-        <FunctionGroupsTable emitterId={emitter.id} functionGroups={functionGroups ?? []} />
         <SourcesTable
           emitterId={emitter.id}
           sources={sources ?? []}

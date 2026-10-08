@@ -317,7 +317,7 @@ export function HelpPage() {
               you move on, in plain words, and the form won&apos;t save until it&apos;s fixed.{" "}
               <strong>Start from</strong> fills everything in from an existing Mode. <strong>Add &amp; next</strong>{" "}
               saves this one and starts the next with the same EW Group, Source, PRI type and margins, and the next
-              name. Function Group, confirmation, notes and &ldquo;test-derived&rdquo; are folded under{" "}
+              name. Confirmation, notes and &ldquo;test-derived&rdquo; are folded under{" "}
               <strong>More options</strong>, which says what they&apos;re set to.
             </p>
             <p>
@@ -426,8 +426,7 @@ export function HelpPage() {
               </li>
               <li>
                 An Intercept Test is a table with one row per Mode: tick the Modes that were intercepted, then
-                give each a result, intercepted parameters and notes. Function Group ratings are computed
-                from these and can be overridden.
+                give each a result, intercepted parameters and notes.
               </li>
               <li>
                 The run&rsquo;s overall result is <strong>worked out</strong> from the included rows (worst one wins),
@@ -467,8 +466,7 @@ export function HelpPage() {
             <h4>EW Groups & Sources tab</h4>
             <p>
               <strong>EW Groups</strong> are the operational buckets (scan range + threat priority) Modes
-              are organized under; <strong>Function Groups</strong> are a second, independent way to group
-              Modes (e.g. by radar function) alongside their EW Group. <strong>Sources</strong> record
+              are organized under. <strong>Sources</strong> record
               where a parameter set came from — a datasheet, a lab measurement — and hold the RF/PRI/PW/Scan{" "}
               <strong>Elements</strong> you build Modes from (min/max, optional jitter and a tolerance{" "}
               <strong>delta</strong>, or a stagger sequence for PRI).

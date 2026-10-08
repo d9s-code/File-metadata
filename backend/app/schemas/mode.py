@@ -166,9 +166,6 @@ class ModeCreate(BaseModel):
     confirmation_quality: ConfirmationQuality = DEFAULT_CONFIRMATION_QUALITY
     confirmation_quantity: ConfirmationQuantity = DEFAULT_CONFIRMATION_QUANTITY
     line: ModeLineFields
-    # Optional — which Function Group this Mode serves, independent of its
-    # (required) EW Group.
-    function_group_id: UUID | None = None
     # Test Record(s) whose findings explain this Mode's values, for a Mode
     # that didn't come from the Source's data (see TestRecordModeLinkType).
     derived_from_test_record_ids: list[UUID] = []
@@ -200,7 +197,6 @@ class ModesFromIntercept(BaseModel):
     intercept_id: UUID
     entry_ids: list[UUID] = Field(min_length=1, max_length=MAX_MODES_FROM_INTERCEPT)
     source_id: UUID
-    function_group_id: UUID | None = None
     # Modes are named "<prefix> 1", "<prefix> 2", … in rising RF, skipping names already used.
     name_prefix: str = Field(min_length=1, max_length=150)
     # "measured": each entry's measured min–max (its mean where it has none);
@@ -249,7 +245,6 @@ class InterceptModePlan(BaseModel):
 
     intercept_id: UUID
     source_id: UUID | None = None
-    function_group_id: UUID | None = None
     # New Modes are named "<prefix> 1", "<prefix> 2", … in the order given, skipping names already used.
     name_prefix: str | None = Field(default=None, max_length=150)
     confirmation_quality: ConfirmationQuality = DEFAULT_CONFIRMATION_QUALITY
@@ -277,7 +272,6 @@ class ModeCreateFromDsl(BaseModel):
     sort_order: int = 0
     confirmation_quality: ConfirmationQuality = DEFAULT_CONFIRMATION_QUALITY
     confirmation_quantity: ConfirmationQuantity = DEFAULT_CONFIRMATION_QUANTITY
-    function_group_id: UUID | None = None
 
 
 class ModeUpdate(BaseModel):
@@ -290,7 +284,6 @@ class ModeUpdate(BaseModel):
     # Replaces the Mode's Sources: all of them (one or more), or source_id for just one.
     source_id: UUID | None = None
     source_ids: list[UUID] | None = Field(default=None, min_length=1)
-    function_group_id: UUID | None = None
     # Changing this requires `line` in the same request — the old PRI type's
     # fields (e.g. Fixed's pri_min_us/jitter) are meaningless under a new one
     # (e.g. Stagger's pri_stagger_values_us), so there's no partial edit that
@@ -318,7 +311,6 @@ class BatchModeFieldEdit(BaseModel):
     source_id: UUID | None = None
     # Adds this Source to each selected Mode's Sources (kept if already there).
     add_source_id: UUID | None = None
-    function_group_id: UUID | None = None
     notes: str | None = None
     confirmation_quality: ConfirmationQuality | None = None
     confirmation_quantity: ConfirmationQuantity | None = None
@@ -476,7 +468,6 @@ class ModeOut(BaseModel):
     confirmation_quality: int
     confirmation_quantity: int
     generation_batch_id: UUID | None = None
-    function_group_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
     line: ModeLineOut | None = None

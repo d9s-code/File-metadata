@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from "react";
 import type { ObservedValues } from "../../api/testRecords";
-import type { FunctionGroup, TestResult } from "../../types/domain";
+import type { TestResult } from "../../types/domain";
 import { ObservedValuesEditor } from "./ObservedValuesEditor";
 import { ObservedValuesTable } from "./ObservedValuesTable";
 import { AutoGrowTextarea } from "../common/AutoGrowTextarea";
@@ -10,7 +10,6 @@ import { matchesWords, searchWords } from "../../utils/wordSearch";
 export interface InterceptModeOption {
   id: string;
   name: string;
-  function_group_id: string | null;
   last_test_result: TestResult | null;
 }
 
@@ -31,17 +30,14 @@ export function InterceptModeResultsTable({
   modes,
   entries,
   onChange,
-  functionGroups,
 }: {
   modes: InterceptModeOption[];
   entries: Record<string, InterceptModeEntry>;
   onChange: (modeId: string, entry: InterceptModeEntry) => void;
-  functionGroups?: FunctionGroup[];
 }) {
   const [filter, setFilter] = useState("");
   const [onlyIntercepted, setOnlyIntercepted] = useState(false);
   const [paramsOpen, setParamsOpen] = useState<Set<string>>(new Set());
-  const groupName = new Map((functionGroups ?? []).map((g) => [g.id, g.name]));
 
   const visible = useMemo(() => {
     const words = searchWords(filter);
@@ -79,7 +75,6 @@ export function InterceptModeResultsTable({
           <tr>
             <th>Intercepted</th>
             <th>Mode</th>
-            <th>Function Group</th>
             <th>Result</th>
             <th>Intercepted parameters</th>
             <th>Notes</th>
@@ -109,7 +104,6 @@ export function InterceptModeResultsTable({
                       </span>
                     )}
                   </td>
-                  <td>{m.function_group_id ? groupName.get(m.function_group_id) ?? "—" : "—"}</td>
                   <td>
                     <select
                       value={entry.result}
@@ -145,7 +139,7 @@ export function InterceptModeResultsTable({
                 {paramsOpen.has(m.id) && !off && (
                   <tr className="params-editor-row">
                     <td></td>
-                    <td colSpan={5}>
+                    <td colSpan={4}>
                       <ObservedValuesEditor
                         sets={entry.observedValues}
                         onChange={(sets) => patch(m.id, { observedValues: sets })}
@@ -158,7 +152,7 @@ export function InterceptModeResultsTable({
           })}
           {visible.length === 0 && (
             <tr>
-              <td colSpan={6} className="hint-text">
+              <td colSpan={5} className="hint-text">
                 {modes.length === 0 ? "This Emitter has no Modes yet." : "No Modes match the filter."}
               </td>
             </tr>

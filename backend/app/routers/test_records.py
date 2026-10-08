@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.csrf import verify_csrf
-from app.core.enums import AuditAction, AuditEntityType, Role, TestResult, TestScopeType
+from app.core.enums import AuditAction, AuditEntityType, Role, TestScopeType
 from app.database import get_db
 from app.deps import require_role
 from app.models.emitter import Emitter
@@ -15,7 +15,6 @@ from app.models.mode import Mode
 from app.models.test_line import TestLine
 from app.models.test_record import (
     TestRecord,
-    TestRecordFunctionGroup,
     TestRecordLine,
     TestRecordLineMode,
     TestRecordMode,
@@ -26,7 +25,6 @@ from app.services.audit_service import record_audit
 from app.services.test_result_service import compute_overall_result
 
 _MODES_EAGER_LOAD = joinedload(TestRecord.modes).joinedload(TestRecordMode.mode)
-_FUNCTION_GROUPS_EAGER_LOAD = joinedload(TestRecord.function_groups).joinedload(TestRecordFunctionGroup.function_group)
 _LINES_EAGER_LOAD = joinedload(TestRecord.lines).options(
     joinedload(TestRecordLine.test_line),
     joinedload(TestRecordLine.intercepted_modes).joinedload(TestRecordLineMode.mode),
@@ -162,25 +160,6 @@ def _create_test_record(
             )
         )
 
-    if mode_ids:
-        modes_by_function_group: dict[UUID, list[TestResult]] = {}
-        function_group_of_mode = dict(
-            db.query(Mode.id, Mode.function_group_id).filter(Mode.id.in_(mode_ids)).all()
-        )
-        for mr in payload.mode_results:
-            fg_id = function_group_of_mode.get(mr.mode_id)
-            if fg_id is not None:
-                modes_by_function_group.setdefault(fg_id, []).append(mr.result)
-        for fg_id, results in modes_by_function_group.items():
-            db.add(
-                TestRecordFunctionGroup(
-                    test_record_id=record.id,
-                    function_group_id=fg_id,
-                    computed_result=compute_overall_result(results),
-                    override_result=payload.function_group_overrides.get(fg_id),
-                )
-            )
-
     if payload.draft_id is not None:
         # Logged: the draft it was filled in as is done with.
         db.query(TestRunDraft).filter(
@@ -200,7 +179,7 @@ def _create_test_record(
     db.commit()
     return (
         db.query(TestRecord)
-        .options(_MODES_EAGER_LOAD, _FUNCTION_GROUPS_EAGER_LOAD, _LINES_EAGER_LOAD)
+        .options(_MODES_EAGER_LOAD, _LINES_EAGER_LOAD)
         .filter(TestRecord.id == record.id)
         .one()
     )
@@ -214,7 +193,7 @@ def list_emitter_test_records(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Emitter not found")
     return (
         db.query(TestRecord)
-        .options(_MODES_EAGER_LOAD, _FUNCTION_GROUPS_EAGER_LOAD, _LINES_EAGER_LOAD)
+        .options(_MODES_EAGER_LOAD, _LINES_EAGER_LOAD)
         .filter(TestRecord.scope_type == TestScopeType.emitter, TestRecord.scope_id == emitter_id)
         .order_by(TestRecord.test_date.desc(), TestRecord.test_time.desc().nulls_last(), TestRecord.created_at.desc())
         .all()
@@ -252,7 +231,7 @@ def list_mdf_test_records(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "MDF not found")
     return (
         db.query(TestRecord)
-        .options(_MODES_EAGER_LOAD, _FUNCTION_GROUPS_EAGER_LOAD, _LINES_EAGER_LOAD)
+        .options(_MODES_EAGER_LOAD, _LINES_EAGER_LOAD)
         .filter(TestRecord.scope_type == TestScopeType.mdf, TestRecord.scope_id == mdf_id)
         .order_by(TestRecord.test_date.desc(), TestRecord.test_time.desc().nulls_last(), TestRecord.created_at.desc())
         .all()
@@ -318,7 +297,7 @@ def change_emitter_test_result(
     db.commit()
     return (
         db.query(TestRecord)
-        .options(_MODES_EAGER_LOAD, _FUNCTION_GROUPS_EAGER_LOAD, _LINES_EAGER_LOAD)
+        .options(_MODES_EAGER_LOAD, _LINES_EAGER_LOAD)
         .filter(TestRecord.id == record.id)
         .one()
     )

@@ -575,7 +575,7 @@ def delete_generation_batch(
         mode_snapshot = snapshot(
             mode,
         [
-            "name", "pri_type", "notes", "sort_order", "source_id", "function_group_id",
+            "name", "pri_type", "notes", "sort_order", "source_id",
             "confirmation_quality", "confirmation_quantity",
         ],
         )

@@ -17,7 +17,6 @@ from app.core.enums import AuditAction, AuditEntityType, TestRecordModeLinkType
 from app.dsl.exceptions import DslSyntaxError
 from app.dsl.renderer import render_mode_line
 from app.models.ew_group import EwGroup
-from app.models.function_group import FunctionGroup
 from app.models.intercept import InterceptEntry, InterceptEntryMode
 from app.models.mode import Mode
 from app.models.source import Source
@@ -57,7 +56,6 @@ _LINE_FIELD_KEYS = {
 # source_id and add_source_id go through set_mode_sources, not setattr.
 _METADATA_FIELD_KEYS = {
     "ew_group_id",
-    "function_group_id",
     "notes",
     "confirmation_quality",
     "confirmation_quantity",
@@ -143,10 +141,6 @@ def plan_batch_edit(
             if target_source is None or target_source.emitter_id != emitter_id:
                 raise HTTPException(status.HTTP_404_NOT_FOUND, "Target Source not found in this Emitter")
 
-    if field_data.get("function_group_id") is not None:
-        target_fg = db.get(FunctionGroup, field_data["function_group_id"])
-        if target_fg is None or target_fg.emitter_id != emitter_id:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Target Function Group not found in this Emitter")
 
     planned: list[PlannedModeEdit] = []
     errors: list[ModeBatchEditError] = []

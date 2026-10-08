@@ -132,16 +132,6 @@ export interface EwGroup {
   updated_at: string;
 }
 
-export interface FunctionGroup {
-  id: string;
-  emitter_id: string;
-  name: string;
-  sort_order: number;
-  modes_count: number;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface Source {
   id: string;
   emitter_id: string;
@@ -348,7 +338,6 @@ export interface Mode {
   /** 1 or more, default 2 — written to the PRS export's ConfirmationQuantity. */
   confirmation_quantity: number;
   generation_batch_id: string | null;
-  function_group_id: string | null;
   created_at: string;
   updated_at: string;
   line: ModeLine | null;

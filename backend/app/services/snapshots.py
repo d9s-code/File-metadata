@@ -48,8 +48,6 @@ def _mode_dict(mode: Mode) -> dict:
         "source_name": mode.source.name,
         "extra_source_ids": [str(link.source_id) for link in mode.extra_source_links],
         "source_names": mode.source_names,
-        "function_group_id": str(mode.function_group_id) if mode.function_group_id else None,
-        "function_group_name": mode.function_group.name if mode.function_group else None,
         "line": None
         if line is None
         else {

@@ -12,7 +12,6 @@ export interface ModeCreateInput {
   confirmation_quality?: number;
   confirmation_quantity?: number;
   line: ModeLineFields;
-  function_group_id?: string | null;
   derived_from_test_record_ids?: string[];
   derived_from_intercept_entry_ids?: string[];
 }
@@ -26,7 +25,6 @@ export interface ModeUpdateInput {
   ew_group_id?: string;
   /** Replaces the Mode's Sources (one or more). */
   source_ids?: string[];
-  function_group_id?: string | null;
   /** Changing this requires `line` in the same request — see the backend's
    * own note on why there's no partial edit across a PRI type change. */
   pri_type?: PriType;
@@ -41,7 +39,6 @@ export interface BatchModeFieldEdit {
   source_id?: string;
   /** Adds this Source to each selected Mode's Sources. */
   add_source_id?: string;
-  function_group_id?: string | null;
   notes?: string;
   confirmation_quality?: number;
   confirmation_quantity?: number;
@@ -83,7 +80,6 @@ export interface ModeBatchEditResult {
 export interface InterceptModePlanInput {
   intercept_id: string;
   source_id?: string | null;
-  function_group_id?: string | null;
   name_prefix?: string | null;
   confirmation_quality: number;
   confirmation_quantity: number;

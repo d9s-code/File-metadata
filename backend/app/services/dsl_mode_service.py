@@ -58,7 +58,6 @@ def create_mode_from_dsl(
     dsl_text: str,
     notes: str | None = None,
     sort_order: int = 0,
-    function_group_id=None,
     confirmation_quality: int = DEFAULT_CONFIRMATION_QUALITY,
     confirmation_quantity: int = DEFAULT_CONFIRMATION_QUANTITY,
 ) -> Mode:
@@ -71,7 +70,6 @@ def create_mode_from_dsl(
         pri_type=parsed.pri_type,
         notes=notes,
         sort_order=sort_order,
-        function_group_id=function_group_id,
         confirmation_quality=confirmation_quality,
         confirmation_quantity=confirmation_quantity,
     )

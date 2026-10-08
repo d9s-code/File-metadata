@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { MenuButton } from "../common/MenuButton";
-import type { EwGroup, FunctionGroup, Mode, ModeGenerationBatch, Source } from "../../types/domain";
+import type { EwGroup, Mode, ModeGenerationBatch, Source } from "../../types/domain";
 import { HoverInfo } from "../common/InfoPopover";
 import { RequireRole } from "../../auth/RequireAuth";
 import {
@@ -39,7 +39,6 @@ export function ModesCardGrid({
   collapseBatches,
   ewGroupsById,
   sourcesById,
-  functionGroupsById,
   onDelete,
   selected,
   onToggleSelect,
@@ -52,7 +51,6 @@ export function ModesCardGrid({
   collapseBatches: boolean;
   ewGroupsById: Record<string, EwGroup>;
   sourcesById: Record<string, Source>;
-  functionGroupsById: Record<string, FunctionGroup>;
   onDelete: (modeId: string, ewGroupId: string, name: string) => void;
   selected: Set<string>;
   onToggleSelect: (modeId: string) => void;
@@ -89,7 +87,6 @@ export function ModesCardGrid({
               <ModeEditForm
                 emitterId={emitterId}
                 mode={m}
-                functionGroups={Object.values(functionGroupsById)}
                 sources={Object.values(sourcesById)}
                 onDone={() => setEditingModeId(null)}
               />
@@ -103,7 +100,6 @@ export function ModesCardGrid({
                 emitterId={emitterId}
                 ewGroups={Object.values(ewGroupsById)}
                 sources={Object.values(sourcesById)}
-                functionGroups={Object.values(functionGroupsById)}
                 duplicateFrom={m}
                 onClose={() => setDuplicatingModeId(null)}
               />
@@ -163,9 +159,6 @@ export function ModesCardGrid({
               <span className="status-badge">
                 <ModeSourcesList emitterId={emitterId} mode={m} sourcesById={sourcesById} />
               </span>
-              {m.function_group_id && (
-                <span className="status-badge">{functionGroupsById[m.function_group_id]?.name ?? "—"}</span>
-              )}
             </div>
             <dl className="mode-card-params">
               <dt>RF</dt>

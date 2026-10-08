@@ -6,7 +6,6 @@ import { useApplyInterceptModePlan, useEmitterModes } from "../state/hooks/useMo
 import { useIntercept, useInterceptEntries } from "../state/hooks/useIntercepts";
 import { useEwGroups } from "../state/hooks/useEwGroups";
 import { useSources } from "../state/hooks/useSources";
-import { useFunctionGroups } from "../state/hooks/useFunctionGroups";
 import { useEmitterCheckoutState } from "../state/hooks/useEmitterCheckout";
 import { useHasRole } from "../auth/RequireAuth";
 import { ApiRequestError } from "../api/client";
@@ -196,7 +195,6 @@ export function InterceptModePlanPage() {
   const { data: entries } = useInterceptEntries(interceptId);
   const { data: ewGroups } = useEwGroups(emitterId);
   const { data: sources } = useSources(emitterId);
-  const { data: functionGroups } = useFunctionGroups(emitterId);
   const all = useQuery({
     queryKey: ["intercept-entries", "all-reports", interceptId],
     queryFn: () => interceptsApi.allReports(interceptId),
@@ -213,7 +211,6 @@ export function InterceptModePlanPage() {
   const [openDeltas, setOpenDeltas] = useState<Set<string>>(new Set());
   const [ewGroupId, setEwGroupId] = useState("");
   const [sourceId, setSourceId] = useState("");
-  const [functionGroupId, setFunctionGroupId] = useState("");
   const [prefix, setPrefix] = useState<string | null>(null);
   const [quality, setQuality] = useState("100");
   const [quantity, setQuantity] = useState("2");
@@ -384,7 +381,6 @@ export function InterceptModePlanPage() {
     const input: InterceptModePlanInput = {
       intercept_id: intercept!.id,
       source_id: toCreate.length ? source : null,
-      function_group_id: toCreate.length ? functionGroupId || null : null,
       name_prefix: toCreate.length ? namePrefix : null,
       confirmation_quality: Math.round(num(quality, 100)),
       confirmation_quantity: Math.max(1, Math.round(num(quantity, 2))),
@@ -458,19 +454,6 @@ export function InterceptModePlanPage() {
               ))}
             </select>
           </label>
-          {(functionGroups ?? []).length > 0 && (
-            <label className="grow">
-              Function group
-              <select className="edit-input" value={functionGroupId} onChange={(e) => setFunctionGroupId(e.target.value)}>
-                <option value="">None</option>
-                {(functionGroups ?? []).map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
           <label className="grow">
             Names
             <input
