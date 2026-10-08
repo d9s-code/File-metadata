@@ -219,6 +219,8 @@ A SIM line's intercepted Modes can include **Default Unknown** — the system re
 
 Older lab bench, live range and field exercise records stay in the history but can't be logged any more. Every run also records a title, notes, test date, a **dwell** ("Manual", or a value written in such as "50 ms", set once for the whole run) and an overall result that is derived from its lines or Modes (worst one wins). Each run has its own page, and each SIM Test Line shows its status: its outcome and date in the most recent run that included it.
 
+Each Mode shows **Last seen** (Modes table, cards, and a filter): the latest run it turned up in — reported under Intercepted as for a SIM line (with that line's outcome; if it was reported for several lines in one run, the worst counts) or rated in an intercept run — linking to the run, with how many runs it was seen in by outcome on hover. It replaces Last Tested, which only counted intercept-run ratings and so never showed Modes reported in simulation runs. The Emitter summary's count of passing Modes uses the same.
+
 A test record automatically pins to whichever version of the Emitter or MDF was the latest *committed* one at the moment you logged it — so your test history stays accurate to what was actually tested, even as the draft keeps changing afterward.
 
 ---

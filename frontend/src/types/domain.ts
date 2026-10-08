@@ -352,6 +352,9 @@ export interface Mode {
   last_tested_at: string | null;
   last_test_result: TestResult | null;
   last_test_record_id: string | null;
+  /** "Last seen": runs it was seen in (reported for a SIM line, or rated
+   * in an intercept run), by outcome. */
+  seen_counts?: Record<string, number>;
   /** Test Record(s) whose findings explain this Mode's values (empty for a
    * Mode that came from a Source instead). Computed on read; only populated
    * on list endpoints — see backend mode_test_status_service. */

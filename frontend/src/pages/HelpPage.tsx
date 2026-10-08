@@ -271,8 +271,10 @@ export function HelpPage() {
             <ul>
               <li>RF min/max, PRI type (FIXED / STAGGER / CW / XLET) and its min/max where applicable, PW min/max</li>
               <li>
-                <strong>Last Tested</strong> — the date and result of the most recent test that exercised
-                this Mode; click it to jump to that test record
+                <strong>Last seen</strong> — the latest test run the Mode turned up in: reported under{" "}
+                <em>Intercepted as</em> for a SIM line in a simulation run (with that line&apos;s outcome — reported
+                for the wrong signal shows as misclassified), or rated in an intercept run. Click it to open the run;
+                hover for how every run it was seen in went. &ldquo;never&rdquo; means no test has exercised it yet
               </li>
             </ul>
             <p>

@@ -185,3 +185,45 @@ def test_emitter_modes_list_carries_last_test_status(editor_client, emitter_with
     [mode_latest] = editor_client.get(f"/emitters/{emitter_id}/modes").json()
     assert mode_latest["last_tested_at"] == "2026-01-10"
     assert mode_latest["last_test_result"] == "fail"
+
+
+def test_a_mode_reported_for_a_sim_line_counts_as_last_seen(editor_client, emitter_with_mode):
+    emitter_id = emitter_with_mode["emitter"]["id"]
+    mode_id = emitter_with_mode["mode"]["id"]
+    lines = editor_client.post(
+        f"/emitters/{emitter_id}/test-lines/import",
+        json={"lines": [{"label": "A"}, {"label": "B"}], "created_date": "2026-09-01"},
+    ).json()
+
+    def sim_run(test_date, outcomes):
+        resp = editor_client.post(
+            f"/emitters/{emitter_id}/test-records",
+            json={
+                "test_type": "simulation",
+                "title": f"Sim {test_date}",
+                "test_date": test_date,
+                "simulation_created_date": "2026-09-01",
+                "line_results": [
+                    {"test_line_id": line["id"], "outcome": o, "intercepted_mode_ids": [mode_id]}
+                    for line, o in zip(lines, outcomes)
+                ],
+            },
+        )
+        assert resp.status_code == 201, resp.text
+        return resp.json()["id"]
+
+    first = sim_run("2026-10-01", ["pass", "pass"])
+    [mode] = editor_client.get(f"/emitters/{emitter_id}/modes").json()
+    assert (mode["last_tested_at"], mode["last_test_result"], mode["last_test_record_id"]) == ("2026-10-01", "pass", first)
+    assert mode["seen_counts"] == {"pass": 1}
+
+    # Reported for two lines in one run, one misclassified: the run counts as misclassified.
+    second = sim_run("2026-10-05", ["pass", "partial"])
+    # An intercept run dated earlier doesn't take over "last seen", but counts.
+    editor_client.post(
+        f"/emitters/{emitter_id}/test-records",
+        json={"test_type": "intercept", "title": "Field", "test_date": "2026-09-20", "mode_results": [{"mode_id": mode_id, "result": "pass"}]},
+    )
+    [mode] = editor_client.get(f"/emitters/{emitter_id}/modes").json()
+    assert (mode["last_tested_at"], mode["last_test_result"], mode["last_test_record_id"]) == ("2026-10-05", "partial", second)
+    assert mode["seen_counts"] == {"pass": 2, "partial": 1}

@@ -215,9 +215,10 @@ export function ModesCardGrid({
                     date={m.last_tested_at}
                     result={m.last_test_result}
                     testRecordId={m.last_test_record_id}
+                    counts={m.seen_counts}
                   />
                 ) : (
-                  <span className="hint-text">never tested</span>
+                  <span className="hint-text">never seen in a test</span>
                 )}
               </span>
             </div>

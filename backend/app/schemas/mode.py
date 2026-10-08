@@ -464,7 +464,8 @@ class ModeOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     line: ModeLineOut | None = None
-    # Computed on read from test_record_modes/test_records — see
+    # "Last seen": computed on read from the test runs the Mode was rated in
+    # or reported for a SIM line in — see
     # app.services.mode_test_status_service. Not populated on every endpoint
     # that returns a Mode; left null/empty unless the router explicitly
     # attaches it (list endpoints, where the overview value is worth the
@@ -472,6 +473,8 @@ class ModeOut(BaseModel):
     last_tested_at: date | None = None
     last_test_result: TestResult | None = None
     last_test_record_id: UUID | None = None
+    # How many test runs it was seen in, by outcome ("pass": 3, "partial": 1).
+    seen_counts: dict[str, int] = {}
     derived_from_test_records: list[TestRecordBrief] = []
     derived_from_intercepts: list[InterceptEntryBrief] = []
 

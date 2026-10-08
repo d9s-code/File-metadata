@@ -68,7 +68,7 @@ const MODE_COLUMNS: (ToggleableColumn<ModeColumnId> & { sortKey?: ModeSortKey; t
   { id: "ew_group", label: "EW Group", sortKey: "ew_group" },
   { id: "function_group", label: "Function Group", sortKey: "function_group" },
   { id: "source", label: "Source", sortKey: "source" },
-  { id: "last_tested", label: "Last Tested", sortKey: "last_tested", type: "date" },
+  { id: "last_tested", label: "Last seen", sortKey: "last_tested", type: "date" },
 ];
 
 function rangeText(min: number | null, max: number | null): string {
@@ -248,9 +248,10 @@ export function ModesTable({
               date={m.last_tested_at}
               result={m.last_test_result}
               testRecordId={m.last_test_record_id}
+              counts={m.seen_counts}
             />
           ) : (
-            <span className="hint-text">never</span>
+            <span className="hint-text" title="Not seen in any test run yet">never</span>
           )}
         </td>
       ),

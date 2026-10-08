@@ -435,7 +435,7 @@ export function ModesSection({
             PW range matching
           </label>
           <label>
-            Last tested
+            Last seen in a test
             <input type="date" value={lastTestedFrom} onChange={(e) => setLastTestedFrom(e.target.value)} />
             <input type="date" value={lastTestedTo} onChange={(e) => setLastTestedTo(e.target.value)} />
           </label>
