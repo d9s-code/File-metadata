@@ -33,6 +33,7 @@ from app.models.test_record import (  # noqa: F401
     TestRecord,
     TestRecordLine,
     TestRecordLineMode,
+    TestRecordSignal,
     TestRecordMode,
     TestRunDraft,
 )

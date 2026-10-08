@@ -110,6 +110,23 @@ class TestRecordLineResultIn(BaseModel):
         return list(dict.fromkeys(v))
 
 
+class TestRecordSignalIn(BaseModel):
+    """A signal intercepted during an Intercept Test that isn't tied to a Mode."""
+
+    observed_values: list[dict] = Field(min_length=1)
+    # Reported as Default Unknown (the sensor's "no Mode matched"); else unreported.
+    reported_as_unknown: bool = True
+    notes: str | None = None
+
+    @field_validator("observed_values")
+    @classmethod
+    def check_observed_values(cls, v: list[dict]) -> list[dict]:
+        cleaned = _clean_observed_value_sets(v)
+        if not cleaned:
+            raise ValueError("A signal needs at least one measured value")
+        return cleaned
+
+
 class TestRecordCreate(BaseModel):
     test_type: TestType
     title: str
@@ -134,6 +151,9 @@ class TestRecordCreate(BaseModel):
     # Mode behave" is what's being logged rather than intercept correctness.
     # Used to derive `result` only when line_results is empty.
     mode_results: list[TestRecordModeResultIn] = []
+    # Intercept Tests only: signals not tied to any of the Emitter's Modes.
+    # They don't count towards the result (override it if they should).
+    signals: list[TestRecordSignalIn] = []
     # Only used (and required) when neither line_results nor mode_results is
     # given — e.g. an MDF-scoped test, or an Emitter test not tied to any
     # specific Mode/Line — where there's nothing to derive an overall result from.
@@ -167,6 +187,12 @@ class TestRecordCreate(BaseModel):
     def check_simulation_date(self) -> "TestRecordCreate":
         if self.test_type == TestType.simulation and self.simulation_created_date is None:
             raise ValueError("simulation_created_date is required for a Simulation Test")
+        return self
+
+    @model_validator(mode="after")
+    def check_signals(self) -> "TestRecordCreate":
+        if self.signals and self.test_type != TestType.intercept:
+            raise ValueError("Only an Intercept Test logs signals not tied to a Mode")
         return self
 
     @model_validator(mode="after")
@@ -212,6 +238,14 @@ class TestRecordLineOut(BaseModel):
     observed_values: list[dict] | None = None
 
 
+class TestRecordSignalOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    observed_values: list[dict]
+    reported_as_unknown: bool
+    notes: str | None = None
+
+
 class TestRecordOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -237,6 +271,7 @@ class TestRecordOut(BaseModel):
     retests_test_record_id: UUID | None = None
     modes: list[TestRecordModeOut] = []
     lines: list[TestRecordLineOut] = []
+    signals: list[TestRecordSignalOut] = []
 
 
 class TestRunDraftSave(BaseModel):

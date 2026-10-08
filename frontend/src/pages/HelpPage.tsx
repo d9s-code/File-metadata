@@ -426,7 +426,13 @@ export function HelpPage() {
               </li>
               <li>
                 An Intercept Test is a table with one row per Mode: tick the Modes that were intercepted, then
-                give each a result, intercepted parameters and notes.
+                give each a result, intercepted parameters and notes. Below it, <strong>Signals not tied to a
+                Mode</strong> logs anything else intercepted (<em>+ Add signal</em>): its parameters, whether it was
+                reported as Default Unknown or not at all, and notes. Each says whether a Mode already covers it or
+                it&apos;s <em>New</em>; signals don&apos;t count towards the result. On the logged run&apos;s page,{" "}
+                <strong>Add to Source…</strong> puts a signal into one of the Emitter&apos;s intercept Sources (or a
+                new one, type Intercept) as one Sequence or as an Element per parameter, all with the variant
+                Intercept.
               </li>
               <li>
                 The run&rsquo;s overall result is <strong>worked out</strong> from the included rows (worst one wins),

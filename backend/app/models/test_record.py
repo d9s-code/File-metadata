@@ -61,6 +61,9 @@ class TestRecord(UUIDPkMixin, TimestampMixin, Base):
     lines: Mapped[list["TestRecordLine"]] = relationship(
         back_populates="test_record", cascade="all, delete-orphan"
     )
+    signals: Mapped[list["TestRecordSignal"]] = relationship(
+        back_populates="test_record", cascade="all, delete-orphan", order_by="TestRecordSignal.sort_order"
+    )
 
 
 class TestRecordMode(UUIDPkMixin, Base):
@@ -160,6 +163,25 @@ class TestRecordLineMode(UUIDPkMixin, Base):
 
     test_record_line: Mapped["TestRecordLine"] = relationship(back_populates="intercepted_modes")
     mode: Mapped["Mode"] = relationship()  # noqa: F821
+
+
+class TestRecordSignal(UUIDPkMixin, Base):
+    """A signal intercepted during an Intercept Test that isn't tied to any
+    of the Emitter's Modes: what was measured, and whether the system
+    reported it as Default Unknown (else it went unreported)."""
+
+    __tablename__ = "test_record_signals"
+
+    test_record_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("test_records.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # One or more sets, same shape as TestRecordMode.observed_values.
+    observed_values: Mapped[list[dict]] = mapped_column(JSONB, nullable=False)
+    reported_as_unknown: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    test_record: Mapped["TestRecord"] = relationship(back_populates="signals")
 
 
 class TestRunDraft(UUIDPkMixin, TimestampMixin, Base):

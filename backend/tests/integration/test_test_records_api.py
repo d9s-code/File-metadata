@@ -273,3 +273,39 @@ def test_the_result_can_be_overridden_with_a_reason(editor_client, viewer_client
         f"/emitters/{emitter_id}/test-records", json={**base, "result_override": "fail", "result_override_note": "same"}
     ).json()
     assert same["computed_result"] is None and same["result_note"] is None
+
+
+def test_an_intercept_test_logs_signals_not_tied_to_a_mode(editor_client, emitter_with_mode):
+    emitter_id = emitter_with_mode["emitter"]["id"]
+    signals = [
+        {"observed_values": [{"rf_mean_mhz": 9410, "pri_type": "fixed", "pri_mean_us": 1250, "pw_mean_us": 0.8}],
+         "notes": "Short burst at 14:02"},
+        {"observed_values": [{"rf_mean_mhz": 9600, "pri_type": "cw"}], "reported_as_unknown": False},
+    ]
+    resp = editor_client.post(
+        f"/emitters/{emitter_id}/test-records",
+        json={"test_type": "intercept", "title": "Live pass", "test_date": "2026-10-01", "result": "pass",
+              "signals": signals},
+    )
+    assert resp.status_code == 201, resp.text
+    logged = resp.json()["signals"]
+    assert [s["reported_as_unknown"] for s in logged] == [True, False]
+    assert logged[0]["observed_values"][0]["rf_mean_mhz"] == 9410
+    assert logged[0]["notes"] == "Short burst at 14:02"
+    # They don't decide the result: nothing else was rated, so it's the one given.
+    assert resp.json()["result"] == "pass"
+    listed = editor_client.get(f"/emitters/{emitter_id}/test-records").json()
+    assert len(next(r for r in listed if r["title"] == "Live pass")["signals"]) == 2
+
+
+def test_a_signal_needs_measured_values_and_an_intercept_test(editor_client, emitter_with_mode):
+    url = f"/emitters/{emitter_with_mode['emitter']['id']}/test-records"
+    base = {"title": "X", "test_date": "2026-10-01", "result": "pass"}
+    empty = editor_client.post(url, json={**base, "test_type": "intercept", "signals": [{"observed_values": [{}]}]})
+    assert empty.status_code == 422
+    sim = editor_client.post(
+        url,
+        json={**base, "test_type": "simulation", "simulation_created_date": "2026-09-01",
+              "signals": [{"observed_values": [{"rf_mean_mhz": 9000}]}]},
+    )
+    assert sim.status_code == 422

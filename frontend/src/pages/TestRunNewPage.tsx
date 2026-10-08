@@ -29,6 +29,7 @@ import {
   InterceptModeResultsTable,
   type InterceptModeEntry,
 } from "../components/testing/InterceptModeResultsTable";
+import { InterceptSignalsEditor, loggedSignals, type SignalEntry } from "../components/testing/InterceptSignals";
 import { nonEmptySets, observedValueOptions, TEST_RESULTS, testTypeLabel } from "../components/testing/testFormat";
 import { DwellInput, MANUAL_DWELL } from "../components/testing/DwellInput";
 
@@ -50,6 +51,8 @@ interface RunState {
   resultOverrideNote?: string;
   lineEntries: Record<string, SimLineEntry>;
   modeEntries: Record<string, InterceptModeEntry>;
+  /** Intercept Tests: signals not tied to a Mode. */
+  signals?: SignalEntry[];
   stagedModes: { key: string; ewGroupId: string; input: ModeCreateInput }[];
 }
 
@@ -141,6 +144,7 @@ export function TestRunNewPage() {
   const [resultOverrideNote, setResultOverrideNote] = useState("");
   const [lineEntries, setLineEntries] = useState<Record<string, SimLineEntry>>({});
   const [modeEntries, setModeEntries] = useState<Record<string, InterceptModeEntry>>({});
+  const [signals, setSignals] = useState<SignalEntry[]>([]);
   const [stagingKeys, setStagingKeys] = useState<string[]>([]);
   const [stagedModes, setStagedModes] = useState<{ key: string; ewGroupId: string; input: ModeCreateInput }[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -166,9 +170,10 @@ export function TestRunNewPage() {
       resultOverrideNote,
       lineEntries,
       modeEntries,
+      signals,
       stagedModes,
     }),
-    [testType, title, testDate, testTime, simCreatedDate, interceptDate, dwell, retestsId, copyFromId, notes, manualResult, resultOverride, resultOverrideNote, lineEntries, modeEntries, stagedModes],
+    [testType, title, testDate, testTime, simCreatedDate, interceptDate, dwell, retestsId, copyFromId, notes, manualResult, resultOverride, resultOverrideNote, lineEntries, modeEntries, signals, stagedModes],
   );
 
   function applyState(s: Partial<RunState>) {
@@ -187,6 +192,7 @@ export function TestRunNewPage() {
     if (s.resultOverrideNote !== undefined) setResultOverrideNote(s.resultOverrideNote);
     if (s.lineEntries) setLineEntries(s.lineEntries);
     if (s.modeEntries) setModeEntries(s.modeEntries);
+    if (s.signals) setSignals(s.signals);
     if (s.stagedModes) setStagedModes(s.stagedModes);
   }
 
@@ -362,6 +368,7 @@ export function TestRunNewPage() {
       sets: e.observedValues,
     })),
     ...includedModes.map(([id, e]) => ({ id, name: modes.find((m) => m.id === id)?.name ?? "Mode", sets: e.observedValues })),
+    ...(isSimulation ? [] : signals.map((s, i) => ({ id: `signal-${i}`, name: `Signal ${i + 1}`, sets: s.observedValues }))),
   ]);
 
   function handleCopyFrom(id: string) {
@@ -411,6 +418,7 @@ export function TestRunNewPage() {
         test_time: testTime || undefined,
         // One column holds both: when the simulation was built, or when the intercept happened.
         simulation_created_date: (isSimulation ? simCreatedDate : interceptDate) || undefined,
+        signals: isSimulation ? undefined : loggedSignals(signals),
         dwell: dwell.trim() || undefined,
         notes: notes.trim() || undefined,
         line_results: lineResults.length ? lineResults : undefined,
@@ -542,6 +550,7 @@ export function TestRunNewPage() {
               onChange={(id, entry) => setModeEntries((prev) => ({ ...prev, [id]: entry }))}
             />
           )}
+          {!isSimulation && <InterceptSignalsEditor signals={signals} onChange={setSignals} modes={modes ?? []} />}
 
           <p className="test-run-overall">
             Overall result:{" "}

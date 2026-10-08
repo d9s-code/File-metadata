@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.core.csrf import verify_csrf
 from app.core.enums import AuditAction, AuditEntityType, Role, TestScopeType
@@ -18,6 +18,7 @@ from app.models.test_record import (
     TestRecordLine,
     TestRecordLineMode,
     TestRecordMode,
+    TestRecordSignal,
     TestRunDraft,
 )
 from app.schemas.test_record import TestRecordCreate, TestRecordOut, TestResultChange
@@ -149,6 +150,16 @@ def _create_test_record(
                 intercepted_modes=[TestRecordLineMode(mode_id=mid) for mid in lr.intercepted_mode_ids],
             )
         )
+    for i, signal in enumerate(payload.signals):
+        db.add(
+            TestRecordSignal(
+                test_record_id=record.id,
+                sort_order=i,
+                observed_values=signal.observed_values,
+                reported_as_unknown=signal.reported_as_unknown,
+                notes=signal.notes,
+            )
+        )
     for mr in payload.mode_results:
         db.add(
             TestRecordMode(
@@ -179,7 +190,7 @@ def _create_test_record(
     db.commit()
     return (
         db.query(TestRecord)
-        .options(_MODES_EAGER_LOAD, _LINES_EAGER_LOAD)
+        .options(_MODES_EAGER_LOAD, _LINES_EAGER_LOAD, selectinload(TestRecord.signals))
         .filter(TestRecord.id == record.id)
         .one()
     )
@@ -193,7 +204,7 @@ def list_emitter_test_records(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Emitter not found")
     return (
         db.query(TestRecord)
-        .options(_MODES_EAGER_LOAD, _LINES_EAGER_LOAD)
+        .options(_MODES_EAGER_LOAD, _LINES_EAGER_LOAD, selectinload(TestRecord.signals))
         .filter(TestRecord.scope_type == TestScopeType.emitter, TestRecord.scope_id == emitter_id)
         .order_by(TestRecord.test_date.desc(), TestRecord.test_time.desc().nulls_last(), TestRecord.created_at.desc())
         .all()
@@ -231,7 +242,7 @@ def list_mdf_test_records(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "MDF not found")
     return (
         db.query(TestRecord)
-        .options(_MODES_EAGER_LOAD, _LINES_EAGER_LOAD)
+        .options(_MODES_EAGER_LOAD, _LINES_EAGER_LOAD, selectinload(TestRecord.signals))
         .filter(TestRecord.scope_type == TestScopeType.mdf, TestRecord.scope_id == mdf_id)
         .order_by(TestRecord.test_date.desc(), TestRecord.test_time.desc().nulls_last(), TestRecord.created_at.desc())
         .all()
@@ -297,7 +308,7 @@ def change_emitter_test_result(
     db.commit()
     return (
         db.query(TestRecord)
-        .options(_MODES_EAGER_LOAD, _LINES_EAGER_LOAD)
+        .options(_MODES_EAGER_LOAD, _LINES_EAGER_LOAD, selectinload(TestRecord.signals))
         .filter(TestRecord.id == record.id)
         .one()
     )

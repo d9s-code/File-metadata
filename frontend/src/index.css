@@ -5453,3 +5453,35 @@ a.ai-cite:hover { text-decoration: underline; }
 .sources-picker select {
   width: auto;
 }
+
+/* Intercept Tests: signals not tied to a Mode. */
+.intercept-signals {
+  margin-top: 1rem;
+}
+.intercept-signals-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.intercept-signals-head h4 {
+  margin: 0;
+}
+.intercept-signals-table td {
+  vertical-align: top;
+}
+.intercept-signal-params {
+  min-width: 22rem;
+}
+.signal-new {
+  background: var(--badge-amber-bg);
+  color: var(--badge-amber-fg);
+}
+.add-signal-to-source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.add-signal-to-source.open {
+  min-width: 18rem;
+}

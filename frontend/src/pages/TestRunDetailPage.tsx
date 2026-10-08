@@ -11,6 +11,8 @@ import { LoadingState } from "../components/common/LoadingState";
 import { useConfirmDialog } from "../components/common/ConfirmDialog";
 import { ModeForm } from "../components/modes/ModeForm";
 import { useEmitterVersions } from "../state/hooks/useEmitterVersions";
+import { useEmitterModes } from "../state/hooks/useModes";
+import { InterceptSignalsList } from "../components/testing/InterceptSignals";
 import type { TestRecord } from "../api/testRecords";
 import type { TestResult } from "../types/domain";
 import {
@@ -85,6 +87,7 @@ export function TestRunDetailPage() {
   const { data: records, isLoading } = useEmitterTestRecords(emitterId);
   const { data: ewGroups } = useEwGroups(emitterId);
   const { data: sources } = useSources(emitterId);
+  const { data: modes } = useEmitterModes(emitterId);
   const del = useDeleteEmitterTestRecord(emitterId);
   const { data: versions } = useEmitterVersions(emitterId);
   const { confirmDelete, dialog } = useConfirmDialog();
@@ -184,12 +187,28 @@ export function TestRunDetailPage() {
               observedValueOptions={observedValueOptions([
                 ...record.lines.map((l) => ({ id: l.test_line_id, name: l.test_line_label, sets: l.observed_values })),
                 ...record.modes.map((m) => ({ id: m.mode_id, name: m.mode_name, sets: m.observed_values })),
+                ...(record.signals ?? []).map((sig, i) => ({ id: `signal-${i}`, name: `Signal ${i + 1}`, sets: sig.observed_values })),
               ])}
               onClose={() => setAddingMode(false)}
             />
           </div>
         )}
       </RequireRole>
+
+      {record.signals?.length > 0 && (
+        <div className="card">
+          <h4>Signals not tied to a Mode ({record.signals.length})</h4>
+          <InterceptSignalsList
+            signals={record.signals}
+            modes={modes ?? []}
+            emitterId={emitterId}
+            sources={sources ?? []}
+            runTitle={record.title}
+            runDate={record.simulation_created_date ?? record.test_date}
+            canEdit={canEdit}
+          />
+        </div>
+      )}
 
       {record.lines.length > 0 && (
         <div className="card">

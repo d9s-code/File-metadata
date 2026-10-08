@@ -52,6 +52,14 @@ export interface TestRecordLineResult {
   observed_values: ObservedValues[] | null;
 }
 
+/** A signal intercepted during an Intercept Test that isn't tied to a Mode. */
+export interface TestRecordSignal {
+  observed_values: ObservedValues[];
+  /** Reported as Default Unknown; false = not reported at all. */
+  reported_as_unknown: boolean;
+  notes: string | null;
+}
+
 export interface TestRecord {
   id: string;
   scope_type: "emitter" | "mdf";
@@ -76,6 +84,7 @@ export interface TestRecord {
   retests_test_record_id: string | null;
   modes: TestRecordModeLink[];
   lines: TestRecordLineResult[];
+  signals: TestRecordSignal[];
 }
 
 export interface TestRecordModeResultInput {
@@ -110,6 +119,8 @@ export interface TestRecordInput {
   /** Per-Mode outcome — the whole-test result is derived from these only when
    * line_results is empty. */
   mode_results?: TestRecordModeResultInput[];
+  /** Intercept Tests only: signals not tied to a Mode (they don't count towards the result). */
+  signals?: { observed_values: ObservedValues[]; reported_as_unknown: boolean; notes?: string }[];
   /** Only used (and required) when neither line_results nor mode_results is given. */
   result?: TestResult;
   /** Optional pointer to an earlier test record this one re-runs. */
