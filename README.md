@@ -84,17 +84,19 @@ Backend: http://localhost:8000 · Frontend dev server: http://localhost:5173
 
 This app is deployed behind an existing Traefik reverse proxy at `prs.app`, and connects to
 an existing Postgres 15 instance rather than running its own — `docker-compose.yml` only
-defines the `backend`, `frontend` and `backup` services. Before running it:
+defines two services: `app` (the whole app — the pages and the API under `/api` — from one
+container, built by the `Dockerfile` at the top of the repo) and `backup`, which runs the same
+image. Before running it:
 
 - Edit `DATABASE_URL` in `docker-compose.yml` to point at a role/database created on that
-  Postgres 15 instance (see below), and add the backend to whatever Docker network reaches
+  Postgres 15 instance (see below), and add the app to whatever Docker network reaches
   it (the `# TODO` comments in the file mark exactly where).
 - Replace `JWT_SECRET` and `ADMIN_PASSWORD` with real values (`openssl rand -hex 32` for the
   former) — don't ship the placeholders.
 - Make sure the external `web` Docker network (the one Traefik itself watches) already
   exists on this host; compose doesn't create external networks for you.
-- If the hostname isn't actually `prs.app`, update the `Host(...)` rule in both services'
-  Traefik labels, and `VITE_API_BASE_URL` in the frontend's build args to match.
+- If the hostname isn't actually `prs.app`, update the `Host(...)` rule in the `app` service's
+  Traefik labels (and `CORS_ORIGINS`). Nothing about the hostname is baked into the image.
 
 Config here is intentionally hardcoded into `docker-compose.yml` rather than read from a
 `.env` file, to match how the rest of this server's stacks are set up — which also means:
@@ -111,7 +113,13 @@ Then:
 docker compose up --build
 ```
 
-There is no self-service register form, so the backend bootstraps an initial admin user
+**Coming from the older three-container setup** (separate `backend` and `frontend`
+containers): after pulling this version, `docker compose up -d --build --remove-orphans`
+starts the single `app` container and removes the old two; their images
+(`rf-emitter-backend`, `rf-emitter-frontend`) can then be deleted with `docker image rm`.
+Nothing else changes — same database, same backup volume, same address.
+
+There is no self-service register form, so the app bootstraps an initial admin user
 (`ADMIN_USERNAME` / `ADMIN_PASSWORD`, defaulting to username `admin`) on every startup, via
 `scripts/create_admin.py` — it no-ops once that user already exists. Log in with those
 credentials at `https://prs.app` and create additional users from there.
@@ -130,12 +138,11 @@ server, so there's no database image to build or transfer.
 
 1. On a machine with internet access, clone/copy this repo. Make the edits described above
    (`DATABASE_URL`, `JWT_SECRET`, `ADMIN_PASSWORD`, hostname) directly in `docker-compose.yml`
-   first — in particular, `VITE_API_BASE_URL` gets baked into the frontend's built JS at
-   image-build time, so it can't be fixed later on the server without rebuilding.
+   first (they can also be edited on the server later — none of them is baked into the image).
    ```bash
    ./scripts/offline/build-images.sh
    ```
-   This builds the backend/frontend images and writes `rf-emitter-images.tar`.
+   This builds the app's image (frontend and backend in one) and writes `rf-emitter-images.tar`.
 2. Copy the whole repo directory (including `rf-emitter-images.tar` and your edited
    `docker-compose.yml`) to the offline server — USB drive, `scp` over a jump host, whatever
    transfer path that network allows.
@@ -146,7 +153,7 @@ server, so there's no database image to build or transfer.
    docker compose up -d
    ```
    Do **not** pass `--build` — the images are already loaded locally under the tags
-   `docker-compose.yml` expects (`rf-emitter-backend:latest`, `rf-emitter-frontend:latest`),
+   `docker-compose.yml` expects (`rf-emitter:latest`),
    so plain `docker compose up` uses them directly without touching the network.
 
 To ship a code change afterwards: rebuild and re-save on the connected machine, then repeat
@@ -228,7 +235,7 @@ The other way round works too: the other computer can fetch new files from the
 `backup_data` volume on a schedule (`rsync`/`scp` over SSH) without the app knowing.
 
 The image's backup tools (`pg_dump`/`pg_restore`) are Postgres 15, matching the server —
-if the server is upgraded, set `PG_CLIENT_MAJOR` in `backend/Dockerfile` to its new major
+if the server is upgraded, set `PG_CLIENT_MAJOR` in the `Dockerfile` to its new major
 version (`SELECT version();`) and rebuild. They must never be older than the server. Newer ones still work — a restore skips
 settings an older server doesn't know, such as `transaction_timeout` (Postgres 17+) — but
 matching the server is the clean setup, and the Backups page says so if they differ.

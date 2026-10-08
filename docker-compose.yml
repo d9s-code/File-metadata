@@ -1,4 +1,4 @@
-# Settings the web app and the backup scheduler share — both talk to the same
+# Settings the app and the backup scheduler share — both talk to the same
 # database and write to the same backup volume.
 x-backend-env: &backend-env
   # TODO: replace with the role/database you create on the existing
@@ -46,12 +46,13 @@ x-backend-env: &backend-env
   # OUTLINE_CONTEXT_TOKENS: "6000"
 
 services:
-  backend:
-    build: ./backend
+  # The whole app — the pages and the API (under /api) — from one container.
+  app:
+    build: .
     # Fixed, predictable tag so the offline build/load scripts (see
     # scripts/offline/) can `docker save`/`docker load` this exact image
     # by name instead of guessing compose's auto-generated project tag.
-    image: rf-emitter-backend:latest
+    image: rf-emitter:latest
     restart: unless-stopped
     # TODO: point this at your existing Postgres 15 container once you've
     # added it below (copied from one of your other stacks), e.g.:
@@ -73,27 +74,20 @@ services:
     # only Traefik's X-Forwarded-For carries. Trusting it from any source is
     # safe only because this service publishes no ports of its own.
     command: >
-      sh -c "alembic upgrade head && python scripts/create_admin.py \"$$ADMIN_USERNAME\" \"$$ADMIN_PASSWORD\" && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"
+      sh -c "alembic upgrade head && python scripts/create_admin.py \"$$ADMIN_USERNAME\" \"$$ADMIN_PASSWORD\" && uvicorn app.site:site --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"
     labels:
       traefik.enable: "true"
-      # More specific than the frontend's bare Host() rule below, so
-      # Traefik should already prefer this for /api/* — priority is set
-      # explicitly anyway since routing-by-rule-length can surprise you.
-      traefik.http.routers.rf-emitter-backend.rule: Host(`prs.app`) && PathPrefix(`/api`)
-      traefik.http.routers.rf-emitter-backend.entrypoints: websecure
-      traefik.http.routers.rf-emitter-backend.tls: "true"
-      traefik.http.routers.rf-emitter-backend.priority: "10"
-      # FastAPI's routes aren't mounted under /api, so strip it before
-      # Traefik forwards the request.
-      traefik.http.routers.rf-emitter-backend.middlewares: rf-emitter-strip-api,rf-emitter-body-limit
-      traefik.http.middlewares.rf-emitter-strip-api.stripprefix.prefixes: /api
-      # Rejects oversized bodies before they reach the backend; the backend's
-      # own MAX_UPLOAD_BYTES (10 MB) is the per-file limit behind this.
+      traefik.http.routers.rf-emitter.rule: Host(`prs.app`)
+      traefik.http.routers.rf-emitter.entrypoints: websecure
+      traefik.http.routers.rf-emitter.tls: "true"
+      # Rejects oversized bodies before they reach the app; its own
+      # MAX_UPLOAD_BYTES (10 MB) is the per-file limit behind this.
+      traefik.http.routers.rf-emitter.middlewares: rf-emitter-body-limit
       traefik.http.middlewares.rf-emitter-body-limit.buffering.maxRequestBodyBytes: "20971520"
-      traefik.http.services.rf-emitter-backend.loadbalancer.server.port: "8000"
-    # /health answers 503 when the database is unreachable.
+      traefik.http.services.rf-emitter.loadbalancer.server.port: "8000"
+    # /api/health answers 503 when the database is unreachable.
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=5)"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -105,11 +99,11 @@ services:
   # Takes a backup straight away if the latest is over a week old. Status shows
   # on Admin → Backups and the dashboard.
   backup:
-    image: rf-emitter-backend:latest
+    image: rf-emitter:latest
     restart: unless-stopped
     depends_on:
-      backend:
-        # Migrations run in the backend's start command.
+      app:
+        # Migrations run in the app's start command.
         condition: service_healthy
     environment: *backend-env
     volumes:
@@ -120,28 +114,6 @@ services:
     networks:
       - web
     command: python scripts/backup_scheduler.py
-
-  frontend:
-    build:
-      context: ./frontend
-      args:
-        # Vite bakes this into the built JS at image-build time — same
-        # origin/path as the Traefik rule above, so the browser's fetches
-        # to /api/* get routed to the backend without needing CORS at all.
-        VITE_API_BASE_URL: https://prs.app/api
-    image: rf-emitter-frontend:latest
-    restart: unless-stopped
-    depends_on:
-      - backend
-    networks:
-      - web
-    labels:
-      traefik.enable: "true"
-      traefik.http.routers.rf-emitter-frontend.rule: Host(`prs.app`)
-      traefik.http.routers.rf-emitter-frontend.entrypoints: websecure
-      traefik.http.routers.rf-emitter-frontend.tls: "true"
-      traefik.http.routers.rf-emitter-frontend.priority: "1"
-      traefik.http.services.rf-emitter-frontend.loadbalancer.server.port: "80"
 
 networks:
   web:
