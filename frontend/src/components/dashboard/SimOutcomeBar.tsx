@@ -8,7 +8,7 @@ export function simOutcomeLabel(outcome: SimOutcome): string {
   return outcome === "untested" ? "untested" : lineOutcomeLabel(outcome);
 }
 
-/** One stacked bar of SIM Test Line outcomes (correct, misclassified,
+/** One stacked bar of SIM Test Line outcomes (correct, partial,
  * missed, inconclusive, untested). */
 export function SimOutcomeBar({ counts }: { counts: SimOutcomeCounts }) {
   const total = SIM_OUTCOMES.reduce((sum, o) => sum + counts[o], 0);

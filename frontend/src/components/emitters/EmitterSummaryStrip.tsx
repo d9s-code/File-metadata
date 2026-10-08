@@ -94,7 +94,7 @@ export function EmitterSummaryStrip({
           {correct} / {total}
         </strong>{" "}
         correct
-        {wrong > 0 && <span className="summary-bad"> · {wrong} missed/misclassified</span>}
+        {wrong > 0 && <span className="summary-bad"> · {wrong} missed/partial</span>}
         {untested > 0 && <span className="hint-text"> · {untested} untested</span>}
         {emitter.last_validated_at && <span className="hint-text"> · last run {emitter.last_validated_at}</span>}
       </button>

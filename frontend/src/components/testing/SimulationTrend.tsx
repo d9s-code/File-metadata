@@ -11,7 +11,7 @@ const SEGMENT_GAP = 2;
 
 const OUTCOMES = [
   { key: "pass", label: "Correct", cls: "status-good" },
-  { key: "partial", label: "Misclassified", cls: "status-warning" },
+  { key: "partial", label: "Partial", cls: "status-warning" },
   { key: "fail", label: "Missed", cls: "status-critical" },
   { key: "inconclusive", label: "Inconclusive", cls: "status-neutral" },
 ] as const;

@@ -217,7 +217,7 @@ def test_a_mode_reported_for_a_sim_line_counts_as_last_seen(editor_client, emitt
     assert (mode["last_tested_at"], mode["last_test_result"], mode["last_test_record_id"]) == ("2026-10-01", "pass", first)
     assert mode["seen_counts"] == {"pass": 1}
 
-    # Reported for two lines in one run, one misclassified: the run counts as misclassified.
+    # Reported for two lines in one run, one partial: the run counts as partial.
     second = sim_run("2026-10-05", ["pass", "partial"])
     # An intercept run dated earlier doesn't take over "last seen", but counts.
     editor_client.post(
@@ -242,3 +242,34 @@ def test_a_run_keeps_its_time(editor_client, emitter_with_mode):
         ("Morning", "09:15:00"),
         ("Untimed", None),
     ]
+
+
+def test_the_result_can_be_overridden_with_a_reason(editor_client, viewer_client, emitter_with_mode):
+    emitter_id = emitter_with_mode["emitter"]["id"]
+    mode_id = emitter_with_mode["mode"]["id"]
+    base = {"test_type": "intercept", "title": "Field", "test_date": "2026-10-08", "mode_results": [{"mode_id": mode_id, "result": "fail"}]}
+
+    # Overriding needs a reason.
+    assert editor_client.post(f"/emitters/{emitter_id}/test-records", json={**base, "result_override": "pass"}).status_code == 422
+    resp = editor_client.post(
+        f"/emitters/{emitter_id}/test-records",
+        json={**base, "result_override": "partial", "result_override_note": "Missed only in the clutter sector"},
+    )
+    assert resp.status_code == 201, resp.text
+    record = resp.json()
+    assert (record["result"], record["computed_result"], record["result_note"]) == ("partial", "fail", "Missed only in the clutter sector")
+
+    # Changed again afterwards, then set back to what it worked out to.
+    url = f"/emitters/{emitter_id}/test-records/{record['id']}/result"
+    assert viewer_client.patch(url, json={"result": "pass", "note": "x"}).status_code == 403
+    assert editor_client.patch(url, json={"result": "pass"}).status_code == 422
+    changed = editor_client.patch(url, json={"result": "pass", "note": "Re-scored by the lead"}).json()
+    assert (changed["result"], changed["computed_result"], changed["result_note"]) == ("pass", "fail", "Re-scored by the lead")
+    back = editor_client.patch(url, json={"result": "fail"}).json()
+    assert (back["result"], back["computed_result"], back["result_note"]) == ("fail", None, None)
+
+    # Overriding with the worked-out result itself is no override.
+    same = editor_client.post(
+        f"/emitters/{emitter_id}/test-records", json={**base, "result_override": "fail", "result_override_note": "same"}
+    ).json()
+    assert same["computed_result"] is None and same["result_note"] is None

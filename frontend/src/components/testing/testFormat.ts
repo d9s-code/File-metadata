@@ -9,7 +9,7 @@ export function lineOutcomeLabel(o: TestResult): string {
     case "pass":
       return "correct";
     case "partial":
-      return "misclassified";
+      return "partial";
     case "fail":
       return "missed";
     case "inconclusive":

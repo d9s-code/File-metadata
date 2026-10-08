@@ -6,7 +6,7 @@ import { useEmitterCheckoutState } from "../state/hooks/useEmitterCheckout";
 import { useEwGroups } from "../state/hooks/useEwGroups";
 import { useSources } from "../state/hooks/useSources";
 import { useFunctionGroups } from "../state/hooks/useFunctionGroups";
-import { useDeleteEmitterTestRecord, useEmitterTestRecords } from "../state/hooks/useTestRecords";
+import { useChangeTestResult, useDeleteEmitterTestRecord, useEmitterTestRecords } from "../state/hooks/useTestRecords";
 import { RequireRole } from "../auth/RequireAuth";
 import { LoadingState } from "../components/common/LoadingState";
 import { useConfirmDialog } from "../components/common/ConfirmDialog";
@@ -122,6 +122,11 @@ export function TestRunDetailPage() {
       <h1>{record.title}</h1>
       <div className="status-row">
         <span className={`test-result-badge test-result-${record.result}`}>{record.result}</span>
+        {record.computed_result && (
+          <span className="hint-text" title={record.result_note ?? undefined}>
+            set by hand (worked out: {record.computed_result})
+          </span>
+        )}
         <span>{testTypeLabel(record.test_type)} test</span>
         <span>tested {record.test_date}</span>
         {record.dwell && <span>dwell {record.dwell}</span>}
@@ -137,6 +142,14 @@ export function TestRunDetailPage() {
           </span>
         )}
       </div>
+      {record.computed_result && record.result_note && (
+        <p className="result-note">
+          <strong>Why the result was changed:</strong> {record.result_note}
+        </p>
+      )}
+      <RequireRole minimum="editor">
+        <ResultOverride emitterId={emitterId} record={record} />
+      </RequireRole>
       <RunSummary record={record} exercised={exercised} emitterId={emitterId} versionNumber={versionNumber} />
       {record.notes && <p className="muted">{record.notes}</p>}
       {stagedModeFailures && stagedModeFailures.length > 0 && (
@@ -277,6 +290,60 @@ export function TestRunDetailPage() {
         <p className="hint-text">No per-line or per-Mode results were logged — only the overall result above.</p>
       )}
       {dialog}
+    </div>
+  );
+}
+
+/** Change a logged run's overall result by hand (with why), or put back the
+ * one it worked out to. */
+function ResultOverride({ emitterId, record }: { emitterId: string; record: TestRecord }) {
+  const change = useChangeTestResult(emitterId);
+  const [open, setOpen] = useState(false);
+  const worked = record.computed_result ?? record.result;
+  const [result, setResult] = useState<TestResult>(record.result);
+  const [note, setNote] = useState("");
+  const needsNote = result !== worked;
+  if (!open)
+    return (
+      <button type="button" className="link-button" onClick={() => setOpen(true)}>
+        Change the result
+      </button>
+    );
+  return (
+    <div className="result-override-form">
+      <label className="inline-date-label">
+        Result
+        <select value={result} onChange={(e) => setResult(e.target.value as TestResult)}>
+          {TEST_RESULTS.map((r) => (
+            <option key={r} value={r}>
+              {r}
+              {r === worked ? " (worked out)" : ""}
+            </option>
+          ))}
+        </select>
+      </label>
+      {needsNote && (
+        <input
+          className="result-override-note"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder={`Why it's ${result}, not ${worked} (required)`}
+          aria-label="Why the result is changed"
+        />
+      )}
+      <button
+        type="button"
+        disabled={change.isPending || (needsNote && !note.trim()) || result === record.result}
+        onClick={() =>
+          change.mutate({ id: record.id, result, note: needsNote ? note.trim() : undefined }, { onSuccess: () => setOpen(false) })
+        }
+      >
+        Save
+      </button>
+      <button type="button" className="link-button" onClick={() => setOpen(false)}>
+        Cancel
+      </button>
+      {change.isError && <span className="error-text">{(change.error as Error).message}</span>}
     </div>
   );
 }

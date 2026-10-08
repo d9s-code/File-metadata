@@ -48,7 +48,7 @@ export interface TestRecordFunctionGroupResult {
 export interface TestRecordLineResult {
   test_line_id: string;
   test_line_label: string;
-  /** pass = correctly intercepted, partial = misclassified, fail = missed, inconclusive = couldn't be assessed. */
+  /** pass = correctly intercepted, partial = partly recognised (e.g. reported as the wrong Mode), fail = missed, inconclusive = couldn't be assessed. */
   outcome: TestResult;
   /** The Emitter's Modes the system reported for this line — any number. */
   intercepted_modes: { mode_id: string; mode_name: string }[];
@@ -67,6 +67,9 @@ export interface TestRecord {
   mdf_version_id: string | null;
   test_type: TestType;
   result: TestResult;
+  /** Set when the result was overridden: what it worked out to, and why. */
+  computed_result: TestResult | null;
+  result_note: string | null;
   title: string;
   notes: string | null;
   tested_by: string | null;
@@ -124,6 +127,9 @@ export interface TestRecordInput {
   function_group_overrides?: Record<string, TestResult>;
   /** The run in progress this was filled in as — deleted once logged. */
   draft_id?: string;
+  /** The tester's call over the worked-out result, with why (required). */
+  result_override?: TestResult;
+  result_override_note?: string;
 }
 
 /** A test run being filled in, saved as it's typed. */
@@ -165,6 +171,8 @@ export const testRecordsApi = {
   listForEmitter: (emitterId: string) => api.get<TestRecord[]>(`/emitters/${emitterId}/test-records`),
   createForEmitter: (emitterId: string, input: TestRecordInput) =>
     api.post<TestRecord>(`/emitters/${emitterId}/test-records`, input),
+  changeResultForEmitter: (emitterId: string, id: string, result: TestResult, note?: string) =>
+    api.patch<TestRecord>(`/emitters/${emitterId}/test-records/${id}/result`, { result, note }),
   deleteForEmitter: (emitterId: string, id: string) =>
     api.delete<void>(`/emitters/${emitterId}/test-records/${id}`),
 

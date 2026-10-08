@@ -19,7 +19,7 @@ function needsLook(r: EmitterSimStatus): boolean {
 /** Simulation validation: the system-wide picture on top (how every SIM Test
  * Line did in its latest run), then one compact row per Emitter — searchable,
  * filterable and scrolling inside a fixed height. Worst first: missed or
- * misclassified lines, then untested ones. */
+ * partial lines, then untested ones. */
 export function EmitterSimTable({ rows, counts }: { rows: EmitterSimStatus[]; counts: SimOutcomeCounts }) {
   const withLines = rows.filter((r) => r.line_count > 0);
   const allCorrect = withLines.filter((r) => r.line_outcomes.pass === r.line_count).length;
@@ -110,7 +110,7 @@ export function EmitterSimTable({ rows, counts }: { rows: EmitterSimStatus[]; co
                         <SimOutcomeBar counts={r.line_outcomes} />
                         <span className="progress-bar-label">
                           {r.line_outcomes.pass} / {r.line_count} correct
-                          {wrongCount(r) > 0 && ` · ${wrongCount(r)} missed/misclassified`}
+                          {wrongCount(r) > 0 && ` · ${wrongCount(r)} missed/partial`}
                           {r.line_outcomes.untested > 0 && ` · ${r.line_outcomes.untested} untested`}
                         </span>
                       </>

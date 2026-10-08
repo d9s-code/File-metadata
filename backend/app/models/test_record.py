@@ -28,6 +28,11 @@ class TestRecord(UUIDPkMixin, TimestampMixin, Base):
     )
     test_type: Mapped[TestType] = mapped_column(nullable=False)
     result: Mapped[TestResult] = mapped_column(nullable=False)
+    # Set when someone overrode the result: what it worked out to from the
+    # lines or Modes (worst of them) before that, and why it was changed.
+    # Null when `result` is the worked-out one.
+    computed_result: Mapped[TestResult | None] = mapped_column(nullable=True)
+    result_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     tested_by: Mapped[uuid.UUID | None] = mapped_column(
@@ -135,7 +140,7 @@ class TestRecordLine(UUIDPkMixin, Base):
     the threat this line represents". `outcome` reuses TestResult rather than
     a bespoke enum so the existing worst-of aggregation, badges, and CSS
     already used everywhere else for TestResult apply here unchanged: pass =
-    correctly intercepted, partial = misclassified (recognized as *something*,
+    correctly intercepted, partial = partly recognised (recognized as *something*,
     just not the right thing), fail = missed entirely, inconclusive = couldn't
     be assessed this run. `intercepted_modes` records which of the Emitter's
     Modes the system actually reported for this line (any number), and

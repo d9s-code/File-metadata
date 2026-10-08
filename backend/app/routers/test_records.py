@@ -21,7 +21,7 @@ from app.models.test_record import (
     TestRecordMode,
     TestRunDraft,
 )
-from app.schemas.test_record import TestRecordCreate, TestRecordOut
+from app.schemas.test_record import TestRecordCreate, TestRecordOut, TestResultChange
 from app.services.audit_service import record_audit
 from app.services.test_result_service import compute_overall_result
 
@@ -115,6 +115,9 @@ def _create_test_record(
     else:
         overall_result = payload.result
     assert overall_result is not None  # guaranteed by TestRecordCreate.check_result
+    computed_result = None
+    if payload.result_override is not None and payload.result_override != overall_result:
+        computed_result, overall_result = overall_result, payload.result_override
 
     record = TestRecord(
         scope_type=scope_type,
@@ -123,6 +126,8 @@ def _create_test_record(
         mdf_version_id=mdf_version_id,
         test_type=payload.test_type,
         result=overall_result,
+        computed_result=computed_result,
+        result_note=payload.result_override_note.strip() if computed_result and payload.result_override_note else None,
         title=payload.title,
         notes=payload.notes,
         test_date=payload.test_date,
@@ -273,6 +278,49 @@ def create_mdf_test_record(
         mdf_version_id=_latest_mdf_version_id(db, mdf_id),
         payload=payload,
         tested_by=user.id,
+    )
+
+
+@emitter_router.patch("/{test_record_id}/result", response_model=TestRecordOut, dependencies=[Depends(verify_csrf)])
+def change_emitter_test_result(
+    emitter_id: UUID,
+    test_record_id: UUID,
+    payload: TestResultChange,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+) -> TestRecord:
+    """Override a logged run's overall result (with why), or set it back to
+    what it worked out to from its lines or Modes."""
+    record = db.get(TestRecord, test_record_id)
+    if record is None or record.scope_type != TestScopeType.emitter or record.scope_id != emitter_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Test record not found")
+    worked_out = record.computed_result or record.result
+    old = record.result
+    if payload.result == worked_out:
+        record.result, record.computed_result, record.result_note = worked_out, None, None
+        summary = f"Result of test '{record.title}' set back to the worked-out {worked_out.value}"
+    else:
+        note = (payload.note or "").strip()
+        if not note:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Say why the result is changed")
+        record.result, record.computed_result, record.result_note = payload.result, worked_out, note
+        summary = f"Result of test '{record.title}' set to {payload.result.value} (worked out: {worked_out.value}) — {note}"
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.update,
+        entity_type=AuditEntityType.test_record.value,
+        entity_id=record.id,
+        summary=summary,
+        changes={"result": {"old": old.value, "new": record.result.value}},
+        emitter_id=emitter_id,
+    )
+    db.commit()
+    return (
+        db.query(TestRecord)
+        .options(_MODES_EAGER_LOAD, _FUNCTION_GROUPS_EAGER_LOAD, _LINES_EAGER_LOAD)
+        .filter(TestRecord.id == record.id)
+        .one()
     )
 
 

@@ -122,7 +122,13 @@ export function TestRecordsTable({
                 <td>{r.dwell ?? "—"}</td>
                 <td>{testTypeLabel(r.test_type)}</td>
                 <td>
-                  <span className={`test-result-badge test-result-${r.result}`}>{r.result}</span>
+                  <span
+                    className={`test-result-badge test-result-${r.result}`}
+                    title={r.computed_result ? `Set by hand (worked out: ${r.computed_result}) — ${r.result_note ?? ""}` : undefined}
+                  >
+                    {r.result}
+                    {r.computed_result ? " ✎" : ""}
+                  </span>
                 </td>
                 <td>
                   {emitterId ? <Link to={`/emitters/${emitterId}/tests/${r.id}`}>{r.title}</Link> : r.title}

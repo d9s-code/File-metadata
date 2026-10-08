@@ -192,7 +192,7 @@ export function HelpPage() {
           </li>
           <li>
             <strong>Needs Attention</strong> — one line per item, grouped: Simulation (SIM Test Lines missed or
-            misclassified, an Emitter in Testing never simulated, one changed since its last simulation), Needs rework,
+            partial, an Emitter in Testing never simulated, one changed since its last simulation), Needs rework,
             Sources awaiting review, Intercepts with entries no Mode covers, unreviewed serious overlaps from the latest
             ambiguity check, Emitters held for editing over 8 hours, stalled Emitters and MDF readiness. Click a group
             to fold it; click an item to go to it.
@@ -273,7 +273,7 @@ export function HelpPage() {
               <li>
                 <strong>Last seen</strong> — the latest test run the Mode turned up in: reported under{" "}
                 <em>Intercepted as</em> for a SIM line in a simulation run (with that line&apos;s outcome — reported
-                for the wrong signal shows as misclassified), or rated in an intercept run. Click it to open the run;
+                for the wrong signal shows as partial), or rated in an intercept run. Click it to open the run;
                 hover for how every run it was seen in went. &ldquo;never&rdquo; means no test has exercised it yet
               </li>
             </ul>
@@ -368,7 +368,7 @@ export function HelpPage() {
             <p>
               Two parts: the <strong>SIM Test Lines</strong> this Emitter is checked against, and the list of
               logged <strong>test runs</strong>. Between them, <strong>Simulation trend</strong> shows each simulation
-              run as a column of its line outcomes (correct, misclassified, missed, inconclusive), oldest to newest,
+              run as a column of its line outcomes (correct, partial, missed, inconclusive), oldest to newest,
               topped by the SIM Test Lines it <em>didn&apos;t</em> include (<strong>Not in this run</strong>, dashed) so
               every column is all of the Emitter&apos;s lines — switch that off with <strong>Lines not in the run</strong>,
               and <strong>Counts</strong> writes the numbers on the bars. Each column is labelled with the run&apos;s date
@@ -403,7 +403,7 @@ export function HelpPage() {
               <li>
                 A simulation run is a table with one row per SIM Test Line. Every line starts included and{" "}
                 <span className="test-result-badge test-result-pass">correct</span>; change the outcome to{" "}
-                <span className="test-result-badge test-result-partial">misclassified</span>,{" "}
+                <span className="test-result-badge test-result-partial">partial</span>,{" "}
                 <span className="test-result-badge test-result-fail">missed</span> or{" "}
                 <span className="test-result-badge test-result-inconclusive">inconclusive</span> where needed,
                 flag what the system reported under <strong>Intercepted as</strong> —{" "}
@@ -422,8 +422,12 @@ export function HelpPage() {
                 from these and can be overridden.
               </li>
               <li>
-                The run&rsquo;s overall result is always <strong>derived</strong> from the included rows
-                (worst one wins); it can only be set by hand when nothing is included.
+                The run&rsquo;s overall result is <strong>worked out</strong> from the included rows (worst one wins),
+                or set by hand when nothing is included. To make a different call, pick it under{" "}
+                <strong>Override</strong> and say why (required). A logged run&rsquo;s result can also be changed on its
+                page with <strong>Change the result</strong> (Editors) — picking the worked-out one again removes the
+                override. An overridden result shows ✎, with the worked-out result and the reason beside it, and each
+                change is in the audit log.
               </li>
               <li>
                 <strong>+ Stage a new Mode</strong> creates a Mode found during the run, linked as{" "}

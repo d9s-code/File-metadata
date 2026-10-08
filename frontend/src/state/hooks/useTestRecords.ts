@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { testDraftsApi, testRecordsApi, type TestRecordInput } from "../../api/testRecords";
+import type { TestResult } from "../../types/domain";
 import { mdfReadinessKey } from "./useMdfs";
 import { testLinesKey } from "./useTestLines";
 import { emitterModesKey } from "./useModes";
@@ -48,6 +49,16 @@ export function useCreateEmitterTestRecord(emitterId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: TestRecordInput) => testRecordsApi.createForEmitter(emitterId, input),
+    onSuccess: () => invalidateEmitterTestState(qc, emitterId),
+  });
+}
+
+/** Override a logged run's result (with why), or set it back. */
+export function useChangeTestResult(emitterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, result, note }: { id: string; result: TestResult; note?: string }) =>
+      testRecordsApi.changeResultForEmitter(emitterId, id, result, note),
     onSuccess: () => invalidateEmitterTestState(qc, emitterId),
   });
 }

@@ -47,6 +47,8 @@ interface RunState {
   copyFromId: string;
   notes: string;
   manualResult: TestResult;
+  resultOverride?: TestResult | "";
+  resultOverrideNote?: string;
   lineEntries: Record<string, SimLineEntry>;
   modeEntries: Record<string, InterceptModeEntry>;
   functionGroupOverrides: Record<string, TestResult | "">;
@@ -138,6 +140,8 @@ export function TestRunNewPage() {
   const [copyFromId, setCopyFromId] = useState("");
   const [notes, setNotes] = useState("");
   const [manualResult, setManualResult] = useState<TestResult>("pass");
+  const [resultOverride, setResultOverride] = useState<TestResult | "">("");
+  const [resultOverrideNote, setResultOverrideNote] = useState("");
   const [lineEntries, setLineEntries] = useState<Record<string, SimLineEntry>>({});
   const [modeEntries, setModeEntries] = useState<Record<string, InterceptModeEntry>>({});
   const [functionGroupOverrides, setFunctionGroupOverrides] = useState<Record<string, TestResult | "">>({});
@@ -162,12 +166,14 @@ export function TestRunNewPage() {
       copyFromId,
       notes,
       manualResult,
+      resultOverride,
+      resultOverrideNote,
       lineEntries,
       modeEntries,
       functionGroupOverrides,
       stagedModes,
     }),
-    [testType, title, testDate, testTime, simCreatedDate, interceptDate, dwell, retestsId, copyFromId, notes, manualResult, lineEntries, modeEntries, functionGroupOverrides, stagedModes],
+    [testType, title, testDate, testTime, simCreatedDate, interceptDate, dwell, retestsId, copyFromId, notes, manualResult, resultOverride, resultOverrideNote, lineEntries, modeEntries, functionGroupOverrides, stagedModes],
   );
 
   function applyState(s: Partial<RunState>) {
@@ -182,6 +188,8 @@ export function TestRunNewPage() {
     if (s.copyFromId !== undefined) setCopyFromId(s.copyFromId);
     if (s.notes !== undefined) setNotes(s.notes);
     if (s.manualResult) setManualResult(s.manualResult);
+    if (s.resultOverride !== undefined) setResultOverride(s.resultOverride);
+    if (s.resultOverrideNote !== undefined) setResultOverrideNote(s.resultOverrideNote);
     if (s.lineEntries) setLineEntries(s.lineEntries);
     if (s.modeEntries) setModeEntries(s.modeEntries);
     if (s.functionGroupOverrides) setFunctionGroupOverrides(s.functionGroupOverrides);
@@ -387,6 +395,10 @@ export function TestRunNewPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    if (derived && resultOverride && resultOverride !== derived && !resultOverrideNote.trim()) {
+      setError("Say why the overall result is overridden.");
+      return;
+    }
     const lineResults = isSimulation
       ? includedLines.map(([test_line_id, entry]) => ({
           test_line_id,
@@ -430,6 +442,9 @@ export function TestRunNewPage() {
         retests_test_record_id: retestsId || undefined,
         function_group_overrides: Object.keys(overrides).length ? overrides : undefined,
         draft_id: draftId.current ?? undefined,
+        result_override: derived && resultOverride && resultOverride !== derived ? resultOverride : undefined,
+        result_override_note:
+          derived && resultOverride && resultOverride !== derived ? resultOverrideNote.trim() : undefined,
       });
     } catch (err) {
       logging.current = false;
@@ -556,7 +571,31 @@ export function TestRunNewPage() {
           <p className="test-run-overall">
             Overall result:{" "}
             {derived ? (
-              <span className={`test-result-badge test-result-${derived}`}>{derived}</span>
+              <>
+                <span className={`test-result-badge test-result-${derived}`}>{derived}</span>{" "}
+                <span className="hint-text">worked out (worst of the included rows)</span>
+                <label className="inline-date-label result-override">
+                  Override
+                  <select value={resultOverride} onChange={(e) => setResultOverride(e.target.value as TestResult | "")}>
+                    <option value="">— keep {derived}</option>
+                    {TEST_RESULTS.filter((r) => r !== derived).map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {resultOverride && resultOverride !== derived && (
+                  <input
+                    className="result-override-note"
+                    value={resultOverrideNote}
+                    onChange={(e) => setResultOverrideNote(e.target.value)}
+                    placeholder={`Why it's ${resultOverride}, not ${derived} (required)`}
+                    aria-label="Why the result is overridden"
+                    required
+                  />
+                )}
+              </>
             ) : (
               <label className="inline-date-label">
                 nothing included — set it manually

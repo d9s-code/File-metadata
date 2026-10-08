@@ -88,7 +88,7 @@ class TestRecordModeResultIn(BaseModel):
 
 class TestRecordLineResultIn(BaseModel):
     test_line_id: UUID
-    # Reuses TestResult: pass = correctly intercepted, partial = misclassified,
+    # Reuses TestResult: pass = correctly intercepted, partial = partly recognised (e.g. as the wrong Mode),
     # fail = missed entirely, inconclusive = couldn't be assessed this run.
     outcome: TestResult
     # Which of this Emitter's Modes the system reported for this line — any number.
@@ -148,6 +148,10 @@ class TestRecordCreate(BaseModel):
     function_group_overrides: dict[UUID, TestResult] = {}
     # The draft this run was filled in as, deleted once it's logged.
     draft_id: UUID | None = None
+    # The tester's call on the whole run, over the result worked out from the
+    # lines or Modes — with why (required). Ignored if it's the same.
+    result_override: TestResult | None = None
+    result_override_note: str | None = Field(default=None, max_length=2000)
 
     @field_validator("test_type")
     @classmethod
@@ -168,6 +172,12 @@ class TestRecordCreate(BaseModel):
     def check_simulation_date(self) -> "TestRecordCreate":
         if self.test_type == TestType.simulation and self.simulation_created_date is None:
             raise ValueError("simulation_created_date is required for a Simulation test")
+        return self
+
+    @model_validator(mode="after")
+    def check_override_note(self) -> "TestRecordCreate":
+        if self.result_override is not None and not (self.result_override_note or "").strip():
+            raise ValueError("Say why the result is overridden (result_override_note)")
         return self
 
     @model_validator(mode="after")
@@ -226,6 +236,9 @@ class TestRecordOut(BaseModel):
     mdf_version_id: UUID | None = None
     test_type: TestType
     result: TestResult
+    # Set when the result was overridden: what it worked out to, and why.
+    computed_result: TestResult | None = None
+    result_note: str | None = None
     title: str
     notes: str | None = None
     tested_by: UUID | None = None
@@ -267,3 +280,11 @@ class TestRunDraftOut(BaseModel):
 
 class TestRunDraftFull(TestRunDraftOut):
     state: dict
+
+
+class TestResultChange(BaseModel):
+    """Changing a logged run's overall result by hand. Setting it back to
+    what it worked out to clears the override."""
+
+    result: TestResult
+    note: str | None = Field(default=None, max_length=2000)

@@ -1497,7 +1497,7 @@ body.col-resizing { user-select: none; }
 }
 
 /* SIM Test Line outcomes as one stacked bar. Colours match the outcome
-   badges: correct / misclassified / missed / inconclusive / untested. */
+   badges: correct / partial / missed / inconclusive / untested. */
 .sim-headline {
   margin: 0 0 0.6rem;
 }
@@ -5433,3 +5433,9 @@ a.ai-cite:hover { text-decoration: underline; }
   color: var(--badge-amber-fg);
 }
 .save-line { margin: -0.4rem 0 0.8rem; font-size: 0.85rem; }
+
+/* A test run's result set by hand. */
+.result-override { margin-left: 0.75rem; }
+.result-override-note { min-width: 18rem; margin-left: 0.5rem; }
+.result-override-form { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; margin: 0.25rem 0 0.5rem; }
+.result-note { margin: 0.25rem 0 0.5rem; padding: 0.4rem 0.6rem; border-left: 3px solid var(--badge-amber-fg); background: var(--badge-amber-bg); border-radius: var(--radius-sm); font-size: 0.88rem; }

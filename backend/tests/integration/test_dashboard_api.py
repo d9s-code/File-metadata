@@ -197,7 +197,7 @@ def test_dashboard_flags_missed_lines_and_unvalidated_testing_emitters(editor_cl
     _sim_run(editor_client, emitter["id"], [(lines[0]["id"], "fail"), (lines[1]["id"], "partial")])
     items = [i for i in editor_client.get("/dashboard").json()["needs_attention"] if i["entity_id"] == emitter["id"]]
     assert [i["message"] for i in items] == [
-        "Emitter 'Dash Missed Emitter': 2 SIM Test Lines were missed or misclassified in the latest run."
+        "Emitter 'Dash Missed Emitter': 2 SIM Test Lines were missed or partial in the latest run."
     ]
     assert items[0]["category"] == "sim"
 

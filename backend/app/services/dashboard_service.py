@@ -335,7 +335,7 @@ def _sim_attention_items(sim_rows: list[dict]) -> list[dict]:
         if wrong:
             noun = "SIM Test Line was" if wrong == 1 else "SIM Test Lines were"
             items.append(
-                {**link, "category": "sim", "message": f"Emitter '{name}': {wrong} {noun} missed or misclassified in the latest run."}
+                {**link, "category": "sim", "message": f"Emitter '{name}': {wrong} {noun} missed or partial in the latest run."}
             )
         if row["status"] == EmitterStatus.in_review.value and row["last_validated_at"] is None:
             items.append(
