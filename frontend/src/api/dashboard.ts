@@ -37,7 +37,7 @@ export interface EmitterSimStatus {
   last_validated_at: string | null;
   last_validated_result: TestResult | null;
   last_validated_test_record_id: string | null;
-  /** Content was committed after the last simulation test. */
+  /** Content was committed after the last Simulation Test. */
   changed_since_validation: boolean;
 }
 

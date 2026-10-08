@@ -272,8 +272,8 @@ export function HelpPage() {
               <li>RF min/max, PRI type (FIXED / STAGGER / CW / XLET) and its min/max where applicable, PW min/max</li>
               <li>
                 <strong>Last seen</strong> — the latest test run the Mode turned up in: reported under{" "}
-                <em>Intercepted as</em> for a SIM line in a simulation run (with that line&apos;s outcome — reported
-                for the wrong signal shows as partial), or rated in an intercept run. Click it to open the run;
+                <em>Intercepted as</em> for a SIM line in a Simulation Test (with that line&apos;s outcome — reported
+                for the wrong signal shows as partial), or rated in an Intercept Test. Click it to open the run;
                 hover for how every run it was seen in went. &ldquo;never&rdquo; means no test has exercised it yet
               </li>
             </ul>
@@ -401,7 +401,7 @@ export function HelpPage() {
                 the second is told to reload rather than overwrite the first.
               </li>
               <li>
-                A simulation run is a table with one row per SIM Test Line. Every line starts included and{" "}
+                A Simulation Test is a table with one row per SIM Test Line. Every line starts included and{" "}
                 <span className="test-result-badge test-result-pass">correct</span>; change the outcome to{" "}
                 <span className="test-result-badge test-result-partial">partial</span>,{" "}
                 <span className="test-result-badge test-result-fail">missed</span> or{" "}
@@ -417,7 +417,7 @@ export function HelpPage() {
                 cell. Notes grow as you write.
               </li>
               <li>
-                An intercept run is a table with one row per Mode: tick the Modes that were intercepted, then
+                An Intercept Test is a table with one row per Mode: tick the Modes that were intercepted, then
                 give each a result, intercepted parameters and notes. Function Group ratings are computed
                 from these and can be overridden.
               </li>

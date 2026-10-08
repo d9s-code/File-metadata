@@ -124,7 +124,7 @@ export function SimulationTrend({
       </div>
       <div className="trend-controls">
         <span className="hint-text">
-          SIM Test Line outcomes per simulation run, oldest to newest. Latest:{" "}
+          SIM Test Line outcomes per Simulation Test, oldest to newest. Latest:{" "}
           <strong>
             {latest.counts.pass} of {latest.ran} correct
           </strong>

@@ -215,7 +215,7 @@ def test_dashboard_flags_emitter_changed_after_its_last_simulation_test(editor_c
     editor_client.post(f"/emitters/{emitter['id']}/versions", json={"change_summary": "v2"})
     body = editor_client.get("/dashboard").json()
     assert _row(body, emitter["id"])["changed_since_validation"] is True
-    assert "Emitter 'Dash Changed Emitter' was changed after its last simulation test (2020-01-01)." in [
+    assert "Emitter 'Dash Changed Emitter' was changed after its last Simulation Test (2020-01-01)." in [
         i["message"] for i in body["needs_attention"]
     ]
 

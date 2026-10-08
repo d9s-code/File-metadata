@@ -157,7 +157,7 @@ class TestRecordCreate(BaseModel):
     @classmethod
     def check_test_type(cls, v: TestType) -> TestType:
         if v not in LOGGABLE_TEST_TYPES:
-            raise ValueError("Only simulation and intercept tests can be logged")
+            raise ValueError("Only Simulation and Intercept Tests can be logged")
         return v
 
     @field_validator("dwell")
@@ -171,7 +171,7 @@ class TestRecordCreate(BaseModel):
     @model_validator(mode="after")
     def check_simulation_date(self) -> "TestRecordCreate":
         if self.test_type == TestType.simulation and self.simulation_created_date is None:
-            raise ValueError("simulation_created_date is required for a Simulation test")
+            raise ValueError("simulation_created_date is required for a Simulation Test")
         return self
 
     @model_validator(mode="after")

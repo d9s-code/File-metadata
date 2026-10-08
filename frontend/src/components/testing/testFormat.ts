@@ -17,8 +17,16 @@ export function lineOutcomeLabel(o: TestResult): string {
   }
 }
 
+const TEST_TYPE_LABELS: Record<TestType, string> = {
+  simulation: "Simulation Test",
+  intercept: "Intercept Test",
+  lab_bench: "Lab Bench Test",
+  live_range: "Live Range Test",
+  field_exercise: "Field Exercise Test",
+};
+
 export function testTypeLabel(t: TestType): string {
-  return t.replace("_", " ");
+  return TEST_TYPE_LABELS[t] ?? t;
 }
 
 export function nonEmptySets(sets: ObservedValues[] | null | undefined): ObservedValues[] {

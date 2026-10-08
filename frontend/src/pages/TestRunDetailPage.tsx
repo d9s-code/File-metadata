@@ -127,7 +127,7 @@ export function TestRunDetailPage() {
             set by hand (worked out: {record.computed_result})
           </span>
         )}
-        <span>{testTypeLabel(record.test_type)} test</span>
+        <span>{testTypeLabel(record.test_type)}</span>
         <span>tested {record.test_date}</span>
         {record.dwell && <span>dwell {record.dwell}</span>}
         {record.simulation_created_date && (

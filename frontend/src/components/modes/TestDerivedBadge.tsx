@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import type { TestRecordBrief } from "../../types/domain";
 import { HoverInfo } from "../common/InfoPopover";
+import { testTypeLabel } from "../testing/testFormat";
 
 export function testLink(emitterId: string, recordId: string) {
   return `/emitters/${emitterId}/tests/${recordId}`;
@@ -22,7 +23,7 @@ export function TestDerivedBadge({ emitterId, records }: { emitterId: string; re
       <Link
         to={testLink(emitterId, r.id)}
         className="test-derived-badge"
-        title={`${r.title} — ${r.test_type.replace("_", " ")}, ${r.test_date} (${r.result})`}
+        title={`${r.title} — ${testTypeLabel(r.test_type)}, ${r.test_date} (${r.result})`}
       >
         Test-Derived
       </Link>
@@ -36,7 +37,7 @@ export function TestDerivedBadge({ emitterId, records }: { emitterId: string; re
         {records.map((r) => (
           <dd key={r.id}>
             <Link to={testLink(emitterId, r.id)}>
-              {r.title} — {r.test_type.replace("_", " ")}, {r.test_date} ({r.result})
+              {r.title} — {testTypeLabel(r.test_type)}, {r.test_date} ({r.result})
             </Link>
           </dd>
         ))}

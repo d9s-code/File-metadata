@@ -27,7 +27,7 @@ export function TestRunsCard({ runs, needsRedo }: { runs: RecentTestRun[]; needs
       <h4>Test Runs</h4>
       <h5>Latest</h5>
       {runs.length === 0 ? (
-        <EmptyState icon="—" title="No runs yet" message="Logged simulation and intercept runs show up here." />
+        <EmptyState icon="—" title="No runs yet" message="Logged Simulation and Intercept Tests show up here." />
       ) : (
         <div className="dashboard-table-scroll">
           <table className="data-table">

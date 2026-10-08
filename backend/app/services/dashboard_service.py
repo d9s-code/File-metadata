@@ -346,7 +346,7 @@ def _sim_attention_items(sim_rows: list[dict]) -> list[dict]:
                 {
                     **link,
                     "category": "sim",
-                    "message": f"Emitter '{name}' was changed after its last simulation test ({row['last_validated_at']}).",
+                    "message": f"Emitter '{name}' was changed after its last Simulation Test ({row['last_validated_at']}).",
                 }
             )
     return items
