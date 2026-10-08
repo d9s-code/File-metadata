@@ -369,7 +369,12 @@ export function HelpPage() {
               Two parts: the <strong>SIM Test Lines</strong> this Emitter is checked against, and the list of
               logged <strong>test runs</strong>. Between them, <strong>Simulation trend</strong> shows each simulation
               run as a column of its line outcomes (correct, misclassified, missed, inconclusive), oldest to newest,
-              with the Emitter version it was run against on hover — click a column to open the run.
+              topped by the SIM Test Lines it <em>didn&apos;t</em> include (<strong>Not in this run</strong>, dashed) so
+              every column is all of the Emitter&apos;s lines — switch that off with <strong>Lines not in the run</strong>,
+              and <strong>Counts</strong> writes the numbers on the bars. Each column is labelled with the run&apos;s date
+              and time (runs logged before times were kept show the time they were logged, in italics); hover for the
+              Emitter version it was run against — click a column to open the run. A new run takes its time from the{" "}
+              <strong>Time</strong> field next to its date (filled with the current time).
             </p>
             <ul>
               <li>
@@ -566,8 +571,8 @@ export function HelpPage() {
             from the parameter that overlaps <em>least</em>: <strong>Exact</strong> when every parameter overlaps at least
             99%, <strong>High</strong> when the least is 70% or more, <strong>Medium</strong> between 30% and 70%,{" "}
             <strong>Low</strong> under 30%. <strong>Run the check</strong> (or <strong>Run again</strong>) is at the
-            top right, with those numbers next to it — Editors can <strong>Change</strong> them before running. This
-            explanation is behind <strong>How it decides</strong>. Checks made under older rules say so — run them again.
+            top right, with those numbers in the <strong>Thresholds</strong> chip next to it — Editors click it to change
+            them before running. This explanation is behind <strong>How it decides</strong>. Checks made under older rules say so — run them again.
           </p>
           <p>
             <strong>The page.</strong> The findings are listed on the left — open ones first, worst first — with each

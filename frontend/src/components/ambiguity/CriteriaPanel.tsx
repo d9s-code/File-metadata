@@ -60,17 +60,15 @@ export function RunControls({
           {!valid && <span className="error-text">They must rise: low &lt; high ≤ exact ≤ 100.</span>}
         </span>
       ) : (
-        <span className="run-thresholds hint-text">
-          Severity: low under {t.low_threshold}% · high from {t.high_threshold}% · exact from {t.exact_threshold}%
-          {editable && (
-            <>
-              {" "}
-              <button type="button" className="link-button" onClick={() => setEditing(true)}>
-                Change
-              </button>
-            </>
-          )}
-        </span>
+        <button
+          type="button"
+          className="run-thresholds-chip"
+          disabled={!editable}
+          onClick={() => setEditing(true)}
+          title={`Severity: low under ${t.low_threshold}%, high from ${t.high_threshold}%, exact from ${t.exact_threshold}%${editable ? " — click to change" : ""}`}
+        >
+          Thresholds {t.low_threshold} / {t.high_threshold} / {t.exact_threshold} %{editable ? " ✎" : ""}
+        </button>
       )}
     </div>
   );

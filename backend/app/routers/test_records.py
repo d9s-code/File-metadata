@@ -126,6 +126,7 @@ def _create_test_record(
         title=payload.title,
         notes=payload.notes,
         test_date=payload.test_date,
+        test_time=payload.test_time,
         simulation_created_date=payload.simulation_created_date,
         dwell=payload.dwell,
         retests_test_record_id=payload.retests_test_record_id,
@@ -210,7 +211,7 @@ def list_emitter_test_records(
         db.query(TestRecord)
         .options(_MODES_EAGER_LOAD, _FUNCTION_GROUPS_EAGER_LOAD, _LINES_EAGER_LOAD)
         .filter(TestRecord.scope_type == TestScopeType.emitter, TestRecord.scope_id == emitter_id)
-        .order_by(TestRecord.test_date.desc())
+        .order_by(TestRecord.test_date.desc(), TestRecord.test_time.desc().nulls_last(), TestRecord.created_at.desc())
         .all()
     )
 
@@ -248,7 +249,7 @@ def list_mdf_test_records(
         db.query(TestRecord)
         .options(_MODES_EAGER_LOAD, _FUNCTION_GROUPS_EAGER_LOAD, _LINES_EAGER_LOAD)
         .filter(TestRecord.scope_type == TestScopeType.mdf, TestRecord.scope_id == mdf_id)
-        .order_by(TestRecord.test_date.desc())
+        .order_by(TestRecord.test_date.desc(), TestRecord.test_time.desc().nulls_last(), TestRecord.created_at.desc())
         .all()
     )
 

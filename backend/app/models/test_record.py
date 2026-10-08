@@ -1,7 +1,7 @@
 import uuid
-from datetime import date
+from datetime import date, time
 
-from sqlalchemy import Boolean, Date, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, ForeignKey, Integer, String, Text, Time, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -34,6 +34,9 @@ class TestRecord(UUIDPkMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
     test_date: Mapped[date] = mapped_column(Date, nullable=False)
+    # When on test_date it ran, if recorded (runs logged before it existed
+    # have none; their logged time stands in where a time is shown).
+    test_time: Mapped[time | None] = mapped_column(Time, nullable=True)
     # Required for test_type == simulation only (see TestRecordCreate) — when the
     # simulation model/scenario itself was built, as distinct from test_date (when
     # the test run happened against it).

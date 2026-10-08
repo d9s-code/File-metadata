@@ -39,6 +39,7 @@ interface RunState {
   testType: LoggableTestType;
   title: string;
   testDate: string;
+  testTime: string;
   simCreatedDate: string;
   interceptDate: string;
   dwell: string;
@@ -62,6 +63,11 @@ type SaveStatus =
 
 // How long typing pauses before the run is saved.
 const SAVE_DELAY_MS = 800;
+
+function nowTime(): string {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
 
 function todayDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -124,6 +130,7 @@ export function TestRunNewPage() {
   const [testType, setTestType] = useState<LoggableTestType>("simulation");
   const [title, setTitle] = useState("");
   const [testDate, setTestDate] = useState(todayDate());
+  const [testTime, setTestTime] = useState(nowTime());
   const [simCreatedDate, setSimCreatedDate] = useState("");
   const [interceptDate, setInterceptDate] = useState("");
   const [dwell, setDwell] = useState(MANUAL_DWELL);
@@ -147,6 +154,7 @@ export function TestRunNewPage() {
       testType,
       title,
       testDate,
+      testTime,
       simCreatedDate,
       interceptDate,
       dwell,
@@ -159,13 +167,14 @@ export function TestRunNewPage() {
       functionGroupOverrides,
       stagedModes,
     }),
-    [testType, title, testDate, simCreatedDate, interceptDate, dwell, retestsId, copyFromId, notes, manualResult, lineEntries, modeEntries, functionGroupOverrides, stagedModes],
+    [testType, title, testDate, testTime, simCreatedDate, interceptDate, dwell, retestsId, copyFromId, notes, manualResult, lineEntries, modeEntries, functionGroupOverrides, stagedModes],
   );
 
   function applyState(s: Partial<RunState>) {
     if (s.testType) setTestType(s.testType);
     if (s.title !== undefined) setTitle(s.title);
     if (s.testDate) setTestDate(s.testDate);
+    if (s.testTime !== undefined) setTestTime(s.testTime);
     if (s.simCreatedDate !== undefined) setSimCreatedDate(s.simCreatedDate);
     if (s.interceptDate !== undefined) setInterceptDate(s.interceptDate);
     if (s.dwell !== undefined) setDwell(s.dwell);
@@ -410,6 +419,7 @@ export function TestRunNewPage() {
         test_type: testType,
         title,
         test_date: testDate,
+        test_time: testTime || undefined,
         // One column holds both: when the simulation was built, or when the intercept happened.
         simulation_created_date: (isSimulation ? simCreatedDate : interceptDate) || undefined,
         dwell: dwell.trim() || undefined,
@@ -469,6 +479,10 @@ export function TestRunNewPage() {
             <label>
               Test date
               <input type="date" value={testDate} onChange={(e) => setTestDate(e.target.value)} required />
+            </label>
+            <label>
+              Time
+              <input type="time" value={testTime} onChange={(e) => setTestTime(e.target.value)} />
             </label>
             <label>
               {isSimulation ? "Simulation created" : "Intercept date (optional)"}

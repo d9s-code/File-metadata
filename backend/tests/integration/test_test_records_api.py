@@ -227,3 +227,18 @@ def test_a_mode_reported_for_a_sim_line_counts_as_last_seen(editor_client, emitt
     [mode] = editor_client.get(f"/emitters/{emitter_id}/modes").json()
     assert (mode["last_tested_at"], mode["last_test_result"], mode["last_test_record_id"]) == ("2026-10-05", "partial", second)
     assert mode["seen_counts"] == {"pass": 2, "partial": 1}
+
+
+def test_a_run_keeps_its_time(editor_client, emitter_with_mode):
+    emitter_id = emitter_with_mode["emitter"]["id"]
+    for title, t in (("Morning", "09:15"), ("Afternoon", "14:40:00"), ("Untimed", None)):
+        body = {"test_type": "intercept", "title": title, "test_date": "2026-10-08", "result": "pass"}
+        if t:
+            body["test_time"] = t
+        assert editor_client.post(f"/emitters/{emitter_id}/test-records", json=body).status_code == 201
+    records = editor_client.get(f"/emitters/{emitter_id}/test-records").json()
+    assert [(r["title"], r["test_time"]) for r in records] == [
+        ("Afternoon", "14:40:00"),
+        ("Morning", "09:15:00"),
+        ("Untimed", None),
+    ]

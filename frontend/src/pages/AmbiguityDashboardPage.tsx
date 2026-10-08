@@ -243,7 +243,9 @@ export function AmbiguityDashboardPage() {
             ) : runsLoading ? (
               <span className="hint-text">Loading…</span>
             ) : (
-              <span>Not checked yet. The check compares every pair of Modes and flags the ones the sensor could confuse.</span>
+              <span>
+                Not checked yet <span className="hint-text">— finds pairs of Modes the sensor could confuse.</span>
+              </span>
             )}
           </div>
           <div className="amb-runbar-actions">

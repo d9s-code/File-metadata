@@ -4307,6 +4307,14 @@ body:has(.import-footer) .checkout-reminder-tab {
 .viz-plot .trend-hit { fill: transparent; cursor: pointer; }
 .viz-plot .trend-run.hovered .trend-hit { fill: var(--hover-bg); }
 .viz-plot rect.trend-seg { stroke: none; pointer-events: none; }
+.viz-swatch.trend-not-run { background: transparent; border: 1px dashed var(--status-neutral); }
+.viz-plot rect.trend-not-run { fill: color-mix(in srgb, var(--status-neutral) 22%, transparent); stroke: var(--status-neutral); stroke-dasharray: 3 2; stroke-width: 1; }
+.viz-plot .trend-count { font-size: 10px; font-weight: 600; fill: #fff; pointer-events: none; }
+.viz-plot .trend-not-run + .trend-count { fill: var(--text); }
+.viz-plot .trend-time-logged { font-style: italic; opacity: 0.75; }
+.trend-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 1rem; margin: 0 0 0.4rem; }
+.trend-controls .hint-text { flex: 1; min-width: 16rem; }
+.inline-check { display: inline-flex; flex-direction: row; align-items: center; gap: 0.3rem; font-size: 0.82rem; }
 .card-header .viz-legend {
   font-size: 0.82rem;
   font-weight: 400;
@@ -5201,7 +5209,21 @@ a.ai-cite:hover { text-decoration: underline; }
 .criteria-panel { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); font-size: 0.9rem; }
 .criteria-steps { margin: 0 0 0.6rem 1.1rem; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
 .criteria-levels { list-style: none; margin: 0.35rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }
-.amb-runbar-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem; }
+.amb-runbar-row { align-items: center; }
+.amb-runbar-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.4rem 0.75rem; }
+.run-thresholds-chip {
+  background: var(--card-bg);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  box-shadow: none;
+  font-variant-numeric: tabular-nums;
+}
+.run-thresholds-chip:hover:not(:disabled) { background: var(--hover-bg); color: var(--text); box-shadow: none; }
+.run-thresholds-chip:disabled { opacity: 1; cursor: default; }
 .run-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.4rem 0.75rem; }
 .run-thresholds { font-size: 0.82rem; }
 .run-thresholds.editing { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.6rem; }

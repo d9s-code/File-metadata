@@ -71,6 +71,8 @@ export interface TestRecord {
   notes: string | null;
   tested_by: string | null;
   test_date: string;
+  /** When on test_date it ran ("HH:MM:SS"); null on runs logged before times were kept. */
+  test_time: string | null;
   simulation_created_date: string | null;
   /** "Manual", or a value written in; null on runs logged before dwell existed. */
   dwell: string | null;
@@ -102,6 +104,8 @@ export interface TestRecordInput {
   title: string;
   notes?: string;
   test_date: string;
+  /** "HH:MM". */
+  test_time?: string;
   simulation_created_date?: string;
   /** "Manual", or a value written in (e.g. "50 ms"). */
   dwell?: string;

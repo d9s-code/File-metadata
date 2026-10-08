@@ -30,7 +30,7 @@ export function EmitterTestHistory({
   return (
     <div>
       <SimTestLinesPanel emitterId={emitterId} lines={testLines ?? []} />
-      <SimulationTrend emitterId={emitterId} records={records ?? []} />
+      <SimulationTrend emitterId={emitterId} records={records ?? []} lineIds={(testLines ?? []).map((l) => l.id)} />
       <div className="card">
         <div className="card-header">
           <h4>

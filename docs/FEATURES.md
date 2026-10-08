@@ -219,6 +219,8 @@ A SIM line's intercepted Modes can include **Default Unknown** — the system re
 
 Older lab bench, live range and field exercise records stay in the history but can't be logged any more. Every run also records a title, notes, test date, a **dwell** ("Manual", or a value written in such as "50 ms", set once for the whole run) and an overall result that is derived from its lines or Modes (worst one wins). Each run has its own page, and each SIM Test Line shows its status: its outcome and date in the most recent run that included it.
 
+**Simulation trend** (Test History): one column per simulation run, oldest to newest, stacked by line outcome and topped by the SIM Test Lines the run didn't include (**Not in this run**), so every column is all of the Emitter's current lines; both that and numbers on the bars (**Counts**) can be switched, and the choice is remembered. Columns are labelled with the run's date and **time** — each run records the time it ran (filled with the current time on the run page); runs from before that show the time they were logged, in italics.
+
 Each Mode shows **Last seen** (Modes table, cards, and a filter): the latest run it turned up in — reported under Intercepted as for a SIM line (with that line's outcome; if it was reported for several lines in one run, the worst counts) or rated in an intercept run — linking to the run, with how many runs it was seen in by outcome on hover. It replaces Last Tested, which only counted intercept-run ratings and so never showed Modes reported in simulation runs. The Emitter summary's count of passing Modes uses the same.
 
 A test record automatically pins to whichever version of the Emitter or MDF was the latest *committed* one at the moment you logged it — so your test history stays accurate to what was actually tested, even as the draft keeps changing afterward.
@@ -262,7 +264,7 @@ Ranges are compared **with their ± margins** — each Mode's RF, PRI and PW ran
 - **Stagger vs Stagger** — with **range matching** on both, PRI is compared on the **frame time** (± frame margin); with it on only one, they're told apart; with it on neither, on the share of identical steps.
 - **CW vs CW, X-let vs X-let** — RF and PW only.
 
-Checks made under older rules say so on the page. Every finding records the ranges it compared and which parameter set its severity. The run bar at the top is kept short: what was checked and when, **Run the check** / **Run again**, and the thresholds on one line (**Change** for Editors and Admins). The rules in words, with the thresholds in the sentences, are behind **How it decides**.
+Checks made under older rules say so on the page. Every finding records the ranges it compared and which parameter set its severity. The run bar at the top is one row: what was checked and when, **Run the check** / **Run again**, and a **Thresholds** chip (click to change, Editors and Admins). The rules in words, with the thresholds in the sentences, are behind **How it decides**.
 
 ### Three scopes
 

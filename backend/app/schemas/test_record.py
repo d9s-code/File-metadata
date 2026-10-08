@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, time
 from uuid import UUID
 
 from pydantic import AliasPath, BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -115,6 +115,8 @@ class TestRecordCreate(BaseModel):
     title: str
     notes: str | None = None
     test_date: date
+    # When on test_date it ran (optional).
+    test_time: time | None = None
     # Required for a Simulation test — when the simulation model/scenario itself
     # was built, as distinct from test_date (when the run happened against it).
     simulation_created_date: date | None = None
@@ -228,6 +230,8 @@ class TestRecordOut(BaseModel):
     notes: str | None = None
     tested_by: UUID | None = None
     test_date: date
+    # When on test_date it ran (optional).
+    test_time: time | None = None
     simulation_created_date: date | None = None
     dwell: str | None = None
     created_at: datetime
