@@ -143,8 +143,12 @@ export interface FindingModeSide {
   pri_type?: string;
   ew_group_id: string;
   ew_group_name: string;
+  /** The first Source; source_name lists them all. */
   source_id: string;
   source_name: string;
+  /** Every Source the Mode comes from (missing on findings from before Modes could have several). */
+  source_ids?: string[];
+  source_names?: string[];
   emitter_id: string;
   emitter_name: string;
   platform_id: string | null;
@@ -200,7 +204,8 @@ export interface MergeSpans {
 
 export interface MergePlan {
   keep: "a" | "b";
-  kept: { id: string; name: string; before: MergeSpans; after: MergeSpans };
+  /** sources_after: the kept Mode takes on the removed one's Sources too. */
+  kept: { id: string; name: string; before: MergeSpans; after: MergeSpans; sources_after?: string[] };
   removed: { id: string; name: string; source_name: string; spans: MergeSpans };
   links_moved: { intercept_entries: number; test_records: number; test_record_lines: number; test_lines: number };
   new_overlaps: { mode_id: string; mode_name: string; before: AmbiguitySeverity | "none"; after: AmbiguitySeverity }[];

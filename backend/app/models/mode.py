@@ -54,6 +54,42 @@ class Mode(UUIDPkMixin, TimestampMixin, Base):
     )
     generation_batch: Mapped["ModeGenerationBatch | None"] = relationship(back_populates="modes")
     function_group: Mapped["FunctionGroup | None"] = relationship(back_populates="modes")  # noqa: F821
+    # A Mode can come from more than one Source: source_id is the first, these
+    # are the rest, in order. Use source_ids / set_mode_sources, not these rows.
+    extra_source_links: Mapped[list["ModeExtraSource"]] = relationship(
+        back_populates="mode", cascade="all, delete-orphan", order_by="ModeExtraSource.sort_order"
+    )
+
+    @property
+    def sources(self) -> list["Source"]:  # noqa: F821
+        return [self.source, *(link.source for link in self.extra_source_links)]
+
+    @property
+    def source_ids(self) -> list[uuid.UUID]:
+        return [self.source_id, *(link.source_id for link in self.extra_source_links)]
+
+    @property
+    def source_names(self) -> list[str]:
+        return [s.name for s in self.sources]
+
+
+class ModeExtraSource(Base):
+    """A Source a Mode comes from besides its first (Mode.source_id)."""
+
+    __tablename__ = "mode_extra_sources"
+
+    mode_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("modes.id", ondelete="CASCADE"), primary_key=True
+    )
+    # Deleting the Source just drops it from the Mode's list (the Source's
+    # delete moves a Mode's first Source to the next one first).
+    source_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("sources.id", ondelete="CASCADE"), primary_key=True, index=True
+    )
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    mode: Mapped["Mode"] = relationship(back_populates="extra_source_links")
+    source: Mapped["Source"] = relationship(lazy="joined")  # noqa: F821
 
 
 class ModeLine(UUIDPkMixin, Base):

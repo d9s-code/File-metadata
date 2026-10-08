@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.core.csrf import verify_csrf
 from app.core.downloads import attachment_disposition
@@ -486,6 +486,7 @@ def list_emitter_modes(
         .join(EwGroup, Mode.ew_group_id == EwGroup.id)
         .filter(EwGroup.emitter_id == emitter_id)
         .order_by(EwGroup.sort_order, Mode.sort_order)
+        .options(selectinload(Mode.source), selectinload(Mode.extra_source_links))
         .all()
     )
     return attach_mode_extras(db, modes)

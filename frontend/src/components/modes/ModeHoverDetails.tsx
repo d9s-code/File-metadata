@@ -4,6 +4,8 @@ import { createPortal } from "react-dom";
 import type { EwGroup, Mode, Source } from "../../types/domain";
 import { useElements } from "../../state/hooks/useElements";
 import { useFloatingPosition } from "../common/useFloatingPosition";
+import { HoverInfo } from "../common/InfoPopover";
+import { modeSourceIds } from "./modeFormat";
 
 export function ModeHoverDetail({ mode, source }: { mode: Mode; source?: Source }) {
   return (
@@ -74,6 +76,41 @@ export function SourceHoverDetail({ emitterId, source }: { emitterId: string; so
       </dd>
     </dl>
   );
+}
+
+/** Every Source a Mode comes from, each with its details on hover. */
+export function ModeSourcesList({
+  emitterId,
+  mode,
+  sourcesById,
+}: {
+  emitterId: string;
+  mode: Mode;
+  sourcesById: Record<string, Source>;
+}) {
+  const sources = modeSourceIds(mode).map((id) => sourcesById[id]).filter((s): s is Source => !!s);
+  if (sources.length === 0) return <>—</>;
+  return (
+    <span className="mode-sources">
+      {sources.map((s, i) => (
+        <span key={s.id}>
+          {i > 0 && ", "}
+          <HoverInfo label={s.name}>
+            <SourceHoverDetail emitterId={emitterId} source={s} />
+          </HoverInfo>
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** The most recently updated of a Mode's Sources — what "Source changed
+ * after this Mode" compares against. */
+export function latestSource(mode: Mode, sourcesById: Record<string, Source>): Source | undefined {
+  return modeSourceIds(mode)
+    .map((id) => sourcesById[id])
+    .filter((s): s is Source => !!s)
+    .sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0];
 }
 
 export function StaggerSequenceBox({ mode }: { mode: Mode }) {

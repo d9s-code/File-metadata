@@ -2,7 +2,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.csrf import verify_csrf
 from app.core.enums import AuditAction, AuditEntityType, Role, TestRecordModeLinkType
@@ -33,6 +33,7 @@ from app.schemas.mode import (
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.dsl_mode_service import create_mode_from_dsl
 from app.services.frametime_service import FRAME_TIME_DECIMALS, compute_frametime_us
+from app.services.mode_sources import resolve_sources, set_mode_sources, sources_label
 from app.services.mode_test_status_service import attach_mode_extras
 
 router = APIRouter(prefix="/ew-groups/{ew_group_id}/modes", tags=["modes"])
@@ -87,7 +88,13 @@ def list_modes(
     _=Depends(require_role(Role.viewer)),
 ) -> list[ModeOut]:
     _get_ew_group_or_404(db, ew_group_id)
-    modes = db.query(Mode).filter(Mode.ew_group_id == ew_group_id).order_by(Mode.sort_order).all()
+    modes = (
+        db.query(Mode)
+        .filter(Mode.ew_group_id == ew_group_id)
+        .order_by(Mode.sort_order)
+        .options(selectinload(Mode.source), selectinload(Mode.extra_source_links))
+        .all()
+    )
     return attach_mode_extras(db, modes)
 
 
@@ -101,19 +108,11 @@ def create_mode(
     user=Depends(require_ew_group_checkout()),
 ) -> Mode:
     ew_group = _get_ew_group_or_404(db, ew_group_id)
-    source = db.get(Source, payload.source_id)
-    if source is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Source not found")
-    if source.emitter_id != ew_group.emitter_id:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            "Source and EW Group must belong to the same Emitter",
-        )
+    sources = resolve_sources(db, emitter_id=ew_group.emitter_id, source_ids=payload.all_source_ids())
     _check_function_group(db, function_group_id=payload.function_group_id, emitter_id=ew_group.emitter_id)
 
     mode = Mode(
         ew_group_id=ew_group_id,
-        source_id=payload.source_id,
         name=payload.name,
         pri_type=payload.pri_type,
         notes=payload.notes,
@@ -122,6 +121,7 @@ def create_mode(
         confirmation_quantity=payload.confirmation_quantity,
         function_group_id=payload.function_group_id,
     )
+    set_mode_sources(mode, sources)
     db.add(mode)
     db.flush()
 
@@ -225,7 +225,8 @@ def update_mode(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Mode not found")
 
     data = payload.model_dump(
-        exclude_unset=True, exclude={"line", "derived_from_test_record_ids", "derived_from_intercept_entry_ids"}
+        exclude_unset=True,
+        exclude={"line", "derived_from_test_record_ids", "derived_from_intercept_entry_ids", "source_id", "source_ids"},
     )
     if "ew_group_id" in data:
         new_ew_group = db.get(EwGroup, data["ew_group_id"])
@@ -236,15 +237,10 @@ def update_mode(
                 status.HTTP_422_UNPROCESSABLE_CONTENT,
                 "Target EW Group must belong to the same Emitter as the Mode's Source",
             )
-    if "source_id" in data:
-        new_source = db.get(Source, data["source_id"])
-        if new_source is None:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Target Source not found")
-        if new_source.emitter_id != mode.source.emitter_id:
-            raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_CONTENT,
-                "Target Source must belong to the same Emitter as the Mode",
-            )
+    new_source_ids = payload.source_ids or ([payload.source_id] if payload.source_id else None)
+    new_sources = (
+        resolve_sources(db, emitter_id=mode.source.emitter_id, source_ids=new_source_ids) if new_source_ids else None
+    )
     if "function_group_id" in data:
         _check_function_group(db, function_group_id=data["function_group_id"], emitter_id=mode.source.emitter_id)
     if "pri_type" in data and data["pri_type"] != mode.pri_type and payload.line is None:
@@ -256,6 +252,10 @@ def update_mode(
             status.HTTP_422_UNPROCESSABLE_CONTENT, "Changing pri_type requires a new line in the same request"
         )
     changes = apply_and_diff(mode, data)
+    if new_sources is not None and [s.id for s in new_sources] != mode.source_ids:
+        old_names = mode.source_names
+        set_mode_sources(mode, new_sources)
+        changes["sources"] = {"old": sources_label(old_names), "new": sources_label(mode.source_names)}
 
     if payload.line is not None:
         # Unlike ModeCreate (where this same check runs inside a Pydantic
@@ -313,6 +313,7 @@ def delete_mode(
             "confirmation_quality", "confirmation_quantity",
         ],
     )
+    mode_snapshot["source_ids"] = [str(sid) for sid in mode.source_ids]
     if mode.line is not None:
         mode_snapshot["line"] = snapshot(
             mode.line,

@@ -5439,3 +5439,36 @@ a.ai-cite:hover { text-decoration: underline; }
 .result-override-note { min-width: 18rem; margin-left: 0.5rem; }
 .result-override-form { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; margin: 0.25rem 0 0.5rem; }
 .result-note { margin: 0.25rem 0 0.5rem; padding: 0.4rem 0.6rem; border-left: 3px solid var(--badge-amber-fg); background: var(--badge-amber-bg); border-radius: var(--radius-sm); font-size: 0.88rem; }
+
+/* A Mode's Sources (one or more): chips, and a select to add another. */
+.mode-form-sources {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  grid-column: span 2;
+}
+.sources-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+.source-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  background: var(--badge-neutral-bg);
+  color: var(--badge-neutral-fg);
+}
+.source-chip .link-button {
+  padding: 0 0.15rem;
+  line-height: 1;
+}
+.sources-picker select {
+  width: auto;
+}

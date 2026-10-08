@@ -30,6 +30,7 @@ from app.models.emitter import Emitter
 from app.models.ew_group import EwGroup
 from app.models.function_group import FunctionGroup
 from app.models.mode import (
+    ModeExtraSource,
     DEFAULT_CONFIRMATION_QUALITY,
     DEFAULT_CONFIRMATION_QUANTITY,
     Mode,
@@ -198,7 +199,12 @@ def _reconcile_modes(db: Session, group: EwGroup, *, mode_snaps: list[dict]) -> 
             mode.confirmation_quality = m_snap["confirmation_quality"]
             mode.confirmation_quantity = m_snap["confirmation_quantity"]
         mode.function_group_id = _resolve_function_group_id(db, group.emitter_id, m_snap.get("function_group_id"))
+        mode.extra_source_links = _extra_source_links(m_snap.get("extra_source_ids", []))
         _reconcile_mode_line(db, mode, m_snap.get("line"))
+
+
+def _extra_source_links(source_ids: list[str]) -> list[ModeExtraSource]:
+    return [ModeExtraSource(source_id=uuid.UUID(sid), sort_order=i) for i, sid in enumerate(source_ids)]
 
 
 def _reconcile_mode_line(db: Session, mode: Mode, line_snap: dict | None) -> None:
@@ -344,6 +350,10 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
                 confirmation_quantity=m_snap.get("confirmation_quantity", DEFAULT_CONFIRMATION_QUANTITY),
                 function_group_id=function_group_id_map.get(m_snap.get("function_group_id")),
             )
+            new_mode.extra_source_links = [
+                ModeExtraSource(source_id=source_id_map[sid], sort_order=i)
+                for i, sid in enumerate(m_snap.get("extra_source_ids", []))
+            ]
             db.add(new_mode)
             db.flush()
             mode_id_map[m_snap["id"]] = new_mode.id

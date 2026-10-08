@@ -16,7 +16,13 @@ import {
   type ModeSortKey,
   type SortDir,
 } from "./modeFormat";
-import { EwGroupHoverDetail, ModeHoverDetail, SourceHoverDetail, StaggerSequenceBox } from "./ModeHoverDetails";
+import {
+  EwGroupHoverDetail,
+  latestSource,
+  ModeHoverDetail,
+  ModeSourcesList,
+  StaggerSequenceBox,
+} from "./ModeHoverDetails";
 import { TestDerivedBadge } from "./TestDerivedBadge";
 import { InterceptDerivedBadge } from "./InterceptDerivedBadge";
 import { LastTestedCell } from "./LastTestedCell";
@@ -67,7 +73,7 @@ const MODE_COLUMNS: (ToggleableColumn<ModeColumnId> & { sortKey?: ModeSortKey; t
   { id: "confirmation_quantity", label: "Confirmation Quantity", sortKey: "confirmation_quantity", type: "number" },
   { id: "ew_group", label: "EW Group", sortKey: "ew_group" },
   { id: "function_group", label: "Function Group", sortKey: "function_group" },
-  { id: "source", label: "Source", sortKey: "source" },
+  { id: "source", label: "Sources", sortKey: "source" },
   { id: "last_tested", label: "Last seen", sortKey: "last_tested", type: "date" },
 ];
 
@@ -154,7 +160,6 @@ export function ModesTable({
 
   function renderModeRow(m: Mode) {
     const ewGroup = ewGroupsById[m.ew_group_id];
-    const source = sourcesById[m.source_id];
     const isSelected = selected.has(m.id);
     const rf = rfDisplay(m, showEngineered);
     const pw = pwDisplay(m, showEngineered);
@@ -178,7 +183,7 @@ export function ModesTable({
       name: () => (
         <td>
           <HoverInfo label={<>{m.name}{m.notes && " 📝"}</>}>
-            <ModeHoverDetail mode={m} source={sourcesById[m.source_id]} />
+            <ModeHoverDetail mode={m} source={latestSource(m, sourcesById)} />
           </HoverInfo>
           <TestDerivedBadge emitterId={emitterId} records={m.derived_from_test_records} />
           <InterceptDerivedBadge intercepts={m.derived_from_intercepts} />
@@ -231,13 +236,7 @@ export function ModesTable({
       ),
       source: () => (
         <td>
-          {source ? (
-            <HoverInfo label={source.name}>
-              <SourceHoverDetail emitterId={emitterId} source={source} />
-            </HoverInfo>
-          ) : (
-            "—"
-          )}
+          <ModeSourcesList emitterId={emitterId} mode={m} sourcesById={sourcesById} />
         </td>
       ),
       last_tested: () => (

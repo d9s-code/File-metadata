@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import type { AmbiguityFinding, AmbiguityRun, AmbiguityScopeType, AmbiguitySeverity, ToleranceConfig } from "../api/ambiguity";
+import type {
+  AmbiguityFinding,
+  AmbiguityRun,
+  AmbiguityScopeType,
+  AmbiguitySeverity,
+  FindingModeSide,
+  ToleranceConfig,
+} from "../api/ambiguity";
 import {
   useAiStatus,
   useAmbiguityFindings,
@@ -45,10 +52,14 @@ const STATUS_LABEL: Record<FindingStatus, string> = { open: "Open", acknowledged
 
 type View = "findings" | "modes" | "matrix";
 
+function sideSourceIds(side: FindingModeSide): string[] {
+  return side.source_ids?.length ? side.source_ids : [side.source_id];
+}
+
 function sideMatches(f: AmbiguityFinding, ewGroupId: string, sourceId: string, text: string): boolean {
   const { mode_a: a, mode_b: b } = f.details;
   if (ewGroupId && a.ew_group_id !== ewGroupId && b.ew_group_id !== ewGroupId) return false;
-  if (sourceId && a.source_id !== sourceId && b.source_id !== sourceId) return false;
+  if (sourceId && !sideSourceIds(a).includes(sourceId) && !sideSourceIds(b).includes(sourceId)) return false;
   if (text) {
     const t = text.toLowerCase();
     if (!a.mode_name.toLowerCase().includes(t) && !b.mode_name.toLowerCase().includes(t)) return false;
@@ -126,7 +137,7 @@ export function AmbiguityDashboardPage() {
     for (const f of all) {
       for (const s of [f.details.mode_a, f.details.mode_b]) {
         groups.set(s.ew_group_id, s.ew_group_name);
-        sources.set(s.source_id, s.source_name);
+        sideSourceIds(s).forEach((id, i) => sources.set(id, s.source_names?.[i] ?? s.source_name));
       }
     }
     const sorted = (m: Map<string, string>) => [...m.entries()].sort((a, b) => a[1].localeCompare(b[1]));

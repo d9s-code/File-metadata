@@ -334,7 +334,11 @@ export interface InterceptReport {
 export interface Mode {
   id: string;
   ew_group_id: string;
+  /** The first of source_ids. */
   source_id: string;
+  /** Every Source the Mode comes from (one or more), in order, with their names. */
+  source_ids: string[];
+  source_names: string[];
   name: string;
   pri_type: PriType;
   notes: string | null;

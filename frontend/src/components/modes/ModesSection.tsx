@@ -11,7 +11,7 @@ import { ModeCharts } from "./charts/ModeCharts";
 import { ModeForm } from "./ModeForm";
 import { BatchEditModal } from "./BatchEditModal";
 import { PrsImportModal } from "./PrsImportModal";
-import { compareModes, rangeOverlaps, searchableText, type ModeSortKey, type SortDir } from "./modeFormat";
+import { compareModes, modeSourceIds, rangeOverlaps, searchableText, type ModeSortKey, type SortDir } from "./modeFormat";
 import type { PriType } from "../../types/domain";
 import { RequireRole } from "../../auth/RequireAuth";
 import { EmptyState } from "../common/EmptyState";
@@ -128,7 +128,7 @@ export function ModesSection({
   const filtered = (modes ?? []).filter((m) => {
     if (ewGroupFilter && m.ew_group_id !== ewGroupFilter) return false;
     if (functionGroupFilter && m.function_group_id !== functionGroupFilter) return false;
-    if (sourceFilter && m.source_id !== sourceFilter) return false;
+    if (sourceFilter && !modeSourceIds(m).includes(sourceFilter)) return false;
     if (batchFilter && m.generation_batch_id !== batchFilter) return false;
     if (priTypeFilter && m.pri_type !== priTypeFilter) return false;
     if (rfRangeMatchingOnly && !m.line?.rf_range_matching) return false;

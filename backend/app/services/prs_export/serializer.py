@@ -14,6 +14,7 @@ from lxml import etree
 from app.models.mode import DEFAULT_CONFIRMATION_QUALITY, DEFAULT_CONFIRMATION_QUANTITY
 from app.services.delta import apply_delta
 from app.services.frametime_service import effective_frametime_us
+from app.services.mode_sources import all_rejected, mode_source_ids
 from app.services.snapshots import rejected_source_ids
 
 PRS_NAMESPACE = "urn:com:bae:prs:pfm:library"
@@ -98,7 +99,7 @@ def build_emitter_element(emitter_snapshot: dict) -> etree._Element:
     rejected = rejected_source_ids(emitter_snapshot)
     for group in ew_groups:
         for mode in group.get("modes", []):
-            if mode["source_id"] not in rejected:
+            if not all_rejected(mode_source_ids(mode), rejected):
                 _append_mode_element(root, mode, scan_name=group["name"])
 
     etree.SubElement(root, "TacticGroup").text = "None"

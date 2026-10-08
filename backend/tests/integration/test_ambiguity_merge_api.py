@@ -69,7 +69,9 @@ def test_merge_widens_the_kept_mode_moves_history_and_deletes_the_other(editor_c
     kept = modes["Search A"]
     assert (kept["line"]["rf_min_mhz"], kept["line"]["rf_max_mhz"]) == (2900, 3150)
     assert kept["line"]["pw_delta"] == 0.1
-    assert 'Merged with "Search B" (source "Field notes"' in kept["notes"]
+    assert 'Merged with "Search B" (sources "Field notes"' in kept["notes"]
+    # Search A now comes from both Sources.
+    assert kept["source_names"] == ["Datasheet", "Field notes"]
     assert "Its notes: Search B notes" in kept["notes"]
 
     # The test record that exercised Search B now lists Search A.

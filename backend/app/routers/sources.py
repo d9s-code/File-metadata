@@ -28,6 +28,7 @@ from app.schemas.parameter_sequence import (
 )
 from app.schemas.source import SourceCreate, SourceOut, SourceRejectRequest, SourceUpdate
 from app.schemas.source_note import SourceNoteCreate, SourceNoteOut
+from app.services.mode_sources import set_mode_sources
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.cartesian_service import CartesianProductError, run_cartesian_product
 from app.services.frametime_service import compute_frametime_us
@@ -120,8 +121,19 @@ def delete_source(
     source = db.get(Source, source_id)
     if source is None or source.emitter_id != emitter_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Source not found")
-    if source.modes:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Cannot delete a Source that still has Modes")
+    only_source = [m.name for m in source.modes if not m.extra_source_links]
+    if only_source:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Cannot delete a Source that is the only Source of {len(only_source)} Mode(s): "
+            + ", ".join(only_source[:5])
+            + ("…" if len(only_source) > 5 else ""),
+        )
+    # Modes it's the first Source of keep their other Sources; the next one
+    # becomes first. Its place among other Modes' extra Sources goes with it.
+    for mode in list(source.modes):
+        set_mode_sources(mode, mode.sources[1:])
+    db.flush()
     record_audit(
         db,
         actor_id=user.id,

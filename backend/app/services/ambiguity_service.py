@@ -23,6 +23,7 @@ from typing import Any
 
 from app.services.delta import apply_delta
 from app.services.frametime_service import effective_frametime_us
+from app.services.mode_sources import all_rejected, mode_source_ids
 from app.services.snapshots import rejected_source_ids
 
 DEFAULT_TOLERANCE = {
@@ -44,6 +45,7 @@ class FlatModeLine:
     pri_type: str
     ew_group_id: str
     ew_group_name: str
+    # The first Source (source_name lists them all).
     source_id: str
     source_name: str
     emitter_id: str
@@ -51,6 +53,9 @@ class FlatModeLine:
     platform_id: str | None
     platform_name: str | None
     line: dict = field(default_factory=dict)
+    # Every Source the Mode comes from, first one first.
+    source_ids: list[str] = field(default_factory=list)
+    source_names: list[str] = field(default_factory=list)
 
 
 def flatten_emitter_snapshot(
@@ -67,7 +72,7 @@ def flatten_emitter_snapshot(
     rejected = rejected_source_ids(emitter_snapshot)
     for ew_group in emitter_snapshot["ew_groups"]:
         for mode in ew_group["modes"]:
-            if mode["line"] is None or mode["source_id"] in rejected:
+            if mode["line"] is None or all_rejected(mode_source_ids(mode), rejected):
                 continue
             out.append(
                 FlatModeLine(
@@ -77,7 +82,9 @@ def flatten_emitter_snapshot(
                     ew_group_id=ew_group["id"],
                     ew_group_name=ew_group["name"],
                     source_id=mode["source_id"],
-                    source_name=mode["source_name"],
+                    source_name=", ".join(mode.get("source_names") or [mode["source_name"]]),
+                    source_ids=mode_source_ids(mode),
+                    source_names=mode.get("source_names") or [mode["source_name"]],
                     emitter_id=eid,
                     emitter_name=ename,
                     platform_id=platform_id,
@@ -277,6 +284,8 @@ def compute_pairwise_findings(mode_lines: list[FlatModeLine], tolerance: dict | 
                         "ew_group_name": a.ew_group_name,
                         "source_id": a.source_id,
                         "source_name": a.source_name,
+                        "source_ids": a.source_ids,
+                        "source_names": a.source_names,
                         "emitter_id": a.emitter_id,
                         "emitter_name": a.emitter_name,
                         "platform_id": a.platform_id,
@@ -290,6 +299,8 @@ def compute_pairwise_findings(mode_lines: list[FlatModeLine], tolerance: dict | 
                         "ew_group_name": b.ew_group_name,
                         "source_id": b.source_id,
                         "source_name": b.source_name,
+                        "source_ids": b.source_ids,
+                        "source_names": b.source_names,
                         "emitter_id": b.emitter_id,
                         "emitter_name": b.emitter_name,
                         "platform_id": b.platform_id,

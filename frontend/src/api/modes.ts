@@ -2,7 +2,9 @@ import { api } from "./client";
 import type { Mode, ModeLineFields, PriType } from "../types/domain";
 
 export interface ModeCreateInput {
-  source_id: string;
+  /** Every Source the Mode comes from (one or more), or source_id for just one. */
+  source_ids?: string[];
+  source_id?: string;
   name: string;
   pri_type: PriType;
   notes?: string | null;
@@ -22,7 +24,8 @@ export interface ModeUpdateInput {
   confirmation_quality?: number;
   confirmation_quantity?: number;
   ew_group_id?: string;
-  source_id?: string;
+  /** Replaces the Mode's Sources (one or more). */
+  source_ids?: string[];
   function_group_id?: string | null;
   /** Changing this requires `line` in the same request — see the backend's
    * own note on why there's no partial edit across a PRI type change. */
@@ -34,7 +37,10 @@ export interface ModeUpdateInput {
 
 export interface BatchModeFieldEdit {
   ew_group_id?: string;
+  /** Makes this each selected Mode's only Source. */
   source_id?: string;
+  /** Adds this Source to each selected Mode's Sources. */
+  add_source_id?: string;
   function_group_id?: string | null;
   notes?: string;
   confirmation_quality?: number;

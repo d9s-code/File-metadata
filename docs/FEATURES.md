@@ -142,6 +142,14 @@ Sources are scoped per-Emitter — each Emitter curates its own list.
 
 A Source can't be deleted while it still has Modes attached.
 
+### A Mode from several Sources
+
+A Mode can come from **more than one Source** — the same signal in two reports, say. The Mode form picks them as chips (*+ another Source…* adds one, × removes one; at least one stays); the Modes table's **Sources** column and the cards list them all, and the Source filter and search match any of them. **Batch Edit** can add a Source to every selected Mode, or make one Source their only one. Changes are audited ("Sources: A → A, B") and kept in versions: the diff shows a **Sources** change, and revert and fork bring them back.
+
+- **Deleting a Source** is refused only while it's some Mode's *only* Source (the message names them); Modes that have another just lose it.
+- **Rejected Sources**: a Mode is left out of exports and ambiguity checks only when *every* Source it comes from is rejected — one approved Source keeps it in.
+- **Merging duplicates** from an ambiguity check keeps both Modes' Sources on the kept Mode.
+
 ### Intercepts as Sources
 
 **Turn into Source** on an Intercept (Editors, with the Emitter checked out) adds a Source that stands for it — the Intercept's name, date and description, type "Intercept", starting `pending_review` — so a Mode can have the Intercept as its Source rather than an unrelated document. It's only a link: nothing is derived from the entries (no Elements), and Modes already made from the entries stay where they are. New Modes made from its entries (one at a time, or with Plan Modes) start on that Source. The Source shows "Stands for Intercept …" and the Intercept links to its Source; one Source per Intercept. The link is part of the Emitter's version (it survives save, discard and revert), and deleting the Intercept leaves the Source and its Modes in place, unlinked.

@@ -294,6 +294,14 @@ export function HelpPage() {
               staleness callout if the Source has changed more recently than the Mode.
             </p>
             <p>
+              A Mode can come from <strong>more than one Source</strong> — e.g. the same signal in two reports.
+              Pick them under <strong>Sources</strong> in the Mode form (<em>+ another Source…</em> adds one, ×
+              takes one off); the Sources column lists them all, and the Source filter finds a Mode by any of
+              them. <strong>Batch Edit</strong> can add a Source to many Modes at once, or make one their only
+              Source. A Source can be deleted unless it&rsquo;s some Mode&rsquo;s only Source; its other Modes just
+              lose it. Merging duplicates from the ambiguity check keeps both Modes&rsquo; Sources.
+            </p>
+            <p>
               A Mode whose parameters came from a test finding rather than its Source carries a{" "}
               <span className="test-derived-badge">Test-Derived</span> badge; one derived from a logged{" "}
               <strong>Intercept</strong> entry instead carries an{" "}
@@ -490,7 +498,8 @@ export function HelpPage() {
               Elements and Sequences, then <strong>Approve</strong>s or <strong>Reject</strong>s it via the
               buttons next to the Source. Rejecting asks for a reason, which is shown under the Source&rsquo;s
               name. A <span className="status-badge status-rejected">rejected</span> Source stays in the list,
-              but its Modes are left out of exports and ambiguity checks until someone approves it — the{" "}
+              but Modes that come only from rejected Sources are left out of exports and ambiguity checks until
+              someone approves one (a Mode with another, approved Source stays in) — the{" "}
               <strong>Approve</strong> button stays available on rejected Sources for exactly that. A
               manually-created Source is approved immediately; there&rsquo;s nothing to review.
             </p>

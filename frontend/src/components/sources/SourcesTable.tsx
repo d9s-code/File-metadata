@@ -25,6 +25,7 @@ import { SortableColumnHeader } from "../common/SortableColumnHeader";
 import { useSortableTable } from "../common/useSortableTable";
 import { compareStrings } from "../common/sortUtils";
 import { statusLabel } from "../common/emitterStatusLabel";
+import { modeSourceIds } from "../modes/modeFormat";
 
 const UNGROUPED_KEY = "__ungrouped__";
 
@@ -61,7 +62,7 @@ function ElementCounts({ emitterId, sourceId }: { emitterId: string; sourceId: s
  * glance, has this Source's data actually been turned into any Modes yet? */
 function SourceCoverage({ emitterId, sourceId }: { emitterId: string; sourceId: string }) {
   const { data: modes } = useEmitterModes(emitterId);
-  const covering = (modes ?? []).filter((m) => m.source_id === sourceId);
+  const covering = (modes ?? []).filter((m) => modeSourceIds(m).includes(sourceId));
   if (covering.length === 0) {
     return <span className="hint-text">No Modes built from this Source yet</span>;
   }
@@ -308,7 +309,7 @@ export function SourcesTable({
 
   const modeCountBySource = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const m of allModes ?? []) counts.set(m.source_id, (counts.get(m.source_id) ?? 0) + 1);
+    for (const m of allModes ?? []) for (const id of modeSourceIds(m)) counts.set(id, (counts.get(id) ?? 0) + 1);
     return counts;
   }, [allModes]);
 

@@ -56,7 +56,7 @@ MODE_FIELD_LABELS = {
     "name": "Name",
     "pri_type": "PRI Type",
     "notes": "Notes",
-    "source_name": "Source",
+    "sources": "Sources",
     "function_group_name": "Function Group",
     "confirmation_quality": "Confirmation Quality (%)",
     "confirmation_quantity": "Confirmation Quantity",
@@ -171,6 +171,12 @@ def _test_line_summary(tl: dict) -> str | None:
     return f"expects {tl['expected_mode_name']}" if tl.get("expected_mode_name") else None
 
 
+def _with_sources(m: dict) -> dict:
+    """The Mode's Sources as one value (snapshots from before Modes could
+    have several carry only source_name)."""
+    return {**m, "sources": ", ".join(m.get("source_names") or [m.get("source_name") or ""])}
+
+
 def _diff_modes(entries: list[dict], old_modes: list[dict], new_modes: list[dict]) -> None:
     old_by_id = {m["id"]: m for m in old_modes}
     new_by_id = {m["id"]: m for m in new_modes}
@@ -183,7 +189,7 @@ def _diff_modes(entries: list[dict], old_modes: list[dict], new_modes: list[dict
             entries.append(_entry(f"Mode '{m['name']}'", "Removed", "removed", old_value=_mode_summary(m)))
 
     for mode_id in set(old_by_id) & set(new_by_id):
-        om, nm = old_by_id[mode_id], new_by_id[mode_id]
+        om, nm = _with_sources(old_by_id[mode_id]), _with_sources(new_by_id[mode_id])
         scope = f"Mode '{nm['name']}'"
         _diff_fields(entries, scope, om, nm, MODE_FIELD_LABELS, MODE_FIELDS_ADDED_LATER)
         _diff_fields(

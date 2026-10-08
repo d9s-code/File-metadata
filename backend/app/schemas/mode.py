@@ -156,7 +156,9 @@ def require_manual_deltas(pri_type: PriType, fields: ModeLineFields) -> None:
 
 
 class ModeCreate(BaseModel):
-    source_id: UUID
+    # Every Source the Mode comes from (one or more), or just source_id for one.
+    source_id: UUID | None = None
+    source_ids: list[UUID] = []
     name: str
     pri_type: PriType
     notes: str | None = None
@@ -176,9 +178,14 @@ class ModeCreate(BaseModel):
 
     @model_validator(mode="after")
     def check_pri_type(self) -> "ModeCreate":
+        if not self.all_source_ids():
+            raise ValueError("A Mode needs at least one Source")
         validate_pri_type_fields(self.pri_type, self.line)
         require_manual_deltas(self.pri_type, self.line)
         return self
+
+    def all_source_ids(self) -> list[UUID]:
+        return self.source_ids or ([self.source_id] if self.source_id else [])
 
 
 # Modes created from one Intercept at once.
@@ -280,7 +287,9 @@ class ModeUpdate(BaseModel):
     confirmation_quality: ConfirmationQuality | None = None
     confirmation_quantity: ConfirmationQuantity | None = None
     ew_group_id: UUID | None = None
+    # Replaces the Mode's Sources: all of them (one or more), or source_id for just one.
     source_id: UUID | None = None
+    source_ids: list[UUID] | None = Field(default=None, min_length=1)
     function_group_id: UUID | None = None
     # Changing this requires `line` in the same request — the old PRI type's
     # fields (e.g. Fixed's pri_min_us/jitter) are meaningless under a new one
@@ -305,7 +314,10 @@ class BatchModeFieldEdit(BaseModel):
     """
 
     ew_group_id: UUID | None = None
+    # Makes this the selected Modes' only Source.
     source_id: UUID | None = None
+    # Adds this Source to each selected Mode's Sources (kept if already there).
+    add_source_id: UUID | None = None
     function_group_id: UUID | None = None
     notes: str | None = None
     confirmation_quality: ConfirmationQuality | None = None
@@ -452,7 +464,11 @@ class ModeOut(BaseModel):
 
     id: UUID
     ew_group_id: UUID
+    # The first of source_ids.
     source_id: UUID
+    # Every Source the Mode comes from, in order, with their names.
+    source_ids: list[UUID] = []
+    source_names: list[str] = []
     name: str
     pri_type: PriType
     notes: str | None = None

@@ -35,7 +35,8 @@ export function BatchEditModal({
   const batchEdit = useBatchEditModes(emitterId);
 
   const [ewGroupId, setEwGroupId] = useState("");
-  const [sourceId, setSourceId] = useState("");
+  // "add:<id>" adds that Source to each Mode; "set:<id>" makes it each one's only Source.
+  const [sourceChange, setSourceChange] = useState("");
   const [functionGroupId, setFunctionGroupId] = useState("");
   const [notes, setNotes] = useState("");
   const [rfRangeMatching, setRfRangeMatching] = useState<TriState>("");
@@ -70,7 +71,8 @@ export function BatchEditModal({
   function buildFields(): BatchModeFieldEdit {
     const fields: BatchModeFieldEdit = {};
     if (ewGroupId) fields.ew_group_id = ewGroupId;
-    if (sourceId) fields.source_id = sourceId;
+    if (sourceChange.startsWith("add:")) fields.add_source_id = sourceChange.slice(4);
+    if (sourceChange.startsWith("set:")) fields.source_id = sourceChange.slice(4);
     if (functionGroupId) fields.function_group_id = functionGroupId;
     if (notes.trim() !== "") fields.notes = notes;
     const quality = numOrUndefined(confirmationQuality);
@@ -163,14 +165,23 @@ export function BatchEditModal({
             </label>
             {sources && sources.length > 0 && (
               <label>
-                Source
-                <select value={sourceId} onChange={(e) => setSourceId(e.target.value)}>
+                Sources
+                <select value={sourceChange} onChange={(e) => setSourceChange(e.target.value)}>
                   <option value="">— leave unchanged —</option>
-                  {sources.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
+                  <optgroup label="Add to each Mode's Sources">
+                    {sources.map((s) => (
+                      <option key={s.id} value={`add:${s.id}`}>
+                        + {s.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Make it each Mode's only Source">
+                    {sources.map((s) => (
+                      <option key={s.id} value={`set:${s.id}`}>
+                        Only {s.name}
+                      </option>
+                    ))}
+                  </optgroup>
                 </select>
               </label>
             )}

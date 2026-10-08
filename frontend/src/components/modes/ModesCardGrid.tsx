@@ -3,7 +3,13 @@ import { MenuButton } from "../common/MenuButton";
 import type { EwGroup, FunctionGroup, Mode, ModeGenerationBatch, Source } from "../../types/domain";
 import { HoverInfo } from "../common/InfoPopover";
 import { RequireRole } from "../../auth/RequireAuth";
-import { EwGroupHoverDetail, ModeHoverDetail, SourceHoverDetail, StaggerSequenceBox } from "./ModeHoverDetails";
+import {
+  EwGroupHoverDetail,
+  latestSource,
+  ModeHoverDetail,
+  ModeSourcesList,
+  StaggerSequenceBox,
+} from "./ModeHoverDetails";
 import { TestDerivedBadge } from "./TestDerivedBadge";
 import { InterceptDerivedBadge } from "./InterceptDerivedBadge";
 import { LastTestedCell } from "./LastTestedCell";
@@ -72,7 +78,7 @@ export function ModesCardGrid({
 
   function renderModeCard(m: Mode) {
         const ewGroup = ewGroupsById[m.ew_group_id];
-        const source = sourcesById[m.source_id];
+        const source = latestSource(m, sourcesById);
         const rf = rfDisplay(m, showEngineered);
         const pw = pwDisplay(m, showEngineered);
         const pri = priDisplay(m, showEngineered);
@@ -155,13 +161,7 @@ export function ModesCardGrid({
                 )}
               </span>
               <span className="status-badge">
-                {source ? (
-                  <HoverInfo label={source.name}>
-                    <SourceHoverDetail emitterId={emitterId} source={source} />
-                  </HoverInfo>
-                ) : (
-                  "—"
-                )}
+                <ModeSourcesList emitterId={emitterId} mode={m} sourcesById={sourcesById} />
               </span>
               {m.function_group_id && (
                 <span className="status-badge">{functionGroupsById[m.function_group_id]?.name ?? "—"}</span>

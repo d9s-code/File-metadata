@@ -36,6 +36,7 @@ from app.services.ambiguity_service import (
     flatten_emitter_snapshot,
 )
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
+from app.services.mode_sources import add_mode_sources, sources_label
 from app.services.snapshots import build_emitter_snapshot
 
 SEVERITY_RANK = {"none": 0, "low": 1, "medium": 2, "high": 3, "exact_overlap": 4}
@@ -136,7 +137,7 @@ def plan(db: Session, finding: AmbiguityFinding, keep: str) -> dict:
     flat = {m.mode_id: m for m in _flat(emitter)}
     kept_flat, removed_flat = flat.get(str(kept.id)), flat.get(str(removed.id))
     if kept_flat is None or removed_flat is None:
-        raise MergeProblem("One of them belongs to a rejected Source — accept the Source first")
+        raise MergeProblem("One of them only has rejected Sources — accept one of its Sources first")
     merged = _union_line(kept_flat.line, removed_flat.line, kept.pri_type)
     _validated(merged, kept.pri_type)
 
@@ -164,8 +165,10 @@ def plan(db: Session, finding: AmbiguityFinding, keep: str) -> dict:
     return {
         "keep": keep,
         "kept": {"id": str(kept.id), "name": kept.name, "before": _spans(kept_flat.line, kept.pri_type.value),
-                 "after": _spans(merged, kept.pri_type.value)},
-        "removed": {"id": str(removed.id), "name": removed.name, "source_name": removed.source.name,
+                 "after": _spans(merged, kept.pri_type.value),
+                 # The kept Mode takes on the removed one's Sources too.
+                 "sources_after": list(dict.fromkeys([*kept.source_names, *removed.source_names]))},
+        "removed": {"id": str(removed.id), "name": removed.name, "source_name": ", ".join(removed.source_names),
                     "spans": _spans(removed_flat.line, removed.pri_type.value)},
         "links_moved": _links(db, removed.id),
         "new_overlaps": worse,
@@ -215,7 +218,7 @@ def apply(db: Session, finding: AmbiguityFinding, keep: str, user) -> dict:
 
     when = datetime.now(timezone.utc)
     note = (
-        f"Merged with \"{removed.name}\" (source \"{removed.source.name}\", EW group \"{removed.ew_group.name}\") "
+        f"Merged with \"{removed.name}\" (sources \"{', '.join(removed.source_names)}\", EW group \"{removed.ew_group.name}\") "
         f"on {when:%Y-%m-%d} by {user.username}, from an ambiguity check — its ranges are included in this Mode's."
     )
     if removed.notes:
@@ -230,9 +233,15 @@ def apply(db: Session, finding: AmbiguityFinding, keep: str, user) -> dict:
     except DslSyntaxError:
         kept.line.dsl_text = None
 
+    old_sources = kept.source_names
+    add_mode_sources(kept, removed.sources)
+    if kept.source_names != old_sources:
+        changes["sources"] = {"old": sources_label(old_sources), "new": sources_label(kept.source_names)}
+
     _move_links(db, kept.id, removed.id)
 
     removed_snapshot = snapshot(removed, ["name", "pri_type", "notes", "source_id", "function_group_id"])
+    removed_snapshot["source_ids"] = [str(sid) for sid in removed.source_ids]
     removed_snapshot["line"] = flat[str(removed.id)].line
     record_audit(
         db,

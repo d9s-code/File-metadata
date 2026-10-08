@@ -29,6 +29,7 @@ from app.schemas.mode import (
     validate_pri_type_fields,
 )
 from app.services.audit_service import apply_and_diff, record_audit
+from app.services.mode_sources import add_mode_sources, set_mode_sources, sources_label
 
 # ModeLineFields columns that aren't part of the rendered DSL line text —
 # kept in sync with the same set in app/routers/modes.py.
@@ -53,9 +54,9 @@ _LINE_FIELD_KEYS = {
     "pri_delta",
     "frame_time_delta_us",
 }
+# source_id and add_source_id go through set_mode_sources, not setattr.
 _METADATA_FIELD_KEYS = {
     "ew_group_id",
-    "source_id",
     "function_group_id",
     "notes",
     "confirmation_quality",
@@ -81,6 +82,8 @@ class PlannedModeEdit:
     mode: Mode
     metadata_changes: dict[str, Any]
     line_fields: ModeLineFields
+    source_id: UUID | None = None
+    add_source_id: UUID | None = None
 
 
 def _current_line_values(mode: Mode) -> dict[str, Any]:
@@ -134,10 +137,11 @@ def plan_batch_edit(
         if target is None or target.emitter_id != emitter_id:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Target EW Group not found in this Emitter")
 
-    if "source_id" in field_data:
-        target_source = db.get(Source, field_data["source_id"])
-        if target_source is None or target_source.emitter_id != emitter_id:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Target Source not found in this Emitter")
+    for key in ("source_id", "add_source_id"):
+        if field_data.get(key) is not None:
+            target_source = db.get(Source, field_data[key])
+            if target_source is None or target_source.emitter_id != emitter_id:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "Target Source not found in this Emitter")
 
     if field_data.get("function_group_id") is not None:
         target_fg = db.get(FunctionGroup, field_data["function_group_id"])
@@ -162,7 +166,15 @@ def plan_batch_edit(
             validate_pri_type_fields(mode.pri_type, new_line)
 
             metadata_changes = {k: v for k, v in field_data.items() if k in _METADATA_FIELD_KEYS}
-            planned.append(PlannedModeEdit(mode=mode, metadata_changes=metadata_changes, line_fields=new_line))
+            planned.append(
+                PlannedModeEdit(
+                    mode=mode,
+                    metadata_changes=metadata_changes,
+                    line_fields=new_line,
+                    source_id=field_data.get("source_id"),
+                    add_source_id=field_data.get("add_source_id"),
+                )
+            )
         except (ValidationError, ValueError) as exc:
             errors.append(ModeBatchEditError(mode_id=mode.id, mode_name=mode.name, error=str(exc)))
 
@@ -197,6 +209,13 @@ def apply_batch_edit(
     for item in planned:
         mode = item.mode
         changes = apply_and_diff(mode, item.metadata_changes)
+        old_names = mode.source_names
+        if item.source_id is not None:
+            set_mode_sources(mode, [db.get(Source, item.source_id)])
+        if item.add_source_id is not None:
+            add_mode_sources(mode, [db.get(Source, item.add_source_id)])
+        if mode.source_names != old_names:
+            changes["sources"] = {"old": sources_label(old_names), "new": sources_label(mode.source_names)}
         line_fields = item.line_fields.model_dump()
         changes.update(apply_and_diff(mode.line, line_fields))
         try:

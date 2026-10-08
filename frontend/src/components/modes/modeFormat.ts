@@ -108,6 +108,11 @@ export function rangeOverlaps(filterMin: string, filterMax: string, valueMin: nu
   return valueMin <= fMax && valueMax >= fMin;
 }
 
+/** Every Source a Mode comes from (one or more), first one first. */
+export function modeSourceIds(mode: Mode): string[] {
+  return mode.source_ids?.length ? mode.source_ids : [mode.source_id];
+}
+
 export function searchableText(
   mode: Mode,
   ewGroup: EwGroup | undefined,
@@ -119,7 +124,7 @@ export function searchableText(
     mode.pri_type,
     mode.notes ?? "",
     ewGroup?.name ?? "",
-    source?.name ?? "",
+    mode.source_names?.length ? mode.source_names.join(" ") : (source?.name ?? ""),
     functionGroup?.name ?? "",
     mode.line?.dsl_text ?? "",
     mode.line ? `${mode.line.rf_min_mhz} ${mode.line.rf_max_mhz}` : "",
@@ -165,7 +170,10 @@ function sortValue(
     case "function_group":
       return mode.function_group_id ? (functionGroupsById[mode.function_group_id]?.name ?? "").toLowerCase() : null;
     case "source":
-      return (sourcesById[mode.source_id]?.name ?? "").toLowerCase();
+      return modeSourceIds(mode)
+        .map((id) => sourcesById[id]?.name ?? "")
+        .join(", ")
+        .toLowerCase();
     case "rf_min":
       return mode.line?.rf_min_mhz ?? null;
     case "rf_max":

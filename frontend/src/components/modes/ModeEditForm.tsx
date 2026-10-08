@@ -3,6 +3,8 @@ import { useUpdateMode } from "../../state/hooks/useModes";
 import { ApiRequestError } from "../../api/client";
 import type { FunctionGroup, Mode, Source } from "../../types/domain";
 import { lineValuesFrom } from "./modeLine";
+import { modeSourceIds } from "./modeFormat";
+import { SourcesPicker } from "./SourcesPicker";
 import { ModeLineFields, friendlyServerError, useModeLine } from "./ModeLineFields";
 import { ModeMoreOptions, confirmationProblem, type MoreOptionsValues } from "./ModeMoreOptions";
 
@@ -25,7 +27,7 @@ export function ModeEditForm({
 }) {
   const updateMode = useUpdateMode(emitterId);
   const line = useModeLine(lineValuesFrom(mode.pri_type, mode.line), mode.line?.explicit_frame_time_us);
-  const [sourceId, setSourceId] = useState(mode.source_id);
+  const [sourceIds, setSourceIds] = useState<string[]>(modeSourceIds(mode));
   const [options, setOptions] = useState<MoreOptionsValues>({
     functionGroupId: mode.function_group_id ?? "",
     quality: String(mode.confirmation_quality),
@@ -54,7 +56,7 @@ export function ModeEditForm({
         modeId: mode.id,
         input: {
           notes: options.notes.trim() || null,
-          source_id: sourceId !== mode.source_id ? sourceId : undefined,
+          source_ids: sourceIds.join() !== modeSourceIds(mode).join() ? sourceIds : undefined,
           function_group_id: options.functionGroupId || null,
           pri_type: priType !== mode.pri_type ? priType : undefined,
           confirmation_quality: Number(options.quality),
@@ -78,16 +80,10 @@ export function ModeEditForm({
 
       {sources && sources.length > 0 && (
         <div className="mode-form-grid">
-          <label>
-            Source
-            <select value={sourceId} onChange={(e) => setSourceId(e.target.value)}>
-              {sources.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="mode-form-sources">
+            <span className="mode-form-label">Sources</span>
+            <SourcesPicker sources={sources} value={sourceIds} onChange={setSourceIds} />
+          </div>
         </div>
       )}
 

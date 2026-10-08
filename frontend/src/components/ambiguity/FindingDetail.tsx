@@ -135,9 +135,9 @@ export function FindingDetail({
         <SeverityBadge severity={finding.combined_severity} />
       </div>
       <p className="hint-text finding-detail-where">
-        A: {mode_a.emitter_name} › {mode_a.ew_group_name} · source {mode_a.source_name}
+        A: {mode_a.emitter_name} › {mode_a.ew_group_name} · {(mode_a.source_names?.length ?? 1) > 1 ? "sources" : "source"} {mode_a.source_name}
         <br />
-        B: {mode_b.emitter_name} › {mode_b.ew_group_name} · source {mode_b.source_name}
+        B: {mode_b.emitter_name} › {mode_b.ew_group_name} · {(mode_b.source_names?.length ?? 1) > 1 ? "sources" : "source"} {mode_b.source_name}
       </p>
 
       <div className="param-rows">

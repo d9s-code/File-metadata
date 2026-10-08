@@ -59,7 +59,7 @@ export function MergeDialog({ finding, runId, onClose }: { finding: AmbiguityFin
                 <input type="radio" name="keep" checked={keep === k} onChange={() => setKeep(k)} />
                 <span>
                   <strong className={k === "a" ? "side-a-text" : "side-b-text"}>{sides[k].mode_name}</strong>
-                  <span className="hint-text"> · source {sides[k].source_name}</span>
+                  <span className="hint-text"> · {sides[k].source_names && sides[k].source_names.length > 1 ? "sources" : "source"} {sides[k].source_name}</span>
                 </span>
               </label>
             ))}
@@ -102,6 +102,11 @@ export function MergeDialog({ finding, runId, onClose }: { finding: AmbiguityFin
                 <li>
                   <strong>{plan.removed.name}</strong> is deleted.
                 </li>
+                {plan.kept.sources_after && plan.kept.sources_after.length > 1 && (
+                  <li>
+                    <strong>{plan.kept.name}</strong> comes from both Modes&apos; Sources: {plan.kept.sources_after.join(", ")}.
+                  </li>
+                )}
                 {plan.links_moved.test_records + plan.links_moved.test_record_lines + plan.links_moved.test_lines > 0 && (
                   <li>
                     Its test history moves to {plan.kept.name}:{" "}

@@ -5,6 +5,8 @@ import type { EwGroup, FunctionGroup, Mode, Source } from "../../types/domain";
 import type { ModeCreateInput } from "../../api/modes";
 import type { ObservedValueOption } from "../testing/testFormat";
 import { BLANK_LINE, lineValuesFrom, nameAfter, nextFreeName } from "./modeLine";
+import { modeSourceIds } from "./modeFormat";
+import { SourcesPicker } from "./SourcesPicker";
 import { ModeLineFields, friendlyServerError, useModeLine } from "./ModeLineFields";
 import {
   DEFAULT_CONFIRMATION_QUALITY,
@@ -77,9 +79,10 @@ export function ModeForm({
   onClose?: () => void;
 }) {
   const [ewGroupId, setEwGroupId] = useState(defaultEwGroupId || ewGroups[0]?.id || "");
-  const [sourceId, setSourceId] = useState(
-    (defaultSourceId && sources.some((s) => s.id === defaultSourceId) ? defaultSourceId : sources[0]?.id) ?? "",
-  );
+  const [sourceIds, setSourceIds] = useState<string[]>(() => {
+    const first = defaultSourceId && sources.some((s) => s.id === defaultSourceId) ? defaultSourceId : sources[0]?.id;
+    return first ? [first] : [];
+  });
   const [name, setName] = useState("");
   // Until someone types a name, the form keeps suggesting one.
   const [nameTyped, setNameTyped] = useState(false);
@@ -119,7 +122,7 @@ export function ModeForm({
   function copyFrom(mode: Mode) {
     setSuggestAfter(mode.name);
     setEwGroupId(mode.ew_group_id);
-    setSourceId(mode.source_id);
+    setSourceIds(modeSourceIds(mode).filter((id) => sources.some((s) => s.id === id)));
     loadLine(lineValuesFrom(mode.pri_type, mode.line), mode.line?.explicit_frame_time_us);
     // Provenance isn't copied — a copy wasn't itself derived from that test.
     setOptions({
@@ -193,7 +196,7 @@ export function ModeForm({
     const found = {
       name: name.trim() ? undefined : "Give the Mode a name",
       ewGroup: ewGroupId ? undefined : "Pick an EW Group — add one under Groups & Sources first",
-      source: sourceId ? undefined : "Pick a Source — add one under Groups & Sources first",
+      source: sourceIds.length ? undefined : "Pick a Source — add one under Groups & Sources first",
     };
     setProblems(found);
     const optionsProblem = confirmationProblem(options.quality, options.quantity);
@@ -204,7 +207,7 @@ export function ModeForm({
     }
 
     const payload: ModeCreateInput = {
-      source_id: sourceId,
+      source_ids: sourceIds,
       name: name.trim(),
       pri_type: line.values.priType,
       notes: options.notes.trim() || undefined,
@@ -328,20 +331,11 @@ export function ModeForm({
           </select>
           {problems.ewGroup && <span className="line-row-problem">{problems.ewGroup}</span>}
         </label>
-        <label>
-          Source
-          <select value={sourceId} aria-invalid={!!problems.source || undefined} onChange={(e) => setSourceId(e.target.value)}>
-            <option value="" disabled>
-              Pick one…
-            </option>
-            {sources.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+        <div className="mode-form-sources">
+          <span className="mode-form-label">Sources</span>
+          <SourcesPicker sources={sources} value={sourceIds} onChange={setSourceIds} invalid={!!problems.source} />
           {problems.source && <span className="line-row-problem">{problems.source}</span>}
-        </label>
+        </div>
       </div>
 
       {observedValueOptions && observedValueOptions.length > 0 && (

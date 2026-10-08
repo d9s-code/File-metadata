@@ -43,8 +43,11 @@ def _mode_dict(mode: Mode) -> dict:
         "sort_order": mode.sort_order,
         "confirmation_quality": mode.confirmation_quality,
         "confirmation_quantity": mode.confirmation_quantity,
+        # The first Source as before; the rest (a Mode can have several) after it.
         "source_id": str(mode.source_id),
         "source_name": mode.source.name,
+        "extra_source_ids": [str(link.source_id) for link in mode.extra_source_links],
+        "source_names": mode.source_names,
         "function_group_id": str(mode.function_group_id) if mode.function_group_id else None,
         "function_group_name": mode.function_group.name if mode.function_group else None,
         "line": None

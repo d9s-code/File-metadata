@@ -22,7 +22,7 @@ from app.models.intercept import (  # noqa: F401
 from app.models.knowledge import KnowledgeSection, KnowledgeSync  # noqa: F401
 from app.models.mdf import Mdf, MdfPlatformLink, MdfVersion  # noqa: F401
 from app.models.mdf_note import MdfNote  # noqa: F401
-from app.models.mode import Mode, ModeElement, ModeGenerationBatch, ModeLine  # noqa: F401
+from app.models.mode import Mode, ModeElement, ModeExtraSource, ModeGenerationBatch, ModeLine  # noqa: F401
 from app.models.parameter_sequence import ParameterSequence  # noqa: F401
 from app.models.platform import Platform, PlatformEmitterLink, PlatformVersion  # noqa: F401
 from app.models.source import Source  # noqa: F401
