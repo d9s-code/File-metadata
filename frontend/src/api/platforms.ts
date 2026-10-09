@@ -1,4 +1,5 @@
 import { api } from "./client";
+import type { EmitterStatus } from "../types/domain";
 
 export interface Platform {
   id: string;
@@ -8,6 +9,26 @@ export interface Platform {
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
+  /** On the list only. */
+  summary?: PlatformSummary;
+}
+
+/** What the Platforms list shows about one Platform. */
+export interface PlatformSummary {
+  emitter_count: number;
+  /** Live statuses of the pinned Emitters, and the worst of them. */
+  status_counts: Record<EmitterStatus, number>;
+  worst_status: EmitterStatus | null;
+  outdated_pins: number;
+  /** Modes in the pinned Emitter versions. */
+  mode_count: number;
+  mdf_count: number;
+  latest_version_number: number | null;
+  latest_version_at: string | null;
+  /** From the latest finished ambiguity check; null when never checked. */
+  ambiguity_checked_at: string | null;
+  ambiguous_emitters: number | null;
+  open_ambiguities: number | null;
 }
 
 export interface PlatformLink {
@@ -16,6 +37,19 @@ export interface PlatformLink {
   emitter_id: string;
   emitter_version_id: string;
   added_at: string;
+  /** The pinned version's number and the Emitter's latest saved one; the pin is outdated when latest > pinned. */
+  pinned_version_number?: number | null;
+  latest_version_number?: number | null;
+  latest_version_id?: string | null;
+}
+
+/** True when the Emitter has a newer saved version than the one pinned. */
+export function isOutdatedPin(link: PlatformLink): boolean {
+  return (
+    link.pinned_version_number != null &&
+    link.latest_version_number != null &&
+    link.latest_version_number > link.pinned_version_number
+  );
 }
 
 export interface PlatformCreateInput {
@@ -48,6 +82,8 @@ export const platformsApi = {
 
 /** One Mode's ranges as of a pinned Emitter version: raw and engineered (± delta). */
 export interface CoverageMode {
+  /** The Mode's id (missing only on very old snapshots). */
+  id?: string | null;
   name: string;
   pri_type: string;
   rf: [number, number];

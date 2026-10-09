@@ -15,10 +15,19 @@ from app.models.platform import Platform, PlatformEmitterLink, PlatformVersion
 from app.models.platform_note import PlatformNote
 from app.schemas.platform_note import PlatformNoteCreate, PlatformNoteOut
 from app.schemas.emitter_version import CommitVersionRequest, DiffOut
-from app.schemas.platform import PlatformCreate, PlatformLinkCreate, PlatformLinkOut, PlatformOut, PlatformUpdate
+from app.schemas.platform import (
+    PlatformCreate,
+    PlatformLinkCreate,
+    PlatformLinkOut,
+    PlatformListItem,
+    PlatformOut,
+    PlatformSummary,
+    PlatformUpdate,
+)
 from app.schemas.platform_version import PlatformVersionDetailOut, PlatformVersionOut
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.platform_coverage import platform_coverage
+from app.services.platform_summary import platform_summaries
 from app.services.prs_export.packager import build_platform_export_zip
 from app.services.snapshots import build_platform_snapshot
 from app.services.pinned_diff_service import compute_pinned_diff
@@ -39,14 +48,21 @@ def _get_platform_or_404(db: Session, platform_id: UUID) -> Platform:
     return platform
 
 
-@router.get("", response_model=list[PlatformOut])
+@router.get("", response_model=list[PlatformListItem])
 def list_platforms(
     include_deleted: bool = False, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
-) -> list[Platform]:
+) -> list[PlatformListItem]:
     q = db.query(Platform)
     if not include_deleted:
         q = q.filter(Platform.is_deleted.is_(False))
-    return q.order_by(Platform.name).all()
+    platforms = q.order_by(Platform.name).all()
+    summaries = platform_summaries(db, platforms)
+    return [
+        PlatformListItem(
+            **PlatformOut.model_validate(p).model_dump(), summary=PlatformSummary(**summaries[p.id])
+        )
+        for p in platforms
+    ]
 
 
 @router.get("/{platform_id}", response_model=PlatformOut)
@@ -183,12 +199,40 @@ def restore_platform(
     return platform
 
 
+def with_version_numbers(db: Session, links: list[PlatformEmitterLink]) -> list[PlatformLinkOut]:
+    """Each link with its pinned version's number and its Emitter's latest."""
+    emitter_ids = {link.emitter_id for link in links}
+    latest: dict = {}
+    if emitter_ids:
+        for emitter_id, number, version_id in (
+            db.query(EmitterVersion.emitter_id, EmitterVersion.version_number, EmitterVersion.id)
+            .filter(EmitterVersion.emitter_id.in_(emitter_ids))
+            .all()
+        ):
+            if emitter_id not in latest or number > latest[emitter_id][0]:
+                latest[emitter_id] = (number, version_id)
+    pinned = dict(
+        db.query(EmitterVersion.id, EmitterVersion.version_number)
+        .filter(EmitterVersion.id.in_([link.emitter_version_id for link in links]))
+        .all()
+    ) if links else {}
+    out = []
+    for link in links:
+        item = PlatformLinkOut.model_validate(link)
+        item.pinned_version_number = pinned.get(link.emitter_version_id)
+        if link.emitter_id in latest:
+            item.latest_version_number, item.latest_version_id = latest[link.emitter_id]
+        out.append(item)
+    return out
+
+
 @router.get("/{platform_id}/links", response_model=list[PlatformLinkOut])
 def list_links(
     platform_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
-) -> list[PlatformEmitterLink]:
+) -> list[PlatformLinkOut]:
     _get_platform_or_404(db, platform_id)
-    return db.query(PlatformEmitterLink).filter(PlatformEmitterLink.platform_id == platform_id).all()
+    links = db.query(PlatformEmitterLink).filter(PlatformEmitterLink.platform_id == platform_id).all()
+    return with_version_numbers(db, links)
 
 
 @router.post(

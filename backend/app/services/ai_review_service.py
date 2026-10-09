@@ -258,6 +258,10 @@ def run_context(db: Session, run: AmbiguityRun, findings: list[AmbiguityFinding]
         + ", ".join(f"{SEVERITY_LABELS[k]} {by_severity.get(k, 0)}" for k in ("exact_overlap", "high", "medium", "low"))
         + ".",
     ]
+    if run.scope_type != AmbiguityScopeType.emitter:
+        lines.append(
+            "Only Modes of different Emitters were compared: the question is which Emitters could be taken for each other."
+        )
     if pairs:
         lines.append("High and exact findings by Emitter (or between two Emitters):")
         lines += [f"- {k}: {v}" for k, v in pairs.most_common(12)]

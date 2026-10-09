@@ -203,11 +203,13 @@ Critically, a Platform doesn't reference an Emitter's live draft — it **pins t
 
 Platforms are versioned exactly like Emitters (commit, history, diff) — a Platform version snapshots the full set of emitter/version pins at that point, including each pinned emitter's complete nested data.
 
-The Platform page shows each Emitter's **designation before its name** — in the pin picker (sorted by designation) and as its own column of the pinned table. Its tabs:
+The Platform page shows each Emitter's **designation before its name** — in the pin picker (sorted by designation) and as its own column of the pinned table. A pin whose Emitter has a newer saved version is flagged **Outdated — vN saved**, with **Repin to vN** beside it for Editors; the header counts the outdated pins (`GET /platforms/{id}/links` returns each pin's version number and the Emitter's latest). Its tabs:
 
-- **Charts** — what the pinned Emitter versions cover on **RF**, **PRI** (a stagger's frame time) and **PW**, one chart each. **Per Emitter**: one line per Emitter, its Modes' ranges joined only where they overlap or touch — a PRI of 1–2 µs and 200–205 µs in two Modes stays two pieces, never 1–205. **Per Mode**: a line per Mode under its Emitter. Engineered values (± margins) by default, raw on request; a log scale for values spanning orders of magnitude. Modes whose Sources are all rejected are left out, as in the export.
+- **Charts** — what the pinned Emitter versions cover on **RF**, **PRI** (a stagger's frame time) and **PW**, one chart each. **Per Emitter**: one line per Emitter, its Modes' ranges joined only where they overlap or touch — a PRI of 1–2 µs and 200–205 µs in two Modes stays two pieces, never 1–205. **Per Mode**: a line per Mode under its Emitter. Engineered values (± margins) by default, raw on request; a log scale for values spanning orders of magnitude. **Horizontal / Vertical bars** turns the charts on their side (a column per line), and **Stacked / Side by side** puts RF, PRI and PW under or next to each other (both remembered). Each chart **pans** by dragging, **zooms** with Ctrl/⌘ + scroll (or + and −), and **Show all** or a double-click resets it. **Ambiguities** marks, hatched in red, where Modes of different Emitters overlap according to the latest ambiguity check — hover a mark for the Modes and severity. Modes whose Sources are all rejected are left out, as in the export.
 - **Analyst notes** — the same append-only, timestamped log as an Emitter's (also on MDFs).
-- **Ambiguity check** (a button at the top) — runs on the latest saved Platform version: every pinned Emitter's Modes against each other, across Emitters.
+- **Ambiguity check** (a button at the top) — runs on the latest saved Platform version and answers *which Emitters could be taken for each other*: each Emitter's Modes are compared with the other Emitters' Modes, never with its own (that's the Emitter's own check).
+
+The **Platforms list** shows, for each Platform: how many Emitters it pins, the **worst status** among them (Needs rework, then In progress, Testing, Operational — hover for the count of each), how many pins are **outdated**, the Modes in the pinned versions, how many MDFs it's in, what its latest ambiguity check found (how many Emitters could be taken for another, and how many findings are still open), when it was last saved, and its open Tasks. Every column sorts.
 
 ---
 
@@ -217,7 +219,7 @@ An **MDF** is the deployable artifact — the file structure actually loaded ont
 
 MDFs are versioned the same way as everything else, and carry their own status lifecycle (see [Versioning & Diffs](#5-versioning--diffs) above).
 
-The MDF page's **Charts** tab works like a Platform's, one level up: **Per Platform** — a line per pinned Platform version covering everything its Emitters do (joined only where ranges overlap); **Per Emitter** — a line per Emitter under a heading for its Platform; **Per Mode** — a line per Mode under its Emitter. Bars are coloured by Platform, or by Emitter once Emitters are shown. It reads each pinned Platform version and the Emitter versions recorded in it (`GET /mdfs/{id}/coverage`).
+The MDF page's **Charts** tab works like a Platform's (layout, zoom and the ambiguity marks included), one level up: **Per Platform** — a line per pinned Platform version covering everything its Emitters do (joined only where ranges overlap); **Per Emitter** — a line per Emitter under a heading for its Platform; **Per Mode** — a line per Mode under its Emitter. Bars are coloured by Platform, or by Emitter once Emitters are shown. It reads each pinned Platform version and the Emitter versions recorded in it (`GET /mdfs/{id}/coverage`).
 
 ### Readiness signals
 
@@ -301,8 +303,10 @@ Checks made under older rules say so on the page. Every finding records the rang
 Run a check at three levels, each reusing the same engine:
 
 - **Per-Emitter** — every Mode against every other Mode within one Emitter
-- **Per-Platform** — every Mode across every Emitter version pinned into one Platform (catches ambiguity between emitters riding the same platform)
-- **Per-MDF** — every Mode across every Emitter transitively referenced (through pinned Platforms) by the MDF
+- **Per-Platform** — which Emitters pinned into one Platform could be taken for each other: each Emitter's Modes against the *other* Emitters' Modes. Overlaps inside one Emitter aren't part of it (its own check covers them).
+- **Per-MDF** — the same across every Emitter reached through the MDF's pinned Platforms; an Emitter on several of its Platforms counts once.
+
+A Platform or MDF check opens on **Emitters**: each ambiguous Emitter with the Emitters it could be taken for (worst first), then every pair of Emitters with its findings by severity — click one for the Mode pairs behind it. Findings, Modes involved and the Matrix follow as for an Emitter.
 
 A check always runs against a specific **committed version** (the latest by default), never the live draft — so results are reproducible and tied to a known snapshot, not a moving target. Runs execute in the background; the page polls until it completes.
 

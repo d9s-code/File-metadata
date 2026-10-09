@@ -594,7 +594,8 @@ export function HelpPage() {
           <p>
             Compares every pair of Modes and flags the ones a receiver could confuse. It reads the latest{" "}
             <strong>saved</strong> version — never unsaved edits — so results match what was released. The same check runs
-            for a Platform or an MDF, across all their Emitters.
+            for a Platform or an MDF, where it asks which <em>Emitters</em> could be taken for each other — see
+            Platforms below.
           </p>
           <p>
             <strong>How it decides.</strong> Only Modes of the <strong>same PRI type</strong> are compared — a different
@@ -677,7 +678,9 @@ export function HelpPage() {
         <p>
           The Platforms list (top nav) shows every Platform — a Platform bundles the Emitters carried by a
           given vehicle or site. A Platform has no status of its own; it's purely a container, ready to be
-          pinned into an MDF whenever the Emitters inside it are.
+          pinned into an MDF whenever the Emitters inside it are. The list shows how many Emitters each pins, the
+          worst status among them (hover for the count of each), outdated pins, the Modes pinned, how many MDFs
+          it&apos;s in, what its latest ambiguity check found, when it was last saved, and its open Tasks.
         </p>
 
         <div className="help-subsection" id="platform-detail">
@@ -686,7 +689,9 @@ export function HelpPage() {
             Laid out like an Emitter: <strong>Save version</strong>, <strong>Ambiguity check</strong>,{" "}
             <strong>Export XML</strong> and <strong>More ▾</strong> (Version history, Edit details) along the top,
             with when it was last saved under the name. Pin and unpin Emitters below — each pin references one saved
-            Emitter version; the picker and the table show each Emitter&apos;s designation first. A Platform has no
+            Emitter version; the picker and the table show each Emitter&apos;s designation first. A pin whose Emitter
+            has been saved again since is flagged <strong>Outdated — vN saved</strong>, with <strong>Repin to vN</strong>{" "}
+            beside it; the header counts outdated pins. A Platform has no
             editing session: pins and details apply straight away, and <strong>Save version</strong> records them
             as a new version (the summary is optional).
           </p>
@@ -696,8 +701,12 @@ export function HelpPage() {
             Modes&apos; ranges joined only where they overlap, so a PRI of 1–2 µs in one Mode and 200–205 µs in
             another stays two pieces with a gap between. <strong>Per Mode</strong> draws a line for each Mode under
             its Emitter. Engineered values (with margins) are shown unless unticked, and a log scale helps when
-            values span orders of magnitude. <strong>Ambiguity check</strong> runs on the latest saved Platform
-            version — every pinned Emitter&apos;s Modes against each other, across Emitters too.{" "}
+            values span orders of magnitude. <strong>Horizontal / Vertical bars</strong> turns the charts on their
+            side and <strong>Stacked / Side by side</strong> places RF, PRI and PW under or next to each other. Drag a
+            chart to pan it, hold Ctrl (⌘ on a Mac) and scroll to zoom, and double-click or <strong>Show all</strong>{" "}
+            to see everything again. <strong>Ambiguities</strong> hatches in red where Modes of different Emitters
+            overlap, from the latest ambiguity check — hover a mark to see which. <strong>Ambiguity check</strong>{" "}
+            runs on the latest saved Platform version.{" "}
             <strong>Analyst notes</strong> is the same append-only log as on an Emitter.
           </p>
         </div>
@@ -714,8 +723,12 @@ export function HelpPage() {
         <div className="help-subsection" id="platform-ambiguity">
           <h3>Ambiguity check</h3>
           <p>
-            Works the same way as an Emitter's, but across every Mode on every Emitter pinned to this
-            Platform — see "Ambiguity check" above.
+            Answers <em>which Emitters on this Platform could be taken for each other</em>: each pinned
+            Emitter&apos;s Modes are compared with the other Emitters&apos; Modes, never with its own (run the
+            Emitter&apos;s own check for that). It opens on <strong>Emitters</strong> — each ambiguous Emitter with
+            the ones it could be taken for, then every pair of Emitters with its findings by severity; click one to
+            see the Mode pairs behind it. The rules are the Emitter check&apos;s — see &ldquo;Ambiguity check&rdquo;
+            above.
           </p>
         </div>
       </div>
@@ -761,8 +774,8 @@ export function HelpPage() {
         <div className="help-subsection" id="mdf-ambiguity">
           <h3>Ambiguity check</h3>
           <p>
-            Works the same way as an Emitter's, but across every Mode reachable through every Platform
-            pinned to this MDF — see "Ambiguity check" above.
+            Works like a Platform&apos;s — which Emitters could be taken for each other — across every Emitter
+            reached through the Platforms pinned to this MDF (an Emitter on several of them counts once).
           </p>
         </div>
       </div>

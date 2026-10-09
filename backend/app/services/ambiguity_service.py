@@ -233,13 +233,21 @@ def _pri_and_jitter(a: FlatModeLine, b: FlatModeLine, la: dict, lb: dict, apply_
     return None, None, None, None  # CW, X-let: no PRI.
 
 
-def compute_pairwise_findings(mode_lines: list[FlatModeLine], tolerance: dict | None = None) -> list[dict[str, Any]]:
+def compute_pairwise_findings(
+    mode_lines: list[FlatModeLine], tolerance: dict | None = None, *, across_emitters_only: bool = False
+) -> list[dict[str, Any]]:
+    """Every pair of Modes that could be taken for each other. With
+    across_emitters_only (Platform and MDF checks), two Modes of the same
+    Emitter are never compared — the question there is which Emitters can be
+    told apart, not what overlaps inside one."""
     tolerance = {**DEFAULT_TOLERANCE, **(tolerance or {})}
     apply_margins = bool(tolerance.get("apply_margins", True))
     findings: list[dict[str, Any]] = []
     lines = {id(m): compared_line(m.line, apply_margins) for m in mode_lines}
 
     for a, b in combinations(mode_lines, 2):
+        if across_emitters_only and a.emitter_id == b.emitter_id:
+            continue
         if a.pri_type != b.pri_type:
             continue  # A different PRI type tells them apart.
         la, lb = lines[id(a)], lines[id(b)]

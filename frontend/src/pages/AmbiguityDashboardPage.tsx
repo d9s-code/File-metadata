@@ -27,6 +27,7 @@ import { AmbiguityMatrix } from "../components/ambiguity/AmbiguityMatrix";
 import { FindingList } from "../components/ambiguity/FindingList";
 import { FindingDetail } from "../components/ambiguity/FindingDetail";
 import { ModesInvolved } from "../components/ambiguity/ModesInvolved";
+import { EmitterPairs, pairKey, type EmitterPair } from "../components/ambiguity/EmitterPairs";
 import { SeverityBadge } from "../components/ambiguity/SeverityBadge";
 import { AiRunSummary } from "../components/ambiguity/AiDrafts";
 import {
@@ -50,7 +51,7 @@ const SCOPE_PATH: Record<AmbiguityScopeType, string> = { emitter: "/emitters", p
 const STATUS_ORDER: Record<FindingStatus, number> = { open: 0, acknowledged: 1, merged: 2 };
 const STATUS_LABEL: Record<FindingStatus, string> = { open: "Open", acknowledged: "Acknowledged", merged: "Merged" };
 
-type View = "findings" | "modes" | "matrix";
+type View = "emitters" | "findings" | "modes" | "matrix";
 
 function sideSourceIds(side: FindingModeSide): string[] {
   return side.source_ids?.length ? side.source_ids : [side.source_id];
@@ -79,7 +80,9 @@ export function AmbiguityDashboardPage() {
   const [criteriaOpen, setCriteriaOpen] = useState(false);
   // The thresholds the next check runs with: the shown check's, or the defaults.
   const [thresholds, setThresholds] = useState<ToleranceConfig>(DEFAULT_THRESHOLDS);
-  const [view, setView] = useState<View>("findings");
+  // A Platform or MDF check opens on which Emitters could be confused.
+  const [view, setView] = useState<View>(scopeType === "emitter" ? "findings" : "emitters");
+  const [emitterPair, setEmitterPair] = useState<{ ids: EmitterPair; names: [string, string] } | null>(null);
   const [status, setStatus] = useState<FindingStatus | "">("");
   const [severity, setSeverity] = useState<AmbiguitySeverity | "">("");
   const [search, setSearch] = useState("");
@@ -126,7 +129,15 @@ export function AmbiguityDashboardPage() {
   const runVersion = versions?.find((v) => v.id === runVersionId) ?? null;
   const isStale = run?.status === "complete" && !!latestVersion && runVersionId !== latestVersion.id;
 
-  const all = useMemo(() => findings ?? [], [findings]);
+  // A Platform or MDF check is about telling Emitters apart: overlaps inside
+  // one Emitter (which checks from before that change still hold) are left out.
+  const all = useMemo(
+    () =>
+      (findings ?? []).filter(
+        (f) => scopeType === "emitter" || f.details.mode_a.emitter_id !== f.details.mode_b.emitter_id,
+      ),
+    [findings, scopeType],
+  );
   const goneModeIds = useMemo(
     () => new Set(all.flatMap((f) => (f.resolution ? [f.resolution.removed_mode_id] : []))),
     [all],
@@ -145,7 +156,16 @@ export function AmbiguityDashboardPage() {
   }, [all]);
 
   // Filters other than status and severity — the counts on those chips follow them.
-  const scoped = useMemo(() => all.filter((f) => sideMatches(f, ewGroup, source, search.trim())), [all, ewGroup, source, search]);
+  const scoped = useMemo(
+    () =>
+      all.filter(
+        (f) =>
+          sideMatches(f, ewGroup, source, search.trim()) &&
+          (!emitterPair ||
+            pairKey(f.details.mode_a.emitter_id, f.details.mode_b.emitter_id) === pairKey(...emitterPair.ids)),
+      ),
+    [all, ewGroup, source, search, emitterPair],
+  );
   const counts = useMemo(() => {
     const byStatus: Record<FindingStatus, number> = { open: 0, acknowledged: 0, merged: 0 };
     const bySeverity: Record<AmbiguitySeverity, number> = { exact_overlap: 0, high: 0, medium: 0, low: 0, none: 0 };
@@ -185,6 +205,7 @@ export function AmbiguityDashboardPage() {
       setSearch("");
       setEwGroup("");
       setSource("");
+      setEmitterPair(null);
     }
     setView("findings");
     setSelectedId(id);
@@ -205,7 +226,7 @@ export function AmbiguityDashboardPage() {
 
   const running = createRun.isPending || run?.status === "pending";
   const showEmitter = scopeType !== "emitter";
-  const filtered = !!(search || ewGroup || source);
+  const filtered = !!(search || ewGroup || source || emitterPair);
 
   return (
     <div className="page ambiguity-page">
@@ -255,7 +276,12 @@ export function AmbiguityDashboardPage() {
               <span className="hint-text">Loading…</span>
             ) : (
               <span>
-                Not checked yet <span className="hint-text">— finds pairs of Modes the sensor could confuse.</span>
+                Not checked yet{" "}
+                <span className="hint-text">
+                  {showEmitter
+                    ? "— finds which Emitters the sensor could take for each other, comparing each Emitter's Modes with the other Emitters' (not with its own)."
+                    : "— finds pairs of Modes the sensor could confuse."}
+                </span>
               </span>
             )}
           </div>
@@ -280,7 +306,11 @@ export function AmbiguityDashboardPage() {
         <>
           {all.length === 0 ? (
             <div className="card">
-              <p>No pair of Modes overlaps on every parameter — nothing could be confused.</p>
+              <p>
+                {showEmitter
+                  ? "No two Emitters have Modes that overlap on every parameter — none could be taken for another. Overlaps inside a single Emitter aren't part of this check; run the Emitter's own check for those."
+                  : "No pair of Modes overlaps on every parameter — nothing could be confused."}
+              </p>
             </div>
           ) : (
             <>
@@ -322,6 +352,7 @@ export function AmbiguityDashboardPage() {
                 <span className="amb-views" role="tablist">
                   {(
                     [
+                      ...(showEmitter ? ([["emitters", "Emitters"]] as const) : []),
                       ["findings", "Findings"],
                       ["modes", "Modes involved"],
                       ["matrix", "Matrix"],
@@ -359,6 +390,14 @@ export function AmbiguityDashboardPage() {
                     ))}
                   </select>
                 )}
+                {emitterPair && (
+                  <span className="amb-chip on">
+                    {emitterPair.names[0]} ↔ {emitterPair.names[1]}{" "}
+                    <button type="button" className="link-button" aria-label="Show every Emitter pair" onClick={() => setEmitterPair(null)}>
+                      ×
+                    </button>
+                  </span>
+                )}
                 {filtered && (
                   <button
                     type="button"
@@ -367,12 +406,31 @@ export function AmbiguityDashboardPage() {
                       setSearch("");
                       setEwGroup("");
                       setSource("");
+                      setEmitterPair(null);
                     }}
                   >
                     Clear
                   </button>
                 )}
               </div>
+
+              {view === "emitters" && (
+                <div className="card">
+                  <p className="hint-text">
+                    Each Emitter&apos;s Modes against the other Emitters&apos; — overlaps between Modes of the same Emitter
+                    aren&apos;t counted here (the Emitter&apos;s own check covers those).
+                  </p>
+                  <EmitterPairs
+                    findings={scoped.filter(
+                      (f) => (!status || findingStatus(f) === status) && (!severity || f.combined_severity === severity),
+                    )}
+                    onPick={(ids, names) => {
+                      setEmitterPair({ ids, names });
+                      setView("findings");
+                    }}
+                  />
+                </div>
+              )}
 
               {view === "findings" && (
                 <div className="amb-split">

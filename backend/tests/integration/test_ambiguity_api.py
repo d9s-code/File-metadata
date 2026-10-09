@@ -227,9 +227,8 @@ def test_platform_scope_run_finds_cross_emitter_ambiguity(editor_client, emitter
     assert run["platform_version_id"] == platform_version["id"]
 
     findings = editor_client.get(f"/ambiguity/runs/{run['id']}/findings").json()
-    # 3 modes total (Mode 1, Mode 2 in emitter1; Mode X in emitter2), all identical -> C(3,2) = 3 pairs
-    assert len(findings) == 3
-    cross_emitter = [
-        f for f in findings if f["details"]["mode_a"]["emitter_id"] != f["details"]["mode_b"]["emitter_id"]
-    ]
-    assert len(cross_emitter) == 2
+    # 3 identical Modes (Mode 1, Mode 2 in emitter1; Mode X in emitter2). A
+    # Platform check only compares Modes of different Emitters, so the overlap
+    # between Mode 1 and Mode 2 inside emitter1 is left out: 2 pairs, not 3.
+    assert len(findings) == 2
+    assert all(f["details"]["mode_a"]["emitter_id"] != f["details"]["mode_b"]["emitter_id"] for f in findings)

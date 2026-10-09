@@ -33,6 +33,7 @@ def _mode_ranges(mode: dict) -> dict | None:
     if rf_raw is None:
         return None
     out = {
+        "id": str(mode["id"]) if mode.get("id") else None,
         "name": mode["name"],
         "pri_type": pri_type,
         "rf_raw": rf_raw,

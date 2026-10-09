@@ -270,3 +270,15 @@ def test_the_limiting_parameter_is_the_one_overlapping_least():
     b = _line(rf=(2900, 3100), pw=(0.9, 1.4), pri_min=800, pri_max=1200)
     [finding] = compute_pairwise_findings([_mode("a", "fixed", a), _mode("b", "fixed", b)])
     assert finding["details"]["limiting"] == "pw"
+
+
+def test_across_emitters_only_skips_pairs_inside_one_emitter():
+    line = _line(pri_min=800, pri_max=1200)
+    a1, a2, b1 = _mode("a1", "fixed", line), _mode("a2", "fixed", line), _mode("b1", "fixed", line)
+    b1.emitter_id = "other"
+    assert len(compute_pairwise_findings([a1, a2, b1])) == 3
+    findings = compute_pairwise_findings([a1, a2, b1], across_emitters_only=True)
+    assert {frozenset((f["mode_id_a"], f["mode_id_b"])) for f in findings} == {
+        frozenset(("a1", "b1")),
+        frozenset(("a2", "b1")),
+    }

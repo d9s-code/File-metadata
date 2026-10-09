@@ -6,21 +6,55 @@ import { ApiRequestError } from "../api/client";
 import { LoadingState } from "../components/common/LoadingState";
 import { EmptyState } from "../components/common/EmptyState";
 import { Modal } from "../components/common/Modal";
-import { SortableColumnHeader } from "../components/common/SortableColumnHeader";
+import { SortableColumnHeader, type ColumnType } from "../components/common/SortableColumnHeader";
 import { useSortableTable } from "../components/common/useSortableTable";
-import { compareStrings } from "../components/common/sortUtils";
+import { compareNullable, compareStrings } from "../components/common/sortUtils";
 import { useConfirmDialog } from "../components/common/ConfirmDialog";
+import { EMITTER_STATUS_LABEL } from "../components/common/emitterStatusLabel";
+import { TasksButton } from "../components/tasks/TasksButton";
+import { useTasks } from "../state/hooks/useTasks";
 import type { Platform } from "../api/platforms";
+import type { EmitterStatus } from "../types/domain";
 
-type PlatformSortKey = "name" | "description";
+type PlatformSortKey = "name" | "description" | "emitters" | "status" | "outdated" | "modes" | "mdfs" | "ambiguity" | "saved";
+
+// Worst first, as the backend picks the worst status.
+const STATUS_RANK: Record<EmitterStatus, number> = { deprecated: 0, draft: 1, in_review: 2, validated: 3 };
+const STATUS_ORDER: EmitterStatus[] = ["deprecated", "draft", "in_review", "validated"];
 
 function comparePlatforms(a: Platform, b: Platform, key: PlatformSortKey, dir: "asc" | "desc"): number {
+  const sa = a.summary;
+  const sb = b.summary;
   switch (key) {
     case "name":
       return compareStrings(a.name, b.name, dir);
     case "description":
       return compareStrings(a.description, b.description, dir);
+    case "emitters":
+      return compareNullable(sa?.emitter_count, sb?.emitter_count, dir);
+    case "status":
+      return compareNullable(
+        sa?.worst_status ? STATUS_RANK[sa.worst_status] : null,
+        sb?.worst_status ? STATUS_RANK[sb.worst_status] : null,
+        dir,
+      );
+    case "outdated":
+      return compareNullable(sa?.outdated_pins, sb?.outdated_pins, dir);
+    case "modes":
+      return compareNullable(sa?.mode_count, sb?.mode_count, dir);
+    case "mdfs":
+      return compareNullable(sa?.mdf_count, sb?.mdf_count, dir);
+    case "ambiguity":
+      return compareNullable(sa?.ambiguous_emitters, sb?.ambiguous_emitters, dir);
+    case "saved":
+      return compareStrings(sa?.latest_version_at, sb?.latest_version_at, dir);
   }
+}
+
+function statusTitle(counts: Record<EmitterStatus, number>): string {
+  return STATUS_ORDER.filter((s) => counts[s])
+    .map((s) => `${counts[s]} ${EMITTER_STATUS_LABEL[s]}`)
+    .join(" · ");
 }
 
 export function PlatformsListPage() {
@@ -35,6 +69,21 @@ export function PlatformsListPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [filter, setFilter] = useState("");
   const navigate = useNavigate();
+  // Open tasks about each Platform, counted once for the whole list.
+  const { data: platformTasks } = useTasks({ entity_type: "platform", state: "open" });
+  const openTasks = new Map<string, number>();
+  for (const t of platformTasks ?? []) if (t.entity_id) openTasks.set(t.entity_id, (openTasks.get(t.entity_id) ?? 0) + 1);
+  const header = (label: string, columnKey: PlatformSortKey, title?: string, columnType?: ColumnType) => (
+    <SortableColumnHeader
+      label={title ? <span title={title}>{label}</span> : label}
+      columnKey={columnKey}
+      columnType={columnType}
+      activeKey={sortKey}
+      activeDir={sortDir}
+      onSort={onSort}
+      onClear={onClear}
+    />
+  );
 
   async function handleDelete(platform: Platform) {
     if (await confirmDelete(`Delete Platform "${platform.name}"? It can be restored from Recently Deleted for 30 days.`)) {
@@ -112,44 +161,97 @@ export function PlatformsListPage() {
       ) : platforms && platforms.length === 0 ? (
         <EmptyState icon="◇" title="No Platforms yet" message="Add one with + Add Platform, then pin saved Emitter versions to it." />
       ) : (
-        <table className="data-table">
+        <table className="data-table platforms-table">
           <thead>
             <tr>
-              <SortableColumnHeader
-                label="Name"
-                columnKey="name"
-                activeKey={sortKey}
-                activeDir={sortDir}
-                onSort={onSort}
-                onClear={onClear}
-              />
-              <SortableColumnHeader
-                label="Description"
-                columnKey="description"
-                activeKey={sortKey}
-                activeDir={sortDir}
-                onSort={onSort}
-                onClear={onClear}
-              />
+              {header("Name", "name")}
+              {header("Description", "description")}
+              {header("Emitters", "emitters", "Emitters pinned on the Platform", "number")}
+              {header("Emitter status", "status", "The worst status among the pinned Emitters")}
+              {header("Outdated pins", "outdated", "Pinned Emitters with a newer saved version", "number")}
+              {header("Modes", "modes", "Modes in the pinned Emitter versions", "number")}
+              {header("In MDFs", "mdfs", "MDFs this Platform is pinned in", "number")}
+              {header("Ambiguity", "ambiguity", "From the latest ambiguity check: Emitters that could be taken for another", "number")}
+              {header("Last saved", "saved", undefined, "date")}
+              <th>Tasks</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {visible.map((p) => (
-              <tr key={p.id}>
-                <td>
-                  <Link to={`/platforms/${p.id}`}>{p.name}</Link>
-                </td>
-                <td>{p.description ?? "—"}</td>
-                <td>
-                  <RequireRole minimum="editor">
-                    <button className="link-button link-button-danger" onClick={() => void handleDelete(p)}>
-                      Delete
-                    </button>
-                  </RequireRole>
-                </td>
-              </tr>
-            ))}
+            {visible.map((p) => {
+              const s = p.summary;
+              return (
+                <tr key={p.id}>
+                  <td>
+                    <Link to={`/platforms/${p.id}`}>{p.name}</Link>
+                  </td>
+                  <td className="platforms-description" title={p.description ?? undefined}>
+                    {p.description ?? "—"}
+                  </td>
+                  <td className="num">{s?.emitter_count ?? "—"}</td>
+                  <td>
+                    {s?.worst_status ? (
+                      <span title={statusTitle(s.status_counts)}>
+                        <span className={`status-badge status-${s.worst_status}`}>{EMITTER_STATUS_LABEL[s.worst_status]}</span>
+                        {s.emitter_count > 1 && (
+                          <span className="hint-text">
+                            {" "}
+                            {s.status_counts[s.worst_status]} of {s.emitter_count}
+                          </span>
+                        )}
+                      </span>
+                    ) : (
+                      <span className="hint-text">—</span>
+                    )}
+                  </td>
+                  <td className="num">
+                    {s?.outdated_pins ? (
+                      <span className="status-badge status-pending_review" title="Pinned Emitters with a newer saved version">
+                        {s.outdated_pins}
+                      </span>
+                    ) : (
+                      <span className="hint-text">0</span>
+                    )}
+                  </td>
+                  <td className="num">{s?.mode_count ?? "—"}</td>
+                  <td className="num">{s?.mdf_count ?? "—"}</td>
+                  <td>
+                    {s?.ambiguity_checked_at == null ? (
+                      <span className="hint-text">Not checked</span>
+                    ) : (
+                      <Link
+                        to={`/ambiguity/platform/${p.id}`}
+                        title={`Checked ${new Date(s.ambiguity_checked_at).toLocaleString()}`}
+                        className={s.ambiguous_emitters ? "platforms-ambiguous" : undefined}
+                      >
+                        {s.ambiguous_emitters
+                          ? `${s.ambiguous_emitters} Emitters · ${s.open_ambiguities} open`
+                          : "None found"}
+                      </Link>
+                    )}
+                  </td>
+                  <td>
+                    {s?.latest_version_number != null && s.latest_version_at ? (
+                      <span title={new Date(s.latest_version_at).toLocaleString()}>
+                        v{s.latest_version_number} · {new Date(s.latest_version_at).toLocaleDateString()}
+                      </span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td>
+                    <TasksButton type="platform" id={p.id} name={p.name} openCount={openTasks.get(p.id) ?? 0} compact />
+                  </td>
+                  <td>
+                    <RequireRole minimum="editor">
+                      <button className="link-button link-button-danger" onClick={() => void handleDelete(p)}>
+                        Delete
+                      </button>
+                    </RequireRole>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}

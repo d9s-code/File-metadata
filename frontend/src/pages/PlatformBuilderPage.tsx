@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { usePlatform, usePlatformLinks, useUpdatePlatform } from "../state/hooks/usePlatforms";
 import { useCommitPlatformVersion, usePlatformVersions } from "../state/hooks/usePlatformVersions";
 import { useEmitters } from "../state/hooks/useEmitters";
-import { platformsApi } from "../api/platforms";
+import { isOutdatedPin, platformsApi } from "../api/platforms";
 import { PlatformLinkTable } from "../components/platform/PlatformLinkTable";
 import { PlatformEmitterVersionPicker } from "../components/platform/PlatformEmitterVersionPicker";
 import { EntityAuditTrail } from "../components/audit/EntityAuditTrail";
@@ -42,6 +42,7 @@ export function PlatformBuilderPage() {
   if (isLoading || !platform) return <LoadingState label="Loading platform…" />;
 
   const emittersById = Object.fromEntries((emitters ?? []).map((e) => [e.id, e]));
+  const outdatedPins = (links ?? []).filter(isOutdatedPin).length;
 
   const handleStartEdit = () => {
     setEditName(platform.name);
@@ -112,6 +113,15 @@ export function PlatformBuilderPage() {
           <>
             <LatestVersion versions={versions} />
             <TasksButton type="platform" id={platform.id} name={platform.name} />
+            {outdatedPins > 0 && (
+              <button
+                className="status-badge status-pending_review"
+                onClick={() => setTab("emitters")}
+                title="Pinned Emitters with a newer saved version — see the Pinned Emitters tab to repin"
+              >
+                {outdatedPins} outdated pin{outdatedPins === 1 ? "" : "s"}
+              </button>
+            )}
             {exportError && <span className="error-text">{exportError}</span>}
           </>
         }

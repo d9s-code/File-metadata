@@ -78,6 +78,23 @@ def test_platform_pinning_survives_new_emitter_version(editor_client, emitter_wi
     assert links[0]["emitter_version_id"] == v1["id"]
 
 
+def test_links_flag_a_pin_older_than_the_emitters_latest_version(editor_client, emitter_with_version):
+    platform = editor_client.post("/platforms", json={"name": "Outdated Pin Platform"}).json()
+    emitter = emitter_with_version["emitter"]
+    v1 = emitter_with_version["version"]
+    editor_client.post(
+        f"/platforms/{platform['id']}/links", json={"emitter_id": emitter["id"], "emitter_version_id": v1["id"]}
+    )
+    [link] = editor_client.get(f"/platforms/{platform['id']}/links").json()
+    assert link["pinned_version_number"] == link["latest_version_number"] == v1["version_number"]
+
+    v2 = editor_client.post(f"/emitters/{emitter['id']}/versions", json={"change_summary": "newer"}).json()
+    [link] = editor_client.get(f"/platforms/{platform['id']}/links").json()
+    assert link["pinned_version_number"] == v1["version_number"]
+    assert link["latest_version_number"] == v2["version_number"]
+    assert link["latest_version_id"] == v2["id"]
+
+
 def test_platform_version_commit_and_diff(editor_client, emitter_with_version):
     # POST /platforms already auto-commits an initial version (v1, no links) —
     # see "Automatically commit the initial version" in create_platform. No
@@ -147,6 +164,7 @@ def test_coverage_lists_each_pinned_emitter_versions_modes(editor_client):
     assert (entry["designation"], entry["emitter_name"], entry["version_number"]) == ("CV-1", "Coverage Emitter", 1)
     [mode] = entry["modes"]
     assert mode["name"] == "S1" and mode["rf_raw"] == [2900.0, 3100.0]
+    assert mode["id"]  # so the charts can mark the Modes an ambiguity check flagged
     # The engineered ranges carry each parameter's ± delta.
     assert mode["rf"] == [2899.0, 3101.0] and mode["pri"] == [790.0, 1210.0]
 
@@ -181,3 +199,44 @@ def test_mdf_coverage_groups_emitters_under_their_pinned_platform_version(editor
     [em] = plat["emitters"]
     assert (em["designation"], em["emitter_name"], em["version_number"]) == ("MC-1", "MDF Cov Emitter", 1)
     assert [m["name"] for m in em["modes"]] == ["S1"] and em["modes"][0]["rf"] == [2899.0, 3101.0]
+
+
+def test_list_summarises_each_platforms_emitters_versions_and_mdfs(editor_client):
+    from tests.integration.test_modes_api import FIXED_LINE
+
+    def emitter_with_modes(name, n):
+        e = editor_client.post("/emitters", json={"name": name}).json()
+        g = editor_client.post(f"/emitters/{e['id']}/ew-groups", json={"name": "G"}).json()
+        s = editor_client.post(f"/emitters/{e['id']}/sources", json={"name": "S", "source_date": "2025-01-01"}).json()
+        for i in range(n):
+            editor_client.post(
+                f"/ew-groups/{g['id']}/modes",
+                json={"source_id": s["id"], "name": f"M{i}", "pri_type": "fixed", "line": FIXED_LINE},
+            )
+        return e, editor_client.post(f"/emitters/{e['id']}/versions", json={"change_summary": "v"}).json()
+
+    a, va = emitter_with_modes("Summary A", 2)
+    b, _ = emitter_with_modes("Summary B", 1)
+    # A status change saves a version, so pin b's after it.
+    vb = editor_client.post(f"/emitters/{b['id']}/status", json={"new_status": "in_review"}).json()
+    platform = editor_client.post("/platforms", json={"name": "Summary Platform"}).json()
+    for e, v in ((a, va), (b, vb)):
+        editor_client.post(f"/platforms/{platform['id']}/links", json={"emitter_id": e["id"], "emitter_version_id": v["id"]})
+    editor_client.post(f"/emitters/{a['id']}/versions", json={"change_summary": "newer"})  # a's pin is now outdated
+    editor_client.post(f"/platforms/{platform['id']}/versions", json={"change_summary": "pins"})
+    mdf = editor_client.post("/mdfs", json={"name": "Summary MDF"}).json()
+    pv = editor_client.get(f"/platforms/{platform['id']}/versions").json()[0]
+    editor_client.post(f"/mdfs/{mdf['id']}/links", json={"platform_id": platform["id"], "platform_version_id": pv["id"]})
+    # The same Modes in both Emitters: a Platform check finds them ambiguous.
+    editor_client.post("/ambiguity/runs", json={"scope_type": "platform", "scope_id": platform["id"]})
+
+    [item] = [p for p in editor_client.get("/platforms").json() if p["id"] == platform["id"]]
+    s = item["summary"]
+    assert s["emitter_count"] == 2
+    assert s["mode_count"] == 3
+    assert s["outdated_pins"] == 1
+    assert s["worst_status"] == "draft"  # In progress is worse than Testing
+    assert s["status_counts"]["draft"] == 1 and s["status_counts"]["in_review"] == 1
+    assert s["latest_version_number"] == 2
+    assert s["mdf_count"] == 1
+    assert s["ambiguous_emitters"] == 2 and s["open_ambiguities"] == 2

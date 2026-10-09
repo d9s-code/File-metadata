@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -24,7 +25,20 @@ def _load_mode_lines(db, run: AmbiguityRun) -> list:
         version = db.get(PlatformVersion, run.platform_version_id)
         return flatten_platform_snapshot(version.snapshot)
     version = db.get(MdfVersion, run.mdf_version_id)
-    return flatten_mdf_snapshot(version.snapshot)
+    return _distinct_lines(flatten_mdf_snapshot(version.snapshot))
+
+
+def _distinct_lines(lines: list) -> list:
+    """An Emitter pinned on several of an MDF's Platforms counts once per
+    distinct Mode line, not once per Platform."""
+    seen: set[tuple] = set()
+    out = []
+    for line in lines:
+        key = (line.emitter_id, line.mode_id, json.dumps(line.line, sort_keys=True, default=str))
+        if key not in seen:
+            seen.add(key)
+            out.append(line)
+    return out
 
 
 def _prior_reviewed_findings(db, run: AmbiguityRun) -> list[dict]:
@@ -78,7 +92,13 @@ def execute_ambiguity_run(run_id: UUID) -> None:
             return
         try:
             mode_lines = _load_mode_lines(db, run)
-            findings = compute_pairwise_findings(mode_lines, run.tolerance_config)
+            # A Platform or MDF check asks which Emitters can be taken for each
+            # other, so it leaves out overlaps inside a single Emitter.
+            findings = compute_pairwise_findings(
+                mode_lines,
+                run.tolerance_config,
+                across_emitters_only=run.scope_type != AmbiguityScopeType.emitter,
+            )
             prior_reviewed = _prior_reviewed_findings(db, run)
             if prior_reviewed:
                 carry_forward_reviews(findings, prior_reviewed)
