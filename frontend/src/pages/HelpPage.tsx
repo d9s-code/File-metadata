@@ -740,6 +740,12 @@ export function HelpPage() {
             An <strong>Analyst notes</strong> panel below the title works the same way as an Emitter&apos;s —
             an append-only, timestamped log, separate from the single editable "Notes" field in the edit form.
           </p>
+          <p>
+            <strong>Charts</strong> works like a Platform&apos;s, one level up: <strong>Per Platform</strong> draws
+            a line per pinned Platform — everything its Emitters cover, gaps kept as gaps; <strong>Per
+            Emitter</strong> a line per Emitter under its Platform; <strong>Per Mode</strong> a line per Mode
+            under its Emitter. It reads each pinned Platform version and the Emitter versions it pins.
+          </p>
         </div>
 
         <div className="help-subsection" id="mdf-versions">

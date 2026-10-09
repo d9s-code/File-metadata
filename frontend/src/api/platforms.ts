@@ -70,3 +70,15 @@ export interface EmitterCoverage {
 export const platformCoverageApi = {
   get: (platformId: string) => api.get<EmitterCoverage[]>(`/platforms/${platformId}/coverage`),
 };
+
+/** A Platform version pinned on an MDF, with what its Emitters cover. */
+export interface PlatformCoverage {
+  platform_id: string;
+  platform_name: string;
+  version_number: number;
+  emitters: EmitterCoverage[];
+}
+
+export const mdfCoverageApi = {
+  get: (mdfId: string) => api.get<PlatformCoverage[]>(`/mdfs/${mdfId}/coverage`),
+};

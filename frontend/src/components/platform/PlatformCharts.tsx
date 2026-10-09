@@ -1,13 +1,12 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { platformCoverageApi, type CoverageMode, type EmitterCoverage } from "../../api/platforms";
+import { mdfCoverageApi, platformCoverageApi, type CoverageMode, type EmitterCoverage } from "../../api/platforms";
 import { fmt, niceTicks, useWidth } from "../intercepts/charts/Histogram";
 import { SERIES_SLOTS } from "../modes/charts/modeRanges";
 
 type Span = [number, number];
 type Param = "rf" | "pri" | "pw";
-type View = "emitter" | "mode";
 
 const PARAMS: { key: Param; label: string; unit: string }[] = [
   { key: "rf", label: "RF", unit: "MHz" },
@@ -20,7 +19,6 @@ const HEAD = 28;
 const LABEL_W = 230;
 const PAD_R = 16;
 
-const VIEW_KEY = "platformChartView";
 
 function spanOf(m: CoverageMode, p: Param, engineered: boolean): Span | null {
   if (p === "rf") return engineered ? m.rf : m.rf_raw;
@@ -55,12 +53,52 @@ function rangeText(spans: Span[], unit: string) {
 }
 
 interface Row {
-  /** An Emitter's line; a heading over its Modes (no bars); or one Mode. */
-  kind: "emitter" | "heading" | "mode";
+  /** A line with bars; or a heading over the lines below it. */
+  kind: "line" | "heading";
+  depth: number;
   label: string;
   title: string;
   colour: number;
   spans: Span[];
+}
+
+/** A Platform, Emitter or Mode in the charts' tree, with every Mode under it. */
+export interface CoverageNode {
+  key: string;
+  label: string;
+  title: string;
+  modes: CoverageMode[];
+  children?: CoverageNode[];
+}
+
+/** The charts' lines at a level of the tree: a line per node at that depth,
+ * under headings for the nodes above it. */
+function rowsAt(
+  nodes: CoverageNode[],
+  level: number,
+  p: Param,
+  engineered: boolean,
+  colours: Map<string, number>,
+  colourDepth: number,
+): Row[] {
+  const out: Row[] = [];
+  const walk = (node: CoverageNode, depth: number, colour: number) => {
+    const c = depth === colourDepth ? (colours.get(node.key) ?? colour) : colour;
+    if (depth === level || !node.children?.length) {
+      const spans = node.modes.map((m) => spanOf(m, p, engineered)).filter((s): s is Span => !!s);
+      out.push({ kind: "line", depth, label: node.label, title: node.title, colour: c, spans: coveredRanges(spans) });
+      return;
+    }
+    out.push({ kind: "heading", depth, label: node.label, title: node.title, colour: c, spans: [] });
+    for (const child of node.children) walk(child, depth + 1, c);
+  };
+  nodes.forEach((n) => walk(n, 0, colours.get(n.key) ?? 0));
+  return out;
+}
+
+/** The nodes at a depth of the tree, in order. */
+function nodesAt(nodes: CoverageNode[], depth: number): CoverageNode[] {
+  return depth === 0 ? nodes : nodes.flatMap((n) => nodesAt(n.children ?? [], depth - 1));
 }
 
 function ParamChart({
@@ -115,11 +153,11 @@ function ParamChart({
                   <title>{`${r.title}\n${r.spans.length ? rangeText(r.spans, param.unit) : "nothing on this parameter"}`}</title>
                   {i % 2 === 0 && <rect x={0} y={y} width={width} height={ROW} className="platform-chart-band" />}
                   <text
-                    x={r.kind === "mode" ? 18 : 4}
+                    x={4 + r.depth * 14}
                     y={y + ROW / 2 + 4}
-                    className={r.kind === "mode" ? "platform-chart-label" : "platform-chart-label emitter"}
+                    className={r.kind === "heading" || r.depth === 0 ? "platform-chart-label emitter" : "platform-chart-label"}
                   >
-                    {truncate(r.label, r.kind === "mode" ? 30 : 32)}
+                    {truncate(r.label, 32 - r.depth * 2)}
                   </text>
                   {r.spans.map(([a, b], j) => (
                     <rect
@@ -133,7 +171,7 @@ function ParamChart({
                       style={{ fill: r.colour < SERIES_SLOTS ? `var(--series-${r.colour + 1})` : "var(--muted)" }}
                     />
                   ))}
-                  {r.spans.length === 0 && r.kind === "emitter" && (
+                  {r.spans.length === 0 && r.kind === "line" && (
                     <text x={LABEL_W + 4} y={y + ROW / 2 + 4} className="hint-text platform-chart-none">
                       —
                     </text>
@@ -148,63 +186,60 @@ function ParamChart({
   );
 }
 
-/** What the pinned Emitter versions cover on RF, PRI and PW: one line per
- * Emitter (its Modes' ranges joined only where they overlap, so a gap stays a
- * gap), or one line per Mode grouped under its Emitter. */
-export function PlatformCharts({ platformId }: { platformId: string }) {
-  const { data, isLoading } = useQuery({
-    queryKey: ["platform-coverage", platformId],
-    queryFn: () => platformCoverageApi.get(platformId),
-  });
-  const [view, setViewState] = useState<View>(() => {
+/** RF, PRI and PW coverage of a tree of Platforms, Emitters and Modes: a
+ * line per node at the chosen level — its Modes' ranges joined only where
+ * they overlap, so a gap stays a gap — under headings for the levels above. */
+export function CoverageCharts({
+  nodes,
+  levels,
+  storageKey,
+  note,
+  legend,
+}: {
+  nodes: CoverageNode[];
+  /** The tree's levels, top first, e.g. ["Platform", "Emitter", "Mode"]. */
+  levels: string[];
+  storageKey: string;
+  /** What the lines come from, e.g. "As of each pinned version." */
+  note: string;
+  legend: ReactNode;
+}) {
+  const [level, setLevelState] = useState(() => {
     try {
-      return localStorage.getItem(VIEW_KEY) === "mode" ? "mode" : "emitter";
+      const v = Number(localStorage.getItem(storageKey));
+      return Number.isInteger(v) && v >= 0 && v < levels.length ? v : 0;
     } catch {
-      return "emitter";
+      return 0;
     }
   });
-  const setView = (v: View) => {
-    setViewState(v);
+  const setLevel = (v: number) => {
+    setLevelState(v);
     try {
-      localStorage.setItem(VIEW_KEY, v);
+      localStorage.setItem(storageKey, String(v));
     } catch {
       /* not remembered */
     }
   };
   const [engineered, setEngineered] = useState(true);
   const [log, setLog] = useState(false);
-
-  const rowsFor = useMemo(() => {
-    const emitters = data ?? [];
-    return (p: Param): Row[] =>
-      emitters.flatMap((e, i): Row[] => {
-        const label = emitterLabel(e);
-        const title = `${label} (v${e.version_number})`;
-        const spans = e.modes.map((m) => spanOf(m, p, engineered)).filter((s): s is Span => !!s);
-        if (view === "emitter") return [{ kind: "emitter" as const, label, title, colour: i, spans: coveredRanges(spans) }];
-        return [
-          { kind: "heading" as const, label, title, colour: i, spans: [] as Span[] },
-          ...e.modes.map((m) => {
-            const s = spanOf(m, p, engineered);
-            return { kind: "mode" as const, label: m.name, title: `${m.name} — ${title}`, colour: i, spans: s ? [s] : [] };
-          }),
-        ];
-      });
-  }, [data, view, engineered]);
-
-  if (isLoading) return <p className="hint-text">Loading what the Emitters cover…</p>;
-  if (!data?.length) return <p className="hint-text">Pin an Emitter version to see what this Platform covers.</p>;
+  // Bars are coloured by what the lines are, or (for Modes) what they're under.
+  const colourDepth = Math.max(0, Math.min(level, levels.length - 2));
+  const coloured = useMemo(() => nodesAt(nodes, colourDepth), [nodes, colourDepth]);
+  const colours = useMemo(() => new Map(coloured.map((n, i) => [n.key, i])), [coloured]);
+  const rowsFor = useMemo(
+    () => (p: Param) => rowsAt(nodes, level, p, engineered, colours, colourDepth),
+    [nodes, level, engineered, colours, colourDepth],
+  );
 
   return (
     <div className="platform-charts">
       <div className="platform-charts-controls">
         <div className="theme-toggle" role="group" aria-label="Chart lines">
-          <button type="button" className={view === "emitter" ? "active" : undefined} onClick={() => setView("emitter")}>
-            Per Emitter
-          </button>
-          <button type="button" className={view === "mode" ? "active" : undefined} onClick={() => setView("mode")}>
-            Per Mode
-          </button>
+          {levels.map((name, i) => (
+            <button key={name} type="button" className={level === i ? "active" : undefined} onClick={() => setLevel(i)}>
+              Per {name}
+            </button>
+          ))}
         </div>
         <label className="inline-label">
           <input type="checkbox" checked={engineered} onChange={(e) => setEngineered(e.target.checked)} /> Engineered
@@ -214,27 +249,104 @@ export function PlatformCharts({ platformId }: { platformId: string }) {
           <input type="checkbox" checked={log} onChange={(e) => setLog(e.target.checked)} /> Log scale
         </label>
         <span className="hint-text">
-          {view === "emitter"
-            ? "One line per Emitter: its Modes' ranges, joined only where they overlap — a gap is a value no Mode covers."
-            : "One line per Mode, under its Emitter."}{" "}
-          As of each pinned version.
+          {level < levels.length - 1
+            ? `One line per ${levels[level]}: its Modes' ranges, joined only where they overlap — a gap is a value no Mode covers.`
+            : `One line per Mode, under its ${levels[level - 1] ?? "group"}.`}{" "}
+          {note}
         </span>
       </div>
       {PARAMS.map((p) => (
         <ParamChart key={p.key} param={p} rows={rowsFor(p.key)} log={log} />
       ))}
       <p className="hint-text">
-        {data.map((e, i) => (
-          <span key={e.emitter_id} className="platform-chart-legend">
-            <span
-              className="platform-chart-swatch"
-              style={{ background: i < SERIES_SLOTS ? `var(--series-${i + 1})` : "var(--muted)" }}
-            />
-            <Link to={`/emitters/${e.emitter_id}`}>{emitterLabel(e)}</Link> v{e.version_number} · {e.modes.length} Mode
-            {e.modes.length === 1 ? "" : "s"}
+        {coloured.map((n, i) => (
+          <span key={n.key} className="platform-chart-legend">
+            <Swatch i={i} />
+            {n.title}
           </span>
         ))}
       </p>
+      <p className="hint-text">{legend}</p>
     </div>
+  );
+}
+
+function Swatch({ i }: { i: number }) {
+  return (
+    <span
+      className="platform-chart-swatch"
+      style={{ background: i < SERIES_SLOTS ? `var(--series-${i + 1})` : "var(--muted)" }}
+    />
+  );
+}
+
+function emitterNode(e: EmitterCoverage, keyPrefix = ""): CoverageNode {
+  const label = emitterLabel(e);
+  const title = `${label} (v${e.version_number})`;
+  return {
+    key: `${keyPrefix}${e.emitter_id}`,
+    label,
+    title,
+    modes: e.modes,
+    children: e.modes.map((m, i) => ({ key: `${keyPrefix}${e.emitter_id}:${i}`, label: m.name, title: `${m.name} — ${title}`, modes: [m] })),
+  };
+}
+
+/** What a Platform's pinned Emitter versions cover: per Emitter or per Mode. */
+export function PlatformCharts({ platformId }: { platformId: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["platform-coverage", platformId],
+    queryFn: () => platformCoverageApi.get(platformId),
+  });
+  const nodes = useMemo(() => (data ?? []).map((e) => emitterNode(e)), [data]);
+  if (isLoading) return <p className="hint-text">Loading what the Emitters cover…</p>;
+  if (!data?.length) return <p className="hint-text">Pin an Emitter version to see what this Platform covers.</p>;
+  return (
+    <CoverageCharts
+      nodes={nodes}
+      levels={["Emitter", "Mode"]}
+      storageKey="platformChartLevel"
+      note="As of each pinned version."
+      legend={data.map((e) => (
+        <span key={e.emitter_id} className="platform-chart-legend">
+          <Link to={`/emitters/${e.emitter_id}`}>{emitterLabel(e)}</Link> · {e.modes.length} Mode
+          {e.modes.length === 1 ? "" : "s"}
+        </span>
+      ))}
+    />
+  );
+}
+
+/** What an MDF's pinned Platform versions cover: per Platform, per Emitter
+ * (under its Platform) or per Mode. */
+export function MdfCharts({ mdfId }: { mdfId: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["mdf-coverage", mdfId],
+    queryFn: () => mdfCoverageApi.get(mdfId),
+  });
+  const nodes = useMemo(
+    () =>
+      (data ?? []).map((p): CoverageNode => {
+        const title = `${p.platform_name} (v${p.version_number})`;
+        const emitters = p.emitters.map((e) => emitterNode(e, `${p.platform_id}:`));
+        return { key: p.platform_id, label: p.platform_name, title, modes: p.emitters.flatMap((e) => e.modes), children: emitters };
+      }),
+    [data],
+  );
+  if (isLoading) return <p className="hint-text">Loading what the Platforms cover…</p>;
+  if (!data?.length) return <p className="hint-text">Pin a Platform version to see what this MDF covers.</p>;
+  return (
+    <CoverageCharts
+      nodes={nodes}
+      levels={["Platform", "Emitter", "Mode"]}
+      storageKey="mdfChartLevel"
+      note="As of each pinned Platform version and the Emitter versions it pins."
+      legend={data.map((p) => (
+        <span key={p.platform_id} className="platform-chart-legend">
+          <Link to={`/platforms/${p.platform_id}`}>{p.platform_name}</Link> · {p.emitters.length}{" "}
+          Emitter{p.emitters.length === 1 ? "" : "s"}
+        </span>
+      ))}
+    />
   );
 }

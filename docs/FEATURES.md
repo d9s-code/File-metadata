@@ -217,6 +217,8 @@ An **MDF** is the deployable artifact — the file structure actually loaded ont
 
 MDFs are versioned the same way as everything else, and carry their own status lifecycle (see [Versioning & Diffs](#5-versioning--diffs) above).
 
+The MDF page's **Charts** tab works like a Platform's, one level up: **Per Platform** — a line per pinned Platform version covering everything its Emitters do (joined only where ranges overlap); **Per Emitter** — a line per Emitter under a heading for its Platform; **Per Mode** — a line per Mode under its Emitter. Bars are coloured by Platform, or by Emitter once Emitters are shown. It reads each pinned Platform version and the Emitter versions recorded in it (`GET /mdfs/{id}/coverage`).
+
 ### Readiness signals
 
 Before moving an MDF toward `approved` or `released`, the app checks two things and surfaces them as **soft warnings** (never a hard block — the decision stays with you):

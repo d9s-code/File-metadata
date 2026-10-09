@@ -149,3 +149,35 @@ def test_coverage_lists_each_pinned_emitter_versions_modes(editor_client):
     assert mode["name"] == "S1" and mode["rf_raw"] == [2900.0, 3100.0]
     # The engineered ranges carry each parameter's ± delta.
     assert mode["rf"] == [2899.0, 3101.0] and mode["pri"] == [790.0, 1210.0]
+
+
+
+def test_mdf_coverage_groups_emitters_under_their_pinned_platform_version(editor_client):
+    from tests.integration.test_modes_api import FIXED_LINE
+
+    emitter = editor_client.post("/emitters", json={"name": "MDF Cov Emitter", "designation": "MC-1"}).json()
+    group = editor_client.post(f"/emitters/{emitter['id']}/ew-groups", json={"name": "Search"}).json()
+    source = editor_client.post(
+        f"/emitters/{emitter['id']}/sources", json={"name": "Report", "source_date": "2025-01-01"}
+    ).json()
+    editor_client.post(
+        f"/ew-groups/{group['id']}/modes",
+        json={"source_id": source["id"], "name": "S1", "pri_type": "fixed", "line": FIXED_LINE},
+    )
+    ev = editor_client.post(f"/emitters/{emitter['id']}/versions", json={"change_summary": "v1"}).json()
+    platform = editor_client.post("/platforms", json={"name": "MDF Cov Platform"}).json()
+    editor_client.post(f"/platforms/{platform['id']}/links", json={"emitter_id": emitter["id"], "emitter_version_id": ev["id"]})
+    pv = editor_client.post(f"/platforms/{platform['id']}/versions", json={"change_summary": "p1"}).json()
+    mdf = editor_client.post("/mdfs", json={"name": "MDF Cov"}).json()
+    resp = editor_client.post(
+        f"/mdfs/{mdf['id']}/links", json={"platform_id": platform["id"], "platform_version_id": pv["id"]}
+    )
+    assert resp.status_code == 201, resp.text
+
+    resp = editor_client.get(f"/mdfs/{mdf['id']}/coverage")
+    assert resp.status_code == 200, resp.text
+    [plat] = resp.json()
+    assert (plat["platform_name"], plat["version_number"]) == ("MDF Cov Platform", pv["version_number"])
+    [em] = plat["emitters"]
+    assert (em["designation"], em["emitter_name"], em["version_number"]) == ("MC-1", "MDF Cov Emitter", 1)
+    assert [m["name"] for m in em["modes"]] == ["S1"] and em["modes"][0]["rf"] == [2899.0, 3101.0]

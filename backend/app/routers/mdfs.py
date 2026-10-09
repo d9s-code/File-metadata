@@ -18,6 +18,7 @@ from app.models.platform import PlatformVersion
 from app.schemas.emitter_version import CommitVersionRequest, DiffOut, StatusTransitionRequest
 from app.schemas.mdf import MdfCreate, MdfLinkCreate, MdfLinkOut, MdfOut, MdfReadinessOut, MdfUpdate
 from app.schemas.mdf_note import MdfNoteCreate, MdfNoteOut
+from app.services.platform_coverage import mdf_coverage
 from app.schemas.mdf_version import MdfStatusTransitionOut, MdfVersionDetailOut, MdfVersionOut
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.prs_export.packager import build_mdf_export_zip
@@ -512,3 +513,10 @@ def export_mdf_version_prs(
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.get("/{mdf_id}/coverage")
+def get_mdf_coverage(mdf_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))) -> list[dict]:
+    """Each pinned Platform version with what its Emitters cover — for the MDF's charts."""
+    _get_mdf_or_404(db, mdf_id)
+    return mdf_coverage(db, mdf_id)

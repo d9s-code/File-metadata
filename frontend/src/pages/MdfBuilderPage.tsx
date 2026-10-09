@@ -6,6 +6,7 @@ import { usePlatforms } from "../state/hooks/usePlatforms";
 import { useCustomers } from "../state/hooks/useCustomers";
 import { useCreateMdfNote, useDeleteMdfNote, useMdfNotes } from "../state/hooks/useMdfNotes";
 import { MdfLinkTable } from "../components/mdf/MdfLinkTable";
+import { MdfCharts } from "../components/platform/PlatformCharts";
 import { PlatformVersionPicker } from "../components/mdf/PlatformVersionPicker";
 import { MdfStatusTransitionControls } from "../components/mdf/MdfStatusTransitionControls";
 import { downloadMdfXml } from "../components/mdf/ExportXmlButton";
@@ -23,7 +24,7 @@ import { NotesFeed } from "../components/common/NotesFeed";
 import { statusLabel } from "../components/common/emitterStatusLabel";
 import { TasksButton } from "../components/tasks/TasksButton";
 
-type Tab = "platforms" | "tests" | "audit";
+type Tab = "platforms" | "charts" | "tests" | "audit";
 
 export function MdfBuilderPage() {
   const { mdfId } = useParams<{ mdfId: string }>();
@@ -233,6 +234,9 @@ export function MdfBuilderPage() {
         <button className={tab === "platforms" ? "tab active" : "tab"} onClick={() => setTab("platforms")}>
           Pinned Platforms
         </button>
+        <button className={tab === "charts" ? "tab active" : "tab"} onClick={() => setTab("charts")}>
+          Charts
+        </button>
         <button className={tab === "tests" ? "tab active" : "tab"} onClick={() => setTab("tests")}>
           Test History
         </button>
@@ -254,6 +258,7 @@ export function MdfBuilderPage() {
         </div>
       )}
 
+      {tab === "charts" && <MdfCharts mdfId={mdf.id} />}
       {tab === "tests" && <MdfTestHistory mdfId={mdf.id} highlightTestRecordId={highlightTestRecordId} />}
       {tab === "audit" && <EntityAuditTrail entityType="mdf" entityId={mdf.id} />}
     </div>

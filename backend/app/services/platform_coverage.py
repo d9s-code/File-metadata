@@ -1,4 +1,4 @@
-"""What each Emitter pinned on a Platform covers — its Modes' RF, PRI and PW
+"""What each Emitter pinned on a Platform (or, through its Platforms, an MDF) covers — its Modes' RF, PRI and PW
 ranges as of the pinned version, raw and engineered (± delta), for the
 Platform's charts. Modes whose Sources were all rejected are left out, as in
 the export."""
@@ -9,7 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.models.emitter import Emitter
 from app.models.emitter_version import EmitterVersion
-from app.models.platform import PlatformEmitterLink
+from app.models.mdf import MdfPlatformLink
+from app.models.platform import Platform, PlatformEmitterLink, PlatformVersion
 from app.services.delta import apply_delta
 from app.services.frametime_service import effective_frametime_us
 from app.services.mode_sources import all_rejected, mode_source_ids
@@ -59,6 +60,28 @@ def _mode_ranges(mode: dict) -> dict | None:
     return out
 
 
+def emitter_coverage(snapshot: dict, *, emitter_id, emitter_name: str, designation, version_number: int) -> dict:
+    """One Emitter version's coverage from its snapshot."""
+    rejected = rejected_source_ids(snapshot)
+    modes = [
+        ranges
+        for group in snapshot.get("ew_groups", [])
+        for mode in group.get("modes", [])
+        if not all_rejected(mode_source_ids(mode), rejected) and (ranges := _mode_ranges(mode)) is not None
+    ]
+    return {
+        "emitter_id": emitter_id,
+        "emitter_name": emitter_name,
+        "designation": designation,
+        "version_number": version_number,
+        "modes": modes,
+    }
+
+
+def _by_designation(entries: list[dict]) -> list[dict]:
+    return sorted(entries, key=lambda e: ((e["designation"] or "\uffff").lower(), e["emitter_name"].lower()))
+
+
 def platform_coverage(db: Session, platform_id: UUID) -> list[dict]:
     links = (
         db.query(PlatformEmitterLink, EmitterVersion, Emitter)
@@ -67,25 +90,49 @@ def platform_coverage(db: Session, platform_id: UUID) -> list[dict]:
         .filter(PlatformEmitterLink.platform_id == platform_id)
         .all()
     )
+    return _by_designation(
+        [
+            emitter_coverage(
+                version.snapshot,
+                emitter_id=emitter.id,
+                emitter_name=emitter.name,
+                designation=emitter.designation,
+                version_number=version.version_number,
+            )
+            for _link, version, emitter in links
+        ]
+    )
+
+
+def mdf_coverage(db: Session, mdf_id: UUID) -> list[dict]:
+    """Each Platform version pinned on an MDF, with what its pinned Emitter
+    versions cover — as recorded in that Platform version."""
+    links = (
+        db.query(MdfPlatformLink, PlatformVersion, Platform)
+        .join(PlatformVersion, MdfPlatformLink.platform_version_id == PlatformVersion.id)
+        .join(Platform, MdfPlatformLink.platform_id == Platform.id)
+        .filter(MdfPlatformLink.mdf_id == mdf_id)
+        .all()
+    )
     out = []
-    for _link, version, emitter in links:
-        snapshot = version.snapshot
-        rejected = rejected_source_ids(snapshot)
-        modes = [
-            ranges
-            for group in snapshot.get("ew_groups", [])
-            for mode in group.get("modes", [])
-            if not all_rejected(mode_source_ids(mode), rejected)
-            and (ranges := _mode_ranges(mode)) is not None
+    for _link, version, platform in links:
+        emitters = [
+            emitter_coverage(
+                el["emitter_snapshot"],
+                emitter_id=el["emitter_id"],
+                emitter_name=el["emitter_name"],
+                designation=el["emitter_snapshot"].get("designation"),
+                version_number=el.get("emitter_version_number") or 0,
+            )
+            for el in version.snapshot.get("links", [])
         ]
         out.append(
             {
-                "emitter_id": emitter.id,
-                "emitter_name": emitter.name,
-                "designation": emitter.designation,
+                "platform_id": platform.id,
+                "platform_name": platform.name,
                 "version_number": version.version_number,
-                "modes": modes,
+                "emitters": _by_designation(emitters),
             }
         )
-    out.sort(key=lambda e: ((e["designation"] or "￿").lower(), e["emitter_name"].lower()))
+    out.sort(key=lambda p: p["platform_name"].lower())
     return out
