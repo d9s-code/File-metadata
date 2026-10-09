@@ -203,6 +203,12 @@ Critically, a Platform doesn't reference an Emitter's live draft — it **pins t
 
 Platforms are versioned exactly like Emitters (commit, history, diff) — a Platform version snapshots the full set of emitter/version pins at that point, including each pinned emitter's complete nested data.
 
+The Platform page shows each Emitter's **designation before its name** — in the pin picker (sorted by designation) and as its own column of the pinned table. Its tabs:
+
+- **Charts** — what the pinned Emitter versions cover on **RF**, **PRI** (a stagger's frame time) and **PW**, one chart each. **Per Emitter**: one line per Emitter, its Modes' ranges joined only where they overlap or touch — a PRI of 1–2 µs and 200–205 µs in two Modes stays two pieces, never 1–205. **Per Mode**: a line per Mode under its Emitter. Engineered values (± margins) by default, raw on request; a log scale for values spanning orders of magnitude. Modes whose Sources are all rejected are left out, as in the export.
+- **Analyst notes** — the same append-only, timestamped log as an Emitter's (also on MDFs).
+- **Ambiguity check** (a button at the top) — runs on the latest saved Platform version: every pinned Emitter's Modes against each other, across Emitters.
+
 ---
 
 ## 7. Mission Data Files (MDFs)

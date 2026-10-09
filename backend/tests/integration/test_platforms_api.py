@@ -116,3 +116,36 @@ def test_unpin_removes_link(editor_client, emitter_with_version):
     resp = editor_client.delete(f"/platforms/{platform['id']}/links/{emitter['id']}")
     assert resp.status_code == 204
     assert editor_client.get(f"/platforms/{platform['id']}/links").json() == []
+
+
+def test_coverage_lists_each_pinned_emitter_versions_modes(editor_client):
+    from tests.integration.test_modes_api import FIXED_LINE
+
+    emitter = editor_client.post("/emitters", json={"name": "Coverage Emitter", "designation": "CV-1"}).json()
+    group = editor_client.post(f"/emitters/{emitter['id']}/ew-groups", json={"name": "Search"}).json()
+    source = editor_client.post(
+        f"/emitters/{emitter['id']}/sources", json={"name": "Report", "source_date": "2025-01-01"}
+    ).json()
+    editor_client.post(
+        f"/ew-groups/{group['id']}/modes",
+        json={"source_id": source["id"], "name": "S1", "pri_type": "fixed", "line": FIXED_LINE},
+    )
+    version = editor_client.post(f"/emitters/{emitter['id']}/versions", json={"change_summary": "v1"}).json()
+    platform = editor_client.post("/platforms", json={"name": "Coverage Platform"}).json()
+    editor_client.post(
+        f"/platforms/{platform['id']}/links", json={"emitter_id": emitter["id"], "emitter_version_id": version["id"]}
+    )
+    # A Mode added after the pinned version doesn't show.
+    editor_client.post(
+        f"/ew-groups/{group['id']}/modes",
+        json={"source_id": source["id"], "name": "Later", "pri_type": "fixed", "line": FIXED_LINE},
+    )
+
+    resp = editor_client.get(f"/platforms/{platform['id']}/coverage")
+    assert resp.status_code == 200, resp.text
+    [entry] = resp.json()
+    assert (entry["designation"], entry["emitter_name"], entry["version_number"]) == ("CV-1", "Coverage Emitter", 1)
+    [mode] = entry["modes"]
+    assert mode["name"] == "S1" and mode["rf_raw"] == [2900.0, 3100.0]
+    # The engineered ranges carry each parameter's ± delta.
+    assert mode["rf"] == [2899.0, 3101.0] and mode["pri"] == [790.0, 1210.0]

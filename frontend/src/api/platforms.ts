@@ -45,3 +45,28 @@ export const platformsApi = {
   exportPrs: (platformId: string, versionNumber: number) =>
     api.get<Blob>(`/platforms/${platformId}/versions/${versionNumber}/export/prs`),
 };
+
+/** One Mode's ranges as of a pinned Emitter version: raw and engineered (± delta). */
+export interface CoverageMode {
+  name: string;
+  pri_type: string;
+  rf: [number, number];
+  rf_raw: [number, number];
+  pri: [number, number] | null;
+  pri_raw: [number, number] | null;
+  pw: [number, number] | null;
+  pw_raw: [number, number] | null;
+}
+
+/** What one pinned Emitter version covers. */
+export interface EmitterCoverage {
+  emitter_id: string;
+  emitter_name: string;
+  designation: string | null;
+  version_number: number;
+  modes: CoverageMode[];
+}
+
+export const platformCoverageApi = {
+  get: (platformId: string) => api.get<EmitterCoverage[]>(`/platforms/${platformId}/coverage`),
+};

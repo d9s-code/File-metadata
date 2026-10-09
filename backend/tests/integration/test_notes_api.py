@@ -175,3 +175,18 @@ def test_mdf_note_coexists_with_the_single_notes_field(editor_client):
     # The flat field is untouched by adding a feed entry.
     refetched = editor_client.get(f"/mdfs/{mdf['id']}").json()
     assert refetched["notes"] == "flat summary"
+
+
+def test_platform_notes_add_list_delete_and_need_an_editor(editor_client, viewer_client):
+    platform = editor_client.post("/platforms", json={"name": "Notes Platform"}).json()
+    url = f"/platforms/{platform['id']}/notes"
+    first = editor_client.post(url, json={"body": "Pinned the new radar versions."})
+    assert first.status_code == 201, first.text
+    editor_client.post(url, json={"body": "Waiting on the jammer data."})
+    listed = viewer_client.get(url).json()
+    assert [n["body"] for n in listed] == ["Waiting on the jammer data.", "Pinned the new radar versions."]
+    assert listed[0]["author_username"] == "editor_t"
+
+    assert viewer_client.post(url, json={"body": "nope"}).status_code == 403
+    assert editor_client.delete(f"{url}/{first.json()['id']}").status_code == 204
+    assert [n["body"] for n in editor_client.get(url).json()] == ["Waiting on the jammer data."]

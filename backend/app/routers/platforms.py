@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.csrf import verify_csrf
 from app.core.downloads import attachment_disposition
@@ -12,10 +12,13 @@ from app.database import get_db
 from app.deps import require_role
 from app.models.emitter_version import EmitterVersion
 from app.models.platform import Platform, PlatformEmitterLink, PlatformVersion
+from app.models.platform_note import PlatformNote
+from app.schemas.platform_note import PlatformNoteCreate, PlatformNoteOut
 from app.schemas.emitter_version import CommitVersionRequest, DiffOut
 from app.schemas.platform import PlatformCreate, PlatformLinkCreate, PlatformLinkOut, PlatformOut, PlatformUpdate
 from app.schemas.platform_version import PlatformVersionDetailOut, PlatformVersionOut
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
+from app.services.platform_coverage import platform_coverage
 from app.services.prs_export.packager import build_platform_export_zip
 from app.services.snapshots import build_platform_snapshot
 from app.services.pinned_diff_service import compute_pinned_diff
@@ -391,3 +394,83 @@ def export_platform_version_prs(
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.get("/{platform_id}/notes", response_model=list[PlatformNoteOut])
+def list_platform_notes(
+    platform_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
+) -> list[PlatformNote]:
+    """Newest-first analyst commentary log — see PlatformNote."""
+    _get_platform_or_404(db, platform_id)
+    return (
+        db.query(PlatformNote)
+        .options(joinedload(PlatformNote.author))
+        .filter(PlatformNote.platform_id == platform_id)
+        .order_by(PlatformNote.created_at.desc())
+        .all()
+    )
+
+
+@router.post(
+    "/{platform_id}/notes",
+    response_model=PlatformNoteOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(verify_csrf)],
+)
+def create_platform_note(
+    platform_id: UUID,
+    payload: PlatformNoteCreate,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+) -> PlatformNote:
+    platform = _get_platform_or_404(db, platform_id)
+    note = PlatformNote(platform_id=platform_id, author_id=user.id, body=payload.body)
+    db.add(note)
+    db.flush()
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.create,
+        entity_type=AuditEntityType.platform_note.value,
+        entity_id=note.id,
+        summary=f"Added a note to Platform '{platform.name}'",
+    )
+    db.commit()
+    db.refresh(note)
+    return note
+
+
+@router.delete(
+    "/{platform_id}/notes/{note_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(verify_csrf)]
+)
+def delete_platform_note(
+    platform_id: UUID,
+    note_id: UUID,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+) -> None:
+    platform = _get_platform_or_404(db, platform_id)
+    note = db.get(PlatformNote, note_id)
+    if note is None or note.platform_id != platform_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Note not found")
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.delete,
+        entity_type=AuditEntityType.platform_note.value,
+        entity_id=note.id,
+        summary=f"Deleted a note from Platform '{platform.name}'",
+        changes=snapshot(note, ["body"]),
+    )
+    db.delete(note)
+    db.commit()
+
+
+@router.get("/{platform_id}/coverage")
+def get_platform_coverage(
+    platform_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
+) -> list[dict]:
+    """What each pinned Emitter version covers: its Modes' RF, PRI and PW
+    ranges (raw and engineered), for the Platform's charts."""
+    _get_platform_or_404(db, platform_id)
+    return platform_coverage(db, platform_id)

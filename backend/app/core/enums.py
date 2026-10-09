@@ -193,6 +193,7 @@ class AuditEntityType(str, enum.Enum):
     mode_generation_batch = "mode_generation_batch"
     platform = "platform"
     platform_link = "platform_link"
+    platform_note = "platform_note"
     mdf = "mdf"
     mdf_link = "mdf_link"
     mdf_note = "mdf_note"

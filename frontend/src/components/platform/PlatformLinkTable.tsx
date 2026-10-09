@@ -9,7 +9,7 @@ import { SortableColumnHeader } from "../common/SortableColumnHeader";
 import { useSortableTable } from "../common/useSortableTable";
 import { compareStrings } from "../common/sortUtils";
 
-type PlatformLinkSortKey = "emitter" | "added";
+type PlatformLinkSortKey = "designation" | "emitter" | "added";
 
 function PinnedVersionCell({ emitterId, versionId }: { emitterId: string; versionId: string }) {
   const { data: versions } = useEmitterVersions(emitterId);
@@ -37,6 +37,8 @@ export function PlatformLinkTable({
     switch (key) {
       case "emitter":
         return compareStrings(emittersById[a.emitter_id]?.name, emittersById[b.emitter_id]?.name, dir);
+      case "designation":
+        return compareStrings(emittersById[a.emitter_id]?.designation, emittersById[b.emitter_id]?.designation, dir);
       case "added":
         return compareStrings(a.added_at, b.added_at, dir);
     }
@@ -51,6 +53,7 @@ export function PlatformLinkTable({
     <table className="data-table">
       <thead>
         <tr>
+          <SortableColumnHeader label="Designation" columnKey="designation" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
           <SortableColumnHeader label="Emitter" columnKey="emitter" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
           <th>Pinned Version</th>
           <SortableColumnHeader
@@ -68,6 +71,7 @@ export function PlatformLinkTable({
       <tbody>
         {sorted.map((link) => (
           <tr key={link.id}>
+            <td>{emittersById[link.emitter_id]?.designation ?? "—"}</td>
             <td>
               <Link to={`/emitters/${link.emitter_id}`}>
                 {emittersById[link.emitter_id]?.name ?? link.emitter_id}

@@ -149,11 +149,11 @@ export function MdfBuilderPage() {
       </EntityHeader>
 
       <section className="card">
-        <h4>Release notes</h4>
+        <h4>Analyst notes</h4>
         <NotesFeed
           notes={mdfNotes}
           isLoading={notesLoading}
-          placeholder="What's changed in this release of the MDF."
+          placeholder="Your own running notes/observations about this MDF — what changed in this release, what to check — separate from the description."
           onAdd={(body) => createMdfNote(body)}
           isAdding={isAddingNote}
           onDelete={(noteId) => deleteMdfNote(noteId)}

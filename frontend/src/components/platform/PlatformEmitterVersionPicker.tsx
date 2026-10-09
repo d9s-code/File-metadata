@@ -13,6 +13,12 @@ export function PlatformEmitterVersionPicker({ platformId }: { platformId: strin
   const [error, setError] = useState<string | null>(null);
 
   const selectedVersion = versions?.find((v) => v.version_number === versionNumber);
+  // Designation first — that's how they're looked for — then the name.
+  const choices = [...(emitters ?? [])].sort(
+    (a, b) =>
+      (a.designation ?? "\uffff").localeCompare(b.designation ?? "\uffff", undefined, { numeric: true }) ||
+      a.name.localeCompare(b.name),
+  );
 
   async function handlePin() {
     setError(null);
@@ -38,10 +44,10 @@ export function PlatformEmitterVersionPicker({ platformId }: { platformId: strin
           setVersionNumber("");
         }}
       >
-        <option value="">Choose emitter…</option>
-        {emitters?.map((e) => (
+        <option value="">Choose emitter (designation — name)…</option>
+        {choices.map((e) => (
           <option key={e.id} value={e.id}>
-            {e.name}
+            {e.designation ? `${e.designation} — ${e.name}` : e.name}
           </option>
         ))}
       </select>

@@ -683,11 +683,22 @@ export function HelpPage() {
         <div className="help-subsection" id="platform-detail">
           <h3>Platform detail</h3>
           <p>
-            Laid out like an Emitter: <strong>Save version</strong>, <strong>Export XML</strong> and{" "}
-            <strong>More ▾</strong> (Version history, Ambiguity check, Edit details) along the top, with when it
-            was last saved under the name. Pin and unpin Emitters below — each pin references one saved Emitter
-            version. A Platform has no editing session: pins and details apply straight away, and{" "}
-            <strong>Save version</strong> records them as a new version (the summary is optional).
+            Laid out like an Emitter: <strong>Save version</strong>, <strong>Ambiguity check</strong>,{" "}
+            <strong>Export XML</strong> and <strong>More ▾</strong> (Version history, Edit details) along the top,
+            with when it was last saved under the name. Pin and unpin Emitters below — each pin references one saved
+            Emitter version; the picker and the table show each Emitter&apos;s designation first. A Platform has no
+            editing session: pins and details apply straight away, and <strong>Save version</strong> records them
+            as a new version (the summary is optional).
+          </p>
+          <p>
+            <strong>Charts</strong> shows what the pinned Emitter versions cover on RF, PRI (frame time for a
+            stagger) and PW, one chart each. <strong>Per Emitter</strong> draws one line per Emitter: its
+            Modes&apos; ranges joined only where they overlap, so a PRI of 1–2 µs in one Mode and 200–205 µs in
+            another stays two pieces with a gap between. <strong>Per Mode</strong> draws a line for each Mode under
+            its Emitter. Engineered values (with margins) are shown unless unticked, and a log scale helps when
+            values span orders of magnitude. <strong>Ambiguity check</strong> runs on the latest saved Platform
+            version — every pinned Emitter&apos;s Modes against each other, across Emitters too.{" "}
+            <strong>Analyst notes</strong> is the same append-only log as on an Emitter.
           </p>
         </div>
 
@@ -726,9 +737,8 @@ export function HelpPage() {
             moves draft → pending review → approved → released → deprecated.
           </p>
           <p>
-            A <strong>Release notes</strong> panel below the title works the same way as an Emitter's
-            Analyst notes — an append-only, timestamped log, separate from the single editable "Notes"
-            field in the edit form.
+            An <strong>Analyst notes</strong> panel below the title works the same way as an Emitter&apos;s —
+            an append-only, timestamped log, separate from the single editable "Notes" field in the edit form.
           </p>
         </div>
 

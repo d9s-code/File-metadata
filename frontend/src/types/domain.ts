@@ -84,6 +84,9 @@ export interface MdfNote {
   created_at: string;
 }
 
+/** Same shape as an MDF's analyst note. */
+export type PlatformNote = MdfNote;
+
 export interface Emitter {
   id: string;
   name: string;
