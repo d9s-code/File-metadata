@@ -488,6 +488,16 @@ export function HelpPage() {
               than one Source.
             </p>
             <p>
+              A Source&apos;s <strong>Generation log</strong> tab lists every run of <em>Generate Modes</em> on it,
+              newest first: when and by whom, into which EW Group and with which name prefix and note, the Elements or
+              Sequence steps combined (values, variant, the margin used — &ldquo;this run&rdquo; when it was changed
+              just for the run), range matching, and the Modes it made (and how many are still there; the entry stays
+              after they&apos;re deleted). Below the Sources, the <strong>Element overview</strong> lists every
+              distinct Element across all of the Emitter&apos;s Sources — the same values in several Sources are one
+              row, with each Source, its variant and margin — filterable by type and variant, or to those in more
+              than one Source.
+            </p>
+            <p>
               An Element can carry a <strong>measurement variant</strong> — <em>typical</em>,{" "}
               <em>discrete</em>, <em>most probable</em>, <em>extreme</em>, <em>intercept</em>, or{" "}
               <em>analysis</em> — shown as a <span className="hint-text">[variant]</span> tag before its

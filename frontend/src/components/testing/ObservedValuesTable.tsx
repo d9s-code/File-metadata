@@ -1,5 +1,5 @@
 import type { ObservedValues } from "../../api/testRecords";
-import { nonEmptySets } from "./testFormat";
+import { jitterNs, nonEmptySets } from "./testFormat";
 
 function range(min: number | undefined, max: number | undefined): string | null {
   return min != null || max != null ? `${min ?? "?"}–${max ?? "?"}` : null;
@@ -21,9 +21,8 @@ function row(v: ObservedValues): Row {
   let frame: string | null = null;
   if (v.pri_type === "fixed") {
     const p = v.pri_mean_us ?? range(v.pri_min_us, v.pri_max_us);
-    const j = v.jitter_mean_us ?? range(v.jitter_min_us, v.jitter_max_us);
     pri = p != null ? String(p) : null;
-    jitter = j != null ? String(j) : null;
+    jitter = jitterNs(v);
   } else if (v.pri_type === "stagger") {
     pri = v.pri_stagger_values_us?.length ? v.pri_stagger_values_us.join(", ") : null;
     frame = v.frame_time_us != null ? String(v.frame_time_us) : null;
@@ -36,9 +35,9 @@ function row(v: ObservedValues): Row {
 const COLUMNS: { key: keyof Row; label: string }[] = [
   { key: "rf", label: "RF MHz" },
   { key: "pri", label: "PRI µs" },
-  { key: "jitter", label: "Jitter µs" },
   { key: "frame", label: "Frame µs" },
   { key: "pw", label: "PW µs" },
+  { key: "jitter", label: "Jitter ns" },
 ];
 
 /** Intercepted parameters as a small table inside a cell: one row per set,

@@ -37,15 +37,22 @@ function range(min: number | undefined, max: number | undefined): string | null 
   return min != null || max != null ? `${min ?? "?"}–${max ?? "?"}` : null;
 }
 
+/** A jitter logged in µs, in ns — how it's typed and shown. */
+export function jitterNs(v: ObservedValues): string | null {
+  const ns = (us: number | undefined) => (us == null ? undefined : Number((us * 1000).toPrecision(12)));
+  if (v.jitter_mean_us != null) return String(ns(v.jitter_mean_us));
+  return range(ns(v.jitter_min_us), ns(v.jitter_max_us));
+}
+
 export function formatObservedValueSet(v: ObservedValues): string | null {
   const parts: string[] = [];
   const rf = v.rf_mean_mhz ?? range(v.rf_min_mhz, v.rf_max_mhz);
   if (rf != null) parts.push(`RF ${rf} MHz`);
   if (v.pri_type === "fixed") {
     const pri = v.pri_mean_us ?? range(v.pri_min_us, v.pri_max_us);
-    const jitter = v.jitter_mean_us ?? range(v.jitter_min_us, v.jitter_max_us);
-    if (pri != null) parts.push(`PRI ${pri} µs${jitter != null ? ` (jitter ${jitter})` : ""}`);
-    else if (jitter != null) parts.push(`jitter ${jitter} µs`);
+    const jitter = jitterNs(v);
+    if (pri != null) parts.push(`PRI ${pri} µs${jitter != null ? ` (jitter ${jitter} ns)` : ""}`);
+    else if (jitter != null) parts.push(`jitter ${jitter} ns`);
   } else if (v.pri_type === "stagger" && (v.pri_stagger_values_us?.length || v.frame_time_us != null)) {
     let pri = v.pri_stagger_values_us?.length ? `PRI [${v.pri_stagger_values_us.join(", ")}] µs` : "PRI stagger";
     if (v.frame_time_us != null) pri += ` (frame time ${v.frame_time_us} µs)`;

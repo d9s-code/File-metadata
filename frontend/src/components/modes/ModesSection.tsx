@@ -86,7 +86,7 @@ export function ModesSection({
   const [priRangeMatchingOnly, setPriRangeMatchingOnly] = useState(false);
   const [lastTestedFrom, setLastTestedFrom] = useState("");
   const [lastTestedTo, setLastTestedTo] = useState("");
-  const [showEngineered, setShowEngineered] = useState(false);
+  const [showEngineered, setShowEngineered] = useState(true);
   const [collapseBatches, setCollapseBatches] = useState(readStoredCollapseBatches);
   const { data: emitter } = useEmitter(emitterId);
   const { canEdit } = useEmitterCheckoutState(emitter);
