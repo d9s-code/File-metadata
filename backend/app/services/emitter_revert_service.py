@@ -195,11 +195,11 @@ def _reconcile_mode_line(db: Session, mode: Mode, line_snap: dict | None) -> Non
         if mode.line is not None:
             db.delete(mode.line)
         return
+    # A Mode being brought back has no line yet: its values go in before it's
+    # saved (RF and PW can't be saved empty), when the Mode itself is.
     line = mode.line
     if line is None:
         line = ModeLine(mode_id=mode.id)
-        db.add(line)
-        db.flush()
         mode.line = line
     line.rf_min_mhz = _num(line_snap.get("rf_min_mhz"))
     line.rf_max_mhz = _num(line_snap.get("rf_max_mhz"))

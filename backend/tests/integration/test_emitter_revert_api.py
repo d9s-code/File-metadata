@@ -200,3 +200,33 @@ def test_revert_to_pre_fork_version_is_409(editor_client):
     # itself) is a real version of this Emitter and reverts normally.
     resp = editor_client.post(f"/emitters/{forked_id}/versions/3/revert")
     assert resp.status_code == 200, resp.text
+
+
+def test_discard_brings_back_deleted_modes_with_their_lines(editor_client):
+    # Regression: restoring a deleted Mode created its line empty and flushed
+    # it before filling it in, which the NOT NULL RF/PW columns refused.
+    ctx = _setup_emitter_with_two_versions(editor_client)
+    emitter_id = ctx["emitter"]["id"]
+    second = editor_client.post(
+        f"/emitters/{emitter_id}/sources", json={"name": "Second report", "source_date": "2025-03-01"}
+    ).json()
+    editor_client.patch(
+        f"/ew-groups/{ctx['ew_group']['id']}/modes/{ctx['mode']['id']}",
+        json={"source_ids": [ctx["source"]["id"], second["id"]]},
+    )
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "v3: two sources"})
+    before = editor_client.get(f"/emitters/{emitter_id}/modes").json()
+
+    for m in before:
+        resp = editor_client.delete(f"/ew-groups/{m['ew_group_id']}/modes/{m['id']}")
+        assert resp.status_code == 204, resp.text
+    assert editor_client.get(f"/emitters/{emitter_id}/modes").json() == []
+
+    resp = editor_client.post(f"/emitters/{emitter_id}/discard")
+    assert resp.status_code == 200, resp.text
+    after = editor_client.get(f"/emitters/{emitter_id}/modes").json()
+    assert [(m["id"], m["name"], m["source_names"]) for m in after] == [
+        (m["id"], m["name"], m["source_names"]) for m in before
+    ]
+    assert after[0]["line"]["rf_min_mhz"] == before[0]["line"]["rf_min_mhz"]
+    assert after[0]["line"]["jitter_max_us"] == before[0]["line"]["jitter_max_us"]
