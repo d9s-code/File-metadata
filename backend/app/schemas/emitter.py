@@ -24,12 +24,9 @@ class EmitterSummary(BaseModel):
     naturally skipped for stagger/cw/xlet Modes, which carry no PRI min/max to
     aggregate). `scan_min`/`scan_max` come from a different source: the
     Emitter's EW Groups directly (scan is an EW Group-level field, not a
-    per-Mode one), so they're not gated on Mode status. `modes_passing`
-    counts Modes whose most recent test result is
-    `pass` — deliberately NOT paired with an "Elements covered by Modes" stat:
-    there's no stored link between a Mode and the Element(s) it was built
-    from today, so that half of "how much of this Emitter is verified" isn't
-    computable without a new data-model addition.
+    per-Mode one), so they're not gated on Mode status. `sim_lines` is how
+    many SIM Test Lines the Emitter has, `sim_lines_correct` how many of them
+    were correct (pass) in the latest run that included them.
 
     rf/pw/pri_min/max_mhz|us are RAW extremes (each Mode Line's own raw
     min/max, before that line's own delta). engineered_* are the same
@@ -55,7 +52,8 @@ class EmitterSummary(BaseModel):
     scan_min: float | None = None
     scan_max: float | None = None
     mode_count: int = 0
-    modes_passing: int = 0
+    sim_lines: int = 0
+    sim_lines_correct: int = 0
 
 
 class EmitterOut(BaseModel):

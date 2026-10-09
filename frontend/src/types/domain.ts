@@ -55,7 +55,9 @@ export interface EmitterSummary {
   scan_min: number | null;
   scan_max: number | null;
   mode_count: number;
-  modes_passing: number;
+  /** SIM Test Lines, and how many were correct in the latest run that included them. */
+  sim_lines: number;
+  sim_lines_correct: number;
 }
 
 export interface EmitterNote {

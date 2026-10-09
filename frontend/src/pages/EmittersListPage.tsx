@@ -13,7 +13,8 @@ import { compareNullable, compareStrings } from "../components/common/sortUtils"
 import { emitterStatusLabel } from "../components/common/emitterStatusLabel";
 import type { Emitter } from "../types/domain";
 import { useAuth } from "../auth/AuthContext";
-import { usePeople } from "../state/hooks/useTasks";
+import { usePeople, useTasks } from "../state/hooks/useTasks";
+import { TasksButton } from "../components/tasks/TasksButton";
 
 type EmitterSortKey =
   | "name"
@@ -27,8 +28,13 @@ type EmitterSortKey =
   | "pri_max"
   | "scan_min"
   | "scan_max"
-  | "modes_passing"
+  | "sim_correct"
   | "assignee";
+
+/** Share of SIM Test Lines correct in their latest run; null without lines. */
+function simShare(e: Emitter): number | null {
+  return e.summary.sim_lines ? e.summary.sim_lines_correct / e.summary.sim_lines : null;
+}
 
 function compareEmitters(a: Emitter, b: Emitter, key: EmitterSortKey, dir: "asc" | "desc"): number {
   switch (key) {
@@ -54,8 +60,8 @@ function compareEmitters(a: Emitter, b: Emitter, key: EmitterSortKey, dir: "asc"
       return compareNullable(a.summary.scan_min, b.summary.scan_min, dir);
     case "scan_max":
       return compareNullable(a.summary.scan_max, b.summary.scan_max, dir);
-    case "modes_passing":
-      return compareNullable(a.summary.modes_passing, b.summary.modes_passing, dir);
+    case "sim_correct":
+      return compareNullable(simShare(a), simShare(b), dir);
     case "assignee":
       return compareStrings(a.assignee_username, b.assignee_username, dir);
   }
@@ -74,6 +80,10 @@ function rangeOverlaps(filterMin: string, filterMax: string, valueMin: number | 
 
 export function EmittersListPage() {
   const { data: emitters, isLoading, error } = useEmitters();
+  // Open tasks about each Emitter, counted once for the whole list.
+  const { data: emitterTasks } = useTasks({ entity_type: "emitter", state: "open" });
+  const openTasks = new Map<string, number>();
+  for (const t of emitterTasks ?? []) if (t.entity_id) openTasks.set(t.entity_id, (openTasks.get(t.entity_id) ?? 0) + 1);
   const createEmitter = useCreateEmitter();
   const deleteEmitter = useDeleteEmitter();
   const { confirmDelete, dialog } = useConfirmDialog();
@@ -303,7 +313,8 @@ export function EmittersListPage() {
               {header("PRI max", "pri_max", "number")}
               {header("Scan min", "scan_min", "number")}
               {header("Scan max", "scan_max", "number")}
-              {header("Modes passing", "modes_passing", "number")}
+              {header("SIM correct", "sim_correct", "number")}
+              <th>Tasks</th>
               <th></th>
             </tr>
           </thead>
@@ -326,8 +337,18 @@ export function EmittersListPage() {
                 <td>{e.summary.pri_max_us ?? "—"}</td>
                 <td>{e.summary.scan_min ?? "—"}</td>
                 <td>{e.summary.scan_max ?? "—"}</td>
+                <td
+                  className="nowrap"
+                  title={
+                    e.summary.sim_lines
+                      ? `${e.summary.sim_lines_correct} of ${e.summary.sim_lines} SIM Test Lines correct in their latest run`
+                      : "No SIM Test Lines"
+                  }
+                >
+                  {e.summary.sim_lines ? `${e.summary.sim_lines_correct} / ${e.summary.sim_lines}` : "—"}
+                </td>
                 <td>
-                  {e.summary.mode_count > 0 ? `${e.summary.modes_passing} / ${e.summary.mode_count}` : "—"}
+                  <TasksButton type="emitter" id={e.id} name={e.name} openCount={openTasks.get(e.id) ?? 0} compact />
                 </td>
                 <td>
                   <RequireRole minimum="editor">

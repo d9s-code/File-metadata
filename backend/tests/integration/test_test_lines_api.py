@@ -431,3 +431,28 @@ def test_emitter_last_validated_reflects_most_recent_line_tested_record(editor_c
     )
     still_after = editor_client.get(f"/emitters/{emitter_id}").json()
     assert still_after["last_validated_at"] == "2026-09-15"
+
+
+def test_the_emitter_summary_counts_sim_lines_correct_in_their_latest_run(editor_client, emitter_with_mode):
+    emitter_id = emitter_with_mode["emitter"]["id"]
+    lines = editor_client.post(
+        f"/emitters/{emitter_id}/test-lines/import",
+        json={"lines": [{"label": "A"}, {"label": "B"}, {"label": "C"}], "created_date": "2026-08-01"},
+    ).json()
+    summary = editor_client.get(f"/emitters/{emitter_id}").json()["summary"]
+    assert (summary["sim_lines"], summary["sim_lines_correct"]) == (3, 0)
+
+    def run(day, outcomes):
+        resp = editor_client.post(
+            f"/emitters/{emitter_id}/test-records",
+            json={"test_type": "simulation", "title": f"Run {day}", "test_date": day, "simulation_created_date": day,
+                  "line_results": [{"test_line_id": lines[i]["id"], "outcome": o} for i, o in outcomes]},
+        )
+        assert resp.status_code == 201, resp.text
+
+    run("2026-09-01", [(0, "pass"), (1, "pass")])
+    run("2026-09-02", [(1, "fail")])  # B's latest is now a miss; C never ran
+    summary = editor_client.get(f"/emitters/{emitter_id}").json()["summary"]
+    assert (summary["sim_lines"], summary["sim_lines_correct"]) == (3, 1)
+    listed = next(e for e in editor_client.get("/emitters").json() if e["id"] == emitter_id)
+    assert listed["summary"]["sim_lines_correct"] == 1

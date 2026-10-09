@@ -7,14 +7,15 @@ from app.core.enums import TestResult
 from app.models.emitter import Emitter
 from app.models.ew_group import EwGroup
 from app.models.mode import Mode, ModeLine
+from app.models.test_line import TestLine
 from app.models.user import User
 from app.schemas.emitter import EmitterOut, EmitterSummary
 from app.services.emitter_validation_service import get_last_validation
-from app.services.mode_test_status_service import get_last_test_status
+from app.services.test_line_status_service import latest_line_outcomes
 
 
 def compute_emitter_summaries(db: Session, emitter_ids: list[UUID]) -> dict[UUID, EmitterSummary]:
-    """RF/PW/PRI extremes + test-pass count per Emitter, in two bulk queries
+    """RF/PW/PRI extremes + SIM Test Line results per Emitter, in a few bulk queries
     regardless of how many Emitters are asked for — see EmitterSummary's
     docstring for what this deliberately does and doesn't cover.
     """
@@ -60,21 +61,16 @@ def compute_emitter_summaries(db: Session, emitter_ids: list[UUID]) -> dict[UUID
     )
     scan_by_emitter = {emitter_id: (scan_min, scan_max) for emitter_id, scan_min, scan_max in scan_rows}
 
-    mode_rows = (
-        db.query(Mode.id, EwGroup.emitter_id)
-        .join(EwGroup, Mode.ew_group_id == EwGroup.id)
-        .filter(EwGroup.emitter_id.in_(emitter_ids))
-        .all()
-    )
-    mode_to_emitter = {mode_id: emitter_id for mode_id, emitter_id in mode_rows}
-    test_status = get_last_test_status(db, list(mode_to_emitter))
-
-    passing_by_emitter: dict[UUID, int] = {}
-    for mode_id, (_test_date, result, _test_record_id) in test_status.items():
-        if result == TestResult.pass_:
-            emitter_id = mode_to_emitter.get(mode_id)
-            if emitter_id is not None:
-                passing_by_emitter[emitter_id] = passing_by_emitter.get(emitter_id, 0) + 1
+    # SIM Test Lines, and how many were correct in the latest run that had them.
+    line_rows = db.query(TestLine.id, TestLine.emitter_id).filter(TestLine.emitter_id.in_(emitter_ids)).all()
+    outcomes = latest_line_outcomes(db, [line_id for line_id, _ in line_rows])
+    sim_lines: dict[UUID, int] = {}
+    sim_correct: dict[UUID, int] = {}
+    for line_id, emitter_id in line_rows:
+        sim_lines[emitter_id] = sim_lines.get(emitter_id, 0) + 1
+        latest = outcomes.get(line_id)
+        if latest and latest[1] == TestResult.pass_:
+            sim_correct[emitter_id] = sim_correct.get(emitter_id, 0) + 1
 
     summaries: dict[UUID, EmitterSummary] = {}
     for row in extreme_rows:
@@ -111,11 +107,12 @@ def compute_emitter_summaries(db: Session, emitter_ids: list[UUID]) -> dict[UUID
             scan_min=scan_min,
             scan_max=scan_max,
             mode_count=mode_count,
-            modes_passing=passing_by_emitter.get(emitter_id, 0),
         )
     for emitter_id in emitter_ids:
         scan_min, scan_max = scan_by_emitter.get(emitter_id, (None, None))
-        summaries.setdefault(emitter_id, EmitterSummary(scan_min=scan_min, scan_max=scan_max))
+        summary = summaries.setdefault(emitter_id, EmitterSummary(scan_min=scan_min, scan_max=scan_max))
+        summary.sim_lines = sim_lines.get(emitter_id, 0)
+        summary.sim_lines_correct = sim_correct.get(emitter_id, 0)
     return summaries
 
 

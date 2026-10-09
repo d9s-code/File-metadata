@@ -227,9 +227,11 @@ export function HelpPage() {
         <h2>Emitters</h2>
         <p>
           The Emitters list (top nav) shows every Emitter with its current status, and RF/PRI/PW/Scan
-          min/max plus a Modes-passing count computed across its Modes — every column is
-          sortable, and the toolbar above the table filters by name, designation, or any of those
-          RF/PRI/PW/Scan ranges. <strong>+ Add Emitter</strong> opens a small form as an overlay rather
+          min/max computed across its Modes, <strong>SIM correct</strong> — how many of its SIM Test Lines
+          were correct in the latest run that included them, out of all of them (e.g. 4 / 5) — and{" "}
+          <strong>Tasks</strong>: its open tasks (☑ 2), which open its task list to read, tick off or add
+          one. Every column but Tasks is sortable, and the toolbar above the table filters by name,
+          designation, or any of those RF/PRI/PW/Scan ranges. <strong>+ Add Emitter</strong> opens a small form as an overlay rather
           than a full page; click a row to open that Emitter.
         </p>
 
@@ -239,8 +241,8 @@ export function HelpPage() {
             An Emitter's page has five tabs — <strong>Modes</strong>, <strong>EW Groups &amp; Sources</strong>,{" "}
             <strong>Intercepts</strong>, <strong>Test History</strong>, and <strong>Audit</strong> — plus
             links to its <strong>Version history</strong> and <strong>Ambiguity check</strong> above them.
-            Below the title, a summary line repeats the same RF/PRI/PW/Scan ranges and Modes-passing count
-            shown on the list page, for this one Emitter. On first load, a brand-new Emitter with no EW
+            Below the title, a summary line repeats the same RF/PRI/PW/Scan ranges shown on the list page,
+            for this one Emitter, with its Modes and SIM results. On first load, a brand-new Emitter with no EW
             Groups or Sources yet opens straight to the EW Groups & Sources tab instead of Modes.
           </p>
           <p>

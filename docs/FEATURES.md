@@ -17,7 +17,9 @@ An Emitter is always edited as a **live draft** — changes save immediately, an
 - **EW Groups** — operational groupings of Modes (see below)
 - **Sources** — data-provenance groupings of Modes, and the home of the element-based mode-building tools (see [DSL, Elements & Editorial Tools](#3-modes-the-dsl-elements--editorial-tools))
 
-Every Mode belongs to exactly one EW Group *and* exactly one Source — two independent, orthogonal groupings of the same underlying Modes.
+Every Mode belongs to exactly one EW Group *and* one or more Sources — two independent, orthogonal groupings of the same underlying Modes.
+
+The **Emitters list** shows each Emitter's status, assignee and RF/PRI/PW/Scan extremes, plus **SIM correct** — how many of its SIM Test Lines were correct in the latest run that included them, out of all its lines (e.g. "4 / 5"; sortable by the share) — and **Tasks**: its open tasks as "☑ n", opening the Emitter's task list to read, tick off or add one (the counts come from one query for the whole list).
 
 ### EW Groups
 

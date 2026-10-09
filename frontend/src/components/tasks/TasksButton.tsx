@@ -8,24 +8,39 @@ import { Modal } from "../common/Modal";
 import { TaskForm } from "./TaskForm";
 import { TaskList } from "./TaskList";
 
-/** "Tasks · 2" on an Emitter, Platform or MDF page: its tasks, and adding one. */
-export function TasksButton({ type, id, name }: { type: TaskEntityType; id: string; name: string }) {
+/** "Tasks · 2" on an Emitter, Platform or MDF page: its tasks, and adding one.
+ * In a list, give `openCount` (counted once for every row) and its tasks are
+ * only fetched when opened; `compact` shows just "☑ 2". */
+export function TasksButton({
+  type,
+  id,
+  name,
+  openCount,
+  compact,
+}: {
+  type: TaskEntityType;
+  id: string;
+  name: string;
+  openCount?: number;
+  compact?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [showDone, setShowDone] = useState(false);
-  const { data: tasks } = useTasks({ entity_type: type, entity_id: id, state: "all" });
+  const { data: tasks } = useTasks({ entity_type: type, entity_id: id, state: "all" }, openCount === undefined || open);
   const create = useCreateTask();
   const openTasks = (tasks ?? []).filter((t) => !t.done_at);
   const doneTasks = (tasks ?? []).filter((t) => t.done_at);
+  const count = tasks ? openTasks.length : (openCount ?? 0);
 
   return (
     <>
       <button
         type="button"
-        className={openTasks.length ? "task-count-chip has-open" : "task-count-chip"}
+        className={count ? "task-count-chip has-open" : "task-count-chip"}
         onClick={() => setOpen(true)}
-        title="Tasks about this — add one, or tick them off"
+        title={`${count} open task${count === 1 ? "" : "s"} — open to add one, or tick them off`}
       >
-        ☑ Tasks{openTasks.length > 0 && ` · ${openTasks.length}`}
+        {compact ? `☑ ${count}` : <>☑ Tasks{count > 0 && ` · ${count}`}</>}
       </button>
       {open && (
         <Modal title={`Tasks — ${name}`} onClose={() => setOpen(false)} wide>
