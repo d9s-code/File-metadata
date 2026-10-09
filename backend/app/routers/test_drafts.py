@@ -12,6 +12,7 @@ from app.core.enums import Role
 from app.database import get_db
 from app.deps import require_role
 from app.models.emitter import Emitter
+from app.models.platform import Platform
 from app.models.test_record import TestRunDraft
 from app.models.user import User
 from app.schemas.test_record import TestRunDraftFull, TestRunDraftOut, TestRunDraftSave
@@ -124,3 +125,52 @@ def save_draft(
 def discard_draft(draft_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.editor))):
     db.delete(_draft(db, draft_id))
     db.commit()
+
+
+def _live_platform(db: Session, platform_id: UUID) -> Platform:
+    platform = db.get(Platform, platform_id)
+    if platform is None or platform.is_deleted:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Platform not found")
+    return platform
+
+
+@router.get("/platforms/{platform_id}/test-drafts", response_model=list[TestRunDraftOut])
+def list_platform_drafts(platform_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))):
+    """Platform tests in progress — every pinned Emitter tested in one run."""
+    _live_platform(db, platform_id)
+    drafts = (
+        db.query(TestRunDraft)
+        .filter(TestRunDraft.platform_id == platform_id)
+        .order_by(TestRunDraft.updated_at.desc())
+        .all()
+    )
+    return [_out(db, d) for d in drafts]
+
+
+@router.post(
+    "/platforms/{platform_id}/test-drafts",
+    response_model=TestRunDraftFull,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(verify_csrf)],
+)
+def create_platform_draft(
+    platform_id: UUID,
+    payload: TestRunDraftSave,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+):
+    _live_platform(db, platform_id)
+    draft = TestRunDraft(
+        platform_id=platform_id,
+        title=payload.title,
+        test_type=payload.test_type.value,
+        summary=payload.summary,
+        state=payload.state,
+        version=1,
+        created_by=user.id,
+        updated_by=user.id,
+    )
+    db.add(draft)
+    db.commit()
+    db.refresh(draft)
+    return _out(db, draft, full=True)

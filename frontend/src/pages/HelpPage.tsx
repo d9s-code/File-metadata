@@ -707,6 +707,12 @@ export function HelpPage() {
             to see everything again. <strong>Ambiguities</strong> hatches in red where Modes of different Emitters
             overlap, from the latest ambiguity check — hover a mark to see which. <strong>Ambiguity check</strong>{" "}
             runs on the latest saved Platform version.{" "}
+            <strong>Tests</strong> holds <strong>Platform tests</strong> — every pinned Emitter tested in one run.{" "}
+            <strong>+ New Platform test</strong> opens a page with the run&apos;s details and a section per pinned
+            Emitter (its SIM Test Lines, or its Modes and signals for an Intercept Test, its result and its own notes);
+            untick <strong>In this run</strong> to leave one out. It&apos;s saved as you fill it in and can be continued
+            from the Tests tab. Logging it writes a test record for each included Emitter, against the version the
+            Platform pins, so each also shows in that Emitter&apos;s Test History.{" "}
             <strong>Analyst notes</strong> is the same append-only log as on an Emitter.
           </p>
         </div>

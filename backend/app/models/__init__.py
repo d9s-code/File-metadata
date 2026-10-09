@@ -32,6 +32,7 @@ from app.models.source_note import SourceNote  # noqa: F401
 from app.models.task import Task, TaskNote  # noqa: F401
 from app.models.test_line import TestLine  # noqa: F401
 from app.models.test_record import (  # noqa: F401
+    PlatformTest,
     TestRecord,
     TestRecordLine,
     TestRecordLineMode,

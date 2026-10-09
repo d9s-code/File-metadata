@@ -11,6 +11,7 @@ import { EmittersListPage } from "./pages/EmittersListPage";
 import { EmitterEditorPage } from "./pages/EmitterEditorPage";
 import { EmitterVersionHistoryPage } from "./pages/EmitterVersionHistoryPage";
 import { TestRunNewPage } from "./pages/TestRunNewPage";
+import { PlatformTestRunPage } from "./pages/PlatformTestRunPage";
 import { TestRunDetailPage } from "./pages/TestRunDetailPage";
 import { InterceptImportPage } from "./pages/InterceptImportPage";
 import { AdminCheckoutsPage } from "./pages/AdminCheckoutsPage";
@@ -116,6 +117,14 @@ export default function App() {
                 element={
                   <RequireAuth>
                     <PlatformBuilderPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/platforms/:platformId/tests/new"
+                element={
+                  <RequireAuth>
+                    <PlatformTestRunPage />
                   </RequireAuth>
                 }
               />

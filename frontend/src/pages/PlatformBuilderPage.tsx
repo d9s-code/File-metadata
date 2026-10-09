@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { usePlatform, usePlatformLinks, useUpdatePlatform } from "../state/hooks/usePlatforms";
 import { useCommitPlatformVersion, usePlatformVersions } from "../state/hooks/usePlatformVersions";
 import { useEmitters } from "../state/hooks/useEmitters";
@@ -16,13 +16,19 @@ import { LatestVersion, SaveVersionButton } from "../components/versioning/SaveV
 import { TasksButton } from "../components/tasks/TasksButton";
 import { NotesFeed } from "../components/common/NotesFeed";
 import { PlatformCharts } from "../components/platform/PlatformCharts";
+import { PlatformTests } from "../components/platform/PlatformTests";
 import { useCreatePlatformNote, useDeletePlatformNote, usePlatformNotes } from "../state/hooks/usePlatformNotes";
 
-type Tab = "emitters" | "charts" | "notes" | "audit";
+type Tab = "emitters" | "charts" | "tests" | "notes" | "audit";
+const TABS: Tab[] = ["emitters", "charts", "tests", "notes", "audit"];
 
 export function PlatformBuilderPage() {
   const { platformId } = useParams<{ platformId: string }>();
-  const [tab, setTab] = useState<Tab>("emitters");
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState<Tab>(() => {
+    const t = searchParams.get("tab") as Tab | null;
+    return t && TABS.includes(t) ? t : "emitters";
+  });
   const { data: platform, isLoading } = usePlatform(platformId);
   const { data: links } = usePlatformLinks(platformId ?? "");
   const { data: emitters } = useEmitters();
@@ -171,6 +177,9 @@ export function PlatformBuilderPage() {
         <button className={tab === "charts" ? "tab active" : "tab"} onClick={() => setTab("charts")}>
           Charts
         </button>
+        <button className={tab === "tests" ? "tab active" : "tab"} onClick={() => setTab("tests")}>
+          Tests
+        </button>
         <button className={tab === "notes" ? "tab active" : "tab"} onClick={() => setTab("notes")}>
           Analyst notes{notes?.length ? ` (${notes.length})` : ""}
         </button>
@@ -195,6 +204,8 @@ export function PlatformBuilderPage() {
       )}
 
       {tab === "charts" && <PlatformCharts platformId={platform.id} />}
+
+      {tab === "tests" && <PlatformTests platformId={platform.id} pinnedCount={links?.length ?? 0} />}
 
       {tab === "notes" && (
         <section className="card">

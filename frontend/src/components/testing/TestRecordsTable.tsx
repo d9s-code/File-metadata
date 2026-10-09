@@ -133,6 +133,7 @@ export function TestRecordsTable({
                 <td>
                   {emitterId ? <Link to={`/emitters/${emitterId}/tests/${r.id}`}>{r.title}</Link> : r.title}
                   {retested && <span className="jitter-subline">Retest of: {retested.title}</span>}
+                  {r.platform_test_id && <span className="jitter-subline">Part of a Platform test</span>}
                   {r.notes && <span className="jitter-subline">{r.notes}</span>}
                 </td>
                 <td>

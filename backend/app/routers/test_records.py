@@ -60,6 +60,8 @@ def _create_test_record(
     payload: TestRecordCreate,
     tested_by: UUID,
     emitter_id: UUID | None = None,
+    platform_test_id: UUID | None = None,
+    commit: bool = True,
 ) -> TestRecord:
     mode_ids = [mr.mode_id for mr in payload.mode_results]
     if mode_ids:
@@ -134,6 +136,7 @@ def _create_test_record(
         simulation_created_date=payload.simulation_created_date,
         dwell=payload.dwell,
         retests_test_record_id=payload.retests_test_record_id,
+        platform_test_id=platform_test_id,
         tested_by=tested_by,
     )
     db.add(record)
@@ -187,6 +190,10 @@ def _create_test_record(
         changes=payload.model_dump(mode="json"),
         emitter_id=emitter_id,
     )
+    if not commit:
+        # Part of a larger write (a Platform test) that commits it all at once.
+        db.flush()
+        return record
     db.commit()
     return (
         db.query(TestRecord)

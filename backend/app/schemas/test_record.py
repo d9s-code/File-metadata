@@ -269,6 +269,8 @@ class TestRecordOut(BaseModel):
     dwell: str | None = None
     created_at: datetime
     retests_test_record_id: UUID | None = None
+    # Set when this record is one Emitter's part of a Platform test.
+    platform_test_id: UUID | None = None
     modes: list[TestRecordModeOut] = []
     lines: list[TestRecordLineOut] = []
     signals: list[TestRecordSignalOut] = []
@@ -287,7 +289,9 @@ class TestRunDraftOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
-    emitter_id: UUID
+    # An Emitter's run, or a Platform test's — one of the two.
+    emitter_id: UUID | None = None
+    platform_id: UUID | None = None
     title: str
     test_type: str
     summary: str | None = None
@@ -308,3 +312,77 @@ class TestResultChange(BaseModel):
 
     result: TestResult
     note: str | None = Field(default=None, max_length=2000)
+
+
+class PlatformTestEmitterIn(BaseModel):
+    """One pinned Emitter's part of a Platform test — what TestRecordCreate
+    takes for a single Emitter's run, minus what the whole run shares."""
+
+    emitter_id: UUID
+    line_results: list[TestRecordLineResultIn] = []
+    mode_results: list[TestRecordModeResultIn] = []
+    signals: list[TestRecordSignalIn] = []
+    result: TestResult | None = None
+    result_override: TestResult | None = None
+    result_override_note: str | None = Field(default=None, max_length=2000)
+    notes: str | None = None
+
+
+class PlatformTestCreate(BaseModel):
+    test_type: TestType
+    title: str
+    # About the run as a whole; each Emitter's record gets its own notes, or these.
+    notes: str | None = None
+    test_date: date
+    test_time: time | None = None
+    simulation_created_date: date | None = None
+    dwell: str | None = Field(default=None, max_length=100)
+    draft_id: UUID | None = None
+    emitters: list[PlatformTestEmitterIn] = Field(min_length=1)
+
+    def record_for(self, entry: PlatformTestEmitterIn) -> TestRecordCreate:
+        """The Emitter's test record, as if its run had been logged on its own."""
+        return TestRecordCreate(
+            test_type=self.test_type,
+            title=self.title,
+            notes=(entry.notes or "").strip() or self.notes,
+            test_date=self.test_date,
+            test_time=self.test_time,
+            simulation_created_date=self.simulation_created_date,
+            dwell=self.dwell,
+            line_results=entry.line_results,
+            mode_results=entry.mode_results,
+            signals=entry.signals,
+            result=entry.result,
+            result_override=entry.result_override,
+            result_override_note=entry.result_override_note,
+        )
+
+
+class PlatformTestEmitterOut(BaseModel):
+    test_record_id: UUID
+    emitter_id: UUID
+    emitter_name: str
+    designation: str | None = None
+    # The Emitter version tested: the one the Platform pinned.
+    version_number: int | None = None
+    result: TestResult
+    computed_result: TestResult | None = None
+    lines: int = 0
+    modes: int = 0
+    signals: int = 0
+
+
+class PlatformTestOut(BaseModel):
+    id: UUID
+    platform_id: UUID
+    platform_version_number: int | None = None
+    title: str
+    test_type: str
+    test_date: date
+    notes: str | None = None
+    tested_by_username: str | None = None
+    created_at: datetime
+    # The worst of the Emitters' results.
+    result: TestResult
+    emitters: list[PlatformTestEmitterOut]

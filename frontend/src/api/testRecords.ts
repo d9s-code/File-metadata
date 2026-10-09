@@ -82,6 +82,8 @@ export interface TestRecord {
   dwell: string | null;
   created_at: string;
   retests_test_record_id: string | null;
+  /** Set when this record is one Emitter's part of a Platform test. */
+  platform_test_id?: string | null;
   modes: TestRecordModeLink[];
   lines: TestRecordLineResult[];
   signals: TestRecordSignal[];
@@ -135,7 +137,9 @@ export interface TestRecordInput {
 /** A test run being filled in, saved as it's typed. */
 export interface TestRunDraft {
   id: string;
-  emitter_id: string;
+  /** An Emitter's run, or a Platform test's — one of the two. */
+  emitter_id: string | null;
+  platform_id?: string | null;
   title: string;
   test_type: TestType;
   summary: string | null;

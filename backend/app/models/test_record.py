@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, time
 
-from sqlalchemy import Boolean, Date, ForeignKey, Integer, String, Text, Time, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, Integer, String, Text, Time, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -53,6 +53,10 @@ class TestRecord(UUIDPkMixin, TimestampMixin, Base):
     # CASCADE): deleting the earlier test should drop the pointer, not the retest.
     retests_test_record_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("test_records.id", ondelete="SET NULL"), nullable=True
+    )
+    # Set when this record is one Emitter's part of a Platform test.
+    platform_test_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("platform_tests.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
     modes: Mapped[list["TestRecordMode"]] = relationship(
@@ -193,9 +197,14 @@ class TestRunDraft(UUIDPkMixin, TimestampMixin, Base):
     don't silently overwrite each other."""
 
     __tablename__ = "test_run_drafts"
+    __table_args__ = (CheckConstraint("num_nonnulls(emitter_id, platform_id) = 1", name="ck_test_run_drafts_one_scope"),)
 
-    emitter_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("emitters.id", ondelete="CASCADE"), nullable=False, index=True
+    # An Emitter's run, or a Platform test (every pinned Emitter at once) — one of the two.
+    emitter_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("emitters.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    platform_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("platforms.id", ondelete="CASCADE"), nullable=True, index=True
     )
     title: Mapped[str] = mapped_column(Text, nullable=False, default="")
     test_type: Mapped[str] = mapped_column(String(30), nullable=False)
@@ -209,3 +218,29 @@ class TestRunDraft(UUIDPkMixin, TimestampMixin, Base):
     updated_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+
+
+class PlatformTest(UUIDPkMixin, TimestampMixin, Base):
+    """One run testing every Emitter pinned on a Platform at once. Each
+    Emitter's results are an ordinary TestRecord (pinned to the Emitter
+    version the Platform pins) pointing back here, so they show in that
+    Emitter's test history too; this row holds what the run shares."""
+
+    __tablename__ = "platform_tests"
+
+    platform_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("platforms.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    # The Platform's latest saved version when the run was logged.
+    platform_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("platform_versions.id", ondelete="SET NULL"), nullable=True
+    )
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    test_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    test_date: Mapped[date] = mapped_column(Date, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tested_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
+    records: Mapped[list["TestRecord"]] = relationship(foreign_keys="TestRecord.platform_test_id")
