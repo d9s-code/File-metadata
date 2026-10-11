@@ -57,4 +57,10 @@ export interface EmitterCheckout {
   checked_out_by_id: string;
   checked_out_by_username: string | null;
   checked_out_at: string | null;
+  /** The holder's latest change to it since taking the lock (or when they took it). */
+  last_activity_at?: string | null;
+  /** Untouched long enough to be flagged (CHECKOUT_WARN_DAYS). */
+  stale?: boolean;
+  /** When it's released if still untouched (null: never). */
+  releases_at?: string | null;
 }

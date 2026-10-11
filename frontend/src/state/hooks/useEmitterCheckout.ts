@@ -66,6 +66,14 @@ export function useCheckouts(enabled = true) {
 /** Held this long, a checkout is called out as long-held. */
 export const LONG_HELD_MS = 8 * 60 * 60 * 1000;
 
+/** "released today", "released in 3 days" — or null when it won't be. */
+export function releasesIn(releasesAt: string | null | undefined, now = Date.now()): string | null {
+  if (!releasesAt) return null;
+  const days = Math.ceil((Date.parse(releasesAt) - now) / 86_400_000);
+  if (days <= 0) return "released any moment";
+  return days === 1 ? "released tomorrow" : `released in ${days} days`;
+}
+
 /** "12 min", "3 h", "2 days". */
 export function heldFor(since: string | null, now = Date.now()): string {
   if (!since) return "";

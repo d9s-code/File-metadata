@@ -104,6 +104,12 @@ class EmitterCheckoutOut(BaseModel):
     checked_out_by_id: UUID
     checked_out_by_username: str | None = None
     checked_out_at: datetime | None = None
+    # The holder's latest change to it since taking the lock (or when they took it).
+    last_activity_at: datetime | None = None
+    # Untouched for CHECKOUT_WARN_DAYS: flagged.
+    stale: bool = False
+    # When it will be released if still untouched (null: never).
+    releases_at: datetime | None = None
 
 
 class EmitterBulkAction(BaseModel):

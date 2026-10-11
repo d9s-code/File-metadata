@@ -590,7 +590,10 @@ export function HelpPage() {
             bottom-left corner of every page lists them and how long you&apos;ve held each (marked after 8 hours);
             fold it to a small tab if it&apos;s in the way. Admins see every hold under{" "}
             <strong>Admin → Edit locks</strong>, with <strong>Force release</strong> for one that&apos;s blocking
-            others.
+            others, or several at once (<strong>Select the untouched ones</strong>, <strong>Release selected</strong>). A
+            lock whose holder hasn&apos;t changed anything for 3 days is marked <strong>untouched</strong>, and after 14
+            days without a change it&apos;s released on its own — nothing unsaved is lost, it just stops being yours
+            to save (an Admin can change both numbers).
           </p>
           <p>
             <strong>Save version</strong> takes an immutable snapshot of the Emitter's current state, with a

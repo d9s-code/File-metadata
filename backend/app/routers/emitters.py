@@ -1,10 +1,11 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
+from app.config import settings
 from app.core.csrf import verify_csrf
 from app.core.downloads import attachment_disposition
 from app.core.enums import (
@@ -86,7 +87,9 @@ def list_emitters(
 def list_checkouts(db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))) -> list[EmitterCheckoutOut]:
     """Every Emitter someone is holding for editing, longest-held first —
     small enough to poll for the "you're still editing" reminder. Declared
-    before /{emitter_id} so "checkouts" isn't read as an id."""
+    before /{emitter_id} so "checkouts" isn't read as an id. Locks untouched
+    for CHECKOUT_RELEASE_DAYS are released first."""
+    checkout_service.release_stale_checkouts(db)
     rows = (
         db.query(Emitter, User.username)
         .outerjoin(User, User.id == Emitter.checked_out_by_id)
@@ -94,6 +97,10 @@ def list_checkouts(db: Session = Depends(get_db), _=Depends(require_role(Role.vi
         .order_by(Emitter.checked_out_at.asc().nulls_last(), Emitter.name)
         .all()
     )
+    activity = checkout_service.last_activity(db, [e for e, _ in rows])
+    now = datetime.now(timezone.utc)
+    warn_after = timedelta(days=settings.checkout_warn_days)
+    release_after = timedelta(days=settings.checkout_release_days) if settings.checkout_release_days > 0 else None
     return [
         EmitterCheckoutOut(
             emitter_id=e.id,
@@ -101,6 +108,9 @@ def list_checkouts(db: Session = Depends(get_db), _=Depends(require_role(Role.vi
             checked_out_by_id=e.checked_out_by_id,
             checked_out_by_username=username,
             checked_out_at=e.checked_out_at,
+            last_activity_at=activity.get(e.id),
+            stale=activity.get(e.id) is not None and now - activity[e.id] >= warn_after,
+            releases_at=activity[e.id] + release_after if release_after and e.id in activity else None,
         )
         for e, username in rows
     ]

@@ -29,6 +29,10 @@ x-backend-env: &backend-env
   # Between them, a backup is due a week after the last one at this many
   # changes, half a week at twice as many, and so on — admins are warned then.
   BACKUP_CHANGES_PER_WEEK: "50"
+  # Edit locks nobody uses: flagged after this many days without a change by
+  # the holder, released after this many (nothing is discarded; 0: never).
+  CHECKOUT_WARN_DAYS: "3"
+  CHECKOUT_RELEASE_DAYS: "14"
   # Optional: a language model behind an OpenAI-compatible API (e.g. vLLM) to
   # explain ambiguity findings. Unset, the AI buttons don't show. The address
   # goes up to and including /v1; LLM_MODEL only if the server serves several.

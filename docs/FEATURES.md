@@ -442,6 +442,10 @@ Admin-only (both the nav link and the routes themselves redirect a non-admin awa
 
 Create a user (username, password, role) directly from the UI — previously only possible via a one-off CLI script. Existing users can have their role changed or be **deactivated/reactivated** inline. Deactivation, not deletion, is how a user's access is revoked: there's no "delete a user" action, so a user row is never actually removed (and every audit-log entry that names them as the actor stays attributable).
 
+### Edit locks
+
+Every Emitter someone is holding for editing: who, since when, how long, their **last change** to it, and when it will be **released automatically**. A lock whose holder hasn't changed anything under it for `CHECKOUT_WARN_DAYS` (3) is marked **untouched** — here and in the holder's editing panel — and after `CHECKOUT_RELEASE_DAYS` (14; 0 turns it off) without a change it's released on its own with an Audit Log entry. Nothing is discarded: unsaved changes stay live, just no longer held. **Force release** frees one; tick several (or **Select the untouched ones**) and **Release selected** frees them at once.
+
 ### Recently Deleted
 
 Emitters, Platforms, and MDFs are already soft-deleted by default when you delete one from its list page (see the [Roles](#13-accounts--roles) table above — hard/permanent delete is a separate, Admin-only action). This section is where that soft-deleted data actually lives:

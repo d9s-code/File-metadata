@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
-import { heldFor, LONG_HELD_MS, useCheckouts } from "../../state/hooks/useEmitterCheckout";
+import { heldFor, LONG_HELD_MS, releasesIn, useCheckouts } from "../../state/hooks/useEmitterCheckout";
 
 const COLLAPSED_KEY = "checkout-reminder-collapsed";
 /** Listed before "Show all" — the longest-held, so the ones that matter most. */
@@ -41,6 +41,9 @@ export function CheckoutReminder() {
   const now = Date.now();
   const longHeld = mine.filter((c) => c.checked_out_at && now - Date.parse(c.checked_out_at) > LONG_HELD_MS).length;
   const label = `Editing ${mine.length} Emitter${mine.length === 1 ? "" : "s"}`;
+  const stale = mine.filter((c) => c.stale);
+  const soonestAt = stale.map((c) => c.releases_at).filter((d): d is string => !!d).sort()[0];
+  const soonest = releasesIn(soonestAt, now);
 
   if (collapsed) {
     return (
@@ -71,7 +74,17 @@ export function CheckoutReminder() {
           return (
             <li key={c.emitter_id}>
               <Link to={`/emitters/${c.emitter_id}`}>{c.emitter_name}</Link>
-              <span className={long ? "checkout-held long" : "checkout-held"}>{heldFor(c.checked_out_at, now)}</span>
+              <span
+                className={long ? "checkout-held long" : "checkout-held"}
+                title={
+                  c.stale
+                    ? `No change for ${heldFor(c.last_activity_at ?? null, now)} — ${releasesIn(c.releases_at, now) ?? "kept"} if still untouched`
+                    : undefined
+                }
+              >
+                {heldFor(c.checked_out_at, now)}
+                {c.stale && " · untouched"}
+              </span>
             </li>
           );
         })}
@@ -81,10 +94,17 @@ export function CheckoutReminder() {
           {showAll ? "Show fewer" : `Show all ${mine.length}`}
         </button>
       )}
-      {longHeld > 0 && (
+      {stale.length > 0 ? (
         <p className="checkout-reminder-warning">
-          Held over 8 hours — save or discard if you&apos;re done, so others can edit.
+          {stale.length} untouched for days — save or discard if you&apos;re done.
+          {soonest && ` The first is ${soonest} if still untouched (nothing unsaved is lost).`}
         </p>
+      ) : (
+        longHeld > 0 && (
+          <p className="checkout-reminder-warning">
+            Held over 8 hours — save or discard if you&apos;re done, so others can edit.
+          </p>
+        )
       )}
     </aside>
   );

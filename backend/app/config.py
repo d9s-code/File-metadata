@@ -47,6 +47,13 @@ class Settings(BaseSettings):
 
     trash_retention_days: int = 30
 
+    # Edit locks nobody has used: after CHECKOUT_WARN_DAYS without a change by
+    # the holder the lock is flagged; after CHECKOUT_RELEASE_DAYS it's released
+    # (nothing is discarded — unsaved changes stay, just no longer held).
+    # 0 turns the release off.
+    checkout_warn_days: int = 3
+    checkout_release_days: int = 14
+
     # A language model behind an OpenAI-compatible API (e.g. vLLM), used to
     # explain ambiguity findings and summarise runs. Unset: those buttons
     # don't appear. LLM_BASE_URL is the address up to and including /v1.
