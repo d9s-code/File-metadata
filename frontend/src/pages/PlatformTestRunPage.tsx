@@ -25,7 +25,8 @@ import { DwellInput, MANUAL_DWELL } from "../components/testing/DwellInput";
  * notes. (Per-line and per-Mode detail stays on each Emitter's own runs.) */
 interface EmitterRun {
   included: boolean;
-  result: TestResult;
+  /** Empty until someone picks one — logging needs a result for every Emitter in the run. */
+  result: TestResult | "";
   notes: string;
   /** When redoing an earlier Platform test: the Emitter's record in it, and its result then. */
   retestsRecordId?: string;
@@ -56,7 +57,7 @@ type SaveStatus =
 const SAVE_DELAY_MS = 800;
 
 function blankRun(): EmitterRun {
-  return { included: true, result: "pass", notes: "" };
+  return { included: true, result: "", notes: "" };
 }
 
 /** A saved draft's Emitter part — drafts from before the page was simplified
@@ -65,7 +66,7 @@ function fromDraft(saved: Partial<EmitterRun> & { manualResult?: TestResult }): 
   return {
     ...blankRun(),
     included: saved.included ?? true,
-    result: saved.result ?? saved.manualResult ?? "pass",
+    result: saved.result ?? saved.manualResult ?? "",
     notes: saved.notes ?? "",
     retestsRecordId: saved.retestsRecordId,
     previousResult: saved.previousResult,
@@ -290,7 +291,10 @@ export function PlatformTestRunPage() {
     );
   if (!platform || !links || !allEmitters || !ready) return <LoadingState label="Loading Platform test…" />;
 
-  const overall = computeOverallResult(included.map((l) => runFor(l.emitter_id).result));
+  const unset = included.filter((l) => !runFor(l.emitter_id).result);
+  const overall = unset.length
+    ? null
+    : computeOverallResult(included.map((l) => runFor(l.emitter_id).result as TestResult));
 
   async function handleDiscard() {
     if (!(await confirmDelete("Discard this Platform test? What's been filled in is lost.", { confirmLabel: "Discard", danger: true })))
@@ -307,11 +311,16 @@ export function PlatformTestRunPage() {
       setError("Include at least one Emitter.");
       return;
     }
+    if (unset.length) {
+      const names = unset.map((l) => emitterLabel(emittersById.get(l.emitter_id), l.emitter_id));
+      setError(`Pick a result for ${names.join(", ")}.`);
+      return;
+    }
     const emitters: PlatformTestEmitterInput[] = included.map((link) => {
       const run = runFor(link.emitter_id);
       return {
         emitter_id: link.emitter_id,
-        result: run.result,
+        result: run.result as TestResult,
         notes: run.notes.trim() || undefined,
         retests_test_record_id: run.retestsRecordId,
       };
@@ -394,6 +403,12 @@ export function PlatformTestRunPage() {
           </label>
           <p className="test-run-overall">
             {included.length} of {pins.length} pinned Emitter{pins.length === 1 ? "" : "s"} in the run
+            {unset.length > 0 && (
+              <span className="hint-text">
+                {" "}
+                · {unset.length} still need{unset.length === 1 ? "s" : ""} a result
+              </span>
+            )}
             {overall && (
               <>
                 {" "}
@@ -443,12 +458,15 @@ export function PlatformTestRunPage() {
                       </td>
                       <td className="nowrap">
                         <select
-                          className={`outcome-select test-result-${run.result}`}
+                          className={`outcome-select${run.result ? ` test-result-${run.result}` : ""}`}
                           value={run.result}
                           disabled={!run.included}
                           onChange={(e) => patchEmitter(link.emitter_id, { result: e.target.value as TestResult })}
                           aria-label={`${label} result`}
                         >
+                          <option value="" disabled>
+                            Choose…
+                          </option>
                           {TEST_RESULTS.map((r) => (
                             <option key={r} value={r}>
                               {testResultLabel(r)}

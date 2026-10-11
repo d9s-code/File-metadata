@@ -43,7 +43,7 @@ interface RunState {
   retestsId: string;
   copyFromId: string;
   notes: string;
-  manualResult: TestResult;
+  manualResult: TestResult | "";
   resultOverride?: TestResult | "";
   resultOverrideNote?: string;
   lineEntries: Record<string, SimLineEntry>;
@@ -104,7 +104,7 @@ export function TestRunNewPage() {
   const [retestsId, setRetestsId] = useState("");
   const [copyFromId, setCopyFromId] = useState("");
   const [notes, setNotes] = useState("");
-  const [manualResult, setManualResult] = useState<TestResult>("pass");
+  const [manualResult, setManualResult] = useState<TestResult | "">("");
   const [resultOverride, setResultOverride] = useState<TestResult | "">("");
   const [resultOverrideNote, setResultOverrideNote] = useState("");
   const [lineEntries, setLineEntries] = useState<Record<string, SimLineEntry>>({});
@@ -352,6 +352,10 @@ export function TestRunNewPage() {
       setError("Say why the overall result is overridden.");
       return;
     }
+    if (!derived && !manualResult) {
+      setError("Pick the overall result.");
+      return;
+    }
     const lineResults = isSimulation
       ? includedLines.map(([test_line_id, entry]) => ({
           test_line_id,
@@ -388,7 +392,7 @@ export function TestRunNewPage() {
         notes: notes.trim() || undefined,
         line_results: lineResults.length ? lineResults : undefined,
         mode_results: modeResults.length ? modeResults : undefined,
-        result: lineResults.length || modeResults.length ? undefined : manualResult,
+        result: lineResults.length || modeResults.length ? undefined : manualResult || undefined,
         retests_test_record_id: retestsId || undefined,
         draft_id: draftId.current ?? undefined,
         result_override: derived && resultOverride && resultOverride !== derived ? resultOverride : undefined,
@@ -549,6 +553,9 @@ export function TestRunNewPage() {
               <label className="inline-date-label">
                 Nothing included — set it manually
                 <select value={manualResult} onChange={(e) => setManualResult(e.target.value as TestResult)}>
+                  <option value="" disabled>
+                    Choose…
+                  </option>
                   {TEST_RESULTS.map((r) => (
                     <option key={r} value={r}>
                       {testResultLabel(r)}

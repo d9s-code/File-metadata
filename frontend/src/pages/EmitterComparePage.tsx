@@ -172,6 +172,7 @@ export function EmitterComparePage() {
   );
 
   if (!emitters) return <LoadingState label="Loading Emitters…" />;
+  const empty = data ? [data.a, data.b].filter((e) => e.modes.length === 0) : [];
   const live = emitters.filter((e) => !e.is_deleted);
 
   return (
@@ -206,7 +207,12 @@ export function EmitterComparePage() {
       ) : (
         <>
           <div className="card compare-verdict">
-            {findings.length === 0 ? (
+            {empty.length > 0 ? (
+              <strong>
+                {empty.map((e) => `${label(e)} has no Modes in v${e.version_number}`).join("; ")} — nothing to compare
+                yet.
+              </strong>
+            ) : findings.length === 0 ? (
               <strong>No pair of their Modes overlaps on every parameter — the two can be told apart.</strong>
             ) : (
               <>

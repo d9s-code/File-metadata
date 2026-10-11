@@ -253,7 +253,8 @@ export function HelpPage() {
           <strong>Compare two Emitters</strong> (<strong>More ▾ → Compare with another Emitter</strong> on an Emitter):
           pick A and B and a saved version of each (the latest by default). It shows how many pairs of their Modes the
           ambiguity check would flag, both on the coverage charts with the overlaps hatched, the overlapping pairs worst
-          first, and each Emitter&apos;s Modes side by side. The page&apos;s address keeps the choice, so you can share
+          first, and each Emitter&apos;s Modes side by side (if one has no Modes in the version picked, it says there&apos;s
+          nothing to compare yet). The page&apos;s address keeps the choice, so you can share
           it.
         </p>
 
@@ -744,9 +745,9 @@ export function HelpPage() {
             <strong>Tests</strong> holds <strong>Platform tests</strong> — every pinned Emitter tested in one run.{" "}
             <strong>+ New Platform test</strong> opens a page with the run&apos;s details and a row per pinned Emitter: a{" "}
             <strong>result</strong> and <strong>notes</strong> (untick <strong>In this run</strong> to leave one out).
-            It&apos;s saved as you fill it in and can be continued from the Tests tab. Logging it writes a test record
+            Results start blank — every Emitter in the run needs one picked before it can be logged. It&apos;s saved as you fill it in and can be continued from the Tests tab. Logging it writes a test record
             for each Emitter in the run, against the version the Platform pins, so each also shows in that
-            Emitter&apos;s Test History. Each Platform test has its own page, <strong>Redo test</strong> starts a retest
+            Emitter&apos;s Test History, linked back to the Platform test. Each Platform test has its own page, <strong>Redo test</strong> starts a retest
             of the same Emitters, and the <strong>Trend</strong> grid shows each Emitter&apos;s result across the latest
             runs.{" "}
             <strong>Analyst notes</strong> is the same append-only log as on an Emitter.

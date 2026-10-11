@@ -38,6 +38,7 @@ import { HelpPage } from "./pages/HelpPage";
 import { TasksPage } from "./pages/TasksPage";
 import { AdminUsersPage } from "./pages/AdminUsersPage";
 import { AdminTrashPage } from "./pages/AdminTrashPage";
+import { NotFoundPage } from "./pages/NotFoundPage";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
@@ -315,6 +316,14 @@ export default function App() {
                 }
               />
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route
+                path="*"
+                element={
+                  <RequireAuth>
+                    <NotFoundPage />
+                  </RequireAuth>
+                }
+              />
             </Routes>
             <ChatWidget />
           </AuthProvider>

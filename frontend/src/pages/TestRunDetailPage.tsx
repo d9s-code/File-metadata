@@ -158,6 +158,13 @@ export function TestRunDetailPage() {
             <span className={`test-result-badge test-result-${retested.result}`}>{testResultLabel(retested.result)}</span>
           </Fact>
         )}
+        {record.platform_test_id && record.platform_test_platform_id && (
+          <Fact label="Part of the Platform test">
+            <Link to={`/platforms/${record.platform_test_platform_id}/tests/${record.platform_test_id}`}>
+              {record.platform_test_title}
+            </Link>
+          </Fact>
+        )}
       </dl>
       {record.computed_result && record.result_note && (
         <p className="result-note">

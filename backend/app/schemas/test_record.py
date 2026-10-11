@@ -271,6 +271,9 @@ class TestRecordOut(BaseModel):
     retests_test_record_id: UUID | None = None
     # Set when this record is one Emitter's part of a Platform test.
     platform_test_id: UUID | None = None
+    # That Platform test's Platform and title, to link back to it.
+    platform_test_platform_id: UUID | None = None
+    platform_test_title: str | None = None
     modes: list[TestRecordModeOut] = []
     lines: list[TestRecordLineOut] = []
     signals: list[TestRecordSignalOut] = []

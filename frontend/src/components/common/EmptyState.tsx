@@ -17,7 +17,7 @@ export function EmptyState({
   if (compact) {
     return (
       <p className="empty-state-compact">
-        <strong>{title}.</strong> {message}
+        <strong>{title.replace(/\.$/, "")}.</strong> {message}
         {action && <> {action}</>}
       </p>
     );

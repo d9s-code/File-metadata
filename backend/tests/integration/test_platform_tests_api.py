@@ -79,6 +79,8 @@ def test_logging_a_platform_test_writes_a_record_per_emitter_against_the_pinned_
     # Each Emitter's record is in its own test history, pinned to the version tested.
     [record] = editor_client.get(f"/emitters/{a['emitter']['id']}/test-records").json()
     assert record["platform_test_id"] == test["id"]
+    # ...and links back to the Platform test it's part of.
+    assert record["platform_test_platform_id"] == platform["id"] and record["platform_test_title"] == "Sea trial"
     assert record["emitter_version_id"] == a["version"]["id"]
     assert record["notes"] == "Whole run"
     [record_b] = editor_client.get(f"/emitters/{b['emitter']['id']}/test-records").json()

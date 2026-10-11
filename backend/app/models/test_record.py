@@ -58,6 +58,15 @@ class TestRecord(UUIDPkMixin, TimestampMixin, Base):
     platform_test_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("platform_tests.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    platform_test: Mapped["PlatformTest | None"] = relationship(foreign_keys=[platform_test_id], viewonly=True)
+
+    @property
+    def platform_test_platform_id(self) -> uuid.UUID | None:
+        return self.platform_test.platform_id if self.platform_test else None
+
+    @property
+    def platform_test_title(self) -> str | None:
+        return self.platform_test.title if self.platform_test else None
 
     modes: Mapped[list["TestRecordMode"]] = relationship(
         back_populates="test_record", cascade="all, delete-orphan"

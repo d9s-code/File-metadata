@@ -84,6 +84,9 @@ export interface TestRecord {
   retests_test_record_id: string | null;
   /** Set when this record is one Emitter's part of a Platform test. */
   platform_test_id?: string | null;
+  /** That Platform test's Platform and title, to link back to it. */
+  platform_test_platform_id?: string | null;
+  platform_test_title?: string | null;
   modes: TestRecordModeLink[];
   lines: TestRecordLineResult[];
   signals: TestRecordSignal[];
