@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { formatDateTime } from "../common/dates";
 import type { AuditLogEntry } from "../../types/domain";
-import { actionLabel, entityTypeLabel, formatChanges } from "./auditFormat";
+import { actionLabel, auditSummary, entityTypeLabel, formatChanges } from "./auditFormat";
 import { SortableColumnHeader } from "../common/SortableColumnHeader";
 import { useSortableTable } from "../common/useSortableTable";
 import { compareStrings } from "../common/sortUtils";
@@ -104,7 +104,7 @@ export function AuditLogList({
               <span className={`audit-action-badge audit-action-${e.action}`}>{actionLabel(e.action)}</span>
             </td>
             {showEntityType && <td>{entityTypeLabel(e.entity_type)}</td>}
-            <td>{e.summary}</td>
+            <td>{auditSummary(e.summary)}</td>
             <td>
               <ChangesToggle changes={e.changes} entityType={e.entity_type} />
             </td>

@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import type { AuditLogEntry } from "../../types/domain";
 import { useDashboardActivity } from "../../state/hooks/useDashboard";
 import { LoadingState } from "../common/LoadingState";
-import { actionLabel } from "../audit/auditFormat";
+import { actionLabel, auditSummary } from "../audit/auditFormat";
 import { EmptyState } from "../common/EmptyState";
 
 const compactWhen = formatDateTime;
@@ -49,8 +49,8 @@ export function RecentActivityCard({ wide }: { wide: boolean }) {
                   <td>
                     <span className={`audit-action-badge audit-action-${e.action}`}>{actionLabel(e.action)}</span>
                   </td>
-                  <td className="dashboard-table-summary" title={e.summary}>
-                    {e.summary}
+                  <td className="dashboard-table-summary" title={auditSummary(e.summary)}>
+                    {auditSummary(e.summary)}
                   </td>
                 </tr>
               ))}

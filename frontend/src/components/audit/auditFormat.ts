@@ -32,12 +32,12 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   delete: "Deleted",
   restore: "Restored",
   status_change: "Status change",
-  commit: "Committed",
+  commit: "Saved version",
   login: "Logged in",
   login_failed: "Login failed",
   logout: "Logged out",
   checkout: "Started editing",
-  checkin: "Checked in",
+  checkin: "Stopped editing",
   discard: "Discarded changes",
   revert: "Reverted",
   fork: "Forked",
@@ -125,3 +125,9 @@ const VALUE_LABELS: Record<string, Record<string, Record<string, string>>> = {
   emitter: { status: EMITTER_STATUS_LABEL },
   source: { status: { approved: "Approved", pending_review: "Pending review", rejected: "Rejected" } },
 };
+
+/** An entry's summary as shown. Entries written before the edit-lock wording
+ * changed said "Checked in Emitter …" — shown in today's words. */
+export function auditSummary(summary: string): string {
+  return summary.replace(/^Checked in Emitter /, "Stopped editing Emitter ");
+}

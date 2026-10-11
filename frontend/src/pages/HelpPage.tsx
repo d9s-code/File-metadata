@@ -1169,6 +1169,14 @@ export function HelpPage() {
           Platform, MDF, EW Group, or Source) to see just its history. Each entry shows a human-readable
           summary and, where relevant, a field-by-field diff.
         </p>
+        <p>
+          For an Emitter, <strong>Started editing</strong> and <strong>Stopped editing</strong> only mean the edit
+          lock was taken and released — nothing is saved by them. A <strong>Saved version</strong> entry is a saved
+          version (Save version also stops editing, so the two come together). Stopped editing on its own means the
+          editor stopped without saving (the changes stay live, unsaved), an Admin force-released the lock, or it was
+          released automatically after going untouched; <strong>Discarded changes</strong> means the edits were thrown
+          away.
+        </p>
           </div>
 
       <div className="card" id="admin">

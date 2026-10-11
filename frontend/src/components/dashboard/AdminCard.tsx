@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { auditSummary } from "../audit/auditFormat";
 import { formatDateTime } from "../common/dates";
 import { useDashboardAdmin } from "../../state/hooks/useDashboard";
 import { LoadingState } from "../common/LoadingState";
@@ -32,8 +33,8 @@ export function AdminCard() {
             ) : (
               <ul className="admin-card-list">
                 {data.recent_failed_logins.map((a) => (
-                  <li key={a.id} title={a.summary}>
-                    <span className="hint-text">{when(a.created_at)}</span> {a.summary}
+                  <li key={a.id} title={auditSummary(a.summary)}>
+                    <span className="hint-text">{when(a.created_at)}</span> {auditSummary(a.summary)}
                   </li>
                 ))}
               </ul>

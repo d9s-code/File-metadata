@@ -16,6 +16,8 @@ If you just want to see it running, start with the [README](../README.md). This 
 
 **Backup warnings** for admins show on the Dashboard and the Admin pages only.
 
+**Editing entries in the Audit Log.** For an Emitter, **Started editing** and **Stopped editing** are the edit lock being taken and released — neither saves anything. **Saved version** is a saved version; Save version also stops editing, so the two appear together. A **Stopped editing** on its own means the editor stopped without saving (the changes stay live, unsaved), an Admin force-released the lock, or it was released automatically after going untouched. **Discarded changes** means the edits were thrown away. (Older entries recorded as "Checked in" show with today's wording.)
+
 **Search (quick-jump).** **⌕ Search** in the menu bar, or Ctrl+K (⌘K on a Mac) from any page, opens a box that finds Emitters (name or designation), Modes, Platforms, MDFs, Sources and Intercepts as you type — every word has to match, in any order; exact and starts-with matches first; up to 8 of each kind; deleted things left out. ↑↓ and Enter open one: a Mode on its Emitter's Modes tab, a Source on the Groups & Sources tab (`GET /search?q=`).
 
 An address that doesn't exist (mistyped or out of date) shows **Page not found**, with a link to the Dashboard.

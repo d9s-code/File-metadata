@@ -391,9 +391,9 @@ def checkin_emitter(
         entity_type=AuditEntityType.emitter.value,
         entity_id=emitter.id,
         summary=(
-            f"Force-released {holder.username if holder else 'another user'}'s checkout of Emitter '{emitter.name}'"
+            f"Force-released {holder.username if holder else 'another user'}'s edit lock on Emitter '{emitter.name}'"
             if forced
-            else f"Checked in Emitter '{emitter.name}'"
+            else f"Stopped editing Emitter '{emitter.name}' — edit lock released"
         ),
         changes={"released_holder_id": str(holder_id)} if forced else None,
         emitter_id=emitter.id,

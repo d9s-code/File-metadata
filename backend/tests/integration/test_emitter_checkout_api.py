@@ -145,4 +145,4 @@ def test_force_release_is_logged_with_the_holder(editor_client, admin_client):
     own = editor_client.post("/emitters", json={"name": "Own Checkin"}).json()
     editor_client.delete(f"/emitters/{own['id']}/checkout")
     log = admin_client.get("/audit-log", params={"entity_id": own["id"], "action": "checkin"}).json()["items"]
-    assert log[0]["summary"] == "Checked in Emitter 'Own Checkin'"
+    assert log[0]["summary"] == "Stopped editing Emitter 'Own Checkin' — edit lock released"
