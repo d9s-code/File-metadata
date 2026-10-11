@@ -1,7 +1,8 @@
 from datetime import date, datetime
+from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.enums import EmitterStatus, TestResult
 
@@ -103,3 +104,31 @@ class EmitterCheckoutOut(BaseModel):
     checked_out_by_id: UUID
     checked_out_by_username: str | None = None
     checked_out_at: datetime | None = None
+
+
+class EmitterBulkAction(BaseModel):
+    """One action applied to many Emitters from the list."""
+
+    emitter_ids: list[UUID] = Field(min_length=1, max_length=500)
+    # assign: to assignee_id (null: nobody); status: to new_status (with note
+    # where the move needs one); pin: their latest saved version into
+    # platform_id; release: their edit lock.
+    action: Literal["assign", "status", "pin", "release"]
+    assignee_id: UUID | None = None
+    new_status: str | None = None
+    note: str | None = None
+    platform_id: UUID | None = None
+
+
+class EmitterBulkResult(BaseModel):
+    id: UUID
+    name: str
+    ok: bool
+    # What was done, or why it was skipped.
+    message: str
+
+
+class EmitterBulkOut(BaseModel):
+    done: int
+    skipped: int
+    results: list[EmitterBulkResult]

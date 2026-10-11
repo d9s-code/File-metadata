@@ -7,7 +7,25 @@ export interface EmitterCreateInput {
   description?: string;
 }
 
+export type EmitterBulkActionName = "assign" | "status" | "pin" | "release";
+
+export interface EmitterBulkInput {
+  emitter_ids: string[];
+  action: EmitterBulkActionName;
+  assignee_id?: string | null;
+  new_status?: string;
+  note?: string;
+  platform_id?: string;
+}
+
+export interface EmitterBulkResult {
+  done: number;
+  skipped: number;
+  results: { id: string; name: string; ok: boolean; message: string }[];
+}
+
 export const emittersApi = {
+  bulk: (input: EmitterBulkInput) => api.post<EmitterBulkResult>("/emitters/bulk", input),
   list: (includeDeleted = false) =>
     api.get<Emitter[]>(`/emitters${includeDeleted ? "?include_deleted=true" : ""}`),
   get: (id: string) => api.get<Emitter>(`/emitters/${id}`),

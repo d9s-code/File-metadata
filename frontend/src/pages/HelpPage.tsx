@@ -240,6 +240,14 @@ export function HelpPage() {
           designation, or any of those RF/PRI/PW/Scan ranges. <strong>+ Add Emitter</strong> opens a small form as an overlay rather
           than a full page; click a row to open that Emitter.
         </p>
+        <p>
+          <strong>Bulk actions</strong> (Editors and Admins): tick Emitters in the first column (the box in the heading
+          ticks every one shown) and a bar appears above the table — <strong>Assign to</strong> someone (or nobody),{" "}
+          <strong>Move status to</strong> (Operational and Needs rework ask for the usual note),{" "}
+          <strong>Pin latest saved version into</strong> a Platform, or <strong>Release edit locks</strong> (your own;
+          an Admin can release anyone&apos;s). Each Emitter goes through the same rules as doing it on its own page;
+          any that can&apos;t are listed with the reason, and the rest are done.
+        </p>
 
         <div className="help-subsection" id="emitter-detail">
           <h3>Emitter detail</h3>

@@ -15,6 +15,8 @@ import type { Emitter } from "../types/domain";
 import { useAuth } from "../auth/AuthContext";
 import { usePeople, useTasks } from "../state/hooks/useTasks";
 import { TasksButton } from "../components/tasks/TasksButton";
+import { EmitterBulkBar } from "../components/emitters/EmitterBulkBar";
+import { useHasRole } from "../auth/RequireAuth";
 
 type EmitterSortKey =
   | "name"
@@ -109,6 +111,16 @@ export function EmittersListPage() {
   const [assignedFilter, setAssignedFilter] = useState("");
   const { user } = useAuth();
   const { data: people } = usePeople();
+  const canWrite = useHasRole("editor");
+  // Emitters ticked for a bulk action.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const toggle = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const filtered = (emitters ?? []).filter((e) => {
     const nameQ = nameFilter.trim().toLowerCase();
@@ -297,10 +309,26 @@ export function EmittersListPage() {
       ) : sorted.length === 0 ? (
         <EmptyState icon="◇" title="No matches" message="No Emitters match the current search/filters." />
       ) : (
+        <>
+        {canWrite && selected.size > 0 && (
+          <EmitterBulkBar selected={[...selected]} onClear={() => setSelected(new Set())} />
+        )}
         <div className="matrix-scroll">
         <table className="data-table">
           <thead>
             <tr>
+              {canWrite && (
+                <th className="select-col">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all shown"
+                    checked={sorted.length > 0 && sorted.every((e) => selected.has(e.id))}
+                    onChange={(ev) =>
+                      setSelected(ev.target.checked ? new Set([...selected, ...sorted.map((e) => e.id)]) : new Set())
+                    }
+                  />
+                </th>
+              )}
               {header("Name", "name")}
               {header("Designation", "designation")}
               {header("Status", "status")}
@@ -320,7 +348,17 @@ export function EmittersListPage() {
           </thead>
           <tbody>
             {sorted.map((e) => (
-              <tr key={e.id}>
+              <tr key={e.id} className={selected.has(e.id) ? "selected-row" : undefined}>
+                {canWrite && (
+                  <td className="select-col">
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${e.name}`}
+                      checked={selected.has(e.id)}
+                      onChange={() => toggle(e.id)}
+                    />
+                  </td>
+                )}
                 <td>
                   <Link to={`/emitters/${e.id}`}>{e.name}</Link>
                 </td>
@@ -362,6 +400,7 @@ export function EmittersListPage() {
           </tbody>
         </table>
         </div>
+        </>
       )}
       {dialog}
     </div>

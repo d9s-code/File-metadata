@@ -5881,3 +5881,32 @@ a.ai-cite:hover { text-decoration: underline; }
   padding-left: 1.1rem;
   font-size: 0.85rem;
 }
+
+/* Bulk actions on the Emitters list. */
+.emitter-bulk-bar {
+  position: sticky;
+  top: var(--navbar-height, 0);
+  z-index: 5;
+  border-left: 4px solid var(--primary);
+}
+.emitter-bulk-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+.emitter-bulk-note {
+  min-width: 18rem;
+}
+.emitter-bulk-result ul {
+  margin: 0.3rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+}
+.data-table .select-col {
+  width: 2rem;
+  text-align: center;
+}
+.data-table tr.selected-row > td {
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+}

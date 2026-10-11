@@ -23,7 +23,15 @@ from app.models.emitter_version import EmitterVersion
 from app.models.ew_group import EwGroup
 from app.models.mode import Mode, ModeGenerationBatch
 from app.models.user import User
-from app.schemas.emitter import EmitterCheckoutOut, EmitterCreate, EmitterOut, EmitterUpdate
+from app.schemas.emitter import (
+    EmitterBulkAction,
+    EmitterBulkOut,
+    EmitterBulkResult,
+    EmitterCheckoutOut,
+    EmitterCreate,
+    EmitterOut,
+    EmitterUpdate,
+)
 from app.schemas.emitter_note import EmitterNoteCreate, EmitterNoteOut
 from app.schemas.task import EmitterAssign
 from app.schemas.mode_element import ElementOverviewRow
@@ -968,3 +976,77 @@ def transition_emitter_status(
     return commit_version(
         db, spec=_VERSION_SPEC, entity_id=emitter.id, snapshot=snapshot, change_summary=summary, created_by=user.id
     )
+
+
+
+@router.post("/bulk", response_model=EmitterBulkOut, dependencies=[Depends(verify_csrf)])
+def bulk_emitter_action(
+    payload: EmitterBulkAction,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(Role.editor)),
+) -> EmitterBulkOut:
+    """Apply one action to many Emitters. Each goes through the same rules as
+    doing it on one Emitter (who may assign, which status moves are allowed,
+    who may release a lock), one at a time: those that can't are skipped with
+    the reason, and the rest are done."""
+    from app.routers.platforms import pin_emitter  # Platforms import Emitters' helpers.
+    from app.schemas.platform import PlatformLinkCreate
+
+    if payload.action == "status" and not payload.new_status:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Say which status to move them to")
+    if payload.action == "pin" and payload.platform_id is None:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Say which Platform to pin them into")
+
+    results: list[EmitterBulkResult] = []
+    for emitter_id in dict.fromkeys(payload.emitter_ids):
+        emitter = db.get(Emitter, emitter_id)
+        if emitter is None or emitter.is_deleted:
+            results.append(EmitterBulkResult(id=emitter_id, name="(deleted)", ok=False, message="Emitter not found"))
+            continue
+        name = emitter.name
+        try:
+            if payload.action == "assign":
+                assign_emitter(emitter_id, EmitterAssign(assignee_id=payload.assignee_id), db, user)
+                message = "Assigned" if payload.assignee_id else "Unassigned"
+            elif payload.action == "status":
+                if emitter.status.value == payload.new_status:
+                    results.append(
+                        EmitterBulkResult(
+                            id=emitter_id, name=name, ok=False, message=f"Already {emitter_status_label(payload.new_status)}"
+                        )
+                    )
+                    continue
+                transition_emitter_status(
+                    emitter_id, StatusTransitionRequest(new_status=payload.new_status, note=payload.note), db, user
+                )
+                message = f"Moved to {emitter_status_label(payload.new_status)}"
+            elif payload.action == "pin":
+                latest = (
+                    db.query(EmitterVersion)
+                    .filter(EmitterVersion.emitter_id == emitter_id)
+                    .order_by(EmitterVersion.version_number.desc())
+                    .first()
+                )
+                if latest is None:
+                    results.append(EmitterBulkResult(id=emitter_id, name=name, ok=False, message="No saved version to pin"))
+                    continue
+                pin_emitter(
+                    payload.platform_id,
+                    PlatformLinkCreate(emitter_id=emitter_id, emitter_version_id=latest.id),
+                    db,
+                    user,
+                )
+                message = f"Pinned v{latest.version_number}"
+            else:
+                if emitter.checked_out_by_id is None:
+                    results.append(EmitterBulkResult(id=emitter_id, name=name, ok=False, message="Not being edited"))
+                    continue
+                checkin_emitter(emitter_id, db, user)
+                message = "Edit lock released"
+        except HTTPException as exc:
+            db.rollback()
+            results.append(EmitterBulkResult(id=emitter_id, name=name, ok=False, message=str(exc.detail)))
+            continue
+        results.append(EmitterBulkResult(id=emitter_id, name=name, ok=True, message=message))
+    done = sum(1 for r in results if r.ok)
+    return EmitterBulkOut(done=done, skipped=len(results) - done, results=results)

@@ -23,6 +23,8 @@ Every Mode belongs to exactly one EW Group *and* one or more Sources — two ind
 
 The **Emitters list** shows each Emitter's status, assignee and RF/PRI/PW/Scan extremes, plus **SIM correct** — how many of its SIM Test Lines were correct in the latest run that included them, out of all its lines (e.g. "4 / 5"; sortable by the share) — and **Tasks**: its open tasks as "☑ n", opening the Emitter's task list to read, tick off or add one (the counts come from one query for the whole list).
 
+**Bulk actions** (Editors and Admins): tick Emitters in the list (the heading's box ticks every one shown) and a bar above the table applies one action to all of them — **Assign to** someone or nobody, **Move status to** (Operational and Needs rework take the required note), **Pin latest saved version into** a Platform, or **Release edit locks** (your own; an Admin anyone's). Each Emitter goes through the same rules as on its own page, one at a time; any that can't are skipped and listed with the reason ("Already Testing", "No saved version to pin", "Only the holder or an Admin can release this checkout"…), the rest are done (`POST /emitters/bulk`).
+
 ### EW Groups
 
 An EW Group represents an operational grouping — think "the set of modes this emitter uses while in track mode." Each EW Group carries:
