@@ -391,8 +391,16 @@ export function HelpPage() {
                 <strong>SIM Test Lines</strong> are imported by pasting rows from a spreadsheet, together with
                 the (required) date the lines were created in the simulator. Each line shows a{" "}
                 <strong>Status</strong> — its outcome in the most recent run that included it, linking to that
-                run — and the date it was <strong>last tested</strong>. Click the heading to collapse the
-                table; the choice is remembered.
+                run — and the date it was <strong>last tested</strong>, with its expected Mode and reference
+                detail. Click the heading to collapse the table; the choice is remembered.{" "}
+                <strong>Edit</strong> changes one line: its label, expected Mode, detail (one{" "}
+                <em>name: value</em> per row) and created date. When the simulator&apos;s table is revised,{" "}
+                <strong>⟳ Update from a revised table</strong> takes the new table: each row is matched to a line
+                already here by its label (ignoring case and extra spaces), so a matched line keeps its test history
+                and takes the row&apos;s detail (unless the row has only a label), the new created date and batch
+                label; rows with no match are added, and the lines follow the table&apos;s order. Lines not in the
+                table are kept unless you tick to delete them. <strong>Preview changes</strong> shows what it will
+                do before anything is changed. Deleting a line also deletes its results in logged runs.
               </li>
               <li>
                 <strong>+ New Test Run</strong> opens a separate page. Pick the type:{" "}

@@ -2606,6 +2606,21 @@ a.link-as-button.accent-button:hover {
   margin: 0;
 }
 
+.sim-line-detail {
+  max-width: 20rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sim-sync-preview {
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.sim-sync-preview ul {
+  margin: 0.25rem 0 0;
+}
 .sim-test-lines-header {
   display: flex;
   align-items: center;

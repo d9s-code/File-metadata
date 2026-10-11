@@ -32,6 +32,26 @@ export interface TestLineImportInput {
   created_date: string;
 }
 
+/** A revised SIM table, matched to the existing lines by label. */
+export interface TestLineSyncInput {
+  lines: TestLineCreateInput[];
+  created_date: string;
+  batch_label?: string;
+  /** Delete the lines not in the table (and their results in logged runs). */
+  remove_missing?: boolean;
+  /** False: only work out what would change. */
+  apply?: boolean;
+}
+
+export interface TestLineSyncResult {
+  added: string[];
+  updated: { id: string; label: string; changes: string[] }[];
+  unchanged: string[];
+  missing: { id: string; label: string; results: number }[];
+  removed: boolean;
+  applied: boolean;
+}
+
 export interface TestLineUpdateInput {
   label?: string;
   expected_mode_id?: string | null;
@@ -43,6 +63,8 @@ export const testLinesApi = {
   listForEmitter: (emitterId: string) => api.get<TestLine[]>(`/emitters/${emitterId}/test-lines`),
   import: (emitterId: string, input: TestLineImportInput) =>
     api.post<TestLine[]>(`/emitters/${emitterId}/test-lines/import`, input),
+  sync: (emitterId: string, input: TestLineSyncInput) =>
+    api.post<TestLineSyncResult>(`/emitters/${emitterId}/test-lines/sync`, input),
   update: (emitterId: string, id: string, input: TestLineUpdateInput) =>
     api.patch<TestLine>(`/emitters/${emitterId}/test-lines/${id}`, input),
   delete: (emitterId: string, id: string) => api.delete<void>(`/emitters/${emitterId}/test-lines/${id}`),

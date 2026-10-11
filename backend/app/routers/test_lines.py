@@ -12,7 +12,17 @@ from app.models.emitter import Emitter
 from app.models.ew_group import EwGroup
 from app.models.mode import Mode
 from app.models.test_line import TestLine
-from app.schemas.test_line import TestLineImportRequest, TestLineOut, TestLineUpdate
+from app.models.test_record import TestRecordLine
+from app.schemas.test_line import (
+    TestLineCreate,
+    TestLineImportRequest,
+    TestLineOut,
+    TestLineSyncChange,
+    TestLineSyncMissing,
+    TestLineSyncOut,
+    TestLineSyncRequest,
+    TestLineUpdate,
+)
 from app.services.audit_service import apply_and_diff, record_audit
 from app.services.test_line_status_service import latest_line_outcomes
 
@@ -115,6 +125,153 @@ def import_test_lines(
     lines = db.query(TestLine).options(_EAGER_LOAD).filter(TestLine.id.in_(ids)).all()
     by_id = {ln.id: ln for ln in lines}
     return [_to_out(by_id[i]) for i in ids]
+
+
+def _label_key(label: str) -> str:
+    return " ".join(label.split()).casefold()
+
+
+@router.post("/sync", response_model=TestLineSyncOut, dependencies=[Depends(verify_csrf)])
+def sync_test_lines(
+    emitter_id: UUID,
+    payload: TestLineSyncRequest,
+    db: Session = Depends(get_db),
+    user=Depends(require_emitter_checkout()),
+) -> TestLineSyncOut:
+    """Update the Emitter's SIM Test Lines from a revised table. Each row is
+    matched to an existing line by label (ignoring case and extra spaces): a
+    matched line keeps its id and test history and takes the row's detail,
+    the table's created date and batch; a row with no match is added; lines
+    not in the table are kept, or deleted when asked. The lines end up in the
+    table's order. With apply=false nothing is written — the result says what
+    would change."""
+    if db.get(Emitter, emitter_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Emitter not found")
+    rows = [ln for ln in payload.lines if ln.label.strip()]
+    if not rows:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "At least one line is required")
+    seen: dict[str, str] = {}
+    for ln in rows:
+        key = _label_key(ln.label)
+        if key in seen:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                f"'{ln.label.strip()}' is in the table twice — each line needs its own label to be matched",
+            )
+        seen[key] = ln.label
+    _validate_mode_ids(db, emitter_id, {ln.expected_mode_id for ln in rows if ln.expected_mode_id is not None})
+
+    existing = (
+        db.query(TestLine)
+        .filter(TestLine.emitter_id == emitter_id)
+        .order_by(TestLine.sort_order.asc(), TestLine.created_at.asc())
+        .all()
+    )
+    # Two existing lines with the same label: the first is the one matched.
+    by_key: dict[str, TestLine] = {}
+    for tl in existing:
+        by_key.setdefault(_label_key(tl.label), tl)
+
+    added: list[str] = []
+    updated: list[TestLineSyncChange] = []
+    unchanged: list[str] = []
+    plan: list[tuple[TestLine | None, TestLineCreate, dict]] = []
+    matched_ids = set()
+    for ln in rows:
+        line = by_key.get(_label_key(ln.label))
+        label = ln.label.strip()
+        if line is None or line.id in matched_ids:
+            added.append(label)
+            plan.append((None, ln, {}))
+            continue
+        matched_ids.add(line.id)
+        values = {"label": label, "created_date": payload.created_date}
+        # A table of labels only leaves the detail as it is.
+        if ln.expected_parameters:
+            values["expected_parameters"] = ln.expected_parameters
+        if payload.batch_label:
+            values["import_batch_label"] = payload.batch_label
+        if ln.expected_mode_id is not None:
+            values["expected_mode_id"] = ln.expected_mode_id
+        names = {
+            "label": "label",
+            "created_date": "created date",
+            "expected_parameters": "detail",
+            "import_batch_label": "batch",
+            "expected_mode_id": "expected Mode",
+        }
+        changes = [names[k] for k, v in values.items() if getattr(line, k) != v]
+        if changes:
+            updated.append(TestLineSyncChange(id=line.id, label=label, changes=changes))
+        else:
+            unchanged.append(label)
+        plan.append((line, ln, values))
+
+    missing_lines = [tl for tl in existing if tl.id not in matched_ids]
+    result_counts = dict(
+        db.query(TestRecordLine.test_line_id, func.count(TestRecordLine.id))
+        .filter(TestRecordLine.test_line_id.in_([tl.id for tl in missing_lines]))
+        .group_by(TestRecordLine.test_line_id)
+        .all()
+    ) if missing_lines else {}
+    missing = [TestLineSyncMissing(id=tl.id, label=tl.label, results=result_counts.get(tl.id, 0)) for tl in missing_lines]
+    out = TestLineSyncOut(
+        added=added,
+        updated=updated,
+        unchanged=unchanged,
+        missing=missing,
+        removed=payload.remove_missing and bool(missing),
+        applied=payload.apply,
+    )
+    if not payload.apply:
+        return out
+
+    # The table's order, then the lines kept that aren't in it.
+    order = 0
+    for line, ln, values in plan:
+        if line is None:
+            db.add(
+                TestLine(
+                    emitter_id=emitter_id,
+                    label=ln.label.strip(),
+                    expected_mode_id=ln.expected_mode_id,
+                    expected_parameters=ln.expected_parameters,
+                    import_batch_label=payload.batch_label,
+                    created_date=payload.created_date,
+                    imported_by=user.id,
+                    sort_order=order,
+                )
+            )
+        else:
+            for k, v in values.items():
+                setattr(line, k, v)
+            line.sort_order = order
+        order += 1
+    for tl in missing_lines:
+        if payload.remove_missing:
+            db.delete(tl)
+        else:
+            tl.sort_order = order
+            order += 1
+
+    parts = [f"{len(added)} added", f"{len(updated)} updated", f"{len(unchanged)} unchanged"]
+    if missing:
+        parts.append(f"{len(missing)} {'removed' if payload.remove_missing else 'not in the table, kept'}")
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.update,
+        entity_type=AuditEntityType.test_line.value,
+        entity_id=emitter_id,
+        summary="Updated SIM Test Lines from a revised table"
+        + (f" ({payload.batch_label})" if payload.batch_label else "")
+        + ": "
+        + ", ".join(parts),
+        changes=payload.model_dump(mode="json"),
+        emitter_id=emitter_id,
+    )
+    db.commit()
+    return out
 
 
 @router.patch("/{test_line_id}", response_model=TestLineOut, dependencies=[Depends(verify_csrf)])

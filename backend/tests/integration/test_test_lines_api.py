@@ -456,3 +456,67 @@ def test_the_emitter_summary_counts_sim_lines_correct_in_their_latest_run(editor
     assert (summary["sim_lines"], summary["sim_lines_correct"]) == (3, 1)
     listed = next(e for e in editor_client.get("/emitters").json() if e["id"] == emitter_id)
     assert listed["summary"]["sim_lines_correct"] == 1
+
+
+def _import(client, emitter_id, labels, **extra):
+    return client.post(
+        f"/emitters/{emitter_id}/test-lines/import",
+        json={"lines": [{"label": label, **extra} for label in labels], "created_date": "2026-01-01"},
+    ).json()
+
+
+def test_sync_previews_then_updates_lines_matched_by_label_keeping_their_ids(editor_client, emitter_with_mode):
+    emitter_id = emitter_with_mode["emitter"]["id"]
+    old = _import(editor_client, emitter_id, ["Threat 1", "Threat 2", "Threat 3"], expected_parameters={"rf": "9000"})
+    table = {
+        "lines": [
+            {"label": "threat  2", "expected_parameters": {"rf": "9100"}},  # matched despite case/spacing
+            {"label": "Threat 1"},  # labels only: detail kept
+            {"label": "Threat 4", "expected_parameters": {"rf": "9500"}},
+        ],
+        "created_date": "2026-10-01",
+        "batch_label": "rev B",
+    }
+    url = f"/emitters/{emitter_id}/test-lines/sync"
+    preview = editor_client.post(url, json=table).json()
+    assert preview["applied"] is False
+    assert preview["added"] == ["Threat 4"]
+    assert {u["label"]: u["changes"] for u in preview["updated"]} == {
+        "threat  2": ["label", "created date", "detail", "batch"],
+        "Threat 1": ["created date", "batch"],
+    }
+    assert [m["label"] for m in preview["missing"]] == ["Threat 3"]
+    # Nothing written by a preview.
+    assert [ln["label"] for ln in editor_client.get(f"/emitters/{emitter_id}/test-lines").json()] == [
+        "Threat 1",
+        "Threat 2",
+        "Threat 3",
+    ]
+
+    resp = editor_client.post(url, json={**table, "apply": True})
+    assert resp.status_code == 200, resp.text
+    lines = editor_client.get(f"/emitters/{emitter_id}/test-lines").json()
+    # The table's order, then the line not in it (kept).
+    assert [ln["label"] for ln in lines] == ["threat  2", "Threat 1", "Threat 4", "Threat 3"]
+    by_label = {ln["label"]: ln for ln in lines}
+    assert by_label["threat  2"]["id"] == old[1]["id"]
+    assert by_label["threat  2"]["expected_parameters"] == {"rf": "9100"}
+    assert by_label["Threat 1"]["id"] == old[0]["id"]
+    assert by_label["Threat 1"]["expected_parameters"] == {"rf": "9000"}
+    assert by_label["Threat 1"]["created_date"] == "2026-10-01"
+    assert by_label["Threat 3"]["created_date"] == "2026-01-01"
+
+
+def test_sync_can_remove_lines_not_in_the_table_and_rejects_duplicate_labels(editor_client, emitter_with_mode):
+    emitter_id = emitter_with_mode["emitter"]["id"]
+    _import(editor_client, emitter_id, ["Keep", "Drop"])
+    url = f"/emitters/{emitter_id}/test-lines/sync"
+    dup = {"lines": [{"label": "A"}, {"label": " a "}], "created_date": "2026-10-01"}
+    assert editor_client.post(url, json=dup).status_code == 422
+
+    resp = editor_client.post(
+        url, json={"lines": [{"label": "Keep"}], "created_date": "2026-10-01", "remove_missing": True, "apply": True}
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["removed"] is True
+    assert [ln["label"] for ln in editor_client.get(f"/emitters/{emitter_id}/test-lines").json()] == ["Keep"]

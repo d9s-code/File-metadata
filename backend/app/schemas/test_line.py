@@ -23,6 +23,46 @@ class TestLineImportRequest(BaseModel):
     created_date: date
 
 
+class TestLineSyncRequest(BaseModel):
+    """A revised SIM table: lines are matched to the Emitter's existing ones
+    by label (ignoring case and extra spaces), so a matched line keeps its id
+    and its test history."""
+
+    lines: list[TestLineCreate]
+    # When the revised SIM lines were created in the simulator: set on every
+    # line in the table, new or matched.
+    created_date: date
+    batch_label: str | None = None
+    # Delete the Emitter's lines that aren't in the table (and their results
+    # in logged runs). Off by default: they're kept as they are.
+    remove_missing: bool = False
+    # False: only work out what would change.
+    apply: bool = False
+
+
+class TestLineSyncChange(BaseModel):
+    id: UUID
+    label: str
+    # What changes on a matched line: "label", "detail", "created date", "batch", "expected Mode".
+    changes: list[str] = []
+
+
+class TestLineSyncMissing(BaseModel):
+    id: UUID
+    label: str
+    # How many logged test runs have a result for it (deleted with it if removed).
+    results: int
+
+
+class TestLineSyncOut(BaseModel):
+    added: list[str]
+    updated: list[TestLineSyncChange]
+    unchanged: list[str]
+    missing: list[TestLineSyncMissing]
+    removed: bool
+    applied: bool
+
+
 class TestLineUpdate(BaseModel):
     label: str | None = None
     expected_mode_id: UUID | None = None

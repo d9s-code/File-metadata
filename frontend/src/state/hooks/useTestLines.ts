@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { testLinesApi, type TestLineImportInput, type TestLineUpdateInput } from "../../api/testLines";
+import { testLinesApi, type TestLineImportInput, type TestLineSyncInput, type TestLineUpdateInput } from "../../api/testLines";
 
 export function testLinesKey(emitterId: string) {
   return ["testLines", emitterId] as const;
@@ -18,6 +18,17 @@ export function useImportTestLines(emitterId: string) {
   return useMutation({
     mutationFn: (input: TestLineImportInput) => testLinesApi.import(emitterId, input),
     onSuccess: () => qc.invalidateQueries({ queryKey: testLinesKey(emitterId) }),
+  });
+}
+
+/** Previews (apply: false) or applies a revised SIM table. */
+export function useSyncTestLines(emitterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: TestLineSyncInput) => testLinesApi.sync(emitterId, input),
+    onSuccess: (result) => {
+      if (result.applied) qc.invalidateQueries({ queryKey: testLinesKey(emitterId) });
+    },
   });
 }
 
