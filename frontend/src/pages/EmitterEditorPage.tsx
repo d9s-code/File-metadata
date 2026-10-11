@@ -174,6 +174,7 @@ export function EmitterEditorPage() {
               label="More ▾"
               items={[
                 { label: "Version history", to: `/emitters/${emitter.id}/versions` },
+                { label: "Compare with another Emitter", to: `/emitters/compare?a=${emitter.id}` },
                 { label: "Ambiguity check", to: `/ambiguity/emitter/${emitter.id}` },
                 {
                   label: "Edit details",

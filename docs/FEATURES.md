@@ -25,6 +25,8 @@ The **Emitters list** shows each Emitter's status, assignee and RF/PRI/PW/Scan e
 
 **Bulk actions** (Editors and Admins): tick Emitters in the list (the heading's box ticks every one shown) and a bar above the table applies one action to all of them — **Assign to** someone or nobody, **Move status to** (Operational and Needs rework take the required note), **Pin latest saved version into** a Platform, or **Release edit locks** (your own; an Admin anyone's). Each Emitter goes through the same rules as on its own page, one at a time; any that can't are skipped and listed with the reason ("Already Testing", "No saved version to pin", "Only the holder or an Admin can release this checkout"…), the rest are done (`POST /emitters/bulk`).
 
+**Compare two Emitters** (**More ▾ → Compare with another Emitter** on an Emitter, or **Compare these two** with two ticked in the list): pick Emitter A and B and, for each, a saved version (the latest by default); **⇄ Swap** flips them. The page says how many pairs of Modes — one from each — the ambiguity check would flag, by severity; draws both on the RF/PRI/PW coverage charts (per Emitter or per Mode, with the overlaps hatched); lists the overlapping pairs, worst first, with each parameter's overlap; and shows each Emitter's Modes side by side, the overlapping ones marked. The address keeps the choice, so it can be shared (`GET /emitters/compare?a=&b=&a_version=&b_version=`).
+
 ### EW Groups
 
 An EW Group represents an operational grouping — think "the set of modes this emitter uses while in track mode." Each EW Group carries:

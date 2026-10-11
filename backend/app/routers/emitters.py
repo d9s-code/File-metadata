@@ -37,6 +37,7 @@ from app.schemas.emitter_note import EmitterNoteCreate, EmitterNoteOut
 from app.schemas.task import EmitterAssign
 from app.schemas.mode_element import ElementOverviewRow
 from app.services.element_overview import element_overview
+from app.services.emitter_compare import compare_emitters
 from app.schemas.mode import ModeBatchEditRequest, ModeBatchEditResult, ModeGenerationBatchOut, ModeOut
 from app.schemas.emitter_version import (
     CommitEmitterVersionRequest,
@@ -81,6 +82,21 @@ def list_emitters(
         q = q.filter(Emitter.is_deleted.is_(False))
     emitters = q.order_by(Emitter.name).all()
     return attach_emitter_summaries(db, emitters)
+
+
+@router.get("/compare")
+def compare_two_emitters(
+    a: UUID,
+    b: UUID,
+    a_version: int | None = None,
+    b_version: int | None = None,
+    db: Session = Depends(get_db),
+    _=Depends(require_role(Role.viewer)),
+) -> dict:
+    """Two Emitters side by side, each as of a saved version (the latest unless
+    given): what each covers, and every pair of their Modes the ambiguity
+    check would flag. Declared before /{emitter_id}."""
+    return compare_emitters(db, a, b, a_version, b_version)
 
 
 @router.get("/checkouts", response_model=list[EmitterCheckoutOut])

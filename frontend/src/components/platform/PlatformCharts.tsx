@@ -498,8 +498,16 @@ export function CoverageCharts({
   /** What the lines come from, e.g. "As of each pinned version." */
   note: string;
   legend: ReactNode;
-  /** The latest ambiguity check, to mark its overlaps on the lines. */
-  ambiguity?: { run: AmbiguityRun | null; findings: AmbiguityFinding[]; link: string };
+  /** The latest ambiguity check, to mark its overlaps on the lines — or, with
+   * `note`, overlaps worked out some other way (e.g. comparing two Emitters). */
+  ambiguity?: {
+    run: AmbiguityRun | null;
+    findings: AmbiguityFinding[];
+    link?: string;
+    note?: ReactNode;
+    /** Marks shown from the start. */
+    on?: boolean;
+  };
 }) {
   const [level, setLevelState] = useState(() => {
     try {
@@ -528,7 +536,8 @@ export function CoverageCharts({
   const colourDepth = Math.max(0, Math.min(level, levels.length - 2));
   const coloured = useMemo(() => nodesAt(nodes, colourDepth), [nodes, colourDepth]);
   const colours = useMemo(() => new Map(coloured.map((n, i) => [n.key, i])), [coloured]);
-  const [showAmbiguity, setShowAmbiguity] = useState(false);
+  const [showAmbiguity, setShowAmbiguity] = useState(!!ambiguity?.on);
+  const ambiguityAvailable = !!ambiguity && (!!ambiguity.run || ambiguity.note !== undefined);
   const marked = useMemo(
     () => (showAmbiguity && ambiguity?.findings.length ? withAmbiguityMarks(nodes, ambiguity.findings, engineered) : nodes),
     [nodes, showAmbiguity, ambiguity, engineered],
@@ -595,15 +604,15 @@ export function CoverageCharts({
           <label
             className="inline-label"
             title={
-              ambiguity.run
-                ? "Mark where Modes of different Emitters overlap, from the latest ambiguity check"
+              ambiguityAvailable
+                ? "Mark where Modes of different Emitters overlap"
                 : "Run an ambiguity check first"
             }
           >
             <input
               type="checkbox"
               checked={showAmbiguity}
-              disabled={!ambiguity.run}
+              disabled={!ambiguityAvailable}
               onChange={(e) => setShowAmbiguity(e.target.checked)}
             />{" "}
             Ambiguities
@@ -616,13 +625,18 @@ export function CoverageCharts({
           {note} Drag a chart to pan it; Ctrl/⌘ + scroll zooms, double-click shows it all.
         </span>
       </div>
-      {ambiguity && showAmbiguity && ambiguity.run && (
+      {ambiguity && showAmbiguity && ambiguity.note !== undefined && (
+        <p className="hint-text platform-chart-ambiguity-note">
+          <span className="platform-chart-swatch platform-chart-mark-swatch" /> {ambiguity.note}
+        </p>
+      )}
+      {ambiguity && showAmbiguity && ambiguity.note === undefined && ambiguity.run && (
         <p className="hint-text platform-chart-ambiguity-note">
           <span className="platform-chart-swatch platform-chart-mark-swatch" /> Where Modes of different Emitters overlap,
           from the ambiguity check of{" "}
           {new Date(ambiguity.run.created_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })} (
           {ambiguity.findings.length} pair{ambiguity.findings.length === 1 ? "" : "s"}) — hover a mark for the Modes.{" "}
-          <Link to={ambiguity.link}>Open the check</Link>. A Mode no longer pinned isn&apos;t marked.
+          {ambiguity.link && <Link to={ambiguity.link}>Open the check</Link>}. A Mode no longer pinned isn&apos;t marked.
         </p>
       )}
       <div className={layout === "side" ? "platform-charts-grid side" : "platform-charts-grid"}>
@@ -673,7 +687,7 @@ function Swatch({ i }: { i: number }) {
   );
 }
 
-function emitterNode(e: EmitterCoverage, keyPrefix = ""): CoverageNode {
+export function emitterNode(e: EmitterCoverage, keyPrefix = ""): CoverageNode {
   const label = emitterLabel(e);
   const title = `${label} (v${e.version_number})`;
   return {

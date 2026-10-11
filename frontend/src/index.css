@@ -2153,6 +2153,10 @@ span.test-derived-badge {
   letter-spacing: 0.04em;
   color: var(--viz-ink-muted);
 }
+.run-fact dt .unit {
+  /* Uppercase would turn µs into MS. */
+  text-transform: none;
+}
 .run-fact dd {
   margin: 0;
   font-variant-numeric: tabular-nums;
@@ -5914,4 +5918,44 @@ a.ai-cite:hover { text-decoration: underline; }
 .platform-test-trend .trend-col {
   text-align: center;
   white-space: nowrap;
+}
+
+/* Comparing two Emitters. */
+.compare-pickers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.compare-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1 1 22rem;
+}
+.compare-picker select:first-of-type {
+  flex: 1;
+  min-width: 0;
+}
+.compare-side {
+  font-weight: 700;
+  color: var(--viz-ink-muted);
+}
+.compare-verdict .compare-severity {
+  margin-left: 0.6rem;
+}
+.compare-sides {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .compare-sides { grid-template-columns: minmax(0, 1fr); }
+}
+.compare-side-card h4 {
+  margin-top: 0;
+}
+.data-table tr.compare-overlapping > td:first-child {
+  box-shadow: inset 3px 0 0 var(--error);
 }

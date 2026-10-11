@@ -246,7 +246,15 @@ export function HelpPage() {
           <strong>Move status to</strong> (Operational and Needs rework ask for the usual note),{" "}
           <strong>Pin latest saved version into</strong> a Platform, or <strong>Release edit locks</strong> (your own;
           an Admin can release anyone&apos;s). Each Emitter goes through the same rules as doing it on its own page;
-          any that can&apos;t are listed with the reason, and the rest are done.
+          any that can&apos;t are listed with the reason, and the rest are done. With exactly two ticked,{" "}
+          <strong>Compare these two</strong> opens them side by side.
+        </p>
+        <p>
+          <strong>Compare two Emitters</strong> (<strong>More ▾ → Compare with another Emitter</strong> on an Emitter):
+          pick A and B and a saved version of each (the latest by default). It shows how many pairs of their Modes the
+          ambiguity check would flag, both on the coverage charts with the overlaps hatched, the overlapping pairs worst
+          first, and each Emitter&apos;s Modes side by side. The page&apos;s address keeps the choice, so you can share
+          it.
         </p>
 
         <div className="help-subsection" id="emitter-detail">

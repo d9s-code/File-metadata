@@ -11,6 +11,7 @@ import { EmittersListPage } from "./pages/EmittersListPage";
 import { EmitterEditorPage } from "./pages/EmitterEditorPage";
 import { EmitterVersionHistoryPage } from "./pages/EmitterVersionHistoryPage";
 import { TestRunNewPage } from "./pages/TestRunNewPage";
+import { EmitterComparePage } from "./pages/EmitterComparePage";
 import { PlatformTestRunPage } from "./pages/PlatformTestRunPage";
 import { PlatformTestDetailPage } from "./pages/PlatformTestDetailPage";
 import { TestRunDetailPage } from "./pages/TestRunDetailPage";
@@ -70,6 +71,14 @@ export default function App() {
                 element={
                   <RequireAuth>
                     <EmittersListPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/emitters/compare"
+                element={
+                  <RequireAuth>
+                    <EmitterComparePage />
                   </RequireAuth>
                 }
               />

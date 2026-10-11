@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { emittersApi, type EmitterBulkInput, type EmitterBulkResult } from "../../api/emitters";
 import { ApiRequestError } from "../../api/client";
@@ -113,6 +114,11 @@ export function EmitterBulkBar({ selected, onClear }: { selected: string[]; onCl
         <button type="button" disabled={!ready || run.isPending} onClick={() => void apply()}>
           {run.isPending ? "Working…" : "Apply"}
         </button>
+        {selected.length === 2 && (
+          <Link className="link-as-button" to={`/emitters/compare?a=${selected[0]}&b=${selected[1]}`}>
+            Compare these two
+          </Link>
+        )}
         <button type="button" className="link-button" onClick={onClear}>
           Clear selection
         </button>
