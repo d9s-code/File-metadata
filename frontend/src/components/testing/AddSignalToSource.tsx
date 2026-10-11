@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { DateInput } from "../common/DateInput";
 import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { elementsApi } from "../../api/elements";
@@ -134,7 +135,7 @@ export function AddSignalToSource({
           </label>
           <label className="inline-date-label">
             Date
-            <input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} aria-label="New Source date" />
+            <DateInput value={newDate} onChange={(e) => setNewDate(e.target.value)} aria-label="New Source date" />
           </label>
           <span className="hint-text">A new Source of type Intercept.</span>
         </>

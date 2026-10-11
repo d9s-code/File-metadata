@@ -1,4 +1,5 @@
 import type { CartesianRun, CartesianRunElement } from "../../api/elements";
+import { formatDateTime } from "../common/dates";
 import { useCartesianRuns } from "../../state/hooks/useElements";
 import { relativeTime } from "../common/backupFormat";
 import { elementValues, VariantTag } from "./elementDisplay";
@@ -49,7 +50,7 @@ function RunEntry({ run }: { run: CartesianRun }) {
       <div className="generation-log-head">
         <strong>{run.name_prefix}</strong>
         <span className="hint-text">
-          into {run.ew_group_name} · {new Date(run.created_at).toLocaleString()} ({relativeTime(run.created_at)})
+          into {run.ew_group_name} · {formatDateTime(run.created_at)} ({relativeTime(run.created_at)})
           {run.created_by_username && ` · by ${run.created_by_username}`}
         </span>
         <span className="status-badge" title={run.mode_names.join(", ")}>

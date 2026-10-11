@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from "react";
+import { formatDate } from "../common/dates";
+import { DateInput } from "../common/DateInput";
 import { DwellInput, MANUAL_DWELL } from "./DwellInput";
 import { useCreateMdfTestRecord, useDeleteMdfTestRecord, useMdfTestRecords } from "../../state/hooks/useTestRecords";
 import { LOGGABLE_TEST_TYPES, type LoggableTestType, type TestResult } from "../../types/domain";
@@ -87,12 +89,11 @@ export function MdfTestHistory({ mdfId, highlightTestRecordId }: { mdfId: string
               </label>
               <label className="inline-date-label">
                 Test date
-                <input type="date" value={testDate} onChange={(e) => setTestDate(e.target.value)} required />
+                <DateInput value={testDate} onChange={(e) => setTestDate(e.target.value)} required />
               </label>
               <label className="inline-date-label">
                 {testType === "simulation" ? "Simulation created" : "Intercept date (optional)"}
-                <input
-                  type="date"
+                <DateInput
                   value={simCreatedDate}
                   onChange={(e) => setSimCreatedDate(e.target.value)}
                   required={testType === "simulation"}
@@ -117,7 +118,7 @@ export function MdfTestHistory({ mdfId, highlightTestRecordId }: { mdfId: string
                   <option value="">—</option>
                   {(records ?? []).map((r) => (
                     <option key={r.id} value={r.id}>
-                      {r.title} — {r.test_date}
+                      {r.title} — {formatDate(r.test_date)}
                     </option>
                   ))}
                 </select>

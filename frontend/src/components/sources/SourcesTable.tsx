@@ -1,4 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { formatDate, formatDateTime } from "../common/dates";
+import { MenuButton } from "../common/MenuButton";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { JsonImportModal } from "../common/JsonImportModal";
@@ -83,6 +85,8 @@ function SourceNotesEditor({ emitterId, source }: { emitterId: string; source: S
 
   return (
     <NotesFeed
+      key={source.id}
+      draftKey={`notes-draft:source:${source.id}`}
       notes={notes}
       isLoading={isLoading}
       placeholder="Your own thoughts/observations about this Source."
@@ -224,7 +228,7 @@ function SourceOverlay({
                   Stands for Intercept <Link to={`/intercepts/${source.intercept_id}`}>{source.intercept_name}</Link> ·{" "}
                 </>
               )}
-              Last updated {source.source_date}
+              Last updated {formatDate(source.source_date)}
               {source.rf_legacy_term && ` · ${source.rf_legacy_term}`}
               {source.pri_legacy_term && ` · PRI: ${source.pri_legacy_term}`}
             </div>
@@ -481,7 +485,7 @@ export function SourcesTable({
                       <th title="How many Modes have been built from this Source — see 'which Modes cover which Source'">
                         Modes
                       </th>
-                      <th></th>
+                      <th className="row-actions" aria-label="Actions"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -507,8 +511,8 @@ export function SourcesTable({
                           </td>
                           <td>{s.rf_legacy_term ?? "—"}</td>
                           <td>{s.pri_legacy_term ?? "—"}</td>
-                          <td>{s.source_date}</td>
-                          <td>{new Date(s.updated_at).toLocaleString()}</td>
+                          <td>{formatDate(s.source_date)}</td>
+                          <td>{formatDateTime(s.updated_at)}</td>
                           <td>
                             <ElementCounts emitterId={emitterId} sourceId={s.id} />
                           </td>
@@ -519,49 +523,41 @@ export function SourcesTable({
                               <span className="hint-text">—</span>
                             )}
                           </td>
-                          <td>
+                          <td className="row-actions nowrap">
                             <button className="link-button" onClick={() => setOpenSourceId(s.id)}>
                               Open
-                            </button>{" "}
+                            </button>
                             <RequireRole minimum="editor">
-                              {s.status !== "approved" && (
-                                <>
-                                  <button
-                                    className="link-button link-button-success"
-                                    disabled={!canEdit || approveSource.isPending}
-                                    title={editTitle}
-                                    onClick={() => void handleApprove(s)}
-                                  >
-                                    Approve
-                                  </button>{" "}
-                                </>
-                              )}
-                              {s.status === "pending_review" && (
-                                <>
-                                  <button
-                                    className="link-button link-button-danger"
-                                    disabled={!canEdit}
-                                    title={editTitle}
-                                    onClick={() => setRejectingSource(s)}
-                                  >
-                                    Reject
-                                  </button>{" "}
-                                </>
-                              )}
-                              <button
-                                className="link-button"
-                                disabled={!canEdit}
-                                title={editTitle}
-                                onClick={() => {
-                                  setEditingSource(s);
-                                  setShowForm(false);
-                                }}
-                              >
-                                Edit
-                              </button>{" "}
-                              <button className="link-button link-button-danger" disabled={!canEdit} title={editTitle} onClick={() => void handleDelete(s)}>
-                                Delete
-                              </button>
+                              <MenuButton
+                                label="⋯"
+                                className="row-menu-button"
+                                ariaLabel={`Actions for ${s.name}`}
+                                items={[
+                                  ...(s.status !== "approved"
+                                    ? [
+                                        {
+                                          label: "Approve",
+                                          disabled: !canEdit || approveSource.isPending,
+                                          title: editTitle,
+                                          onSelect: () => void handleApprove(s),
+                                        },
+                                      ]
+                                    : []),
+                                  ...(s.status === "pending_review"
+                                    ? [{ label: "Reject…", disabled: !canEdit, title: editTitle, onSelect: () => setRejectingSource(s) }]
+                                    : []),
+                                  {
+                                    label: "Edit",
+                                    disabled: !canEdit,
+                                    title: editTitle,
+                                    onSelect: () => {
+                                      setEditingSource(s);
+                                      setShowForm(false);
+                                    },
+                                  },
+                                  { label: "Delete…", danger: true, disabled: !canEdit, title: editTitle, onSelect: () => void handleDelete(s) },
+                                ]}
+                              />
                             </RequireRole>
                           </td>
                         </tr>

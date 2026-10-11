@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatDateTime } from "../common/dates";
 import type { AuditLogEntry } from "../../types/domain";
 import { actionLabel, entityTypeLabel, formatChanges } from "./auditFormat";
 import { SortableColumnHeader } from "../common/SortableColumnHeader";
@@ -66,9 +67,6 @@ export function AuditLogList({
   }
   return (
     <>
-      <p className="hint-text" title="Sorting only reorders the rows currently loaded on this page — use the filters above to narrow results across the full log.">
-        Sorting applies to the entries currently loaded below, not the full log.
-      </p>
       <table className="data-table">
       <thead>
         <tr>
@@ -100,7 +98,7 @@ export function AuditLogList({
       <tbody>
         {sorted.map((e) => (
           <tr key={e.id}>
-            <td>{new Date(e.created_at).toLocaleString()}</td>
+            <td>{formatDateTime(e.created_at)}</td>
             <td>{e.actor_username ?? <span className="hint-text">system</span>}</td>
             <td>
               <span className={`audit-action-badge audit-action-${e.action}`}>{actionLabel(e.action)}</span>

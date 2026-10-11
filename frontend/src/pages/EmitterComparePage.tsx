@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { PageHeader } from "../components/common/PageHeader";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { compareApi, type CompareFinding } from "../api/compare";
@@ -177,11 +178,10 @@ export function EmitterComparePage() {
 
   return (
     <div className="page">
-      <h1>Compare Emitters</h1>
-      <p className="hint-text">
-        Two Emitters side by side, each as of a saved version: what they cover, their Modes, and every pair of Modes —
-        one from each — that the ambiguity check would flag (with its usual thresholds and margins).
-      </p>
+      <PageHeader
+        title="Compare Emitters"
+        info="Two Emitters side by side, each as of a saved version: what they cover, their Modes, and every pair of Modes — one from each — that the ambiguity check would flag (with its usual thresholds and margins)."
+      />
       <div className="card compare-pickers">
         <Picker side="A" emitters={live} emitterId={a} version={av} onChange={(id, v) => set({ a: id, av: v })} />
         <button

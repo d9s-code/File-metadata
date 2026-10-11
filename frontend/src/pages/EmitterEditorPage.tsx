@@ -21,6 +21,7 @@ import { EntityAuditTrail } from "../components/audit/EntityAuditTrail";
 import { LoadingState } from "../components/common/LoadingState";
 import { Modal } from "../components/common/Modal";
 import { NotesFeed } from "../components/common/NotesFeed";
+import { NotesDrawer, useNotesDrawerOpen } from "../components/common/NotesDrawer";
 import { emitterStatusLabel } from "../components/common/emitterStatusLabel";
 import { AssigneeControl } from "../components/tasks/AssigneeControl";
 import { TasksButton } from "../components/tasks/TasksButton";
@@ -32,24 +33,6 @@ const TABS: readonly Tab[] = ["modes", "setup", "intercepts", "tests", "audit"];
 function linkedTab(params: URLSearchParams): Tab | null {
   const t = params.get("tab");
   return TABS.includes(t as Tab) ? (t as Tab) : null;
-}
-
-/** Whether the Analyst notes card is open — open unless this browser's user
- * closed it, remembered across Emitters and visits. */
-const NOTES_OPEN_KEY = "emitter-analyst-notes-open";
-function readNotesOpen(): boolean {
-  try {
-    return localStorage.getItem(NOTES_OPEN_KEY) !== "false";
-  } catch {
-    return true;
-  }
-}
-function saveNotesOpen(open: boolean) {
-  try {
-    localStorage.setItem(NOTES_OPEN_KEY, String(open));
-  } catch {
-    // Storage unavailable (private window etc.) — the choice just won't persist.
-  }
 }
 
 export function EmitterEditorPage() {
@@ -87,11 +70,7 @@ export function EmitterEditorPage() {
   // force a tab switch again afterward, so it doesn't yank the user away mid-interaction the
   // moment they finish adding the first EW Group/Source.
   const [showReworkNote, setShowReworkNote] = useState(false);
-  const [notesOpen, setNotesOpenState] = useState(readNotesOpen);
-  function setNotesOpen(open: boolean) {
-    setNotesOpenState(open);
-    saveNotesOpen(open);
-  }
+  const [notesOpen, setNotesOpen] = useNotesDrawerOpen();
   const [showChanges, setShowChanges] = useState(false);
   const autoOpenDecided = useRef(false);
   useEffect(() => {
@@ -286,24 +265,19 @@ export function EmitterEditorPage() {
         </div>
       )}
 
-      {notesOpen && (
-        <div className="card">
-          <div className="card-header">
-            <h4>Analyst notes</h4>
-            <button type="button" className="link-button" onClick={() => setNotesOpen(false)}>
-              Hide
-            </button>
-          </div>
-          <NotesFeed
-            notes={emitterNotes}
-            isLoading={notesLoading}
-            placeholder="Your own running notes/observations about this Emitter — separate from the description."
-            onAdd={(body) => createEmitterNote(body)}
-            isAdding={isAddingNote}
-            onDelete={(noteId) => deleteEmitterNote(noteId)}
-          />
-        </div>
-      )}
+      <NotesDrawer count={emitterNotes?.length ?? 0} subject={emitter.name} draftKey={`notes-draft:emitter:${emitter.id}`}>
+        <NotesFeed
+          key={emitter.id}
+          draftKey={`notes-draft:emitter:${emitter.id}`}
+          notes={emitterNotes}
+          isLoading={notesLoading}
+          placeholder="Your own running notes/observations about this Emitter — separate from the description."
+          onAdd={(body) => createEmitterNote(body)}
+          isAdding={isAddingNote}
+          onDelete={(noteId) => deleteEmitterNote(noteId)}
+          inDrawer
+        />
+      </NotesDrawer>
 
       {isMine && showChanges && (
         <div className="card">

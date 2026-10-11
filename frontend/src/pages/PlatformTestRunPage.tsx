@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { formatTime } from "../components/common/dates";
+import { DateInput, TimeInput } from "../components/common/DateInput";
+import { PageHeader } from "../components/common/PageHeader";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { testDraftsApi } from "../api/testRecords";
@@ -349,14 +352,10 @@ export function PlatformTestRunPage() {
   return (
     <div className="page">
       <Link to={back}>← Back to {platform.name}</Link>
-      <h1>
-        {draftId.current ? "Platform test in progress" : "New Platform test"} — {platform.name}
-      </h1>
-      <p className="hint-text">
-        Every Emitter pinned on the Platform, tested in one run: a result and notes for each. Logging it writes a test
-        record for each Emitter in the run — against the version the Platform pins — so each also shows in that
-        Emitter&apos;s Test History.
-      </p>
+      <PageHeader
+        title={`${draftId.current ? "Platform test in progress" : "New Platform test"} — ${platform.name}`}
+        info="Every Emitter pinned on the Platform, tested in one run: a result and notes for each. Logging it writes a test record for each Emitter in the run — against the version the Platform pins — so each also shows in that Emitter's Test History."
+      />
       {canWrite && <SaveLine status={saveStatus} hasDraft={!!draftId.current} onRetry={() => void saveNow()} />}
       {dialog}
 
@@ -379,16 +378,15 @@ export function PlatformTestRunPage() {
             </label>
             <label>
               Test date
-              <input type="date" value={state.testDate} onChange={(e) => patch({ testDate: e.target.value })} required />
+              <DateInput value={state.testDate} onChange={(e) => patch({ testDate: e.target.value })} required />
             </label>
             <label>
               Time
-              <input type="time" value={state.testTime} onChange={(e) => patch({ testTime: e.target.value })} />
+              <TimeInput value={state.testTime} onChange={(e) => patch({ testTime: e.target.value })} />
             </label>
             <label>
               {isSimulation ? "Simulation created" : "Intercept date (optional)"}
-              <input
-                type="date"
+              <DateInput
                 value={isSimulation ? state.simCreatedDate : state.interceptDate}
                 onChange={(e) => patch(isSimulation ? { simCreatedDate: e.target.value } : { interceptDate: e.target.value })}
                 required={isSimulation}
@@ -544,7 +542,7 @@ function SaveLine({ status, hasDraft, onRetry }: { status: SaveStatus; hasDraft:
       {status.kind === "saving"
         ? "Saving…"
         : status.kind === "saved"
-          ? `Saved ${status.at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}. `
+          ? `Saved ${formatTime(status.at)}. `
           : hasDraft
             ? "Picked up where it was left. "
             : "Saved as you fill it in. "}

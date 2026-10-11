@@ -1,4 +1,5 @@
 import { useEmitterTestRecords } from "../../state/hooks/useTestRecords";
+import { formatDate } from "../common/dates";
 import { testTypeLabel } from "../testing/testFormat";
 
 export function DerivedFromPicker({
@@ -29,7 +30,7 @@ export function DerivedFromPicker({
         <li key={r.id}>
           <label className="checkbox-label">
             <input type="checkbox" checked={selected.has(r.id)} onChange={() => toggle(r.id)} />
-            {r.title} — {testTypeLabel(r.test_type)}, {r.test_date} ({r.result})
+            {r.title} — {testTypeLabel(r.test_type)}, {formatDate(r.test_date)} ({r.result})
           </label>
         </li>
       ))}

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { InfoTip } from "../common/PageHeader";
 import { Link } from "react-router-dom";
 import type { ElementType } from "../../types/domain";
 import { useElementOverview } from "../../state/hooks/useElements";
@@ -37,7 +38,11 @@ export function ElementOverview({ emitterId }: { emitterId: string }) {
     <div className="card element-overview">
       <div className="card-header-row">
         <h3>
-          Element overview <span className="hint-text">{rows ? `${rows.length} distinct` : ""}</span>
+          Element overview <span className="hint-text">{rows ? `${rows.length} distinct` : ""}</span>{" "}
+          <InfoTip label="About the Element overview">
+            Every distinct Element across this Emitter&apos;s Sources. The same values in several Sources are one row,
+            listing each Source with its variant and margin.
+          </InfoTip>
         </h3>
         <button type="button" className="link-button" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
           {open ? "Hide" : "Show"}
@@ -45,10 +50,6 @@ export function ElementOverview({ emitterId }: { emitterId: string }) {
       </div>
       {open && (
         <>
-          <p className="hint-text">
-            Every distinct Element across this Emitter&apos;s Sources. The same values in several Sources are one row,
-            listing each Source with its variant and margin.
-          </p>
           <div className="element-overview-filters">
             <div className="theme-toggle" role="group" aria-label="Element type">
               {TYPES.map(([t, label]) => (

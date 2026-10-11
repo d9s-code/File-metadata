@@ -82,7 +82,13 @@ export function useColumnVisibilityMenu<Id extends string>(visibility: ColumnVis
     <ColumnMenu visibility={visibility} anchor={anchor} onClose={() => setAnchor(null)} />
   ) : null;
 
-  return { openProps, menu };
+  /** Open it under a "Columns" button. */
+  function openFrom(e: MouseEvent<HTMLElement>) {
+    const r = e.currentTarget.getBoundingClientRect();
+    setAnchor({ x: r.left, y: r.bottom + 4 });
+  }
+
+  return { openProps, menu, openFrom };
 }
 
 function ColumnMenu<Id extends string>({

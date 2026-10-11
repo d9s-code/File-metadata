@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { DateInput } from "../common/DateInput";
 import { Modal } from "../common/Modal";
 import { prsImportApi, type PrsImportIssue, type PrsImportResult } from "../../api/prsImport";
 import { ApiRequestError } from "../../api/client";
@@ -121,8 +122,7 @@ export function PrsImportModal({
               </label>
               <label>
                 Source date
-                <input
-                  type="date"
+                <DateInput
                   value={sourceDate}
                   onChange={(e) => setSourceDate(e.target.value)}
                   disabled={isImporting}

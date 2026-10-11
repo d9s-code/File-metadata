@@ -1,4 +1,8 @@
 import { useState, type FormEvent } from "react";
+import { formatDate, formatDateTime } from "../components/common/dates";
+import { MenuButton } from "../components/common/MenuButton";
+import { FilterBar, shownCount } from "../components/common/FilterBar";
+import { PageHeader } from "../components/common/PageHeader";
 import { Link, useNavigate } from "react-router-dom";
 import { useCreatePlatform, useDeletePlatform, usePlatforms } from "../state/hooks/usePlatforms";
 import { RequireRole } from "../auth/RequireAuth";
@@ -112,13 +116,11 @@ export function PlatformsListPage() {
 
   return (
     <div className="page">
-      <div className="page-header-row">
-        <h1>Platforms</h1>
+      <PageHeader title="Platforms" info="Platforms group Emitters — this is what gets pinned into an MDF.">
         <RequireRole minimum="editor">
           <button onClick={() => setShowAdd(true)}>+ Add Platform</button>
         </RequireRole>
-      </div>
-      <p className="hint-text">Platforms group Emitters — this is what gets pinned into an MDF.</p>
+      </PageHeader>
 
       {showAdd && (
         <Modal title="Add Platform" onClose={() => setShowAdd(false)}>
@@ -146,14 +148,15 @@ export function PlatformsListPage() {
       )}
 
       {platforms && platforms.length > 0 && (
-        <div className="card">
-          <div className="modes-toolbar-row">
-            <input placeholder="Filter by name or description…" value={filter} onChange={(e) => setFilter(e.target.value)} />
-            <button type="button" className="link-button" onClick={() => setFilter("")}>
-              Reset filters
-            </button>
-          </div>
-        </div>
+        <FilterBar active={!!filter} onReset={() => setFilter("")} count={shownCount(visible.length, platforms.length, "Platform")}>
+          <input
+            type="search"
+            placeholder="Name or description…"
+            aria-label="Filter by name or description"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          />
+        </FilterBar>
       )}
 
       {isLoading ? (
@@ -174,7 +177,7 @@ export function PlatformsListPage() {
               {header("Ambiguity", "ambiguity", "From the latest ambiguity check: Emitters that could be taken for another", "number")}
               {header("Last saved", "saved", undefined, "date")}
               <th>Tasks</th>
-              <th></th>
+              <th className="row-actions" aria-label="Actions"></th>
             </tr>
           </thead>
           <tbody>
@@ -221,7 +224,7 @@ export function PlatformsListPage() {
                     ) : (
                       <Link
                         to={`/ambiguity/platform/${p.id}`}
-                        title={`Checked ${new Date(s.ambiguity_checked_at).toLocaleString()}`}
+                        title={`Checked ${formatDateTime(s.ambiguity_checked_at)}`}
                         className={s.ambiguous_emitters ? "platforms-ambiguous" : undefined}
                       >
                         {s.ambiguous_emitters
@@ -232,8 +235,8 @@ export function PlatformsListPage() {
                   </td>
                   <td>
                     {s?.latest_version_number != null && s.latest_version_at ? (
-                      <span title={new Date(s.latest_version_at).toLocaleString()}>
-                        v{s.latest_version_number} · {new Date(s.latest_version_at).toLocaleDateString()}
+                      <span title={formatDateTime(s.latest_version_at)}>
+                        v{s.latest_version_number} · {formatDate(s.latest_version_at)}
                       </span>
                     ) : (
                       "—"
@@ -242,11 +245,14 @@ export function PlatformsListPage() {
                   <td>
                     <TasksButton type="platform" id={p.id} name={p.name} openCount={openTasks.get(p.id) ?? 0} compact />
                   </td>
-                  <td>
+                  <td className="row-actions">
                     <RequireRole minimum="editor">
-                      <button className="link-button link-button-danger" onClick={() => void handleDelete(p)}>
-                        Delete
-                      </button>
+                      <MenuButton
+                        label="⋯"
+                        className="row-menu-button"
+                        ariaLabel={`Actions for ${p.name}`}
+                        items={[{ label: "Delete…", danger: true, onSelect: () => void handleDelete(p) }]}
+                      />
                     </RequireRole>
                   </td>
                 </tr>

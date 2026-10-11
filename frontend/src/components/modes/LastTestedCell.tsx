@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import type { TestResult } from "../../types/domain";
 import { lineOutcomeLabel, TEST_RESULTS } from "../testing/testFormat";
 import { testLink } from "./TestDerivedBadge";
+import { formatDate } from "../common/dates";
 
 /** "Last seen": the latest test run a Mode turned up in — reported for a SIM
  * line, or rated in an intercept run — with that run's outcome for it,
@@ -28,7 +29,7 @@ export function LastTestedCell({
     : undefined;
   const content = (
     <span title={title}>
-      {date}
+      {formatDate(date)}
       {result && <span className={`test-result-badge test-result-${result}`}>{lineOutcomeLabel(result)}</span>}
       {runs > 1 && <span className="hint-text"> · {runs} runs</span>}
     </span>

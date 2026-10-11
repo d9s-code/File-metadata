@@ -1,4 +1,6 @@
 import { useEffect, useRef } from "react";
+import { formatDate } from "../common/dates";
+import { MenuButton } from "../common/MenuButton";
 import { Link } from "react-router-dom";
 import type { TestRecord } from "../../api/testRecords";
 import type { TestResult } from "../../types/domain";
@@ -103,7 +105,7 @@ export function TestRecordsTable({
             {header("Title", "title")}
             <th>SIM Test Lines</th>
             <th>Modes</th>
-            <th></th>
+            <th className="row-actions" aria-label="Actions"></th>
           </tr>
         </thead>
         <tbody>
@@ -117,8 +119,8 @@ export function TestRecordsTable({
                 ref={r.id === highlightId ? highlightedRowRef : undefined}
                 className={r.id === highlightId ? "highlighted-row" : undefined}
               >
-                <td>{r.test_date}</td>
-                <td>{r.simulation_created_date ?? "—"}</td>
+                <td>{formatDate(r.test_date)}</td>
+                <td>{formatDate(r.simulation_created_date)}</td>
                 <td>{r.dwell ?? "—"}</td>
                 <td>{testTypeLabel(r.test_type)}</td>
                 <td>
@@ -155,27 +157,23 @@ export function TestRecordsTable({
                   {derived > 0 && <span className="test-result-badge test-result-derived">{derived} Derived</span>}
                   {r.modes.length === 0 && "—"}
                 </td>
-                <td>
-                  {emitterId && (
-                    <>
-                      <Link to={`/emitters/${emitterId}/tests/${r.id}`}>Open</Link>{" "}
-                    </>
-                  )}
+                <td className="row-actions nowrap">
                   <RequireRole minimum="editor">
                     {onRedo && (r.result === "fail" || r.result === "partial") && (
-                      <>
-                        <button
-                          className="link-button"
-                          onClick={() => onRedo(r)}
-                          title="Start a new run pre-filled as a retest of this one"
-                        >
-                          Redo test
-                        </button>{" "}
-                      </>
+                      <button
+                        className="button secondary small"
+                        onClick={() => onRedo(r)}
+                        title="Start a new run pre-filled as a retest of this one"
+                      >
+                        Redo test
+                      </button>
                     )}
-                    <button className="link-button link-button-danger" onClick={() => void handleDelete(r)}>
-                      Delete
-                    </button>
+                    <MenuButton
+                      label="⋯"
+                      className="row-menu-button"
+                      ariaLabel={`Actions for ${r.title}`}
+                      items={[{ label: "Delete…", danger: true, onSelect: () => void handleDelete(r) }]}
+                    />
                   </RequireRole>
                 </td>
               </tr>

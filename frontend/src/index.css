@@ -5959,3 +5959,271 @@ a.ai-cite:hover { text-decoration: underline; }
 .data-table tr.compare-overlapping > td:first-child {
   box-shadow: inset 3px 0 0 var(--error);
 }
+
+/* Help as a "?" beside Search in the menu bar. */
+.navbar-help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.navbar-help:hover,
+.navbar-help.navbar-link-active {
+  color: var(--text);
+  background: var(--hover-bg);
+}
+
+/* A page's title with its "?" tip beside it. */
+.page-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.info-tip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: none;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: help;
+}
+.info-tip:hover,
+.info-tip:focus-visible {
+  background: var(--hover-bg);
+  color: var(--text);
+  box-shadow: none;
+}
+.info-popover-trigger:has(> .info-tip) {
+  border-bottom: none;
+}
+.info-tip-content {
+  display: block;
+  max-width: 26rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+/* The pages under one top-menu item, above the page title. */
+.section-tabs {
+  margin: 0 0 0.75rem;
+}
+.section-tabs .tab {
+  padding: 0.2rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+/* Analyst notes: a tab on the window's right edge, and the panel it opens —
+   both fixed, so they stay put while the page scrolls. */
+.notes-drawer-tab {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 850;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.7rem 0.4rem;
+  border: 1px solid var(--border);
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  background: var(--card-bg);
+  color: var(--text);
+  box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.15));
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.notes-drawer-tab:hover {
+  background: var(--hover-bg);
+  color: var(--text);
+}
+.notes-drawer-tab-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  letter-spacing: 0.04em;
+}
+.notes-drawer-tab-count {
+  min-width: 1.3rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 0.72rem;
+  text-align: center;
+}
+.notes-drawer {
+  position: fixed;
+  right: 0;
+  top: var(--navbar-height, 3.5rem);
+  bottom: 0;
+  z-index: 850;
+  width: min(380px, 92vw);
+  display: flex;
+  flex-direction: column;
+  background: var(--card-bg);
+  border-left: 1px solid var(--border);
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.18);
+}
+.notes-drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.notes-drawer-header h4 {
+  margin: 0;
+}
+.notes-drawer-subject {
+  display: block;
+  font-size: 0.8rem;
+}
+.notes-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem 1rem 1rem;
+}
+.notes-feed.in-drawer .notes-feed-add {
+  align-items: stretch;
+  margin-bottom: 0.9rem;
+}
+.notes-feed.in-drawer .notes-feed-add .button {
+  align-self: flex-end;
+}
+.notes-feed.in-drawer .notes-feed-list {
+  max-height: none;
+  overflow: visible;
+}
+.notes-drawer-tab-draft {
+  color: var(--warning-text, #b45309);
+  font-size: 0.85rem;
+}
+.notes-draft-hint {
+  font-size: 0.78rem;
+}
+
+/* A list's filters, on one line above its table. */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.6rem;
+  margin: 0 0 0.6rem;
+}
+.filter-bar input[type="search"],
+.filter-bar input[type="text"] {
+  width: 15rem;
+  max-width: 100%;
+}
+.filter-bar select {
+  width: auto;
+}
+.filter-bar-end {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.filter-bar-ranges {
+  padding: 0.5rem 0.75rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md, 6px);
+}
+.range-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.range-filter input {
+  width: 5.5rem;
+}
+.filter-toggle.active {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* A row's Tasks chip with nothing open only shows when the row is pointed
+   at, so a column of "☑ 0" doesn't fill the list. */
+.data-table .task-count-chip:not(.has-open) {
+  opacity: 0;
+}
+.data-table tr:hover .task-count-chip:not(.has-open),
+.data-table .task-count-chip:not(.has-open):focus-visible {
+  opacity: 1;
+}
+
+/* Date fields typed as dd.mm.yyyy, with a calendar button; the browser's own
+   date field sits hidden underneath only to open its calendar. */
+.date-input {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  max-width: 100%;
+}
+.date-input > input[type="text"] {
+  width: 7.6rem;
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+.date-input-picker {
+  padding: 0.15rem 0.35rem;
+  background: none;
+  color: var(--muted);
+  border: 1px solid transparent;
+  box-shadow: none;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+.date-input-picker:hover:not(:disabled) {
+  background: var(--hover-bg);
+  color: var(--text);
+  border-color: var(--border);
+  box-shadow: none;
+}
+.date-input-native {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.time-input {
+  width: 4.6rem;
+  font-variant-numeric: tabular-nums;
+}
+input[aria-invalid="true"] {
+  border-color: var(--danger, #c0392b);
+}

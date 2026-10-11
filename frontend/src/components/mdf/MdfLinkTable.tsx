@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { formatDateTime } from "../common/dates";
 import { isOutdatedMdfPin, type MdfLink } from "../../api/mdfs";
 import type { Platform } from "../../api/platforms";
 import { usePinPlatform, useUnpinPlatform } from "../../state/hooks/useMdfs";
@@ -108,7 +109,7 @@ export function MdfLinkTable({
               <PinnedVersionCell platformId={link.platform_id} versionId={link.platform_version_id} />
               <OutdatedPin mdfId={mdfId} link={link} />
             </td>
-            <td>{new Date(link.added_at).toLocaleString()}</td>
+            <td>{formatDateTime(link.added_at)}</td>
             <td>
               <RequireRole minimum="editor">
                 <button className="link-button" onClick={() => void unpin.mutateAsync(link.platform_id)}>

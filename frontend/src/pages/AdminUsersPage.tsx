@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { formatDate, formatDateTime } from "../components/common/dates";
 import { useCreateUser, useUpdateUser, useUsers } from "../state/hooks/useUsers";
 import { ApiRequestError } from "../api/client";
 import { LoadingState } from "../components/common/LoadingState";
@@ -179,8 +180,8 @@ async function handleCreate(e: FormEvent) {
                       {u.is_active ? "active" : "deactivated"}
                     </span>
                   </td>
-                  <td>{new Date(u.created_at).toLocaleDateString()}</td>
-                  <td>{u.last_login_at ? new Date(u.last_login_at).toLocaleString() : "never"}</td>
+                  <td>{formatDate(u.created_at)}</td>
+                  <td>{u.last_login_at ? formatDateTime(u.last_login_at) : "never"}</td>
                   <td>
                     <div className="action-buttons">
                       <button className="link-button" onClick={() => handleToggleActive(u)}>

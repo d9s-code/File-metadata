@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { DateInput } from "../common/DateInput";
 import { useCreateSource, useUpdateSource } from "../../state/hooks/useSources";
 import { useSourceGroups } from "../../state/hooks/useSourceGroups";
 import { ApiRequestError } from "../../api/client";
@@ -80,7 +81,7 @@ export function SourceForm({
       <input placeholder="Source type" value={sourceType} onChange={(e) => setSourceType(e.target.value)} />
       <label className="inline-date-label">
         Date last updated
-        <input type="date" value={sourceDate} onChange={(e) => setSourceDate(e.target.value)} required />
+        <DateInput value={sourceDate} onChange={(e) => setSourceDate(e.target.value)} required />
       </label>
       <select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
         <option value="">No group</option>

@@ -1,4 +1,5 @@
 import { EMITTER_STATUS_LABEL } from "../common/emitterStatusLabel";
+import { formatDate, formatDateTime } from "../common/dates";
 import type { AuditAction } from "../../types/domain";
 
 const ENTITY_TYPE_LABELS: Record<string, string> = {
@@ -73,10 +74,10 @@ export function formatChangeValue(value: unknown): string {
     // a field's value is itself a structured object.
     return JSON.stringify(value);
   }
-  // ISO date/datetime strings render as a localized date for readability.
+  // ISO date/datetime strings render as dd.mm.yyyy (with the time when there is one).
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}(T|$)/.test(value)) {
-    const d = new Date(value);
-    if (!Number.isNaN(d.getTime())) return value.includes("T") ? d.toLocaleString() : d.toLocaleDateString();
+    const shown = value.includes("T") ? formatDateTime(value, "") : formatDate(value, "");
+    if (shown) return shown;
   }
   return String(value);
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatDayMonth } from "../common/dates";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { useHasRole } from "../../auth/RequireAuth";
@@ -19,7 +20,7 @@ function today() {
 /** "Due 10 Oct", "Due today", "Overdue · 2 Oct". */
 export function DueTag({ due, done }: { due: string | null; done?: boolean }) {
   if (!due) return null;
-  const label = new Date(`${due}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  const label = formatDayMonth(`${due}T00:00:00`);
   const now = today();
   const state = done ? "" : due < now ? "overdue" : due === now ? "today" : "";
   return (
@@ -39,6 +40,8 @@ function TaskNotes({ task, canAdd }: { task: Task; canAdd: boolean }) {
   return (
     <div className="task-notes-log">
       <NotesFeed
+        key={task.id}
+        draftKey={`notes-draft:task:${task.id}`}
         notes={notes}
         isLoading={isLoading}
         placeholder="Progress, a question, what's left…"
@@ -120,7 +123,7 @@ function TaskRow({ task, showAbout }: { task: Task; showAbout: boolean }) {
           <DueTag due={task.due_date} done={done} />
           <span className="hint-text">
             {task.created_by_username && task.created_by_id !== task.assignee_id ? `from ${task.created_by_username}` : ""}
-            {done && task.done_at && ` · done ${new Date(task.done_at).toLocaleDateString(undefined, { day: "numeric", month: "short" })}${task.done_by_username && task.done_by_username !== task.assignee_username ? ` by ${task.done_by_username}` : ""}`}
+            {done && task.done_at && ` · done ${formatDayMonth(task.done_at)}${task.done_by_username && task.done_by_username !== task.assignee_username ? ` by ${task.done_by_username}` : ""}`}
           </span>
           {(task.note_count > 0 || canTick) && (
             <button

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatDateTime } from "../common/dates";
 import { Link, useNavigate } from "react-router-dom";
 import { useInterceptMatchCounts, useIntercepts } from "../../state/hooks/useIntercepts";
 import { RequireRole } from "../../auth/RequireAuth";
@@ -83,7 +84,7 @@ export function EmitterIntercepts({ emitterId }: { emitterId: string }) {
                       <Link to={`/intercepts/${i.id}`}>{i.name}</Link>
                       {i.description && <div className="hint-text cell-subline">{i.description}</div>}
                     </td>
-                    <td title={`Logged ${new Date(i.created_at).toLocaleString()}`}>
+                    <td title={`Logged ${formatDateTime(i.created_at)}`}>
                       {formatDay(i.intercepted_on) ?? <span className="hint-text">—</span>}
                     </td>
                     <td>{i.collected_by ?? <span className="hint-text">—</span>}</td>

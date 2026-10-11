@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { formatDate, formatDateTime } from "../common/dates";
 import { frameTimeUs } from "../common/frameTime";
 import { createPortal } from "react-dom";
 import type { EwGroup, Mode, Source } from "../../types/domain";
@@ -17,14 +18,14 @@ export function ModeHoverDetail({ mode, source }: { mode: Mode; source?: Source 
         quality {mode.confirmation_quality}% · quantity {mode.confirmation_quantity}
       </dd>
       <dt>Created</dt>
-      <dd>{new Date(mode.created_at).toLocaleString()}</dd>
+      <dd>{formatDateTime(mode.created_at)}</dd>
       <dt>Last updated</dt>
-      <dd>{new Date(mode.updated_at).toLocaleString()}</dd>
+      <dd>{formatDateTime(mode.updated_at)}</dd>
       {source && (
         <>
           <dt>Source last updated</dt>
           <dd>
-            {new Date(source.updated_at).toLocaleString()}
+            {formatDateTime(source.updated_at)}
             {new Date(source.updated_at) > new Date(mode.updated_at) && (
               <span className="jitter-subline">Source changed after this Mode was last touched — worth a look.</span>
             )}
@@ -67,9 +68,9 @@ export function SourceHoverDetail({ emitterId, source }: { emitterId: string; so
       <dt>Description</dt>
       <dd>{source.description ?? "—"}</dd>
       <dt>Source date</dt>
-      <dd>{source.source_date}</dd>
+      <dd>{formatDate(source.source_date)}</dd>
       <dt>Last updated</dt>
-      <dd>{new Date(source.updated_at).toLocaleString()}</dd>
+      <dd>{formatDateTime(source.updated_at)}</dd>
       <dt>Elements</dt>
       <dd>
         {counts.rf} RF · {counts.pw} PW · {counts.pri} PRI · {counts.scan} Scan

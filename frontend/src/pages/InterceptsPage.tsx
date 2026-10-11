@@ -1,4 +1,8 @@
 import { useState } from "react";
+import { formatDate } from "../components/common/dates";
+import { MenuButton } from "../components/common/MenuButton";
+import { FilterBar, shownCount } from "../components/common/FilterBar";
+import { PageHeader } from "../components/common/PageHeader";
 import { Link, useNavigate } from "react-router-dom";
 import { useEmitters } from "../state/hooks/useEmitters";
 import { useDeleteIntercept, useIntercepts } from "../state/hooks/useIntercepts";
@@ -92,8 +96,10 @@ export function InterceptsPage() {
 
   return (
     <div className="page">
-      <div className="page-header-row">
-        <h1>Intercepts</h1>
+      <PageHeader
+        title="Intercepts"
+        info="Logged real-world signal intercepts, searchable across every Emitter. Each Intercept holds one or more logged entries, and an entry can be used to create a Mode."
+      >
         <RequireRole minimum="editor">
           <span className="section-actions">
             <Link className="button secondary" to="/intercepts/import">
@@ -104,11 +110,7 @@ export function InterceptsPage() {
             </button>
           </span>
         </RequireRole>
-      </div>
-      <p className="hint-text">
-        Logged real-world signal intercepts, searchable across every Emitter. Each Intercept holds one or
-        more logged entries, and an entry can optionally be used to create a Mode.
-      </p>
+      </PageHeader>
 
       {showAddModal && (
         <InterceptFormModal
@@ -120,27 +122,27 @@ export function InterceptsPage() {
 
       {error && <div className="error-text">{(error as Error).message}</div>}
 
-      <div className="card">
-        <div className="modes-toolbar-row">
-          <input
-            type="text"
-            placeholder="Filter by name, collector or description…"
-            value={nameFilter}
-            onChange={(e) => setNameFilter(e.target.value)}
-          />
-          <select value={emitterFilter} onChange={(e) => setEmitterFilter(e.target.value)}>
-            <option value="">All Emitters</option>
-            {(emitters ?? []).map((em) => (
-              <option key={em.id} value={em.id}>
-                {em.name}
-              </option>
-            ))}
-          </select>
-          <button type="button" className="link-button" onClick={resetFilters}>
-            Reset filters
-          </button>
-        </div>
-      </div>
+      <FilterBar
+        active={!!(nameFilter || emitterFilter)}
+        onReset={resetFilters}
+        count={intercepts ? shownCount(sorted.length, intercepts.length, "Intercept") : null}
+      >
+        <input
+          type="search"
+          placeholder="Name, collector or description…"
+          aria-label="Filter by name, collector or description"
+          value={nameFilter}
+          onChange={(e) => setNameFilter(e.target.value)}
+        />
+        <select value={emitterFilter} onChange={(e) => setEmitterFilter(e.target.value)} aria-label="Emitter">
+          <option value="">All Emitters</option>
+          {(emitters ?? []).map((em) => (
+            <option key={em.id} value={em.id}>
+              {em.name}
+            </option>
+          ))}
+        </select>
+      </FilterBar>
 
       {isLoading ? (
         <LoadingState label="Loading intercepts…" />
@@ -162,7 +164,7 @@ export function InterceptsPage() {
               {header("Collected by", "collected_by")}
               {header("Entries", "entry_count", "number")}
               {header("Logged", "created_at", "date")}
-              <th></th>
+              <th className="row-actions" aria-label="Actions"></th>
             </tr>
           </thead>
           <tbody>
@@ -181,12 +183,15 @@ export function InterceptsPage() {
                 <td>{formatDay(i.intercepted_on) ?? <span className="hint-text">—</span>}</td>
                 <td>{i.collected_by ?? <span className="hint-text">—</span>}</td>
                 <td>{i.entry_count}</td>
-                <td>{new Date(i.created_at).toLocaleDateString()}</td>
-                <td>
+                <td>{formatDate(i.created_at)}</td>
+                <td className="row-actions">
                   <RequireRole minimum="editor">
-                    <button className="link-button link-button-danger" onClick={() => void handleDelete(i)}>
-                      Delete
-                    </button>
+                    <MenuButton
+                      label="⋯"
+                      className="row-menu-button"
+                      ariaLabel={`Actions for ${i.name}`}
+                      items={[{ label: "Delete…", danger: true, onSelect: () => void handleDelete(i) }]}
+                    />
                   </RequireRole>
                 </td>
               </tr>

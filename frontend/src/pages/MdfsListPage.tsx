@@ -1,4 +1,9 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { formatDate } from "../components/common/dates";
+import { DateInput } from "../components/common/DateInput";
+import { MenuButton } from "../components/common/MenuButton";
+import { FilterBar, shownCount } from "../components/common/FilterBar";
+import { MDFS_SECTION, PageHeader } from "../components/common/PageHeader";
 import { Link, useNavigate } from "react-router-dom";
 import { useCreateMdf, useDeleteMdf, useMdfs } from "../state/hooks/useMdfs";
 import { useCustomers } from "../state/hooks/useCustomers";
@@ -110,13 +115,15 @@ export function MdfsListPage() {
 
   return (
     <div className="page">
-      <div className="page-header-row">
-        <h1>Mission Data Files</h1>
+      <PageHeader
+        title="Mission Data Files"
+        section={MDFS_SECTION}
+        info="An MDF pins saved Platform versions for delivery to a customer."
+      >
         <RequireRole minimum="editor">
           <button onClick={() => setShowAdd(true)}>+ Add MDF</button>
         </RequireRole>
-      </div>
-      <p className="hint-text">An MDF pins saved Platform versions for delivery to a customer.</p>
+      </PageHeader>
 
       {showAdd && (
         <Modal title="Add MDF" onClose={() => setShowAdd(false)}>
@@ -133,7 +140,7 @@ export function MdfsListPage() {
             <div className="form-row">
               <label className="wide-label">
                 Release date
-                <input type="date" value={releaseDate} onChange={(e) => setReleaseDate(e.target.value)} />
+                <DateInput value={releaseDate} onChange={(e) => setReleaseDate(e.target.value)} />
               </label>
               <label className="wide-label">
                 Customer
@@ -161,40 +168,41 @@ export function MdfsListPage() {
       )}
 
       {mdfs && mdfs.length > 0 && (
-        <div className="card">
-          <div className="modes-toolbar-row">
-            <input placeholder="Filter by name or description…" value={filter} onChange={(e) => setFilter(e.target.value)} />
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Status">
-              <option value="">All statuses</option>
-              {statuses.map((st) => (
-                <option key={st} value={st}>
-                  {statusLabel(st)}
+        <FilterBar
+          active={!!(filter || statusFilter || customerFilter)}
+          onReset={() => {
+            setFilter("");
+            setStatusFilter("");
+            setCustomerFilter("");
+          }}
+          count={shownCount(visible.length, mdfs.length, "MDF")}
+        >
+          <input
+            type="search"
+            placeholder="Name or description…"
+            aria-label="Filter by name or description"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          />
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Status">
+            <option value="">All statuses</option>
+            {statuses.map((st) => (
+              <option key={st} value={st}>
+                {statusLabel(st)}
+              </option>
+            ))}
+          </select>
+          {(customers ?? []).length > 0 && (
+            <select value={customerFilter} onChange={(e) => setCustomerFilter(e.target.value)} aria-label="Customer">
+              <option value="">All customers</option>
+              {(customers ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
                 </option>
               ))}
             </select>
-            {(customers ?? []).length > 0 && (
-              <select value={customerFilter} onChange={(e) => setCustomerFilter(e.target.value)} aria-label="Customer">
-                <option value="">All customers</option>
-                {(customers ?? []).map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            )}
-            <button
-              type="button"
-              className="link-button"
-              onClick={() => {
-                setFilter("");
-                setStatusFilter("");
-                setCustomerFilter("");
-              }}
-            >
-              Reset filters
-            </button>
-          </div>
-        </div>
+          )}
+        </FilterBar>
       )}
 
       {isLoading ? (
@@ -247,7 +255,7 @@ export function MdfsListPage() {
                 onSort={onSort}
                 onClear={onClear}
               />
-              <th></th>
+              <th className="row-actions" aria-label="Actions"></th>
             </tr>
           </thead>
           <tbody>
@@ -257,16 +265,19 @@ export function MdfsListPage() {
                   <Link to={`/mdfs/${m.id}`}>{m.name}</Link>
                 </td>
                 <td>{m.platforms_count}</td>
-                <td>{m.release_date ?? "—"}</td>
+                <td>{formatDate(m.release_date)}</td>
                 <td>
                   <span className={`status-badge status-${m.status}`}>{statusLabel(m.status)}</span>
                 </td>
                 <td>{m.customer_id ? customersById[m.customer_id]?.name ?? "—" : "—"}</td>
-                <td>
+                <td className="row-actions">
                   <RequireRole minimum="editor">
-                    <button className="link-button link-button-danger" onClick={() => void handleDelete(m)}>
-                      Delete
-                    </button>
+                    <MenuButton
+                      label="⋯"
+                      className="row-menu-button"
+                      ariaLabel={`Actions for ${m.name}`}
+                      items={[{ label: "Delete…", danger: true, onSelect: () => void handleDelete(m) }]}
+                    />
                   </RequireRole>
                 </td>
               </tr>

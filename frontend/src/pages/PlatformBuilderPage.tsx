@@ -15,12 +15,13 @@ import { EntityHeader } from "../components/common/EntityHeader";
 import { LatestVersion, SaveVersionButton } from "../components/versioning/SaveVersionButton";
 import { TasksButton } from "../components/tasks/TasksButton";
 import { NotesFeed } from "../components/common/NotesFeed";
+import { NotesDrawer } from "../components/common/NotesDrawer";
 import { PlatformCharts } from "../components/platform/PlatformCharts";
 import { PlatformTests } from "../components/platform/PlatformTests";
 import { useCreatePlatformNote, useDeletePlatformNote, usePlatformNotes } from "../state/hooks/usePlatformNotes";
 
-type Tab = "emitters" | "charts" | "tests" | "notes" | "audit";
-const TABS: Tab[] = ["emitters", "charts", "tests", "notes", "audit"];
+type Tab = "emitters" | "charts" | "tests" | "audit";
+const TABS: Tab[] = ["emitters", "charts", "tests", "audit"];
 
 export function PlatformBuilderPage() {
   const { platformId } = useParams<{ platformId: string }>();
@@ -181,9 +182,6 @@ export function PlatformBuilderPage() {
         <button className={tab === "tests" ? "tab active" : "tab"} onClick={() => setTab("tests")}>
           Tests
         </button>
-        <button className={tab === "notes" ? "tab active" : "tab"} onClick={() => setTab("notes")}>
-          Analyst notes{notes?.length ? ` (${notes.length})` : ""}
-        </button>
         <button className={tab === "audit" ? "tab active" : "tab"} onClick={() => setTab("audit")}>
           Audit
         </button>
@@ -225,19 +223,19 @@ export function PlatformBuilderPage() {
 
       {tab === "tests" && <PlatformTests platformId={platform.id} pinnedCount={links?.length ?? 0} />}
 
-      {tab === "notes" && (
-        <section className="card">
-          <h4>Analyst notes</h4>
-          <NotesFeed
-            notes={notes}
-            isLoading={notesLoading}
-            placeholder="Your own running notes/observations about this Platform — separate from the description."
-            onAdd={(body) => createNote(body)}
-            isAdding={isAddingNote}
-            onDelete={(noteId) => deleteNote(noteId)}
-          />
-        </section>
-      )}
+      <NotesDrawer count={notes?.length ?? 0} subject={platform.name} draftKey={`notes-draft:platform:${platform.id}`}>
+        <NotesFeed
+          key={platform.id}
+          draftKey={`notes-draft:platform:${platform.id}`}
+          notes={notes}
+          isLoading={notesLoading}
+          placeholder="Your own running notes/observations about this Platform — separate from the description."
+          onAdd={(body) => createNote(body)}
+          isAdding={isAddingNote}
+          onDelete={(noteId) => deleteNote(noteId)}
+          inDrawer
+        />
+      </NotesDrawer>
 
       {tab === "audit" && <EntityAuditTrail entityType="platform" entityId={platform.id} />}
     </div>

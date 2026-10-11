@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { formatDateTime } from "../common/dates";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { mdfCoverageApi, platformCoverageApi, type CoverageMode, type EmitterCoverage } from "../../api/platforms";
@@ -634,7 +635,7 @@ export function CoverageCharts({
         <p className="hint-text platform-chart-ambiguity-note">
           <span className="platform-chart-swatch platform-chart-mark-swatch" /> Where Modes of different Emitters overlap,
           from the ambiguity check of{" "}
-          {new Date(ambiguity.run.created_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })} (
+          {formatDateTime(ambiguity.run.created_at)} (
           {ambiguity.findings.length} pair{ambiguity.findings.length === 1 ? "" : "s"}) — hover a mark for the Modes.{" "}
           {ambiguity.link && <Link to={ambiguity.link}>Open the check</Link>}. A Mode no longer pinned isn&apos;t marked.
         </p>

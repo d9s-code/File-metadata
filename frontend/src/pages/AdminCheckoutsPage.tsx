@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { formatDateTime } from "../components/common/dates";
+import { InfoTip } from "../components/common/PageHeader";
 import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { emittersApi } from "../api/emitters";
@@ -74,15 +76,15 @@ export function AdminCheckoutsPage() {
       <section className="card">
         <div className="card-header">
           <h4>
-            Edit locks <span className="section-count">{checkouts?.length ?? 0}</span>
+            Edit locks <span className="section-count">{checkouts?.length ?? 0}</span>{" "}
+            <InfoTip label="About edit locks">
+              Emitters being edited right now. While one is held, nobody else can edit it. Force release ends the hold
+              without saving a version or discarding anything — what&apos;s live stays live. Held over 8 hours is
+              marked; a lock its holder hasn&apos;t changed anything under for days is marked <strong>untouched</strong>{" "}
+              and released on its own after the number of days the server is set to (CHECKOUT_RELEASE_DAYS).
+            </InfoTip>
           </h4>
         </div>
-        <p className="hint-text">
-          Emitters being edited right now. While one is held, nobody else can edit it. Force release ends the hold
-          without saving a version or discarding anything — what&apos;s live stays live. Held over 8 hours is marked; a
-          lock its holder hasn&apos;t changed anything under for days is marked <strong>untouched</strong> and released
-          on its own after the number of days the server is set to (CHECKOUT_RELEASE_DAYS).
-        </p>
         {checkouts && checkouts.length > 0 && (
           <div className="form-row">
             <button
@@ -154,7 +156,7 @@ export function AdminCheckoutsPage() {
                       <Link to={`/emitters/${c.emitter_id}`}>{c.emitter_name}</Link>
                     </td>
                     <td>{c.checked_out_by_username ?? "—"}</td>
-                    <td>{c.checked_out_at ? new Date(c.checked_out_at).toLocaleString() : "—"}</td>
+                    <td>{c.checked_out_at ? formatDateTime(c.checked_out_at) : "—"}</td>
                     <td className={long ? "checkout-held long" : undefined}>
                       {heldFor(c.checked_out_at, now)}
                       {long && " · long-held"}

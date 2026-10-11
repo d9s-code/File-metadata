@@ -1,4 +1,8 @@
 import { Fragment, useMemo, useState, type FormEvent } from "react";
+import { formatDate } from "../components/common/dates";
+import { DateInput } from "../components/common/DateInput";
+import { MenuButton } from "../components/common/MenuButton";
+import { EMITTERS_SECTION, PageHeader } from "../components/common/PageHeader";
 import { Link } from "react-router-dom";
 import { useSourceGroups, useSourcesOverview } from "../state/hooks/useSourceGroups";
 import type { SourceOverview } from "../api/source_groups";
@@ -103,7 +107,7 @@ function DateCell({ day }: { day: string | null }) {
   if (!day) return <span className="hint-text">—</span>;
   return (
     <>
-      {day}
+      {formatDate(day)}
       <div className="hint-text cell-subline">{age(day)}</div>
     </>
   );
@@ -182,7 +186,7 @@ function SourceList({ sources }: { sources: SourceOverview[] }) {
             <td>
               <DateCell day={s.source_date} />
             </td>
-            <td>{new Date(s.updated_at).toLocaleDateString()}</td>
+            <td>{formatDate(s.updated_at)}</td>
             <td>
               <span className={`status-badge status-${s.status}`}>{statusLabel(s.status)}</span>
             </td>
@@ -280,16 +284,21 @@ export function SourceGroupsPage() {
 
   return (
     <div className="page">
-      <div className="page-header-row">
-        <h1>Source Groups</h1>
+      <PageHeader
+        title="Source Groups"
+        section={EMITTERS_SECTION}
+        info={
+          <>
+            Cross-Emitter labels for categorizing Sources (e.g. &quot;CED&quot;, &quot;Intercepts&quot;). Open a group
+            to see which Emitters its Sources sit under and when each Source was last updated; query to find what&apos;s
+            out of date.
+          </>
+        }
+      >
         <RequireRole minimum="admin">
           <button onClick={() => setShowForm((v) => !v)}>{showForm ? "Cancel" : "+ Add Source Group"}</button>
         </RequireRole>
-      </div>
-      <p className="hint-text">
-        Cross-Emitter labels for categorizing Sources (e.g. "CED", "Intercepts"). Open a group to see which Emitters
-        its Sources sit under and when each Source was last updated; query to find what&apos;s out of date.
-      </p>
+      </PageHeader>
 
       {showForm && <SourceGroupForm onClose={() => setShowForm(false)} />}
       {deleteError && <div className="error-text">{deleteError}</div>}
@@ -307,11 +316,11 @@ export function SourceGroupsPage() {
           </label>
           <label>
             Last updated from
-            <input type="date" value={query.from} onChange={(e) => set("from", e.target.value)} />
+            <DateInput value={query.from} onChange={(e) => set("from", e.target.value)} />
           </label>
           <label>
             to
-            <input type="date" value={query.to} onChange={(e) => set("to", e.target.value)} />
+            <DateInput value={query.to} onChange={(e) => set("to", e.target.value)} />
           </label>
           <label>
             Not updated in
@@ -367,7 +376,7 @@ export function SourceGroupsPage() {
             {total.oldest && (
               <span className="hint-text">
                 {" "}
-                · last updated between {total.oldest} and {total.newest}
+                · last updated between {formatDate(total.oldest)} and {formatDate(total.newest)}
               </span>
             )}
           </span>
@@ -468,7 +477,7 @@ export function SourceGroupsPage() {
                         <td>
                           <DateCell day={groupSpan.newest} />
                         </td>
-                        <td>{groupSpan.edited ? new Date(groupSpan.edited).toLocaleDateString() : "—"}</td>
+                        <td>{groupSpan.edited ? formatDate(groupSpan.edited) : "—"}</td>
                         <td>{g ? rangeText(g.rf_min_mhz, g.rf_max_mhz, "MHz") : "—"}</td>
                         <td>{g ? rangeText(g.pw_min_us, g.pw_max_us, "µs") : "—"}</td>
                         <td>
@@ -477,15 +486,18 @@ export function SourceGroupsPage() {
                             <div className="hint-text">+ {g.pri_stagger_count} stagger element(s) excluded from this range</div>
                           )}
                         </td>
-                        <td>
+                        <td className="row-actions">
                           {g && (
                             <RequireRole minimum="admin">
-                              <button className="link-button" onClick={() => setEditingId(g.id)}>
-                                Edit
-                              </button>{" "}
-                              <button className="link-button link-button-danger" onClick={() => void handleDelete(g)}>
-                                Delete
-                              </button>
+                              <MenuButton
+                                label="⋯"
+                                className="row-menu-button"
+                                ariaLabel={`Actions for ${g.name}`}
+                                items={[
+                                  { label: "Edit", onSelect: () => setEditingId(g.id) },
+                                  { label: "Delete…", danger: true, onSelect: () => void handleDelete(g) },
+                                ]}
+                              />
                             </RequireRole>
                           )}
                         </td>
@@ -513,7 +525,7 @@ export function SourceGroupsPage() {
                                 <td>
                                   <DateCell day={emitterSpan.newest} />
                                 </td>
-                                <td>{emitterSpan.edited ? new Date(emitterSpan.edited).toLocaleDateString() : "—"}</td>
+                                <td>{emitterSpan.edited ? formatDate(emitterSpan.edited) : "—"}</td>
                                 <td colSpan={4} />
                               </tr>
                               {emitterOpen &&
@@ -534,7 +546,7 @@ export function SourceGroupsPage() {
                                     <td colSpan={2}>
                                       <DateCell day={s.source_date} />
                                     </td>
-                                    <td>{new Date(s.updated_at).toLocaleDateString()}</td>
+                                    <td>{formatDate(s.updated_at)}</td>
                                     <td colSpan={4} />
                                   </tr>
                                 ))}

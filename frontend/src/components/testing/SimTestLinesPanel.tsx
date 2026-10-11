@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from "react";
+import { formatDate } from "../common/dates";
+import { DateInput } from "../common/DateInput";
 import { Link } from "react-router-dom";
 import type { TestLine, TestLineCreateInput, TestLineSyncResult } from "../../api/testLines";
 import {
@@ -308,9 +310,9 @@ export function SimTestLinesPanel({ emitterId, lines }: { emitterId: string; lin
                       <td>
                         <StatusBadge line={l} emitterId={emitterId} />
                       </td>
-                      <td>{l.last_tested_at ?? "—"}</td>
+                      <td>{formatDate(l.last_tested_at)}</td>
                       <td>
-                        <input type="date" value={editCreatedDate} onChange={(e) => setEditCreatedDate(e.target.value)} />
+                        <DateInput value={editCreatedDate} onChange={(e) => setEditCreatedDate(e.target.value)} />
                       </td>
                       <td>{l.import_batch_label ?? "—"}</td>
                       <td>
@@ -336,8 +338,8 @@ export function SimTestLinesPanel({ emitterId, lines }: { emitterId: string; lin
                       <td>
                         <StatusBadge line={l} emitterId={emitterId} />
                       </td>
-                      <td>{l.last_tested_at ?? "—"}</td>
-                      <td>{l.created_date ?? "—"}</td>
+                      <td>{formatDate(l.last_tested_at)}</td>
+                      <td>{formatDate(l.created_date)}</td>
                       <td>{l.import_batch_label ?? "—"}</td>
                       <td>
                         <RequireRole minimum="editor">
@@ -392,8 +394,7 @@ export function SimTestLinesPanel({ emitterId, lines }: { emitterId: string; lin
                 <div className="form-row">
                   <label>
                     Date the SIM lines were created (required)
-                    <input
-                      type="date"
+                    <DateInput
                       value={createdDate}
                       onChange={(e) => {
                         setCreatedDate(e.target.value);

@@ -14,7 +14,8 @@ function readDismissed(): string | null {
 }
 
 /** A strip under the nav bar, for admins only, when backups aren't in order —
- * no recent backup, a failed verification, the scheduler not running. Hiding
+ * no recent backup, a failed verification, the scheduler not running. Only on
+ * the Dashboard and the Admin pages, so it doesn't sit over every page. Hiding
  * it lasts until the browser tab closes, or until the problem changes. */
 export function BackupWarning() {
   const { user } = useAuth();
@@ -23,7 +24,8 @@ export function BackupWarning() {
   const { data: health } = useBackupHealth(isAdmin);
   const [dismissed, setDismissed] = useState(readDismissed);
 
-  if (!isAdmin || !health || health.ok || pathname === "/admin/backups") return null;
+  const shownHere = pathname === "/dashboard" || (pathname.startsWith("/admin/") && pathname !== "/admin/backups");
+  if (!isAdmin || !shownHere || !health || health.ok) return null;
   const key = health.problems.join("|");
   if (dismissed === key) return null;
 

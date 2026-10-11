@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatDate, formatDateTime } from "../common/dates";
 import { Link } from "react-router-dom";
 import type { AmbiguityFinding, ComparedSide, OverlapParam } from "../../api/ambiguity";
 import { useAuth } from "../../auth/AuthContext";
@@ -164,7 +165,7 @@ export function FindingDetail({
 
       {finding.resolution ? (
         <div className="finding-outcome merged">
-          <strong>Merged</strong> by {finding.resolution.by} on {new Date(finding.resolution.at).toLocaleString()}: kept{" "}
+          <strong>Merged</strong> by {finding.resolution.by} on {formatDateTime(finding.resolution.at)}: kept{" "}
           <strong>{finding.resolution.kept_name}</strong>, widened to cover both, and deleted{" "}
           <strong>{finding.resolution.removed_name}</strong>. This is in {mode_a.emitter_name}&apos;s unsaved changes —{" "}
           <Link to={`/emitters/${mode_a.emitter_id}`}>save a version there</Link>, then run the check again.
@@ -176,7 +177,7 @@ export function FindingDetail({
         </div>
       ) : finding.reviewed_at ? (
         <div className="finding-outcome acknowledged">
-          <strong>Acknowledged</strong> {new Date(finding.reviewed_at).toLocaleDateString()}
+          <strong>Acknowledged</strong> {formatDate(finding.reviewed_at)}
           {finding.reviewer_note && <>: {finding.reviewer_note}</>}
           {isEditor && (
             <>

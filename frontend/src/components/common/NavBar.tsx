@@ -9,21 +9,20 @@ import { SettingsModal } from "./SettingsModal";
 import { useMyWork } from "../../state/hooks/useTasks";
 import { QuickJump } from "./QuickJump";
 
-const LINKS: { to: string; label: string }[] = [
+/** The top menu. Pages that belong under an item (Source Groups under
+ * Emitters, Customers under MDFs) are tabs on its pages and light it up. */
+const LINKS: { to: string; label: string; also?: string[] }[] = [
   { to: "/dashboard", label: "Dashboard" },
-  { to: "/emitters", label: "Emitters" },
-  { to: "/platforms", label: "Platforms" },
-  { to: "/mdfs", label: "MDFs" },
-  { to: "/source-groups", label: "Source Groups" },
-  { to: "/customers", label: "Customers" },
+  { to: "/emitters", label: "Emitters", also: ["/source-groups", "/ambiguity/emitter"] },
+  { to: "/platforms", label: "Platforms", also: ["/ambiguity/platform"] },
+  { to: "/mdfs", label: "MDFs", also: ["/customers", "/ambiguity/mdf"] },
   { to: "/intercepts", label: "Intercepts" },
   { to: "/tasks", label: "Tasks" },
-  { to: "/audit-log", label: "Audit Log" },
-  { to: "/help", label: "Help" },
 ];
 
-const linkClass = ({ isActive }: { isActive: boolean }) =>
-  isActive ? "navbar-link-active" : undefined;
+function isUnder(pathname: string, prefix: string) {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
 
 export function NavBar() {
   const { user, logout } = useAuth();
@@ -72,7 +71,13 @@ export function NavBar() {
           className={menuOpen ? "navbar-links open" : "navbar-links"}
         >
           {LINKS.map((l) => (
-            <NavLink key={l.to} to={l.to} className={linkClass}>
+            <NavLink
+              key={l.to}
+              to={l.to}
+              className={({ isActive }) =>
+                isActive || l.also?.some((p) => isUnder(pathname, p)) ? "navbar-link-active" : undefined
+              }
+            >
               {l.label}
               {l.to === "/tasks" && myTasks > 0 && (
                 <span className="navbar-count" title={`${myTasks} open task${myTasks === 1 ? "" : "s"} for you`}>
@@ -82,7 +87,7 @@ export function NavBar() {
             </NavLink>
           ))}
           <RequireRole minimum="admin">
-            <NavLink to="/admin/users" className={linkClass}>
+            <NavLink to="/admin/users" className={isUnder(pathname, "/admin") ? "navbar-link-active" : undefined}>
               Admin
             </NavLink>
           </RequireRole>
@@ -92,6 +97,16 @@ export function NavBar() {
       )}
       <div className="navbar-user">
         {user && <QuickJump />}
+        {user && (
+          <NavLink
+            to="/help"
+            className={({ isActive }) => (isActive ? "navbar-help navbar-link-active" : "navbar-help")}
+            title="Help"
+            aria-label="Help"
+          >
+            ?
+          </NavLink>
+        )}
         <ThemeToggle />
         {user && (
           <>
@@ -104,6 +119,8 @@ export function NavBar() {
               className="navbar-account"
               ariaLabel="Your account"
               items={[
+                { label: "Audit Log", to: "/audit-log" },
+                { label: "Help", to: "/help" },
                 { label: "Settings…", onSelect: () => setShowSettings(true) },
                 { label: "Change password…", onSelect: () => setChangingPassword(true) },
                 { label: "Sign out", onSelect: () => void logout() },

@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { formatDate } from "../common/dates";
 import type { NeedsRedoTestItem } from "../../api/dashboard";
 import { testLink, mdfTestLink } from "../modes/TestDerivedBadge";
 import { EmptyState } from "../common/EmptyState";
@@ -28,7 +29,7 @@ export function NeedsRedoList({ items }: { items: NeedsRedoTestItem[] }) {
         <tbody>
           {items.map((item) => (
             <tr key={item.test_record_id}>
-              <td className="nowrap">{item.test_date}</td>
+              <td className="nowrap">{formatDate(item.test_date)}</td>
               <td>{item.entity_name}</td>
               <td>
                 <Link to={redoLink(item)}>{item.title}</Link>

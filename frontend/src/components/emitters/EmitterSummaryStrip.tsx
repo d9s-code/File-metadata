@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { formatDate } from "../common/dates";
 import { Link } from "react-router-dom";
 import type { Emitter, EmitterNote } from "../../types/domain";
 import { useEmitterTestLines } from "../../state/hooks/useTestLines";
@@ -96,7 +97,7 @@ export function EmitterSummaryStrip({
         correct
         {wrong > 0 && <span className="summary-bad"> · {wrong} missed/partial</span>}
         {untested > 0 && <span className="hint-text"> · {untested} untested</span>}
-        {emitter.last_validated_at && <span className="hint-text"> · last run {emitter.last_validated_at}</span>}
+        {emitter.last_validated_at && <span className="hint-text"> · last run {formatDate(emitter.last_validated_at)}</span>}
       </button>
     );
   }
@@ -119,22 +120,18 @@ export function EmitterSummaryStrip({
       )}
       <SummaryItem label="Analyst notes" className="summary-notes">
         <button type="button" className="summary-link" onClick={onToggleNotes} aria-expanded={notesOpen}>
-          {notesOpen ? (
-            <span className="hint-text">
-              {notes.length === 0 ? "None yet" : `${notes.length} note${notes.length === 1 ? "" : "s"}`} · hide
-            </span>
-          ) : latestNote ? (
+          {latestNote ? (
             <>
               <span className="summary-note-preview">“{latestNote.body}”</span>{" "}
               <span className="hint-text">
-                — {latestNote.author_username ?? "unknown"}, {new Date(latestNote.created_at).toLocaleDateString()}
+                — {latestNote.author_username ?? "unknown"}, {formatDate(latestNote.created_at)}
                 {notes.length > 1 ? ` · ${notes.length} notes` : ""}
               </span>
             </>
           ) : (
             <span className="hint-text">None yet — add one</span>
           )}{" "}
-          {notesOpen ? "▴" : "▾"}
+          {notesOpen ? "◂" : "▸"}
         </button>
       </SummaryItem>
     </div>

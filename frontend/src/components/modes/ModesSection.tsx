@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { formatDate } from "../common/dates";
+import { DateInput } from "../common/DateInput";
 import { ApiRequestError } from "../../api/client";
 import type { EwGroup, Source } from "../../types/domain";
 import { useDeleteMode, useEmitterModes } from "../../state/hooks/useModes";
@@ -318,7 +320,7 @@ export function ModesSection({
             <option value="">All Batches</option>
             {(batches ?? []).map((b) => (
               <option key={b.id} value={b.id}>
-                {b.name_prefix} — {b.mode_count} modes — {new Date(b.created_at).toLocaleDateString()}
+                {b.name_prefix} — {b.mode_count} modes — {formatDate(b.created_at)}
               </option>
             ))}
           </select>
@@ -418,8 +420,8 @@ export function ModesSection({
           </label>
           <label>
             Last seen in a test
-            <input type="date" value={lastTestedFrom} onChange={(e) => setLastTestedFrom(e.target.value)} />
-            <input type="date" value={lastTestedTo} onChange={(e) => setLastTestedTo(e.target.value)} />
+            <DateInput value={lastTestedFrom} onChange={(e) => setLastTestedFrom(e.target.value)} />
+            <DateInput value={lastTestedTo} onChange={(e) => setLastTestedTo(e.target.value)} />
           </label>
           <button type="button" className="link-button" onClick={resetMoreFilters}>
             Reset filters

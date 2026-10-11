@@ -29,10 +29,11 @@ const pad = (n: number) => String(n).padStart(2, "0");
  * (the hover read-out), the full date and time. */
 export function formatTime(ms: number, step?: number): string {
   const d = new Date(ms);
-  const date = `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+  const dayMonth = `${pad(d.getUTCDate())}.${pad(d.getUTCMonth() + 1)}`;
+  const date = `${dayMonth}.${d.getUTCFullYear()}`;
   const hm = `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
   const sec = `${hm}:${pad(d.getUTCSeconds())}`;
   if (step == null) return `${date} ${sec}`;
-  if (step >= DAY) return date.slice(5);
+  if (step >= DAY) return dayMonth;
   return step < MIN ? sec : hm;
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { DateInput } from "../components/common/DateInput";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useMdf, useMdfLinks, useRepinMdfLatest, useUpdateMdf } from "../state/hooks/useMdfs";
 import { useCommitMdfVersion, useMdfVersions } from "../state/hooks/useMdfVersions";
@@ -23,6 +24,7 @@ import { RequireRole, useHasRole } from "../auth/RequireAuth";
 import { LoadingState } from "../components/common/LoadingState";
 import { Modal } from "../components/common/Modal";
 import { NotesFeed } from "../components/common/NotesFeed";
+import { NotesDrawer } from "../components/common/NotesDrawer";
 import { statusLabel } from "../components/common/emitterStatusLabel";
 import { TasksButton } from "../components/tasks/TasksButton";
 
@@ -162,17 +164,19 @@ export function MdfBuilderPage() {
         {mdf.notes && <p className="muted emitter-description">{mdf.notes}</p>}
       </EntityHeader>
 
-      <section className="card">
-        <h4>Analyst notes</h4>
+      <NotesDrawer count={mdfNotes?.length ?? 0} subject={mdf.name} draftKey={`notes-draft:mdf:${mdf.id}`}>
         <NotesFeed
+          key={mdf.id}
+          draftKey={`notes-draft:mdf:${mdf.id}`}
           notes={mdfNotes}
           isLoading={notesLoading}
           placeholder="Your own running notes/observations about this MDF — what changed in this release, what to check — separate from the description."
           onAdd={(body) => createMdfNote(body)}
           isAdding={isAddingNote}
           onDelete={(noteId) => deleteMdfNote(noteId)}
+          inDrawer
         />
-      </section>
+      </NotesDrawer>
 
       {isEditing && (
         <Modal title="Edit details" onClose={handleCancelEdit} wide>
@@ -209,8 +213,7 @@ export function MdfBuilderPage() {
             </label>
             <label>
               Release date
-              <input
-                type="date"
+              <DateInput
                 value={editReleaseDate}
                 onChange={(e) => setEditReleaseDate(e.target.value)}
                 className="edit-input"

@@ -153,7 +153,28 @@ export function HelpPage() {
         </p>
         <p>
           <strong>Tables:</strong> drag the right edge of a column&apos;s heading to make it wider or narrower;
-          double-click the edge to put it back. Widths are remembered in this browser for that table.
+          double-click the edge to put it back. Widths are remembered in this browser for that table. A row&apos;s
+          less common actions — Edit, Delete, Approve and the like — are under its <strong>⋯</strong> menu at the end
+          of the row. Filters sit on one line above a list, with how many rows are shown; <strong>Reset</strong>{" "}
+          appears while a filter is set.
+        </p>
+        <p>
+          <strong>Menu:</strong> Dashboard, Emitters, Platforms, MDFs, Intercepts and Tasks (and Admin for admins).{" "}
+          <strong>Source Groups</strong> is a tab on the Emitters page and <strong>Customers</strong> one on the MDFs
+          page; <strong>Help</strong> is the <strong>?</strong> beside Search, and the <strong>Audit Log</strong> is in
+          your name&apos;s menu. A small <strong>?</strong> beside a title says what that page or panel is for.
+        </p>
+        <p>
+          <strong>Analyst notes:</strong> on an Emitter, Platform, MDF or Intercept, the <strong>Notes</strong> tab on
+          the right edge of the window opens its notes in a panel that stays put while you scroll and work on the page.
+          It stays open (or closed) as you move between pages. A note you&apos;ve written but not added yet is kept in
+          this browser — closing the panel, leaving the page or a stray click doesn&apos;t lose it, and the tab shows
+          ✎ until you add it. The same goes for notes on Sources and Tasks.
+        </p>
+        <p>
+          <strong>Dates</strong> are written day.month.year (07.10.2026) with a 24-hour clock. Date fields take the
+          same — 7.10.2026, 07.10.26, 7/10/2026 or 07102026 all work — or pick from the calendar button; times are
+          hh:mm.
         </p>
       </div>
 
@@ -232,12 +253,14 @@ export function HelpPage() {
       <div className="card" id="emitters">
         <h2>Emitters</h2>
         <p>
-          The Emitters list (top nav) shows every Emitter with its current status, and RF/PRI/PW/Scan
-          min/max computed across its Modes, <strong>SIM correct</strong> — how many of its SIM Test Lines
+          The Emitters list (top nav) shows every Emitter with its current status, and its RF, PRI and PW
+          ranges (min–max) across its Modes, <strong>SIM correct</strong> — how many of its SIM Test Lines
           were correct in the latest run that included them, out of all of them (e.g. 4 / 5) — and{" "}
-          <strong>Tasks</strong>: its open tasks (☑ 2), which open its task list to read, tick off or add
-          one. Every column but Tasks is sortable, and the toolbar above the table filters by name,
-          designation, or any of those RF/PRI/PW/Scan ranges. <strong>+ Add Emitter</strong> opens a small form as an overlay rather
+          <strong>Tasks</strong>: its open tasks (☑ 2; with none, the chip shows when you point at the row), which open
+          its task list to read, tick off or add one. <strong>Columns ▾</strong> (or right-clicking the header) picks
+          which columns show — Scan is off until you turn it on. Every column but Tasks is sortable. Above the table:
+          a search on name or designation, who it&apos;s assigned to, and <strong>RF / PRI / PW / Scan ▾</strong> for
+          range filters. A row&apos;s <strong>⋯</strong> menu compares it with another Emitter or deletes it. <strong>+ Add Emitter</strong> opens a small form as an overlay rather
           than a full page; click a row to open that Emitter.
         </p>
         <p>
@@ -750,7 +773,7 @@ export function HelpPage() {
             Emitter&apos;s Test History, linked back to the Platform test. Each Platform test has its own page, <strong>Redo test</strong> starts a retest
             of the same Emitters, and the <strong>Trend</strong> grid shows each Emitter&apos;s result across the latest
             runs.{" "}
-            <strong>Analyst notes</strong> is the same append-only log as on an Emitter.
+            <strong>Analyst notes</strong> is the same append-only log as on an Emitter, in the Notes panel.
           </p>
         </div>
 
@@ -793,7 +816,7 @@ export function HelpPage() {
             moves draft → pending review → approved → released → deprecated.
           </p>
           <p>
-            An <strong>Analyst notes</strong> panel below the title works the same way as an Emitter&apos;s —
+            <strong>Analyst notes</strong> (the Notes tab on the right edge) work the same way as an Emitter&apos;s —
             an append-only, timestamped log, separate from the single editable "Notes" field in the edit form.
           </p>
           <p>

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatDate } from "../common/dates";
 import { Modal } from "../common/Modal";
 import { ApiRequestError } from "../../api/client";
 import { RequireRole } from "../../auth/RequireAuth";
@@ -77,7 +78,7 @@ export function LatestVersion({ versions }: { versions: { version_number: number
   return (
     <span className="hint-text">
       {latest
-        ? `Last saved as v${latest.version_number} · ${new Date(latest.created_at).toLocaleDateString()}`
+        ? `Last saved as v${latest.version_number} · ${formatDate(latest.created_at)}`
         : "No saved version yet — save one to pin or export it"}
     </span>
   );

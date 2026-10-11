@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { DateInput } from "../components/common/DateInput";
+import { PageHeader } from "../components/common/PageHeader";
 import type { AuditAction, AuditEntitySearchResult } from "../types/domain";
 import {
   useAuditActionCounts,
@@ -81,12 +83,10 @@ export function AuditLogPage() {
 
   return (
     <div className="page audit-log-page">
-      <h1>Audit Log</h1>
-      <p className="hint-text">
-        A chronological record of who changed what, when — across the whole app. Navigate by entity type
-        (group) and then by action (subgroup), search an object by name (an Emitter, Platform, MDF, EW
-        Group, or Source), or search freely over summaries below.
-      </p>
+      <PageHeader
+        title="Audit Log"
+        info="Who changed what, and when, across the whole app. Pick a kind of thing on the left, then an action; search by name (an Emitter, Platform, MDF, EW Group or Source) or over the summaries. Sorting a column reorders only the entries loaded so far."
+      />
 
       <div className="audit-log-layout">
         <nav className="audit-log-groups">
@@ -159,11 +159,11 @@ export function AuditLogPage() {
             </select>
             <label className="inline-date-filter">
               From
-              <input type="date" value={dateFrom} onChange={(e) => changeDateFrom(e.target.value)} />
+              <DateInput value={dateFrom} onChange={(e) => changeDateFrom(e.target.value)} />
             </label>
             <label className="inline-date-filter">
               To
-              <input type="date" value={dateTo} onChange={(e) => changeDateTo(e.target.value)} />
+              <DateInput value={dateTo} onChange={(e) => changeDateTo(e.target.value)} />
             </label>
             {(dateFrom || dateTo) && (
               <button type="button" className="link-button" onClick={clearDates}>

@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { formatDate } from "../common/dates";
 import type { TestRunDraft } from "../../api/testRecords";
 import { RequireRole } from "../../auth/RequireAuth";
 import { useConfirmDialog } from "../common/ConfirmDialog";
@@ -95,7 +96,7 @@ export function PlatformTests({ platformId, pinnedCount }: { platformId: string;
           <tbody>
             {tests.map((t) => (
               <tr key={t.id}>
-                <td>{t.test_date}</td>
+                <td>{formatDate(t.test_date)}</td>
                 <td title={t.notes ?? undefined}>
                   <Link to={`/platforms/${platformId}/tests/${t.id}`}>{t.title}</Link>
                 </td>
@@ -158,7 +159,7 @@ function PlatformTestTrend({ platformId, tests }: { platformId: string; tests: P
               <th>Emitter</th>
               {runs.map((t) => (
                 <th key={t.id} className="trend-col" title={t.title}>
-                  <Link to={`/platforms/${platformId}/tests/${t.id}`}>{t.test_date}</Link>
+                  <Link to={`/platforms/${platformId}/tests/${t.id}`}>{formatDate(t.test_date)}</Link>
                 </th>
               ))}
             </tr>

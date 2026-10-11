@@ -1,8 +1,9 @@
 import type { VersionSummary } from "../../types/versioning";
+import { formatDateTime } from "../common/dates";
 
 /** "25 Sep 2026, 08:24" — a version's date as people read it. */
 export function versionDate(iso: string) {
-  return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  return formatDateTime(iso);
 }
 
 /** The versions, newest first: each row (all of it clickable) shows its

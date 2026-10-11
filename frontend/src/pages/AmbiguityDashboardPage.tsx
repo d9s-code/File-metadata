@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { formatDateTime } from "../components/common/dates";
 import { Link, useParams } from "react-router-dom";
 import type {
   AmbiguityFinding,
@@ -247,7 +248,7 @@ export function AmbiguityDashboardPage() {
               <>
                 <span>
                   Checked {runVersion ? `version ${runVersion.version_number}` : "the saved version"} ·{" "}
-                  {new Date(run.created_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
+                  {formatDateTime(run.created_at)}
                   {run.created_by && run.created_by === user?.id ? " by you" : ""}
                   <span
                     className="hint-text"

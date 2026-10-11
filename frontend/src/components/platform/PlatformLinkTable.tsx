@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { formatDateTime } from "../common/dates";
 import { isOutdatedPin, type PlatformLink } from "../../api/platforms";
 import type { Emitter } from "../../types/domain";
 import { usePinEmitter, useUnpinEmitter } from "../../state/hooks/usePlatforms";
@@ -112,7 +113,7 @@ export function PlatformLinkTable({
               <PinnedVersionCell emitterId={link.emitter_id} versionId={link.emitter_version_id} />
               <OutdatedPin platformId={platformId} link={link} />
             </td>
-            <td>{new Date(link.added_at).toLocaleString()}</td>
+            <td>{formatDateTime(link.added_at)}</td>
             <td>
               <RequireRole minimum="editor">
                 <button className="link-button" onClick={() => void unpin.mutateAsync(link.emitter_id)}>

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { InfoTip } from "../../common/PageHeader";
 import type { InterceptEntry, Mode } from "../../../types/domain";
 import type { EntryMatch } from "../interceptMatch";
 import type { ReportPriType } from "../interceptCsv";
@@ -271,16 +272,16 @@ export function EntryCharts({
     <div className="import-charts">
       {scatter && (
         <>
-          <p className="hint-text entry-charts-hint">
-            Each entry at its means, its measured range as a box. <strong>Drag a box around points</strong> to select
-            those entries for the table&apos;s Merge and Delete — <kbd>Shift</kbd> adds, <kbd>Ctrl</kbd> (
-            <kbd>⌘</kbd>, <kbd>Alt</kbd>) keeps only the selected ones inside; click to clear. Drag across a
-            histogram to filter the table to that range.
-          </p>
           <Scatter
             header={
               <span className="map-axes">
                 <strong>Entries</strong>
+                <InfoTip label="How to use the charts">
+                  Each entry at its means, its measured range as a box. <strong>Drag a box around points</strong> to
+                  select those entries for the table&apos;s Merge and Delete — <kbd>Shift</kbd> adds, <kbd>Ctrl</kbd> (
+                  <kbd>⌘</kbd>, <kbd>Alt</kbd>) keeps only the selected ones inside; click to clear. Drag across a
+                  histogram to filter the table to that range.
+                </InfoTip>
                 {axisSelect(axes.x, axes.y, (x) => setAxes(x, axes.y), "Across")}
                 {axisSelect(axes.y, axes.x, (y) => setAxes(axes.x, y), "Up")}
                 <button type="button" className="link-button" onClick={() => setAxes(axes.y, axes.x)} title="Swap the axes">

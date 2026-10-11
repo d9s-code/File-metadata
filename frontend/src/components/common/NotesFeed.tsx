@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
+import { formatDateTime } from "./dates";
 import type { EmitterNote, SourceNote } from "../../types/domain";
 import { useHasRole } from "../../auth/RequireAuth";
 import { useConfirmDialog } from "./ConfirmDialog";
@@ -38,6 +39,24 @@ function NoteBody({ body }: { body: string }) {
   );
 }
 
+/** An unsent note kept in this browser (see NotesFeed's draftKey). */
+export function readDraft(key: string): string {
+  try {
+    return localStorage.getItem(key) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function writeDraft(key: string, value: string) {
+  try {
+    if (value.trim()) localStorage.setItem(key, value);
+    else localStorage.removeItem(key);
+  } catch {
+    // Storage unavailable — the draft just won't outlive the page.
+  }
+}
+
 /** Append-only analyst-commentary feed, shared by the Emitter and Source
  * editor views. Newest entry first; adding never touches an earlier entry —
  * this is the replacement for the old single free-text `notes` field, which
@@ -51,6 +70,8 @@ export function NotesFeed({
   onDelete,
   canAdd,
   canDelete,
+  inDrawer = false,
+  draftKey,
 }: {
   notes: NoteEntry[] | undefined;
   isLoading: boolean;
@@ -61,17 +82,26 @@ export function NotesFeed({
   /** Who may add or delete notes; editors when not given. */
   canAdd?: boolean;
   canDelete?: (note: NoteEntry) => boolean;
+  /** In the Analyst notes panel: every note listed, and the box to add one first. */
+  inDrawer?: boolean;
+  /** Keeps what's typed but not yet added in this browser under this key, so
+   * closing the panel, leaving the page or a stray click doesn't lose it. */
+  draftKey?: string;
 }) {
   const isEditor = useHasRole("editor");
   const mayAdd = canAdd ?? isEditor;
   const mayDelete = canDelete ?? (() => isEditor);
-  const [draft, setDraft] = useState("");
+  const [draft, setDraftState] = useState(() => (draftKey ? readDraft(draftKey) : ""));
+  function setDraft(value: string) {
+    setDraftState(value);
+    if (draftKey) writeDraft(draftKey, value);
+  }
   const [error, setError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
   const { confirmDelete, dialog } = useConfirmDialog();
 
   const hiddenCount = notes ? Math.max(notes.length - 1, 0) : 0;
-  const visibleNotes = showAll ? notes : notes?.slice(0, 1);
+  const visibleNotes = showAll || inDrawer ? notes : notes?.slice(0, 1);
 
   async function handleAdd() {
     if (!draft.trim()) return;
@@ -93,8 +123,32 @@ export function NotesFeed({
     }
   }
 
+  const composer = mayAdd && (
+    <div className="notes-feed-add">
+      <textarea
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        placeholder={placeholder}
+        rows={inDrawer ? 3 : 2}
+        style={{ width: "100%" }}
+      />
+      {draftKey && draft.trim() && (
+        <span className="hint-text notes-draft-hint">Not added yet — kept in this browser until you add it.</span>
+      )}
+      <button
+        type="button"
+        className="button secondary small"
+        onClick={() => void handleAdd()}
+        disabled={isAdding || !draft.trim()}
+      >
+        {isAdding ? "Adding..." : "Add note"}
+      </button>
+    </div>
+  );
+
   return (
-    <div className="notes-feed">
+    <div className={inDrawer ? "notes-feed in-drawer" : "notes-feed"}>
+      {inDrawer && composer}
       {isLoading ? (
         <p className="hint-text">Loading notes…</p>
       ) : !notes || notes.length === 0 ? (
@@ -106,7 +160,7 @@ export function NotesFeed({
               <li key={n.id} className="notes-feed-entry">
                 <div className="notes-feed-meta">
                   <span>{n.author_username ?? "system"}</span>
-                  <span className="hint-text">{new Date(n.created_at).toLocaleString()}</span>
+                  <span className="hint-text">{formatDateTime(n.created_at)}</span>
                   {mayDelete(n) && (
                     <button type="button" className="link-button link-button-danger" onClick={() => void handleDelete(n.id)}>
                       Delete
@@ -117,32 +171,14 @@ export function NotesFeed({
               </li>
             ))}
           </ul>
-          {hiddenCount > 0 && (
+          {hiddenCount > 0 && !inDrawer && (
             <button type="button" className="link-button" onClick={() => setShowAll((v) => !v)}>
               {showAll ? "Show only the most recent" : `Show ${hiddenCount} earlier note${hiddenCount === 1 ? "" : "s"}`}
             </button>
           )}
         </>
       )}
-      {mayAdd && (
-        <div className="notes-feed-add">
-          <textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder={placeholder}
-            rows={2}
-            style={{ width: "100%" }}
-          />
-          <button
-            type="button"
-            className="button secondary small"
-            onClick={() => void handleAdd()}
-            disabled={isAdding || !draft.trim()}
-          >
-            {isAdding ? "Adding..." : "Add note"}
-          </button>
-        </div>
-      )}
+      {!inDrawer && composer}
       {error && <div className="error-text">{error}</div>}
       {dialog}
     </div>

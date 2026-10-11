@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { formatDate, formatDateTime } from "../components/common/dates";
+import { DateInput } from "../components/common/DateInput";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useEmitters } from "../state/hooks/useEmitters";
 import { useEmitterModes } from "../state/hooks/useModes";
@@ -280,7 +282,7 @@ export function InterceptImportPage() {
           <div className="import-draft">
             <span>
               <strong>Unfinished import:</strong> {draftOffer.fileName} — {draftOffer.groups.length.toLocaleString()}{" "}
-              rows, last changed {new Date(draftOffer.savedAt).toLocaleString()}.
+              rows, last changed {formatDateTime(draftOffer.savedAt)}.
             </span>
             <span className="import-selection-actions">
               <button type="button" className="button primary small" onClick={() => void resumeDraft(draftOffer)}>
@@ -345,7 +347,7 @@ export function InterceptImportPage() {
                   <span key={i.intercept_id}>
                     {k > 0 && ", "}
                     <Link to={`/intercepts/${i.intercept_id}`}>{i.intercept_name}</Link> (
-                    {i.entry_count.toLocaleString()} entries, {new Date(i.imported_at).toLocaleDateString()})
+                    {i.entry_count.toLocaleString()} entries, {formatDate(i.imported_at)})
                   </span>
                 ))}
                 . Importing it again would add its entries a second time.
@@ -422,7 +424,7 @@ export function InterceptImportPage() {
                   <div className="form-row">
                     <label>
                       Recorded on
-                      <input type="date" className="edit-input" value={recordedOn} onChange={(e) => setRecordedOn(e.target.value)} />
+                      <DateInput className="edit-input" value={recordedOn} onChange={(e) => setRecordedOn(e.target.value)} />
                     </label>
                     <label className="grow">
                       Collected by

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatDateTime } from "../common/dates";
 import type { Emitter } from "../../types/domain";
 import { useAuth } from "../../auth/AuthContext";
 import { RequireRole } from "../../auth/RequireAuth";
@@ -128,7 +129,7 @@ export function EditModeControls({
         </>
       ) : (
         <>
-          <span className="checkout-badge" title={checkedOutAt ? `Since ${new Date(checkedOutAt).toLocaleString()}` : undefined}>
+          <span className="checkout-badge" title={checkedOutAt ? `Since ${formatDateTime(checkedOutAt)}` : undefined}>
             Being edited by {holderUsername ?? "another user"}
           </span>
           {isAdmin && (

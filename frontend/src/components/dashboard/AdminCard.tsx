@@ -1,9 +1,10 @@
 import { Link } from "react-router-dom";
+import { formatDateTime } from "../common/dates";
 import { useDashboardAdmin } from "../../state/hooks/useDashboard";
 import { LoadingState } from "../common/LoadingState";
 
 function when(iso: string) {
-  return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  return formatDateTime(iso);
 }
 
 /** For admins: failed sign-ins in the last day, and Emitters held for editing

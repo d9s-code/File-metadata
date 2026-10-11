@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { formatDateTime } from "../components/common/dates";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEmitter } from "../state/hooks/useEmitters";
@@ -252,7 +253,7 @@ export function InterceptRegroupPage() {
       {draftOffer && (
         <div className="import-draft">
           <span>
-            <strong>Unfinished regrouping</strong> from {new Date(draftOffer.savedAt).toLocaleString()} —{" "}
+            <strong>Unfinished regrouping</strong> from {formatDateTime(draftOffer.savedAt)} —{" "}
             {draftOffer.groups.filter((g) => !g.excluded).length.toLocaleString()} rows.
           </span>
           <span className="import-selection-actions">

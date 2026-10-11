@@ -1,4 +1,8 @@
 import { useState, type FormEvent } from "react";
+import { EMITTERS_SECTION, InfoTip, PageHeader } from "../components/common/PageHeader";
+import { MenuButton } from "../components/common/MenuButton";
+import { FilterBar, shownCount } from "../components/common/FilterBar";
+import { useColumnVisibility, useColumnVisibilityMenu, type ToggleableColumn } from "../components/common/ColumnVisibilityMenu";
 import { Link, useNavigate } from "react-router-dom";
 import { useCreateEmitter, useDeleteEmitter, useEmitters } from "../state/hooks/useEmitters";
 import { RequireRole } from "../auth/RequireAuth";
@@ -69,6 +73,25 @@ function compareEmitters(a: Emitter, b: Emitter, key: EmitterSortKey, dir: "asc"
   }
 }
 
+type ColumnId = "designation" | "status" | "assignee" | "rf" | "pri" | "pw" | "scan" | "sim" | "tasks";
+const COLUMNS: ToggleableColumn<ColumnId>[] = [
+  { id: "designation", label: "Designation" },
+  { id: "status", label: "Status" },
+  { id: "assignee", label: "Assigned to" },
+  { id: "rf", label: "RF (MHz)" },
+  { id: "pri", label: "PRI (µs)" },
+  { id: "pw", label: "PW (µs)" },
+  { id: "scan", label: "Scan", defaultHidden: true },
+  { id: "sim", label: "SIM correct" },
+  { id: "tasks", label: "Tasks" },
+];
+
+/** "9000–9460", one value when both ends match, "—" without data. */
+function rangeText(min: number | null, max: number | null): string {
+  if (min == null || max == null) return "—";
+  return min === max ? String(min) : `${min}–${max}`;
+}
+
 /** No filter applied when both ends are blank. Otherwise an Emitter matches
  * only if it actually has data for this parameter AND that data's range
  * overlaps the filter range at all. */
@@ -97,8 +120,9 @@ export function EmittersListPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // Matches the name or the designation.
   const [nameFilter, setNameFilter] = useState("");
-  const [designationFilter, setDesignationFilter] = useState("");
+  const [showRanges, setShowRanges] = useState(false);
   const [rfMin, setRfMin] = useState("");
   const [rfMax, setRfMax] = useState("");
   const [pwMin, setPwMin] = useState("");
@@ -124,9 +148,7 @@ export function EmittersListPage() {
 
   const filtered = (emitters ?? []).filter((e) => {
     const nameQ = nameFilter.trim().toLowerCase();
-    if (nameQ && !e.name.toLowerCase().includes(nameQ)) return false;
-    const designationQ = designationFilter.trim().toLowerCase();
-    if (designationQ && !(e.designation ?? "").toLowerCase().includes(designationQ)) return false;
+    if (nameQ && !`${e.name} ${e.designation ?? ""}`.toLowerCase().includes(nameQ)) return false;
     if (!rangeOverlaps(rfMin, rfMax, e.summary.rf_min_mhz, e.summary.rf_max_mhz)) return false;
     if (!rangeOverlaps(pwMin, pwMax, e.summary.pw_min_us, e.summary.pw_max_us)) return false;
     if (!rangeOverlaps(priMin, priMax, e.summary.pri_min_us, e.summary.pri_max_us)) return false;
@@ -138,6 +160,9 @@ export function EmittersListPage() {
   });
 
   const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(filtered, compareEmitters);
+  const columns = useColumnVisibility("emitters-list-columns", COLUMNS);
+  const columnMenu = useColumnVisibilityMenu(columns);
+  const show = columns.isVisible;
 
   const header = (label: string, key: EmitterSortKey, columnType?: "string" | "number" | "date") => (
     <SortableColumnHeader
@@ -151,9 +176,11 @@ export function EmittersListPage() {
     />
   );
 
+  const rangesSet = [rfMin, rfMax, pwMin, pwMax, priMin, priMax, scanMin, scanMax].some(Boolean);
+  const filtering = !!nameFilter || !!assignedFilter || rangesSet;
+
   function resetFilters() {
     setNameFilter("");
-    setDesignationFilter("");
     setRfMin("");
     setRfMax("");
     setPwMin("");
@@ -197,12 +224,11 @@ export function EmittersListPage() {
 
   return (
     <div className="page">
-      <div className="page-header-row">
-        <h1>Emitters</h1>
+      <PageHeader title="Emitters" section={EMITTERS_SECTION}>
         <RequireRole minimum="editor">
           <button onClick={() => setShowAddModal(true)}>+ Add Emitter</button>
         </RequireRole>
-      </div>
+      </PageHeader>
 
       {showAddModal && (
         <Modal title="Add Emitter" onClose={() => setShowAddModal(false)}>
@@ -239,64 +265,67 @@ export function EmittersListPage() {
       {error && <div className="error-text">{(error as Error).message}</div>}
       {deleteError && <div className="error-text">{deleteError}</div>}
 
-      <div className="card">
-        <div className="modes-toolbar-row">
-          <input
-            type="text"
-            placeholder="Filter by name…"
-            value={nameFilter}
-            onChange={(e) => setNameFilter(e.target.value)}
-          />
-          <input
-            type="text"
-            placeholder="Filter by designation…"
-            value={designationFilter}
-            onChange={(e) => setDesignationFilter(e.target.value)}
-          />
-          <label>
-            RF (MHz)
-            <input type="number" step="any" placeholder="min" value={rfMin} onChange={(e) => setRfMin(e.target.value)} />
-            <input type="number" step="any" placeholder="max" value={rfMax} onChange={(e) => setRfMax(e.target.value)} />
-          </label>
-          <label>
-            PRI (µs)
-            <input type="number" step="any" placeholder="min" value={priMin} onChange={(e) => setPriMin(e.target.value)} />
-            <input type="number" step="any" placeholder="max" value={priMax} onChange={(e) => setPriMax(e.target.value)} />
-          </label>
-          <label>
-            PW (µs)
-            <input type="number" step="any" placeholder="min" value={pwMin} onChange={(e) => setPwMin(e.target.value)} />
-            <input type="number" step="any" placeholder="max" value={pwMax} onChange={(e) => setPwMax(e.target.value)} />
-          </label>
-          <label>
-            Scan
-            <input type="number" step="any" placeholder="min" value={scanMin} onChange={(e) => setScanMin(e.target.value)} />
-            <input type="number" step="any" placeholder="max" value={scanMax} onChange={(e) => setScanMax(e.target.value)} />
-          </label>
-          <label>
-            Assigned to
-            <select aria-label="Assigned to" value={assignedFilter} onChange={(e) => setAssignedFilter(e.target.value)}>
-              <option value="">Anyone</option>
-              <option value="me">Me</option>
-              <option value="none">Nobody</option>
-              {(people ?? [])
-                .filter((p) => p.role !== "viewer" && p.id !== user?.id)
-                .map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.username}
-                  </option>
-                ))}
-            </select>
-          </label>
-          <button type="button" className="link-button" onClick={resetFilters}>
-            Reset filters
+      <FilterBar
+        active={filtering}
+        onReset={resetFilters}
+        count={emitters ? shownCount(sorted.length, emitters.length, "Emitter") : null}
+        end={
+          <button type="button" className="button secondary small" onClick={columnMenu.openFrom}>
+            Columns ▾
           </button>
+        }
+      >
+        <input
+          type="search"
+          placeholder="Name or designation…"
+          aria-label="Filter by name or designation"
+          value={nameFilter}
+          onChange={(e) => setNameFilter(e.target.value)}
+        />
+        <select aria-label="Assigned to" value={assignedFilter} onChange={(e) => setAssignedFilter(e.target.value)}>
+          <option value="">Assigned to anyone</option>
+          <option value="me">Assigned to me</option>
+          <option value="none">Assigned to nobody</option>
+          {(people ?? [])
+            .filter((p) => p.role !== "viewer" && p.id !== user?.id)
+            .map((p) => (
+              <option key={p.id} value={p.id}>
+                Assigned to {p.username}
+              </option>
+            ))}
+        </select>
+        <button
+          type="button"
+          className={rangesSet ? "button secondary small filter-toggle active" : "button secondary small filter-toggle"}
+          aria-expanded={showRanges || rangesSet}
+          onClick={() => setShowRanges((v) => !v)}
+        >
+          RF / PRI / PW / Scan {showRanges || rangesSet ? "▴" : "▾"}
+        </button>
+      </FilterBar>
+      {(showRanges || rangesSet) && (
+        <div className="filter-bar filter-bar-ranges">
+          {(
+            [
+              ["RF (MHz)", rfMin, setRfMin, rfMax, setRfMax],
+              ["PRI (µs)", priMin, setPriMin, priMax, setPriMax],
+              ["PW (µs)", pwMin, setPwMin, pwMax, setPwMax],
+              ["Scan", scanMin, setScanMin, scanMax, setScanMax],
+            ] as const
+          ).map(([label, min, setMin, max, setMax]) => (
+            <span key={label} className="range-filter">
+              {label}
+              <input type="number" step="any" placeholder="min" aria-label={`${label} min`} value={min} onChange={(e) => setMin(e.target.value)} />
+              –
+              <input type="number" step="any" placeholder="max" aria-label={`${label} max`} value={max} onChange={(e) => setMax(e.target.value)} />
+            </span>
+          ))}
+          <InfoTip label="How the range filters match">
+            RF, PRI and PW match an Emitter if any of its approved Modes falls within the range. Scan matches against
+            the Emitter&apos;s EW Groups.
+          </InfoTip>
         </div>
-        <p className="hint-text">
-          RF/PRI/PW filters match an Emitter if any of its approved Modes falls within the given range. Scan
-          filters match against the Emitter's EW Groups directly.
-        </p>
-      </div>
+      )}
 
       {isLoading ? (
         <LoadingState label="Loading emitters…" />
@@ -316,7 +345,7 @@ export function EmittersListPage() {
         <div className="matrix-scroll">
         <table className="data-table">
           <thead>
-            <tr>
+            <tr {...columnMenu.openProps}>
               {canWrite && (
                 <th className="select-col">
                   <input
@@ -330,20 +359,16 @@ export function EmittersListPage() {
                 </th>
               )}
               {header("Name", "name")}
-              {header("Designation", "designation")}
-              {header("Status", "status")}
-              {header("Assigned to", "assignee")}
-              {header("RF min", "rf_min", "number")}
-              {header("RF max", "rf_max", "number")}
-              {header("PW min", "pw_min", "number")}
-              {header("PW max", "pw_max", "number")}
-              {header("PRI min", "pri_min", "number")}
-              {header("PRI max", "pri_max", "number")}
-              {header("Scan min", "scan_min", "number")}
-              {header("Scan max", "scan_max", "number")}
-              {header("SIM correct", "sim_correct", "number")}
-              <th>Tasks</th>
-              <th></th>
+              {show("designation") && header("Designation", "designation")}
+              {show("status") && header("Status", "status")}
+              {show("assignee") && header("Assigned to", "assignee")}
+              {show("rf") && header("RF (MHz)", "rf_min", "number")}
+              {show("pri") && header("PRI (µs)", "pri_min", "number")}
+              {show("pw") && header("PW (µs)", "pw_min", "number")}
+              {show("scan") && header("Scan", "scan_min", "number")}
+              {show("sim") && header("SIM correct", "sim_correct", "number")}
+              {show("tasks") && <th>Tasks</th>}
+              <th className="row-actions" aria-label="Actions"></th>
             </tr>
           </thead>
           <tbody>
@@ -362,38 +387,46 @@ export function EmittersListPage() {
                 <td>
                   <Link to={`/emitters/${e.id}`}>{e.name}</Link>
                 </td>
-                <td>{e.designation ?? "—"}</td>
-                <td>
-                  <span className={`status-badge status-${e.status}`}>{emitterStatusLabel(e.status)}</span>
-                </td>
-                <td>{e.assignee_id === user?.id ? <strong>You</strong> : (e.assignee_username ?? <span className="muted">—</span>)}</td>
-                <td>{e.summary.rf_min_mhz ?? "—"}</td>
-                <td>{e.summary.rf_max_mhz ?? "—"}</td>
-                <td>{e.summary.pw_min_us ?? "—"}</td>
-                <td>{e.summary.pw_max_us ?? "—"}</td>
-                <td>{e.summary.pri_min_us ?? "—"}</td>
-                <td>{e.summary.pri_max_us ?? "—"}</td>
-                <td>{e.summary.scan_min ?? "—"}</td>
-                <td>{e.summary.scan_max ?? "—"}</td>
-                <td
-                  className="nowrap"
-                  title={
-                    e.summary.sim_lines
-                      ? `${e.summary.sim_lines_correct} of ${e.summary.sim_lines} SIM Test Lines correct in their latest run`
-                      : "No SIM Test Lines"
-                  }
-                >
-                  {e.summary.sim_lines ? `${e.summary.sim_lines_correct} / ${e.summary.sim_lines}` : "—"}
-                </td>
-                <td>
-                  <TasksButton type="emitter" id={e.id} name={e.name} openCount={openTasks.get(e.id) ?? 0} compact />
-                </td>
-                <td>
-                  <RequireRole minimum="editor">
-                    <button className="link-button link-button-danger" onClick={() => void handleDelete(e)}>
-                      Delete
-                    </button>
-                  </RequireRole>
+                {show("designation") && <td>{e.designation ?? "—"}</td>}
+                {show("status") && (
+                  <td>
+                    <span className={`status-badge status-${e.status}`}>{emitterStatusLabel(e.status)}</span>
+                  </td>
+                )}
+                {show("assignee") && (
+                  <td>{e.assignee_id === user?.id ? <strong>You</strong> : (e.assignee_username ?? <span className="muted">—</span>)}</td>
+                )}
+                {show("rf") && <td className="nowrap">{rangeText(e.summary.rf_min_mhz, e.summary.rf_max_mhz)}</td>}
+                {show("pri") && <td className="nowrap">{rangeText(e.summary.pri_min_us, e.summary.pri_max_us)}</td>}
+                {show("pw") && <td className="nowrap">{rangeText(e.summary.pw_min_us, e.summary.pw_max_us)}</td>}
+                {show("scan") && <td className="nowrap">{rangeText(e.summary.scan_min, e.summary.scan_max)}</td>}
+                {show("sim") && (
+                  <td
+                    className="nowrap"
+                    title={
+                      e.summary.sim_lines
+                        ? `${e.summary.sim_lines_correct} of ${e.summary.sim_lines} SIM Test Lines correct in their latest run`
+                        : "No SIM Test Lines"
+                    }
+                  >
+                    {e.summary.sim_lines ? `${e.summary.sim_lines_correct} / ${e.summary.sim_lines}` : "—"}
+                  </td>
+                )}
+                {show("tasks") && (
+                  <td>
+                    <TasksButton type="emitter" id={e.id} name={e.name} openCount={openTasks.get(e.id) ?? 0} compact />
+                  </td>
+                )}
+                <td className="row-actions">
+                  <MenuButton
+                    label="⋯"
+                    className="row-menu-button"
+                    ariaLabel={`Actions for ${e.name}`}
+                    items={[
+                      { label: "Compare with another Emitter", to: `/emitters/compare?a=${e.id}` },
+                      ...(canWrite ? [{ label: "Delete…", danger: true, onSelect: () => void handleDelete(e) }] : []),
+                    ]}
+                  />
                 </td>
               </tr>
             ))}
@@ -402,6 +435,7 @@ export function EmittersListPage() {
         </div>
         </>
       )}
+      {columnMenu.menu}
       {dialog}
     </div>
   );

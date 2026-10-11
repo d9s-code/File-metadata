@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatDateTime } from "../common/dates";
 import { Link } from "react-router-dom";
 import type { AuditLogEntry } from "../../types/domain";
 import { useDashboardActivity } from "../../state/hooks/useDashboard";
@@ -6,14 +7,7 @@ import { LoadingState } from "../common/LoadingState";
 import { actionLabel } from "../audit/auditFormat";
 import { EmptyState } from "../common/EmptyState";
 
-function compactWhen(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
-    month: "numeric",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
+const compactWhen = formatDateTime;
 
 /** The latest changes. Sign-ins and starting or ending an edit are left out
  * unless asked for — they'd crowd out the changes themselves. */

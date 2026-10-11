@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { formatDate } from "../common/dates";
 import { Link } from "react-router-dom";
 import type { EmitterSimStatus, SimOutcomeCounts } from "../../api/dashboard";
 import { emitterStatusLabel } from "../common/emitterStatusLabel";
@@ -119,7 +120,7 @@ export function EmitterSimTable({ rows, counts }: { rows: EmitterSimStatus[]; co
                   <td>
                     {r.last_validated_at && r.last_validated_test_record_id ? (
                       <>
-                        <Link to={testLink(r.emitter_id, r.last_validated_test_record_id)}>{r.last_validated_at}</Link>
+                        <Link to={testLink(r.emitter_id, r.last_validated_test_record_id)}>{formatDate(r.last_validated_at)}</Link>
                         {r.changed_since_validation && (
                           <span className="status-badge status-in_review" title="Changed and committed after this test">
                             changed since

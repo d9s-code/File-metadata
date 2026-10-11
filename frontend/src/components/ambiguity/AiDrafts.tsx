@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from "react";
+import { formatDateTime } from "../common/dates";
 import type { AiSource, AiStamp, AmbiguityFinding, AmbiguityRun } from "../../api/ambiguity";
 import { ApiRequestError } from "../../api/client";
 import { RequireRole } from "../../auth/RequireAuth";
@@ -136,7 +137,7 @@ function DraftFrame({
       <div className="ai-draft-head">
         <span className="ai-draft-tag">AI draft</span>
         <span className="hint-text">
-          {stamp.model} · asked by {stamp.generated_by ?? "someone"} {new Date(stamp.generated_at).toLocaleString()} ·{" "}
+          {stamp.model} · asked by {stamp.generated_by ?? "someone"} {formatDateTime(stamp.generated_at)} ·{" "}
           {stamp.seconds}s
         </span>
         <button type="button" className="link-button" disabled={asking} onClick={onAgain}>

@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { formatDate } from "../components/common/dates";
 import { ObservedValuesTable } from "../components/testing/ObservedValuesTable";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useEmitter } from "../state/hooks/useEmitters";
@@ -143,13 +144,13 @@ export function TestRunDetailPage() {
         </Fact>
         <Fact label="Type">{testTypeLabel(record.test_type)}</Fact>
         <Fact label="Tested">
-          {record.test_date}
+          {formatDate(record.test_date)}
           {record.test_time ? ` ${record.test_time.slice(0, 5)}` : ""}
         </Fact>
         {record.dwell && <Fact label="Dwell">{record.dwell}</Fact>}
         {record.simulation_created_date && (
           <Fact label={record.test_type === "intercept" ? "Intercepted" : "Simulation created"}>
-            {record.simulation_created_date}
+            {formatDate(record.simulation_created_date)}
           </Fact>
         )}
         {retested && (

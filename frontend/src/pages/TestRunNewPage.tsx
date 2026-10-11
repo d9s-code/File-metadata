@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { formatDate, formatTime } from "../components/common/dates";
+import { DateInput, TimeInput } from "../components/common/DateInput";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { testDraftsApi, type TestRecord } from "../api/testRecords";
@@ -446,16 +448,15 @@ export function TestRunNewPage() {
             </label>
             <label>
               Test date
-              <input type="date" value={testDate} onChange={(e) => setTestDate(e.target.value)} required />
+              <DateInput value={testDate} onChange={(e) => setTestDate(e.target.value)} required />
             </label>
             <label>
               Time
-              <input type="time" value={testTime} onChange={(e) => setTestTime(e.target.value)} />
+              <TimeInput value={testTime} onChange={(e) => setTestTime(e.target.value)} />
             </label>
             <label>
               {isSimulation ? "Simulation created" : "Intercept date (optional)"}
-              <input
-                type="date"
+              <DateInput
                 value={isSimulation ? simCreatedDate : interceptDate}
                 onChange={(e) => (isSimulation ? setSimCreatedDate : setInterceptDate)(e.target.value)}
                 required={isSimulation}
@@ -471,7 +472,7 @@ export function TestRunNewPage() {
                 <option value="">—</option>
                 {records.map((r) => (
                   <option key={r.id} value={r.id}>
-                    {r.title} — {r.test_date}
+                    {r.title} — {formatDate(r.test_date)}
                   </option>
                 ))}
               </select>
@@ -484,7 +485,7 @@ export function TestRunNewPage() {
                   .filter((r) => r.lines.length > 0 || r.modes.length > 0)
                   .map((r) => (
                     <option key={r.id} value={r.id}>
-                      {r.title} — {r.test_date}
+                      {r.title} — {formatDate(r.test_date)}
                     </option>
                   ))}
               </select>
@@ -658,7 +659,7 @@ function SaveLine({ status, hasDraft, onRetry }: { status: SaveStatus; hasDraft:
       {status.kind === "saving"
         ? "Saving…"
         : status.kind === "saved"
-          ? `Saved ${status.at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}. `
+          ? `Saved ${formatTime(status.at)}. `
           : hasDraft
             ? "Picked up where it was left. "
             : "Saved as you fill it in. "}

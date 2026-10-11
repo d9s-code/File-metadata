@@ -1,8 +1,9 @@
 import type { Mode } from "../../types/domain";
+import { formatDate } from "../common/dates";
 
 /** A YYYY-MM-DD day, read as a local day rather than UTC midnight. */
 export function formatDay(day: string | null) {
-  return day ? new Date(`${day}T00:00:00`).toLocaleDateString() : null;
+  return day ? formatDate(`${day}T00:00:00`) : null;
 }
 
 /** Where the Modes tab opens filtered to one Mode. */

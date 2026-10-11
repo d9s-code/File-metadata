@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { DateInput } from "../common/DateInput";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../../auth/AuthContext";
 import { emittersApi } from "../../api/emitters";
@@ -140,7 +141,7 @@ export function TaskForm({
         </label>
         <label>
           Due
-          <input type="date" aria-label="Due" value={due} onChange={(e) => setDue(e.target.value)} />
+          <DateInput aria-label="Due" value={due} onChange={(e) => setDue(e.target.value)} />
         </label>
       </div>
       {!task && !about && (

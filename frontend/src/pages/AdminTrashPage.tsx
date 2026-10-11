@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { formatDateTime } from "../components/common/dates";
 import { useRestoreEntity, usePurgeForever, useTrash } from "../state/hooks/useTrash";
 import { useConfirmDialog } from "../components/common/ConfirmDialog";
 import { LoadingState } from "../components/common/LoadingState";
@@ -92,7 +93,7 @@ export function AdminTrashPage() {
                 <td>
                   <Link to={`${ENTITY_PATHS[item.entity_type]}/${item.id}`}>{item.name}</Link>
                 </td>
-                <td>{new Date(item.deleted_at).toLocaleString()}</td>
+                <td>{formatDateTime(item.deleted_at)}</td>
                 <td>{Math.max(daysRemaining(item.expires_at), 0)} day(s)</td>
                 <td>
                   <button className="icon-button" onClick={() => void handleRestore(item)}>

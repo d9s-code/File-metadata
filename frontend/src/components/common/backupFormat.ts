@@ -1,6 +1,8 @@
-/** "3 Oct 2026, 08:41" — or "—" when there's no time. */
+import { formatDateTime } from "./dates";
+
+/** "03.10.2026 08:41" — or "—" when there's no time. */
 export function backupWhen(iso: string | null | undefined) {
-  return iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "—";
+  return iso ? formatDateTime(iso) : "—";
 }
 
 /** "3 hours ago", "in 9 hours", "2 days ago". */

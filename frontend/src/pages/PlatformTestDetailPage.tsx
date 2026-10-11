@@ -1,4 +1,5 @@
 import { type ReactNode } from "react";
+import { formatDate } from "../components/common/dates";
 import { Link, useParams } from "react-router-dom";
 import { usePlatform } from "../state/hooks/usePlatforms";
 import { usePlatformTest } from "../state/hooks/usePlatformTests";
@@ -55,7 +56,7 @@ export function PlatformTestDetailPage() {
           <span className="run-fact-sub">worst of the Emitters&apos;</span>
         </Fact>
         <Fact label="Type">{testTypeLabel(test.test_type)}</Fact>
-        <Fact label="Tested">{test.test_date}</Fact>
+        <Fact label="Tested">{formatDate(test.test_date)}</Fact>
         <Fact label="Emitters">{test.emitters.length}</Fact>
         {test.platform_version_number != null && (
           <Fact label="Platform version">

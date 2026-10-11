@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { formatDate } from "../components/common/dates";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useEmitter } from "../state/hooks/useEmitters";
 import { useEwGroups } from "../state/hooks/useEwGroups";
@@ -24,6 +25,7 @@ import { LoadingState } from "../components/common/LoadingState";
 import { EmptyState } from "../components/common/EmptyState";
 import { MenuButton } from "../components/common/MenuButton";
 import { NotesFeed } from "../components/common/NotesFeed";
+import { NotesDrawer } from "../components/common/NotesDrawer";
 import { useConfirmDialog } from "../components/common/ConfirmDialog";
 import { ModeForm } from "../components/modes/ModeForm";
 import { InterceptFormModal } from "../components/intercepts/InterceptFormModal";
@@ -127,13 +129,13 @@ const pad2 = (n: number) => String(n).padStart(2, "0");
 function utcParts(iso: string) {
   const d = new Date(iso);
   return {
-    date: `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`,
+    date: `${pad2(d.getUTCDate())}.${pad2(d.getUTCMonth() + 1)}.${d.getUTCFullYear()}`,
     time: `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`,
-    full: `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())} ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}:${pad2(d.getUTCSeconds())}`,
+    full: `${pad2(d.getUTCDate())}.${pad2(d.getUTCMonth() + 1)}.${d.getUTCFullYear()} ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}:${pad2(d.getUTCSeconds())}`,
   };
 }
 
-/** When an entry was heard: "2026-09-14 08:15–09:09", the full times in the tooltip. */
+/** When an entry was heard: "14.09.2026 08:15–09:09", the full times in the tooltip. */
 function Heard({ entry }: { entry: InterceptEntry }) {
   if (!entry.first_seen_at) return <span className="hint-text">—</span>;
   const a = utcParts(entry.first_seen_at);
@@ -574,7 +576,7 @@ export function InterceptDetailPage() {
   const meta = [
     intercept.intercepted_on && `Recorded ${formatDay(intercept.intercepted_on)}`,
     intercept.collected_by && `collected by ${intercept.collected_by}`,
-    `logged ${new Date(intercept.created_at).toLocaleDateString()}`,
+    `logged ${formatDate(intercept.created_at)}`,
   ].filter(Boolean);
 
   const header = (label: string, key: SortKey, columnType?: "string" | "number" | "date") => (
@@ -674,17 +676,19 @@ export function InterceptDetailPage() {
       </div>
       {error && <div className="error-text">{error}</div>}
 
-      <section className="card">
-        <h4>Analyst notes</h4>
+      <NotesDrawer count={notes?.length ?? 0} subject={intercept.name} draftKey={`notes-draft:intercept:${intercept.id}`}>
         <NotesFeed
+          key={intercept.id}
+          draftKey={`notes-draft:intercept:${intercept.id}`}
           notes={notes}
           isLoading={notesLoading}
           placeholder="Your own thoughts/observations about this Intercept as a whole."
           onAdd={(body) => createNote.mutateAsync(body)}
           isAdding={createNote.isPending}
           onDelete={(noteId) => deleteNote.mutateAsync(noteId)}
+          inDrawer
         />
-      </section>
+      </NotesDrawer>
 
       {entries && entries.length > 0 && (
         <section className="card">

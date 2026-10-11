@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { MenuButton } from "../components/common/MenuButton";
+import { MDFS_SECTION, PageHeader } from "../components/common/PageHeader";
 import { useCustomers, useDeleteCustomer } from "../state/hooks/useCustomers";
 import { CustomerForm } from "../components/customers/CustomerForm";
 import { RequireRole } from "../auth/RequireAuth";
@@ -28,16 +30,15 @@ export function CustomersPage() {
 
   return (
     <div className="page">
-      <div className="page-header-row">
-        <h1>Customers</h1>
+      <PageHeader
+        title="Customers"
+        section={MDFS_SECTION}
+        info="Who an MDF is delivered to — pick from this list on an MDF instead of typing a name freely, so sorting and filtering the MDFs by customer stays consistent."
+      >
         <RequireRole minimum="editor">
           <button onClick={() => setShowForm((v) => !v)}>{showForm ? "Cancel" : "+ Add Customer"}</button>
         </RequireRole>
-      </div>
-      <p className="hint-text">
-        Who an MDF is delivered to — pick from this list on an MDF instead of typing a name freely, so
-        sorting/filtering the MDF overview by customer stays consistent.
-      </p>
+      </PageHeader>
 
       {showForm && <CustomerForm onClose={() => setShowForm(false)} />}
       {deleteError && <div className="error-text">{deleteError}</div>}
@@ -51,7 +52,7 @@ export function CustomersPage() {
           <thead>
             <tr>
               <th>Name</th>
-              <th></th>
+              <th className="row-actions" aria-label="Actions"></th>
             </tr>
           </thead>
           <tbody>
@@ -65,14 +66,17 @@ export function CustomersPage() {
               ) : (
                 <tr key={c.id}>
                   <td>{c.name}</td>
-                  <td>
+                  <td className="row-actions">
                     <RequireRole minimum="editor">
-                      <button className="link-button" onClick={() => setEditingCustomer(c)}>
-                        Edit
-                      </button>{" "}
-                      <button className="link-button link-button-danger" onClick={() => void handleDelete(c)}>
-                        Delete
-                      </button>
+                      <MenuButton
+                        label="⋯"
+                        className="row-menu-button"
+                        ariaLabel={`Actions for ${c.name}`}
+                        items={[
+                          { label: "Edit", onSelect: () => setEditingCustomer(c) },
+                          { label: "Delete…", danger: true, onSelect: () => void handleDelete(c) },
+                        ]}
+                      />
                     </RequireRole>
                   </td>
                 </tr>

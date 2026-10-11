@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { formatDate } from "../common/dates";
 import type { NeedsRedoTestItem, RecentTestRun } from "../../api/dashboard";
 import type { TestResult } from "../../types/domain";
 import { EmptyState } from "../common/EmptyState";
@@ -42,7 +43,7 @@ export function TestRunsCard({ runs, needsRedo }: { runs: RecentTestRun[]; needs
             <tbody>
               {runs.map((run) => (
                 <tr key={run.test_record_id}>
-                  <td className="nowrap">{run.test_date}</td>
+                  <td className="nowrap">{formatDate(run.test_date)}</td>
                   <td>
                     <Link to={runLink(run)}>{run.title}</Link>
                     <span className="jitter-subline">

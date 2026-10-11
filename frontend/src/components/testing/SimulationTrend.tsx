@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { formatDate } from "../common/dates";
 import { useNavigate } from "react-router-dom";
 import type { TestRecord } from "../../api/testRecords";
 import { useEmitterVersions } from "../../state/hooks/useEmitterVersions";
@@ -23,7 +24,7 @@ const NOT_RUN = { key: "not_run", label: "Not in this run", cls: "trend-not-run"
 const PREFS_KEY = "sim-trend-prefs";
 
 function shortDate(day: string) {
-  return new Date(`${day}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "2-digit" });
+  return formatDate(`${day}T00:00:00`);
 }
 
 /** When a run happened: its date and time — or, for runs logged before times
@@ -208,7 +209,7 @@ export function SimulationTrend({
               <strong>{hovered.record.title}</strong>
             </div>
             <div className="hint-text">
-              {hovered.record.test_date} {hovered.when.time}
+              {formatDate(hovered.record.test_date)} {hovered.when.time}
               {hovered.when.logged ? " (when logged — no test time recorded)" : ""}
               {hovered.version != null ? ` · version ${hovered.version}` : " · before the first saved version"}
             </div>

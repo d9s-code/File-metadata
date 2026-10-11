@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { DateInput } from "../common/DateInput";
 import { Modal } from "../common/Modal";
 import { ApiRequestError } from "../../api/client";
 import { useCreateIntercept, useUpdateIntercept } from "../../state/hooks/useIntercepts";
@@ -81,7 +82,7 @@ export function InterceptFormModal({
         <div className="form-row">
           <label>
             Recorded on
-            <input type="date" className="edit-input" value={interceptedOn} onChange={(e) => setInterceptedOn(e.target.value)} />
+            <DateInput className="edit-input" value={interceptedOn} onChange={(e) => setInterceptedOn(e.target.value)} />
           </label>
           <label className="grow">
             Collected by

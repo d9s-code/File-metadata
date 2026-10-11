@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { DateInput } from "./DateInput";
 import { Modal } from "./Modal";
 import { emittersApi } from "../../api/emitters";
 import { ApiRequestError } from "../../api/client";
@@ -46,8 +47,7 @@ export function JsonImportModal({
 
           <label className="wide-label" style={{ marginTop: "1rem", display: "block" }}>
             Date last updated (optional)
-            <input
-              type="date"
+            <DateInput
               value={sourceDate}
               onChange={(e) => setSourceDate(e.target.value)}
               disabled={isImporting}

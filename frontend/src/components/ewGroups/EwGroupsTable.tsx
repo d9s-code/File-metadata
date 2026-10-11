@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { MenuButton } from "../common/MenuButton";
 import type { EwGroup } from "../../types/domain";
 import { useDeleteEwGroup } from "../../state/hooks/useEwGroups";
 import { useEmitter } from "../../state/hooks/useEmitters";
@@ -101,7 +102,7 @@ export function EwGroupsTable({ emitterId, ewGroups }: { emitterId: string; ewGr
                 onSort={onSort}
                 onClear={onClear}
               />
-              <th></th>
+              <th className="row-actions" aria-label="Actions"></th>
             </tr>
           </thead>
           <tbody>
@@ -119,14 +120,17 @@ export function EwGroupsTable({ emitterId, ewGroups }: { emitterId: string; ewGr
                 </td>
                 <td>{g.threat_priority ?? "—"}</td>
                 <td>{g.ageout ?? "—"}</td>
-                <td>
+                <td className="row-actions">
                   <RequireRole minimum="editor">
-                    <button className="link-button" disabled={!canEdit} title={editTitle} onClick={() => setEditingGroup(g)}>
-                      Edit
-                    </button>
-                    <button className="link-button link-button-danger" disabled={!canEdit} title={editTitle} onClick={() => void handleDelete(g)}>
-                      Delete
-                    </button>
+                    <MenuButton
+                      label="⋯"
+                      className="row-menu-button"
+                      ariaLabel={`Actions for ${g.name}`}
+                      items={[
+                        { label: "Edit", disabled: !canEdit, title: editTitle, onSelect: () => setEditingGroup(g) },
+                        { label: "Delete…", danger: true, disabled: !canEdit, title: editTitle, onSelect: () => void handleDelete(g) },
+                      ]}
+                    />
                   </RequireRole>
                 </td>
               </tr>
