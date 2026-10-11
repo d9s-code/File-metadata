@@ -326,6 +326,8 @@ class PlatformTestEmitterIn(BaseModel):
     result_override: TestResult | None = None
     result_override_note: str | None = Field(default=None, max_length=2000)
     notes: str | None = None
+    # When this redoes an earlier Platform test: the Emitter's record in it.
+    retests_test_record_id: UUID | None = None
 
 
 class PlatformTestCreate(BaseModel):
@@ -356,6 +358,7 @@ class PlatformTestCreate(BaseModel):
             result=entry.result,
             result_override=entry.result_override,
             result_override_note=entry.result_override_note,
+            retests_test_record_id=entry.retests_test_record_id,
         )
 
 
@@ -371,6 +374,11 @@ class PlatformTestEmitterOut(BaseModel):
     lines: int = 0
     modes: int = 0
     signals: int = 0
+    # How many SIM Test Lines / Modes came out each way, by result.
+    line_counts: dict[str, int] = {}
+    mode_counts: dict[str, int] = {}
+    # The Emitter's own notes in the run (not the session notes it inherits).
+    notes: str | None = None
 
 
 class PlatformTestOut(BaseModel):

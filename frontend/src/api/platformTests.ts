@@ -19,6 +19,8 @@ export interface PlatformTestEmitterInput {
   result_override?: TestResult;
   result_override_note?: string;
   notes?: string;
+  /** When this redoes an earlier Platform test: the Emitter's record in it. */
+  retests_test_record_id?: string;
 }
 
 export interface PlatformTestInput {
@@ -45,6 +47,11 @@ export interface PlatformTestEmitter {
   lines: number;
   modes: number;
   signals: number;
+  /** How many SIM Test Lines / Modes came out each way, by result. */
+  line_counts: Partial<Record<TestResult, number>>;
+  mode_counts: Partial<Record<TestResult, number>>;
+  /** The Emitter's own notes in the run (not the session notes). */
+  notes: string | null;
 }
 
 export interface PlatformTest {

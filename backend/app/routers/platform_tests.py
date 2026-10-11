@@ -2,6 +2,7 @@
 Logging one writes an ordinary test record per Emitter — against the version
 the Platform pins — grouped under a PlatformTest, all at once or not at all."""
 
+from collections import Counter
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -72,9 +73,13 @@ def _out(db: Session, tests: list[PlatformTest]) -> list[PlatformTestOut]:
                     lines=len(r.lines),
                     modes=len(r.modes),
                     signals=len(r.signals),
+                    line_counts=dict(Counter(line.outcome.value for line in r.lines)),
+                    mode_counts=dict(Counter(m.result.value for m in r.modes if m.result is not None)),
+                    notes=r.notes if r.notes and r.notes != t.notes else None,
                 )
             )
-        rows.sort(key=lambda row: ((row.designation or "").lower(), row.emitter_name.lower()))
+        # As the Emitters read: "designation — name", or the name alone.
+        rows.sort(key=lambda row: f"{row.designation} — {row.emitter_name}".lower() if row.designation else row.emitter_name.lower())
         out.append(
             PlatformTestOut(
                 id=t.id,

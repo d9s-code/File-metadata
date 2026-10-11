@@ -5,6 +5,7 @@ import { useConfirmDialog } from "../common/ConfirmDialog";
 import { EmptyState } from "../common/EmptyState";
 import { relativeTime } from "../common/backupFormat";
 import { testResultLabel, testTypeLabel } from "../testing/testFormat";
+import type { PlatformTest } from "../../api/platformTests";
 import { useDiscardPlatformTestDraft, usePlatformTestDrafts, usePlatformTests } from "../../state/hooks/usePlatformTests";
 
 /** A Platform's tests: runs in progress, and the logged ones — each with
@@ -71,6 +72,8 @@ export function PlatformTests({ platformId, pinnedCount }: { platformId: string;
         </div>
       )}
 
+      {tests && tests.length > 1 && <PlatformTestTrend platformId={platformId} tests={tests} />}
+
       {isLoading ? (
         <p className="hint-text">Loading…</p>
       ) : !tests?.length ? (
@@ -86,13 +89,16 @@ export function PlatformTests({ platformId, pinnedCount }: { platformId: string;
               <th>Emitters</th>
               <th>Platform version</th>
               <th>Tested by</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
             {tests.map((t) => (
               <tr key={t.id}>
                 <td>{t.test_date}</td>
-                <td title={t.notes ?? undefined}>{t.title}</td>
+                <td title={t.notes ?? undefined}>
+                  <Link to={`/platforms/${platformId}/tests/${t.id}`}>{t.title}</Link>
+                </td>
                 <td>{testTypeLabel(t.test_type)}</td>
                 <td>
                   <span className={`test-result-badge test-result-${t.result}`}>{testResultLabel(t.result)}</span>
@@ -107,9 +113,6 @@ export function PlatformTests({ platformId, pinnedCount }: { platformId: string;
                         </Link>
                         <span className="hint-text">
                           {e.version_number != null ? ` · v${e.version_number}` : ""}
-                          {e.lines ? ` · ${e.lines} SIM line${e.lines === 1 ? "" : "s"}` : ""}
-                          {e.modes ? ` · ${e.modes} Mode${e.modes === 1 ? "" : "s"}` : ""}
-                          {e.signals ? ` · ${e.signals} signal${e.signals === 1 ? "" : "s"}` : ""}
                           {e.computed_result ? ` · worked out ${testResultLabel(e.computed_result)}` : ""}
                         </span>
                       </li>
@@ -118,6 +121,11 @@ export function PlatformTests({ platformId, pinnedCount }: { platformId: string;
                 </td>
                 <td>{t.platform_version_number != null ? `v${t.platform_version_number}` : "—"}</td>
                 <td>{t.tested_by_username ?? "—"}</td>
+                <td>
+                  <RequireRole minimum="editor">
+                    <Link to={`/platforms/${platformId}/tests/new?redo=${t.id}`}>Redo</Link>
+                  </RequireRole>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -125,5 +133,61 @@ export function PlatformTests({ platformId, pinnedCount }: { platformId: string;
       )}
       {dialog}
     </section>
+  );
+}
+
+const TREND_RUNS = 12;
+
+/** Each Emitter's result across the latest Platform tests, oldest to newest:
+ * a row per Emitter, a column per test. */
+function PlatformTestTrend({ platformId, tests }: { platformId: string; tests: PlatformTest[] }) {
+  const runs = [...tests].slice(0, TREND_RUNS).reverse();
+  const emitters = new Map<string, string>();
+  for (const t of runs)
+    for (const e of t.emitters) emitters.set(e.emitter_id, e.designation ? `${e.designation} — ${e.emitter_name}` : e.emitter_name);
+  const rows = [...emitters.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  return (
+    <div className="platform-test-trend">
+      <h5>
+        Trend <span className="hint-text">— each Emitter&apos;s result in the latest {runs.length} Platform tests, oldest first</span>
+      </h5>
+      <div className="matrix-scroll">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Emitter</th>
+              {runs.map((t) => (
+                <th key={t.id} className="trend-col" title={t.title}>
+                  <Link to={`/platforms/${platformId}/tests/${t.id}`}>{t.test_date}</Link>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(([id, name]) => (
+              <tr key={id}>
+                <td>{name}</td>
+                {runs.map((t) => {
+                  const e = t.emitters.find((x) => x.emitter_id === id);
+                  return (
+                    <td key={t.id} className="trend-col">
+                      {e ? (
+                        <Link to={`/emitters/${id}/tests/${e.test_record_id}`} title={`${t.title} — open the record`}>
+                          <span className={`test-result-badge test-result-${e.result}`}>{testResultLabel(e.result)}</span>
+                        </Link>
+                      ) : (
+                        <span className="hint-text" title="Not in this run">
+                          —
+                        </span>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }

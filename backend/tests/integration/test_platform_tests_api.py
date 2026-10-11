@@ -133,3 +133,45 @@ def test_emitter_drafts_and_platform_drafts_stay_apart(editor_client):
     )
     assert [d["title"] for d in editor_client.get(f"/emitters/{a['emitter']['id']}/test-drafts").json()] == ["E"]
     assert [d["title"] for d in editor_client.get(f"/platforms/{platform['id']}/test-drafts").json()] == ["P"]
+
+
+def test_platform_test_counts_outcomes_and_a_redo_links_each_record(editor_client):
+    a = _emitter(editor_client, "Golf", lines=2)
+    platform = _platform(editor_client, a)
+    body = {
+        "title": "First",
+        "test_type": "simulation",
+        "test_date": "2026-10-01",
+        "simulation_created_date": "2026-09-30",
+        "emitters": [
+            {
+                "emitter_id": a["emitter"]["id"],
+                "line_results": [
+                    {"test_line_id": a["lines"][0]["id"], "outcome": "pass"},
+                    {"test_line_id": a["lines"][1]["id"], "outcome": "fail"},
+                ],
+            }
+        ],
+    }
+    first = editor_client.post(f"/platforms/{platform['id']}/tests", json=body).json()
+    [row] = first["emitters"]
+    assert row["line_counts"] == {"pass": 1, "fail": 1}
+
+    redo = {
+        **body,
+        "title": "Retest: First",
+        "emitters": [
+            {
+                **body["emitters"][0],
+                "line_results": [{"test_line_id": a["lines"][1]["id"], "outcome": "pass"}],
+                "retests_test_record_id": row["test_record_id"],
+            }
+        ],
+    }
+    second = editor_client.post(f"/platforms/{platform['id']}/tests", json=redo).json()
+    record = next(
+        r for r in editor_client.get(f"/emitters/{a['emitter']['id']}/test-records").json()
+        if r["id"] == second["emitters"][0]["test_record_id"]
+    )
+    assert record["retests_test_record_id"] == row["test_record_id"]
+    assert editor_client.get(f"/platform-tests/{second['id']}").json()["result"] == "pass"

@@ -23,15 +23,12 @@ import { DEFAULT_UNKNOWN } from "../components/testing/ModeMultiSelect";
 import { LoadingState } from "../components/common/LoadingState";
 import { ModeForm } from "../components/modes/ModeForm";
 import { computeOverallResult } from "../components/testing/modeResultAggregate";
-import { blankSimLineEntry, SimLineResultsTable, type SimLineEntry } from "../components/testing/SimLineResultsTable";
-import {
-  blankInterceptModeEntry,
-  InterceptModeResultsTable,
-  type InterceptModeEntry,
-} from "../components/testing/InterceptModeResultsTable";
+import { SimLineResultsTable, type SimLineEntry } from "../components/testing/SimLineResultsTable";
+import { InterceptModeResultsTable, type InterceptModeEntry } from "../components/testing/InterceptModeResultsTable";
 import { InterceptSignalsEditor, loggedSignals, type SignalEntry } from "../components/testing/InterceptSignals";
 import { nonEmptySets, observedValueOptions, TEST_RESULTS, testResultLabel, testTypeLabel } from "../components/testing/testFormat";
 import { DwellInput, MANUAL_DWELL } from "../components/testing/DwellInput";
+import { lineEntriesFrom, modeEntriesFrom } from "../components/testing/runSeed";
 
 /** Everything on the page that's saved as the run is filled in — the
  * draft's `state`. (A new Mode being typed in isn't, until it's staged.) */
@@ -74,38 +71,6 @@ function nowTime(): string {
 
 function todayDate(): string {
   return new Date().toISOString().slice(0, 10);
-}
-
-/** Outcomes and intercepted Modes carry over from an earlier run; parameters
- * and notes describe that specific run, so they don't. */
-function lineEntriesFrom(previous: TestRecord | undefined, lineIds: string[]): Record<string, SimLineEntry> {
-  const prior = new Map((previous?.lines ?? []).map((l) => [l.test_line_id, l]));
-  return Object.fromEntries(
-    lineIds.map((id) => {
-      const p = prior.get(id);
-      return [
-        id,
-        p
-          ? {
-              ...blankSimLineEntry(),
-              outcome: p.outcome,
-              interceptedModeIds: [
-                ...(p.intercepted_as_unknown ? [DEFAULT_UNKNOWN.id] : []),
-                ...p.intercepted_modes.map((m) => m.mode_id),
-              ],
-            }
-          : blankSimLineEntry(),
-      ];
-    }),
-  );
-}
-
-function modeEntriesFrom(previous: TestRecord | undefined): Record<string, InterceptModeEntry> {
-  return Object.fromEntries(
-    (previous?.modes ?? [])
-      .filter((m) => m.link_type === "exercised" && m.result)
-      .map((m) => [m.mode_id, { ...blankInterceptModeEntry(), included: true, result: m.result as TestResult }]),
-  );
 }
 
 export function TestRunNewPage() {

@@ -5702,23 +5702,16 @@ a.ai-cite:hover { text-decoration: underline; }
 }
 
 /* A Platform test: a section per pinned Emitter. */
-.platform-test-emitter-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
+.platform-test-table .platform-test-notes {
+  min-width: 18rem;
+  width: 45%;
 }
-.platform-test-emitter-title {
-  font-size: 1rem;
+.platform-test-table .platform-test-notes textarea {
+  width: 100%;
+  box-sizing: border-box;
 }
-.platform-test-emitter-result {
-  margin-left: auto;
-}
-.platform-test-emitter.excluded {
-  opacity: 0.6;
-}
-.platform-test-emitter-body {
-  margin-top: 0.5rem;
+.platform-test-table tr.excluded-row > td {
+  opacity: 0.55;
 }
 .platform-test-results {
   list-style: none;
@@ -5909,4 +5902,16 @@ a.ai-cite:hover { text-decoration: underline; }
 }
 .data-table tr.selected-row > td {
   background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+/* Platform tests: each Emitter's result across runs. */
+.platform-test-trend {
+  margin: 0.5rem 0 1rem;
+}
+.platform-test-trend h5 {
+  margin: 0 0 0.4rem;
+}
+.platform-test-trend .trend-col {
+  text-align: center;
+  white-space: nowrap;
 }

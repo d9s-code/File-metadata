@@ -5,6 +5,14 @@ import { testDraftsApi } from "../../api/testRecords";
 export const platformTestsKey = (platformId: string) => ["platformTests", platformId] as const;
 export const platformTestDraftsKey = (platformId: string) => ["platformTestDrafts", platformId] as const;
 
+export function usePlatformTest(testId: string | null) {
+  return useQuery({
+    queryKey: ["platformTest", testId],
+    queryFn: () => platformTestsApi.get(testId as string),
+    enabled: !!testId,
+  });
+}
+
 export function usePlatformTests(platformId: string) {
   return useQuery({ queryKey: platformTestsKey(platformId), queryFn: () => platformTestsApi.list(platformId), enabled: !!platformId });
 }
