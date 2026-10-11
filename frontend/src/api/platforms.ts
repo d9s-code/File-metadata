@@ -72,6 +72,7 @@ export const platformsApi = {
       emitter_id: emitterId,
       emitter_version_id: emitterVersionId,
     }),
+  repinLatest: (platformId: string) => api.post<PlatformLink[]>(`/platforms/${platformId}/links/repin-latest`, {}),
   unpinEmitter: (platformId: string, emitterId: string) =>
     api.delete<void>(`/platforms/${platformId}/links/${emitterId}`),
   exportXml: (platformId: string) =>

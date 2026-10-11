@@ -240,3 +240,30 @@ def test_list_summarises_each_platforms_emitters_versions_and_mdfs(editor_client
     assert s["latest_version_number"] == 2
     assert s["mdf_count"] == 1
     assert s["ambiguous_emitters"] == 2 and s["open_ambiguities"] == 2
+
+
+def test_repin_latest_moves_every_outdated_pin_and_reports_numbers(editor_client):
+    from tests.integration.test_modes_api import FIXED_LINE
+
+    def emitter(name):
+        e = editor_client.post("/emitters", json={"name": name}).json()
+        g = editor_client.post(f"/emitters/{e['id']}/ew-groups", json={"name": "G"}).json()
+        s = editor_client.post(f"/emitters/{e['id']}/sources", json={"name": "S", "source_date": "2025-01-01"}).json()
+        editor_client.post(
+            f"/ew-groups/{g['id']}/modes",
+            json={"source_id": s["id"], "name": "M", "pri_type": "fixed", "line": FIXED_LINE},
+        )
+        return e, editor_client.post(f"/emitters/{e['id']}/versions", json={"change_summary": "v1"}).json()
+
+    (a, va), (b, vb) = emitter("Repin A"), emitter("Repin B")
+    platform = editor_client.post("/platforms", json={"name": "Repin Platform"}).json()
+    for e, v in ((a, va), (b, vb)):
+        editor_client.post(f"/platforms/{platform['id']}/links", json={"emitter_id": e["id"], "emitter_version_id": v["id"]})
+    a2 = editor_client.post(f"/emitters/{a['id']}/versions", json={"change_summary": "newer"}).json()
+
+    resp = editor_client.post(f"/platforms/{platform['id']}/links/repin-latest")
+    assert resp.status_code == 200, resp.text
+    by_emitter = {link["emitter_id"]: link for link in resp.json()}
+    assert by_emitter[a["id"]]["emitter_version_id"] == a2["id"]
+    assert by_emitter[a["id"]]["pinned_version_number"] == by_emitter[a["id"]]["latest_version_number"] == 2
+    assert by_emitter[b["id"]]["emitter_version_id"] == vb["id"]  # already current: untouched

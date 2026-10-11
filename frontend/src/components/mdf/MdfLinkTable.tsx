@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
-import type { MdfLink } from "../../api/mdfs";
+import { isOutdatedMdfPin, type MdfLink } from "../../api/mdfs";
 import type { Platform } from "../../api/platforms";
-import { useUnpinPlatform } from "../../state/hooks/useMdfs";
+import { usePinPlatform, useUnpinPlatform } from "../../state/hooks/useMdfs";
 import { usePlatformVersions } from "../../state/hooks/usePlatformVersions";
 import { RequireRole } from "../../auth/RequireAuth";
 import { EmptyState } from "../common/EmptyState";
@@ -19,6 +19,37 @@ function PinnedVersionCell({ platformId, versionId }: { platformId: string; vers
     <Link to={`/platforms/${platformId}/versions?version=${version.version_number}`}>
       v{version.version_number}
     </Link>
+  );
+}
+
+/** "Outdated — v4 saved" with a one-click repin to the newest saved version. */
+function OutdatedPin({ mdfId, link }: { mdfId: string; link: MdfLink }) {
+  const pin = usePinPlatform(mdfId);
+  if (!isOutdatedMdfPin(link)) return null;
+  return (
+    <>
+      {" "}
+      <span
+        className="status-badge status-pending_review"
+        title={`The Platform has a newer saved version (v${link.latest_version_number}) than the one pinned here (v${link.pinned_version_number}).`}
+      >
+        Outdated — v{link.latest_version_number} saved
+      </span>
+      {link.latest_version_id && (
+        <RequireRole minimum="editor">
+          {" "}
+          <button
+            className="link-button"
+            disabled={pin.isPending}
+            onClick={() =>
+              void pin.mutateAsync({ platformId: link.platform_id, platformVersionId: link.latest_version_id! })
+            }
+          >
+            {pin.isPending ? "Repinning…" : `Repin to v${link.latest_version_number}`}
+          </button>
+        </RequireRole>
+      )}
+    </>
   );
 }
 
@@ -75,6 +106,7 @@ export function MdfLinkTable({
             </td>
             <td>
               <PinnedVersionCell platformId={link.platform_id} versionId={link.platform_version_id} />
+              <OutdatedPin mdfId={mdfId} link={link} />
             </td>
             <td>{new Date(link.added_at).toLocaleString()}</td>
             <td>

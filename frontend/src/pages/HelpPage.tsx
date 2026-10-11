@@ -705,7 +705,8 @@ export function HelpPage() {
             with when it was last saved under the name. Pin and unpin Emitters below — each pin references one saved
             Emitter version; the picker and the table show each Emitter&apos;s designation first. A pin whose Emitter
             has been saved again since is flagged <strong>Outdated — vN saved</strong>, with <strong>Repin to vN</strong>{" "}
-            beside it; the header counts outdated pins. A Platform has no
+            beside it; the header counts outdated pins, and <strong>Repin all to their latest version</strong> moves
+            them all at once. A Platform has no
             editing session: pins and details apply straight away, and <strong>Save version</strong> records them
             as a new version (the summary is optional).
           </p>
@@ -772,6 +773,14 @@ export function HelpPage() {
           <p>
             An <strong>Analyst notes</strong> panel below the title works the same way as an Emitter&apos;s —
             an append-only, timestamped log, separate from the single editable "Notes" field in the edit form.
+          </p>
+          <p>
+            The <strong>Readiness</strong> checklist at the top of Pinned Platforms says what&apos;s left before the
+            MDF goes out, problems first: Platforms pinned, the pins saved as a version, Platform pins and the Emitter
+            pins inside them up to date, every Emitter Operational and passing its latest Simulation Test, no open
+            High or Exact finding in the latest ambiguity check, and a passing MDF test on file. Pinned Platforms with a
+            newer saved version are flagged <strong>Outdated</strong>, with <strong>Repin to vN</strong> beside each and{" "}
+            <strong>Repin all to their latest version</strong> above the table.
           </p>
           <p>
             <strong>Charts</strong> works like a Platform&apos;s, one level up: <strong>Per Platform</strong> draws

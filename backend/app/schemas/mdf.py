@@ -52,6 +52,20 @@ class MdfLinkOut(BaseModel):
     platform_id: UUID
     platform_version_id: UUID
     added_at: datetime
+    # The pinned Platform version's number and the Platform's latest saved one;
+    # the pin is outdated when the latter is higher (filled in by list_links).
+    pinned_version_number: int | None = None
+    latest_version_number: int | None = None
+    latest_version_id: UUID | None = None
+
+
+class ReadinessItem(BaseModel):
+    key: str
+    label: str
+    # "ok", "warn" or "fail".
+    status: str
+    detail: str
+    items: list[str] = []
 
 
 class MdfReadinessOut(BaseModel):

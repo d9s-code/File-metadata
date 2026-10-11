@@ -5818,3 +5818,66 @@ a.ai-cite:hover { text-decoration: underline; }
   color: var(--viz-ink-muted);
   font-size: 0.8rem;
 }
+
+/* Repinning every outdated pin at once. */
+.repin-all-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.6rem;
+}
+
+/* An MDF's readiness checklist. */
+.readiness-panel {
+  border-left: 4px solid var(--badge-green-fg);
+}
+.readiness-panel.has-warn {
+  border-left-color: var(--badge-amber-fg);
+}
+.readiness-panel.has-fail {
+  border-left-color: var(--error);
+}
+.readiness-panel .section-toggle h4 {
+  display: inline;
+  margin: 0;
+}
+.readiness-list {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.readiness-item {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+}
+.readiness-icon {
+  flex: 0 0 1.3rem;
+  height: 1.3rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.readiness-ok .readiness-icon {
+  background: var(--badge-green-bg);
+  color: var(--badge-green-fg);
+}
+.readiness-warn .readiness-icon {
+  background: var(--badge-amber-bg);
+  color: var(--badge-amber-fg);
+}
+.readiness-fail .readiness-icon {
+  background: var(--badge-red-bg);
+  color: var(--badge-red-fg);
+}
+.readiness-sublist {
+  margin: 0.2rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+}

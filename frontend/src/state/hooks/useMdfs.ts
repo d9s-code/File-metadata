@@ -54,6 +54,33 @@ export function mdfReadinessKey(mdfId: string) {
   return ["mdfReadiness", mdfId] as const;
 }
 
+export function mdfReadinessChecklistKey(mdfId: string) {
+  return ["mdfReadinessChecklist", mdfId] as const;
+}
+
+/** The MDF's readiness checklist — refetched whenever it's shown. */
+export function useMdfReadinessChecklist(mdfId: string) {
+  return useQuery({
+    queryKey: mdfReadinessChecklistKey(mdfId),
+    queryFn: () => mdfsApi.getReadinessChecklist(mdfId),
+    enabled: !!mdfId,
+    staleTime: 0,
+  });
+}
+
+/** Moves every pinned Platform with a newer saved version to that version. */
+export function useRepinMdfLatest(mdfId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => mdfsApi.repinLatest(mdfId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: mdfLinksKey(mdfId) });
+      qc.invalidateQueries({ queryKey: mdfReadinessKey(mdfId) });
+      qc.invalidateQueries({ queryKey: mdfReadinessChecklistKey(mdfId) });
+    },
+  });
+}
+
 export function useMdfLinks(mdfId: string) {
   return useQuery({ queryKey: mdfLinksKey(mdfId), queryFn: () => mdfsApi.listLinks(mdfId), enabled: !!mdfId });
 }
@@ -66,6 +93,7 @@ export function usePinPlatform(mdfId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: mdfLinksKey(mdfId) });
       qc.invalidateQueries({ queryKey: mdfReadinessKey(mdfId) });
+      qc.invalidateQueries({ queryKey: mdfReadinessChecklistKey(mdfId) });
     },
   });
 }

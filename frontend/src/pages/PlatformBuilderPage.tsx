@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { usePlatform, usePlatformLinks, useUpdatePlatform } from "../state/hooks/usePlatforms";
+import { usePlatform, usePlatformLinks, useRepinPlatformLatest, useUpdatePlatform } from "../state/hooks/usePlatforms";
 import { useCommitPlatformVersion, usePlatformVersions } from "../state/hooks/usePlatformVersions";
 import { useEmitters } from "../state/hooks/useEmitters";
 import { isOutdatedPin, platformsApi } from "../api/platforms";
@@ -31,6 +31,7 @@ export function PlatformBuilderPage() {
   });
   const { data: platform, isLoading } = usePlatform(platformId);
   const { data: links } = usePlatformLinks(platformId ?? "");
+  const repinAll = useRepinPlatformLatest(platformId ?? "");
   const { data: emitters } = useEmitters();
   const commitVersion = useCommitPlatformVersion(platformId ?? "");
   const { data: versions } = usePlatformVersions(platformId ?? "");
@@ -190,6 +191,23 @@ export function PlatformBuilderPage() {
 
       {tab === "emitters" && (
         <div>
+          {outdatedPins > 0 && (
+            <RequireRole minimum="editor">
+              <p className="repin-all-row">
+                <span className="hint-text">
+                  {outdatedPins} pinned Emitter{outdatedPins === 1 ? " has" : "s have"} a newer saved version.
+                </span>{" "}
+                <button
+                  type="button"
+                  className="button secondary small"
+                  disabled={repinAll.isPending}
+                  onClick={() => void repinAll.mutateAsync()}
+                >
+                  {repinAll.isPending ? "Repinning…" : "Repin all to their latest version"}
+                </button>
+              </p>
+            </RequireRole>
+          )}
           <PlatformLinkTable platformId={platform.id} links={links ?? []} emittersById={emittersById} />
 
           <RequireRole minimum="editor">

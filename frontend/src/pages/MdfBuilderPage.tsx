@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { useMdf, useMdfLinks, useUpdateMdf } from "../state/hooks/useMdfs";
+import { useMdf, useMdfLinks, useRepinMdfLatest, useUpdateMdf } from "../state/hooks/useMdfs";
 import { useCommitMdfVersion, useMdfVersions } from "../state/hooks/useMdfVersions";
 import { usePlatforms } from "../state/hooks/usePlatforms";
 import { useCustomers } from "../state/hooks/useCustomers";
 import { useCreateMdfNote, useDeleteMdfNote, useMdfNotes } from "../state/hooks/useMdfNotes";
 import { MdfLinkTable } from "../components/mdf/MdfLinkTable";
+import { MdfReadinessPanel } from "../components/mdf/MdfReadinessPanel";
+import { isOutdatedMdfPin } from "../api/mdfs";
 import { MdfCharts } from "../components/platform/PlatformCharts";
 import { PlatformVersionPicker } from "../components/mdf/PlatformVersionPicker";
 import { MdfStatusTransitionControls } from "../components/mdf/MdfStatusTransitionControls";
@@ -38,6 +40,8 @@ export function MdfBuilderPage() {
 
   const { data: mdf, isLoading } = useMdf(mdfId);
   const { data: links } = useMdfLinks(mdfId ?? "");
+  const repinAll = useRepinMdfLatest(mdfId ?? "");
+  const outdatedPins = (links ?? []).filter(isOutdatedMdfPin).length;
   const { data: platforms } = usePlatforms();
   const { data: versions } = useMdfVersions(mdfId ?? "");
   const commitVersion = useCommitMdfVersion(mdfId ?? "");
@@ -141,6 +145,15 @@ export function MdfBuilderPage() {
             <MdfStatusTransitionControls mdfId={mdf.id} status={mdf.status} />
             <LatestVersion versions={versions} />
             <TasksButton type="mdf" id={mdf.id} name={mdf.name} />
+            {outdatedPins > 0 && (
+              <button
+                className="status-badge status-pending_review"
+                onClick={() => setTab("platforms")}
+                title="Pinned Platforms with a newer saved version — see Pinned Platforms to repin"
+              >
+                {outdatedPins} outdated pin{outdatedPins === 1 ? "" : "s"}
+              </button>
+            )}
             {exportError && <span className="error-text">{exportError}</span>}
           </>
         }
@@ -247,6 +260,24 @@ export function MdfBuilderPage() {
 
       {tab === "platforms" && (
         <div>
+          <MdfReadinessPanel mdfId={mdf.id} />
+          {outdatedPins > 0 && (
+            <RequireRole minimum="editor">
+              <p className="repin-all-row">
+                <span className="hint-text">
+                  {outdatedPins} pinned Platform{outdatedPins === 1 ? " has" : "s have"} a newer saved version.
+                </span>{" "}
+                <button
+                  type="button"
+                  className="button secondary small"
+                  disabled={repinAll.isPending}
+                  onClick={() => void repinAll.mutateAsync()}
+                >
+                  {repinAll.isPending ? "Repinning…" : "Repin all to their latest version"}
+                </button>
+              </p>
+            </RequireRole>
+          )}
           <MdfLinkTable mdfId={mdf.id} links={links ?? []} platformsById={platformsById} />
           <RequireRole minimum="editor">
             <h4>Pin a Platform Version</h4>

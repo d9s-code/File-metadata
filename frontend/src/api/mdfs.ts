@@ -22,6 +22,28 @@ export interface MdfLink {
   platform_id: string;
   platform_version_id: string;
   added_at: string;
+  /** The pinned Platform version's number and the Platform's latest saved one. */
+  pinned_version_number?: number | null;
+  latest_version_number?: number | null;
+  latest_version_id?: string | null;
+}
+
+/** True when the Platform has a newer saved version than the one pinned. */
+export function isOutdatedMdfPin(link: MdfLink): boolean {
+  return (
+    link.pinned_version_number != null &&
+    link.latest_version_number != null &&
+    link.latest_version_number > link.pinned_version_number
+  );
+}
+
+/** One line of an MDF's readiness checklist. */
+export interface ReadinessItem {
+  key: string;
+  label: string;
+  status: "ok" | "warn" | "fail";
+  detail: string;
+  items: string[];
 }
 
 export interface MdfCreateInput {
@@ -48,6 +70,8 @@ export const mdfsApi = {
   exportPrs: (mdfId: string, versionNumber: number) =>
     api.get<Blob>(`/mdfs/${mdfId}/versions/${versionNumber}/export/prs`),
 
+  repinLatest: (mdfId: string) => api.post<MdfLink[]>(`/mdfs/${mdfId}/links/repin-latest`, {}),
+  getReadinessChecklist: (mdfId: string) => api.get<ReadinessItem[]>(`/mdfs/${mdfId}/readiness`),
   getReadiness: (mdfId: string) => api.get<{ warnings: string[] }>(`/mdfs/${mdfId}/status/readiness`),
   transitionStatus: (mdfId: string, newStatus: string, note?: string) =>
     api.post<{ warnings: string[] }>(`/mdfs/${mdfId}/status`, { new_status: newStatus, note }),

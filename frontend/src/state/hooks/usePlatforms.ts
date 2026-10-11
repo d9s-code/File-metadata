@@ -72,6 +72,15 @@ export function usePinEmitter(platformId: string) {
   });
 }
 
+/** Moves every pinned Emitter with a newer saved version to that version. */
+export function useRepinPlatformLatest(platformId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => platformsApi.repinLatest(platformId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: platformLinksKey(platformId) }),
+  });
+}
+
 export function useUnpinEmitter(platformId: string) {
   const qc = useQueryClient();
   return useMutation({

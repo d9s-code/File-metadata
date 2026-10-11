@@ -27,6 +27,7 @@ from app.schemas.platform import (
 from app.schemas.platform_version import PlatformVersionDetailOut, PlatformVersionOut
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.platform_coverage import platform_coverage
+from app.services.pin_hygiene import latest_emitter_versions
 from app.services.platform_summary import platform_summaries
 from app.services.prs_export.packager import build_platform_export_zip
 from app.services.snapshots import build_platform_snapshot
@@ -232,6 +233,38 @@ def list_links(
 ) -> list[PlatformLinkOut]:
     _get_platform_or_404(db, platform_id)
     links = db.query(PlatformEmitterLink).filter(PlatformEmitterLink.platform_id == platform_id).all()
+    return with_version_numbers(db, links)
+
+
+@router.post(
+    "/{platform_id}/links/repin-latest", response_model=list[PlatformLinkOut], dependencies=[Depends(verify_csrf)]
+)
+def repin_emitters_to_latest(
+    platform_id: UUID, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))
+) -> list[PlatformLinkOut]:
+    """Move every pinned Emitter with a newer saved version to that version."""
+    platform = _get_platform_or_404(db, platform_id)
+    links = db.query(PlatformEmitterLink).filter(PlatformEmitterLink.platform_id == platform_id).all()
+    latest = latest_emitter_versions(db, [link.emitter_id for link in links])
+    moved = []
+    for link in links:
+        number, version_id = latest.get(link.emitter_id, (None, None))
+        if number is not None and number > link.emitter_version.version_number:
+            moved.append(f"{link.emitter.name} v{link.emitter_version.version_number} → v{number}")
+            link.emitter_version_id = version_id
+    if moved:
+        record_audit(
+            db,
+            actor_id=user.id,
+            action=AuditAction.update,
+            entity_type=AuditEntityType.platform_link.value,
+            entity_id=platform.id,
+            summary=f"Repinned {len(moved)} Emitter(s) in Platform '{platform.name}' to their latest version: "
+            + ", ".join(moved),
+        )
+        db.commit()
+    for link in links:
+        db.refresh(link)
     return with_version_numbers(db, links)
 
 

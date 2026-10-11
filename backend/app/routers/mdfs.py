@@ -16,12 +16,13 @@ from app.models.mdf import Mdf, MdfPlatformLink, MdfVersion
 from app.models.mdf_note import MdfNote
 from app.models.platform import PlatformVersion
 from app.schemas.emitter_version import CommitVersionRequest, DiffOut, StatusTransitionRequest
-from app.schemas.mdf import MdfCreate, MdfLinkCreate, MdfLinkOut, MdfOut, MdfReadinessOut, MdfUpdate
+from app.schemas.mdf import MdfCreate, MdfLinkCreate, MdfLinkOut, MdfOut, MdfReadinessOut, MdfUpdate, ReadinessItem
 from app.schemas.mdf_note import MdfNoteCreate, MdfNoteOut
 from app.services.platform_coverage import mdf_coverage
 from app.schemas.mdf_version import MdfStatusTransitionOut, MdfVersionDetailOut, MdfVersionOut
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.prs_export.packager import build_mdf_export_zip
+from app.services.pin_hygiene import latest_platform_versions, mdf_readiness
 from app.services.readiness_service import compute_mdf_readiness_warnings
 from app.services.snapshots import build_mdf_snapshot
 from app.services.status_service import InvalidStatusTransition, validate_transition
@@ -268,10 +269,62 @@ def delete_mdf_note(
     db.commit()
 
 
+def _links_with_version_numbers(db: Session, links: list[MdfPlatformLink]) -> list[MdfLinkOut]:
+    latest = latest_platform_versions(db, [link.platform_id for link in links])
+    out = []
+    for link in links:
+        item = MdfLinkOut.model_validate(link)
+        item.pinned_version_number = link.platform_version.version_number
+        if link.platform_id in latest:
+            item.latest_version_number, item.latest_version_id = latest[link.platform_id]
+        out.append(item)
+    return out
+
+
 @router.get("/{mdf_id}/links", response_model=list[MdfLinkOut])
-def list_links(mdf_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))) -> list[MdfPlatformLink]:
+def list_links(mdf_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))) -> list[MdfLinkOut]:
     _get_mdf_or_404(db, mdf_id)
-    return db.query(MdfPlatformLink).filter(MdfPlatformLink.mdf_id == mdf_id).all()
+    links = db.query(MdfPlatformLink).filter(MdfPlatformLink.mdf_id == mdf_id).all()
+    return _links_with_version_numbers(db, links)
+
+
+@router.post("/{mdf_id}/links/repin-latest", response_model=list[MdfLinkOut], dependencies=[Depends(verify_csrf)])
+def repin_platforms_to_latest(
+    mdf_id: UUID, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))
+) -> list[MdfLinkOut]:
+    """Move every pinned Platform with a newer saved version to that version."""
+    mdf = _get_mdf_or_404(db, mdf_id)
+    links = db.query(MdfPlatformLink).filter(MdfPlatformLink.mdf_id == mdf_id).all()
+    latest = latest_platform_versions(db, [link.platform_id for link in links])
+    moved = []
+    for link in links:
+        number, version_id = latest.get(link.platform_id, (None, None))
+        if number is not None and number > link.platform_version.version_number:
+            moved.append(f"{link.platform.name} v{link.platform_version.version_number} → v{number}")
+            link.platform_version_id = version_id
+    if moved:
+        record_audit(
+            db,
+            actor_id=user.id,
+            action=AuditAction.update,
+            entity_type=AuditEntityType.mdf_link.value,
+            entity_id=mdf.id,
+            summary=f"Repinned {len(moved)} Platform(s) in MDF '{mdf.name}' to their latest version: " + ", ".join(moved),
+        )
+        db.commit()
+    for link in links:
+        db.refresh(link)
+    return _links_with_version_numbers(db, links)
+
+
+@router.get("/{mdf_id}/readiness", response_model=list[ReadinessItem])
+def get_mdf_readiness_checklist(
+    mdf_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
+) -> list[dict]:
+    """What should be true before the MDF goes out: pins saved and current,
+    Emitters Operational and passing their Simulation Tests, no open
+    High/Exact ambiguity, a passing MDF test — each ok, warn or fail."""
+    return mdf_readiness(db, _get_mdf_or_404(db, mdf_id))
 
 
 @router.post(
