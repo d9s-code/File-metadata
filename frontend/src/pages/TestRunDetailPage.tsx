@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ObservedValuesTable } from "../components/testing/ObservedValuesTable";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useEmitter } from "../state/hooks/useEmitters";
@@ -26,6 +26,16 @@ import {
 
 function countOf<T>(items: T[], key: (item: T) => TestResult | null): [TestResult, number][] {
   return TEST_RESULTS.map((r) => [r, items.filter((i) => key(i) === r).length] as [TestResult, number]).filter(([, n]) => n > 0);
+}
+
+/** One labelled detail of the run, in the row under its title. */
+function Fact({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="run-fact">
+      <dt>{label}</dt>
+      <dd>{children}</dd>
+    </div>
+  );
 }
 
 /** One line under the title: how the run came out, counted, and which
@@ -122,28 +132,33 @@ export function TestRunDetailPage() {
     <div className="page">
       {backLink}
       <h1>{record.title}</h1>
-      <div className="status-row">
-        <span className={`test-result-badge test-result-${record.result}`}>{testResultLabel(record.result)}</span>
-        {record.computed_result && (
-          <span className="hint-text" title={record.result_note ?? undefined}>
-            Set by hand (worked out: {testResultLabel(record.computed_result)})
-          </span>
-        )}
-        <span>{testTypeLabel(record.test_type)}</span>
-        <span>Tested {record.test_date}</span>
-        {record.dwell && <span>Dwell: {record.dwell}</span>}
+      <dl className="run-facts">
+        <Fact label="Result">
+          <span className={`test-result-badge test-result-${record.result}`}>{testResultLabel(record.result)}</span>
+          {record.computed_result && (
+            <span className="run-fact-sub" title={record.result_note ?? undefined}>
+              Set by hand · worked out: {testResultLabel(record.computed_result)}
+            </span>
+          )}
+        </Fact>
+        <Fact label="Type">{testTypeLabel(record.test_type)}</Fact>
+        <Fact label="Tested">
+          {record.test_date}
+          {record.test_time ? ` ${record.test_time.slice(0, 5)}` : ""}
+        </Fact>
+        {record.dwell && <Fact label="Dwell">{record.dwell}</Fact>}
         {record.simulation_created_date && (
-          <span>
-            {record.test_type === "intercept" ? "Intercepted" : "Simulation created"} {record.simulation_created_date}
-          </span>
+          <Fact label={record.test_type === "intercept" ? "Intercepted" : "Simulation created"}>
+            {record.simulation_created_date}
+          </Fact>
         )}
         {retested && (
-          <span>
-            Retest of <Link to={`/emitters/${emitterId}/tests/${retested.id}`}>{retested.title}</Link>{" "}
+          <Fact label="Retest of">
+            <Link to={`/emitters/${emitterId}/tests/${retested.id}`}>{retested.title}</Link>{" "}
             <span className={`test-result-badge test-result-${retested.result}`}>{testResultLabel(retested.result)}</span>
-          </span>
+          </Fact>
         )}
-      </div>
+      </dl>
       {record.computed_result && record.result_note && (
         <p className="result-note">
           <strong>Why the result was changed:</strong> {record.result_note}

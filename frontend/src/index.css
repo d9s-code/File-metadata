@@ -2127,6 +2127,42 @@ span.test-derived-badge {
   font-family: ui-monospace, monospace;
 }
 
+/* A test report's details under its title: labelled fields, divided. */
+.run-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  row-gap: 0.6rem;
+  margin: 0.5rem 0 0.9rem;
+}
+.run-fact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0 1.1rem;
+  border-left: 1px solid var(--border);
+}
+.run-fact:first-child {
+  padding-left: 0;
+  border-left: none;
+}
+.run-fact dt {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--viz-ink-muted);
+}
+.run-fact dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.run-fact-sub {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+  color: var(--viz-ink-muted);
+}
 .status-row {
   display: flex;
   align-items: center;
