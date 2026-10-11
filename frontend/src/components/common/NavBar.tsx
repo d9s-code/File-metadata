@@ -7,6 +7,7 @@ import { MenuButton } from "./MenuButton";
 import { ChangePasswordModal } from "./ChangePasswordModal";
 import { SettingsModal } from "./SettingsModal";
 import { useMyWork } from "../../state/hooks/useTasks";
+import { QuickJump } from "./QuickJump";
 
 const LINKS: { to: string; label: string }[] = [
   { to: "/dashboard", label: "Dashboard" },
@@ -90,6 +91,7 @@ export function NavBar() {
         <div className="navbar-links" />
       )}
       <div className="navbar-user">
+        {user && <QuickJump />}
         <ThemeToggle />
         {user && (
           <>

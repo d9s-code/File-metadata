@@ -5728,3 +5728,93 @@ a.ai-cite:hover { text-decoration: underline; }
 .platform-test-results li + li {
   margin-top: 0.2rem;
 }
+
+/* Quick-jump search (Ctrl+K). */
+.quick-jump-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--input-bg, var(--card-bg));
+  color: var(--viz-ink-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.quick-jump-button:hover {
+  color: var(--text);
+  border-color: var(--viz-ink-muted);
+}
+.quick-jump-button kbd {
+  font-family: inherit;
+  font-size: 0.7rem;
+  padding: 0 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.quick-jump-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 12vh;
+}
+.quick-jump-box {
+  width: min(640px, calc(100vw - 2rem));
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+.quick-jump-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  padding: 0.85rem 1rem;
+  font-size: 1rem;
+  background: transparent;
+  color: var(--text);
+  outline: none;
+}
+.quick-jump-results {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 0.4rem 0;
+}
+.quick-jump-results > .hint-text {
+  margin: 0.5rem 1rem;
+}
+.quick-jump-group-label {
+  padding: 0.4rem 1rem 0.2rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--viz-ink-muted);
+}
+.quick-jump-hit {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.4rem 1rem;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.quick-jump-hit.active {
+  background: var(--hover-bg);
+}
+.quick-jump-subtitle {
+  color: var(--viz-ink-muted);
+  font-size: 0.8rem;
+}

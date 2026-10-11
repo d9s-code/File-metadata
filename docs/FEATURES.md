@@ -8,6 +8,8 @@ If you just want to see it running, start with the [README](../README.md). This 
 
 **Tables everywhere:** drag the right edge of a column heading to resize the column; double-click it to put it back. Widths are remembered per table in the browser.
 
+**Search (quick-jump).** **⌕ Search** in the menu bar, or Ctrl+K (⌘K on a Mac) from any page, opens a box that finds Emitters (name or designation), Modes, Platforms, MDFs, Sources and Intercepts as you type — every word has to match, in any order; exact and starts-with matches first; up to 8 of each kind; deleted things left out. ↑↓ and Enter open one: a Mode on its Emitter's Modes tab, a Source on the Groups & Sources tab (`GET /search?q=`).
+
 ## 1. Emitters
 
 An **Emitter** is the top-level record for a single RF emitter profile. It has a **name** (unique) and an optional **designation** (e.g. a platform-independent reporting name), plus a free-text description.

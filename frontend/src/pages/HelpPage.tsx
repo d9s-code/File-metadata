@@ -146,6 +146,12 @@ export function HelpPage() {
           entries extracted from that Source, kept as supporting evidence.
         </p>
         <p>
+          <strong>Search:</strong> <strong>⌕ Search</strong> in the menu bar, or <kbd>Ctrl K</kbd> (<kbd>⌘K</kbd> on a
+          Mac) from any page, finds Emitters (by name or designation), Modes, Platforms, MDFs, Sources and
+          Intercepts — every word you type has to match, in any order. ↑↓ moves, Enter opens, Esc closes. A Mode
+          opens on its Emitter&apos;s Modes tab, a Source on the Groups &amp; Sources tab.
+        </p>
+        <p>
           <strong>Tables:</strong> drag the right edge of a column&apos;s heading to make it wider or narrower;
           double-click the edge to put it back. Widths are remembered in this browser for that table.
         </p>
