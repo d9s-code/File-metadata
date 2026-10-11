@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import type { NeedsRedoTestItem } from "../../api/dashboard";
 import { testLink, mdfTestLink } from "../modes/TestDerivedBadge";
 import { EmptyState } from "../common/EmptyState";
+import { testResultLabel } from "../testing/testFormat";
 
 function redoLink(item: NeedsRedoTestItem): string {
   return item.entity_type === "emitter"
@@ -33,7 +34,7 @@ export function NeedsRedoList({ items }: { items: NeedsRedoTestItem[] }) {
                 <Link to={redoLink(item)}>{item.title}</Link>
               </td>
               <td>
-                <span className={`test-result-badge test-result-${item.result}`}>{item.result}</span>
+                <span className={`test-result-badge test-result-${item.result}`}>{testResultLabel(item.result)}</span>
               </td>
             </tr>
           ))}

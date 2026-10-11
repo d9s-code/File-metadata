@@ -23,7 +23,7 @@ import { computeOverallResult } from "../components/testing/modeResultAggregate"
 import { SimLineResultsTable, type SimLineEntry } from "../components/testing/SimLineResultsTable";
 import { InterceptModeResultsTable, type InterceptModeEntry } from "../components/testing/InterceptModeResultsTable";
 import { InterceptSignalsEditor, loggedSignals, type SignalEntry } from "../components/testing/InterceptSignals";
-import { nonEmptySets, TEST_RESULTS, testTypeLabel } from "../components/testing/testFormat";
+import { nonEmptySets, TEST_RESULTS, testResultLabel, testTypeLabel } from "../components/testing/testFormat";
 import { DwellInput, MANUAL_DWELL } from "../components/testing/DwellInput";
 
 /** One pinned Emitter's part of the run. */
@@ -433,7 +433,7 @@ export function PlatformTestRunPage() {
             {overall && (
               <>
                 {" "}
-                · overall <span className={`test-result-badge test-result-${overall}`}>{overall}</span>{" "}
+                · overall <span className={`test-result-badge test-result-${overall}`}>{testResultLabel(overall)}</span>{" "}
                 <span className="hint-text">(the worst of the Emitters&apos;)</span>
               </>
             )}
@@ -526,12 +526,12 @@ function EmitterSection({
           <span className="platform-test-emitter-result">
             {derived ? (
               <span className={`test-result-badge test-result-${run.resultOverride && run.resultOverride !== derived ? run.resultOverride : derived}`}>
-                {run.resultOverride && run.resultOverride !== derived ? run.resultOverride : derived}
+                {testResultLabel(run.resultOverride && run.resultOverride !== derived ? run.resultOverride : derived)}
               </span>
             ) : (
               <>
-                <span className={`test-result-badge test-result-${run.manualResult}`}>{run.manualResult}</span>{" "}
-                <span className="hint-text">set by hand</span>
+                <span className={`test-result-badge test-result-${run.manualResult}`}>{testResultLabel(run.manualResult)}</span>{" "}
+                <span className="hint-text">Set by hand</span>
               </>
             )}
           </span>
@@ -566,18 +566,18 @@ function EmitterSection({
             Result:{" "}
             {derived ? (
               <>
-                <span className={`test-result-badge test-result-${derived}`}>{derived}</span>{" "}
-                <span className="hint-text">worked out (worst of the included rows)</span>
+                <span className={`test-result-badge test-result-${derived}`}>{testResultLabel(derived)}</span>{" "}
+                <span className="hint-text">Worked out (worst of the included rows)</span>
                 <label className="inline-date-label result-override">
                   Override
                   <select
                     value={run.resultOverride}
                     onChange={(e) => onChange({ resultOverride: e.target.value as TestResult | "" })}
                   >
-                    <option value="">— keep {derived}</option>
+                    <option value="">— keep {testResultLabel(derived)}</option>
                     {TEST_RESULTS.filter((r) => r !== derived).map((r) => (
                       <option key={r} value={r}>
-                        {r}
+                        {testResultLabel(r)}
                       </option>
                     ))}
                   </select>
@@ -587,18 +587,18 @@ function EmitterSection({
                     className="result-override-note"
                     value={run.resultOverrideNote}
                     onChange={(e) => onChange({ resultOverrideNote: e.target.value })}
-                    placeholder={`Why it's ${run.resultOverride}, not ${derived} (required)`}
+                    placeholder={`Why it's ${testResultLabel(run.resultOverride)}, not ${testResultLabel(derived)} (required)`}
                     aria-label={`Why ${label}'s result is overridden`}
                   />
                 )}
               </>
             ) : (
               <label className="inline-date-label">
-                nothing included — set it manually
+                Nothing included — set it manually
                 <select value={run.manualResult} onChange={(e) => onChange({ manualResult: e.target.value as TestResult })}>
                   {TEST_RESULTS.map((r) => (
                     <option key={r} value={r}>
-                      {r}
+                      {testResultLabel(r)}
                     </option>
                   ))}
                 </select>

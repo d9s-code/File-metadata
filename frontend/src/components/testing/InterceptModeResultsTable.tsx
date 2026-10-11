@@ -4,7 +4,7 @@ import type { TestResult } from "../../types/domain";
 import { ObservedValuesEditor } from "./ObservedValuesEditor";
 import { ObservedValuesTable } from "./ObservedValuesTable";
 import { AutoGrowTextarea } from "../common/AutoGrowTextarea";
-import { nonEmptySets, TEST_RESULTS } from "./testFormat";
+import { nonEmptySets, TEST_RESULTS, testResultLabel } from "./testFormat";
 import { matchesWords, searchWords } from "../../utils/wordSearch";
 
 export interface InterceptModeOption {
@@ -100,7 +100,7 @@ export function InterceptModeResultsTable({
                     {m.name}
                     {m.last_test_result && (
                       <span className="jitter-subline">
-                        last: <span className={`test-result-badge test-result-${m.last_test_result}`}>{m.last_test_result}</span>
+                        Last: <span className={`test-result-badge test-result-${m.last_test_result}`}>{testResultLabel(m.last_test_result)}</span>
                       </span>
                     )}
                   </td>
@@ -114,7 +114,7 @@ export function InterceptModeResultsTable({
                     >
                       {TEST_RESULTS.map((r) => (
                         <option key={r} value={r}>
-                          {r}
+                          {testResultLabel(r)}
                         </option>
                       ))}
                     </select>

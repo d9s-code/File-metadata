@@ -7,14 +7,26 @@ export const TEST_RESULTS: TestResult[] = ["pass", "fail", "partial", "inconclus
 export function lineOutcomeLabel(o: TestResult): string {
   switch (o) {
     case "pass":
-      return "correct";
+      return "Correct";
     case "partial":
-      return "partial";
+      return "Partial";
     case "fail":
-      return "missed";
+      return "Missed";
     case "inconclusive":
-      return "inconclusive";
+      return "Inconclusive";
   }
+}
+
+const TEST_RESULT_LABELS: Record<TestResult, string> = {
+  pass: "Pass",
+  fail: "Fail",
+  partial: "Partial",
+  inconclusive: "Inconclusive",
+};
+
+/** How a run's or a Mode's result reads. */
+export function testResultLabel(r: TestResult | string): string {
+  return TEST_RESULT_LABELS[r as TestResult] ?? r;
 }
 
 const TEST_TYPE_LABELS: Record<TestType, string> = {

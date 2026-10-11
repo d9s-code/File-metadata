@@ -84,7 +84,7 @@ function readCollapsed(): boolean {
 }
 
 function StatusBadge({ line, emitterId }: { line: TestLine; emitterId: string }) {
-  if (!line.last_test_result) return <span className="hint-text">not tested</span>;
+  if (!line.last_test_result) return <span className="hint-text">Not tested</span>;
   const badge = (
     <span className={`test-result-badge test-result-${line.last_test_result}`}>
       {lineOutcomeLabel(line.last_test_result)}
@@ -254,7 +254,7 @@ export function SimTestLinesPanel({ emitterId, lines }: { emitterId: string; lin
                 {statusCounts[r]} {lineOutcomeLabel(r)}
               </span>
             ))}
-            {statusCounts.untested && <span className="hint-text">{statusCounts.untested} not tested</span>}
+            {statusCounts.untested && <span className="hint-text">{statusCounts.untested} Not tested</span>}
           </span>
         )}
       </div>

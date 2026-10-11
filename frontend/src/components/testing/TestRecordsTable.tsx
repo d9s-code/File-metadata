@@ -7,7 +7,7 @@ import { useConfirmDialog } from "../common/ConfirmDialog";
 import { SortableColumnHeader } from "../common/SortableColumnHeader";
 import { useSortableTable } from "../common/useSortableTable";
 import { compareStrings } from "../common/sortUtils";
-import { lineOutcomeLabel, TEST_RESULTS, testTypeLabel } from "./testFormat";
+import { lineOutcomeLabel, TEST_RESULTS, testResultLabel, testTypeLabel } from "./testFormat";
 
 type SortKey = "date" | "sim_created" | "dwell" | "type" | "result" | "title";
 
@@ -124,9 +124,9 @@ export function TestRecordsTable({
                 <td>
                   <span
                     className={`test-result-badge test-result-${r.result}`}
-                    title={r.computed_result ? `Set by hand (worked out: ${r.computed_result}) — ${r.result_note ?? ""}` : undefined}
+                    title={r.computed_result ? `Set by hand (worked out: ${testResultLabel(r.computed_result)}) — ${r.result_note ?? ""}` : undefined}
                   >
-                    {r.result}
+                    {testResultLabel(r.result)}
                     {r.computed_result ? " ✎" : ""}
                   </span>
                 </td>
@@ -140,8 +140,8 @@ export function TestRecordsTable({
                   {r.lines.length > 0 ? <CountBadges counts={countBy(r.lines, (l) => l.outcome)} label={lineOutcomeLabel} /> : "—"}
                 </td>
                 <td>
-                  {exercised.length > 0 && <CountBadges counts={countBy(exercised, (m) => m.result)} label={(res) => res} />}
-                  {derived > 0 && <span className="test-result-badge test-result-derived">{derived} derived</span>}
+                  {exercised.length > 0 && <CountBadges counts={countBy(exercised, (m) => m.result)} label={testResultLabel} />}
+                  {derived > 0 && <span className="test-result-badge test-result-derived">{derived} Derived</span>}
                   {r.modes.length === 0 && "—"}
                 </td>
                 <td>

@@ -5,6 +5,7 @@ import { EmptyState } from "../common/EmptyState";
 import { mdfTestLink, testLink } from "../modes/TestDerivedBadge";
 import { lineOutcomeLabel, testTypeLabel } from "../testing/testFormat";
 import { NeedsRedoList } from "./NeedsRedoList";
+import { testResultLabel } from "../testing/testFormat";
 
 const OUTCOME_ORDER: TestResult[] = ["pass", "partial", "fail", "inconclusive"];
 
@@ -50,7 +51,7 @@ export function TestRunsCard({ runs, needsRedo }: { runs: RecentTestRun[]; needs
                     </span>
                   </td>
                   <td>
-                    <span className={`test-result-badge test-result-${run.result}`}>{run.result}</span>
+                    <span className={`test-result-badge test-result-${run.result}`}>{testResultLabel(run.result)}</span>
                   </td>
                 </tr>
               ))}

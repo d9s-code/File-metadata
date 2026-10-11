@@ -18,6 +18,7 @@ import type { TestResult } from "../types/domain";
 import {
   lineOutcomeLabel,
   TEST_RESULTS,
+  testResultLabel,
   observedValueOptions,
   testTypeLabel,
 } from "../components/testing/testFormat";
@@ -59,7 +60,7 @@ function RunSummary({
           <strong>{exercised.length}</strong> Mode{exercised.length === 1 ? "" : "s"}:{" "}
           {modeCounts.map(([r, n]) => (
             <span key={r} className={`test-result-badge test-result-${r}`}>
-              {n} {r}
+              {n} {testResultLabel(r)}
             </span>
           ))}
         </span>
@@ -67,10 +68,10 @@ function RunSummary({
       <span className="hint-text">
         {versionNumber != null ? (
           <>
-            tested against <Link to={`/emitters/${emitterId}/versions?version=${versionNumber}`}>version {versionNumber}</Link>
+            Tested against <Link to={`/emitters/${emitterId}/versions?version=${versionNumber}`}>version {versionNumber}</Link>
           </>
         ) : (
-          "tested before the Emitter had a saved version"
+          "Tested before the Emitter had a saved version"
         )}
       </span>
     </p>
@@ -122,24 +123,24 @@ export function TestRunDetailPage() {
       {backLink}
       <h1>{record.title}</h1>
       <div className="status-row">
-        <span className={`test-result-badge test-result-${record.result}`}>{record.result}</span>
+        <span className={`test-result-badge test-result-${record.result}`}>{testResultLabel(record.result)}</span>
         {record.computed_result && (
           <span className="hint-text" title={record.result_note ?? undefined}>
-            set by hand (worked out: {record.computed_result})
+            Set by hand (worked out: {testResultLabel(record.computed_result)})
           </span>
         )}
         <span>{testTypeLabel(record.test_type)}</span>
-        <span>tested {record.test_date}</span>
-        {record.dwell && <span>dwell {record.dwell}</span>}
+        <span>Tested {record.test_date}</span>
+        {record.dwell && <span>Dwell: {record.dwell}</span>}
         {record.simulation_created_date && (
           <span>
-            {record.test_type === "intercept" ? "intercepted" : "simulation created"} {record.simulation_created_date}
+            {record.test_type === "intercept" ? "Intercepted" : "Simulation created"} {record.simulation_created_date}
           </span>
         )}
         {retested && (
           <span>
-            retest of <Link to={`/emitters/${emitterId}/tests/${retested.id}`}>{retested.title}</Link>{" "}
-            <span className={`test-result-badge test-result-${retested.result}`}>{retested.result}</span>
+            Retest of <Link to={`/emitters/${emitterId}/tests/${retested.id}`}>{retested.title}</Link>{" "}
+            <span className={`test-result-badge test-result-${retested.result}`}>{testResultLabel(retested.result)}</span>
           </span>
         )}
       </div>
@@ -262,7 +263,7 @@ export function TestRunDetailPage() {
               {exercised.map((m) => (
                 <tr key={m.mode_id}>
                   <td>{m.mode_name}</td>
-                  <td>{m.result && <span className={`test-result-badge test-result-${m.result}`}>{m.result}</span>}</td>
+                  <td>{m.result && <span className={`test-result-badge test-result-${m.result}`}>{testResultLabel(m.result)}</span>}</td>
                   <td>
                     <ObservedValuesTable sets={m.observed_values} />
                   </td>
@@ -311,7 +312,7 @@ function ResultOverride({ emitterId, record }: { emitterId: string; record: Test
         <select value={result} onChange={(e) => setResult(e.target.value as TestResult)}>
           {TEST_RESULTS.map((r) => (
             <option key={r} value={r}>
-              {r}
+              {testResultLabel(r)}
               {r === worked ? " (worked out)" : ""}
             </option>
           ))}
@@ -322,7 +323,7 @@ function ResultOverride({ emitterId, record }: { emitterId: string; record: Test
           className="result-override-note"
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder={`Why it's ${result}, not ${worked} (required)`}
+          placeholder={`Why it's ${testResultLabel(result)}, not ${testResultLabel(worked)} (required)`}
           aria-label="Why the result is changed"
         />
       )}

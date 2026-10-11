@@ -31,7 +31,7 @@ export function loggedSignals(signals: SignalEntry[]) {
 /** Whether the Modes already cover a signal's values — "new" when none do. */
 function Coverage({ sets, modes }: { sets: ObservedValues[]; modes: Mode[] }) {
   const c = signalCoverage(sets, modes);
-  if (c.status === "unknown") return <span className="hint-text">give RF and a PRI type to compare</span>;
+  if (c.status === "unknown") return <span className="hint-text">Give RF and a PRI type to compare</span>;
   if (c.status === "new") return <span className="status-badge signal-new">New — no Mode covers it</span>;
   return (
     <span className="hint-text" title="These Modes' ranges (with margins) already cover the values">

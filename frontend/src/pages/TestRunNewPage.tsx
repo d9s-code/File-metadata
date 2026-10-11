@@ -30,7 +30,7 @@ import {
   type InterceptModeEntry,
 } from "../components/testing/InterceptModeResultsTable";
 import { InterceptSignalsEditor, loggedSignals, type SignalEntry } from "../components/testing/InterceptSignals";
-import { nonEmptySets, observedValueOptions, TEST_RESULTS, testTypeLabel } from "../components/testing/testFormat";
+import { nonEmptySets, observedValueOptions, TEST_RESULTS, testResultLabel, testTypeLabel } from "../components/testing/testFormat";
 import { DwellInput, MANUAL_DWELL } from "../components/testing/DwellInput";
 
 /** Everything on the page that's saved as the run is filled in — the
@@ -556,15 +556,15 @@ export function TestRunNewPage() {
             Overall result:{" "}
             {derived ? (
               <>
-                <span className={`test-result-badge test-result-${derived}`}>{derived}</span>{" "}
-                <span className="hint-text">worked out (worst of the included rows)</span>
+                <span className={`test-result-badge test-result-${derived}`}>{testResultLabel(derived)}</span>{" "}
+                <span className="hint-text">Worked out (worst of the included rows)</span>
                 <label className="inline-date-label result-override">
                   Override
                   <select value={resultOverride} onChange={(e) => setResultOverride(e.target.value as TestResult | "")}>
-                    <option value="">— keep {derived}</option>
+                    <option value="">— keep {testResultLabel(derived)}</option>
                     {TEST_RESULTS.filter((r) => r !== derived).map((r) => (
                       <option key={r} value={r}>
-                        {r}
+                        {testResultLabel(r)}
                       </option>
                     ))}
                   </select>
@@ -574,7 +574,7 @@ export function TestRunNewPage() {
                     className="result-override-note"
                     value={resultOverrideNote}
                     onChange={(e) => setResultOverrideNote(e.target.value)}
-                    placeholder={`Why it's ${resultOverride}, not ${derived} (required)`}
+                    placeholder={`Why it's ${testResultLabel(resultOverride)}, not ${testResultLabel(derived)} (required)`}
                     aria-label="Why the result is overridden"
                     required
                   />
@@ -582,11 +582,11 @@ export function TestRunNewPage() {
               </>
             ) : (
               <label className="inline-date-label">
-                nothing included — set it manually
+                Nothing included — set it manually
                 <select value={manualResult} onChange={(e) => setManualResult(e.target.value as TestResult)}>
                   {TEST_RESULTS.map((r) => (
                     <option key={r} value={r}>
-                      {r}
+                      {testResultLabel(r)}
                     </option>
                   ))}
                 </select>

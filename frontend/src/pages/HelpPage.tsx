@@ -420,10 +420,10 @@ export function HelpPage() {
               </li>
               <li>
                 A Simulation Test is a table with one row per SIM Test Line. Every line starts included and{" "}
-                <span className="test-result-badge test-result-pass">correct</span>; change the outcome to{" "}
-                <span className="test-result-badge test-result-partial">partial</span>,{" "}
-                <span className="test-result-badge test-result-fail">missed</span> or{" "}
-                <span className="test-result-badge test-result-inconclusive">inconclusive</span> where needed,
+                <span className="test-result-badge test-result-pass">Correct</span>; change the outcome to{" "}
+                <span className="test-result-badge test-result-partial">Partial</span>,{" "}
+                <span className="test-result-badge test-result-fail">Missed</span> or{" "}
+                <span className="test-result-badge test-result-inconclusive">Inconclusive</span> where needed,
                 flag what the system reported under <strong>Intercepted as</strong> —{" "}
                 <strong>Default Unknown</strong> (listed first) when it reported no Mode, or the Modes it did; type to search
                 the Emitter&rsquo;s Modes — every word you type is matched anywhere in the name, so &ldquo;scan 6&rdquo; finds
@@ -454,7 +454,7 @@ export function HelpPage() {
               </li>
               <li>
                 <strong>+ Stage a new Mode</strong> creates a Mode found during the run, linked as{" "}
-                <span className="test-result-badge test-result-derived">derived</span> from it once the run
+                <span className="test-result-badge test-result-derived">Derived</span> from it once the run
                 is saved — its line can be pre-filled from any intercepted parameters you logged. The same
                 pre-fill is on <strong>+ Add Mode from this test</strong> once the run is saved: pick which
                 logged set to use (each is listed by line, set number and values), and a mean fills both min

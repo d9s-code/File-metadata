@@ -5,7 +5,7 @@ import { LOGGABLE_TEST_TYPES, type LoggableTestType, type TestResult } from "../
 import { ApiRequestError } from "../../api/client";
 import { RequireRole } from "../../auth/RequireAuth";
 import { TestRecordsTable } from "./TestRecordsTable";
-import { TEST_RESULTS, testTypeLabel } from "./testFormat";
+import { TEST_RESULTS, testResultLabel, testTypeLabel } from "./testFormat";
 
 function todayDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -104,7 +104,7 @@ export function MdfTestHistory({ mdfId, highlightTestRecordId }: { mdfId: string
                 <select value={result} onChange={(e) => setResult(e.target.value as TestResult)}>
                   {TEST_RESULTS.map((r) => (
                     <option key={r} value={r}>
-                      {r}
+                      {testResultLabel(r)}
                     </option>
                   ))}
                 </select>

@@ -4,7 +4,7 @@ import { RequireRole } from "../../auth/RequireAuth";
 import { useConfirmDialog } from "../common/ConfirmDialog";
 import { EmptyState } from "../common/EmptyState";
 import { relativeTime } from "../common/backupFormat";
-import { testTypeLabel } from "../testing/testFormat";
+import { testResultLabel, testTypeLabel } from "../testing/testFormat";
 import { useDiscardPlatformTestDraft, usePlatformTestDrafts, usePlatformTests } from "../../state/hooks/usePlatformTests";
 
 /** A Platform's tests: runs in progress, and the logged ones — each with
@@ -95,13 +95,13 @@ export function PlatformTests({ platformId, pinnedCount }: { platformId: string;
                 <td title={t.notes ?? undefined}>{t.title}</td>
                 <td>{testTypeLabel(t.test_type)}</td>
                 <td>
-                  <span className={`test-result-badge test-result-${t.result}`}>{t.result}</span>
+                  <span className={`test-result-badge test-result-${t.result}`}>{testResultLabel(t.result)}</span>
                 </td>
                 <td>
                   <ul className="platform-test-results">
                     {t.emitters.map((e) => (
                       <li key={e.test_record_id}>
-                        <span className={`test-result-badge test-result-${e.result}`}>{e.result}</span>{" "}
+                        <span className={`test-result-badge test-result-${e.result}`}>{testResultLabel(e.result)}</span>{" "}
                         <Link to={`/emitters/${e.emitter_id}/tests/${e.test_record_id}`}>
                           {e.designation ? `${e.designation} — ${e.emitter_name}` : e.emitter_name}
                         </Link>
@@ -110,7 +110,7 @@ export function PlatformTests({ platformId, pinnedCount }: { platformId: string;
                           {e.lines ? ` · ${e.lines} SIM line${e.lines === 1 ? "" : "s"}` : ""}
                           {e.modes ? ` · ${e.modes} Mode${e.modes === 1 ? "" : "s"}` : ""}
                           {e.signals ? ` · ${e.signals} signal${e.signals === 1 ? "" : "s"}` : ""}
-                          {e.computed_result ? ` · worked out ${e.computed_result}` : ""}
+                          {e.computed_result ? ` · worked out ${testResultLabel(e.computed_result)}` : ""}
                         </span>
                       </li>
                     ))}
