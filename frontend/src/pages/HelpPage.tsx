@@ -373,7 +373,7 @@ export function HelpPage() {
               Every field — metadata (name, notes, EW Group) and the actual line values (RF/PRI/PW/deltas)
               alike — edits in place immediately, the same way everything else in the app works. The only
               gate is holding the Emitter's <strong>checkout</strong> (see below): with it, click{" "}
-              <strong>Edit</strong> (in a Mode's <strong>⋯</strong> menu) to change it right there — its <strong>name</strong>, Sources and line; the cursor starts in the name. A name can't be blank or one another Mode in the same EW Group already has.
+              <strong>Edit</strong> (in a Mode's <strong>⋯</strong> menu) to change it right there — its <strong>name</strong>, Sources and line; the cursor starts in the name. A name can't be blank or one another Mode in the same EW Group already has. <strong>Rename…</strong> in the same menu just renames it — and EW Groups and Sources have <strong>Rename…</strong> in their ⋯ menus too (a name another EW Group or Source of the Emitter has is refused). Every rename is in the Audit Log as &ldquo;Renamed … &lsquo;old&rsquo; to &lsquo;new&rsquo;&rdquo;.
             </p>
             <p>
               The Mode form lists RF, then PRI, then PW. Each delta starts at <strong>0</strong> — type a

@@ -1,7 +1,8 @@
 import { useState } from "react";
+import { RenameDialog } from "../common/RenameDialog";
 import { MenuButton } from "../common/MenuButton";
 import type { EwGroup } from "../../types/domain";
-import { useDeleteEwGroup } from "../../state/hooks/useEwGroups";
+import { useDeleteEwGroup, useUpdateEwGroup } from "../../state/hooks/useEwGroups";
 import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 import { useConfirmDialog } from "../common/ConfirmDialog";
@@ -32,6 +33,8 @@ export function EwGroupsTable({ emitterId, ewGroups }: { emitterId: string; ewGr
   const { confirmDelete, dialog } = useConfirmDialog();
   const [showForm, setShowForm] = useState(false);
   const [editingGroup, setEditingGroup] = useState<EwGroup | null>(null);
+  const [renamingGroup, setRenamingGroup] = useState<EwGroup | null>(null);
+  const updateEwGroup = useUpdateEwGroup(emitterId);
   const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(ewGroups, compareEwGroups);
   const { data: emitter } = useEmitter(emitterId);
   const { canEdit } = useEmitterCheckoutState(emitter);
@@ -127,6 +130,7 @@ export function EwGroupsTable({ emitterId, ewGroups }: { emitterId: string; ewGr
                       className="row-menu-button"
                       ariaLabel={`Actions for ${g.name}`}
                       items={[
+                        { label: "Rename…", disabled: !canEdit, title: editTitle, onSelect: () => setRenamingGroup(g) },
                         { label: "Edit", disabled: !canEdit, title: editTitle, onSelect: () => setEditingGroup(g) },
                         { label: "Delete…", danger: true, disabled: !canEdit, title: editTitle, onSelect: () => void handleDelete(g) },
                       ]}
@@ -150,6 +154,16 @@ export function EwGroupsTable({ emitterId, ewGroups }: { emitterId: string; ewGr
         ) : null}
       </RequireRole>
       {dialog}
+      {renamingGroup && (
+        <RenameDialog
+          what="EW Group"
+          currentName={renamingGroup.name}
+          takenNames={ewGroups.filter((x) => x.id !== renamingGroup.id).map((x) => x.name)}
+          takenWhere="on this Emitter"
+          onRename={(name) => updateEwGroup.mutateAsync({ ewGroupId: renamingGroup.id, input: { name } })}
+          onClose={() => setRenamingGroup(null)}
+        />
+      )}
     </section>
   );
 }

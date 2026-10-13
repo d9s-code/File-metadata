@@ -1,11 +1,12 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { RenameDialog } from "../common/RenameDialog";
 import { formatDate, formatDateTime } from "../common/dates";
 import { MenuButton } from "../common/MenuButton";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { JsonImportModal } from "../common/JsonImportModal";
 import type { EwGroup, Source } from "../../types/domain";
-import { useApproveSource, useDeleteSource } from "../../state/hooks/useSources";
+import { useApproveSource, useDeleteSource, useUpdateSource } from "../../state/hooks/useSources";
 import { useCreateSourceNote, useDeleteSourceNote, useSourceNotes } from "../../state/hooks/useSourceNotes";
 import { useSourceGroups } from "../../state/hooks/useSourceGroups";
 import { useElements } from "../../state/hooks/useElements";
@@ -282,6 +283,8 @@ export function SourcesTable({
   }, [linkedSourceId, sources]);
   const [showForm, setShowForm] = useState(false);
   const [editingSource, setEditingSource] = useState<Source | null>(null);
+  const [renamingSource, setRenamingSource] = useState<Source | null>(null);
+  const updateSource = useUpdateSource(emitterId);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [rejectingSource, setRejectingSource] = useState<Source | null>(null);
   const [showJsonImport, setShowJsonImport] = useState(false);
@@ -546,6 +549,7 @@ export function SourcesTable({
                                   ...(s.status === "pending_review"
                                     ? [{ label: "Reject…", disabled: !canEdit, title: editTitle, onSelect: () => setRejectingSource(s) }]
                                     : []),
+                                  { label: "Rename…", disabled: !canEdit, title: editTitle, onSelect: () => setRenamingSource(s) },
                                   {
                                     label: "Edit",
                                     disabled: !canEdit,
@@ -601,6 +605,16 @@ export function SourcesTable({
             setShowBatchAdd(false);
             setSelected(new Set());
           }}
+        />
+      )}
+      {renamingSource && (
+        <RenameDialog
+          what="Source"
+          currentName={renamingSource.name}
+          takenNames={sources.filter((x) => x.id !== renamingSource.id).map((x) => x.name)}
+          takenWhere="on this Emitter"
+          onRename={(name) => updateSource.mutateAsync({ sourceId: renamingSource.id, input: { name } })}
+          onClose={() => setRenamingSource(null)}
         />
       )}
       {dialog}

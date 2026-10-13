@@ -101,14 +101,32 @@ def update_ew_group(
     ew_group = db.get(EwGroup, ew_group_id)
     if ew_group is None or ew_group.emitter_id != emitter_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "EW Group not found")
-    changes = apply_and_diff(ew_group, payload.model_dump(exclude_unset=True))
+    data = payload.model_dump(exclude_unset=True)
+    old_name = ew_group.name
+    if "name" in data:
+        # Renaming: not blank, and not another of the Emitter's EW Groups' name.
+        new_name = (data["name"] or "").strip()
+        if not new_name:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "An EW Group needs a name")
+        if new_name != old_name and (
+            db.query(EwGroup.id)
+            .filter(EwGroup.emitter_id == emitter_id, EwGroup.id != ew_group.id, EwGroup.name == new_name)
+            .first()
+        ):
+            raise HTTPException(status.HTTP_409_CONFLICT, f"This Emitter already has an EW Group called '{new_name}'")
+        data["name"] = new_name
+    changes = apply_and_diff(ew_group, data)
     record_audit(
         db,
         actor_id=user.id,
         action=AuditAction.update,
         entity_type=AuditEntityType.ew_group.value,
         entity_id=ew_group.id,
-        summary=f"Updated EW Group '{ew_group.name}'",
+        summary=(
+            f"Renamed EW Group '{old_name}' to '{ew_group.name}'"
+            if ew_group.name != old_name
+            else f"Updated EW Group '{ew_group.name}'"
+        ),
         changes=changes,
         emitter_id=emitter_id,
     )

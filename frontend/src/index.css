@@ -6250,3 +6250,37 @@ input[aria-invalid="true"] {
   left: 0;
   max-width: calc(100vw - 8.5rem);
 }
+
+/* Renaming one thing from its ⋯ menu. */
+.rename-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: min(24rem, 80vw);
+}
+.rename-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.rename-form p {
+  margin: 0;
+}
+
+/* A labelled field in a one-line form (EW Group, Source). */
+.inline-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.inline-field input,
+.inline-field select {
+  font-size: 0.9rem;
+  color: var(--text);
+}
+.inline-form-title {
+  flex-basis: 100%;
+  margin: 0 0 0.25rem;
+}

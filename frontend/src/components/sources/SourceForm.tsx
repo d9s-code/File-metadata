@@ -74,23 +74,42 @@ export function SourceForm({
 
   return (
     <form className="card inline-form" onSubmit={handleSubmit}>
-      <input placeholder="Source name" value={name} onChange={(e) => setName(e.target.value)} required />
-      <input placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
-      <input placeholder="RF legacy term" value={rfLegacyTerm} onChange={(e) => setRfLegacyTerm(e.target.value)} />
-      <input placeholder="PRI legacy term" value={priLegacyTerm} onChange={(e) => setPriLegacyTerm(e.target.value)} />
-      <input placeholder="Source type" value={sourceType} onChange={(e) => setSourceType(e.target.value)} />
+      {initialData && <h4 className="inline-form-title">Editing Source &ldquo;{initialData.name}&rdquo;</h4>}
+      <label className="inline-field">
+        Name
+        <input placeholder="Source name" value={name} onChange={(e) => setName(e.target.value)} required />
+      </label>
+      <label className="inline-field">
+        Description
+        <input placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
+      </label>
+      <label className="inline-field">
+        RF legacy term
+        <input placeholder="RF legacy term" value={rfLegacyTerm} onChange={(e) => setRfLegacyTerm(e.target.value)} />
+      </label>
+      <label className="inline-field">
+        PRI legacy term
+        <input placeholder="PRI legacy term" value={priLegacyTerm} onChange={(e) => setPriLegacyTerm(e.target.value)} />
+      </label>
+      <label className="inline-field">
+        Source type
+        <input placeholder="Source type" value={sourceType} onChange={(e) => setSourceType(e.target.value)} />
+      </label>
       <label className="inline-date-label">
         Date last updated
         <DateInput value={sourceDate} onChange={(e) => setSourceDate(e.target.value)} required />
       </label>
-      <select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
-        <option value="">No group</option>
-        {sourceGroups.map((g) => (
-          <option key={g.id} value={g.id}>
-            {g.name}
-          </option>
-        ))}
-      </select>
+      <label className="inline-field">
+        Source Group
+        <select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
+          <option value="">No group</option>
+          {sourceGroups.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.name}
+            </option>
+          ))}
+        </select>
+      </label>
       <button type="submit" disabled={isPending}>
         {initialData ? "Update Source" : "Add Source"}
       </button>

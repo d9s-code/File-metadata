@@ -1,4 +1,5 @@
 import { Fragment, useState, type ReactNode } from "react";
+import { ModeRenameDialog } from "./ModeRenameDialog";
 import type { EwGroup, Mode, ModeGenerationBatch, Source } from "../../types/domain";
 import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
@@ -122,6 +123,7 @@ export function ModesTable({
 }) {
   const [editingModeId, setEditingModeId] = useState<string | null>(null);
   const [duplicatingModeId, setDuplicatingModeId] = useState<string | null>(null);
+  const [renamingMode, setRenamingMode] = useState<Mode | null>(null);
   const [expandedBatchIds, setExpandedBatchIds] = useState<Set<string>>(new Set());
   const { data: emitter } = useEmitter(emitterId);
   const { canEdit } = useEmitterCheckoutState(emitter);
@@ -272,6 +274,12 @@ export function ModesTable({
                       ariaLabel={`Actions for ${m.name}`}
                       items={[
                         {
+                          label: "Rename…",
+                          onSelect: () => setRenamingMode(m),
+                          disabled: !canEdit,
+                          title: editTitle,
+                        },
+                        {
                           label: editingModeId === m.id ? "Cancel edit" : "Edit",
                           onSelect: () => setEditingModeId(editingModeId === m.id ? null : m.id),
                           disabled: !canEdit,
@@ -389,6 +397,9 @@ export function ModesTable({
         </tbody>
       </table>
       {columnMenu.menu}
+      {renamingMode && (
+        <ModeRenameDialog emitterId={emitterId} mode={renamingMode} onClose={() => setRenamingMode(null)} />
+      )}
     </div>
   );
 }

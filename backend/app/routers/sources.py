@@ -98,6 +98,19 @@ def update_source(
     data = payload.model_dump(exclude_unset=True)
     if data.get("group_id") is not None and db.get(SourceGroup, data["group_id"]) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Source Group not found")
+    old_name = source.name
+    if "name" in data:
+        # Renaming: not blank, and not another of the Emitter's Sources' name.
+        new_name = (data["name"] or "").strip()
+        if not new_name:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "A Source needs a name")
+        if new_name != old_name and (
+            db.query(Source.id)
+            .filter(Source.emitter_id == emitter_id, Source.id != source.id, Source.name == new_name)
+            .first()
+        ):
+            raise HTTPException(status.HTTP_409_CONFLICT, f"This Emitter already has a Source called '{new_name}'")
+        data["name"] = new_name
     changes = apply_and_diff(source, data)
     record_audit(
         db,
@@ -105,7 +118,11 @@ def update_source(
         action=AuditAction.update,
         entity_type=AuditEntityType.source.value,
         entity_id=source.id,
-        summary=f"Updated Source '{source.name}'",
+        summary=(
+            f"Renamed Source '{old_name}' to '{source.name}'"
+            if source.name != old_name
+            else f"Updated Source '{source.name}'"
+        ),
         changes=changes,
         emitter_id=emitter_id,
     )

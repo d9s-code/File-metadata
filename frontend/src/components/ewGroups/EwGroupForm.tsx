@@ -77,33 +77,52 @@ export function EwGroupForm({ emitterId, initialData, onClose }: EwGroupFormProp
 
   return (
     <form className="card inline-form" onSubmit={handleSubmit}>
-      <input placeholder="EW Group name" value={name} onChange={(e) => setName(e.target.value)} required />
-      <input placeholder="Scan min" type="number" step="any" value={scanMin} onChange={(e) => setScanMin(e.target.value)} />
-      <input placeholder="Scan max" type="number" step="any" value={scanMax} onChange={(e) => setScanMax(e.target.value)} />
-      <input
-        placeholder="Scan delta (±, optional)"
-        type="number"
-        step="any"
-        min="0"
-        value={scanDelta}
-        onChange={(e) => setScanDelta(e.target.value)}
-        title="Symmetric tolerance margin applied to the raw scan range to derive the engineered scan window"
-      />
-      <input
-        placeholder="Threat priority"
-        type="number"
-        value={threatPriority}
-        onChange={(e) => setThreatPriority(e.target.value)}
-      />
-      <input
-        placeholder="Ageout (s)"
-        type="number"
-        step="any"
-        min="0"
-        value={ageout}
-        onChange={(e) => setAgeout(e.target.value)}
-        title="Descriptive reference value in seconds — no automated behavior tied to it"
-      />
+      {initialData && <h4 className="inline-form-title">Editing EW Group &ldquo;{initialData.name}&rdquo;</h4>}
+      <label className="inline-field">
+        Name
+        <input placeholder="EW Group name" value={name} onChange={(e) => setName(e.target.value)} required />
+      </label>
+      <label className="inline-field">
+        Scan min
+        <input placeholder="Scan min" type="number" step="any" value={scanMin} onChange={(e) => setScanMin(e.target.value)} />
+      </label>
+      <label className="inline-field">
+        Scan max
+        <input placeholder="Scan max" type="number" step="any" value={scanMax} onChange={(e) => setScanMax(e.target.value)} />
+      </label>
+      <label className="inline-field">
+        Scan ± margin
+        <input
+          placeholder="Scan delta (±, optional)"
+          type="number"
+          step="any"
+          min="0"
+          value={scanDelta}
+          onChange={(e) => setScanDelta(e.target.value)}
+          title="Symmetric tolerance margin applied to the raw scan range to derive the engineered scan window"
+        />
+      </label>
+      <label className="inline-field">
+        Threat priority
+        <input
+          placeholder="Threat priority"
+          type="number"
+          value={threatPriority}
+          onChange={(e) => setThreatPriority(e.target.value)}
+        />
+      </label>
+      <label className="inline-field">
+        Ageout (s)
+        <input
+          placeholder="Ageout (s)"
+          type="number"
+          step="any"
+          min="0"
+          value={ageout}
+          onChange={(e) => setAgeout(e.target.value)}
+          title="Descriptive reference value in seconds — no automated behavior tied to it"
+        />
+      </label>
       <button type="submit" disabled={isPending}>
         {initialData ? "Update EW Group" : "Add EW Group"}
       </button>
