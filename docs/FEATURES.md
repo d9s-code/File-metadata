@@ -143,7 +143,7 @@ Range matching is treated as **any other Mode Line parameter** — not a metadat
 
 ### Editing an existing Mode: draft edits & approval
 
-Editing a Mode's **metadata** (name, notes, which EW Group it's filed under) is an instant edit, same as creating one. But editing its **line** — the actual RF/PW/PRI/jitter/stagger values, deltas, and range matching flags — works differently once the Mode is `approved` (the normal state for anything already created):
+Editing a Mode's **metadata** (name, notes, which EW Group it's filed under) is an instant edit, same as creating one. **Renaming**: the Mode's **Edit** form (⋯ menu, while editing the Emitter) starts with its **Name**, cursor there; it warns as you type if another Mode in the same EW Group already has the name, and the server refuses a blank name (422) or a clash in the group (409). The Audit Log records "Renamed Mode 'old' to 'new'". The form opens with the Modes table scrolled back to its left edge so it's in view. But editing its **line** — the actual RF/PW/PRI/jitter/stagger values, deltas, and range matching flags — works differently once the Mode is `approved` (the normal state for anything already created):
 
 - **Propose edit** creates a new `draft` Mode carrying your edited line, linked back to the Mode it would replace. The original is untouched and still fully live (still what ambiguity checks, XML export, and Emitter version commits see) while the draft sits pending.
 - Only one pending draft per Mode at a time — you can't propose a second edit while one is already under review.

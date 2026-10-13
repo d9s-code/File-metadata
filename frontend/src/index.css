@@ -6242,3 +6242,11 @@ input[aria-invalid="true"] {
 .run-notes p {
   margin: 0;
 }
+
+/* A form opened in a row of a sideways-scrolling table stays at the
+   table's left edge, whatever the scroll. */
+.matrix-scroll .mode-edit-form {
+  position: sticky;
+  left: 0;
+  max-width: calc(100vw - 8.5rem);
+}

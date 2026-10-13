@@ -228,6 +228,21 @@ def update_mode(
     new_sources = (
         resolve_sources(db, emitter_id=mode.source.emitter_id, source_ids=new_source_ids) if new_source_ids else None
     )
+    old_name = mode.name
+    if "name" in data:
+        # Renaming: not blank, and not a name another Mode in its EW Group has.
+        new_name = (data["name"] or "").strip()
+        if not new_name:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "A Mode needs a name")
+        target_group_id = data.get("ew_group_id", mode.ew_group_id)
+        clash = (
+            db.query(Mode.id)
+            .filter(Mode.ew_group_id == target_group_id, Mode.id != mode.id, Mode.name == new_name)
+            .first()
+        )
+        if clash:
+            raise HTTPException(status.HTTP_409_CONFLICT, f"Another Mode in this EW Group is already called '{new_name}'")
+        data["name"] = new_name
     if "pri_type" in data and data["pri_type"] != mode.pri_type and payload.line is None:
         # The old type's PRI fields (e.g. Fixed's jitter) are meaningless
         # under the new one (e.g. Stagger's sequence) — there's no partial
@@ -272,7 +287,11 @@ def update_mode(
         action=AuditAction.update,
         entity_type=AuditEntityType.mode.value,
         entity_id=mode.id,
-        summary=f"Updated Mode '{mode.name}'",
+        summary=(
+            f"Renamed Mode '{old_name}' to '{mode.name}'"
+            if mode.name != old_name
+            else f"Updated Mode '{mode.name}'"
+        ),
         changes=changes,
         emitter_id=mode.source.emitter_id,
     )

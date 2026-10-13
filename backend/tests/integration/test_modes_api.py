@@ -315,3 +315,21 @@ def test_source_with_modes_cannot_be_deleted(editor_client, emitter_ctx):
         f"/emitters/{emitter_ctx['emitter']['id']}/sources/{emitter_ctx['source']['id']}"
     )
     assert resp.status_code == 409
+
+
+def test_a_mode_can_be_renamed(editor_client, emitter_ctx):
+    group = emitter_ctx["ew_group"]["id"]
+    body = {"source_id": emitter_ctx["source"]["id"], "pri_type": "fixed", "line": FIXED_LINE}
+    mode = editor_client.post(f"/ew-groups/{group}/modes", json={**body, "name": "Search 1"}).json()
+    editor_client.post(f"/ew-groups/{group}/modes", json={**body, "name": "Search 2"})
+
+    renamed = editor_client.patch(f"/ew-groups/{group}/modes/{mode['id']}", json={"name": "  Track Wide  "})
+    assert renamed.status_code == 200, renamed.text
+    assert renamed.json()["name"] == "Track Wide"
+    audit = editor_client.get("/audit-log", params={"entity_type": "mode", "entity_id": mode["id"]}).json()
+    entries = audit["items"] if isinstance(audit, dict) else audit
+    assert any(e["summary"] == "Renamed Mode 'Search 1' to 'Track Wide'" for e in entries)
+
+    # Not blank, and not another Mode's name in the same EW Group.
+    assert editor_client.patch(f"/ew-groups/{group}/modes/{mode['id']}", json={"name": "  "}).status_code == 422
+    assert editor_client.patch(f"/ew-groups/{group}/modes/{mode['id']}", json={"name": "Search 2"}).status_code == 409

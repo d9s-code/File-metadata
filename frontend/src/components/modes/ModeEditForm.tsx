@@ -1,5 +1,5 @@
-import { useRef, useState, type FormEvent } from "react";
-import { useUpdateMode } from "../../state/hooks/useModes";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEmitterModes, useUpdateMode } from "../../state/hooks/useModes";
 import { ApiRequestError } from "../../api/client";
 import type { Mode, Source } from "../../types/domain";
 import { lineValuesFrom } from "./modeLine";
@@ -24,6 +24,13 @@ export function ModeEditForm({
   onDone: () => void;
 }) {
   const updateMode = useUpdateMode(emitterId);
+  const { data: emitterModes } = useEmitterModes(emitterId);
+  const [name, setName] = useState(mode.name);
+  const [nameProblem, setNameProblem] = useState<string | null>(null);
+  // Another Mode in the same EW Group with the name typed.
+  const clash =
+    name.trim() !== mode.name &&
+    (emitterModes ?? []).some((m) => m.id !== mode.id && m.ew_group_id === mode.ew_group_id && m.name === name.trim());
   const line = useModeLine(lineValuesFrom(mode.pri_type, mode.line), mode.line?.explicit_frame_time_us);
   const [sourceIds, setSourceIds] = useState<string[]>(modeSourceIds(mode));
   const [options, setOptions] = useState<MoreOptionsValues>({
@@ -35,6 +42,18 @@ export function ModeEditForm({
   const [optionsForced, setOptionsForced] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+
+  // It opens in a row of a table that may be scrolled sideways (its ⋯ menu
+  // sits at the far right) — bring the table back to its left edge so the
+  // form starts in view, and put the cursor in the name.
+  useEffect(() => {
+    const form = formRef.current;
+    const scroller = form?.closest<HTMLElement>(".matrix-scroll");
+    if (scroller) scroller.scrollLeft = 0;
+    nameRef.current?.focus({ preventScroll: true });
+    form?.scrollIntoView({ block: "nearest" });
+  }, []);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -42,7 +61,9 @@ export function ModeEditForm({
     line.reveal();
     const optionsProblem = confirmationProblem(options.quality, options.quantity);
     setOptionsForced(!!optionsProblem);
-    if (!line.valid || optionsProblem) {
+    const badName = !name.trim() ? "Give the Mode a name" : clash ? "Another Mode in this EW Group already has this name" : null;
+    setNameProblem(badName);
+    if (!line.valid || optionsProblem || badName) {
       setTimeout(() => formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus(), 0);
       return;
     }
@@ -52,6 +73,7 @@ export function ModeEditForm({
         ewGroupId: mode.ew_group_id,
         modeId: mode.id,
         input: {
+          name: name.trim() !== mode.name ? name.trim() : undefined,
           notes: options.notes.trim() || null,
           source_ids: sourceIds.join() !== modeSourceIds(mode).join() ? sourceIds : undefined,
           pri_type: priType !== mode.pri_type ? priType : undefined,
@@ -74,14 +96,34 @@ export function ModeEditForm({
         <span className="hint-text">Takes effect as soon as you save.</span>
       </div>
 
-      {sources && sources.length > 0 && (
-        <div className="mode-form-grid">
+      <div className="mode-form-grid">
+        <label className="mode-form-name">
+          Name
+          <input
+            ref={nameRef}
+            value={name}
+            aria-invalid={!!nameProblem || undefined}
+            onChange={(e) => {
+              setName(e.target.value);
+              setNameProblem(null);
+            }}
+          />
+          {nameProblem ? (
+            <span className="line-row-problem">{nameProblem}</span>
+          ) : clash ? (
+            <span className="mode-form-warning">Another Mode in this EW Group already has this name.</span>
+          ) : (
+            name.trim() !== mode.name &&
+            name.trim() && <span className="hint-text">Renaming from &ldquo;{mode.name}&rdquo;</span>
+          )}
+        </label>
+        {sources && sources.length > 0 && (
           <div className="mode-form-sources">
             <span className="mode-form-label">Sources</span>
             <SourcesPicker sources={sources} value={sourceIds} onChange={setSourceIds} />
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <ModeLineFields line={line} />
 
