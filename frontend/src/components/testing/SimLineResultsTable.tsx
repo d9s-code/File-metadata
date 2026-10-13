@@ -167,6 +167,7 @@ export function SimLineResultsTable({
                     <td></td>
                     <td colSpan={5}>
                       <ObservedValuesEditor
+                        autoFocus
                         sets={entry.observedValues}
                         onChange={(sets) => patch(l.id, { observedValues: sets })}
                       />

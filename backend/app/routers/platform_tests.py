@@ -76,6 +76,7 @@ def _out(db: Session, tests: list[PlatformTest]) -> list[PlatformTestOut]:
                     line_counts=dict(Counter(line.outcome.value for line in r.lines)),
                     mode_counts=dict(Counter(m.result.value for m in r.modes if m.result is not None)),
                     notes=r.notes if r.notes and r.notes != t.notes else None,
+                    simulation_created_date=r.simulation_created_date,
                 )
             )
         # As the Emitters read: "designation — name", or the name alone.

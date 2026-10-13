@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import type { ObservedValues } from "../../api/testRecords";
 import type { PriType } from "../../types/domain";
 
@@ -32,10 +33,29 @@ const PRI_SPECIFIC_KEYS: (keyof ObservedValues)[] = [
 export function ObservedValuesEditor({
   sets,
   onChange,
+  autoFocus = false,
 }: {
   sets: ObservedValues[];
   onChange: (sets: ObservedValues[]) => void;
+  /** Put the cursor in the first field when it opens (after "+ Log"), so the
+   * values can be typed straight in, tabbing from one to the next. */
+  autoFocus?: boolean;
 }) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  // With nothing logged yet, opening it starts the first set of fields, so
+  // there's something to type into; the cursor goes to its first field.
+  const focusPending = useRef(autoFocus);
+  useEffect(() => {
+    if (autoFocus && sets.length === 0) onChange([{}]);
+    // Only when it opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (!focusPending.current || sets.length === 0) return;
+    focusPending.current = false;
+    rootRef.current?.querySelector<HTMLElement>("input, select")?.focus();
+  }, [sets.length]);
+
   function update(index: number, updater: (set: ObservedValues) => ObservedValues) {
     onChange(sets.map((set, i) => (i === index ? updater(set) : set)));
   }
@@ -75,7 +95,7 @@ export function ObservedValuesEditor({
   }
 
   return (
-    <div className="mode-observed-values">
+    <div className="mode-observed-values" ref={rootRef}>
       {sets.map((set, index) => (
         <div key={index} className="mode-observed-value-set">
           {sets.length > 1 && <div className="mode-observed-value-set-label">Set {index + 1}</div>}

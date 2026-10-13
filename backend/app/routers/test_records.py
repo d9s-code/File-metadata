@@ -197,7 +197,7 @@ def _create_test_record(
     db.commit()
     return (
         db.query(TestRecord)
-        .options(_MODES_EAGER_LOAD, _LINES_EAGER_LOAD, selectinload(TestRecord.signals))
+        .options(_MODES_EAGER_LOAD, _LINES_EAGER_LOAD, selectinload(TestRecord.signals), selectinload(TestRecord.emitter_version))
         .filter(TestRecord.id == record.id)
         .one()
     )
@@ -211,7 +211,7 @@ def list_emitter_test_records(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Emitter not found")
     return (
         db.query(TestRecord)
-        .options(_MODES_EAGER_LOAD, _LINES_EAGER_LOAD, selectinload(TestRecord.signals))
+        .options(_MODES_EAGER_LOAD, _LINES_EAGER_LOAD, selectinload(TestRecord.signals), selectinload(TestRecord.emitter_version))
         .filter(TestRecord.scope_type == TestScopeType.emitter, TestRecord.scope_id == emitter_id)
         .order_by(TestRecord.test_date.desc(), TestRecord.test_time.desc().nulls_last(), TestRecord.created_at.desc())
         .all()
@@ -229,11 +229,18 @@ def create_emitter_test_record(
 ) -> TestRecord:
     if db.get(Emitter, emitter_id) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Emitter not found")
+    if payload.emitter_version_id is not None:
+        version = db.get(EmitterVersion, payload.emitter_version_id)
+        if version is None or version.emitter_id != emitter_id:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "That version isn't one of this Emitter's saved versions")
+        version_id = version.id
+    else:
+        version_id = _latest_emitter_version_id(db, emitter_id)
     return _create_test_record(
         db,
         scope_type=TestScopeType.emitter,
         scope_id=emitter_id,
-        emitter_version_id=_latest_emitter_version_id(db, emitter_id),
+        emitter_version_id=version_id,
         mdf_version_id=None,
         payload=payload,
         tested_by=user.id,
@@ -249,7 +256,7 @@ def list_mdf_test_records(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "MDF not found")
     return (
         db.query(TestRecord)
-        .options(_MODES_EAGER_LOAD, _LINES_EAGER_LOAD, selectinload(TestRecord.signals))
+        .options(_MODES_EAGER_LOAD, _LINES_EAGER_LOAD, selectinload(TestRecord.signals), selectinload(TestRecord.emitter_version))
         .filter(TestRecord.scope_type == TestScopeType.mdf, TestRecord.scope_id == mdf_id)
         .order_by(TestRecord.test_date.desc(), TestRecord.test_time.desc().nulls_last(), TestRecord.created_at.desc())
         .all()
@@ -315,7 +322,7 @@ def change_emitter_test_result(
     db.commit()
     return (
         db.query(TestRecord)
-        .options(_MODES_EAGER_LOAD, _LINES_EAGER_LOAD, selectinload(TestRecord.signals))
+        .options(_MODES_EAGER_LOAD, _LINES_EAGER_LOAD, selectinload(TestRecord.signals), selectinload(TestRecord.emitter_version))
         .filter(TestRecord.id == record.id)
         .one()
     )

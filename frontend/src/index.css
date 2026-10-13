@@ -6227,3 +6227,18 @@ a.ai-cite:hover { text-decoration: underline; }
 input[aria-invalid="true"] {
   border-color: var(--danger, #c0392b);
 }
+
+/* A test run's own notes on its report. */
+.run-notes {
+  margin: 0.5rem 0 1rem;
+  padding: 0.6rem 0.85rem;
+  border-left: 3px solid var(--border);
+  background: var(--card-bg);
+  border-radius: 0 var(--radius-md, 6px) var(--radius-md, 6px) 0;
+}
+.run-notes h4 {
+  margin: 0 0 0.25rem;
+}
+.run-notes p {
+  margin: 0;
+}

@@ -1,5 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { testLinesApi, type TestLineImportInput, type TestLineSyncInput, type TestLineUpdateInput } from "../../api/testLines";
+import {
+  testLinesApi,
+  type TestLine,
+  type TestLineImportInput,
+  type TestLineSyncInput,
+  type TestLineUpdateInput,
+} from "../../api/testLines";
+import { compareLineLabels } from "../../components/testing/testFormat";
 
 export function testLinesKey(emitterId: string) {
   return ["testLines", emitterId] as const;
@@ -10,7 +17,12 @@ export function useEmitterTestLines(emitterId: string) {
     queryKey: testLinesKey(emitterId),
     queryFn: () => testLinesApi.listForEmitter(emitterId),
     enabled: !!emitterId,
+    select: sortLines,
   });
+}
+
+function sortLines(lines: TestLine[]): TestLine[] {
+  return [...lines].sort((a, b) => compareLineLabels(a.label, b.label));
 }
 
 export function useImportTestLines(emitterId: string) {

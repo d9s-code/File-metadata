@@ -8,15 +8,17 @@ import { RequireRole } from "../../auth/RequireAuth";
 import { useConfirmDialog } from "../common/ConfirmDialog";
 import { SortableColumnHeader } from "../common/SortableColumnHeader";
 import { useSortableTable } from "../common/useSortableTable";
-import { compareStrings } from "../common/sortUtils";
+import { compareNullable, compareStrings } from "../common/sortUtils";
 import { lineOutcomeLabel, TEST_RESULTS, testResultLabel, testTypeLabel } from "./testFormat";
 
-type SortKey = "date" | "sim_created" | "dwell" | "type" | "result" | "title";
+type SortKey = "date" | "version" | "sim_created" | "dwell" | "type" | "result" | "title";
 
 function compareRecords(a: TestRecord, b: TestRecord, key: SortKey, dir: "asc" | "desc"): number {
   switch (key) {
     case "date":
       return compareStrings(a.test_date, b.test_date, dir);
+    case "version":
+      return compareNullable(a.emitter_version_number, b.emitter_version_number, dir);
     case "sim_created":
       return compareStrings(a.simulation_created_date, b.simulation_created_date, dir);
     case "dwell":
@@ -80,7 +82,7 @@ export function TestRecordsTable({
 
   if (records.length === 0) return <p className="hint-text">No tests logged yet.</p>;
 
-  const header = (label: string, key: SortKey, columnType?: "date") => (
+  const header = (label: string, key: SortKey, columnType?: "date" | "number") => (
     <SortableColumnHeader
       label={label}
       columnKey={key}
@@ -98,6 +100,7 @@ export function TestRecordsTable({
         <thead>
           <tr>
             {header("Date", "date", "date")}
+            {emitterId && header("Version", "version", "number")}
             {header("Sim created", "sim_created", "date")}
             {header("Dwell", "dwell")}
             {header("Type", "type")}
@@ -120,6 +123,17 @@ export function TestRecordsTable({
                 className={r.id === highlightId ? "highlighted-row" : undefined}
               >
                 <td>{formatDate(r.test_date)}</td>
+                {emitterId && (
+                  <td title={r.emitter_version_number == null ? "Logged before the Emitter had a saved version" : undefined}>
+                    {r.emitter_version_number != null ? (
+                      <Link to={`/emitters/${emitterId}/versions?version=${r.emitter_version_number}`}>
+                        v{r.emitter_version_number}
+                      </Link>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                )}
                 <td>{formatDate(r.simulation_created_date)}</td>
                 <td>{r.dwell ?? "—"}</td>
                 <td>{testTypeLabel(r.test_type)}</td>

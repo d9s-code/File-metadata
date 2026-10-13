@@ -165,8 +165,9 @@ export function HelpPage() {
           your name&apos;s menu. A small <strong>?</strong> beside a title says what that page or panel is for.
         </p>
         <p>
-          <strong>Analyst notes:</strong> on an Emitter, Platform, MDF or Intercept, the <strong>Notes</strong> tab on
-          the right edge of the window opens its notes in a panel that stays put while you scroll and work on the page.
+          <strong>Analyst notes:</strong> on an Emitter, Platform, MDF or Intercept — and on their test pages (a new
+          run, a run&apos;s report, a Platform test) — the <strong>Notes</strong> tab on the right edge of the window
+          opens its notes in a panel that stays put while you scroll and work on the page.
           It stays open (or closed) as you move between pages. A note you&apos;ve written but not added yet is kept in
           this browser — closing the panel, leaving the page or a stray click doesn&apos;t lose it, and the tab shows
           ✎ until you add it. The same goes for notes on Sources and Tasks.
@@ -476,9 +477,10 @@ export function HelpPage() {
                 scan_fixed_6 — and click (or press Enter) to add as many as apply; the list stays
                 open between picks, and <strong>+ Add all N matches</strong> adds everything the search
                 found — and use <strong>+ Log</strong> to record the intercepted parameters as means — RF mean, PRI mean and jitter mean (Fixed), PW
-                mean; a Stagger set takes its sequence and the measured <strong>frame time</strong> instead.
-                Add more than one set if it was measured more than once; each is a row in the small table in the
-                cell. Notes grow as you write.
+                mean; a Stagger set takes its sequence and the measured <strong>frame time</strong> instead.{" "}
+                <strong>+ Log</strong> opens the fields with the cursor already in RF mean, so you can type a value and
+                Tab to the next. Add more than one set if it was measured more than once; each is a row in the small
+                table in the cell. Notes grow as you write.
               </li>
               <li>
                 An Intercept Test is a table with one row per Mode: tick the Modes that were intercepted, then
@@ -767,7 +769,10 @@ export function HelpPage() {
             runs on the latest saved Platform version.{" "}
             <strong>Tests</strong> holds <strong>Platform tests</strong> — every pinned Emitter tested in one run.{" "}
             <strong>+ New Platform test</strong> opens a page with the run&apos;s details and a row per pinned Emitter: a{" "}
-            <strong>result</strong> and <strong>notes</strong> (untick <strong>In this run</strong> to leave one out).
+            <strong>result</strong> and <strong>notes</strong> (untick <strong>In this run</strong> to leave one out). In a
+            Simulation Test each Emitter also has its own <strong>Simulation created</strong> date, filled in from the
+            newest of its SIM Test Lines&apos; created dates (change it if that&apos;s wrong; one with no lines needs it
+            typed).
             Results start blank — every Emitter in the run needs one picked before it can be logged. It&apos;s saved as you fill it in and can be continued from the Tests tab. Logging it writes a test record
             for each Emitter in the run, against the version the Platform pins, so each also shows in that
             Emitter&apos;s Test History, linked back to the Platform test. Each Platform test has its own page, <strong>Redo test</strong> starts a retest

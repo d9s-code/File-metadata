@@ -309,3 +309,25 @@ def test_a_signal_needs_measured_values_and_an_intercept_test(editor_client, emi
               "signals": [{"observed_values": [{"rf_mean_mhz": 9000}]}]},
     )
     assert sim.status_code == 422
+
+
+def test_a_run_keeps_the_emitter_version_it_tested(editor_client):
+    e = editor_client.post("/emitters", json={"name": "Versioned Test Target"}).json()
+    v1 = editor_client.post(f"/emitters/{e['id']}/versions", json={"change_summary": "first"}).json()
+    v2 = editor_client.post(f"/emitters/{e['id']}/versions", json={"change_summary": "second"}).json()
+    run = {"test_type": "intercept", "title": "Run", "test_date": "2026-10-01", "result": "pass"}
+
+    latest = editor_client.post(f"/emitters/{e['id']}/test-records", json=run)
+    assert latest.status_code == 201, latest.text
+    assert latest.json()["emitter_version_id"] == v2["id"] and latest.json()["emitter_version_number"] == 2
+
+    older = editor_client.post(f"/emitters/{e['id']}/test-records", json={**run, "emitter_version_id": v1["id"]})
+    assert older.status_code == 201, older.text
+    assert older.json()["emitter_version_number"] == 1
+    listed = {r["id"]: r["emitter_version_number"] for r in editor_client.get(f"/emitters/{e['id']}/test-records").json()}
+    assert listed == {latest.json()["id"]: 2, older.json()["id"]: 1}
+
+    other = editor_client.post("/emitters", json={"name": "Someone Else"}).json()
+    foreign = editor_client.post(f"/emitters/{other['id']}/versions", json={"change_summary": "x"}).json()
+    bad = editor_client.post(f"/emitters/{e['id']}/test-records", json={**run, "emitter_version_id": foreign["id"]})
+    assert bad.status_code == 422

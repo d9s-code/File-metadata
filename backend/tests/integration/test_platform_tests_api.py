@@ -177,3 +177,38 @@ def test_platform_test_counts_outcomes_and_a_redo_links_each_record(editor_clien
     )
     assert record["retests_test_record_id"] == row["test_record_id"]
     assert editor_client.get(f"/platform-tests/{second['id']}").json()["result"] == "pass"
+
+
+def test_each_emitter_keeps_its_own_simulation_date(editor_client):
+    a = _emitter(editor_client, "Sima")
+    b = _emitter(editor_client, "Simb")
+    platform = _platform(editor_client, a, b)
+    resp = editor_client.post(
+        f"/platforms/{platform['id']}/tests",
+        json={
+            "title": "Dated per Emitter",
+            "test_type": "simulation",
+            "test_date": "2026-10-01",
+            "emitters": [
+                {"emitter_id": a["emitter"]["id"], "result": "pass", "simulation_created_date": "2026-09-01"},
+                {"emitter_id": b["emitter"]["id"], "result": "pass", "simulation_created_date": "2026-09-20"},
+            ],
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    dates = {e["emitter_name"]: e["simulation_created_date"] for e in resp.json()["emitters"]}
+    assert dates == {"Sima": "2026-09-01", "Simb": "2026-09-20"}
+    [record] = editor_client.get(f"/emitters/{b['emitter']['id']}/test-records").json()
+    assert record["simulation_created_date"] == "2026-09-20"
+
+    # A Simulation Test still needs a date for every Emitter — its own or the run's.
+    missing = editor_client.post(
+        f"/platforms/{platform['id']}/tests",
+        json={
+            "title": "Undated",
+            "test_type": "simulation",
+            "test_date": "2026-10-01",
+            "emitters": [{"emitter_id": a["emitter"]["id"], "result": "pass"}],
+        },
+    )
+    assert missing.status_code == 422

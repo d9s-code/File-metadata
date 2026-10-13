@@ -1,4 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useQueries } from "@tanstack/react-query";
+import { testLinesApi } from "../api/testLines";
+import { testLinesKey } from "../state/hooks/useTestLines";
+import { PlatformNotesDrawer } from "../components/common/EntityNotesDrawer";
 import { formatTime } from "../components/common/dates";
 import { DateInput, TimeInput } from "../components/common/DateInput";
 import { PageHeader } from "../components/common/PageHeader";
@@ -31,6 +35,9 @@ interface EmitterRun {
   /** Empty until someone picks one — logging needs a result for every Emitter in the run. */
   result: TestResult | "";
   notes: string;
+  /** When its simulation was built, as typed — otherwise the newest of its
+   * SIM Test Lines' created dates. */
+  simCreatedDate?: string;
   /** When redoing an earlier Platform test: the Emitter's record in it, and its result then. */
   retestsRecordId?: string;
   previousResult?: TestResult;
@@ -71,6 +78,7 @@ function fromDraft(saved: Partial<EmitterRun> & { manualResult?: TestResult }): 
     included: saved.included ?? true,
     result: saved.result ?? saved.manualResult ?? "",
     notes: saved.notes ?? "",
+    simCreatedDate: saved.simCreatedDate,
     retestsRecordId: saved.retestsRecordId,
     previousResult: saved.previousResult,
   };
@@ -140,6 +148,26 @@ export function PlatformTestRunPage() {
   );
   const runFor = (emitterId: string) => state.emitters[emitterId] ?? blankRun();
   const isSimulation = state.testType === "simulation";
+  // Each Emitter's simulation date, from its own SIM Test Lines (the newest
+  // created date), as a single Emitter's run defaults to.
+  const lineQueries = useQueries({
+    queries: pins.map((l) => ({
+      queryKey: testLinesKey(l.emitter_id),
+      queryFn: () => testLinesApi.listForEmitter(l.emitter_id),
+    })),
+  });
+  const derivedSimDate = new Map<string, string>();
+  pins.forEach((l, i) => {
+    const newest = (lineQueries[i]?.data ?? [])
+      .map((t) => t.created_date)
+      .filter((d): d is string => !!d)
+      .sort()
+      .pop();
+    if (newest) derivedSimDate.set(l.emitter_id, newest);
+  });
+  /** The simulation date an Emitter's record gets: typed, derived, or (an older draft) the run's. */
+  const simDateFor = (emitterId: string) =>
+    runFor(emitterId).simCreatedDate ?? derivedSimDate.get(emitterId) ?? state.simCreatedDate ?? "";
   const included = pins.filter((l) => runFor(l.emitter_id).included);
 
   // --- Saved as it's filled in (as an Emitter's test run is) -------------
@@ -319,12 +347,19 @@ export function PlatformTestRunPage() {
       setError(`Pick a result for ${names.join(", ")}.`);
       return;
     }
+    const undated = isSimulation ? included.filter((l) => !simDateFor(l.emitter_id)) : [];
+    if (undated.length) {
+      const names = undated.map((l) => emitterLabel(emittersById.get(l.emitter_id), l.emitter_id));
+      setError(`Give the simulation date for ${names.join(", ")} — it has no SIM Test Lines to take it from.`);
+      return;
+    }
     const emitters: PlatformTestEmitterInput[] = included.map((link) => {
       const run = runFor(link.emitter_id);
       return {
         emitter_id: link.emitter_id,
         result: run.result as TestResult,
         notes: run.notes.trim() || undefined,
+        simulation_created_date: isSimulation ? simDateFor(link.emitter_id) : undefined,
         retests_test_record_id: run.retestsRecordId,
       };
     });
@@ -335,7 +370,7 @@ export function PlatformTestRunPage() {
         title: state.title,
         test_date: state.testDate,
         test_time: state.testTime || undefined,
-        simulation_created_date: (isSimulation ? state.simCreatedDate : state.interceptDate) || undefined,
+        simulation_created_date: isSimulation ? undefined : state.interceptDate || undefined,
         dwell: state.dwell.trim() || undefined,
         notes: state.notes.trim() || undefined,
         draft_id: draftId.current ?? undefined,
@@ -351,6 +386,7 @@ export function PlatformTestRunPage() {
 
   return (
     <div className="page">
+      <PlatformNotesDrawer platformId={platformId} name={platform.name} />
       <Link to={back}>← Back to {platform.name}</Link>
       <PageHeader
         title={`${draftId.current ? "Platform test in progress" : "New Platform test"} — ${platform.name}`}
@@ -384,14 +420,12 @@ export function PlatformTestRunPage() {
               Time
               <TimeInput value={state.testTime} onChange={(e) => patch({ testTime: e.target.value })} />
             </label>
-            <label>
-              {isSimulation ? "Simulation created" : "Intercept date (optional)"}
-              <DateInput
-                value={isSimulation ? state.simCreatedDate : state.interceptDate}
-                onChange={(e) => patch(isSimulation ? { simCreatedDate: e.target.value } : { interceptDate: e.target.value })}
-                required={isSimulation}
-              />
-            </label>
+            {!isSimulation && (
+              <label>
+                Intercept date (optional)
+                <DateInput value={state.interceptDate} onChange={(e) => patch({ interceptDate: e.target.value })} />
+              </label>
+            )}
             <DwellInput value={state.dwell} onChange={(dwell) => patch({ dwell })} />
           </div>
           <label className="test-notes-field">
@@ -427,6 +461,11 @@ export function PlatformTestRunPage() {
                   <th>In run</th>
                   <th>Emitter</th>
                   <th>Pinned version</th>
+                  {isSimulation && (
+                    <th title="Each Emitter's simulation date — the newest of its SIM Test Lines' created dates, unless changed here">
+                      Simulation created
+                    </th>
+                  )}
                   <th>Result</th>
                   <th>Notes</th>
                 </tr>
@@ -454,6 +493,21 @@ export function PlatformTestRunPage() {
                           <span className="hint-text"> · v{link.latest_version_number} saved since</span>
                         )}
                       </td>
+                      {isSimulation && (
+                        <td className="nowrap">
+                          <DateInput
+                            value={simDateFor(link.emitter_id)}
+                            disabled={!run.included}
+                            onChange={(e) => patchEmitter(link.emitter_id, { simCreatedDate: e.target.value })}
+                            aria-label={`${label} simulation created`}
+                            title={
+                              run.simCreatedDate === undefined && derivedSimDate.has(link.emitter_id)
+                                ? "From its SIM Test Lines (the newest created date)"
+                                : undefined
+                            }
+                          />
+                        </td>
+                      )}
                       <td className="nowrap">
                         <select
                           className={`outcome-select${run.result ? ` test-result-${run.result}` : ""}`}

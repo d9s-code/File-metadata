@@ -163,6 +163,9 @@ class TestRecordCreate(BaseModel):
     retests_test_record_id: UUID | None = None
     # The draft this run was filled in as, deleted once it's logged.
     draft_id: UUID | None = None
+    # Emitter scope: the saved version that was tested — the latest one when
+    # not given. Kept on the record, so the run always says what it tested.
+    emitter_version_id: UUID | None = None
     # The tester's call on the whole run, over the result worked out from the
     # lines or Modes — with why (required). Ignored if it's the same.
     result_override: TestResult | None = None
@@ -269,6 +272,8 @@ class TestRecordOut(BaseModel):
     dwell: str | None = None
     created_at: datetime
     retests_test_record_id: UUID | None = None
+    # The saved Emitter version tested, by number (emitter_version_id is the version).
+    emitter_version_number: int | None = None
     # Set when this record is one Emitter's part of a Platform test.
     platform_test_id: UUID | None = None
     # That Platform test's Platform and title, to link back to it.
@@ -329,6 +334,9 @@ class PlatformTestEmitterIn(BaseModel):
     result_override: TestResult | None = None
     result_override_note: str | None = Field(default=None, max_length=2000)
     notes: str | None = None
+    # When this Emitter's simulation was built (each Emitter's SIM Test Lines
+    # have their own) — or the run's when not given.
+    simulation_created_date: date | None = None
     # When this redoes an earlier Platform test: the Emitter's record in it.
     retests_test_record_id: UUID | None = None
 
@@ -353,7 +361,7 @@ class PlatformTestCreate(BaseModel):
             notes=(entry.notes or "").strip() or self.notes,
             test_date=self.test_date,
             test_time=self.test_time,
-            simulation_created_date=self.simulation_created_date,
+            simulation_created_date=entry.simulation_created_date or self.simulation_created_date,
             dwell=self.dwell,
             line_results=entry.line_results,
             mode_results=entry.mode_results,
@@ -382,6 +390,8 @@ class PlatformTestEmitterOut(BaseModel):
     mode_counts: dict[str, int] = {}
     # The Emitter's own notes in the run (not the session notes it inherits).
     notes: str | None = None
+    # When its simulation was built (or, for an Intercept Test, the intercept date).
+    simulation_created_date: date | None = None
 
 
 class PlatformTestOut(BaseModel):

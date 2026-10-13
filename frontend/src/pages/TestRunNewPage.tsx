@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEmitterVersions } from "../state/hooks/useEmitterVersions";
+import { EmitterNotesDrawer } from "../components/common/EntityNotesDrawer";
 import { formatDate, formatTime } from "../components/common/dates";
 import { DateInput, TimeInput } from "../components/common/DateInput";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -44,6 +46,8 @@ interface RunState {
   dwell: string;
   retestsId: string;
   copyFromId: string;
+  /** The saved Emitter version being tested ("" until the versions load: the latest). */
+  versionId?: string;
   notes: string;
   manualResult: TestResult | "";
   resultOverride?: TestResult | "";
@@ -91,6 +95,11 @@ export function TestRunNewPage() {
   const { data: sources } = useSources(emitterId);
   const { data: modes } = useEmitterModes(emitterId);
   const { data: testLines } = useEmitterTestLines(emitterId);
+  const { data: versions } = useEmitterVersions(emitterId);
+  const latestVersion = versions?.reduce<(typeof versions)[number] | null>(
+    (a, v) => (!a || v.version_number > a.version_number ? v : a),
+    null,
+  );
   const { data: records } = useEmitterTestRecords(emitterId);
   const create = useCreateEmitterTestRecord(emitterId);
   const discardDraft = useDiscardTestDraft(emitterId);
@@ -105,6 +114,7 @@ export function TestRunNewPage() {
   const [dwell, setDwell] = useState(MANUAL_DWELL);
   const [retestsId, setRetestsId] = useState("");
   const [copyFromId, setCopyFromId] = useState("");
+  const [versionId, setVersionId] = useState("");
   const [notes, setNotes] = useState("");
   const [manualResult, setManualResult] = useState<TestResult | "">("");
   const [resultOverride, setResultOverride] = useState<TestResult | "">("");
@@ -131,6 +141,7 @@ export function TestRunNewPage() {
       dwell,
       retestsId,
       copyFromId,
+      versionId,
       notes,
       manualResult,
       resultOverride,
@@ -140,7 +151,7 @@ export function TestRunNewPage() {
       signals,
       stagedModes,
     }),
-    [testType, title, testDate, testTime, simCreatedDate, interceptDate, dwell, retestsId, copyFromId, notes, manualResult, resultOverride, resultOverrideNote, lineEntries, modeEntries, signals, stagedModes],
+    [testType, title, testDate, testTime, simCreatedDate, interceptDate, dwell, retestsId, copyFromId, versionId, notes, manualResult, resultOverride, resultOverrideNote, lineEntries, modeEntries, signals, stagedModes],
   );
 
   function applyState(s: Partial<RunState>) {
@@ -153,6 +164,7 @@ export function TestRunNewPage() {
     if (s.dwell !== undefined) setDwell(s.dwell);
     if (s.retestsId !== undefined) setRetestsId(s.retestsId);
     if (s.copyFromId !== undefined) setCopyFromId(s.copyFromId);
+    if (s.versionId !== undefined) setVersionId(s.versionId);
     if (s.notes !== undefined) setNotes(s.notes);
     if (s.manualResult) setManualResult(s.manualResult);
     if (s.resultOverride !== undefined) setResultOverride(s.resultOverride);
@@ -396,6 +408,7 @@ export function TestRunNewPage() {
         mode_results: modeResults.length ? modeResults : undefined,
         result: lineResults.length || modeResults.length ? undefined : manualResult || undefined,
         retests_test_record_id: retestsId || undefined,
+        emitter_version_id: (versionId || latestVersion?.id) ?? undefined,
         draft_id: draftId.current ?? undefined,
         result_override: derived && resultOverride && resultOverride !== derived ? resultOverride : undefined,
         result_override_note:
@@ -424,6 +437,7 @@ export function TestRunNewPage() {
 
   return (
     <div className="page">
+      <EmitterNotesDrawer emitterId={emitterId} name={emitter.name} />
       <Link to={`/emitters/${emitterId}?tab=tests`}>← Back to {emitter.name} test history</Link>
       <h1>{draftId.current ? "Test run in progress" : "New test run"} — {emitter.name}</h1>
       {canWrite && <SaveLine status={saveStatus} hasDraft={!!draftId.current} onRetry={() => void saveNow()} />}
@@ -466,6 +480,27 @@ export function TestRunNewPage() {
             <DwellInput value={dwell} onChange={setDwell} />
           </div>
           <div className="form-row">
+            <label>
+              Version tested
+              {(versions ?? []).length === 0 ? (
+                <span className="hint-text version-tested-none">No saved version yet — the run won&apos;t be tied to one</span>
+              ) : (
+                <select value={versionId || latestVersion?.id || ""} onChange={(e) => setVersionId(e.target.value)}>
+                  {[...(versions ?? [])].reverse().map((v) => (
+                    <option key={v.id} value={v.id}>
+                      v{v.version_number}
+                      {v.id === latestVersion?.id ? " (latest)" : ""}
+                      {v.change_summary ? ` — ${v.change_summary}` : ""}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {emitter.checked_out_by_id && (versions ?? []).length > 0 && (
+                <span className="hint-text">
+                  It&apos;s being edited — changes not saved as a version aren&apos;t in any of these.
+                </span>
+              )}
+            </label>
             <label>
               Retest of (optional)
               <select value={retestsId} onChange={(e) => setRetestsId(e.target.value)}>

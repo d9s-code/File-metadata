@@ -19,6 +19,8 @@ export interface PlatformTestEmitterInput {
   result_override?: TestResult;
   result_override_note?: string;
   notes?: string;
+  /** When this Emitter's simulation was built — or the run's when left out. */
+  simulation_created_date?: string;
   /** When this redoes an earlier Platform test: the Emitter's record in it. */
   retests_test_record_id?: string;
 }
@@ -52,6 +54,8 @@ export interface PlatformTestEmitter {
   mode_counts: Partial<Record<TestResult, number>>;
   /** The Emitter's own notes in the run (not the session notes). */
   notes: string | null;
+  /** When its simulation was built (an Intercept Test: the intercept date). */
+  simulation_created_date: string | null;
 }
 
 export interface PlatformTest {

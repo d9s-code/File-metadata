@@ -59,6 +59,13 @@ class TestRecord(UUIDPkMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("platform_tests.id", ondelete="SET NULL"), nullable=True, index=True
     )
     platform_test: Mapped["PlatformTest | None"] = relationship(foreign_keys=[platform_test_id], viewonly=True)
+    emitter_version: Mapped["EmitterVersion | None"] = relationship(  # noqa: F821
+        foreign_keys=[emitter_version_id], viewonly=True
+    )
+
+    @property
+    def emitter_version_number(self) -> int | None:
+        return self.emitter_version.version_number if self.emitter_version else None
 
     @property
     def platform_test_platform_id(self) -> uuid.UUID | None:

@@ -141,6 +141,7 @@ export function InterceptModeResultsTable({
                     <td></td>
                     <td colSpan={4}>
                       <ObservedValuesEditor
+                        autoFocus
                         sets={entry.observedValues}
                         onChange={(sets) => patch(m.id, { observedValues: sets })}
                       />

@@ -106,3 +106,10 @@ export function observedValueOptions(
     });
   });
 }
+
+/** SIM Test Lines in alphabetical order, numbers by value ("Line 2" before
+ * "Line 10") — the order they're listed in everywhere: the panel, a new run
+ * and a run's report. */
+export function compareLineLabels(a: string, b: string): number {
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+}

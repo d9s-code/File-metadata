@@ -1,4 +1,5 @@
 import { type ReactNode } from "react";
+import { PlatformNotesDrawer } from "../components/common/EntityNotesDrawer";
 import { formatDate } from "../components/common/dates";
 import { Link, useParams } from "react-router-dom";
 import { usePlatform } from "../state/hooks/usePlatforms";
@@ -48,6 +49,7 @@ export function PlatformTestDetailPage() {
 
   return (
     <div className="page">
+      {platform && <PlatformNotesDrawer platformId={platformId} name={platform.name} />}
       {back}
       <h1>{test.title}</h1>
       <dl className="run-facts">
@@ -67,7 +69,12 @@ export function PlatformTestDetailPage() {
         )}
         {test.tested_by_username && <Fact label="Tested by">{test.tested_by_username}</Fact>}
       </dl>
-      {test.notes && <p className="muted pre-wrap">{test.notes}</p>}
+      {test.notes && (
+        <div className="run-notes">
+          <h4>Session notes</h4>
+          <p className="pre-wrap">{test.notes}</p>
+        </div>
+      )}
       <RequireRole minimum="editor">
         <div className="form-row">
           <Link className="link-as-button" to={`/platforms/${platformId}/tests/new?redo=${test.id}`}>
@@ -83,6 +90,7 @@ export function PlatformTestDetailPage() {
             <tr>
               <th>Emitter</th>
               <th>Version tested</th>
+              {test.test_type !== "intercept" && <th>Simulation created</th>}
               <th>Result</th>
               {detailed && <th>Detail</th>}
               <th>Notes</th>
@@ -97,7 +105,14 @@ export function PlatformTestDetailPage() {
                     {e.designation ? `${e.designation} — ${e.emitter_name}` : e.emitter_name}
                   </Link>
                 </td>
-                <td>{e.version_number != null ? `v${e.version_number}` : "—"}</td>
+                <td>
+                  {e.version_number != null ? (
+                    <Link to={`/emitters/${e.emitter_id}/versions?version=${e.version_number}`}>v{e.version_number}</Link>
+                  ) : (
+                    "—"
+                  )}
+                </td>
+                {test.test_type !== "intercept" && <td className="nowrap">{formatDate(e.simulation_created_date)}</td>}
                 <td className="nowrap">
                   <span className={`test-result-badge test-result-${e.result}`}>{testResultLabel(e.result)}</span>
                   {e.computed_result && (

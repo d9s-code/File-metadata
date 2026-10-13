@@ -65,6 +65,8 @@ export interface TestRecord {
   scope_type: "emitter" | "mdf";
   scope_id: string;
   emitter_version_id: string | null;
+  /** The saved Emitter version tested, by number. */
+  emitter_version_number: number | null;
   mdf_version_id: string | null;
   test_type: TestType;
   result: TestResult;
@@ -135,6 +137,8 @@ export interface TestRecordInput {
   /** The tester's call over the worked-out result, with why (required). */
   result_override?: TestResult;
   result_override_note?: string;
+  /** The saved Emitter version tested — the latest when left out. */
+  emitter_version_id?: string;
 }
 
 /** A test run being filled in, saved as it's typed. */

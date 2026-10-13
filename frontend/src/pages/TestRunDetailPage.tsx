@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { EmitterNotesDrawer } from "../components/common/EntityNotesDrawer";
 import { formatDate } from "../components/common/dates";
 import { ObservedValuesTable } from "../components/testing/ObservedValuesTable";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
@@ -17,6 +18,7 @@ import { InterceptSignalsList } from "../components/testing/InterceptSignals";
 import type { TestRecord } from "../api/testRecords";
 import type { TestResult } from "../types/domain";
 import {
+  compareLineLabels,
   lineOutcomeLabel,
   TEST_RESULTS,
   testResultLabel,
@@ -39,19 +41,8 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-/** One line under the title: how the run came out, counted, and which
- * saved version of the Emitter it tested. */
-function RunSummary({
-  record,
-  exercised,
-  emitterId,
-  versionNumber,
-}: {
-  record: TestRecord;
-  exercised: TestRecord["modes"];
-  emitterId: string;
-  versionNumber: number | null;
-}) {
+/** One line under the title: how the run came out, counted. */
+function RunSummary({ record, exercised }: { record: TestRecord; exercised: TestRecord["modes"] }) {
   const lineCounts = countOf(record.lines, (l) => l.outcome);
   const modeCounts = countOf(exercised, (m) => m.result);
   return (
@@ -76,15 +67,6 @@ function RunSummary({
           ))}
         </span>
       )}
-      <span className="hint-text">
-        {versionNumber != null ? (
-          <>
-            Tested against <Link to={`/emitters/${emitterId}/versions?version=${versionNumber}`}>version {versionNumber}</Link>
-          </>
-        ) : (
-          "Tested before the Emitter had a saved version"
-        )}
-      </span>
     </p>
   );
 }
@@ -121,7 +103,8 @@ export function TestRunDetailPage() {
   const exercised = record.modes.filter((m) => m.link_type === "exercised");
   const derivedModes = record.modes.filter((m) => m.link_type === "derived");
   const canAddMode = canEdit && (ewGroups?.length ?? 0) > 0 && (sources?.length ?? 0) > 0;
-  const versionNumber = versions?.find((v) => v.id === record.emitter_version_id)?.version_number ?? null;
+  const versionNumber =
+    record.emitter_version_number ?? versions?.find((v) => v.id === record.emitter_version_id)?.version_number ?? null;
 
   async function handleDelete() {
     if (!record || !(await confirmDelete(`Delete the test record "${record.title}"?`))) return;
@@ -131,6 +114,7 @@ export function TestRunDetailPage() {
 
   return (
     <div className="page">
+      <EmitterNotesDrawer emitterId={emitterId} name={emitter.name} />
       {backLink}
       <h1>{record.title}</h1>
       <dl className="run-facts">
@@ -143,6 +127,15 @@ export function TestRunDetailPage() {
           )}
         </Fact>
         <Fact label="Type">{testTypeLabel(record.test_type)}</Fact>
+        <Fact label="Version tested">
+          {versionNumber != null ? (
+            <Link to={`/emitters/${emitterId}/versions?version=${versionNumber}`}>v{versionNumber}</Link>
+          ) : (
+            <span className="hint-text" title="Logged before the Emitter had a saved version">
+              None saved
+            </span>
+          )}
+        </Fact>
         <Fact label="Tested">
           {formatDate(record.test_date)}
           {record.test_time ? ` ${record.test_time.slice(0, 5)}` : ""}
@@ -175,8 +168,13 @@ export function TestRunDetailPage() {
       <RequireRole minimum="editor">
         <ResultOverride emitterId={emitterId} record={record} />
       </RequireRole>
-      <RunSummary record={record} exercised={exercised} emitterId={emitterId} versionNumber={versionNumber} />
-      {record.notes && <p className="muted">{record.notes}</p>}
+      <RunSummary record={record} exercised={exercised} />
+      {record.notes && (
+        <div className="run-notes">
+          <h4>Session notes</h4>
+          <p className="pre-wrap">{record.notes}</p>
+        </div>
+      )}
       {stagedModeFailures && stagedModeFailures.length > 0 && (
         <div className="error-text">
           Run logged, but {stagedModeFailures.length} staged Mode(s) failed to create: {stagedModeFailures.join(", ")}.
@@ -248,7 +246,7 @@ export function TestRunDetailPage() {
               </tr>
             </thead>
             <tbody>
-              {record.lines.map((l) => (
+              {[...record.lines].sort((a, b) => compareLineLabels(a.test_line_label, b.test_line_label)).map((l) => (
                 <tr key={l.test_line_id}>
                   <td>{l.test_line_label}</td>
                   <td>
