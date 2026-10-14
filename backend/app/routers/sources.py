@@ -19,6 +19,8 @@ from app.schemas.mode_element import (
     CartesianProductRequest,
     CartesianProductResult,
     CartesianRunOut,
+    ElementBatchCreate,
+    ElementBatchResult,
     FrametimeResponse,
     ModeElementCreate,
     ModeElementOut,
@@ -522,6 +524,57 @@ def create_element(
     db.commit()
     db.refresh(element)
     return element
+
+
+@router.post(
+    "/batch-elements",
+    response_model=ElementBatchResult,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(verify_csrf)],
+)
+def batch_create_elements(
+    emitter_id: UUID,
+    payload: ElementBatchCreate,
+    db: Session = Depends(get_db),
+    user=Depends(require_emitter_checkout()),
+) -> ElementBatchResult:
+    """Every Element to every one of the Sources, each as its own Element,
+    after the Source's existing Elements of its type — all or nothing."""
+    source_ids = list(dict.fromkeys(payload.source_ids))
+    sources = [_get_source_or_404(db, emitter_id, sid) for sid in source_ids]
+    created = 0
+    for source in sources:
+        next_order: dict = {}
+        added: list[ModeElement] = []
+        for item in payload.elements:
+            kind = item.element_type
+            if kind not in next_order:
+                last = (
+                    db.query(ModeElement.sort_order)
+                    .filter(ModeElement.source_id == source.id, ModeElement.element_type == kind)
+                    .order_by(ModeElement.sort_order.desc())
+                    .first()
+                )
+                next_order[kind] = (last[0] + 1) if last else 0
+            element = ModeElement(source_id=source.id, **{**item.model_dump(), "sort_order": next_order[kind]})
+            next_order[kind] += 1
+            db.add(element)
+            added.append(element)
+        db.flush()
+        kinds = sorted({e.element_type.value.upper() for e in added})
+        record_audit(
+            db,
+            actor_id=user.id,
+            action=AuditAction.create,
+            entity_type=AuditEntityType.mode_element.value,
+            entity_id=added[0].id,
+            summary=f"Added {len(added)} {'/'.join(kinds)} element{'' if len(added) == 1 else 's'} to Source '{source.name}' (batch)",
+            changes={"elements": [item.model_dump(mode="json") for item in payload.elements]},
+            emitter_id=emitter_id,
+        )
+        created += len(added)
+    db.commit()
+    return ElementBatchResult(created=created, sources=len(sources))
 
 
 @router.delete(

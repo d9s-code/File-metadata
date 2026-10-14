@@ -395,8 +395,8 @@ export function SourcesTable({
             </button>
             <button
               className="button secondary small"
-              disabled={!canEdit || selected.size === 0}
-              title={!canEdit ? editTitle : selected.size === 0 ? "Select one or more Sources below first" : undefined}
+              disabled={!canEdit || sources.length === 0}
+              title={canEdit ? "Add Elements (or a sequence) to several Sources at once" : editTitle}
               onClick={() => setShowBatchAdd(true)}
             >
               Batch Add{selected.size > 0 ? ` to ${selected.size} Source${selected.size === 1 ? "" : "s"}` : ""}

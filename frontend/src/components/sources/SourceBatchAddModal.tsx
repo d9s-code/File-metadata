@@ -9,6 +9,29 @@ import { ApiRequestError } from "../../api/client";
 import type { ElementType, ElementVariant } from "../../types/domain";
 
 const ELEMENT_TYPES: ElementType[] = ["rf", "pri", "pw", "scan"];
+const UNITS: Record<ElementType, string> = { rf: "MHz", pri: "µs", pw: "µs", scan: "s" };
+
+/** What was typed in the values box: each entry a value ("9000") or a range
+ * ("9000-9200", "9000–9200", "9000 to 9200"), separated by commas, semicolons,
+ * spaces or new lines. Entries that aren't numbers come back as `bad`. */
+export function parseValueList(text: string): { values: [number, number][]; bad: string[] } {
+  const normalised = text
+    .replace(/\s*(?:–|—|\.\.|\bto\b)\s*/gi, "-")
+    .replace(/(\d)\s*-\s*(?=\d)/g, "$1-");
+  const values: [number, number][] = [];
+  const bad: string[] = [];
+  for (const token of normalised.split(/[\s,;]+/).filter(Boolean)) {
+    const m = /^(\d+(?:\.\d+)?)(?:-(\d+(?:\.\d+)?))?$/.exec(token);
+    if (!m) {
+      bad.push(token);
+      continue;
+    }
+    const a = Number(m[1]);
+    const b = m[2] != null ? Number(m[2]) : a;
+    values.push([Math.min(a, b), Math.max(a, b)]);
+  }
+  return { values, bad };
+}
 
 interface StepState {
   order: number;
@@ -33,13 +56,26 @@ export function SourceBatchAddModal({
   onDone,
 }: {
   emitterId: string;
+  /** The Sources ticked to start with (those selected in the table). */
   sourceIds: string[];
+  /** Every Source of the Emitter, to pick from. */
   sourceNameById: Record<string, string>;
   onClose: () => void;
   onDone: () => void;
 }) {
   const qc = useQueryClient();
   const [mode, setMode] = useState<"element" | "sequence">("element");
+  const [picked, setPicked] = useState<Set<string>>(() => new Set(sourceIds));
+  const allSourceIds = Object.keys(sourceNameById).sort((a, b) =>
+    sourceNameById[a].localeCompare(sourceNameById[b], undefined, { numeric: true }),
+  );
+  const targets = allSourceIds.filter((id) => picked.has(id));
+  function togglePicked(id: string) {
+    const next = new Set(picked);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setPicked(next);
+  }
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [failures, setFailures] = useState<Outcome[] | null>(null);
   const [genericError, setGenericError] = useState<string | null>(null);
@@ -48,8 +84,8 @@ export function SourceBatchAddModal({
   const [elementType, setElementType] = useState<ElementType>("rf");
   const [variant, setVariant] = useState<ElementVariant>("typical");
   const [priShape, setPriShape] = useState<"range" | "stagger">("range");
-  const [valueMin, setValueMin] = useState("");
-  const [valueMax, setValueMax] = useState("");
+  const [valuesText, setValuesText] = useState("");
+  const [delta, setDelta] = useState("");
   const [jitterMin, setJitterMin] = useState("0");
   const [jitterMax, setJitterMax] = useState("1");
   const [staggerValues, setStaggerValues] = useState("");
@@ -63,6 +99,7 @@ export function SourceBatchAddModal({
   ]);
 
   const usesStagger = elementType === "pri" && priShape === "stagger";
+  const parsed = parseValueList(valuesText);
 
   function addStep() {
     setSteps([
@@ -89,34 +126,69 @@ export function SourceBatchAddModal({
     setGenericError(null);
     setFailures(null);
 
+    if (targets.length === 0) {
+      setGenericError("Tick at least one Source.");
+      return;
+    }
     if (mode === "element" && variant === "analysis" && !details.trim()) {
       setGenericError("Selecting the 'analysis' variant requires a note in Notes.");
+      return;
+    }
+    if (mode === "element" && !usesStagger && (parsed.bad.length > 0 || parsed.values.length === 0)) {
+      setGenericError(
+        parsed.bad.length > 0
+          ? `Not a value or range: ${parsed.bad.join(", ")}`
+          : "Type one or more values, e.g. 9000, 9100-9200, 9300.",
+      );
+      return;
+    }
+
+    if (mode === "element") {
+      // All of it in one go: every Element to every ticked Source, or nothing.
+      const common = {
+        element_type: elementType,
+        variant,
+        label: label || undefined,
+        details: details || undefined,
+        delta: delta.trim() ? Number(delta) : undefined,
+      };
+      const elements = usesStagger
+        ? [
+            {
+              ...common,
+              stagger_values: staggerValues
+                .split(",")
+                .map((v) => v.trim())
+                .filter(Boolean)
+                .map(Number),
+            },
+          ]
+        : parsed.values.map(([lo, hi]) => ({
+            ...common,
+            value_min: lo,
+            value_max: hi,
+            jitter_min: elementType === "pri" && jitterMin ? Number(jitterMin) : undefined,
+            jitter_max: elementType === "pri" && jitterMax ? Number(jitterMax) : undefined,
+          }));
+      setIsSubmitting(true);
+      try {
+        await elementsApi.batch(emitterId, targets, elements);
+        for (const sourceId of targets) qc.invalidateQueries({ queryKey: elementsKey(emitterId, sourceId) });
+        qc.invalidateQueries({ queryKey: elementOverviewKey(emitterId) });
+        onDone();
+      } catch (err) {
+        setGenericError(err instanceof ApiRequestError ? err.message : "Couldn't add the Elements — nothing was added.");
+      } finally {
+        setIsSubmitting(false);
+      }
       return;
     }
 
     setIsSubmitting(true);
     try {
       const results = await Promise.allSettled(
-        sourceIds.map((sourceId) =>
-          mode === "element"
-            ? elementsApi.create(emitterId, sourceId, {
-                element_type: elementType,
-                variant,
-                label: label || undefined,
-                details: details || undefined,
-                value_min: usesStagger ? undefined : Number(valueMin),
-                value_max: usesStagger ? undefined : Number(valueMax),
-                jitter_min: elementType === "pri" && !usesStagger && jitterMin ? Number(jitterMin) : undefined,
-                jitter_max: elementType === "pri" && !usesStagger && jitterMax ? Number(jitterMax) : undefined,
-                stagger_values: usesStagger
-                  ? staggerValues
-                      .split(",")
-                      .map((s) => s.trim())
-                      .filter(Boolean)
-                      .map(Number)
-                  : undefined,
-              })
-            : parameterSequencesApi.create(emitterId, sourceId, {
+        targets.map((sourceId) =>
+          parameterSequencesApi.create(emitterId, sourceId, {
                 label: seqLabel || undefined,
                 steps: steps.map((s) => ({
                   order: s.order,
@@ -135,18 +207,14 @@ export function SourceBatchAddModal({
         if (result.status === "rejected") {
           const err = result.reason;
           failed.push({
-            sourceId: sourceIds[i],
-            sourceName: sourceNameById[sourceIds[i]] ?? sourceIds[i],
+            sourceId: targets[i],
+            sourceName: sourceNameById[targets[i]] ?? targets[i],
             error: err instanceof ApiRequestError ? err.message : "Failed to create",
           });
         }
       });
 
-      for (const sourceId of sourceIds) {
-        qc.invalidateQueries({ queryKey: elementsKey(emitterId, sourceId) });
-        qc.invalidateQueries({ queryKey: elementOverviewKey(emitterId) });
-        qc.invalidateQueries({ queryKey: parameterSequencesKey(emitterId, sourceId) });
-      }
+      for (const sourceId of targets) qc.invalidateQueries({ queryKey: parameterSequencesKey(emitterId, sourceId) });
 
       if (failed.length === 0) {
         onDone();
@@ -159,12 +227,25 @@ export function SourceBatchAddModal({
   }
 
   return (
-    <Modal title={`Batch Add to ${sourceIds.length} Source${sourceIds.length === 1 ? "" : "s"}`} onClose={onClose} wide>
+    <Modal title="Batch Add to Sources" onClose={onClose} wide>
       <form className="batch-edit-form" onSubmit={handleSubmit}>
-        <p className="hint-text">
-          Adds a new Element or Sequence to every one of the {sourceIds.length} selected Source(s). Each
-          Source is independent — one failing doesn't stop the others.
-        </p>
+        <fieldset className="batch-sources">
+          <legend>
+            To {targets.length} of {allSourceIds.length} Source{allSourceIds.length === 1 ? "" : "s"}{" "}
+            <button type="button" className="link-button" onClick={() => setPicked(new Set(allSourceIds))}>
+              All
+            </button>{" "}
+            <button type="button" className="link-button" onClick={() => setPicked(new Set())}>
+              None
+            </button>
+          </legend>
+          {allSourceIds.map((id) => (
+            <label key={id} className="inline-label">
+              <input type="checkbox" checked={picked.has(id)} onChange={() => togglePicked(id)} />
+              {sourceNameById[id]}
+            </label>
+          ))}
+        </fieldset>
 
         <div className="edit-actions">
           <button
@@ -227,16 +308,37 @@ export function SourceBatchAddModal({
             )}
 
             {(elementType !== "pri" || priShape === "range") && (
-              <div className="batch-edit-grid batch-edit-grid-4">
+              <>
                 <label>
-                  Min
-                  <input type="number" step="any" value={valueMin} onChange={(e) => setValueMin(e.target.value)} required />
+                  {elementType.toUpperCase()} values ({UNITS[elementType]}) — each its own Element
+                  <textarea
+                    rows={2}
+                    autoFocus
+                    placeholder="9000, 9100-9200, 9300"
+                    value={valuesText}
+                    onChange={(e) => setValuesText(e.target.value)}
+                    aria-invalid={parsed.bad.length > 0 || undefined}
+                  />
                 </label>
+                <p className={parsed.bad.length ? "error-text" : "hint-text"}>
+                  {parsed.bad.length > 0
+                    ? `Not a value or range: ${parsed.bad.join(", ")} — use "." for decimals.`
+                    : parsed.values.length > 0
+                      ? `${parsed.values.length} Element${parsed.values.length === 1 ? "" : "s"}: ${parsed.values
+                          .map(([lo, hi]) => (lo === hi ? `${lo}` : `${lo}–${hi}`))
+                          .join(" · ")} ${UNITS[elementType]} × ${targets.length} Source${targets.length === 1 ? "" : "s"} = ${
+                          parsed.values.length * targets.length
+                        } Elements`
+                      : 'Separate values with commas, spaces or new lines; a range as 9100-9200. Use "." for decimals.'}
+                </p>
+              </>
+            )}
+            <div className="batch-edit-grid batch-edit-grid-4">
                 <label>
-                  Max
-                  <input type="number" step="any" value={valueMax} onChange={(e) => setValueMax(e.target.value)} required />
+                  ± delta (optional)
+                  <input type="number" step="any" min="0" value={delta} onChange={(e) => setDelta(e.target.value)} required={usesStagger} />
                 </label>
-                {elementType === "pri" && (
+                {elementType === "pri" && !usesStagger && (
                   <>
                     <label>
                       Jitter min
@@ -248,8 +350,7 @@ export function SourceBatchAddModal({
                     </label>
                   </>
                 )}
-              </div>
-            )}
+            </div>
             {elementType === "pri" && priShape === "stagger" && (
               <div className="batch-edit-grid batch-edit-grid-2">
                 <label>
@@ -347,8 +448,10 @@ export function SourceBatchAddModal({
           <button type="button" className="icon-button" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" disabled={isSubmitting}>
-            Batch Add to {sourceIds.length} Source{sourceIds.length === 1 ? "" : "s"}
+          <button type="submit" disabled={isSubmitting || targets.length === 0}>
+            {mode === "element" && !usesStagger && parsed.values.length > 0
+              ? `Add ${parsed.values.length * targets.length} Element${parsed.values.length * targets.length === 1 ? "" : "s"}`
+              : `Batch Add to ${targets.length} Source${targets.length === 1 ? "" : "s"}`}
           </button>
         </div>
 
@@ -356,7 +459,7 @@ export function SourceBatchAddModal({
         {failures && failures.length > 0 && (
           <div className="error-text">
             <p>
-              Added to {sourceIds.length - failures.length} of {sourceIds.length} Source(s) — {failures.length} failed:
+              Added to {targets.length - failures.length} of {targets.length} Source(s) — {failures.length} failed:
             </p>
             <ul>
               {failures.map((f) => (

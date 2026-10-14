@@ -918,6 +918,10 @@ label {
 /* BatchEditModal: every section (EW Group/Notes, Range matching, Deltas) uses
    the same equal-width grid so labels and controls line up across rows,
    instead of each section flexing to its own content width. */
+/* Batch Add: which Sources it goes to, ticked in a wrapping list. */
+.batch-sources { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.4rem 0.6rem; margin: 0 0 0.6rem; display: flex; flex-wrap: wrap; gap: 0.2rem 1rem; max-height: 9rem; overflow-y: auto; }
+.batch-sources legend { font-weight: 600; font-size: 0.85rem; padding: 0 0.3rem; }
+.batch-edit-form textarea { width: 100%; font-family: inherit; }
 .batch-edit-section {
   display: flex;
   flex-direction: column;

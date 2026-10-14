@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, computed_field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
 from app.core.enums import ElementType, ElementVariant
 from app.services.delta import apply_delta
@@ -48,6 +48,20 @@ class ModeElementCreate(BaseModel):
         if self.variant == ElementVariant.analysis and not (self.details and self.details.strip()):
             raise ValueError("Selecting the 'analysis' variant requires a note in Details")
         return self
+
+
+class ElementBatchCreate(BaseModel):
+    """Elements added to several Sources at once — each Element to every
+    Source, as its own Element (e.g. four RF values typed as a list, to three
+    Sources: twelve Elements)."""
+
+    source_ids: list[UUID] = Field(min_length=1, max_length=200)
+    elements: list[ModeElementCreate] = Field(min_length=1, max_length=200)
+
+
+class ElementBatchResult(BaseModel):
+    created: int
+    sources: int
 
 
 class ModeElementOut(ModeElementCreate):

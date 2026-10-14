@@ -580,9 +580,13 @@ export function HelpPage() {
               blank cell wherever that step didn't set that parameter.
             </p>
             <p>
-              Tick one or more Sources' checkboxes to reveal a <strong>Batch Add</strong> button — muted
-              until at least one is selected — for adding the same new Element or Sequence to every
-              selected Source at once, instead of repeating the same entry by hand on each one.
+              <strong>Batch Add</strong> adds Elements (or a Sequence) to several Sources at once. Tick the Sources
+              in the dialog — the ones selected in the table start ticked; <strong>All</strong> ticks every one. Pick
+              the type and variant, then type the <strong>values</strong>: each becomes its own Element, a single value
+              (9000) or a range (9100-9200), separated by commas, spaces or new lines — so
+              &ldquo;9000, 9100-9200, 9300&rdquo; to three Sources adds nine Elements. Below the box it says what
+              will be added; an entry that isn&apos;t a number is pointed out first. A delta, label, jitter (PRI) and
+              notes apply to each. It&apos;s all or nothing: if anything is refused, nothing is added.
             </p>
             <p>
               A Source that came from an <strong>import</strong> (see below) starts out{" "}
