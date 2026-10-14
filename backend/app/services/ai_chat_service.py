@@ -53,6 +53,7 @@ from app.services import knowledge_service, llm_client, search_service
 from app.services.pin_hygiene import mdf_readiness
 from app.services.test_line_status_service import latest_line_outcomes
 from app.services.ai_review_service import SEVERITY_LABELS, SEVERITY_ORDER, _finding_line, _n, unverified_numbers
+from app.services.dates import day_text
 
 MAX_STEPS = 6
 # Earlier lookups run again with a question: from this many of the latest
@@ -339,7 +340,7 @@ def get_emitter(db: Session, step: ChatStep) -> str:
     ).scalars().all()
     lines.append(f"Sources ({len(sources)}):")
     for src in sources[:30]:
-        bits = [f"dated {src.source_date.isoformat()}", src.status.value.replace("_", " ")]
+        bits = [f"dated {day_text(src.source_date)}", src.status.value.replace("_", " ")]
         if src.source_type:
             bits.append(src.source_type)
         lines.append(f"- {src.name} ({', '.join(bits)})")
@@ -427,7 +428,7 @@ def get_tests(db: Session, step: ChatStep) -> str:
     out = [f"Tests of Emitter {_label(emitter)} [{emitter.id}]", f"SIM Test Lines ({len(lines_)}):"]
     for t in lines_[:80]:
         last = outcomes.get(t.id)
-        status = f"{last[1].value} on {last[0].isoformat()}" if last else "never tested"
+        status = f"{last[1].value} on {day_text(last[0])}" if last else "never tested"
         out.append(f"- {t.label}: {status}")
     runs = db.execute(
         select(TestRecord).where(TestRecord.scope_type == TestScopeType.emitter, TestRecord.scope_id == emitter.id)
@@ -435,7 +436,7 @@ def get_tests(db: Session, step: ChatStep) -> str:
     ).scalars().all()
     out.append(f"Latest test runs ({len(runs)}, newest first):")
     for r in runs:
-        bits = [r.test_date.isoformat(), r.test_type.value.replace("_", " "), f"result {r.result.value}"]
+        bits = [day_text(r.test_date), r.test_type.value.replace("_", " "), f"result {r.result.value}"]
         if r.emitter_version_number is not None:
             bits.append(f"version v{r.emitter_version_number}")
         if r.lines:
@@ -457,7 +458,7 @@ def get_mdf(db: Session, step: ChatStep) -> str:
         f"MDF {mdf.name} [{mdf.id}]",
         f"Status: {mdf.status.value.replace('_', ' ')}",
         f"Customer: {customer.name if customer else 'none'}",
-        f"Release date: {mdf.release_date.isoformat() if mdf.release_date else 'not set'}",
+        f"Release date: {day_text(mdf.release_date) if mdf.release_date else 'not set'}",
     ]
     if mdf.description:
         out.append(f"Description: {mdf.description.strip()[:400]}")
@@ -563,7 +564,7 @@ def get_ambiguity(db: Session, step: ChatStep) -> str:
         counts[f.combined_severity.value] = counts.get(f.combined_severity.value, 0) + 1
     top = sorted(findings, key=lambda f: (SEVERITY_ORDER.get(f.combined_severity.value, 9), bool(f.reviewed_by)))[:20]
     lines = [
-        f"Latest ambiguity check of {emitter.name}, {run.created_at:%Y-%m-%d}: {len(findings)} findings, "
+        f"Latest ambiguity check of {emitter.name}, {day_text(run.created_at)}: {len(findings)} findings, "
         f"{sum(1 for f in findings if f.reviewed_by)} acknowledged.",
         "By severity: " + ", ".join(f"{SEVERITY_LABELS[k]} {counts[k]}" for k in SEVERITY_LABELS) + ".",
         "Most serious:",

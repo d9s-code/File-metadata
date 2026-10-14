@@ -185,6 +185,6 @@ def test_lists_tests_mdfs_and_bands(editor_client, fake_llm, emitter_with_two_ov
     assert "1 Emitters (status In progress, on Platform Chat Platform)" in results[0]
     assert "Ambiguity Emitter" in results[0] and "2 Modes" in results[0]
     assert "is not a status" in results[1] and "Operational" in results[1]
-    assert "Range day — 2026-10-01" in results[2] and "result fail" in results[2] and "version v1" in results[2]
+    assert "Range day — 01.10.2026" in results[2] and "result fail" in results[2] and "version v1" in results[2]
     assert "MDF Chat MDF" in results[3] and "Chat Platform v" in results[3] and "Readiness:" in results[3]
     assert "2 Modes cover RF 3050–3500 MHz" in results[4]

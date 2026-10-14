@@ -38,6 +38,7 @@ from app.services.ambiguity_service import (
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.mode_sources import add_mode_sources, sources_label
 from app.services.snapshots import build_emitter_snapshot
+from app.services.dates import day_text
 
 SEVERITY_RANK = {"none": 0, "low": 1, "medium": 2, "high": 3, "exact_overlap": 4}
 
@@ -219,7 +220,7 @@ def apply(db: Session, finding: AmbiguityFinding, keep: str, user) -> dict:
     when = datetime.now(timezone.utc)
     note = (
         f"Merged with \"{removed.name}\" (sources \"{', '.join(removed.source_names)}\", EW group \"{removed.ew_group.name}\") "
-        f"on {when:%Y-%m-%d} by {user.username}, from an ambiguity check — its ranges are included in this Mode's."
+        f"on {day_text(when)} by {user.username}, from an ambiguity check — its ranges are included in this Mode's."
     )
     if removed.notes:
         note += f"\nIts notes: {removed.notes.strip()}"

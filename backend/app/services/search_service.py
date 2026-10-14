@@ -14,6 +14,7 @@ from app.models.mdf import Mdf
 from app.models.mode import Mode
 from app.models.platform import Platform
 from app.models.source import Source
+from app.services.dates import day_text
 
 PER_KIND = 8
 
@@ -93,7 +94,7 @@ def search(db: Session, q: str) -> list[dict]:
                 "kind": "source",
                 "id": str(sid),
                 "title": name,
-                "subtitle": f"{_emitter_label(ename, edes)} · {sdate.isoformat()}",
+                "subtitle": f"{_emitter_label(ename, edes)} · {day_text(sdate)}",
                 "url": f"/emitters/{eid}?tab=setup&source={sid}",
             }
         )
@@ -128,7 +129,7 @@ def search(db: Session, q: str) -> list[dict]:
                 "kind": "intercept",
                 "id": str(iid),
                 "title": name,
-                "subtitle": _emitter_label(ename, edes) + (f" · {when.isoformat()}" if when else ""),
+                "subtitle": _emitter_label(ename, edes) + (f" · {day_text(when)}" if when else ""),
                 "url": f"/intercepts/{iid}",
             }
         )

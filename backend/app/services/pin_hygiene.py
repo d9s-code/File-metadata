@@ -22,6 +22,7 @@ from app.models.emitter_version import EmitterVersion
 from app.models.mdf import Mdf, MdfVersion
 from app.models.platform import PlatformVersion
 from app.models.test_record import TestRecord
+from app.services.dates import day_text
 
 
 def latest_versions(db: Session, model, owner_column, owner_ids) -> dict:
@@ -184,7 +185,7 @@ def _emitter_checks(db: Session, emitters: dict[str, dict]) -> list[dict]:
         ):
             latest_sim[str(scope_id)] = (result, test_date)
     failing = sorted(
-        f"{pl['emitter_name']}: {latest_sim[eid][0].value.capitalize()} ({latest_sim[eid][1].isoformat()})"
+        f"{pl['emitter_name']}: {latest_sim[eid][0].value.capitalize()} ({day_text(latest_sim[eid][1])})"
         for eid, pl in emitters.items()
         if eid in latest_sim and latest_sim[eid][0] != TestResult.pass_
     )

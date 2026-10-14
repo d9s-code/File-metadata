@@ -73,7 +73,7 @@ export function SourceHoverDetail({ emitterId, source }: { emitterId: string; so
       <dd>{formatDateTime(source.updated_at)}</dd>
       <dt>Elements</dt>
       <dd>
-        {counts.rf} RF · {counts.pw} PW · {counts.pri} PRI · {counts.scan} Scan
+        {counts.rf} RF · {counts.pri} PRI · {counts.pw} PW · {counts.scan} Scan
       </dd>
     </dl>
   );

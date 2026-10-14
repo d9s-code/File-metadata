@@ -57,7 +57,7 @@ function ElementCounts({ emitterId, sourceId }: { emitterId: string; sourceId: s
   for (const el of elements) counts[el.element_type]++;
   return (
     <span className="hint-text">
-      {counts.rf} RF · {counts.pw} PW · {counts.pri} PRI · {counts.scan} Scan
+      {counts.rf} RF · {counts.pri} PRI · {counts.pw} PW · {counts.scan} Scan
     </span>
   );
 }

@@ -11,6 +11,7 @@ never a raw DeepDiff path like `['ew_groups'][0]['modes'][1]['line']['rf_max_mhz
 """
 
 from app.core.enums import EMITTER_STATUS_LABELS
+from app.services.dates import day_text
 
 EMITTER_FIELD_LABELS = {
     "name": "Name",
@@ -163,7 +164,7 @@ def _group_summary(g: dict) -> str:
 
 
 def _source_summary(s: dict) -> str | None:
-    return f"dated {s['source_date']}" if s.get("source_date") else None
+    return f"dated {day_text(s['source_date'])}" if s.get("source_date") else None
 
 
 def _test_line_summary(tl: dict) -> str | None:
