@@ -542,6 +542,25 @@ def batch_create_elements(
     after the Source's existing Elements of its type — all or nothing."""
     source_ids = list(dict.fromkeys(payload.source_ids))
     sources = [_get_source_or_404(db, emitter_id, sid) for sid in source_ids]
+    new_source = None
+    if payload.new_source is not None:
+        _get_emitter_or_404(db, emitter_id)
+        if payload.new_source.group_id is not None and db.get(SourceGroup, payload.new_source.group_id) is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Source Group not found")
+        new_source = Source(emitter_id=emitter_id, **payload.new_source.model_dump())
+        db.add(new_source)
+        db.flush()
+        record_audit(
+            db,
+            actor_id=user.id,
+            action=AuditAction.create,
+            entity_type=AuditEntityType.source.value,
+            entity_id=new_source.id,
+            summary=f"Created Source '{new_source.name}'",
+            changes=payload.new_source.model_dump(mode="json"),
+            emitter_id=emitter_id,
+        )
+        sources.append(new_source)
     created = 0
     for source in sources:
         next_order: dict = {}
@@ -574,7 +593,7 @@ def batch_create_elements(
         )
         created += len(added)
     db.commit()
-    return ElementBatchResult(created=created, sources=len(sources))
+    return ElementBatchResult(created=created, sources=len(sources), new_source_id=new_source.id if new_source else None)
 
 
 @router.delete(

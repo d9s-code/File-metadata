@@ -114,12 +114,26 @@ function base(emitterId: string, sourceId: string) {
 export interface ElementBatchResult {
   created: number;
   sources: number;
+  /** The Source made for them, when `newSource` was given. */
+  new_source_id: string | null;
+}
+
+/** A Source to create for the Elements in the same request. */
+export interface NewSourceInput {
+  name: string;
+  source_date: string;
+  description?: string;
+  source_type?: string;
 }
 
 export const elementsApi = {
   /** Every Element to every one of the Sources, each its own Element — all or nothing. */
-  batch: (emitterId: string, sourceIds: string[], elements: ModeElementInput[]) =>
-    api.post<ElementBatchResult>(`/emitters/${emitterId}/sources/batch-elements`, { source_ids: sourceIds, elements }),
+  batch: (emitterId: string, sourceIds: string[], elements: ModeElementInput[], newSource?: NewSourceInput) =>
+    api.post<ElementBatchResult>(`/emitters/${emitterId}/sources/batch-elements`, {
+      source_ids: sourceIds,
+      elements,
+      new_source: newSource,
+    }),
   list: (emitterId: string, sourceId: string) => api.get<ModeElement[]>(base(emitterId, sourceId)),
   create: (emitterId: string, sourceId: string, input: ModeElementInput) =>
     api.post<ModeElement>(base(emitterId, sourceId), input),

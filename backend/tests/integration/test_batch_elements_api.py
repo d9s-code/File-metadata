@@ -39,7 +39,7 @@ def test_every_value_becomes_its_own_element_on_every_source(editor_client, two_
     ]
     resp = _batch(editor_client, emitter, [s["id"] for s in sources], elements)
     assert resp.status_code == 201, resp.text
-    assert resp.json() == {"created": 6, "sources": 2}
+    assert resp.json() == {"created": 6, "sources": 2, "new_source_id": None}
 
     first = sorted(_elements(editor_client, emitter, sources[0]), key=lambda e: e["sort_order"])
     assert [(e["value_min"], e["value_max"], e["sort_order"]) for e in first] == [
@@ -76,3 +76,28 @@ def test_needs_the_emitter_checked_out(editor_client, viewer_client, two_sources
     emitter, sources = two_sources
     resp = _batch(viewer_client, emitter, [sources[0]["id"]], [{"element_type": "rf", "value_min": 1, "value_max": 1}])
     assert resp.status_code == 403
+
+
+def test_a_new_source_can_be_made_for_them(editor_client, two_sources):
+    emitter, sources = two_sources
+    resp = editor_client.post(
+        f"/emitters/{emitter['id']}/sources/batch-elements",
+        json={
+            "new_source": {"name": "Range day run", "source_date": "2026-10-01", "source_type": "Test run"},
+            "elements": [{"element_type": "pri", "stagger_values": [1.25, 1.31], "delta": 0.01, "variant": "intercept"}],
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert body["created"] == 1 and body["sources"] == 1 and body["new_source_id"]
+    made = [s for s in editor_client.get(f"/emitters/{emitter['id']}/sources").json() if s["id"] == body["new_source_id"]]
+    assert made[0]["name"] == "Range day run"
+    elements = editor_client.get(f"/emitters/{emitter['id']}/sources/{body['new_source_id']}/elements").json()
+    assert elements[0]["stagger_values"] == [1.25, 1.31]
+
+    # Neither a Source nor a new one: refused.
+    resp = editor_client.post(
+        f"/emitters/{emitter['id']}/sources/batch-elements",
+        json={"elements": [{"element_type": "rf", "value_min": 1, "value_max": 1}]},
+    )
+    assert resp.status_code == 422

@@ -488,7 +488,9 @@ export function HelpPage() {
                 scan_fixed_6 — and click (or press Enter) to add as many as apply; the list stays
                 open between picks, and <strong>+ Add all N matches</strong> adds everything the search
                 found — and use <strong>+ Log</strong> to record the intercepted parameters as means — RF mean, PRI mean and jitter mean (Fixed), PW
-                mean; a Stagger set takes its sequence and the measured <strong>frame time</strong> instead.{" "}
+                mean; a Stagger set takes its steps and the measured <strong>frame time</strong> instead. Jitter and the
+                stagger steps are typed (and shown) in <strong>ns</strong>; they&apos;re kept in µs, so a Mode or an
+                Element made from them gets µs (1250 ns → 1.25 µs).{" "}
                 <strong>+ Log</strong> opens the fields with the cursor already in RF mean, so you can type a value and
                 Tab to the next. Add more than one set if it was measured more than once; each is a row in the small
                 table in the cell. Notes grow as you write.
@@ -515,14 +517,23 @@ export function HelpPage() {
                 <strong>+ Stage a new Mode</strong> creates a Mode found during the run, linked as{" "}
                 <span className="test-result-badge test-result-derived">Derived</span> from it once the run
                 is saved — its line can be pre-filled from any intercepted parameters you logged. The same
-                pre-fill is on <strong>+ Add Mode from this test</strong> once the run is saved: pick which
+                pre-fill is on <strong>+ From this test → New Mode…</strong> once the run is saved: pick which
                 logged set to use (each is listed by line, set number and values), and a mean fills both min
                 and max.
               </li>
               <li>
                 Each run has its own page with the full per-line and per-Mode detail. Its actions sit top right:{" "}
-                <strong>+ Add Mode from this test</strong>, <strong>Redo test</strong> on a failed or partial run (a new
-                run pre-filled as a retest of it), and <strong>More ▾</strong> to change the result or delete the run.
+                <strong>+ From this test ▾</strong>, <strong>Redo test</strong> on a failed or partial run (a new run
+                pre-filled as a retest of it), and <strong>More ▾</strong> to change the result or delete the run.
+              </li>
+              <li>
+                <strong>+ From this test → Elements to a Source…</strong> turns the run&apos;s logged values into
+                Elements: each logged RF, PRI (a range with its jitter, or a stagger&apos;s steps) and PW is listed once —
+                the same value logged on several lines is one — ticked to start with. Pick the variant (intercept to
+                start with), an optional ± delta per parameter, and where they go: one of the Emitter&apos;s Sources, or a
+                <strong> new Source</strong> named after the run and dated when it was intercepted or simulated. Each
+                Element is labelled with the lines or Modes it was logged on and noted as coming from the run. All or
+                nothing, like Batch Add.
               </li>
             </ul>
           </div>

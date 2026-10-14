@@ -1,6 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ObservedValues } from "../../api/testRecords";
 import type { PriType } from "../../types/domain";
+import { nsOf, usOfNs } from "./testFormat";
 
 const PRI_TYPES: PriType[] = ["fixed", "stagger", "cw", "xlet"];
 
@@ -10,9 +11,33 @@ type NumericKey = "rf_mean_mhz" | "pri_mean_us" | "jitter_mean_us" | "pw_mean_us
 // (a fixed PRI's mean, a stagger's frame time), PW, then a fixed PRI's
 // jitter or a stagger's steps.
 
-/** Jitter is typed in ns but stored in µs, like every other time. */
+/** Jitter and stagger steps are typed in ns but stored in µs, like every other time. */
 function nsFromUs(us: number | undefined): string {
-  return us == null ? "" : String(Number((us * 1000).toPrecision(12)));
+  return us == null ? "" : String(nsOf(us));
+}
+
+/** A stagger's steps, typed in ns and kept in µs. Holds what's typed, so a
+ * trailing comma or a half-typed number stays while the list is written. */
+function StaggerNsInput({ valuesUs, onChange }: { valuesUs: number[] | undefined; onChange: (us: number[]) => void }) {
+  const [text, setText] = useState(() => (valuesUs ?? []).map(nsOf).join(", "));
+  return (
+    <input
+      placeholder="1250, 1310, 1280"
+      inputMode="decimal"
+      value={text}
+      onChange={(e) => {
+        setText(e.target.value);
+        onChange(
+          e.target.value
+            .split(/[,;\s]+/)
+            .filter(Boolean)
+            .map(Number)
+            .filter((n) => Number.isFinite(n))
+            .map(usOfNs),
+        );
+      }}
+    />
+  );
 }
 
 // Keys of every PRI-type-specific value, including those on sets logged
@@ -80,13 +105,8 @@ export function ObservedValuesEditor({
     });
   }
 
-  function setStagger(index: number, raw: string) {
+  function setStagger(index: number, values: number[]) {
     update(index, (set) => {
-      const values = raw
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .map(Number);
       const next = { ...set };
       if (values.length) next.pri_stagger_values_us = values;
       else delete next.pri_stagger_values_us;
@@ -155,12 +175,8 @@ export function ObservedValuesEditor({
           {set.pri_type === "stagger" && (
             <div className="form-row">
               <label className="wide-label">
-                PRI stagger sequence (comma-separated µs, in order)
-                <input
-                  placeholder="800, 850, 900, 780"
-                  value={set.pri_stagger_values_us?.join(", ") ?? ""}
-                  onChange={(e) => setStagger(index, e.target.value)}
-                />
+                PRI stagger steps (ns, comma-separated, in order)
+                <StaggerNsInput valuesUs={set.pri_stagger_values_us} onChange={(us) => setStagger(index, us)} />
               </label>
             </div>
           )}

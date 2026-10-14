@@ -17,10 +17,12 @@ import { ModeForm } from "../components/modes/ModeForm";
 import { useEmitterVersions } from "../state/hooks/useEmitterVersions";
 import { useEmitterModes } from "../state/hooks/useModes";
 import { InterceptSignalsList } from "../components/testing/InterceptSignals";
+import { ElementsFromTestModal } from "../components/testing/ElementsFromTestModal";
 import type { TestRecord } from "../api/testRecords";
 import type { TestResult } from "../types/domain";
 import {
   compareLineLabels,
+  nonEmptySets,
   lineOutcomeLabel,
   TEST_RESULTS,
   testResultLabel,
@@ -89,6 +91,8 @@ export function TestRunDetailPage() {
   const { confirmDelete, dialog } = useConfirmDialog();
   const [addingMode, setAddingMode] = useState(false);
   const [changingResult, setChangingResult] = useState(false);
+  const [makingElements, setMakingElements] = useState(false);
+  const [doneNote, setDoneNote] = useState<string | null>(null);
 
   if (!emitter || isLoading || !records) return <LoadingState label="Loading test run…" />;
   const record = records.find((r) => r.id === testRecordId);
@@ -106,6 +110,7 @@ export function TestRunDetailPage() {
   const exercised = record.modes.filter((m) => m.link_type === "exercised");
   const derivedModes = record.modes.filter((m) => m.link_type === "derived");
   const canAddMode = canEdit && (ewGroups?.length ?? 0) > 0 && (sources?.length ?? 0) > 0;
+  const hasValues = [...record.lines, ...record.modes, ...(record.signals ?? [])].some((o) => nonEmptySets(o.observed_values).length > 0);
   const versionNumber =
     record.emitter_version_number ?? versions?.find((v) => v.id === record.emitter_version_id)?.version_number ?? null;
 
@@ -126,10 +131,24 @@ export function TestRunDetailPage() {
               Redo test
             </Link>
           )}
-          {canAddMode && (
-            <button type="button" className="button secondary" onClick={() => setAddingMode((v) => !v)}>
-              {addingMode ? "Cancel new Mode" : "+ Add Mode from this test"}
-            </button>
+          {canEdit && (
+            <MenuButton
+              label="+ From this test ▾"
+              items={[
+                {
+                  label: addingMode ? "Cancel the new Mode" : "New Mode…",
+                  disabled: !canAddMode,
+                  title: canAddMode ? undefined : "Needs an EW Group and a Source first",
+                  onSelect: () => setAddingMode((v) => !v),
+                },
+                {
+                  label: "Elements to a Source…",
+                  disabled: !hasValues,
+                  title: hasValues ? "Its logged RF, PRI and PW as Elements, on a Source or a new one" : "No values were logged in this run",
+                  onSelect: () => setMakingElements(true),
+                },
+              ]}
+            />
           )}
           <MenuButton
             label="More ▾"
@@ -188,6 +207,24 @@ export function TestRunDetailPage() {
           <strong>Why the result was changed:</strong> {record.result_note}
         </p>
       )}
+      {doneNote && (
+        <p className="success-text" role="status">
+          {doneNote}{" "}
+          <Link to={`/emitters/${emitterId}?tab=setup`}>See the Sources</Link>
+        </p>
+      )}
+      {makingElements && (
+        <ElementsFromTestModal
+          emitterId={emitterId}
+          record={record}
+          sources={(sources ?? []).map((s) => ({ id: s.id, name: s.name }))}
+          onClose={() => setMakingElements(false)}
+          onDone={(message) => {
+            setMakingElements(false);
+            setDoneNote(message);
+          }}
+        />
+      )}
       {changingResult && <ResultOverride emitterId={emitterId} record={record} onClose={() => setChangingResult(false)} />}
       <RunSummary record={record} exercised={exercised} />
       {record.notes && (
@@ -199,7 +236,7 @@ export function TestRunDetailPage() {
       {stagedModeFailures && stagedModeFailures.length > 0 && (
         <div className="error-text">
           Run logged, but {stagedModeFailures.length} staged Mode(s) failed to create: {stagedModeFailures.join(", ")}.
-          Use &ldquo;+ Add Mode from this test&rdquo; below to retry.
+          Use + From this test → New Mode… to retry.
         </div>
       )}
 

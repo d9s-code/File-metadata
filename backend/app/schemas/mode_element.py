@@ -4,6 +4,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
 from app.core.enums import ElementType, ElementVariant
+from app.schemas.source import SourceCreate
 from app.services.delta import apply_delta
 from app.services.frametime_service import compute_frametime_us
 
@@ -55,13 +56,24 @@ class ElementBatchCreate(BaseModel):
     Source, as its own Element (e.g. four RF values typed as a list, to three
     Sources: twelve Elements)."""
 
-    source_ids: list[UUID] = Field(min_length=1, max_length=200)
+    source_ids: list[UUID] = Field(default_factory=list, max_length=200)
     elements: list[ModeElementCreate] = Field(min_length=1, max_length=200)
+    # A Source to create for them in the same go — e.g. one named after the
+    # test run the values were logged in.
+    new_source: SourceCreate | None = None
+
+    @model_validator(mode="after")
+    def check_targets(self) -> "ElementBatchCreate":
+        if not self.source_ids and self.new_source is None:
+            raise ValueError("Pick at least one Source, or give a new one")
+        return self
 
 
 class ElementBatchResult(BaseModel):
     created: int
     sources: int
+    # The Source made for them, when one was asked for.
+    new_source_id: UUID | None = None
 
 
 class ModeElementOut(ModeElementCreate):
