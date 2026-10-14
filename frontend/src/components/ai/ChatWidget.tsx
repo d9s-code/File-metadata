@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { useLocation } from "react-router-dom";
-import { aiApi, type ChatReply } from "../../api/ai";
+import { Link, useLocation } from "react-router-dom";
+import { aiApi, type ChatLink, type ChatReply } from "../../api/ai";
 import type { AiSource } from "../../api/ambiguity";
 import { ApiRequestError } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
@@ -37,18 +37,48 @@ function save(state: { open: boolean; messages: Message[] }) {
   }
 }
 
-/** The model's text: paragraphs, "- " lists, **bold**, and [S1] citations. */
-function Formatted({ text, sources }: { text: string; sources?: AiSource[] }) {
+const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// Ids the model copied from its lookups: of no use to a reader.
+const ID_IN_TEXT = / ?\[[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\]/g;
+
+/** Text with the names it knows turned into links to their pages, and [S1]
+ * citations. A name only counts as a whole word (not inside another). */
+function Linked({ text, links, sources }: { text: string; links?: ChatLink[]; sources?: AiSource[] }) {
+  if (!links?.length) return <Cited text={text} sources={sources} />;
+  const byText = new Map(links.map((l) => [l.text, l.url]));
+  const pattern = new RegExp(`(?<![\\p{L}\\p{N}])(${links.map((l) => escape(l.text)).join("|")})(?![\\p{L}\\p{N}])`, "u");
+  const parts = text.split(pattern);
+  return (
+    <>
+      {parts.map((part, i) =>
+        i % 2 === 1 ? (
+          <Link key={i} to={byText.get(part) ?? "#"} className="chat-link">
+            {part}
+          </Link>
+        ) : (
+          <Cited key={i} text={part} sources={sources} />
+        ),
+      )}
+    </>
+  );
+}
+
+/** The model's text: paragraphs, "- " lists, **bold**, names of things it
+ * looked up as links, and [S1] citations. */
+function Formatted({ text, sources, links }: { text: string; sources?: AiSource[]; links?: ChatLink[] }) {
   const inline = (line: string) =>
-    line.split(/(\*\*[^*]+\*\*)/).map((part, i) =>
-      part.startsWith("**") && part.endsWith("**") ? (
-        <strong key={i}>
-          <Cited text={part.slice(2, -2)} sources={sources} />
-        </strong>
-      ) : (
-        <Cited key={i} text={part} sources={sources} />
-      ),
-    );
+    line
+      .replace(ID_IN_TEXT, "")
+      .split(/(\*\*[^*]+\*\*)/)
+      .map((part, i) =>
+        part.startsWith("**") && part.endsWith("**") ? (
+          <strong key={i}>
+            <Linked text={part.slice(2, -2)} links={links} sources={sources} />
+          </strong>
+        ) : (
+          <Linked key={i} text={part} links={links} sources={sources} />
+        ),
+      );
   const blocks: ReactNode[] = [];
   text
     .trim()
@@ -256,7 +286,7 @@ export function ChatWidget() {
               <p className="error-text">{m.content}</p>
             ) : (
               <>
-                <Formatted text={m.content} sources={m.reply?.sources} />
+                <Formatted text={m.content} sources={m.reply?.sources} links={m.reply?.links} />
                 {m.reply && <AnswerDetails reply={m.reply} />}
               </>
             )}

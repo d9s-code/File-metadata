@@ -25,6 +25,7 @@ anything it was given.
 import re
 import uuid
 from typing import Literal
+from urllib.parse import quote
 
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import func, or_, select
@@ -714,6 +715,50 @@ def remembered(db: Session, messages: list[dict]) -> list[str]:
     return blocks
 
 
+_UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+
+
+def answer_links(db: Session, looked_up: str, answer: str) -> list[dict]:
+    """The names in the answer to make links of: what the lookups turned up
+    (by the ids in them) — Emitters (also by designation), Platforms, MDFs,
+    Intercepts, Sources, Modes — and the Modes of those Emitters. A name that
+    could mean two different things isn't linked. Longest first."""
+    ids = {uuid.UUID(x) for x in set(_UUID.findall(looked_up))}
+    if not ids:
+        return []
+    found: dict[str, set[str]] = {}
+
+    def add(name: str | None, url: str):
+        name = (name or "").strip()
+        if len(name) >= 3 and name in answer:
+            found.setdefault(name, set()).add(url)
+
+    emitter_ids = set()
+    for e in db.execute(_live_emitters(db).where(Emitter.id.in_(ids))).scalars():
+        emitter_ids.add(e.id)
+        add(e.name, f"/emitters/{e.id}")
+        add(e.designation, f"/emitters/{e.id}")
+    for model, path in ((Platform, "platforms"), (Mdf, "mdfs")):
+        for item in db.execute(select(model).where(model.id.in_(ids), model.is_deleted.is_(False))).scalars():
+            add(item.name, f"/{path}/{item.id}")
+    for iid, name in db.execute(
+        select(Intercept.id, Intercept.name).join(Emitter).where(Intercept.id.in_(ids), Emitter.is_deleted.is_(False))
+    ).all():
+        add(name, f"/intercepts/{iid}")
+    for sid, name, eid in db.execute(
+        select(Source.id, Source.name, Source.emitter_id).join(Emitter)
+        .where(Source.id.in_(ids), Emitter.is_deleted.is_(False))
+    ).all():
+        add(name, f"/emitters/{eid}?tab=setup&source={sid}")
+    for name, eid in db.execute(
+        select(Mode.name, EwGroup.emitter_id).join(EwGroup, Mode.ew_group_id == EwGroup.id).join(Emitter)
+        .where(or_(Mode.id.in_(ids), EwGroup.emitter_id.in_(emitter_ids)), Emitter.is_deleted.is_(False))
+    ).all():
+        add(name, f"/emitters/{eid}?tab=modes&mode={quote(name)}")
+    links = [{"text": name, "url": next(iter(urls))} for name, urls in found.items() if len(urls) == 1]
+    return sorted(links, key=lambda link: -len(link["text"]))
+
+
 def chat(db: Session, messages: list[dict], page: str | None = None) -> dict:
     """Answer the last user message, looking up what's needed."""
     turns = [
@@ -800,6 +845,8 @@ def chat(db: Session, messages: list[dict], page: str | None = None) -> dict:
         "unknown_citations": unknown,
         "unverified_numbers": unverified_numbers(answer, "\n".join(given + [m["content"] for m in turns])),
         "page": where is not None,
+        # Names in the answer that open their page.
+        "links": answer_links(db, "\n".join(given), answer),
         # What was looked up earlier and given again with this question.
         "remembered": len(memory),
         "model": model,

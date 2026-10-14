@@ -188,3 +188,24 @@ def test_lists_tests_mdfs_and_bands(editor_client, fake_llm, emitter_with_two_ov
     assert "Range day — 01.10.2026" in results[2] and "result fail" in results[2] and "version v1" in results[2]
     assert "MDF Chat MDF" in results[3] and "Chat Platform v" in results[3] and "Readiness:" in results[3]
     assert "2 Modes cover RF 3050–3500 MHz" in results[4]
+
+
+def test_names_in_the_answer_link_to_their_pages(
+    editor_client, fake_llm, emitter_with_two_overlapping_modes  # noqa: F811
+):
+    emitter = emitter_with_two_overlapping_modes["emitter"]
+    fake_llm.replies = [
+        {"action": "get_emitter", "target": "ambiguity emitter"},
+        {"action": "answer", "answer": "Ambiguity Emitter has Mode 1 and Mode 2."},
+    ]
+    links = _ask(editor_client, "What Modes does it have?").json()["links"]
+    assert {link["text"]: link["url"] for link in links} == {
+        "Ambiguity Emitter": f"/emitters/{emitter['id']}",
+        "Mode 1": f"/emitters/{emitter['id']}?tab=modes&mode=Mode%201",
+        "Mode 2": f"/emitters/{emitter['id']}?tab=modes&mode=Mode%202",
+    }
+    assert links[0]["text"] == "Ambiguity Emitter"  # longest first
+
+    # Nothing looked up: nothing to link, even when a name is mentioned.
+    fake_llm.replies = [{"action": "answer", "answer": "Ambiguity Emitter, I think."}]
+    assert _ask(editor_client, "Guess one").json()["links"] == []

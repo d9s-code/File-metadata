@@ -726,7 +726,9 @@ export function HelpPage() {
             numbers that weren&apos;t in anything it looked up are flagged. It knows which page you&apos;re on, so
             &ldquo;this Emitter&rdquo; works. It remembers what it looked up for its last few answers, so follow-ups like
             &ldquo;and its PW?&rdquo; or &ldquo;what about the other one?&rdquo; work — &ldquo;used N earlier
-            lookups&rdquo; under an answer says so. It can&apos;t change anything, and it never sees accounts or the
+            lookups&rdquo; under an answer says so. Names of things it looked up — Emitters, Modes, Sources, Platforms,
+            MDFs, Intercepts — are links in the answer that open their page (a name that could mean two things isn&apos;t
+            linked). It can&apos;t change anything, and it never sees accounts or the
             audit log. The conversation stays in your browser tab; <strong>New chat</strong> starts over.
           </p>
           <p>

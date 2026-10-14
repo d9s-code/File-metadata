@@ -17,6 +17,11 @@ export interface ChatStep {
   args?: Record<string, unknown>;
 }
 
+export interface ChatLink {
+  text: string;
+  url: string;
+}
+
 export interface ChatReply {
   reply: string;
   steps: ChatStep[];
@@ -27,6 +32,8 @@ export interface ChatReply {
   page: boolean;
   /** How many earlier lookups were run again and given with this question. */
   remembered?: number;
+  /** Names in the answer that open their page (longest first). */
+  links?: ChatLink[];
   model: string;
   seconds: number;
   prompt_tokens: number;

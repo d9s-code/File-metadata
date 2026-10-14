@@ -5425,6 +5425,7 @@ a.ai-cite:hover { text-decoration: underline; }
 .chat-empty li { margin: 0.25rem 0; }
 .chat-message { max-width: 92%; padding: 0.5rem 0.7rem; border-radius: var(--radius-md); font-size: 0.88rem; line-height: 1.45; overflow-wrap: anywhere; }
 .chat-message p { margin: 0.25rem 0; }
+.chat-message .chat-link { color: var(--primary); text-decoration: underline; }
 .chat-message ul, .chat-message ol { margin: 0.25rem 0; padding-left: 1.2rem; }
 .chat-message.user { align-self: flex-end; background: var(--primary); color: var(--on-primary); }
 .chat-message.assistant { align-self: flex-start; background: var(--hover-bg); }
