@@ -156,6 +156,15 @@ A `draft` Mode's line can still be freely edited directly (refining your own pen
 
 A Mode's values don't always come from a Source — real-world testing can turn up an emission a datasheet never mentioned, or reveal that an existing Mode's parameters are wrong. Both the "+ Add Mode" form and a draft-edit proposal let you optionally link the Mode to one or more existing **Test Records** whose findings explain its values ("this Mode is test-derived"). A linked Mode shows a **Test-Derived** badge with a popover listing the justifying test(s) — explainability for a Mode that didn't come from a Source, without needing a Source to explain it.
 
+### Modes charts
+
+The Modes tab's **Charts** view draws the Modes the filters leave on RF, PRI (a stagger's frame time) and PW, engineered ranges with the raw ones solid inside them, and this Emitter's intercept entries as ticks. **Layout** picks how:
+
+- **One row per Mode** — range ladders: a row per Mode, its three ranges side by side, coloured by last test result or by Mode (eight colours at most).
+- **Grouped by value** — for Emitters whose Modes combine a few ranges (4 RF × 4 PRI × 4 PW is 64 Modes but 12 ranges). **Distinct ranges** draws each parameter's distinct ranges once, labelled with the values and how many Modes have it, the bar split by those Modes' last test results (worst first); pointing at one fades the others and marks its Modes. **Combinations** is a grid crossing two parameters (the pair with the most ranges to start with; RF × PRI, RF × PW or PRI × PW) — a cell per pair of ranges, one square per Mode in it coloured by its last result (the third parameter on hover; a click opens the Mode), a hatched cell where no Mode has that pair, and "N of M combinations used" above it.
+
+With more than 24 Modes the charts start grouped; the layout picked is kept in the browser.
+
 ---
 
 ## 4. Sources

@@ -18,9 +18,13 @@ import {
   valueOf,
 } from "./modeRanges";
 import { ModeLadders } from "./ModeLadders";
+import { ModeGroups } from "./ModeGroups";
 
 const COLOUR_KEY = "modeChartColour";
 const LIMITS_KEY = "modeChartLimits";
+const LAYOUT_KEY = "modeChartLayout";
+/** Above this many Modes the charts start grouped by value, unless the user picked a layout. */
+const GROUP_FROM = 24;
 const PICKED_KEY = (emitterId: string) => `modeChartColours:${emitterId}`;
 const LIMIT_PARAMS: { key: ChartParam; label: string; unit: string }[] = [
   { key: "rf", label: "RF", unit: "MHz" },
@@ -29,6 +33,8 @@ const LIMIT_PARAMS: { key: ChartParam; label: string; unit: string }[] = [
 ];
 
 type ColourBy = "result" | "mode";
+/** One row per Mode, or each parameter's distinct ranges plus the combinations they make. */
+type Layout = "rows" | "grouped";
 type LimitText = Partial<Record<ChartParam, { min: string; max: string }>>;
 /** Mode id → its colour slot, 1 to SERIES_SLOTS. */
 type Picked = Record<string, number>;
@@ -126,6 +132,14 @@ export function ModeCharts({
     setLimitText(next);
   }
   const { limits, invalid } = useMemo(() => parseLimits(limitText), [limitText]);
+  // The layout, once picked, is remembered in this browser; until then many Modes start grouped.
+  const [layoutPicked, setLayoutPicked] = useState<Layout | null>(() =>
+    read<Layout | null>(LAYOUT_KEY, (v) => (v === "rows" || v === "grouped" ? v : null), null),
+  );
+  function setLayout(value: Layout) {
+    setLayoutPicked(value);
+    write(LAYOUT_KEY, value);
+  }
 
   // Which Modes have a colour of their own — remembered per Emitter, once
   // changed from the default.
@@ -225,7 +239,10 @@ export function ModeCharts({
     [ranges, limits],
   );
   const anyBounds = Object.keys(limitText).length > 0;
-  const byMode = colourBy === "mode";
+  const layout: Layout = layoutPicked ?? (ranges.length > GROUP_FROM ? "grouped" : "rows");
+  const grouped = layout === "grouped";
+  // Grouped, a bar stands for many Modes: it's coloured by their results.
+  const byMode = colourBy === "mode" && !grouped;
   // The coloured Modes, by colour; the grey ones by name for the picker.
   const coloured = ranges.filter((r) => picked[r.mode.id]).sort((a, b) => picked[a.mode.id] - picked[b.mode.id]);
   const grey = ranges.filter((r) => !picked[r.mode.id]).sort((a, b) => a.mode.name.localeCompare(b.mode.name));
@@ -235,6 +252,25 @@ export function ModeCharts({
   return (
     <div className="mode-charts">
       <div className="chart-controls">
+        <div className="chart-controls-row">
+          <strong>Layout</strong>
+          <div className="theme-toggle" role="group" aria-label="Chart layout">
+            <button type="button" aria-pressed={!grouped} className={grouped ? "" : "active"} onClick={() => setLayout("rows")}>
+              One row per Mode
+            </button>
+            <button type="button" aria-pressed={grouped} className={grouped ? "active" : ""} onClick={() => setLayout("grouped")}>
+              Grouped by value
+            </button>
+          </div>
+          <span className="hint-text">
+            {grouped
+              ? "Each range drawn once, with how many Modes have it, and which combinations exist."
+              : ranges.length > GROUP_FROM
+                ? `${ranges.length} rows — Grouped by value keeps Modes that combine a few ranges compact.`
+                : ""}
+          </span>
+        </div>
+        {!grouped && (
         <div className="chart-controls-row">
           <strong>Colour</strong>
           <label className="inline-label">
@@ -246,6 +282,7 @@ export function ModeCharts({
             By Mode
           </label>
         </div>
+        )}
         {byMode && ranges.length > 0 && (
           <div className="chart-controls-row">
             <strong>Coloured</strong>
@@ -413,6 +450,9 @@ export function ModeCharts({
           </>
         )}
       </p>
+      {grouped ? (
+        <ModeGroups ranges={ranges} entries={shownEntries} fitEntries={fitEntries} limits={limits} onOpen={onOpen} />
+      ) : (
       <ModeLadders
         ranges={drawn}
         entries={shownEntries}
@@ -423,6 +463,7 @@ export function ModeCharts({
         onToggleColour={byMode ? toggleColour : undefined}
         onOpen={onOpen}
       />
+      )}
     </div>
   );
 }

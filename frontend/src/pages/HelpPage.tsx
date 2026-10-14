@@ -403,6 +403,16 @@ export function HelpPage() {
               (orange when outside every Mode); the axes fit the Modes unless you choose to fit the entries too.
             </p>
             <p>
+              <strong>Layout → Grouped by value</strong> keeps many Modes compact when they are combinations of a few
+              ranges (say 4 RF × 4 PRI × 4 PW = 64 Modes). <strong>Distinct ranges</strong> draws each RF, PRI and PW
+              range once, labelled with its values and how many Modes have it, the bar split by their last test results;
+              point at one to see its Modes. <strong>Combinations</strong> crosses two parameters (pick RF × PRI, RF × PW
+              or PRI × PW): each cell holds a square per Mode with that pair — coloured by its last result, the third
+              parameter on hover, click to open it — and a hatched cell is a combination no Mode has. With more than 24
+              Modes the charts start grouped; <strong>One row per Mode</strong> brings back the ladders, and the choice
+              is remembered.
+            </p>
+            <p>
               <strong>Colour</strong> switches between each Mode&apos;s last test result (named in the legend and on
               hover) and <strong>By Mode</strong>, which gives Modes a colour each so you can tell them apart. Eight
               colours at most are in use at once — more can&apos;t be told apart reliably — and the rest are grey; the
