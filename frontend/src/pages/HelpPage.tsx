@@ -718,12 +718,15 @@ export function HelpPage() {
           <p>
             <strong>AI chat</strong>: the <strong>✦ Ask AI</strong> button in the bottom-right corner of every page
             opens a chat with the model. Before answering it can look things up — read-only — in the library: search
-            by name, an Emitter&apos;s Modes, a Platform&apos;s Emitters, the Modes a signal with given RF, PRI and PW
-            would match, an Emitter&apos;s latest ambiguity check, an Intercept — and in the documentation. Under each
-            answer, the lookups it made and the documentation it cited; numbers that weren&apos;t in anything it looked
-            up are flagged. It knows which page you&apos;re on, so &ldquo;this Emitter&rdquo; works. It can&apos;t
-            change anything, and it never sees users or the audit log. The conversation stays in your browser tab;{" "}
-            <strong>New chat</strong> starts over.
+            by name or designation (and in descriptions and notes), lists of Emitters by status or Platform, an
+            Emitter&apos;s Modes and Sources, its SIM Test Lines and test runs, a Platform&apos;s Emitters, an MDF and
+            its readiness, the Modes a signal (or an RF band) would match, an Emitter&apos;s latest ambiguity check, an
+            Intercept — and in the documentation. Under each answer, the lookups it made and the documentation it cited;
+            numbers that weren&apos;t in anything it looked up are flagged. It knows which page you&apos;re on, so
+            &ldquo;this Emitter&rdquo; works. It remembers what it looked up for its last few answers, so follow-ups like
+            &ldquo;and its PW?&rdquo; or &ldquo;what about the other one?&rdquo; work — &ldquo;used N earlier
+            lookups&rdquo; under an answer says so. It can&apos;t change anything, and it never sees accounts or the
+            audit log. The conversation stays in your browser tab; <strong>New chat</strong> starts over.
           </p>
           <p>
             <strong>Settings</strong> (your name, top right → Settings…) lets you switch off the AI chat, telling it

@@ -123,6 +123,7 @@ function AnswerDetails({ reply }: { reply: ChatReply }) {
       )}
       <span className="chat-meta">
         {reply.model} · {reply.seconds}s{reply.page ? " · knew this page" : ""}
+        {reply.remembered ? ` · used ${reply.remembered} earlier lookup${reply.remembered === 1 ? "" : "s"}` : ""}
       </span>
     </div>
   );
@@ -167,7 +168,10 @@ export function ChatWidget() {
       const turns = asked
         .filter((m) => !m.error)
         .slice(-SENT_TURNS)
-        .map((m) => ({ role: m.role, content: m.content }));
+        .map((m) => {
+          const lookups = m.reply?.steps.map((step) => step.args).filter((a): a is Record<string, unknown> => !!a);
+          return lookups?.length ? { role: m.role, content: m.content, lookups } : { role: m.role, content: m.content };
+        });
       const reply = await aiApi.chat(turns, location.pathname);
       if (id !== conversation.current) return;
       setMessages([...asked, { role: "assistant", content: reply.reply, reply }]);

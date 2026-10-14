@@ -1,11 +1,17 @@
 """A chat with the language model that can look things up — read-only.
 
 The model isn't handed the database; it asks for what it needs, one lookup
-at a time, from a fixed set: search by name, an Emitter's Modes, a Platform's
-Emitters, the Modes a signal would match, an Emitter's latest ambiguity
-check, an Intercept, the documentation. Each lookup's result goes back to it
-and it either asks for another or answers — at most MAX_STEPS lookups a
-question. Every lookup only reads, and only the engineering data: users,
+at a time, from a fixed set: search by name, lists of Emitters, an Emitter's
+Modes and Sources, its tests, a Platform's Emitters, an MDF, the Modes a
+signal would match, an Emitter's latest ambiguity check, an Intercept, the
+documentation. Each lookup's result goes back to it and it either asks for
+another or answers — at most MAX_STEPS lookups a question.
+
+Nothing is kept on the server between questions: each answer comes back with
+the lookups it made, and the next question brings them along. They're run
+again (so they're current, and nothing the browser sends is taken as data)
+and given to the model as what it looked up earlier — that, and the earlier
+questions and answers, is the chat's memory. Every lookup only reads, and only the engineering data: users,
 passwords, sessions and the audit log are out of its reach. Deleted items
 are left out.
 
@@ -20,11 +26,17 @@ import re
 import uuid
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.core.enums import AmbiguityRunStatus, AmbiguityScopeType
+from app.core.enums import (
+    EMITTER_STATUS_LABELS,
+    AmbiguityRunStatus,
+    AmbiguityScopeType,
+    TestScopeType,
+    emitter_status_label,
+)
 from app.models.ambiguity import AmbiguityFinding, AmbiguityRun
 from app.models.emitter import Emitter
 from app.models.ew_group import EwGroup
@@ -33,10 +45,22 @@ from app.models.mdf import Mdf, MdfPlatformLink
 from app.models.mode import Mode, ModeLine
 from app.models.platform import Platform, PlatformEmitterLink
 from app.models.source import Source
-from app.services import knowledge_service, llm_client
+from app.models.customer import Customer
+from app.models.test_line import TestLine
+from app.models.test_record import TestRecord
+from app.models.user import User
+from app.services import knowledge_service, llm_client, search_service
+from app.services.pin_hygiene import mdf_readiness
+from app.services.test_line_status_service import latest_line_outcomes
 from app.services.ai_review_service import SEVERITY_LABELS, SEVERITY_ORDER, _finding_line, _n, unverified_numbers
 
-MAX_STEPS = 5
+MAX_STEPS = 6
+# Earlier lookups run again with a question: from this many of the latest
+# answers, each result cut to MEMORY_RESULT_CHARS, all to MEMORY_CHARS.
+MEMORY_TURNS = 3
+MEMORY_LOOKUPS = 8
+MEMORY_RESULT_CHARS = 4_000
+MEMORY_CHARS = 12_000
 # Earlier turns sent with a question, and how much of each.
 HISTORY_TURNS = 10
 HISTORY_CHARS = 2_000
@@ -51,8 +75,11 @@ Action = Literal[
     "answer",
     "overview",
     "search",
+    "list_emitters",
     "get_emitter",
+    "get_tests",
     "get_platform",
+    "get_mdf",
     "find_modes",
     "get_ambiguity",
     "get_intercept",
@@ -64,9 +91,15 @@ class ChatStep(BaseModel):
     action: Action = Field(description="One lookup to make next, or answer")
     query: str | None = Field(None, description="search / search_docs: the words to look for")
     target: str | None = Field(
-        None, description="get_emitter / get_platform / get_ambiguity / get_intercept: a name or id"
+        None,
+        description="get_emitter / get_tests / get_platform / get_mdf / get_ambiguity / get_intercept: a name, "
+        "designation or id; list_emitters: a Platform to list the Emitters of (optional)",
     )
-    rf_mhz: float | None = Field(None, description="find_modes: the signal's RF in MHz")
+    status: str | None = Field(
+        None, description="list_emitters: only Emitters with this status (in progress, testing, operational, needs rework)"
+    )
+    rf_mhz: float | None = Field(None, description="find_modes: the signal's RF in MHz (or the band's low end)")
+    rf_max_mhz: float | None = Field(None, description="find_modes: the band's high end in MHz, for a band")
     pri_us: float | None = Field(None, description="find_modes: its PRI in µs, if known")
     pw_us: float | None = Field(None, description="find_modes: its PW in µs, if known")
     answer: str | None = Field(None, description="answer: the reply to the user")
@@ -86,10 +119,15 @@ An ambiguity check finds pairs of Modes a signal could match both of.
 
 You can look things up, one lookup per reply, before answering:
 - overview: how much is in the library.
-- search (query): find Platforms, Emitters, MDFs, Modes, Intercepts and Sources by name.
-- get_emitter (target): an Emitter's details and all its Modes with their values.
+- search (query): find Emitters (by name or designation), Modes, Sources, Platforms, MDFs and Intercepts. Every \
+word has to match; if nothing does, it says what matches some of the words, and what mentions them in notes.
+- list_emitters (status, target: a Platform — both optional): Emitters with their status, Modes, assignee and \
+SIM results.
+- get_emitter (target): an Emitter's details, its Sources, and all its Modes with their values.
+- get_tests (target: an Emitter): its SIM Test Lines and how each did last, and its latest test runs.
 - get_platform (target): a Platform's Emitters, and the MDFs it's in.
-- find_modes (rf_mhz, and pri_us, pw_us if known): the Modes a signal with those values would match.
+- get_mdf (target): an MDF's status, customer, pinned Platforms and its readiness checklist.
+- find_modes (rf_mhz, and rf_max_mhz for a band; pri_us, pw_us if known): the Modes a signal would match.
 - get_ambiguity (target: an Emitter): its latest ambiguity check.
 - get_intercept (target): an Intercept and its entries.
 - search_docs (query): more sections of the team's documentation.
@@ -97,6 +135,10 @@ Then answer (action "answer").
 
 Rules:
 - Answer from what you looked up and were given, never from memory or guesses. If a lookup found nothing, say so.
+- This is a conversation: a follow-up ("its PW?", "and the other one?", "them") is about what was asked and \
+looked up before. What you looked up earlier is given again with the question — use it, and look up only what's \
+missing.
+- If a name matches several things, or nothing, search before giving up; ask the user only if it stays unclear.
 - Look up before answering any question about the library's contents; don't look up for general questions.
 - Write numbers exactly as given, with their units (MHz, µs).
 - Documentation sections are numbered [S1], [S2] …: cite the one a sentence relies on, like [S2], and only for \
@@ -142,30 +184,41 @@ def _live_emitters(db: Session):
 
 
 def _resolve(db: Session, model, target: str | None, extra=None):
-    """An item by id or name: (item, None), or (None, why not)."""
+    """An item by id, name (an Emitter also by designation), or every word of
+    the name: (item, None), or (None, why not)."""
     if not target or not target.strip():
         return None, "Say which one (a name or id)."
-    target = target.strip()
+    target = " ".join(target.split())
     base = select(model)
     if hasattr(model, "is_deleted"):
         base = base.where(model.is_deleted.is_(False))
     if extra is not None:
         base = base.where(extra)
+    columns = [model.name] + ([model.designation] if model is Emitter else [])
     try:
         found = db.execute(base.where(model.id == uuid.UUID(target))).scalars().first()
         if found:
             return found, None
     except ValueError:
         pass
-    exact = db.execute(base.where(func.lower(model.name) == target.lower())).scalars().all()
-    if len(exact) == 1:
-        return exact[0], None
-    like = db.execute(base.where(model.name.ilike(f"%{target}%")).limit(10)).scalars().all()
+    for column in columns:
+        exact = db.execute(base.where(func.lower(column) == target.lower())).scalars().all()
+        if len(exact) == 1:
+            return exact[0], None
+    words = [w for w in re.split(r"[\s—–]+", target) if w and w not in ("-",)][:6]
+    like = db.execute(
+        base.where(*[or_(*[c.ilike(f"%{w}%") for c in columns]) for w in words]).limit(10)
+    ).scalars().all()
     if len(like) == 1:
         return like[0], None
     if not like:
-        return None, f'Nothing named "{target}".'
-    return None, f'Several match "{target}": ' + "; ".join(f"{x.name} [{x.id}]" for x in like) + ". Ask by id."
+        return None, f'Nothing named "{target}". Try search with fewer or other words.'
+    return None, f'Several match "{target}": ' + "; ".join(f"{_label(x)} [{x.id}]" for x in like) + ". Ask by id."
+
+
+def _label(item) -> str:
+    designation = getattr(item, "designation", None)
+    return f"{designation} — {item.name}" if designation else item.name
 
 
 def overview(db: Session, step: ChatStep) -> str:
@@ -179,7 +232,7 @@ def overview(db: Session, step: ChatStep) -> str:
         [
             f"Platforms: {db.scalar(select(func.count(Platform.id)).where(Platform.is_deleted.is_(False)))}",
             f"Emitters: {sum(n for _, n in emitters)} ("
-            + ", ".join(f"{s.value} {n}" for s, n in emitters)
+            + ", ".join(f"{emitter_status_label(s.value)} {n}" for s, n in emitters)
             + ")",
             f"Modes: {modes}",
             f"MDFs: {db.scalar(select(func.count(Mdf.id)).where(Mdf.is_deleted.is_(False)))}",
@@ -188,57 +241,74 @@ def overview(db: Session, step: ChatStep) -> str:
     )
 
 
+_SEARCH_KINDS = [
+    ("emitter", "Emitters"),
+    ("mode", "Modes"),
+    ("source", "Sources"),
+    ("platform", "Platforms"),
+    ("mdf", "MDFs"),
+    ("intercept", "Intercepts"),
+]
+
+
+def _search_lines(db: Session, q: str) -> list[str]:
+    hits = search_service.search(db, q)
+    out: list[str] = []
+    for kind, heading in _SEARCH_KINDS:
+        rows = [h for h in hits if h["kind"] == kind]
+        if rows:
+            out.append(f"{heading}:\n" + "\n".join(f"- {h['title']} ({h['subtitle']}) [{h['id']}]" for h in rows))
+    return out
+
+
+def _mentions(db: Session, words: list[str]) -> list[str]:
+    """Emitters, Modes, Sources and Platforms whose description or notes have every word."""
+    found: list[str] = []
+
+    def each(column):
+        return [column.ilike(f"%{w}%") for w in words]
+
+    for e in db.execute(_live_emitters(db).where(*each(Emitter.description)).limit(5)).scalars():
+        found.append(f"- Emitter {_label(e)} [{e.id}] — description: {(e.description or '').strip()[:160]}")
+    for name, notes, ename in db.execute(
+        select(Mode.name, Mode.notes, Emitter.name).join(EwGroup, Mode.ew_group_id == EwGroup.id).join(Emitter)
+        .where(Emitter.is_deleted.is_(False), *each(Mode.notes)).limit(5)
+    ).all():
+        found.append(f"- Mode {name} on {ename} — notes: {(notes or '').strip()[:160]}")
+    for name, desc, ename in db.execute(
+        select(Source.name, Source.description, Emitter.name).join(Emitter)
+        .where(Emitter.is_deleted.is_(False), *each(Source.description)).limit(5)
+    ).all():
+        found.append(f"- Source {name} on {ename} — description: {(desc or '').strip()[:160]}")
+    for p in db.execute(
+        select(Platform).where(Platform.is_deleted.is_(False), *each(Platform.description)).limit(5)
+    ).scalars():
+        found.append(f"- Platform {p.name} [{p.id}] — description: {(p.description or '').strip()[:160]}")
+    return found
+
+
 def search(db: Session, step: ChatStep) -> str:
-    q = (step.query or "").strip()
+    """By name, every word matching (as the app's search box). Failing that:
+    what mentions the words in a description or notes, then what matches the
+    longer words one at a time."""
+    q = " ".join((step.query or "").split())
     if not q:
         return "Say what to search for."
-    like = f"%{q}%"
-    out: list[str] = []
-
-    def add(kind: str, rows: list[str]):
-        if rows:
-            out.append(f"{kind}:\n" + "\n".join(f"- {r}" for r in rows))
-
-    add(
-        "Platforms",
-        [f"{p.name} [{p.id}]" for p in db.execute(
-            select(Platform).where(Platform.is_deleted.is_(False), Platform.name.ilike(like)).limit(10)
-        ).scalars()],
-    )
-    add(
-        "Emitters",
-        [f"{e.name}{f' ({e.designation})' if e.designation else ''} [{e.id}]" for e in db.execute(
-            _live_emitters(db).where(or_(Emitter.name.ilike(like), Emitter.designation.ilike(like))).limit(10)
-        ).scalars()],
-    )
-    add(
-        "MDFs",
-        [f"{m.name} [{m.id}]" for m in db.execute(
-            select(Mdf).where(Mdf.is_deleted.is_(False), Mdf.name.ilike(like)).limit(10)
-        ).scalars()],
-    )
-    add(
-        "Modes",
-        [f"{m} — Emitter {e}" for m, e in db.execute(
-            select(Mode.name, Emitter.name).join(EwGroup, Mode.ew_group_id == EwGroup.id).join(Emitter)
-            .where(Emitter.is_deleted.is_(False), Mode.name.ilike(like)).limit(15)
-        ).all()],
-    )
-    add(
-        "Intercepts",
-        [f"{i} — Emitter {e} [{iid}]" for iid, i, e in db.execute(
-            select(Intercept.id, Intercept.name, Emitter.name).join(Emitter)
-            .where(Emitter.is_deleted.is_(False), Intercept.name.ilike(like)).limit(10)
-        ).all()],
-    )
-    add(
-        "Sources",
-        [f"{s} — Emitter {e}" for s, e in db.execute(
-            select(Source.name, Emitter.name).join(Emitter)
-            .where(Emitter.is_deleted.is_(False), Source.name.ilike(like)).limit(10)
-        ).all()],
-    )
-    return "\n".join(out) if out else f'Nothing named like "{q}".'
+    out = _search_lines(db, q)
+    if out:
+        return "\n".join(out)
+    words = [w for w in q.split() if len(w) >= 2][:6]
+    mentioned = _mentions(db, words)
+    if mentioned:
+        return f'Nothing is named like "{q}", but these mention it:\n' + "\n".join(mentioned)
+    partial: list[str] = []
+    for word in sorted({w for w in words if len(w) >= 3}, key=len, reverse=True)[:3]:
+        lines = _search_lines(db, word)
+        if lines:
+            partial.append(f'Matching "{word}":\n' + "\n".join(lines))
+    if partial:
+        return f'Nothing matches all of "{q}". Matches for some of the words:\n' + "\n".join(partial)
+    return f'Nothing named like "{q}", and nothing mentions it.'
 
 
 def get_emitter(db: Session, step: ChatStep) -> str:
@@ -256,11 +326,24 @@ def get_emitter(db: Session, step: ChatStep) -> str:
     ).all()
     lines = [
         f"Emitter {emitter.name} [{emitter.id}]" + (f", designation {emitter.designation}" if emitter.designation else ""),
-        f"Status: {emitter.status.value}",
+        f"Status: {emitter_status_label(emitter.status.value)}",
     ]
     if emitter.description:
         lines.append(f"Description: {emitter.description.strip()[:400]}")
     lines.append("On Platforms: " + (", ".join(platforms) or "none"))
+    if emitter.assignee_id:
+        assignee = db.get(User, emitter.assignee_id)
+        lines.append(f"Assigned to: {assignee.username if assignee else '?'}")
+    sources = db.execute(
+        select(Source).where(Source.emitter_id == emitter.id).order_by(Source.source_date.desc())
+    ).scalars().all()
+    lines.append(f"Sources ({len(sources)}):")
+    for src in sources[:30]:
+        bits = [f"dated {src.source_date.isoformat()}", src.status.value.replace("_", " ")]
+        if src.source_type:
+            bits.append(src.source_type)
+        lines.append(f"- {src.name} ({', '.join(bits)})")
+    lines.append(_tests_summary(db, emitter))
     lines.append(f"Modes ({len(rows)}), by EW group:")
     group = None
     for g, mode, line in rows[:MODES_LISTED]:
@@ -271,6 +354,121 @@ def get_emitter(db: Session, step: ChatStep) -> str:
     if len(rows) > MODES_LISTED:
         lines.append(f"(and {len(rows) - MODES_LISTED} more Modes not listed)")
     return "\n".join(lines)
+
+
+def _tests_summary(db: Session, emitter: Emitter) -> str:
+    line_ids = db.execute(select(TestLine.id).where(TestLine.emitter_id == emitter.id)).scalars().all()
+    outcomes = latest_line_outcomes(db, list(line_ids))
+    correct = sum(1 for _, result, _ in outcomes.values() if result.value == "pass")
+    runs = db.scalar(
+        select(func.count(TestRecord.id)).where(TestRecord.scope_type == TestScopeType.emitter, TestRecord.scope_id == emitter.id)
+    )
+    if not line_ids:
+        return f"SIM Test Lines: none. Test runs: {runs}."
+    return (
+        f"SIM Test Lines: {len(line_ids)}, {correct} correct in their latest run, "
+        f"{len(line_ids) - len(outcomes)} never tested. Test runs: {runs} (get_tests for more)."
+    )
+
+
+def list_emitters(db: Session, step: ChatStep) -> str:
+    """Emitters, optionally only those with a status or on a Platform."""
+    query = _live_emitters(db)
+    where = []
+    if step.status:
+        wanted = step.status.strip().lower().replace("_", " ")
+        matches = [
+            value for value, label in EMITTER_STATUS_LABELS.items()
+            if wanted in (value.replace("_", " "), label.lower())
+        ]
+        if not matches:
+            return f'"{step.status}" is not a status. They are: ' + ", ".join(EMITTER_STATUS_LABELS.values()) + "."
+        query = query.where(Emitter.status.in_(matches))
+        where.append(f"status {EMITTER_STATUS_LABELS[matches[0]]}")
+    if step.target:
+        platform, why = _resolve(db, Platform, step.target)
+        if platform is None:
+            return why
+        query = query.where(
+            Emitter.id.in_(select(PlatformEmitterLink.emitter_id).where(PlatformEmitterLink.platform_id == platform.id))
+        )
+        where.append(f"on Platform {platform.name}")
+    emitters = db.execute(query.order_by(Emitter.name)).scalars().all()
+    if not emitters:
+        return "No Emitters" + (f" with {' and '.join(where)}" if where else "") + "."
+    modes = dict(
+        db.execute(
+            select(EwGroup.emitter_id, func.count(Mode.id)).join(Mode, Mode.ew_group_id == EwGroup.id)
+            .where(EwGroup.emitter_id.in_([e.id for e in emitters])).group_by(EwGroup.emitter_id)
+        ).all()
+    )
+    users = dict(
+        db.execute(select(User.id, User.username).where(User.id.in_({e.assignee_id for e in emitters if e.assignee_id}))).all()
+    )
+    lines = [f"{len(emitters)} Emitters" + (f" ({', '.join(where)})" if where else "") + ":"]
+    for e in emitters[:80]:
+        bits = [emitter_status_label(e.status.value), f"{modes.get(e.id, 0)} Modes"]
+        if e.assignee_id:
+            bits.append(f"assigned to {users.get(e.assignee_id, '?')}")
+        lines.append(f"- {_label(e)} [{e.id}] · " + " · ".join(bits))
+    if len(emitters) > 80:
+        lines.append(f"(and {len(emitters) - 80} more)")
+    return "\n".join(lines)
+
+
+def get_tests(db: Session, step: ChatStep) -> str:
+    """An Emitter's SIM Test Lines (each one's latest outcome) and latest test runs."""
+    emitter, why = _resolve(db, Emitter, step.target)
+    if emitter is None:
+        return why
+    lines_ = db.execute(select(TestLine).where(TestLine.emitter_id == emitter.id)).scalars().all()
+    lines_.sort(key=lambda t: t.label.lower())
+    outcomes = latest_line_outcomes(db, [t.id for t in lines_])
+    out = [f"Tests of Emitter {_label(emitter)} [{emitter.id}]", f"SIM Test Lines ({len(lines_)}):"]
+    for t in lines_[:80]:
+        last = outcomes.get(t.id)
+        status = f"{last[1].value} on {last[0].isoformat()}" if last else "never tested"
+        out.append(f"- {t.label}: {status}")
+    runs = db.execute(
+        select(TestRecord).where(TestRecord.scope_type == TestScopeType.emitter, TestRecord.scope_id == emitter.id)
+        .order_by(TestRecord.test_date.desc(), TestRecord.created_at.desc()).limit(10)
+    ).scalars().all()
+    out.append(f"Latest test runs ({len(runs)}, newest first):")
+    for r in runs:
+        bits = [r.test_date.isoformat(), r.test_type.value.replace("_", " "), f"result {r.result.value}"]
+        if r.emitter_version_number is not None:
+            bits.append(f"version v{r.emitter_version_number}")
+        if r.lines:
+            counts: dict[str, int] = {}
+            for line in r.lines:
+                counts[line.outcome.value] = counts.get(line.outcome.value, 0) + 1
+            bits.append("lines " + ", ".join(f"{n} {k}" for k, n in sorted(counts.items())))
+        out.append(f"- {r.title} — " + " · ".join(bits) + (f" · notes: {r.notes.strip()[:120]}" if r.notes else ""))
+    return "\n".join(out)
+
+
+def get_mdf(db: Session, step: ChatStep) -> str:
+    """An MDF: status, customer, release date, pinned Platforms, readiness."""
+    mdf, why = _resolve(db, Mdf, step.target)
+    if mdf is None:
+        return why
+    customer = db.get(Customer, mdf.customer_id) if mdf.customer_id else None
+    out = [
+        f"MDF {mdf.name} [{mdf.id}]",
+        f"Status: {mdf.status.value.replace('_', ' ')}",
+        f"Customer: {customer.name if customer else 'none'}",
+        f"Release date: {mdf.release_date.isoformat() if mdf.release_date else 'not set'}",
+    ]
+    if mdf.description:
+        out.append(f"Description: {mdf.description.strip()[:400]}")
+    out.append(f"Pinned Platforms ({len(mdf.links)}):")
+    for link in mdf.links:
+        out.append(f"- {link.platform.name} v{link.platform_version.version_number}")
+    out.append("Readiness:")
+    for item in mdf_readiness(db, mdf):
+        out.append(f"- [{item['status']}] {item['label']}: {item['detail']}")
+        out += [f"  - {x}" for x in item["items"][:10]]
+    return "\n".join(out)
 
 
 def get_platform(db: Session, step: ChatStep) -> str:
@@ -292,7 +490,7 @@ def get_platform(db: Session, step: ChatStep) -> str:
     if platform.description:
         lines.append(f"Description: {platform.description.strip()[:400]}")
     lines.append(f"Emitters ({len(emitters)}):")
-    lines += [f"- {n} ({s.value}, {c} Modes)" for n, s, c in emitters]
+    lines += [f"- {n} ({emitter_status_label(s.value)}, {c} Modes)" for n, s, c in emitters]
     lines.append("In MDFs: " + (", ".join(mdfs) or "none"))
     return "\n".join(lines)
 
@@ -308,14 +506,17 @@ def find_modes(db: Session, step: ChatStep) -> str:
     if step.rf_mhz is None:
         return "Give at least rf_mhz."
     rf = step.rf_mhz
+    # A band: every Mode overlapping it; a value: every Mode covering it.
+    rf_hi = step.rf_max_mhz if step.rf_max_mhz is not None and step.rf_max_mhz > rf else rf
     rows = db.execute(
         select(Mode, ModeLine, Emitter.name).join(ModeLine, ModeLine.mode_id == Mode.id)
         .join(EwGroup, Mode.ew_group_id == EwGroup.id).join(Emitter)
         .where(
             Emitter.is_deleted.is_(False),
-            ModeLine.rf_min_mhz - func.coalesce(ModeLine.rf_delta, 0) <= rf,
+            ModeLine.rf_min_mhz - func.coalesce(ModeLine.rf_delta, 0) <= rf_hi,
             ModeLine.rf_max_mhz + func.coalesce(ModeLine.rf_delta, 0) >= rf,
         )
+        .order_by(Emitter.name, Mode.name)
     ).all()
     hits = []
     for mode, line, emitter in rows:
@@ -332,10 +533,10 @@ def find_modes(db: Session, step: ChatStep) -> str:
             if kind == "cw":
                 continue
         hits.append(f"- {emitter}: {_mode_line(mode, line)}")
+    rf_text = f"{_n(rf)}–{_n(rf_hi)}" if rf_hi != rf else _n(rf)
     asked = ", ".join(
-        f"{k} {_n(v)} {u}"
-        for k, v, u in (("RF", step.rf_mhz, "MHz"), ("PRI", step.pri_us, "µs"), ("PW", step.pw_us, "µs"))
-        if v is not None
+        [f"RF {rf_text} MHz"]
+        + [f"{k} {_n(v)} {u}" for k, v, u in (("PRI", step.pri_us, "µs"), ("PW", step.pw_us, "µs")) if v is not None]
     )
     if not hits:
         return f"No Mode covers {asked} (each range widened by its margin)."
@@ -417,8 +618,11 @@ def get_intercept(db: Session, step: ChatStep) -> str:
 TOOLS = {
     "overview": overview,
     "search": search,
+    "list_emitters": list_emitters,
     "get_emitter": get_emitter,
+    "get_tests": get_tests,
     "get_platform": get_platform,
+    "get_mdf": get_mdf,
     "find_modes": find_modes,
     "get_ambiguity": get_ambiguity,
     "get_intercept": get_intercept,
@@ -432,10 +636,14 @@ def _step_label(step: ChatStep) -> str:
     if step.action in ("search", "search_docs"):
         return f'{"Searched" if step.action == "search" else "Searched the documentation for"} "{step.query or ""}"'
     if step.action == "find_modes":
-        vals = [f"{k} {_n(v)}" for k, v in (("RF", step.rf_mhz), ("PRI", step.pri_us), ("PW", step.pw_us)) if v is not None]
+        rf = f"{_n(step.rf_mhz)}–{_n(step.rf_max_mhz)}" if step.rf_max_mhz is not None else _n(step.rf_mhz)
+        vals = [f"RF {rf}"] + [f"{k} {_n(v)}" for k, v in (("PRI", step.pri_us), ("PW", step.pw_us)) if v is not None]
         return "Modes matching " + ", ".join(vals)
-    kind = {"get_emitter": "Emitter", "get_platform": "Platform", "get_ambiguity": "Ambiguity check of",
-            "get_intercept": "Intercept"}[step.action]
+    if step.action == "list_emitters":
+        bits = [f"status {step.status}" if step.status else "", f"on {step.target}" if step.target else ""]
+        return "Emitters " + " ".join(b for b in bits if b) if any(bits) else "All Emitters"
+    kind = {"get_emitter": "Emitter", "get_tests": "Tests of", "get_platform": "Platform", "get_mdf": "MDF",
+            "get_ambiguity": "Ambiguity check of", "get_intercept": "Intercept"}[step.action]
     return f"{kind} {step.target or '?'}"
 
 
@@ -467,6 +675,44 @@ def _question_terms(text: str) -> list[str]:
     return [w for w in dict.fromkeys(words) if w not in knowledge_service.STOP_WORDS]
 
 
+def _lookup_args(step: ChatStep) -> dict:
+    """A lookup as it's sent back with the answer, to come again with the next question."""
+    return step.model_dump(exclude_none=True, exclude={"answer"})
+
+
+def remembered(db: Session, messages: list[dict]) -> list[str]:
+    """What was looked up for the latest answers, run again now: one block
+    each, newest first, within MEMORY_CHARS. Only lookups the model can ask
+    for are run — what comes from the browser is a request, never data."""
+    earlier: list[list] = []
+    for m in reversed(messages[:-1]):
+        if m.get("role") == "assistant" and m.get("lookups"):
+            earlier.append(list(m["lookups"])[:MEMORY_LOOKUPS])
+            if len(earlier) == MEMORY_TURNS:
+                break
+    blocks: list[str] = []
+    seen: set[str] = set()
+    used = 0
+    for lookups in earlier:
+        for raw in lookups:
+            try:
+                step = ChatStep.model_validate(raw)
+            except ValidationError:
+                continue
+            if step.action not in TOOLS:
+                continue
+            key = step.model_dump_json(exclude_none=True)
+            if key in seen:
+                continue
+            seen.add(key)
+            block = f"[{_step_label(step)}]\n{_clip(TOOLS[step.action](db, step), MEMORY_RESULT_CHARS)}"
+            if used + len(block) > MEMORY_CHARS:
+                return blocks
+            blocks.append(block)
+            used += len(block)
+    return blocks
+
+
 def chat(db: Session, messages: list[dict], page: str | None = None) -> dict:
     """Answer the last user message, looking up what's needed."""
     turns = [
@@ -477,17 +723,27 @@ def chat(db: Session, messages: list[dict], page: str | None = None) -> dict:
     if not turns or turns[-1]["role"] != "user":
         raise ValueError("The last message must be the user's")
     question = turns[-1]["content"]
+    # A follow-up ("and its PW?") says little on its own: the question before
+    # it helps find the documentation too.
+    asked_before = [t["content"] for t in turns[:-1] if t["role"] == "user"][-1:]
 
     sources: list[knowledge_service.Source] = []
     if knowledge_service.enabled():
         knowledge_service.ensure_fresh(db)
-        sources = knowledge_service.select_sections(db, _question_terms(question), [], budget=DOCS_WITH_QUESTION)
+        terms = _question_terms(question) + [t for q in asked_before for t in _question_terms(q)]
+        sources = knowledge_service.select_sections(db, list(dict.fromkeys(terms)), [], budget=DOCS_WITH_QUESTION)
+    memory = remembered(db, messages)
 
     system = SYSTEM
     where = page_context(db, page)
     if where:
         system += "\n\n" + where
     first = question
+    if memory:
+        first += (
+            "\n\nWhat you looked up for your earlier answers in this conversation (as it is now):\n\n"
+            + "\n\n".join(memory)
+        )
     if sources:
         first += "\n\n" + knowledge_service.background(sources)
     transcript = [*turns[:-1], {"role": "user", "content": first}]
@@ -526,7 +782,7 @@ def chat(db: Session, messages: list[dict], page: str | None = None) -> dict:
             result = TOOLS[reply.action](db, reply)
         result = _clip(result)
         given.append(result)
-        steps.append({"action": reply.action, "label": _step_label(reply)})
+        steps.append({"action": reply.action, "label": _step_label(reply), "args": _lookup_args(reply)})
         transcript += [
             {"role": "assistant", "content": reply.model_dump_json(exclude_none=True)},
             {"role": "user", "content": f"Result of {reply.action}:\n{result}\n\nLook up something else, or answer."},
@@ -543,6 +799,8 @@ def chat(db: Session, messages: list[dict], page: str | None = None) -> dict:
         "unknown_citations": unknown,
         "unverified_numbers": unverified_numbers(answer, "\n".join(given + [m["content"] for m in turns])),
         "page": where is not None,
+        # What was looked up earlier and given again with this question.
+        "remembered": len(memory),
         "model": model,
         "seconds": round(totals["seconds"], 1),
         "prompt_tokens": totals["prompt_tokens"],

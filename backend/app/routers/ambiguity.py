@@ -203,6 +203,9 @@ def ai_status(db: Session = Depends(get_db), _=Depends(require_role(Role.viewer)
 class ChatMessage(BaseModel):
     role: Literal["user", "assistant"]
     content: str = Field(max_length=8_000)
+    # An answer's lookups, as it came back: run again with the next question
+    # so the chat remembers what it found.
+    lookups: list[dict] | None = Field(None, max_length=12)
 
 
 class ChatRequest(BaseModel):

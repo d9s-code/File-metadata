@@ -372,20 +372,27 @@ With Outline set up (`OUTLINE_URL`, `OUTLINE_API_TOKEN` and `OUTLINE_ROOT` for a
 
 ### AI chat
 
-The **✦ Ask AI** button in the bottom-right corner of every page opens a chat with the model (when one is set up). It isn't handed the database: it asks for what it needs, one read-only lookup at a time, at most five per question, then answers:
+The **✦ Ask AI** button in the bottom-right corner of every page opens a chat with the model (when one is set up). It isn't handed the database: it asks for what it needs, one read-only lookup at a time, at most six per question, then answers:
 
 | Lookup | What it gets |
 |---|---|
 | overview | How many Platforms, Emitters (by status), Modes, MDFs and Intercepts there are |
-| search | Platforms, Emitters, MDFs, Modes, Intercepts and Sources whose name contains the words |
-| get_emitter | An Emitter's details, Platforms, and every Mode with its values (first 150) |
+| search | As the app's search box: Emitters (name or designation), Modes, Sources, Platforms, MDFs and Intercepts with every word in the name. Failing that, what mentions the words in a description or notes, then matches for the longer words one at a time |
+| list_emitters | Emitters — all, or with a status and/or on a Platform — with status, Modes and assignee |
+| get_emitter | An Emitter's details, Platforms, assignee, Sources (date, review status), SIM/test summary, and every Mode with its values (first 150) |
+| get_tests | An Emitter's SIM Test Lines with each one's latest outcome and date, and its 10 latest test runs (type, result, version tested, line outcomes, notes) |
 | get_platform | A Platform's Emitters and the MDFs it's in |
-| find_modes | The Modes a signal with the given RF (and PRI, PW) would match, each range widened by its margin |
+| get_mdf | An MDF's status, customer, release date, pinned Platform versions and its readiness checklist |
+| find_modes | The Modes a signal with the given RF (and PRI, PW) would match — or every Mode overlapping an RF band — each range widened by its margin |
 | get_ambiguity | An Emitter's latest ambiguity check: counts and the 20 most serious findings |
 | get_intercept | An Intercept and its entries, with the Modes they're linked to |
 | search_docs | More sections of the documentation |
 
-The documentation sections matching the question go with it too, and the chat is told which page it was asked on. Under each answer: the lookups made, the documentation cited, and any number that wasn't in anything it was given. Users, passwords, sessions and the audit log are out of its reach; deleted items are left out. Nothing is stored on the server — the conversation (the last ten turns go with each question) lives in the browser tab. It works with any vLLM: each step is a structured JSON reply, so the server's tool-calling options aren't needed.
+Names are matched by id, exact name (an Emitter also by designation), or every word of the name. Statuses are given as the app shows them (In progress, Testing, Operational, Needs rework).
+
+**Memory.** The last ten turns go with each question, and so do the **lookups behind the latest three answers**: each answer comes back with the lookups it made, the browser sends them with the next question, and the server runs them again (so the data is current, and nothing from the browser is used as data — only lookups the model could have asked for are run) and gives the results to the model as what it looked up before. A follow-up such as "and its PW?" or "what about the other one?" has the Emitter, Modes or test results it refers to in front of the model. The documentation for a follow-up is found from it and the question before. Under an answer, "used N earlier lookups" says when this happened.
+
+The documentation sections matching the question go with it too, and the chat is told which page it was asked on. Under each answer: the lookups made, the documentation cited, and any number that wasn't in anything it was given. Users' accounts, passwords, sessions and the audit log are out of its reach (it sees who an Emitter is assigned to, as everyone can); deleted items are left out. Nothing is stored on the server — the conversation lives in the browser tab. It works with any vLLM: each step is a structured JSON reply, so the server's tool-calling options aren't needed.
 
 ### Settings
 
