@@ -499,7 +499,9 @@ export function SourcesTable({
                             <input type="checkbox" checked={selected.has(s.id)} onChange={() => toggleSelected(s.id)} />
                           </td>
                           <td>
-                            {s.name}
+                            <button type="button" className="link-button source-name-link" onClick={() => setOpenSourceId(s.id)}>
+                              {s.name}
+                            </button>
                             {s.intercept_id && (
                               <Link className="source-intercept-link" to={`/intercepts/${s.intercept_id}`} title="This Source stands for an Intercept">
                                 Intercept
@@ -527,9 +529,6 @@ export function SourcesTable({
                             )}
                           </td>
                           <td className="row-actions nowrap">
-                            <button className="link-button" onClick={() => setOpenSourceId(s.id)}>
-                              Open
-                            </button>
                             <RequireRole minimum="editor">
                               <MenuButton
                                 label="⋯"

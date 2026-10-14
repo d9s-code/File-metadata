@@ -11,6 +11,8 @@ import { useChangeTestResult, useDeleteEmitterTestRecord, useEmitterTestRecords 
 import { RequireRole } from "../auth/RequireAuth";
 import { LoadingState } from "../components/common/LoadingState";
 import { useConfirmDialog } from "../components/common/ConfirmDialog";
+import { MenuButton } from "../components/common/MenuButton";
+import { PageHeader } from "../components/common/PageHeader";
 import { ModeForm } from "../components/modes/ModeForm";
 import { useEmitterVersions } from "../state/hooks/useEmitterVersions";
 import { useEmitterModes } from "../state/hooks/useModes";
@@ -86,6 +88,7 @@ export function TestRunDetailPage() {
   const { data: versions } = useEmitterVersions(emitterId);
   const { confirmDelete, dialog } = useConfirmDialog();
   const [addingMode, setAddingMode] = useState(false);
+  const [changingResult, setChangingResult] = useState(false);
 
   if (!emitter || isLoading || !records) return <LoadingState label="Loading test run…" />;
   const record = records.find((r) => r.id === testRecordId);
@@ -116,7 +119,27 @@ export function TestRunDetailPage() {
     <div className="page">
       <EmitterNotesDrawer emitterId={emitterId} name={emitter.name} />
       {backLink}
-      <h1>{record.title}</h1>
+      <PageHeader title={record.title}>
+        <RequireRole minimum="editor">
+          {(record.result === "fail" || record.result === "partial") && (
+            <Link className="button primary" to={`/emitters/${emitterId}/tests/new?retest=${record.id}`}>
+              Redo test
+            </Link>
+          )}
+          {canAddMode && (
+            <button type="button" className="button secondary" onClick={() => setAddingMode((v) => !v)}>
+              {addingMode ? "Cancel new Mode" : "+ Add Mode from this test"}
+            </button>
+          )}
+          <MenuButton
+            label="More ▾"
+            items={[
+              { label: "Change the result…", onSelect: () => setChangingResult(true) },
+              { label: "Delete this run…", danger: true, onSelect: () => void handleDelete() },
+            ]}
+          />
+        </RequireRole>
+      </PageHeader>
       <dl className="run-facts">
         <Fact label="Result">
           <span className={`test-result-badge test-result-${record.result}`}>{testResultLabel(record.result)}</span>
@@ -165,9 +188,7 @@ export function TestRunDetailPage() {
           <strong>Why the result was changed:</strong> {record.result_note}
         </p>
       )}
-      <RequireRole minimum="editor">
-        <ResultOverride emitterId={emitterId} record={record} />
-      </RequireRole>
+      {changingResult && <ResultOverride emitterId={emitterId} record={record} onClose={() => setChangingResult(false)} />}
       <RunSummary record={record} exercised={exercised} />
       {record.notes && (
         <div className="run-notes">
@@ -183,21 +204,6 @@ export function TestRunDetailPage() {
       )}
 
       <RequireRole minimum="editor">
-        <div className="form-row">
-          {(record.result === "fail" || record.result === "partial") && (
-            <Link className="link-as-button" to={`/emitters/${emitterId}/tests/new?retest=${record.id}`}>
-              Redo test
-            </Link>
-          )}
-          {canAddMode && (
-            <button type="button" className="button secondary small" onClick={() => setAddingMode((v) => !v)}>
-              {addingMode ? "Cancel new Mode" : "+ Add Mode from this test"}
-            </button>
-          )}
-          <button type="button" className="link-button link-button-danger" onClick={() => void handleDelete()}>
-            Delete this run
-          </button>
-        </div>
         {addingMode && canAddMode && (
           <div className="card">
             <p className="hint-text">New Mode, linked as derived from &ldquo;{record.title}&rdquo;.</p>
@@ -312,25 +318,18 @@ export function TestRunDetailPage() {
 }
 
 /** Change a logged run's overall result by hand (with why), or put back the
- * one it worked out to. */
-function ResultOverride({ emitterId, record }: { emitterId: string; record: TestRecord }) {
+ * one it worked out to — opened from the page's More menu. */
+function ResultOverride({ emitterId, record, onClose }: { emitterId: string; record: TestRecord; onClose: () => void }) {
   const change = useChangeTestResult(emitterId);
-  const [open, setOpen] = useState(false);
   const worked = record.computed_result ?? record.result;
   const [result, setResult] = useState<TestResult>(record.result);
   const [note, setNote] = useState("");
   const needsNote = result !== worked;
-  if (!open)
-    return (
-      <button type="button" className="link-button" onClick={() => setOpen(true)}>
-        Change the result
-      </button>
-    );
   return (
     <div className="result-override-form">
       <label className="inline-date-label">
         Result
-        <select value={result} onChange={(e) => setResult(e.target.value as TestResult)}>
+        <select autoFocus value={result} onChange={(e) => setResult(e.target.value as TestResult)}>
           {TEST_RESULTS.map((r) => (
             <option key={r} value={r}>
               {testResultLabel(r)}
@@ -352,12 +351,12 @@ function ResultOverride({ emitterId, record }: { emitterId: string; record: Test
         type="button"
         disabled={change.isPending || (needsNote && !note.trim()) || result === record.result}
         onClick={() =>
-          change.mutate({ id: record.id, result, note: needsNote ? note.trim() : undefined }, { onSuccess: () => setOpen(false) })
+          change.mutate({ id: record.id, result, note: needsNote ? note.trim() : undefined }, { onSuccess: onClose })
         }
       >
         Save
       </button>
-      <button type="button" className="link-button" onClick={() => setOpen(false)}>
+      <button type="button" className="link-button" onClick={onClose}>
         Cancel
       </button>
       {change.isError && <span className="error-text">{(change.error as Error).message}</span>}

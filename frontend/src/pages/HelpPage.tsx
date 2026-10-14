@@ -459,7 +459,8 @@ export function HelpPage() {
               </li>
               <li>
                 A run is <strong>saved as you fill it in</strong> — the line under the title says when it last was —
-                so a reload or a closed tab loses nothing. Leave it half done and it waits under{" "}
+                so a reload or a closed tab loses nothing. It&apos;s first saved once something is typed or picked — opening
+                the page and leaving again leaves nothing behind. Leave it half done and it waits under{" "}
                 <strong>In progress</strong> on Test History, where anyone who can log tests can{" "}
                 <strong>Continue</strong> it or <strong>Discard</strong> it. Nothing counts — results, SIM line status,
                 the dashboard — until it&apos;s logged with <strong>Log test run</strong>. If two people save the same run,
@@ -496,7 +497,7 @@ export function HelpPage() {
                 The run&rsquo;s overall result is <strong>worked out</strong> from the included rows (worst one wins),
                 or set by hand when nothing is included. To make a different call, pick it under{" "}
                 <strong>Override</strong> and say why (required). A logged run&rsquo;s result can also be changed on its
-                page with <strong>Change the result</strong> (Editors) — picking the worked-out one again removes the
+                page under <strong>More ▾ → Change the result…</strong> (Editors) — picking the worked-out one again removes the
                 override. An overridden result shows ✎, with the worked-out result and the reason beside it, and each
                 change is in the audit log.
               </li>
@@ -509,9 +510,9 @@ export function HelpPage() {
                 and max.
               </li>
               <li>
-                Each run has its own page with the full per-line and per-Mode detail, plus{" "}
-                <strong>+ Add Mode from this test</strong>. A failed or partial run gets a{" "}
-                <strong>Redo test</strong> button that starts a new run pre-filled as a retest of it.
+                Each run has its own page with the full per-line and per-Mode detail. Its actions sit top right:{" "}
+                <strong>+ Add Mode from this test</strong>, <strong>Redo test</strong> on a failed or partial run (a new
+                run pre-filled as a retest of it), and <strong>More ▾</strong> to change the result or delete the run.
               </li>
             </ul>
           </div>
@@ -778,7 +779,7 @@ export function HelpPage() {
             typed).
             Results start blank — every Emitter in the run needs one picked before it can be logged. It&apos;s saved as you fill it in and can be continued from the Tests tab. Logging it writes a test record
             for each Emitter in the run, against the version the Platform pins, so each also shows in that
-            Emitter&apos;s Test History, linked back to the Platform test. Each Platform test has its own page, <strong>Redo test</strong> starts a retest
+            Emitter&apos;s Test History, linked back to the Platform test. Each Platform test has its own page — an Emitter&apos;s name there opens its own record — <strong>Redo test</strong> starts a retest
             of the same Emitters, and the <strong>Trend</strong> grid shows each Emitter&apos;s result across the latest
             runs.{" "}
             <strong>Analyst notes</strong> is the same append-only log as on an Emitter, in the Notes panel.

@@ -66,6 +66,13 @@ type SaveStatus =
 
 const SAVE_DELAY_MS = 800;
 
+/** Whether the run has anything typed in worth coming back to — until it
+ * does, nothing is saved, so opening the page and leaving doesn't leave an
+ * empty run behind on the Platform's Tests tab. */
+function worthKeeping(s: PlatformRunState): boolean {
+  return !!s.title.trim() || !!s.notes.trim() || Object.values(s.emitters).some((e) => !!e.result || !!e.notes.trim());
+}
+
 function blankRun(): EmitterRun {
   return { included: true, result: "", notes: "" };
 }
@@ -238,6 +245,8 @@ export function PlatformTestRunPage() {
   const saveNow = useCallback(async () => {
     const current = latest.current;
     if (!current || logging.current || current.json === saved.current) return;
+    // Nothing worth keeping yet: no run in progress is made for it.
+    if (!draftId.current && !worthKeeping(current.body.state)) return;
     if (saving.current) {
       savePending.current = true;
       return;
@@ -299,7 +308,14 @@ export function PlatformTestRunPage() {
       if (document.visibilityState === "hidden" && canWrite && ready) void saveNow();
     }
     function onUnload(e: BeforeUnloadEvent) {
-      if (canWrite && ready && !logging.current && latest.current && latest.current.json !== saved.current) {
+      if (
+        canWrite &&
+        ready &&
+        !logging.current &&
+        latest.current &&
+        latest.current.json !== saved.current &&
+        (draftId.current || worthKeeping(latest.current.body.state))
+      ) {
         void saveNow();
         e.preventDefault();
       }

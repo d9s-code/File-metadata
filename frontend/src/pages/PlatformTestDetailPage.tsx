@@ -6,6 +6,7 @@ import { usePlatform } from "../state/hooks/usePlatforms";
 import { usePlatformTest } from "../state/hooks/usePlatformTests";
 import { RequireRole } from "../auth/RequireAuth";
 import { LoadingState } from "../components/common/LoadingState";
+import { PageHeader } from "../components/common/PageHeader";
 import { lineOutcomeLabel, TEST_RESULTS, testResultLabel, testTypeLabel } from "../components/testing/testFormat";
 import type { TestResult } from "../types/domain";
 
@@ -31,7 +32,7 @@ function Counts({ counts, label }: { counts: Partial<Record<TestResult, number>>
 }
 
 /** One Platform test: how it came out overall and for each Emitter, with each
- * Emitter's notes and a link to its own test record. */
+ * Emitter's notes — its name opens that Emitter's own test record. */
 export function PlatformTestDetailPage() {
   const { platformId = "", testId = "" } = useParams<{ platformId: string; testId: string }>();
   const { data: platform } = usePlatform(platformId);
@@ -51,7 +52,13 @@ export function PlatformTestDetailPage() {
     <div className="page">
       {platform && <PlatformNotesDrawer platformId={platformId} name={platform.name} />}
       {back}
-      <h1>{test.title}</h1>
+      <PageHeader title={test.title}>
+        <RequireRole minimum="editor">
+          <Link className="button primary" to={`/platforms/${platformId}/tests/new?redo=${test.id}`}>
+            Redo test
+          </Link>
+        </RequireRole>
+      </PageHeader>
       <dl className="run-facts">
         <Fact label="Result">
           <span className={`test-result-badge test-result-${test.result}`}>{testResultLabel(test.result)}</span>
@@ -75,13 +82,6 @@ export function PlatformTestDetailPage() {
           <p className="pre-wrap">{test.notes}</p>
         </div>
       )}
-      <RequireRole minimum="editor">
-        <div className="form-row">
-          <Link className="link-as-button" to={`/platforms/${platformId}/tests/new?redo=${test.id}`}>
-            Redo test
-          </Link>
-        </div>
-      </RequireRole>
 
       <div className="card">
         <h4>Emitters ({test.emitters.length})</h4>
@@ -94,14 +94,13 @@ export function PlatformTestDetailPage() {
               <th>Result</th>
               {detailed && <th>Detail</th>}
               <th>Notes</th>
-              <th></th>
             </tr>
           </thead>
           <tbody>
             {test.emitters.map((e) => (
               <tr key={e.test_record_id}>
                 <td>
-                  <Link to={`/emitters/${e.emitter_id}`}>
+                  <Link to={`/emitters/${e.emitter_id}/tests/${e.test_record_id}`} title="Open this Emitter's test record">
                     {e.designation ? `${e.designation} — ${e.emitter_name}` : e.emitter_name}
                   </Link>
                 </td>
@@ -127,9 +126,6 @@ export function PlatformTestDetailPage() {
                   </td>
                 )}
                 <td className="pre-wrap">{e.notes ?? "—"}</td>
-                <td>
-                  <Link to={`/emitters/${e.emitter_id}/tests/${e.test_record_id}`}>Open record</Link>
-                </td>
               </tr>
             ))}
           </tbody>

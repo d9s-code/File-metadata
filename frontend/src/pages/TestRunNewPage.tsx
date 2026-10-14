@@ -70,6 +70,24 @@ type SaveStatus =
 // How long typing pauses before the run is saved.
 const SAVE_DELAY_MS = 800;
 
+/** Whether the run has anything typed in worth coming back to — until it
+ * does, nothing is saved, so opening the page and leaving doesn't leave an
+ * empty run behind in Test History. */
+function worthKeeping(s: RunState): boolean {
+  return (
+    !!s.title.trim() ||
+    !!s.notes.trim() ||
+    !!s.manualResult ||
+    !!s.resultOverride ||
+    !!s.signals?.length ||
+    s.stagedModes.length > 0 ||
+    Object.values(s.lineEntries).some(
+      (e) => e.outcome !== "pass" || e.interceptedModeIds.length > 0 || nonEmptySets(e.observedValues).length > 0 || !!e.notes.trim(),
+    ) ||
+    Object.values(s.modeEntries).some((e) => e.included)
+  );
+}
+
 function nowTime(): string {
   const d = new Date();
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
@@ -233,6 +251,8 @@ export function TestRunNewPage() {
   const saveNow = useCallback(async () => {
     const current = latest.current;
     if (!current || logging.current || current.json === saved.current) return;
+    // Nothing worth keeping yet: no run in progress is made for it.
+    if (!draftId.current && !worthKeeping(current.body.state)) return;
     if (saving.current) {
       savePending.current = true;
       return;
@@ -289,7 +309,14 @@ export function TestRunNewPage() {
       if (document.visibilityState === "hidden" && canWrite && ready) void saveNow();
     }
     function onUnload(e: BeforeUnloadEvent) {
-      if (canWrite && ready && !logging.current && latest.current && latest.current.json !== saved.current) {
+      if (
+        canWrite &&
+        ready &&
+        !logging.current &&
+        latest.current &&
+        latest.current.json !== saved.current &&
+        (draftId.current || worthKeeping(latest.current.body.state))
+      ) {
         void saveNow();
         e.preventDefault();
       }

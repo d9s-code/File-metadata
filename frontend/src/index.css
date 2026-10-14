@@ -5366,6 +5366,17 @@ a.ai-cite:hover { text-decoration: underline; }
   font-size: 0.72rem; text-decoration: none; color: var(--primary);
 }
 .source-intercept-link:hover { background: var(--hover-bg); }
+/* A Source's name opens it — reads as a link, like names in other tables. */
+.link-button.source-name-link,
+.link-button.source-name-link:hover {
+  border: none;
+  padding: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  text-decoration: underline;
+  cursor: pointer;
+}
 
 /* --- AI chat (corner) ------------------------------------------------- */
 .chat-launcher {
