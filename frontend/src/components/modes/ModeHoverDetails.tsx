@@ -80,6 +80,9 @@ export function SourceHoverDetail({ emitterId, source }: { emitterId: string; so
 }
 
 /** Every Source a Mode comes from, each with its details on hover. */
+/** Sources named on a Mode before the rest fold into "+N". */
+const MODE_SOURCES_SHOWN = 2;
+
 export function ModeSourcesList({
   emitterId,
   mode,
@@ -89,11 +92,15 @@ export function ModeSourcesList({
   mode: Mode;
   sourcesById: Record<string, Source>;
 }) {
+  const [open, setOpen] = useState(false);
   const sources = modeSourceIds(mode).map((id) => sourcesById[id]).filter((s): s is Source => !!s);
   if (sources.length === 0) return <>—</>;
+  // A couple by name; the rest folded into "+N" (all of them on hover, or a click).
+  const shown = open ? sources : sources.slice(0, MODE_SOURCES_SHOWN);
+  const rest = sources.length - shown.length;
   return (
-    <span className="mode-sources">
-      {sources.map((s, i) => (
+    <span className="mode-sources" title={rest > 0 ? sources.map((s) => s.name).join("\n") : undefined}>
+      {shown.map((s, i) => (
         <span key={s.id}>
           {i > 0 && ", "}
           <HoverInfo label={s.name}>
@@ -101,6 +108,11 @@ export function ModeSourcesList({
           </HoverInfo>
         </span>
       ))}
+      {rest > 0 && (
+        <button type="button" className="chip-button mode-sources-more" onClick={() => setOpen(true)} aria-label={`Show ${rest} more Sources`}>
+          +{rest}
+        </button>
+      )}
     </span>
   );
 }

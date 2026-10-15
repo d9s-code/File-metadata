@@ -142,6 +142,11 @@ export const elementsApi = {
   overview: (emitterId: string) => api.get<ElementOverviewRow[]>(`/emitters/${emitterId}/element-overview`),
   cartesianRuns: (emitterId: string, sourceId: string) =>
     api.get<CartesianRun[]>(`/emitters/${emitterId}/sources/${sourceId}/cartesian-runs`),
+  /** Modes from All Sources: the merged Elements of every Source. Any Element
+   * of a merged group picks the group; each Mode gets the Sources its
+   * Elements were found in. */
+  allSourcesProduct: (emitterId: string, input: CartesianProductInput) =>
+    api.post<CartesianProductResult>(`/emitters/${emitterId}/sources/all-sources/cartesian-product`, input),
   cartesianProduct: (emitterId: string, sourceId: string, input: CartesianProductInput) =>
     api.post<CartesianProductResult>(`${base(emitterId, sourceId)}/cartesian-product`, input),
 };

@@ -325,7 +325,7 @@ export function EmitterEditorPage() {
           ewGroups={ewGroups ?? []}
           linkedSourceId={searchParams.get("source") ?? undefined}
         />
-        <ElementOverview emitterId={emitter.id} />
+        <ElementOverview emitterId={emitter.id} ewGroups={ewGroups ?? []} />
       </div>
 
       <div hidden={tab !== "intercepts"}>

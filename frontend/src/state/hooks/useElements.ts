@@ -58,6 +58,20 @@ export function useDeleteElement(emitterId: string, sourceId: string) {
   });
 }
 
+/** Modes from the merged Elements of every Source (All Sources). */
+export function useAllSourcesProduct(emitterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CartesianProductInput) => elementsApi.allSourcesProduct(emitterId, input),
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: modesKey(variables.ew_group_id) });
+      qc.invalidateQueries({ queryKey: emitterModesKey(emitterId) });
+      qc.invalidateQueries({ queryKey: emitterBatchesKey(emitterId) });
+      qc.invalidateQueries({ queryKey: ["cartesian-runs", emitterId] });
+    },
+  });
+}
+
 export function useCartesianProduct(emitterId: string, sourceId: string) {
   const qc = useQueryClient();
   return useMutation({

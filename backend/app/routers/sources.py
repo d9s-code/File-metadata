@@ -36,6 +36,7 @@ from app.services.cartesian_log import modes_remaining, record_cartesian_run
 from app.services.mode_sources import set_mode_sources
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.cartesian_service import CartesianProductError, run_cartesian_product
+from app.services.combined_source import MergedPool, batch_source, resolve_selection
 from app.services.frametime_service import compute_frametime_us
 
 router = APIRouter(prefix="/emitters/{emitter_id}/sources", tags=["sources"])
@@ -695,6 +696,81 @@ def list_cartesian_runs(
         )
         for r in runs
     ]
+
+
+@router.post(
+    "/all-sources/cartesian-product",
+    response_model=CartesianProductResult,
+    dependencies=[Depends(verify_csrf)],
+)
+def all_sources_cartesian_product(
+    emitter_id: UUID,
+    payload: CartesianProductRequest,
+    db: Session = Depends(get_db),
+    user=Depends(require_emitter_checkout()),
+) -> CartesianProductResult:
+    """Modes from the merged Elements of every Source of the Emitter (All
+    Sources). Any Element of a merged group picks the group; each Mode gets
+    the Sources its Elements were found in, the one holding most of them as
+    its main Source. Sequence steps belong to one Source and aren't taken."""
+    _get_emitter_or_404(db, emitter_id)
+    if payload.sequence_steps:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "Sequence steps are picked on their own Source, not All Sources"
+        )
+    ew_group = db.get(EwGroup, payload.ew_group_id)
+    if ew_group is None or ew_group.emitter_id != emitter_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Target EW Group not found on this Emitter")
+    pool = MergedPool(db, emitter_id)
+    try:
+        rf, rf_deltas = resolve_selection(pool, payload.rf_element_ids, payload.rf_delta_overrides)
+        pri, pri_deltas = resolve_selection(pool, payload.pri_element_ids, payload.pri_delta_overrides)
+        pw, pw_deltas = resolve_selection(pool, payload.pw_element_ids, payload.pw_delta_overrides)
+        source = batch_source(pool, [pool.representative(i) for i in [*rf, *pri, *pw]])
+        created = run_cartesian_product(
+            db,
+            source=source,
+            ew_group_id=payload.ew_group_id,
+            rf_element_ids=rf,
+            pw_element_ids=pw,
+            pri_element_ids=pri,
+            name_prefix=payload.name_prefix,
+            created_by=user.id,
+            batch_note=payload.batch_note,
+            rf_delta_overrides=rf_deltas,
+            pw_delta_overrides=pw_deltas,
+            pri_delta_overrides=pri_deltas,
+            rf_range_matching=payload.rf_range_matching,
+            pw_range_matching=payload.pw_range_matching,
+            pri_range_matching=payload.pri_range_matching,
+            elements_from_any_source=True,
+            mode_sources=pool.sources_of,
+        )
+    except CartesianProductError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logged = payload.model_copy(
+        update={
+            "rf_element_ids": rf,
+            "pri_element_ids": pri,
+            "pw_element_ids": pw,
+            "rf_delta_overrides": rf_deltas,
+            "pri_delta_overrides": pri_deltas,
+            "pw_delta_overrides": pw_deltas,
+            "batch_note": f"From All Sources. {payload.batch_note or ''}".strip(),
+        }
+    )
+    record_cartesian_run(db, source=source, ew_group=ew_group, payload=logged, created=created, user_id=user.id)
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.create,
+        entity_type=AuditEntityType.mode_generation_batch.value,
+        entity_id=created[0].generation_batch_id if created else None,
+        summary=f"Generated {len(created)} Mode(s) via cartesian product on All Sources ('{payload.name_prefix}')",
+        emitter_id=emitter_id,
+    )
+    db.commit()
+    return CartesianProductResult(created_mode_ids=[m.id for m in created], count=len(created))
 
 
 @router.post(

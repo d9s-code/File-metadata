@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from uuid import UUID
 
 from sqlalchemy import func
@@ -10,6 +11,7 @@ from app.models.parameter_sequence import ParameterSequence
 from app.models.source import Source
 from app.schemas.mode_element import SequenceStepSelection
 from app.services.audit_service import _json_safe, record_audit
+from app.services.mode_sources import set_mode_sources
 
 # ModeLine columns that aren't part of the rendered DSL line text — mirrors
 # _NON_DSL_LINE_FIELDS in routers/modes.py (render_mode_line has a strict,
@@ -40,7 +42,11 @@ def _step_range(step: dict, point: str, lo: str, hi: str) -> tuple[float, float]
         return float(step[point]), float(step[point])
     return None
 
-def _fetch_elements(db: Session, source_id: UUID, ids: list[UUID], expected_type: ElementType) -> list[ModeElement]:
+def _fetch_elements(
+    db: Session, source_id: UUID | None, ids: list[UUID], expected_type: ElementType
+) -> list[ModeElement]:
+    """The chosen Elements, checked to be of the type and — unless `source_id`
+    is None (the caller checked they're the Emitter's) — from the Source."""
     if not ids:
         raise CartesianProductError(f"At least one {expected_type.value} element must be chosen")
     elements = db.query(ModeElement).filter(ModeElement.id.in_(ids)).all()
@@ -49,7 +55,7 @@ def _fetch_elements(db: Session, source_id: UUID, ids: list[UUID], expected_type
     if missing:
         raise CartesianProductError(f"Unknown element id(s): {missing}")
     for e in elements:
-        if e.source_id != source_id:
+        if source_id is not None and e.source_id != source_id:
             raise CartesianProductError(f"Element {e.id} does not belong to this Source")
         if e.element_type != expected_type:
             raise CartesianProductError(f"Element {e.id} is not a {expected_type.value} element")
@@ -106,14 +112,22 @@ def run_cartesian_product(
     rf_range_matching: bool = False,
     pw_range_matching: bool = False,
     pri_range_matching: bool = False,
+    elements_from_any_source: bool = False,
+    mode_sources: Callable[[list[ModeElement]], list[Source]] | None = None,
 ) -> list[Mode]:
+    """Every combination of the chosen RF, PRI (or sequence steps) and PW
+    Elements as a Mode. Normally the Elements are the Source's and so is each
+    Mode; `elements_from_any_source` takes them from any of the Emitter's
+    Sources (checked by the caller), and `mode_sources` gives each Mode its
+    Sources from the Elements it was made of."""
     rf_delta_overrides = rf_delta_overrides or {}
+    element_source = None if elements_from_any_source else source.id
     pw_delta_overrides = pw_delta_overrides or {}
     pri_delta_overrides = pri_delta_overrides or {}
 
     # Fetch elements conditionally to avoid errors when sequence steps are used
-    rf_elements = _fetch_elements(db, source.id, rf_element_ids, ElementType.rf) if rf_element_ids else [None]
-    pw_elements = _fetch_elements(db, source.id, pw_element_ids, ElementType.pw) if pw_element_ids else [None]
+    rf_elements = _fetch_elements(db, element_source, rf_element_ids, ElementType.rf) if rf_element_ids else [None]
+    pw_elements = _fetch_elements(db, element_source, pw_element_ids, ElementType.pw) if pw_element_ids else [None]
 
     selected_steps = _fetch_selected_steps(db, source.id, sequence_steps) if sequence_steps else []
 
@@ -127,7 +141,7 @@ def run_cartesian_product(
             tuple[ModeElement | None, ParameterSequence | None, dict | None, SequenceStepSelection | None]
         ] = [(None, seq, step, selection) for seq, step, selection in selected_steps]
     else:
-        pri_elements = _fetch_elements(db, source.id, pri_element_ids, ElementType.pri)
+        pri_elements = _fetch_elements(db, element_source, pri_element_ids, ElementType.pri)
         is_stagger = [bool(e.stagger_values) for e in pri_elements]
         if any(is_stagger) and not all(is_stagger):
             raise CartesianProductError(
@@ -165,7 +179,7 @@ def run_cartesian_product(
 
     created: list[Mode] = []
 
-    def _create_mode(pri_type: PriType, line_kwargs: dict) -> Mode:
+    def _create_mode(pri_type: PriType, line_kwargs: dict, used: list[ModeElement | None]) -> Mode:
         name = _next_name()
         mode = Mode(
             ew_group_id=ew_group_id,
@@ -178,6 +192,8 @@ def run_cartesian_product(
         )
         db.add(mode)
         db.flush()
+        if mode_sources is not None:
+            set_mode_sources(mode, mode_sources([e for e in used if e is not None]))
 
         dsl_text = render_mode_line(pri_type=pri_type, **_dsl_kwargs(line_kwargs))
         db.add(ModeLine(mode_id=mode.id, dsl_text=dsl_text, **line_kwargs))
@@ -275,11 +291,11 @@ def run_cartesian_product(
                         if step_pw_delta is not None:
                             step_line_kwargs["pw_delta"] = step_pw_delta
 
-                    _create_mode(PriType.fixed, step_line_kwargs)
+                    _create_mode(PriType.fixed, step_line_kwargs, [rf_el, pw_el])
                 else:
                     if pri_type == PriType.stagger:
                         base_line_kwargs["frame_time_delta_us"] = pri_delta_overrides.get(pri_el.id, pri_el.delta)
-                    _create_mode(pri_type, base_line_kwargs)
+                    _create_mode(pri_type, base_line_kwargs, [rf_el, pw_el, pri_el])
 
     db.commit()
     for mode in created:

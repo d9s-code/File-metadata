@@ -13,24 +13,35 @@ def _num(v):
     return None if v is None else float(v)
 
 
-def element_overview(db: Session, emitter_id: UUID) -> list[dict]:
-    rows = (
+def element_key(element: ModeElement) -> tuple:
+    """What makes two Elements the same one: type and values (and a PRI's
+    jitter) — not the variant, label or margin, which can differ by Source."""
+    stagger = tuple(float(v) for v in element.stagger_values) if element.stagger_values else None
+    return (
+        element.element_type.value,
+        _num(element.value_min),
+        _num(element.value_max),
+        stagger,
+        _num(element.jitter_min),
+        _num(element.jitter_max),
+    )
+
+
+def emitter_elements(db: Session, emitter_id: UUID) -> list[tuple[ModeElement, Source]]:
+    return (
         db.query(ModeElement, Source)
         .join(Source, ModeElement.source_id == Source.id)
         .filter(Source.emitter_id == emitter_id)
         .all()
     )
+
+
+def element_overview(db: Session, emitter_id: UUID) -> list[dict]:
+    rows = emitter_elements(db, emitter_id)
     groups: dict[tuple, dict] = {}
     for element, source in rows:
-        stagger = tuple(float(v) for v in element.stagger_values) if element.stagger_values else None
-        key = (
-            element.element_type.value,
-            _num(element.value_min),
-            _num(element.value_max),
-            stagger,
-            _num(element.jitter_min),
-            _num(element.jitter_max),
-        )
+        key = element_key(element)
+        stagger = key[3]
         group = groups.setdefault(
             key,
             {

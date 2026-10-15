@@ -382,15 +382,16 @@ export function SourceBatchAddModal({
                 <input value={seqLabel} onChange={(e) => setSeqLabel(e.target.value)} />
               </label>
             </div>
-            <table className="data-table">
+            <div className="batch-seq-wrap">
+            <table className="data-table batch-seq-table">
               <thead>
                 <tr>
-                  <th style={{ width: "3.5rem" }}>Order</th>
+                  <th style={{ width: "2.5rem" }}>#</th>
                   <th>RF (MHz)</th>
                   <th>PRI (µs)</th>
                   <th>PW (µs)</th>
                   <th>Dwell (pulses)</th>
-                  <th></th>
+                  <th style={{ width: "4.5rem" }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -438,6 +439,7 @@ export function SourceBatchAddModal({
                 ))}
               </tbody>
             </table>
+            </div>
             <button type="button" className="icon-button" onClick={addStep}>
               + Add Step
             </button>

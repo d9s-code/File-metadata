@@ -918,6 +918,10 @@ label {
 /* BatchEditModal: every section (EW Group/Notes, Range matching, Deltas) uses
    the same equal-width grid so labels and controls line up across rows,
    instead of each section flexing to its own content width. */
+/* Batch Add's sequence steps: the table fits the dialog, its inputs share the width. */
+.batch-seq-wrap { max-width: 100%; overflow-x: auto; }
+.batch-seq-table { width: 100%; table-layout: fixed; }
+.batch-seq-table input { width: 100%; min-width: 0; box-sizing: border-box; }
 /* Batch Add: which Sources it goes to, ticked in a wrapping list. */
 .batch-sources { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.4rem 0.6rem; margin: 0 0 0.6rem; display: flex; flex-wrap: wrap; gap: 0.2rem 1rem; max-height: 9rem; overflow-y: auto; }
 .batch-sources legend { font-weight: 600; font-size: 0.85rem; padding: 0 0.3rem; }
@@ -5624,6 +5628,15 @@ a.ai-cite:hover { text-decoration: underline; }
   max-height: 32rem;
   overflow: auto;
 }
+/* All Sources: search, a value range, and the Sources a row is in folded to "+N". */
+.all-sources-search { min-width: 14rem; }
+.all-sources-range { display: inline-flex; align-items: center; gap: 0.25rem; }
+.all-sources-range input { width: 6.5rem; }
+.all-sources-list .chip-button, .all-sources-list .link-button, .mode-sources-more { margin-left: 0.35rem; }
+.chip-button { border: 1px solid var(--border); border-radius: 999px; background: var(--hover-bg); color: var(--text); font-size: 0.75rem; padding: 0 0.45rem; line-height: 1.5; cursor: pointer; box-shadow: none; }
+.chip-button:hover { border-color: var(--primary); }
+.all-sources-generate { border-top: 1px solid var(--border); margin-top: 0.75rem; padding-top: 0.6rem; display: flex; flex-direction: column; gap: 0.4rem; align-items: flex-start; }
+.all-sources-generate-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.8rem; }
 .element-overview-found {
   list-style: none;
   margin: 0;

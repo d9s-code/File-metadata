@@ -562,20 +562,17 @@ export function HelpPage() {
               newest first: when and by whom, into which EW Group and with which name prefix and note, the Elements or
               Sequence steps combined (values, variant, the margin used — &ldquo;this run&rdquo; when it was changed
               just for the run), range matching, and the Modes it made (and how many are still there; the entry stays
-              after they&apos;re deleted). Below the Sources, the <strong>Element overview</strong> lists every
-              distinct Element across all of the Emitter&apos;s Sources — the same values in several Sources are one
-              row, with each Source, its variant and margin — filterable by type and variant, or to those in more
-              than one Source.
+              after they&apos;re deleted).
             </p>
             <p>
-              A Source&apos;s <strong>Generation log</strong> tab lists every run of <em>Generate Modes</em> on it,
-              newest first: when and by whom, into which EW Group and with which name prefix and note, the Elements or
-              Sequence steps combined (values, variant, the margin used — &ldquo;this run&rdquo; when it was changed
-              just for the run), range matching, and the Modes it made (and how many are still there; the entry stays
-              after they&apos;re deleted). Below the Sources, the <strong>Element overview</strong> lists every
-              distinct Element across all of the Emitter&apos;s Sources — the same values in several Sources are one
-              row, with each Source, its variant and margin — filterable by type and variant, or to those in more
-              than one Source.
+              Below the Sources, <strong>All Sources</strong> is every Element of the Emitter&apos;s Sources in one list:
+              the same values in several Sources are one Element. Each shows its margin, variants and Sources — two by
+              name and <strong>+N</strong> for the rest (hover for all, click to list them). Search it (values, Source
+              names, labels), give a <strong>from – to</strong> value range, or filter by type, Source, variant, or to
+              Elements in more than one Source. While editing, tick Elements and <strong>Generate Modes</strong> from
+              them, as on a Source: each Mode gets the Sources its own RF, PRI and PW were found in, the one holding most
+              of them as its main Source. A blank margin uses the widest any of an Element&apos;s Sources gives. Sequence
+              steps are picked on their own Source.
             </p>
             <p>
               An Element can carry a <strong>measurement variant</strong> — <em>typical</em>,{" "}
