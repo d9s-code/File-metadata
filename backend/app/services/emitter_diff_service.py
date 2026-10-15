@@ -177,24 +177,17 @@ def _with_sources(m: dict) -> dict:
     return {**m, "sources": ", ".join(m.get("source_names") or [m.get("source_name") or ""])}
 
 
-def _diff_modes(entries: list[dict], old_modes: list[dict], new_modes: list[dict]) -> None:
-    old_by_id = {m["id"]: m for m in old_modes}
-    new_by_id = {m["id"]: m for m in new_modes}
-
-    for mode_id, m in new_by_id.items():
-        if mode_id not in old_by_id:
-            entries.append(_entry(f"Mode '{m['name']}'", "Added", "added", new_value=_mode_summary(m)))
-    for mode_id, m in old_by_id.items():
-        if mode_id not in new_by_id:
-            entries.append(_entry(f"Mode '{m['name']}'", "Removed", "removed", old_value=_mode_summary(m)))
-
-    for mode_id in set(old_by_id) & set(new_by_id):
-        om, nm = _with_sources(old_by_id[mode_id]), _with_sources(new_by_id[mode_id])
-        scope = f"Mode '{nm['name']}'"
-        _diff_fields(entries, scope, om, nm, MODE_FIELD_LABELS, MODE_FIELDS_ADDED_LATER)
-        _diff_fields(
-            entries, scope, om.get("line") or {}, nm.get("line") or {}, MODE_LINE_FIELD_LABELS, MODE_LINE_FIELDS_ADDED_LATER
-        )
+def _diff_mode(entries: list[dict], old: dict, new: dict, old_group: dict, new_group: dict) -> None:
+    """One Mode in both versions: the EW Group it moved to, if it did, then
+    its fields."""
+    om, nm = _with_sources(old), _with_sources(new)
+    scope = f"Mode '{nm['name']}'"
+    if old_group["id"] != new_group["id"]:
+        entries.append(_entry(scope, "EW Group", "changed", old_value=old_group["name"], new_value=new_group["name"]))
+    _diff_fields(entries, scope, om, nm, MODE_FIELD_LABELS, MODE_FIELDS_ADDED_LATER)
+    _diff_fields(
+        entries, scope, om.get("line") or {}, nm.get("line") or {}, MODE_LINE_FIELD_LABELS, MODE_LINE_FIELDS_ADDED_LATER
+    )
 
 
 def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict) -> dict:
@@ -206,21 +199,29 @@ def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict) -> dict:
 
     old_groups = {g["id"]: g for g in old_snapshot.get("ew_groups", [])}
     new_groups = {g["id"]: g for g in new_snapshot.get("ew_groups", [])}
+    # Modes are matched by id across EW Groups: one moved to another group
+    # (even one since deleted) is the same Mode, not a removal and an addition.
+    old_modes = {m["id"]: (m, g) for g in old_groups.values() for m in g.get("modes", [])}
+    new_modes = {m["id"] for g in new_groups.values() for m in g.get("modes", [])}
     for group_id, g in new_groups.items():
         if group_id not in old_groups:
             entries.append(_entry(f"EW Group '{g['name']}'", "Added", "added", new_value=_group_summary(g)))
-            # The group itself is reported above, but Modes created inside a
-            # brand-new group are otherwise never itemized individually —
-            # matching how a Mode added to an already-existing group is.
-            _diff_modes(entries, [], g.get("modes", []))
+        else:
+            _diff_fields(entries, f"EW Group '{g['name']}'", old_groups[group_id], g, EW_GROUP_FIELD_LABELS)
+        for m in g.get("modes", []):
+            if m["id"] in old_modes:
+                old_mode, old_group = old_modes[m["id"]]
+                _diff_mode(entries, old_mode, m, old_group, g)
+            else:
+                entries.append(_entry(f"Mode '{m['name']}'", "Added", "added", new_value=_mode_summary(m)))
     for group_id, g in old_groups.items():
+        gone = [m for m in g.get("modes", []) if m["id"] not in new_modes]
         if group_id not in new_groups:
-            entries.append(_entry(f"EW Group '{g['name']}'", "Removed", "removed", old_value=_group_summary(g)))
-            _diff_modes(entries, g.get("modes", []), [])
-    for group_id in set(old_groups) & set(new_groups):
-        og, ng = old_groups[group_id], new_groups[group_id]
-        _diff_fields(entries, f"EW Group '{ng['name']}'", og, ng, EW_GROUP_FIELD_LABELS)
-        _diff_modes(entries, og.get("modes", []), ng.get("modes", []))
+            moved = len(g.get("modes", [])) - len(gone)
+            summary = _group_summary(g) + (f" ({moved} moved to other EW Groups)" if moved else "")
+            entries.append(_entry(f"EW Group '{g['name']}'", "Removed", "removed", old_value=summary))
+        for m in gone:
+            entries.append(_entry(f"Mode '{m['name']}'", "Removed", "removed", old_value=_mode_summary(m)))
 
     old_sources = {s["id"]: s for s in old_snapshot.get("sources", [])}
     new_sources = {s["id"]: s for s in new_snapshot.get("sources", [])}

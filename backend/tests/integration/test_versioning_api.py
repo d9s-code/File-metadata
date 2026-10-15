@@ -102,6 +102,28 @@ def test_live_diff_shows_mode_added_inside_a_brand_new_ew_group(editor_client, e
     assert ("Mode 'New Mode'", "added") in scopes
 
 
+def test_modes_moved_out_of_a_deleted_ew_group_show_as_moved_not_removed(editor_client, emitter_ctx):
+    emitter_id = emitter_ctx["emitter"]["id"]
+    old_group = emitter_ctx["ew_group"]
+    kept = _add_mode(editor_client, emitter_ctx, "Kept")
+    _add_mode(editor_client, emitter_ctx, "Dropped")
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "v1"})
+
+    new_group = editor_client.post(f"/emitters/{emitter_id}/ew-groups", json={"name": "Group B"}).json()
+    moved = editor_client.patch(f"/ew-groups/{old_group['id']}/modes/{kept['id']}", json={"ew_group_id": new_group["id"]})
+    assert moved.status_code == 200
+    assert editor_client.delete(f"/emitters/{emitter_id}/ew-groups/{old_group['id']}").status_code == 204
+
+    entries = editor_client.get(f"/emitters/{emitter_id}/diff/live").json()["entries"]
+    by_scope = {(e["scope"], e["label"]): e for e in entries}
+    assert by_scope[("Mode 'Kept'", "EW Group")]["old_value"] == "Group A"
+    assert by_scope[("Mode 'Kept'", "EW Group")]["new_value"] == "Group B"
+    assert ("Mode 'Kept'", "Removed") not in by_scope and ("Mode 'Kept'", "Added") not in by_scope
+    # The Mode left in the deleted group really is gone.
+    assert ("Mode 'Dropped'", "Removed") in by_scope
+    assert by_scope[("EW Group 'Group A'", "Removed")]["old_value"] == "2 Modes (1 moved to other EW Groups)"
+
+
 def test_diff_against_specific_version(editor_client, emitter_ctx):
     emitter_id = emitter_ctx["emitter"]["id"]
     editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "test"})  # v1
