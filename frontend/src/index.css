@@ -3535,10 +3535,13 @@ label.grow {
 }
 
 /* What the Modes don't cover, in a window over the grouping page. */
+.import-rule-steps { margin: 0 0 0.4rem; padding-left: 1.2rem; }
+.import-rule-steps li { margin-bottom: 0.25rem; }
+.import-rule-note { display: block; color: var(--muted); margin-top: 0.2rem; }
 .import-filters-note {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 1rem;
   flex-wrap: wrap;
 }

@@ -291,7 +291,6 @@ export function EntryCharts({
                   "Box each entry's min–max",
                   "Draws a faint box around each entry's point, from the lowest to the highest value its reports measured on both axes.",
                 )}
-                <span className="hint-text">PRI is a stagger&apos;s frame time</span>
               </span>
             }
             xAxis={AXIS_INFO[axes.x]}

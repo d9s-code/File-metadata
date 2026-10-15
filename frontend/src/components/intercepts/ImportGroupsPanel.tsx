@@ -1,3 +1,4 @@
+import { InfoTip } from "../common/PageHeader";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import type { CsvReport, ReportPriType } from "./interceptCsv";
 import { formatMissionTime } from "./interceptCsv";
@@ -439,22 +440,39 @@ export function ImportGroupsPanel({
   return (
     <section className="card">
       <div className="card-header">
-        <h4>{heading}</h4>
+        <h4>
+          {heading}{" "}
+          <InfoTip label="How grouping works">
+            Each row becomes one entry: the mean of its reports, with their lowest and highest values as the measured
+            range. {startsFrom ?? "Every report starts as its own row — nothing is grouped until you do it."} Select rows
+            and <strong>Merge</strong> them, <strong>split</strong> them at a value, or use <strong>Auto group</strong>{" "}
+            with your own gaps. Filters compare each row&apos;s mean and only narrow what&apos;s listed and selected.
+          </InfoTip>
+        </h4>
         <button type="button" className="button secondary small" onClick={() => void resetAll()}>
           Start over
         </button>
       </div>
-      <p className="hint-text">
-        Each row below becomes one entry: the mean of its reports, with their lowest and highest values as the
-        measured range.{" "}
-        {startsFrom ?? "Every report starts as its own row — nothing is grouped until you do it."} Select rows and{" "}
-        <strong>Merge</strong> them, <strong>split</strong> them at a value, or use <strong>Auto group</strong> with
-        your own gaps.
-      </p>
 
       <div className="import-tools">
         <fieldset className="import-autogroup">
-          <legend>Auto group</legend>
+          <legend>
+            Auto group{" "}
+            <InfoTip label="What Auto group does">
+              <ol className="import-rule-steps">
+                {AUTO_GROUP_STEPS.map((step) => (
+                  <li key={step.title}>
+                    <strong>{step.title}.</strong> {step.text}
+                  </li>
+                ))}
+              </ol>
+              {AUTO_GROUP_NOTES.map((note) => (
+                <span key={note} className="import-rule-note">
+                  {note}
+                </span>
+              ))}
+            </InfoTip>
+          </legend>
           <div className="import-tolerances">
             <GapSlider label="RF gap (MHz)" value={gap.rfMhz} min={0.01} max={500} onChange={(v) => setGap({ ...gap, rfMhz: v })} />
             <GapSlider label="PRI gap (µs)" value={gap.priUs} min={0.01} max={1000} onChange={(v) => setGap({ ...gap, priUs: v })} />
@@ -483,40 +501,25 @@ export function ImportGroupsPanel({
               {selected.size > 0 ? `Auto group ${selected.size} selected` : "Auto group all"}
             </button>
           </div>
-          <p className="import-preview">
+          <p
+            className="import-preview"
+            title="A preview, shown as ticks on the charts and boxes on the scatter — nothing changes until you press Auto group."
+          >
             {preview ? (
               <>
-                With these settings Auto group would make <strong>{preview.groups.length.toLocaleString()}</strong> group
-                {preview.groups.length === 1 ? "" : "s"}
+                Preview{selected.size > 0 ? " (selected rows)" : ""}: <strong>{preview.groups.length.toLocaleString()}</strong>{" "}
+                group{preview.groups.length === 1 ? "" : "s"}
                 {preview.strays.length > 0 && (
                   <>
-                    {" "}
-                    and set <strong>{preview.strays.length.toLocaleString()}</strong> report
-                    {preview.strays.length === 1 ? "" : "s"} aside as strays
+                    , <strong>{preview.strays.length.toLocaleString()}</strong> stray
+                    {preview.strays.length === 1 ? "" : "s"}
                   </>
                 )}
-                {selected.size > 0 ? " from the selected rows" : ""} — a preview, shown as ticks on the charts and boxes
-                on the scatter. Nothing changes until you press the button.
               </>
             ) : (
               <span className="hint-text">Working out the preview…</span>
             )}
           </p>
-          <details className="import-rule">
-            <summary>What does Auto group do?</summary>
-            <ol>
-              {AUTO_GROUP_STEPS.map((step) => (
-                <li key={step.title}>
-                  <strong>{step.title}.</strong> {step.text}
-                </li>
-              ))}
-            </ol>
-            <ul>
-              {AUTO_GROUP_NOTES.map((note) => (
-                <li key={note}>{note}</li>
-              ))}
-            </ul>
-          </details>
         </fieldset>
       </div>
 
@@ -544,16 +547,19 @@ export function ImportGroupsPanel({
               </button>
             ))}
           </div>
-          {chartsOpen && (
-            <span className="hint-text">
-              {splitting
-                ? "Showing only the selected rows' reports." +
-                  (chartTab === "distributions" ? " Click the RF, PRI or PW chart where you want to split them." : "")
-                : chartTab === "distributions"
-                  ? "Drag across a chart to filter to that range (the table below follows, and the other charts narrow to it); click a chart to clear its range."
+          {chartsOpen &&
+            (splitting ? (
+              <span className="hint-text">
+                Showing the selected rows&apos; reports.
+                {chartTab === "distributions" ? " Click the RF, PRI or PW chart where you want to split them." : ""}
+              </span>
+            ) : (
+              <InfoTip label="Using the charts">
+                {chartTab === "distributions"
+                  ? "Drag across a chart to filter to that range — the table below follows, and the other charts narrow to it. Click a chart to clear its range."
                   : "Box the dots you want on any chart to mark them, then make a group of them."}
-            </span>
-          )}
+              </InfoTip>
+            ))}
         </div>
         {chartsOpen && (
           <ImportCharts
@@ -671,7 +677,6 @@ export function ImportGroupsPanel({
         )}
       </div>
       <div className="import-filters-note">
-        <p className="hint-text">Filters compare each row's mean; they only narrow what's listed and selected.</p>
         <button
           type="button"
           className="button secondary small"

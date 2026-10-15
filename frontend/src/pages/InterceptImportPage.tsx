@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { formatDate, formatDateTime } from "../components/common/dates";
 import { DateInput } from "../components/common/DateInput";
+import { PageHeader } from "../components/common/PageHeader";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useEmitters } from "../state/hooks/useEmitters";
 import { useEmitterModes } from "../state/hooks/useModes";
@@ -270,11 +271,10 @@ export function InterceptImportPage() {
       <Link to={chosenEmitter ? `/emitters/${chosenEmitter.id}?tab=intercepts` : "/intercepts"}>
         ← {chosenEmitter ? `${chosenEmitter.name} Intercepts` : "Intercepts"}
       </Link>
-      <h1>Import Intercept from CSV</h1>
-      <p className="hint-text">
-        For an EmitterTrackParameters export. The file is read in your browser; nothing is saved until you press
-        Import at the bottom.
-      </p>
+      <PageHeader
+        title="Import Intercept from CSV"
+        info="For an EmitterTrackParameters export. The file is read in your browser — nothing is saved until you press Import at the bottom — and your grouping is kept in this browser as you work, so leaving the page loses nothing: you'll be offered to resume it. Times are converted from ns to µs; RF stays in MHz."
+      />
 
       <section className="card">
         <h4>1. File</h4>
@@ -308,17 +308,23 @@ export function InterceptImportPage() {
           <div className="import-file-summary">
             <p>
               <strong>{parsed.reports.length.toLocaleString()}</strong> report
-              {parsed.reports.length === 1 ? "" : "s"} read from {fileName}
+              {parsed.reports.length === 1 ? "" : "s"}
               {Object.keys(byType).length > 0 && (
                 <span className="hint-text">
                   {" "}
-                  ({Object.entries(byType)
+                  ·{" "}
+                  {Object.entries(byType)
                     .map(([t, n]) => `${n.toLocaleString()} ${TYPE_LABEL[t as keyof typeof TYPE_LABEL]}`)
                     .join(", ")}
-                  )
                 </span>
               )}
-              . Times are converted from ns to µs; RF stays in MHz.
+              {designationCounts.length > 0 && (
+                <span className="hint-text">
+                  {" "}
+                  · identified as{" "}
+                  {designationCounts.map(([designation, n]) => `${designation} (${n.toLocaleString()})`).join(", ")}
+                </span>
+              )}
             </p>
             {parsed.skipped.length > 0 && (
               <p>
@@ -351,16 +357,6 @@ export function InterceptImportPage() {
                   </span>
                 ))}
                 . Importing it again would add its entries a second time.
-              </p>
-            )}
-            <p className="hint-text">
-              Your grouping is kept in this browser as you work, so leaving the page loses nothing — you&apos;ll be
-              offered to resume it.
-            </p>
-            {designationCounts.length > 0 && (
-              <p className="hint-text">
-                Identified by the system as:{" "}
-                {designationCounts.map(([designation, n]) => `${designation} (${n.toLocaleString()})`).join(", ")}
               </p>
             )}
           </div>
@@ -396,9 +392,9 @@ export function InterceptImportPage() {
               {chosenEmitter &&
                 designationCounts.length > 0 &&
                 !designationCounts.some(([e]) => e.toLowerCase() === chosenEmitter.designation?.trim().toLowerCase()) && (
-                  <p className="hint-text">
-                    Note: {chosenEmitter.name}&apos;s designation ({chosenEmitter.designation ?? "none"}) isn&apos;t what
-                    the system identified these reports as.
+                  <p className="mode-form-warning">
+                    {chosenEmitter.name} is {chosenEmitter.designation ?? "without a designation"}; the reports were
+                    identified as {designationCounts.map(([d]) => d).join(", ")}.
                   </p>
                 )}
 
@@ -441,7 +437,6 @@ export function InterceptImportPage() {
                     Description
                     <textarea className="edit-input" rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
                   </label>
-                  <p className="hint-text">Name and date are taken from the file name and the earliest report; change them as you like.</p>
                 </>
               ) : (
                 <label>
@@ -485,8 +480,8 @@ export function InterceptImportPage() {
               )}
             </p>
             {included.length > MAX_IMPORT_ENTRIES && (
-              <p className="error-text">
-                One import takes at most {MAX_IMPORT_ENTRIES.toLocaleString()} entries — group or exclude reports first.
+              <p className="mode-form-warning">
+                Group or exclude reports first — one import takes up to {MAX_IMPORT_ENTRIES.toLocaleString()} entries.
               </p>
             )}
             {tooManyReports && (

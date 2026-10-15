@@ -702,11 +702,11 @@ export function ImportCharts({
                 ⇄ Swap
               </button>
               {outlineSelect}
-              <span className="hint-text">
-                PRI is a stagger&apos;s frame time
-                {boxes.length > MAX_BOXES &&
-                  ` · ${boxes.length.toLocaleString()} groups — too many to outline; filter to a range`}
-              </span>
+              {boxes.length > MAX_BOXES && (
+                <span className="hint-text">
+                  {boxes.length.toLocaleString()} groups — too many to outline; filter to a range
+                </span>
+              )}
             </span>
           }
           boxes={boxes.length > MAX_BOXES ? [] : boxes}
