@@ -182,7 +182,14 @@ export function TestRunDetailPage() {
           {formatDate(record.test_date)}
           {record.test_time ? ` ${record.test_time.slice(0, 5)}` : ""}
         </Fact>
-        {record.dwell && <Fact label="Dwell">{record.dwell}</Fact>}
+        {record.dwell_strategy_id ? (
+          <Fact label="Dwell">
+            <Link to={`/dwells/strategies/${record.dwell_strategy_id}`}>{record.dwell_strategy_name}</Link> v
+            {record.dwell_strategy_version_number}
+          </Fact>
+        ) : (
+          record.dwell && <Fact label="Dwell">{record.dwell}</Fact>
+        )}
         {record.simulation_created_date && (
           <Fact label={record.test_type === "intercept" ? "Intercepted" : "Simulation created"}>
             {formatDate(record.simulation_created_date)}

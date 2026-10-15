@@ -58,6 +58,13 @@ class TestRecord(UUIDPkMixin, TimestampMixin, Base):
     platform_test_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("platform_tests.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    # The saved Dwell Strategy version the run used, if any.
+    dwell_strategy_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("dwell_strategy_versions.id", ondelete="SET NULL"), nullable=True
+    )
+    dwell_strategy_version: Mapped["DwellStrategyVersion | None"] = relationship(  # noqa: F821
+        foreign_keys=[dwell_strategy_version_id], viewonly=True
+    )
     platform_test: Mapped["PlatformTest | None"] = relationship(foreign_keys=[platform_test_id], viewonly=True)
     emitter_version: Mapped["EmitterVersion | None"] = relationship(  # noqa: F821
         foreign_keys=[emitter_version_id], viewonly=True
@@ -66,6 +73,18 @@ class TestRecord(UUIDPkMixin, TimestampMixin, Base):
     @property
     def emitter_version_number(self) -> int | None:
         return self.emitter_version.version_number if self.emitter_version else None
+
+    @property
+    def dwell_strategy_id(self) -> uuid.UUID | None:
+        return self.dwell_strategy_version.strategy_id if self.dwell_strategy_version else None
+
+    @property
+    def dwell_strategy_name(self) -> str | None:
+        return self.dwell_strategy_version.snapshot.get("name") if self.dwell_strategy_version else None
+
+    @property
+    def dwell_strategy_version_number(self) -> int | None:
+        return self.dwell_strategy_version.version_number if self.dwell_strategy_version else None
 
     @property
     def platform_test_platform_id(self) -> uuid.UUID | None:
@@ -257,6 +276,10 @@ class PlatformTest(UUIDPkMixin, TimestampMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     tested_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    # The saved Dwell Strategy version the run used, if any.
+    dwell_strategy_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("dwell_strategy_versions.id", ondelete="SET NULL"), nullable=True
     )
 
     records: Mapped[list["TestRecord"]] = relationship(foreign_keys="TestRecord.platform_test_id")

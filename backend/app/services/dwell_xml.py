@@ -13,16 +13,13 @@
         </Strategy>
     </DwellStrategies>
 
-Merged Mode frequencies are written in Hz and kept in MHz; times are in ms.
-RapidDF and Split Mode aren't edited in the app: they're written back as
-read (new Strategies get the defaults below)."""
+Frequencies are in MHz and times in ms, in the file as in the app. A
+Strategy's dwells are its <MergedMode>. RapidDF and Split Mode aren't edited
+in the app: they're written back as read (new Strategies get the defaults
+below). Files are written from snapshots (see dwell_service) — a dwell
+file's, holding the saved version of each Strategy pinned in it."""
 
 from lxml import etree
-
-from app.models.dwell import DwellFile, DwellStrategy
-
-# A Merged Mode frequency in the file is in Hz; the app keeps MHz.
-FILE_FREQ_PER_MHZ = 1_000_000
 
 DEFAULT_COLLECT_TIME_MS = 50.0
 DEFAULT_RAPID_DF = {"collect_time": "50", "dwell_time": "50", "freq": "500"}
@@ -73,10 +70,10 @@ def parse_dwell_xml(content: bytes) -> dict:
         for dwell in strategy.findall("MergedMode/Dwell"):
             freqs = dwell.findall("Freq")
             if len(freqs) != 1:
-                raise DwellXmlError(f"{where}: a Merged Mode dwell has {len(freqs)} frequencies, not one")
+                raise DwellXmlError(f"{where}: a dwell has {len(freqs)} frequencies, not one")
             merged.append(
                 {
-                    "freq_mhz": _num(freqs[0].get("value"), f"{where} frequency") / FILE_FREQ_PER_MHZ,
+                    "freq_mhz": _num(freqs[0].get("value"), f"{where} frequency"),
                     "dwell_time_ms": _num(dwell.get("dwell_time"), f"{where} dwell_time"),
                     "collect_time_ms": _num(dwell.get("collect_time", str(DEFAULT_COLLECT_TIME_MS)), f"{where} collect_time"),
                 }
@@ -88,7 +85,7 @@ def parse_dwell_xml(content: bytes) -> dict:
                 "manual_collect_time_ms": _num(
                     strategy.get("manual_collect_time", str(DEFAULT_COLLECT_TIME_MS)), f"{where} manual_collect_time"
                 ),
-                "merged_mode": merged,
+                "dwells": merged,
                 "rapid_df": dict(rapid.attrib) if rapid is not None else None,
                 "split_mode": [
                     {
@@ -114,35 +111,36 @@ def _dwell(parent, collect_time: str, dwell_time: str, freqs: list[str]):
     return el
 
 
-def strategy_element(parent, strategy: DwellStrategy):
-    el = etree.SubElement(parent, "Strategy", manual_collect_time=fmt(strategy.manual_collect_time_ms))
-    if strategy.rapid_df is not None:
+def strategy_element(parent, strategy: dict):
+    """One <Strategy> from a Strategy snapshot."""
+    el = etree.SubElement(parent, "Strategy", manual_collect_time=fmt(strategy["manual_collect_time_ms"]))
+    rapid_df = strategy.get("rapid_df")
+    if rapid_df is not None:
         # The file's attribute order (the stored dict's order isn't kept).
-        known = [k for k in _RAPID_DF_ORDER if k in strategy.rapid_df]
-        rest = sorted(k for k in strategy.rapid_df if k not in _RAPID_DF_ORDER)
+        known = [k for k in _RAPID_DF_ORDER if k in rapid_df]
+        rest = sorted(k for k in rapid_df if k not in _RAPID_DF_ORDER)
         rapid = etree.SubElement(el, "RapidDF")
         for key in known + rest:
-            rapid.set(key, str(strategy.rapid_df[key]))
+            rapid.set(key, str(rapid_df[key]))
     merged = etree.SubElement(el, "MergedMode")
-    for d in strategy.merged_mode or []:
-        _dwell(
-            merged,
-            fmt(d["collect_time_ms"]),
-            fmt(d["dwell_time_ms"]),
-            [fmt(d["freq_mhz"] * FILE_FREQ_PER_MHZ)],
-        )
-    if strategy.split_mode is not None:
+    for d in strategy.get("dwells") or []:
+        _dwell(merged, fmt(d["collect_time_ms"]), fmt(d["dwell_time_ms"]), [fmt(d["freq_mhz"])])
+    if strategy.get("split_mode") is not None:
         split = etree.SubElement(el, "SplitMode")
-        for d in strategy.split_mode:
+        for d in strategy["split_mode"]:
             _dwell(split, str(d.get("collect_time")), str(d.get("dwell_time")), [str(f) for f in d.get("freqs") or []])
     return el
 
 
-def build_dwell_xml(dwell_file: DwellFile) -> bytes:
+def build_dwell_xml(file_snapshot: dict) -> bytes:
+    """A dwell file from its snapshot: its Settings, then each pinned
+    Strategy version in order."""
     root = etree.Element("DwellStrategies")
-    etree.SubElement(root, "Settings", timeout=fmt(dwell_file.timeout), setup_time=fmt(dwell_file.setup_time))
-    for strategy in dwell_file.strategies:
-        strategy_element(root, strategy)
+    etree.SubElement(
+        root, "Settings", timeout=fmt(file_snapshot["timeout"]), setup_time=fmt(file_snapshot["setup_time"])
+    )
+    for link in file_snapshot.get("strategies", []):
+        strategy_element(root, link["snapshot"])
     etree.indent(root, space="    ")
     # The declaration as the PRS files write it (lxml would use single quotes).
     return b'<?xml version="1.0" encoding="utf-8"?>\n' + etree.tostring(root, encoding="utf-8") + b"\n"

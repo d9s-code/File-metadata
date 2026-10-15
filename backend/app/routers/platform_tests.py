@@ -13,6 +13,7 @@ from app.core.enums import AuditAction, AuditEntityType, Role, TestScopeType
 from app.core.csrf import verify_csrf
 from app.database import get_db
 from app.deps import require_role
+from app.models.dwell import DwellStrategyVersion
 from app.models.emitter import Emitter
 from app.models.emitter_version import EmitterVersion
 from app.models.platform import Platform, PlatformEmitterLink, PlatformVersion
@@ -31,6 +32,18 @@ def _live_platform(db: Session, platform_id: UUID) -> Platform:
     if platform is None or platform.is_deleted:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Platform not found")
     return platform
+
+
+def _dwell_of(db: Session, version_id: UUID | None) -> dict:
+    version = db.get(DwellStrategyVersion, version_id) if version_id else None
+    if version is None:
+        return {}
+    return {
+        "dwell_strategy_version_id": version.id,
+        "dwell_strategy_id": version.strategy_id,
+        "dwell_strategy_name": version.snapshot.get("name"),
+        "dwell_strategy_version_number": version.version_number,
+    }
 
 
 def _out(db: Session, tests: list[PlatformTest]) -> list[PlatformTestOut]:
@@ -92,6 +105,7 @@ def _out(db: Session, tests: list[PlatformTest]) -> list[PlatformTestOut]:
                 notes=t.notes,
                 tested_by_username=users.get(t.tested_by),
                 created_at=t.created_at,
+                **_dwell_of(db, t.dwell_strategy_version_id),
                 result=compute_overall_result([row.result for row in rows]),
                 emitters=rows,
             )
@@ -163,9 +177,16 @@ def log_platform_test(
         .order_by(PlatformVersion.version_number.desc())
         .first()
     )
+    if payload.dwell_strategy_version_id is not None:
+        dwell_version = db.get(DwellStrategyVersion, payload.dwell_strategy_version_id)
+        if dwell_version is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "That Dwell Strategy version wasn't found")
+        if dwell_version.strategy.platform_id != platform_id:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "That Dwell Strategy is another Platform's")
     test = PlatformTest(
         platform_id=platform_id,
         platform_version_id=latest_version.id if latest_version else None,
+        dwell_strategy_version_id=payload.dwell_strategy_version_id,
         title=payload.title,
         test_type=payload.test_type.value,
         test_date=payload.test_date,

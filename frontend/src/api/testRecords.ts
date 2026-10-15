@@ -82,6 +82,11 @@ export interface TestRecord {
   simulation_created_date: string | null;
   /** "Manual", or a value written in; null on runs logged before dwell existed. */
   dwell: string | null;
+  /** The Dwell Strategy version the run used, if one was picked: the Strategy, its name then, the version. */
+  dwell_strategy_version_id: string | null;
+  dwell_strategy_id: string | null;
+  dwell_strategy_name: string | null;
+  dwell_strategy_version_number: number | null;
   created_at: string;
   retests_test_record_id: string | null;
   /** Set when this record is one Emitter's part of a Platform test. */
@@ -120,6 +125,7 @@ export interface TestRecordInput {
   simulation_created_date?: string;
   /** "Manual", or a value written in (e.g. "50 ms"). */
   dwell?: string;
+  dwell_strategy_version_id?: string;
   /** Per-Test-Line intercept-correctness outcome — when given, this is what the
    * whole-test result derives from (see backend precedence). */
   line_results?: TestRecordLineResultInput[];

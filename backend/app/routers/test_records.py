@@ -8,6 +8,7 @@ from app.core.enums import AuditAction, AuditEntityType, Role, TestScopeType
 from app.database import get_db
 from app.deps import require_role
 from app.models.emitter import Emitter
+from app.models.dwell import DwellStrategyVersion
 from app.models.emitter_version import EmitterVersion
 from app.models.mdf import Mdf, MdfVersion
 from app.models.ew_group import EwGroup
@@ -95,6 +96,9 @@ def _create_test_record(
                     status.HTTP_404_NOT_FOUND, f"Unknown mode id(s) for this Emitter: {missing_intercepted}"
                 )
 
+    if payload.dwell_strategy_version_id is not None and db.get(DwellStrategyVersion, payload.dwell_strategy_version_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "That Dwell Strategy version wasn't found")
+
     if payload.retests_test_record_id is not None:
         retested = db.get(TestRecord, payload.retests_test_record_id)
         if retested is None:
@@ -125,6 +129,7 @@ def _create_test_record(
         scope_id=scope_id,
         emitter_version_id=emitter_version_id,
         mdf_version_id=mdf_version_id,
+        dwell_strategy_version_id=payload.dwell_strategy_version_id,
         test_type=payload.test_type,
         result=overall_result,
         computed_result=computed_result,

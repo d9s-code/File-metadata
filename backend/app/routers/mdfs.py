@@ -21,8 +21,7 @@ from app.schemas.mdf_note import MdfNoteCreate, MdfNoteOut
 from app.services.platform_coverage import mdf_coverage
 from app.schemas.mdf_version import MdfStatusTransitionOut, MdfVersionDetailOut, MdfVersionOut
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
-from app.models.dwell import DwellFile
-from app.services.dwell_xml import build_dwell_xml
+from app.services.dwell_service import mdf_dwell_files
 from app.services.prs_export.packager import build_mdf_export_zip
 from app.services.pin_hygiene import latest_platform_versions, mdf_readiness
 from app.services.readiness_service import compute_mdf_readiness_warnings
@@ -561,9 +560,7 @@ def export_mdf_version_prs(
     if version is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Version not found")
 
-    dwell_files = {
-        f.name: build_dwell_xml(f) for f in db.query(DwellFile).filter(DwellFile.mdf_id == mdf_id).order_by(DwellFile.name)
-    }
+    dwell_files = mdf_dwell_files(db, mdf_id)
     zip_bytes = build_mdf_export_zip(version.snapshot, mdf_id=str(mdf_id), dwell_files=dwell_files)
     filename = f"mdf_{mdf_id}_v{version_number}_prs.zip"
     return Response(

@@ -52,6 +52,8 @@ interface PlatformRunState {
   simCreatedDate: string;
   interceptDate: string;
   dwell: string;
+  /** The Platform's Dwell Strategy version picked under Dwell, if one was. */
+  dwellStrategyVersionId?: string;
   notes: string;
   emitters: Record<string, EmitterRun>;
 }
@@ -388,6 +390,7 @@ export function PlatformTestRunPage() {
         test_time: state.testTime || undefined,
         simulation_created_date: isSimulation ? undefined : state.interceptDate || undefined,
         dwell: state.dwell.trim() || undefined,
+        dwell_strategy_version_id: state.dwellStrategyVersionId || undefined,
         notes: state.notes.trim() || undefined,
         draft_id: draftId.current ?? undefined,
         emitters,
@@ -442,7 +445,13 @@ export function PlatformTestRunPage() {
                 <DateInput value={state.interceptDate} onChange={(e) => patch({ interceptDate: e.target.value })} />
               </label>
             )}
-            <DwellInput value={state.dwell} onChange={(dwell) => patch({ dwell })} />
+            <DwellInput
+              value={state.dwell}
+              onChange={(dwell) => patch({ dwell })}
+              strategyVersionId={state.dwellStrategyVersionId ?? ""}
+              onStrategy={(id, label) => patch(id ? { dwellStrategyVersionId: id, dwell: label } : { dwellStrategyVersionId: "" })}
+              platformId={platformId}
+            />
           </div>
           <label className="test-notes-field">
             Session notes (optional) — equipment, environment, anything about the run as a whole; an Emitter&apos;s

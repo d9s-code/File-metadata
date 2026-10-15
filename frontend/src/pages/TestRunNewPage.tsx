@@ -44,6 +44,8 @@ interface RunState {
   simCreatedDate: string;
   interceptDate: string;
   dwell: string;
+  /** The Dwell Strategy version picked under Dwell, if one was. */
+  dwellStrategyVersionId?: string;
   retestsId: string;
   copyFromId: string;
   /** The saved Emitter version being tested ("" until the versions load: the latest). */
@@ -130,6 +132,7 @@ export function TestRunNewPage() {
   const [simCreatedDate, setSimCreatedDate] = useState("");
   const [interceptDate, setInterceptDate] = useState("");
   const [dwell, setDwell] = useState(MANUAL_DWELL);
+  const [dwellStrategyVersionId, setDwellStrategyVersionId] = useState("");
   const [retestsId, setRetestsId] = useState("");
   const [copyFromId, setCopyFromId] = useState("");
   const [versionId, setVersionId] = useState("");
@@ -157,6 +160,7 @@ export function TestRunNewPage() {
       simCreatedDate,
       interceptDate,
       dwell,
+      dwellStrategyVersionId,
       retestsId,
       copyFromId,
       versionId,
@@ -169,7 +173,7 @@ export function TestRunNewPage() {
       signals,
       stagedModes,
     }),
-    [testType, title, testDate, testTime, simCreatedDate, interceptDate, dwell, retestsId, copyFromId, versionId, notes, manualResult, resultOverride, resultOverrideNote, lineEntries, modeEntries, signals, stagedModes],
+    [testType, title, testDate, testTime, simCreatedDate, interceptDate, dwell, dwellStrategyVersionId, retestsId, copyFromId, versionId, notes, manualResult, resultOverride, resultOverrideNote, lineEntries, modeEntries, signals, stagedModes],
   );
 
   function applyState(s: Partial<RunState>) {
@@ -180,6 +184,7 @@ export function TestRunNewPage() {
     if (s.simCreatedDate !== undefined) setSimCreatedDate(s.simCreatedDate);
     if (s.interceptDate !== undefined) setInterceptDate(s.interceptDate);
     if (s.dwell !== undefined) setDwell(s.dwell);
+    if (s.dwellStrategyVersionId !== undefined) setDwellStrategyVersionId(s.dwellStrategyVersionId);
     if (s.retestsId !== undefined) setRetestsId(s.retestsId);
     if (s.copyFromId !== undefined) setCopyFromId(s.copyFromId);
     if (s.versionId !== undefined) setVersionId(s.versionId);
@@ -384,6 +389,7 @@ export function TestRunNewPage() {
     setLineEntries(lineEntriesFrom(previous, lineIds));
     setModeEntries(modeEntriesFrom(previous));
     if (previous.dwell) setDwell(previous.dwell);
+    setDwellStrategyVersionId(previous.dwell_strategy_version_id ?? "");
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -430,6 +436,7 @@ export function TestRunNewPage() {
         simulation_created_date: (isSimulation ? simCreatedDate : interceptDate) || undefined,
         signals: isSimulation ? undefined : loggedSignals(signals),
         dwell: dwell.trim() || undefined,
+        dwell_strategy_version_id: dwellStrategyVersionId || undefined,
         notes: notes.trim() || undefined,
         line_results: lineResults.length ? lineResults : undefined,
         mode_results: modeResults.length ? modeResults : undefined,
@@ -504,7 +511,15 @@ export function TestRunNewPage() {
                 title={isSimulation ? "Defaults to the newest SIM Test Line's created date" : undefined}
               />
             </label>
-            <DwellInput value={dwell} onChange={setDwell} />
+            <DwellInput
+              value={dwell}
+              onChange={setDwell}
+              strategyVersionId={dwellStrategyVersionId}
+              onStrategy={(id, label) => {
+                setDwellStrategyVersionId(id);
+                if (id) setDwell(label);
+              }}
+            />
           </div>
           <div className="form-row">
             <label>

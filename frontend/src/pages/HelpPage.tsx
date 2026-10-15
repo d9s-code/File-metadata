@@ -889,23 +889,34 @@ export function HelpPage() {
         <div className="help-subsection" id="dwells">
           <h3>Dwells</h3>
           <p>
-            <strong>Dwells</strong> (a tab beside MDFs and Customers) are the dwell files an MDF&apos;s export carries
-            as dwells/&lt;name&gt;.xml. A dwell file has one <strong>Dwell Strategy</strong> per Platform — that
-            Platform&apos;s dwell in the MDF. Link the file to an MDF and its Platforms are offered first; the page says
-            which of them have no Strategy yet, and the MDF&apos;s export includes the file.
+            <strong>Dwells</strong> (a tab beside MDFs and Customers) has two lists. A <strong>Strategy</strong> is one
+            Platform&apos;s dwells, named (e.g. &quot;Summer&quot;) — a Platform can have several. A{" "}
+            <strong>dwell file</strong> pins a saved version of one Strategy per Platform; linked to an MDF, its latest
+            saved version goes into that MDF&apos;s export as dwells/&lt;name&gt;.xml. The same Strategy can be in
+            several files.
           </p>
           <p>
-            In each Strategy you edit the <strong>Merged Mode</strong>: the dwells in order, each a frequency in{" "}
-            <strong>MHz</strong> (the file keeps Hz), a dwell time and a collect time in ms (collect 50 ms unless
-            changed) — add, remove or move rows, then <strong>Save changes</strong>. The <strong>manual collect
-            time</strong> (50 ms by default) sits beside the Platform. RapidDF and Split Mode are kept as the file had
-            them. <strong>Dwell over time</strong> draws one cycle, each dwell as a band around its frequency; the
-            band&apos;s width is the <strong>chart bandwidth</strong> — the default an admin sets under Admin → Settings,
-            or the file&apos;s own if set on its page.
+            On a Strategy&apos;s page you edit its <strong>dwells</strong> in order: each a frequency in MHz (as in the
+            file), a dwell time and a collect time in ms (50 by default), and the Strategy&apos;s{" "}
+            <strong>manual collect time</strong>. <strong>Enter</strong> in a row adds the next one, and{" "}
+            <strong>Add several…</strong> takes a list of frequencies at once; then <strong>Save changes</strong>. The
+            chart beside the table draws one cycle as a waterfall — frequency across, time running down — with each
+            dwell a band of the <strong>chart band width</strong> (the Strategy&apos;s own, or the default an admin sets
+            under Admin → Settings). Hovering a row picks out its band and the other way round. RapidDF and Split Mode
+            are kept as the file had them.
           </p>
           <p>
-            <strong>Import XML</strong> makes a dwell file from an existing one (then pick each Strategy&apos;s
-            Platform); <strong>Download XML</strong> writes it back in the same layout.
+            Strategies and dwell files are <strong>versioned</strong> like Platforms: <strong>Save version</strong>{" "}
+            keeps the current state, Version history shows what each version changed, and the Audit tab every edit. A
+            file flags Strategies with a newer version (<strong>Repin all</strong> takes the latest) and the MDF&apos;s
+            Platforms that have no Strategy in it yet. When logging a test run, <strong>Dwell → Strategy…</strong>{" "}
+            records which Strategy (its latest saved version) the run used; a Platform test offers that Platform&apos;s
+            Strategies. A Strategy&apos;s <strong>Used in</strong> tab lists its files and test runs.
+          </p>
+          <p>
+            <strong>Import XML</strong> (under Dwell files) makes a file from an existing one: each Strategy in it
+            becomes a Strategy of its own — pick each one&apos;s Platform on its page. <strong>Download XML</strong>{" "}
+            writes the file in the same layout.
           </p>
         </div>
       </div>

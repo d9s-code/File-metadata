@@ -6328,15 +6328,125 @@ input[aria-invalid="true"] {
   margin: 0 0 0.25rem;
 }
 
-/* Dwells: the Merged Mode table, and the dwell drawn over time. */
-.dwell-table { width: auto; }
-.dwell-table input { width: 8rem; }
-.dwell-actions { align-items: center; margin-top: 0.4rem; }
-.dwell-strategy h4 { margin: 0.6rem 0 0.3rem; }
-.dwell-chart { margin-top: 0.6rem; }
-.viz-plot .dwell-band { fill-opacity: 0.35; stroke-opacity: 0.9; stroke-width: 1; }
-.viz-plot .dwell-step.hovered .dwell-band { fill-opacity: 0.6; }
-.viz-plot .dwell-centre { stroke: var(--text); stroke-width: 1.5; }
-.viz-plot text.dwell-step-label { fill: var(--muted); font-size: 11px; }
+/* Dwells: Strategies (the dwells table beside the waterfall chart) and dwell files. */
+.dwell-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.dwell-chip a { font-weight: 600; }
+.tab .tab-count {
+  display: inline-block;
+  min-width: 1.4em;
+  margin-left: 0.3rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--badge-neutral-bg);
+  color: var(--badge-neutral-fg);
+  font-size: 0.72rem;
+  text-align: center;
+}
+.dwell-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 33rem) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+  margin-top: 0.75rem;
+}
+@media (max-width: 1100px) {
+  .dwell-editor { grid-template-columns: minmax(0, 1fr); }
+}
+.dwell-editor-table { margin: 0; }
+.dwell-editor-chart { position: sticky; top: 0.75rem; }
+.dwell-editor-chart .dwell-chart { margin: 0; }
+.dwell-editor-settings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  padding-bottom: 0.6rem;
+  margin-bottom: 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+.dwell-editor-settings label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.85rem; }
+.dwell-editor-settings input { width: 9rem; }
+.dwell-table-wrap { max-height: 32rem; overflow-y: auto; }
+.dwell-table { width: 100%; }
+.dwell-table thead th { position: sticky; top: 0; background: var(--card-bg); z-index: 1; }
+.dwell-table td { padding-top: 0.2rem; padding-bottom: 0.2rem; }
+.dwell-table input { width: 100%; min-width: 5.5rem; box-sizing: border-box; }
+.dwell-table th.num, .dwell-table td.num, .dwell-links .num, .dwell-strategy-list .num { text-align: right; white-space: nowrap; }
+.dwell-table tr.hovered td, .dwell-links tr.open td { background: var(--hover-bg); }
+.dwell-table .muted { color: var(--muted); font-size: 0.85rem; }
+.dwell-editor-add { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.6rem; }
+.dwell-save-bar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--attention);
+  border-radius: var(--radius-sm);
+  background: var(--card-bg);
+  font-size: 0.85rem;
+}
+.dwell-save-bar > span { flex: 1; }
+.dwell-kept { margin-top: 0.75rem; font-size: 0.85rem; }
+.dwell-kept summary { cursor: pointer; color: var(--muted); }
+.dwell-kept-list { display: grid; grid-template-columns: max-content 1fr; gap: 0.2rem 0.75rem; margin: 0.4rem 0 0; }
+.dwell-kept-list dt { color: var(--muted); }
+.dwell-kept-list dd { margin: 0; }
+.dwell-chart-empty { padding: 2rem 1rem; text-align: center; }
+.viz-plot .dwell-hit { fill: transparent; }
+.viz-plot .dwell-band { fill-opacity: 0.45; stroke-opacity: 0.95; stroke-width: 1; transition: fill-opacity 0.1s; }
+.viz-plot .dwell-step.hovered .dwell-band { fill-opacity: 0.85; }
+.viz-plot .dwell-step.dimmed .dwell-band { fill-opacity: 0.3; stroke-opacity: 0.55; }
+.viz-plot .dwell-hop { stroke: var(--viz-ink-muted); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.6; }
+.viz-plot text.dwell-step-label { fill: var(--muted); font-size: 11px; pointer-events: none; }
+.viz-plot text.dwell-step-label.inside { fill: var(--text); font-weight: 600; }
 .viz-plot .viz-axis { stroke: var(--border); }
-.dwell-kept { font-size: 0.8rem; margin-top: 0.4rem; }
+.dwell-used-in { display: grid; grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr)); gap: 1rem; margin-top: 0.75rem; }
+.dwell-used-in .card { margin: 0; }
+.dwell-used-in h3 { margin-top: 0; }
+.dwell-toolbar { display: flex; align-items: center; gap: 0.75rem; margin: 0.75rem 0 0.5rem; }
+.dwell-filter { min-width: 16rem; }
+.dwell-group-row th {
+  background: var(--hover-bg);
+  text-align: left;
+  font-weight: 600;
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
+}
+.dwell-dot {
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-left: 0.35rem;
+  border-radius: 50%;
+  background: var(--attention);
+  vertical-align: middle;
+}
+.dwell-links { margin-top: 0.5rem; }
+.dwell-link-row { cursor: pointer; }
+.dwell-link-row:hover td { background: var(--hover-bg); }
+.dwell-disclosure { color: var(--muted); display: inline-block; width: 0.8rem; }
+.dwell-link-detail > td { padding: 0.5rem 0.75rem 0.75rem; }
+.dwell-link-detail .dwell-chart { margin: 0; }
+.dwell-links .status-badge, .dwell-strategy-list .status-badge, td .status-badge { margin-left: 0.35rem; }
+.dwell-callout {
+  margin: 0.75rem 0;
+  padding: 0.55rem 0.8rem;
+  border-left: 3px solid var(--attention);
+  background: var(--hover-bg);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+}
+.dwell-empty { margin: 1rem 0; }
+.dwell-version-main { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+.dwell-version-main .version-panel { margin: 0; }

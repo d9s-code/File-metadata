@@ -1,6 +1,7 @@
-"""Dwell files: imported from and written as XML, one Dwell Strategy per
-Platform, Merged Mode dwells edited; the charts' default bandwidth; the dwell
-files of an MDF in its PRS export."""
+"""Dwells: Strategies (a Platform's dwell, named, versioned) pinned into dwell
+files (versioned, one Strategy per Platform), imported from and written as
+XML (MHz and ms, as in the file); the charts' default bandwidth; an MDF's
+export carrying its dwell files; test runs recording the Strategy used."""
 
 import io
 import zipfile
@@ -42,105 +43,159 @@ EXAMPLE = b"""<?xml version="1.0" encoding="utf-8"?>
 
 
 def _import(client, content=EXAMPLE, name="Northern dwells"):
-    return client.post("/dwells/import", files={"file": ("north.xml", content, "application/xml")}, data={"name": name})
+    return client.post(
+        "/dwell-files/import", files={"file": ("north.xml", content, "application/xml")}, data={"name": name}
+    )
 
 
 def _canonical(xml: bytes) -> bytes:
-    parser = etree.XMLParser(remove_blank_text=True)
-    return etree.tostring(etree.fromstring(xml, parser), method="c14n")
+    return etree.tostring(etree.fromstring(xml, etree.XMLParser(remove_blank_text=True)), method="c14n")
 
 
-def test_import_then_export_gives_the_same_file(editor_client):
+def _platform(client, name):
+    return client.post("/platforms", json={"name": name}).json()
+
+
+def test_import_makes_a_strategy_each_and_writes_the_same_file(editor_client):
     resp = _import(editor_client)
     assert resp.status_code == 201, resp.text
     body = resp.json()
-    assert body["name"] == "Northern dwells" and (body["timeout"], body["setup_time"]) == (5, 5)
-    first = body["strategies"][0]
-    assert first["platform_id"] is None and first["manual_collect_time_ms"] == 50
-    # The file's frequencies are Hz; the app keeps MHz.
-    assert [d["freq_mhz"] for d in first["merged_mode"]] == [0.004, 0.002, 0.003]
-    assert first["rapid_df"] == {"collect_time": "50", "dwell_time": "50", "freq": "500"}
-    assert first["split_mode"] == [{"collect_time": "50", "dwell_time": "50", "freqs": ["500", "750"]}]
+    assert body["latest_version_number"] == 1 and body["unsaved"] is False
+    first, second = body["links"]
+    assert first["strategy_name"] == "Northern dwells — Strategy 1" and first["platform_id"] is None
+    # MHz, as the file has them.
+    assert [d["freq_mhz"] for d in first["dwells"]] == [4000, 2000, 3000]
+    assert first["pinned_version_number"] == 1 and first["outdated"] is False
 
-    xml = editor_client.get(f"/dwells/{body['id']}/xml")
-    assert xml.status_code == 200 and 'filename="Northern_dwells.xml"' in xml.headers["content-disposition"]
+    xml = editor_client.get(f"/dwell-files/{body['id']}/xml")
+    assert 'filename="Northern_dwells.xml"' in xml.headers["content-disposition"]
     assert _canonical(xml.content) == _canonical(EXAMPLE)
 
+    strategy = editor_client.get(f"/dwell-strategies/{second['strategy_id']}").json()
+    assert strategy["rapid_df"] == {"collect_time": "50", "dwell_time": "50", "freq": "500"}
+    assert strategy["used_in"][0]["file_name"] == "Northern dwells"
 
-def test_edit_merged_mode_and_platforms(editor_client):
-    dwell = _import(editor_client).json()
-    north = editor_client.post("/platforms", json={"name": "North Site"}).json()
-    south = editor_client.post("/platforms", json={"name": "South Site"}).json()
-    s1, s2 = (s["id"] for s in dwell["strategies"])
 
-    resp = editor_client.patch(
-        f"/dwell-strategies/{s1}",
-        json={
-            "platform_id": north["id"],
-            "manual_collect_time_ms": 60,
-            "merged_mode": [
-                {"freq_mhz": 9400, "dwell_time_ms": 100, "collect_time_ms": 50},
-                {"freq_mhz": 2950.5, "dwell_time_ms": 40},
-            ],
-        },
-    )
-    assert resp.status_code == 200, resp.text
-    strategy = resp.json()["strategies"][0]
-    assert strategy["platform_name"] == "North Site" and strategy["manual_collect_time_ms"] == 60
-    assert strategy["merged_mode"][1] == {"freq_mhz": 2950.5, "dwell_time_ms": 40, "collect_time_ms": 50}
+def test_a_strategy_is_edited_saved_and_repinned(editor_client):
+    north = _platform(editor_client, "North Site")
+    resp = editor_client.post("/dwell-strategies", json={"name": "Summer", "platform_id": north["id"]})
+    assert resp.status_code == 201, resp.text
+    strategy = resp.json()
+    assert strategy["latest_version_number"] == 1 and strategy["manual_collect_time_ms"] == 50
+    assert strategy["rapid_df"]["freq"] == "500" and strategy["dwells"] == []
+    sid = strategy["id"]
 
-    # One Strategy per Platform in a file.
-    assert editor_client.patch(f"/dwell-strategies/{s2}", json={"platform_id": north["id"]}).status_code == 409
-    added = editor_client.post(f"/dwells/{dwell['id']}/strategies", json={"platform_id": south["id"]})
-    assert added.status_code == 201 and len(added.json()["strategies"]) == 3
-    # Bad values are refused.
-    bad = editor_client.patch(f"/dwell-strategies/{s1}", json={"merged_mode": [{"freq_mhz": 0, "dwell_time_ms": 5}]})
-    assert bad.status_code == 422
+    # The same name twice on one Platform isn't allowed; on another it is.
+    assert editor_client.post("/dwell-strategies", json={"name": "Summer", "platform_id": north["id"]}).status_code == 409
 
-    root = etree.fromstring(editor_client.get(f"/dwells/{dwell['id']}/xml").content)
-    strategy = root.findall("Strategy")[0]
-    assert strategy.get("manual_collect_time") == "60"
-    assert [d.find("Freq").get("value") for d in strategy.findall("MergedMode/Dwell")] == ["9400000000", "2950500000"]
-    assert [d.get("dwell_time") for d in strategy.findall("MergedMode/Dwell")] == ["100", "40"]
-    # A new Strategy starts with the default RapidDF and Split Mode.
-    assert root.findall("Strategy")[2].find("RapidDF").get("freq") == "500"
+    edited = editor_client.patch(
+        f"/dwell-strategies/{sid}",
+        json={"dwells": [{"freq_mhz": 9400, "dwell_time_ms": 100}, {"freq_mhz": 2950.5, "dwell_time_ms": 40}]},
+    ).json()
+    assert edited["dwells"][0] == {"freq_mhz": 9400, "dwell_time_ms": 100, "collect_time_ms": 50}
+    assert edited["unsaved"] is True
 
-    removed = editor_client.delete(f"/dwell-strategies/{s2}")
-    assert removed.status_code == 200 and len(removed.json()["strategies"]) == 2
+    dwell_file = editor_client.post("/dwell-files", json={"name": "North file"}).json()
+    dwell_file = editor_client.post(f"/dwell-files/{dwell_file['id']}/strategies", json={"strategy_id": sid}).json()
+    assert dwell_file["links"][0]["pinned_version_number"] == 1 and dwell_file["unsaved"] is True
+
+    saved = editor_client.post(f"/dwell-strategies/{sid}/versions", json={"change_summary": "Two dwells"})
+    assert saved.status_code == 201 and saved.json()["version_number"] == 2
+    diff = editor_client.get(f"/dwell-strategies/{sid}/versions/2/diff").json()
+    assert [(e["scope"], e["kind"]) for e in diff["entries"]] == [("Dwell 1", "added"), ("Dwell 2", "added")]
+
+    link = editor_client.get(f"/dwell-files/{dwell_file['id']}").json()["links"][0]
+    assert link["outdated"] is True and link["latest_version_number"] == 2
+    repinned = editor_client.post(f"/dwell-files/{dwell_file['id']}/strategies/repin-latest").json()
+    assert repinned["links"][0]["pinned_version_number"] == 2
+    root = etree.fromstring(editor_client.get(f"/dwell-files/{dwell_file['id']}/xml").content)
+    assert [f.get("value") for f in root.findall("Strategy/MergedMode/Dwell/Freq")] == ["9400", "2950.5"]
+
+    version = editor_client.post(f"/dwell-files/{dwell_file['id']}/versions", json={}).json()
+    assert version["version_number"] == 2
+    entries = editor_client.get(f"/dwell-files/{dwell_file['id']}/versions/2/diff").json()["entries"]
+    assert entries == [
+        {"scope": "Strategy 'Summer' (North Site)", "label": "Added", "kind": "added", "old_value": None, "new_value": "At its v2"}
+    ]
+    # In a file: can't be deleted.
+    assert editor_client.delete(f"/dwell-strategies/{sid}").status_code == 409
+
+
+def test_one_strategy_per_platform_in_a_file(editor_client):
+    north = _platform(editor_client, "North Site")
+    summer = editor_client.post("/dwell-strategies", json={"name": "Summer", "platform_id": north["id"]}).json()
+    winter = editor_client.post(
+        "/dwell-strategies", json={"name": "Winter", "platform_id": north["id"], "copy_from_id": summer["id"]}
+    ).json()
+    assert winter["rapid_df"] == summer["rapid_df"]
+    dwell_file = editor_client.post("/dwell-files", json={"name": "File"}).json()
+    assert editor_client.post(f"/dwell-files/{dwell_file['id']}/strategies", json={"strategy_id": summer["id"]}).status_code == 200
+    clash = editor_client.post(f"/dwell-files/{dwell_file['id']}/strategies", json={"strategy_id": winter["id"]})
+    assert clash.status_code == 409 and "one per Platform" in clash.json()["detail"]
 
 
 def test_bad_files_names_and_viewers_are_refused(editor_client, viewer_client):
     assert _import(editor_client, b"<Other/>").status_code == 422
     assert _import(editor_client, b"not xml").status_code == 422
     assert _import(editor_client).status_code == 201
-    assert _import(editor_client).status_code == 409  # the name is taken
-    assert viewer_client.post("/dwells", json={"name": "Mine"}).status_code == 403
-    assert viewer_client.get("/dwells").status_code == 200
+    assert _import(editor_client).status_code == 409
+    assert viewer_client.post("/dwell-files", json={"name": "Mine"}).status_code == 403
+    assert viewer_client.get("/dwell-files").status_code == 200
+    assert viewer_client.get("/dwell-strategies").status_code == 200
 
 
 def test_bandwidth_default_is_an_admin_setting(admin_client, editor_client):
     assert editor_client.get("/settings").json() == {"dwell_bandwidth_mhz": 10.0}
     assert editor_client.patch("/settings", json={"dwell_bandwidth_mhz": 25}).status_code == 403
     assert admin_client.patch("/settings", json={"dwell_bandwidth_mhz": 25}).json() == {"dwell_bandwidth_mhz": 25}
-    assert editor_client.get("/settings").json() == {"dwell_bandwidth_mhz": 25}
-    # A dwell file can keep its own.
-    dwell = editor_client.post("/dwells", json={"name": "Wide"}).json()
-    assert editor_client.patch(f"/dwells/{dwell['id']}", json={"bandwidth_mhz": 40}).json()["bandwidth_mhz"] == 40
-    assert editor_client.patch(f"/dwells/{dwell['id']}", json={"bandwidth_mhz": None}).json()["bandwidth_mhz"] is None
+    platform = _platform(editor_client, "Wide Site")
+    strategy = editor_client.post("/dwell-strategies", json={"name": "Wide", "platform_id": platform["id"]}).json()
+    assert editor_client.patch(f"/dwell-strategies/{strategy['id']}", json={"bandwidth_mhz": 40}).json()["bandwidth_mhz"] == 40
 
 
-def test_an_mdf_export_carries_its_dwell_files(editor_client):
-    platform = editor_client.post("/platforms", json={"name": "Dwell Platform"}).json()
+def test_an_mdf_export_carries_its_dwell_files_saved_version(editor_client):
+    platform = _platform(editor_client, "Dwell Platform")
     pv = editor_client.post(f"/platforms/{platform['id']}/versions", json={}).json()
     mdf = editor_client.post("/mdfs", json={"name": "Dwell MDF"}).json()
     editor_client.post(f"/mdfs/{mdf['id']}/links", json={"platform_id": platform["id"], "platform_version_id": pv["id"]})
     editor_client.post(f"/mdfs/{mdf['id']}/versions", json={})
-    dwell = _import(editor_client).json()
-    editor_client.patch(f"/dwells/{dwell['id']}", json={"mdf_id": mdf["id"]})
-    s1 = dwell["strategies"][0]["id"]
-    body = editor_client.patch(f"/dwell-strategies/{s1}", json={"platform_id": platform["id"]}).json()
-    assert body["mdf_name"] == "Dwell MDF" and body["strategies"][0]["platform_in_mdf"] is True
+    dwell_file = _import(editor_client).json()
+    editor_client.patch(f"/dwell-strategies/{dwell_file['links'][0]['strategy_id']}", json={"platform_id": platform["id"]})
+    body = editor_client.patch(f"/dwell-files/{dwell_file['id']}", json={"mdf_id": mdf["id"]}).json()
+    assert body["mdf_name"] == "Dwell MDF" and body["links"][0]["platform_in_mdf"] is True
+    # Changed but not saved: the export has the saved version.
+    editor_client.patch(f"/dwell-files/{dwell_file['id']}", json={"timeout": 9})
 
     package = zipfile.ZipFile(io.BytesIO(editor_client.get(f"/mdfs/{mdf['id']}/versions/1/export/prs").content))
-    assert "dwells/Northern_dwells.xml" in package.namelist()
     assert _canonical(package.read("dwells/Northern_dwells.xml")) == _canonical(EXAMPLE)
+
+
+def test_a_test_run_records_the_strategy_version_used(editor_client):
+    emitter = editor_client.post("/emitters", json={"name": "Dwell Test Emitter"}).json()
+    platform = _platform(editor_client, "Range Site")
+    strategy = editor_client.post("/dwell-strategies", json={"name": "Range", "platform_id": platform["id"]}).json()
+    version = editor_client.get(f"/dwell-strategies/{strategy['id']}/versions").json()[0]
+    resp = editor_client.post(
+        f"/emitters/{emitter['id']}/test-records",
+        json={
+            "test_type": "simulation",
+            "title": "With a dwell",
+            "test_date": "2026-10-14",
+            "simulation_created_date": "2026-10-10",
+            "result": "pass",
+            "dwell_strategy_version_id": version["id"],
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    record = resp.json()
+    assert (record["dwell_strategy_id"], record["dwell_strategy_name"], record["dwell_strategy_version_number"]) == (
+        strategy["id"],
+        "Range",
+        1,
+    )
+    tests = editor_client.get(f"/dwell-strategies/{strategy['id']}").json()["tests"]
+    assert [(t["kind"], t["owner_id"], t["title"], t["version_number"]) for t in tests] == [
+        ("emitter", emitter["id"], "With a dwell", 1)
+    ]
+    # Used in a test: kept.
+    assert editor_client.delete(f"/dwell-strategies/{strategy['id']}").status_code == 409

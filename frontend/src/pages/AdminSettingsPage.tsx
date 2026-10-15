@@ -51,7 +51,7 @@ function BandwidthSetting({ current }: { current: number }) {
         </button>
       </div>
       <p className="hint-text">
-        How wide each dwell is drawn around its frequency in the Dwells charts, for every dwell file that doesn&apos;t set
+        How wide each dwell is drawn around its frequency in the Dwells charts, for every Strategy that doesn&apos;t set
         its own.
       </p>
       {message && <p className="success-text">{message}</p>}

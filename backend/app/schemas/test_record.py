@@ -166,6 +166,8 @@ class TestRecordCreate(BaseModel):
     # Emitter scope: the saved version that was tested — the latest one when
     # not given. Kept on the record, so the run always says what it tested.
     emitter_version_id: UUID | None = None
+    # The saved Dwell Strategy version the run used, if any.
+    dwell_strategy_version_id: UUID | None = None
     # The tester's call on the whole run, over the result worked out from the
     # lines or Modes — with why (required). Ignored if it's the same.
     result_override: TestResult | None = None
@@ -274,6 +276,11 @@ class TestRecordOut(BaseModel):
     retests_test_record_id: UUID | None = None
     # The saved Emitter version tested, by number (emitter_version_id is the version).
     emitter_version_number: int | None = None
+    # The Dwell Strategy version the run used: the Strategy, its name then, and the version.
+    dwell_strategy_version_id: UUID | None = None
+    dwell_strategy_id: UUID | None = None
+    dwell_strategy_name: str | None = None
+    dwell_strategy_version_number: int | None = None
     # Set when this record is one Emitter's part of a Platform test.
     platform_test_id: UUID | None = None
     # That Platform test's Platform and title, to link back to it.
@@ -350,6 +357,8 @@ class PlatformTestCreate(BaseModel):
     test_time: time | None = None
     simulation_created_date: date | None = None
     dwell: str | None = Field(default=None, max_length=100)
+    # The saved Dwell Strategy version the run used (one of the Platform's), if any.
+    dwell_strategy_version_id: UUID | None = None
     draft_id: UUID | None = None
     emitters: list[PlatformTestEmitterIn] = Field(min_length=1)
 
@@ -363,6 +372,7 @@ class PlatformTestCreate(BaseModel):
             test_time=self.test_time,
             simulation_created_date=entry.simulation_created_date or self.simulation_created_date,
             dwell=self.dwell,
+            dwell_strategy_version_id=self.dwell_strategy_version_id,
             line_results=entry.line_results,
             mode_results=entry.mode_results,
             signals=entry.signals,
@@ -404,6 +414,11 @@ class PlatformTestOut(BaseModel):
     notes: str | None = None
     tested_by_username: str | None = None
     created_at: datetime
+    # The Dwell Strategy version the run used: the Strategy, its name then, and the version.
+    dwell_strategy_version_id: UUID | None = None
+    dwell_strategy_id: UUID | None = None
+    dwell_strategy_name: str | None = None
+    dwell_strategy_version_number: int | None = None
     # The worst of the Emitters' results.
     result: TestResult
     emitters: list[PlatformTestEmitterOut]

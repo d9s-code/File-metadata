@@ -33,6 +33,8 @@ export interface PlatformTestInput {
   test_time?: string;
   simulation_created_date?: string;
   dwell?: string;
+  /** A saved version of one of the Platform's Dwell Strategies. */
+  dwell_strategy_version_id?: string;
   draft_id?: string;
   emitters: PlatformTestEmitterInput[];
 }
@@ -68,6 +70,11 @@ export interface PlatformTest {
   notes: string | null;
   tested_by_username: string | null;
   created_at: string;
+  /** The Dwell Strategy version the run used, if one was picked. */
+  dwell_strategy_version_id?: string | null;
+  dwell_strategy_id?: string | null;
+  dwell_strategy_name?: string | null;
+  dwell_strategy_version_number?: number | null;
   /** The worst of the Emitters' results. */
   result: TestResult;
   emitters: PlatformTestEmitter[];

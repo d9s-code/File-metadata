@@ -1,46 +1,105 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { dwellsApi, type AppSettings, type DwellFile, type DwellFileUpdate, type DwellStrategyUpdate } from "../../api/dwells";
+import {
+  dwellsApi,
+  type AppSettings,
+  type DwellFile,
+  type DwellFileUpdate,
+  type DwellKind,
+  type DwellStrategyUpdate,
+} from "../../api/dwells";
 
-export const dwellsKey = ["dwells"] as const;
-const dwellKey = (id: string) => ["dwells", id] as const;
+// Strategies and files lean on each other (a file shows which pinned
+// versions are outdated; a Strategy, the files it's in), so a change to
+// either refreshes both families.
+export const strategiesKey = ["dwell-strategies"] as const;
+export const filesKey = ["dwell-files"] as const;
 export const settingsKey = ["settings"] as const;
 
+function useRefreshDwells() {
+  const qc = useQueryClient();
+  return () => {
+    qc.invalidateQueries({ queryKey: strategiesKey });
+    qc.invalidateQueries({ queryKey: filesKey });
+  };
+}
+
+export function useDwellStrategies(platformId?: string) {
+  return useQuery({
+    queryKey: [...strategiesKey, "list", platformId ?? "all"],
+    queryFn: () => dwellsApi.strategies(platformId),
+  });
+}
+
+export function useDwellStrategy(id: string) {
+  return useQuery({ queryKey: [...strategiesKey, id], queryFn: () => dwellsApi.strategy(id), enabled: !!id });
+}
+
+export function useUpdateDwellStrategy(id: string) {
+  const qc = useQueryClient();
+  const refresh = useRefreshDwells();
+  return useMutation({
+    mutationFn: (input: DwellStrategyUpdate) => dwellsApi.updateStrategy(id, input),
+    onSuccess: (strategy) => {
+      qc.setQueryData([...strategiesKey, id], strategy);
+      refresh();
+    },
+  });
+}
+
 export function useDwellFiles() {
-  return useQuery({ queryKey: dwellsKey, queryFn: dwellsApi.list });
+  return useQuery({ queryKey: [...filesKey, "list"], queryFn: dwellsApi.files });
 }
 
 export function useDwellFile(id: string) {
-  return useQuery({ queryKey: dwellKey(id), queryFn: () => dwellsApi.get(id), enabled: !!id });
+  return useQuery({ queryKey: [...filesKey, id], queryFn: () => dwellsApi.file(id), enabled: !!id });
 }
 
 /** Every change to a dwell file answers with the whole file: kept as is. */
-function useFileMutation<V>(id: string, fn: (vars: V) => Promise<DwellFile>) {
+export function useDwellFileMutation<V>(id: string, fn: (vars: V) => Promise<DwellFile>) {
   const qc = useQueryClient();
+  const refresh = useRefreshDwells();
   return useMutation({
     mutationFn: fn,
     onSuccess: (file) => {
-      qc.setQueryData(dwellKey(id), file);
-      qc.invalidateQueries({ queryKey: dwellsKey, exact: true });
+      qc.setQueryData([...filesKey, id], file);
+      refresh();
     },
   });
 }
 
 export function useUpdateDwellFile(id: string) {
-  return useFileMutation(id, (input: DwellFileUpdate) => dwellsApi.update(id, input));
+  return useDwellFileMutation(id, (input: DwellFileUpdate) => dwellsApi.updateFile(id, input));
 }
 
-export function useAddDwellStrategy(id: string) {
-  return useFileMutation(id, (platformId: string | null) => dwellsApi.addStrategy(id, platformId));
+export function useDwellVersions(kind: DwellKind, id: string) {
+  const key = kind === "strategies" ? strategiesKey : filesKey;
+  return useQuery({ queryKey: [...key, id, "versions"], queryFn: () => dwellsApi.versions(kind, id), enabled: !!id });
 }
 
-export function useUpdateDwellStrategy(id: string) {
-  return useFileMutation(id, ({ strategyId, input }: { strategyId: string; input: DwellStrategyUpdate }) =>
-    dwellsApi.updateStrategy(strategyId, input),
-  );
+export function useDwellVersion(kind: DwellKind, id: string, n: number | null) {
+  const key = kind === "strategies" ? strategiesKey : filesKey;
+  return useQuery({
+    queryKey: [...key, id, "versions", n],
+    queryFn: () => dwellsApi.version(kind, id, n as number),
+    enabled: !!id && n != null && n > 0,
+  });
 }
 
-export function useDeleteDwellStrategy(id: string) {
-  return useFileMutation(id, (strategyId: string) => dwellsApi.deleteStrategy(strategyId));
+export function useDwellVersionDiff(kind: DwellKind, id: string, n: number, against?: number) {
+  const key = kind === "strategies" ? strategiesKey : filesKey;
+  return useQuery({
+    queryKey: [...key, id, "versions", n, "diff", against ?? "previous"],
+    queryFn: () => dwellsApi.diff(kind, id, n, against),
+    enabled: !!id && n > 0,
+  });
+}
+
+export function useCommitDwellVersion(kind: DwellKind, id: string) {
+  const refresh = useRefreshDwells();
+  return useMutation({
+    mutationFn: (summary: string | undefined) => dwellsApi.commit(kind, id, summary),
+    onSuccess: refresh,
+  });
 }
 
 export function useAppSettings() {
@@ -53,4 +112,9 @@ export function useUpdateAppSettings() {
     mutationFn: (input: Partial<AppSettings>) => dwellsApi.updateSettings(input),
     onSuccess: (settings) => qc.setQueryData(settingsKey, settings),
   });
+}
+
+/** Strategies, refreshed after a create, copy or delete made outside a hook. */
+export function useRefreshDwellLists() {
+  return useRefreshDwells();
 }

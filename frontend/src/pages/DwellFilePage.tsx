@@ -1,85 +1,56 @@
-import { useState } from "react";
+import { Fragment, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
-import { PageHeader } from "../components/common/PageHeader";
+import { EntityHeader } from "../components/common/EntityHeader";
 import { MenuButton } from "../components/common/MenuButton";
-import { RenameDialog } from "../components/common/RenameDialog";
+import { Modal } from "../components/common/Modal";
 import { LoadingState } from "../components/common/LoadingState";
 import { useConfirmDialog } from "../components/common/ConfirmDialog";
-import { StrategyEditor } from "../components/dwells/StrategyEditor";
-import { num } from "../components/dwells/DwellChart";
-import { useHasRole } from "../auth/RequireAuth";
+import { RequireRole, useHasRole } from "../auth/RequireAuth";
+import { EntityAuditTrail } from "../components/audit/EntityAuditTrail";
+import { LatestVersion, SaveVersionButton } from "../components/versioning/SaveVersionButton";
+import { DwellChart, num } from "../components/dwells/DwellChart";
 import { ApiRequestError } from "../api/client";
-import { dwellsApi, type DwellFile, type DwellFileUpdate } from "../api/dwells";
+import { dwellsApi, type DwellFile, type DwellFileLink } from "../api/dwells";
 import {
-  dwellsKey,
-  useAddDwellStrategy,
   useAppSettings,
-  useDeleteDwellStrategy,
+  useCommitDwellVersion,
   useDwellFile,
+  useDwellFileMutation,
   useDwellFiles,
+  useDwellStrategies,
+  useDwellVersions,
+  useRefreshDwellLists,
   useUpdateDwellFile,
-  useUpdateDwellStrategy,
 } from "../state/hooks/useDwells";
 import { useMdfLinks, useMdfs } from "../state/hooks/useMdfs";
 import { usePlatforms } from "../state/hooks/usePlatforms";
 
-/** A number field that saves when it's left (or on Enter), if it changed. */
-function SavedNumber({
-  label,
-  value,
-  placeholder,
-  disabled,
-  onSave,
-}: {
-  label: string;
-  value: number | null;
-  placeholder?: string;
-  disabled?: boolean;
-  onSave: (value: number | null) => void;
-}) {
-  const [text, setText] = useState(value == null ? "" : num(value));
-  const [was, setWas] = useState(value);
-  if (was !== value) {
-    setWas(value);
-    setText(value == null ? "" : num(value));
-  }
-  function commit() {
-    const next = text.trim() === "" ? null : Number(text);
-    if (next != null && !(next >= 0)) {
-      setText(value == null ? "" : num(value));
-      return;
-    }
-    if (next !== value) onSave(next);
-  }
-  return (
-    <label>
-      {label}
-      <input
-        type="number"
-        step="any"
-        min="0"
-        value={text}
-        placeholder={placeholder}
-        disabled={disabled}
-        onChange={(e) => setText(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => e.key === "Enter" && commit()}
-      />
-    </label>
-  );
+type Tab = "strategies" | "audit";
+
+/** Saves a file as the browser's download. */
+export function saveBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
-/** One dwell file: its settings, the chart bandwidth, and one Dwell Strategy
- * per Platform with its Merged Mode dwells. */
+export const xmlName = (name: string) => `${name.replace(/[^\w.-]+/g, "_")}.xml`;
+
+/** One dwell file: its settings and the Strategies it pins — a saved
+ * version of each, at most one per Platform. */
 export function DwellFilePage() {
-  const { dwellId = "" } = useParams<{ dwellId: string }>();
-  const { data: file, isLoading, error } = useDwellFile(dwellId);
+  const { fileId = "" } = useParams<{ fileId: string }>();
+  const { data: file, isLoading, error } = useDwellFile(fileId);
   if (isLoading) return <LoadingState label="Loading dwell file…" />;
   if (!file || error)
     return (
       <div className="page">
-        <Link to="/dwells">← Dwells</Link>
+        <Link to="/dwells?view=files">← Dwell files</Link>
         <p className="hint-text">This dwell file doesn&apos;t exist (it may have been deleted).</p>
       </div>
     );
@@ -88,30 +59,23 @@ export function DwellFilePage() {
 
 function DwellFileView({ file }: { file: DwellFile }) {
   const navigate = useNavigate();
-  const qc = useQueryClient();
   const canEdit = useHasRole("editor");
-  const { data: settings } = useAppSettings();
-  const { data: mdfs } = useMdfs();
-  const { data: links } = useMdfLinks(file.mdf_id ?? "");
+  const refreshLists = useRefreshDwellLists();
+  const { data: versions } = useDwellVersions("files", file.id);
+  const commit = useCommitDwellVersion("files", file.id);
+  const { data: mdfLinks } = useMdfLinks(file.mdf_id ?? "");
   const { data: platforms } = usePlatforms();
-  const { data: files } = useDwellFiles();
-  const update = useUpdateDwellFile(file.id);
-  const addStrategy = useAddDwellStrategy(file.id);
-  const updateStrategy = useUpdateDwellStrategy(file.id);
-  const deleteStrategy = useDeleteDwellStrategy(file.id);
+  const repinAll = useDwellFileMutation(file.id, () => dwellsApi.repinLatest(file.id));
   const { confirmDelete, dialog } = useConfirmDialog();
-  const [renaming, setRenaming] = useState(false);
+  const [tab, setTab] = useState<Tab>("strategies");
+  const [editing, setEditing] = useState(false);
+  const [adding, setAdding] = useState<string | null>(null); // a Platform id, or "" for any
   const [error, setError] = useState<string | null>(null);
 
-  const defaultBandwidth = settings?.dwell_bandwidth_mhz ?? 10;
-  const bandwidth = file.bandwidth_mhz ?? defaultBandwidth;
-  const mdfPlatformIds = file.mdf_id ? new Set((links ?? []).map((l) => l.platform_id)) : null;
-  const platformList = (platforms ?? [])
-    .map((p) => ({ id: p.id, name: p.name }))
-    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-  const missing = mdfPlatformIds
-    ? [...mdfPlatformIds].filter((id) => !file.strategies.some((s) => s.platform_id === id))
-    : [];
+  const outdated = file.links.filter((l) => l.outdated).length;
+  const mdfPlatformIds = file.mdf_id ? new Set((mdfLinks ?? []).map((l) => l.platform_id)) : null;
+  const platformName = new Map((platforms ?? []).map((p) => [p.id, p.name]));
+  const missing = mdfPlatformIds ? [...mdfPlatformIds].filter((id) => !file.links.some((l) => l.platform_id === id)) : [];
 
   async function run(action: () => Promise<unknown>) {
     setError(null);
@@ -121,164 +85,540 @@ function DwellFileView({ file }: { file: DwellFile }) {
       setError(err instanceof ApiRequestError ? err.message : "That didn't work.");
     }
   }
-  const save = (input: DwellFileUpdate) => run(() => update.mutateAsync(input));
-
-  async function download() {
-    await run(async () => {
-      const blob = await dwellsApi.xml(file.id);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${file.name.replace(/[^\w.-]+/g, "_")}.xml`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    });
-  }
 
   async function handleDelete() {
-    if (!(await confirmDelete(`Delete the dwell file "${file.name}" and its ${file.strategies.length} Strategies?`))) return;
+    if (!(await confirmDelete(`Delete the dwell file "${file.name}"? Its Strategies stay.`))) return;
     await run(async () => {
-      await dwellsApi.delete(file.id);
-      qc.invalidateQueries({ queryKey: dwellsKey });
-      navigate("/dwells");
-    });
-  }
-
-  async function move(index: number, direction: -1 | 1) {
-    const a = file.strategies[index];
-    const b = file.strategies[index + direction];
-    if (!a || !b) return;
-    // Swap their places, numbering every Strategy by its new place.
-    const order = [...file.strategies];
-    [order[index], order[index + direction]] = [b, a];
-    await run(async () => {
-      for (const [place, strategy] of order.entries()) {
-        if (strategy.sort_order !== place) await updateStrategy.mutateAsync({ strategyId: strategy.id, input: { sort_order: place } });
-      }
+      await dwellsApi.deleteFile(file.id);
+      refreshLists();
+      navigate("/dwells?view=files");
     });
   }
 
   return (
     <div className="page">
-      <Link to="/dwells">← Dwells</Link>
-      <PageHeader title={file.name}>
-        <button type="button" className="button secondary" onClick={() => void download()}>
-          Download XML
-        </button>
-        {canEdit && (
-          <MenuButton
-            label="More ▾"
-            items={[
-              { label: "Rename…", onSelect: () => setRenaming(true) },
-              { label: "Delete this dwell file…", danger: true, onSelect: () => void handleDelete() },
-            ]}
-          />
-        )}
-      </PageHeader>
-
-      <div className="card dwell-settings">
-        <div className="form-row">
-          <label>
-            For the MDF
-            <select
-              value={file.mdf_id ?? ""}
-              disabled={!canEdit}
-              onChange={(e) => void save({ mdf_id: e.target.value || null })}
+      <Link to="/dwells?view=files">← Dwell files</Link>
+      <EntityHeader
+        title={file.name}
+        actions={
+          <>
+            <SaveVersionButton noun="dwell file" save={(summary) => commit.mutateAsync(summary)} pending={commit.isPending} />
+            <button
+              type="button"
+              className="button secondary"
+              title="The file as it stands now"
+              onClick={() => void run(async () => saveBlob(await dwellsApi.xml(file.id), xmlName(file.name)))}
             >
-              <option value="">None</option>
-              {(mdfs ?? []).map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <SavedNumber label="Timeout" value={file.timeout} disabled={!canEdit} onSave={(v) => v != null && void save({ timeout: v })} />
-          <SavedNumber
-            label="Setup time"
-            value={file.setup_time}
-            disabled={!canEdit}
-            onSave={(v) => v != null && void save({ setup_time: v })}
-          />
-          <SavedNumber
-            label="Chart bandwidth (MHz)"
-            value={file.bandwidth_mhz}
-            placeholder={`${num(defaultBandwidth)} (default)`}
-            disabled={!canEdit}
-            onSave={(v) => void save({ bandwidth_mhz: v && v > 0 ? v : null })}
-          />
-        </div>
-        <p className="hint-text">
-          {file.mdf_id ? (
-            <>
-              Goes into <Link to={`/mdfs/${file.mdf_id}`}>{file.mdf_name}</Link>&apos;s export as dwells/{file.name}.xml.{" "}
-            </>
-          ) : (
-            "Not in any MDF's export yet. "
-          )}
-          The charts draw each dwell ± half the bandwidth —{" "}
-          {file.bandwidth_mhz == null
-            ? `the default, ${num(defaultBandwidth)} MHz (set by an admin under Admin → Settings).`
-            : `${num(file.bandwidth_mhz)} MHz for this file; leave it blank for the default (${num(defaultBandwidth)} MHz).`}
-        </p>
-        {missing.length > 0 && (
-          <p className="mode-form-warning">
-            {missing.length} Platform{missing.length === 1 ? "" : "s"} in the MDF {missing.length === 1 ? "has" : "have"} no
-            Strategy yet: {missing.map((id) => platformList.find((p) => p.id === id)?.name ?? "?").join(", ")}.
-          </p>
-        )}
-      </div>
-
+              Download XML
+            </button>
+            <MenuButton
+              label="More ▾"
+              items={[
+                { label: "Version history", to: `/dwells/files/${file.id}/versions` },
+                ...(canEdit
+                  ? [
+                      { label: "Edit details…", onSelect: () => setEditing(true) },
+                      { label: "Delete this dwell file…", danger: true, onSelect: () => void handleDelete() },
+                    ]
+                  : []),
+              ]}
+            />
+          </>
+        }
+        status={
+          <>
+            <span className="dwell-chip">
+              {file.mdf_id ? (
+                <>
+                  MDF <Link to={`/mdfs/${file.mdf_id}`}>{file.mdf_name}</Link>
+                </>
+              ) : (
+                "In no MDF"
+              )}
+            </span>
+            <span className="dwell-chip">
+              Timeout {num(file.timeout)} · Setup time {num(file.setup_time)}
+            </span>
+            <LatestVersion versions={versions} />
+            {file.unsaved && file.latest_version_number != null && (
+              <span className="status-badge status-draft" title="An MDF export uses the latest saved version">
+                Changed since v{file.latest_version_number}
+              </span>
+            )}
+            {outdated > 0 && (
+              <span className="status-badge status-pending_review">
+                {outdated} outdated pin{outdated === 1 ? "" : "s"}
+              </span>
+            )}
+          </>
+        }
+      >
+        {file.notes && <p className="muted emitter-description">{file.notes}</p>}
+      </EntityHeader>
       {error && (
         <p className="error-text" role="alert">
           {error}
         </p>
       )}
 
-      {file.strategies.map((s, i) => (
-        <StrategyEditor
-          key={s.id}
-          index={i}
-          count={file.strategies.length}
-          strategy={s}
-          platforms={platformList}
-          mdfPlatformIds={mdfPlatformIds}
-          takenPlatformIds={new Set(file.strategies.filter((o) => o.id !== s.id && o.platform_id).map((o) => o.platform_id as string))}
-          bandwidthMhz={bandwidth}
-          canEdit={canEdit}
-          onSave={(input) => updateStrategy.mutateAsync({ strategyId: s.id, input })}
-          onMove={(direction) => void move(i, direction)}
-          onRemove={async () => {
-            if (!(await confirmDelete(`Remove Strategy ${i + 1}${s.platform_name ? ` (${s.platform_name})` : ""}?`))) return;
-            await run(() => deleteStrategy.mutateAsync(s.id));
-          }}
-        />
-      ))}
-      {file.strategies.length === 0 && <p className="hint-text">No Dwell Strategies yet.</p>}
-      {canEdit && (
-        <button
-          type="button"
-          className="button secondary"
-          disabled={addStrategy.isPending}
-          onClick={() => void run(() => addStrategy.mutateAsync(missing[0] ?? null))}
-        >
-          + Add a Dwell Strategy{missing[0] ? ` for ${platformList.find((p) => p.id === missing[0])?.name ?? "the next Platform"}` : ""}
+      <div className="tab-bar">
+        <button className={tab === "strategies" ? "tab active" : "tab"} onClick={() => setTab("strategies")}>
+          Strategies <span className="tab-count">{file.links.length}</span>
         </button>
-      )}
+        <button className={tab === "audit" ? "tab active" : "tab"} onClick={() => setTab("audit")}>
+          Audit
+        </button>
+      </div>
 
-      {renaming && (
-        <RenameDialog
-          what="dwell file"
-          currentName={file.name}
-          takenNames={(files ?? []).filter((f) => f.id !== file.id).map((f) => f.name)}
-          takenWhere="here"
-          onRename={(name) => update.mutateAsync({ name })}
-          onClose={() => setRenaming(false)}
-        />
+      {tab === "strategies" && (
+        <>
+          {missing.length > 0 && (
+            <div className="dwell-callout">
+              <strong>
+                {missing.length} Platform{missing.length === 1 ? "" : "s"} in {file.mdf_name} {missing.length === 1 ? "has" : "have"} no
+                Strategy here:
+              </strong>{" "}
+              {missing.map((id, i) => (
+                <Fragment key={id}>
+                  {i > 0 && ", "}
+                  {canEdit ? (
+                    <button type="button" className="link-button" onClick={() => setAdding(id)}>
+                      {platformName.get(id) ?? "?"}
+                    </button>
+                  ) : (
+                    platformName.get(id) ?? "?"
+                  )}
+                </Fragment>
+              ))}
+            </div>
+          )}
+          {outdated > 0 && (
+            <RequireRole minimum="editor">
+              <p className="repin-all-row">
+                <span className="hint-text">
+                  {outdated} Strateg{outdated === 1 ? "y has" : "ies have"} a newer saved version.
+                </span>{" "}
+                <button
+                  type="button"
+                  className="button secondary small"
+                  disabled={repinAll.isPending}
+                  onClick={() => void run(() => repinAll.mutateAsync(undefined))}
+                >
+                  {repinAll.isPending ? "Repinning…" : "Repin all to their latest version"}
+                </button>
+              </p>
+            </RequireRole>
+          )}
+          <PinnedStrategies file={file} canEdit={canEdit} onError={setError} />
+          {canEdit && (
+            <button type="button" className="button secondary" onClick={() => setAdding("")}>
+              + Add a Strategy
+            </button>
+          )}
+        </>
+      )}
+      {tab === "audit" && <EntityAuditTrail entityType="dwell_file" entityId={file.id} />}
+
+      {editing && <EditFileDetails file={file} onClose={() => setEditing(false)} />}
+      {adding != null && (
+        <AddStrategy file={file} platformId={adding} mdfPlatformIds={mdfPlatformIds} onClose={() => setAdding(null)} />
       )}
       {dialog}
     </div>
+  );
+}
+
+/** The pinned Strategies, in file order: each row opens to its chart. */
+function PinnedStrategies({ file, canEdit, onError }: { file: DwellFile; canEdit: boolean; onError: (e: string | null) => void }) {
+  const { data: settings } = useAppSettings();
+  const [open, setOpen] = useState<string | null>(null);
+  const [picking, setPicking] = useState<DwellFileLink | null>(null);
+  const { confirmDelete, dialog } = useConfirmDialog();
+  const update = useDwellFileMutation(file.id, ({ linkId, input }: { linkId: string; input: { strategy_version_id?: string; sort_order?: number } }) =>
+    dwellsApi.updateLink(linkId, input),
+  );
+  const unpin = useDwellFileMutation(file.id, (linkId: string) => dwellsApi.unpin(linkId));
+
+  async function run(action: () => Promise<unknown>) {
+    onError(null);
+    try {
+      await action();
+    } catch (err) {
+      onError(err instanceof ApiRequestError ? err.message : "That didn't work.");
+    }
+  }
+  async function move(index: number, to: number) {
+    const order = [...file.links];
+    [order[index], order[to]] = [order[to], order[index]];
+    await run(async () => {
+      for (const [place, link] of order.entries()) {
+        if (link.sort_order !== place) await update.mutateAsync({ linkId: link.id, input: { sort_order: place } });
+      }
+    });
+  }
+
+  if (file.links.length === 0) {
+    return <p className="hint-text dwell-empty">No Strategies in this file yet{canEdit ? " — add one per Platform." : "."}</p>;
+  }
+  return (
+    <>
+      <table className="data-table dwell-links">
+        <thead>
+          <tr>
+            <th className="num">#</th>
+            <th>Platform</th>
+            <th>Strategy</th>
+            <th>Version</th>
+            <th>Dwells</th>
+            <th>Range (MHz)</th>
+            <th>Cycle (ms)</th>
+            {canEdit && <th aria-label="Actions" />}
+          </tr>
+        </thead>
+        <tbody>
+          {file.links.map((l, i) => {
+            const freqs = l.dwells.map((d) => d.freq_mhz);
+            const cycle = l.dwells.reduce((sum, d) => sum + d.dwell_time_ms, 0);
+            const isOpen = open === l.id;
+            return (
+              <Fragment key={l.id}>
+                <tr className={isOpen ? "dwell-link-row open" : "dwell-link-row"} onClick={() => setOpen(isOpen ? null : l.id)}>
+                  <td className="num muted">{i + 1}</td>
+                  <td>
+                    {l.platform_id ? (
+                      <>
+                        {l.platform_name}
+                        {l.platform_in_mdf === false && (
+                          <span className="status-badge status-pending_review" title="The file's MDF doesn't pin this Platform">
+                            not in the MDF
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="status-badge status-pending_review" title="Pick it on the Strategy's page">
+                        No Platform yet
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    <span className="dwell-disclosure" aria-hidden>
+                      {isOpen ? "▾" : "▸"}
+                    </span>{" "}
+                    <Link to={`/dwells/strategies/${l.strategy_id}`} onClick={(e) => e.stopPropagation()}>
+                      {l.strategy_name}
+                    </Link>
+                  </td>
+                  <td className="nowrap">
+                    v{l.pinned_version_number}
+                    {l.outdated && (
+                      <span className="status-badge status-pending_review" title={`v${l.latest_version_number} is the latest`}>
+                        v{l.latest_version_number} out
+                      </span>
+                    )}
+                  </td>
+                  <td className="num">{l.dwells.length}</td>
+                  <td className="nowrap">{freqs.length ? `${num(Math.min(...freqs))}–${num(Math.max(...freqs))}` : "—"}</td>
+                  <td className="num">{cycle ? num(cycle) : "—"}</td>
+                  {canEdit && (
+                    <td className="row-actions" onClick={(e) => e.stopPropagation()}>
+                      <MenuButton
+                        label="⋯"
+                        className="row-menu-button"
+                        ariaLabel={`Actions for ${l.strategy_name}`}
+                        items={[
+                          ...(l.outdated
+                            ? [
+                                {
+                                  label: `Repin to v${l.latest_version_number}`,
+                                  onSelect: () =>
+                                    void run(async () => {
+                                      const versions = await dwellsApi.versions("strategies", l.strategy_id);
+                                      const latest = versions[versions.length - 1];
+                                      await update.mutateAsync({ linkId: l.id, input: { strategy_version_id: latest.id } });
+                                    }),
+                                },
+                              ]
+                            : []),
+                          { label: "Pin another version…", onSelect: () => setPicking(l) },
+                          { label: "Move up", disabled: i === 0, onSelect: () => void move(i, i - 1) },
+                          { label: "Move down", disabled: i === file.links.length - 1, onSelect: () => void move(i, i + 1) },
+                          {
+                            label: "Remove from this file…",
+                            danger: true,
+                            onSelect: async () => {
+                              if (!(await confirmDelete(`Take "${l.strategy_name}" out of ${file.name}? The Strategy itself stays.`)))
+                                return;
+                              await run(() => unpin.mutateAsync(l.id));
+                            },
+                          },
+                        ]}
+                      />
+                    </td>
+                  )}
+                </tr>
+                {isOpen && (
+                  <tr className="dwell-link-detail">
+                    <td colSpan={canEdit ? 8 : 7}>
+                      <DwellChart
+                        dwells={l.dwells}
+                        bandwidthMhz={settings?.dwell_bandwidth_mhz ?? 10}
+                        title={`${l.strategy_name} · v${l.pinned_version_number}`}
+                      />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+      {picking && <PickVersion file={file} link={picking} onClose={() => setPicking(null)} />}
+      {dialog}
+    </>
+  );
+}
+
+/** Pins a different saved version of a Strategy already in the file. */
+function PickVersion({ file, link, onClose }: { file: DwellFile; link: DwellFileLink; onClose: () => void }) {
+  const { data: versions } = useDwellVersions("strategies", link.strategy_id);
+  const update = useDwellFileMutation(file.id, (versionId: string) =>
+    dwellsApi.updateLink(link.id, { strategy_version_id: versionId }),
+  );
+  const [versionId, setVersionId] = useState(link.pinned_version_id);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    try {
+      await update.mutateAsync(versionId);
+      onClose();
+    } catch (err) {
+      setError(err instanceof ApiRequestError ? err.message : "Couldn't pin it.");
+    }
+  }
+  return (
+    <Modal title={`Pin a version of ${link.strategy_name}`} onClose={onClose}>
+      <form className="rename-form" onSubmit={submit}>
+        <label>
+          Version
+          <select value={versionId} onChange={(e) => setVersionId(e.target.value)}>
+            {[...(versions ?? [])].reverse().map((v) => (
+              <option key={v.id} value={v.id}>
+                v{v.version_number}
+                {v.change_summary ? ` — ${v.change_summary}` : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+        {error && (
+          <p className="error-text" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="modal-actions">
+          <button type="button" className="button secondary" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" className="button primary" disabled={update.isPending || versionId === link.pinned_version_id}>
+            Pin
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+/** Adds a Strategy: pick the Platform (one Strategy each), then which of its
+ * Strategies; the latest saved version is pinned. */
+function AddStrategy({
+  file,
+  platformId: initialPlatform,
+  mdfPlatformIds,
+  onClose,
+}: {
+  file: DwellFile;
+  platformId: string;
+  mdfPlatformIds: Set<string> | null;
+  onClose: () => void;
+}) {
+  const { data: strategies } = useDwellStrategies();
+  const pin = useDwellFileMutation(file.id, (strategyId: string) => dwellsApi.pin(file.id, strategyId));
+  const [platformId, setPlatformId] = useState(initialPlatform);
+  const [strategyId, setStrategyId] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const taken = new Set(file.links.map((l) => l.platform_id).filter(Boolean));
+  // Platforms that have a Strategy to offer, the file's MDF's first.
+  const platforms = new Map<string, string>();
+  for (const s of strategies ?? []) if (s.platform_id) platforms.set(s.platform_id, s.platform_name ?? "?");
+  const byName = (a: [string, string], b: [string, string]) => a[1].localeCompare(b[1], undefined, { numeric: true });
+  const all = [...platforms.entries()].sort(byName);
+  const inMdf = mdfPlatformIds ? all.filter(([id]) => mdfPlatformIds.has(id)) : all;
+  const others = mdfPlatformIds ? all.filter(([id]) => !mdfPlatformIds.has(id)) : [];
+  const choices = (strategies ?? []).filter((s) => s.platform_id === platformId);
+  const chosen = choices.find((s) => s.id === strategyId) ?? (choices.length === 1 ? choices[0] : undefined);
+
+  const option = ([id, name]: [string, string]) => (
+    <option key={id} value={id} disabled={taken.has(id)}>
+      {name}
+      {taken.has(id) ? " — has one here" : ""}
+    </option>
+  );
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (!chosen) return setError("Pick the Strategy.");
+    if (chosen.latest_version_number == null) return setError("That Strategy has no saved version yet.");
+    try {
+      await pin.mutateAsync(chosen.id);
+      onClose();
+    } catch (err) {
+      setError(err instanceof ApiRequestError ? err.message : "Couldn't add it.");
+    }
+  }
+
+  return (
+    <Modal title="Add a Strategy" onClose={onClose}>
+      <form className="rename-form" onSubmit={submit}>
+        <label>
+          Platform
+          <select
+            value={platformId}
+            onChange={(e) => {
+              setPlatformId(e.target.value);
+              setStrategyId("");
+            }}
+          >
+            <option value="">— Pick the Platform —</option>
+            {mdfPlatformIds ? (
+              <>
+                {inMdf.length > 0 && <optgroup label={`In ${file.mdf_name}`}>{inMdf.map(option)}</optgroup>}
+                {others.length > 0 && <optgroup label="Others">{others.map(option)}</optgroup>}
+              </>
+            ) : (
+              all.map(option)
+            )}
+          </select>
+        </label>
+        {platformId && !platforms.has(platformId) && (
+          <p className="hint-text">
+            This Platform has no Strategy yet — <Link to="/dwells">make one under Dwells</Link> first.
+          </p>
+        )}
+        {choices.length > 0 && (
+          <label>
+            Strategy
+            <select value={chosen?.id ?? ""} onChange={(e) => setStrategyId(e.target.value)}>
+              {choices.length > 1 && <option value="">— Pick one —</option>}
+              {choices.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} — {s.dwell_count} dwell{s.dwell_count === 1 ? "" : "s"}
+                  {s.latest_version_number ? `, v${s.latest_version_number}` : ", not saved"}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {chosen?.unsaved && chosen.latest_version_number != null && (
+          <p className="hint-text">It has changes since v{chosen.latest_version_number}; v{chosen.latest_version_number} is pinned.</p>
+        )}
+        {error && (
+          <p className="error-text" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="modal-actions">
+          <button type="button" className="button secondary" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" className="button primary" disabled={pin.isPending || !chosen}>
+            Add
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+/** Name, MDF, the file's settings and notes. */
+function EditFileDetails({ file, onClose }: { file: DwellFile; onClose: () => void }) {
+  const update = useUpdateDwellFile(file.id);
+  const { data: mdfs } = useMdfs();
+  const { data: files } = useDwellFiles();
+  const [name, setName] = useState(file.name);
+  const [mdfId, setMdfId] = useState(file.mdf_id ?? "");
+  const [timeout, setTimeoutValue] = useState(num(file.timeout));
+  const [setup, setSetup] = useState(num(file.setup_time));
+  const [notes, setNotes] = useState(file.notes ?? "");
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    const clash = (files ?? []).some((f) => f.id !== file.id && f.name.toLowerCase() === name.trim().toLowerCase());
+    if (!name.trim()) return setError("Give it a name.");
+    if (clash) return setError("Another dwell file has that name.");
+    if (!(Number(timeout) >= 0) || !(Number(setup) >= 0)) return setError("Timeout and setup time can't be negative.");
+    try {
+      await update.mutateAsync({
+        name: name.trim(),
+        mdf_id: mdfId || null,
+        timeout: Number(timeout),
+        setup_time: Number(setup),
+        notes: notes.trim() || null,
+      });
+      onClose();
+    } catch (err) {
+      setError(err instanceof ApiRequestError ? err.message : "Couldn't save the details.");
+    }
+  }
+
+  return (
+    <Modal title="Edit details" onClose={onClose} wide>
+      <form className="rename-form" onSubmit={submit}>
+        <label>
+          Name
+          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={200} autoFocus />
+        </label>
+        <label>
+          For the MDF
+          <select value={mdfId} onChange={(e) => setMdfId(e.target.value)}>
+            <option value="">None</option>
+            {(mdfs ?? []).map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="hint-text">The MDF&apos;s export carries the file&apos;s latest saved version as dwells/{xmlName(name || file.name)}.</p>
+        <div className="form-row">
+          <label>
+            Timeout
+            <input type="number" step="any" min="0" value={timeout} onChange={(e) => setTimeoutValue(e.target.value)} />
+          </label>
+          <label>
+            Setup time
+            <input type="number" step="any" min="0" value={setup} onChange={(e) => setSetup(e.target.value)} />
+          </label>
+        </div>
+        <label>
+          Notes (optional)
+          <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </label>
+        {error && (
+          <p className="error-text" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="modal-actions">
+          <button type="button" className="button secondary" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" className="button primary" disabled={update.isPending}>
+            {update.isPending ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }

@@ -67,6 +67,12 @@ export function PlatformTestDetailPage() {
         <Fact label="Type">{testTypeLabel(test.test_type)}</Fact>
         <Fact label="Tested">{formatDate(test.test_date)}</Fact>
         <Fact label="Emitters">{test.emitters.length}</Fact>
+        {test.dwell_strategy_id && (
+          <Fact label="Dwell">
+            <Link to={`/dwells/strategies/${test.dwell_strategy_id}`}>{test.dwell_strategy_name}</Link> v
+            {test.dwell_strategy_version_number}
+          </Fact>
+        )}
         {test.platform_version_number != null && (
           <Fact label="Platform version">
             <Link to={`/platforms/${platformId}/versions?version=${test.platform_version_number}`}>

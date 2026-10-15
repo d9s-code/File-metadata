@@ -212,3 +212,35 @@ def test_each_emitter_keeps_its_own_simulation_date(editor_client):
         },
     )
     assert missing.status_code == 422
+
+
+def test_a_platform_test_records_one_of_the_platforms_dwell_strategies(editor_client):
+    a = _emitter(editor_client, "Foxtrot")
+    platform = _platform(editor_client, a)
+    other = editor_client.post("/platforms", json={"name": "Elsewhere"}).json()
+    own = editor_client.post("/dwell-strategies", json={"name": "Patrol", "platform_id": platform["id"]}).json()
+    foreign = editor_client.post("/dwell-strategies", json={"name": "Patrol", "platform_id": other["id"]}).json()
+    own_v = editor_client.get(f"/dwell-strategies/{own['id']}/versions").json()[0]["id"]
+    foreign_v = editor_client.get(f"/dwell-strategies/{foreign['id']}/versions").json()[0]["id"]
+    body = {
+        "title": "With dwells",
+        "test_type": "simulation",
+        "test_date": "2026-10-02",
+        "simulation_created_date": "2026-10-01",
+        "dwell": "Patrol v1",
+        "dwell_strategy_version_id": foreign_v,
+        "emitters": [{"emitter_id": a["emitter"]["id"], "result": "pass"}],
+    }
+    assert editor_client.post(f"/platforms/{platform['id']}/tests", json=body).status_code == 422
+    body["dwell_strategy_version_id"] = own_v
+    resp = editor_client.post(f"/platforms/{platform['id']}/tests", json=body)
+    assert resp.status_code == 201, resp.text
+    test = resp.json()
+    assert (test["dwell_strategy_version_id"], test["dwell_strategy_name"], test["dwell_strategy_version_number"]) == (
+        own_v,
+        "Patrol",
+        1,
+    )
+    # The Strategy lists the Platform test once, not each Emitter's record in it.
+    tests = editor_client.get(f"/dwell-strategies/{own['id']}").json()["tests"]
+    assert [(t["kind"], t["id"]) for t in tests] == [("platform", test["id"])]

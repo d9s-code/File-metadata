@@ -30,6 +30,8 @@ import { SourceGroupsPage } from "./pages/SourceGroupsPage";
 import { CustomersPage } from "./pages/CustomersPage";
 import { DwellsListPage } from "./pages/DwellsListPage";
 import { DwellFilePage } from "./pages/DwellFilePage";
+import { DwellStrategyPage } from "./pages/DwellStrategyPage";
+import { DwellVersionHistoryPage } from "./pages/DwellVersionHistoryPage";
 import { AdminSettingsPage } from "./pages/AdminSettingsPage";
 import { InterceptsPage } from "./pages/InterceptsPage";
 import { InterceptDetailPage } from "./pages/InterceptDetailPage";
@@ -199,10 +201,34 @@ export default function App() {
                 }
               />
               <Route
-                path="/dwells/:dwellId"
+                path="/dwells/strategies/:strategyId"
+                element={
+                  <RequireAuth>
+                    <DwellStrategyPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/dwells/strategies/:id/versions"
+                element={
+                  <RequireAuth>
+                    <DwellVersionHistoryPage kind="strategies" />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/dwells/files/:fileId"
                 element={
                   <RequireAuth>
                     <DwellFilePage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/dwells/files/:id/versions"
+                element={
+                  <RequireAuth>
+                    <DwellVersionHistoryPage kind="files" />
                   </RequireAuth>
                 }
               />
