@@ -12,6 +12,7 @@ import { LoadingState } from "../components/common/LoadingState";
 import { Modal } from "../components/common/Modal";
 import { MenuButton } from "../components/common/MenuButton";
 import { EntityHeader } from "../components/common/EntityHeader";
+import { PlatformDwells } from "../components/dwells/PlatformDwells";
 import { LatestVersion, SaveVersionButton } from "../components/versioning/SaveVersionButton";
 import { TasksButton } from "../components/tasks/TasksButton";
 import { NotesFeed } from "../components/common/NotesFeed";
@@ -20,8 +21,8 @@ import { PlatformCharts } from "../components/platform/PlatformCharts";
 import { PlatformTests } from "../components/platform/PlatformTests";
 import { useCreatePlatformNote, useDeletePlatformNote, usePlatformNotes } from "../state/hooks/usePlatformNotes";
 
-type Tab = "emitters" | "charts" | "tests" | "audit";
-const TABS: Tab[] = ["emitters", "charts", "tests", "audit"];
+type Tab = "emitters" | "charts" | "dwells" | "tests" | "audit";
+const TABS: Tab[] = ["emitters", "charts", "dwells", "tests", "audit"];
 
 export function PlatformBuilderPage() {
   const { platformId } = useParams<{ platformId: string }>();
@@ -179,6 +180,9 @@ export function PlatformBuilderPage() {
         <button className={tab === "charts" ? "tab active" : "tab"} onClick={() => setTab("charts")}>
           Charts
         </button>
+        <button className={tab === "dwells" ? "tab active" : "tab"} onClick={() => setTab("dwells")}>
+          Dwells
+        </button>
         <button className={tab === "tests" ? "tab active" : "tab"} onClick={() => setTab("tests")}>
           Tests
         </button>
@@ -220,6 +224,8 @@ export function PlatformBuilderPage() {
       )}
 
       {tab === "charts" && <PlatformCharts platformId={platform.id} />}
+
+      {tab === "dwells" && <PlatformDwells platformId={platform.id} platformName={platform.name} />}
 
       {tab === "tests" && <PlatformTests platformId={platform.id} pinnedCount={links?.length ?? 0} />}
 

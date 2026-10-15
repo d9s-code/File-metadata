@@ -4,6 +4,7 @@ import { ApiRequestError } from "../../api/client";
 import { MenuButton } from "../common/MenuButton";
 import { Modal } from "../common/Modal";
 import { DwellChart, num } from "./DwellChart";
+import { usePlatformEmitterOverlay } from "./platformOverlay";
 
 const DEFAULT_MS = 50;
 
@@ -74,6 +75,7 @@ export function DwellsEditor({
     JSON.stringify(rows) !== JSON.stringify(strategy.dwells.map(toRow)) || manual !== num(strategy.manual_collect_time_ms);
   const manualValue = manual.trim() === "" ? DEFAULT_MS : Number(manual);
   const bandwidth = strategy.bandwidth_mhz ?? defaultBandwidth;
+  const overlay = usePlatformEmitterOverlay(strategy.platform_id);
 
   const setRow = (i: number, patch: Partial<Row>) => setRows(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   function insertAt(i: number, row: Row = blankRow()) {
@@ -260,7 +262,14 @@ export function DwellsEditor({
       </section>
 
       <div className="dwell-editor-chart">
-        <DwellChart dwells={dwells} bandwidthMhz={bandwidth} hover={hover} onHover={setHover} />
+        <DwellChart
+          dwells={dwells}
+          bandwidthMhz={bandwidth}
+          hover={hover}
+          onHover={setHover}
+          overlay={overlay}
+          overlayTitle={strategy.platform_name ? `${strategy.platform_name}'s Emitters` : "Emitters"}
+        />
       </div>
 
       {adding && (

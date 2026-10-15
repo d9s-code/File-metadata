@@ -228,13 +228,13 @@ function FileList() {
 }
 
 /** A new Strategy for a Platform: empty, or starting from another's dwells. */
-function NewStrategy({ onClose }: { onClose: () => void }) {
+export function NewStrategy({ onClose, platformId: initialPlatform = "" }: { onClose: () => void; platformId?: string }) {
   const navigate = useNavigate();
   const refresh = useRefreshDwellLists();
   const { data: platforms } = usePlatforms();
   const { data: strategies } = useDwellStrategies();
   const [name, setName] = useState("");
-  const [platformId, setPlatformId] = useState("");
+  const [platformId, setPlatformId] = useState(initialPlatform);
   const [copyFrom, setCopyFrom] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);

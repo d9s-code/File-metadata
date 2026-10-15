@@ -906,6 +906,13 @@ export function HelpPage() {
             are kept as the file had them.
           </p>
           <p>
+            The chart also shows the frequencies the Strategy&apos;s Platform&apos;s pinned Emitters occupy (their
+            Modes&apos; RF ranges): shaded behind the dwells and in a lane each under the chart. The legend says how much
+            of each Emitter the dwells sit on — <strong>not dwelt on</strong> is flagged — and its swatch hides or shows
+            it. A Platform&apos;s page has a <strong>Dwells</strong> tab with its Strategies and this chart for the one
+            picked.
+          </p>
+          <p>
             Strategies and dwell files are <strong>versioned</strong> like Platforms: <strong>Save version</strong>{" "}
             keeps the current state, Version history shows what each version changed, and the Audit tab every edit. A
             file flags Strategies with a newer version (<strong>Repin all</strong> takes the latest) and the MDF&apos;s

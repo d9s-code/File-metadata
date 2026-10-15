@@ -6448,5 +6448,45 @@ input[aria-invalid="true"] {
   font-size: 0.9rem;
 }
 .dwell-empty { margin: 1rem 0; }
+.viz-plot .dwell-occupied { fill-opacity: 0.1; stroke: none; transition: fill-opacity 0.1s; }
+.viz-plot .dwell-occupied.picked { fill-opacity: 0.26; }
+.viz-plot .dwell-occupied.faded { fill-opacity: 0.04; }
+.viz-plot .dwell-lane-track { fill: var(--hover-bg); }
+.viz-plot .dwell-lane.faded { opacity: 0.35; }
+.dwell-overlay-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.9rem;
+  padding: 0.5rem 0.75rem 0.6rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.82rem;
+}
+.dwell-overlay-title { color: var(--muted); font-weight: 600; }
+.dwell-overlay-item { display: inline-flex; align-items: center; gap: 0.35rem; }
+.dwell-overlay-item.off { opacity: 0.45; }
+.dwell-overlay-item.off a { text-decoration: line-through; }
+.dwell-overlay-toggle {
+  display: inline-flex;
+  padding: 0.15rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: none;
+  box-shadow: none;
+  cursor: pointer;
+}
+.dwell-overlay-toggle .viz-swatch { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 2px; }
+.dwell-overlay-item.off .viz-swatch { background: transparent; }
+.dwell-coverage { color: var(--success); font-size: 0.78rem; }
+.dwell-coverage.part { color: var(--muted); }
+.dwell-coverage.none { color: var(--error); font-weight: 600; }
+.platform-dwells { margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem; }
+.platform-dwells-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.platform-dwells-head p { margin: 0; }
+.platform-dwells .dwell-chart { margin: 0; }
+.dwell-pick-row { cursor: pointer; }
+.dwell-pick-row:hover td { background: var(--hover-bg); }
+.dwell-pick-row.picked td { background: var(--active-bg); }
+.dwell-pick-row.picked td:first-child { box-shadow: inset 3px 0 0 var(--primary); }
 .dwell-version-main { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
 .dwell-version-main .version-panel { margin: 0; }
