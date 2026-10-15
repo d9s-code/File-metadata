@@ -208,4 +208,5 @@ class AuditEntityType(str, enum.Enum):
     task = "task"
     dwell_file = "dwell_file"
     dwell_strategy = "dwell_strategy"
+    dwell_strategy_note = "dwell_strategy_note"
     setting = "setting"

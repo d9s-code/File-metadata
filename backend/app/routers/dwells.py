@@ -14,7 +14,14 @@ from app.core.csrf import verify_csrf
 from app.core.enums import AuditAction, AuditEntityType, Role
 from app.database import get_db
 from app.deps import require_role
-from app.models.dwell import DwellFile, DwellFileStrategy, DwellFileVersion, DwellStrategy, DwellStrategyVersion
+from app.models.dwell import (
+    DwellFile,
+    DwellFileStrategy,
+    DwellFileVersion,
+    DwellStrategy,
+    DwellStrategyNote,
+    DwellStrategyVersion,
+)
 from app.models.mdf import Mdf, MdfPlatformLink
 from app.models.platform import Platform
 from app.models.test_record import PlatformTest, TestRecord
@@ -36,6 +43,8 @@ from app.schemas.dwell import (
     PinStrategy,
     SettingsOut,
     SettingsUpdate,
+    DwellStrategyNoteCreate,
+    DwellStrategyNoteOut,
     StrategyTestUse,
     StrategyUse,
 )
@@ -139,7 +148,7 @@ def _strategy_out(db: Session, strategy: DwellStrategy) -> DwellStrategyOut:
         name=strategy.name,
         platform_id=strategy.platform_id,
         platform_name=strategy.platform.name if strategy.platform else None,
-        notes=strategy.notes,
+        description=strategy.description,
         manual_collect_time_ms=strategy.manual_collect_time_ms,
         dwells=strategy.dwells or [],
         rapid_df=strategy.rapid_df,
@@ -221,6 +230,7 @@ def list_strategies(
                 name=s.name,
                 platform_id=s.platform_id,
                 platform_name=s.platform.name if s.platform else None,
+                description=s.description,
                 dwell_count=len(s.dwells or []),
                 cycle_ms=sum(d["dwell_time_ms"] for d in s.dwells or []),
                 lowest_mhz=min(freqs) if freqs else None,
@@ -247,6 +257,7 @@ def create_strategy(
     strategy = DwellStrategy(
         name=name,
         platform_id=payload.platform_id,
+        description=(payload.description or "").strip() or (source.description if source else None),
         manual_collect_time_ms=source.manual_collect_time_ms if source else DEFAULT_COLLECT_TIME_MS,
         dwells=list(source.dwells or []) if source else [],
         rapid_df=dict(source.rapid_df) if source and source.rapid_df is not None else dict(DEFAULT_RAPID_DF),
@@ -280,7 +291,9 @@ def update_strategy(
     strategy_id: UUID, payload: DwellStrategyUpdate, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))
 ) -> DwellStrategyOut:
     strategy = _strategy_or_404(db, strategy_id)
-    fields = payload.model_dump(exclude_unset=True)
+    fields = payload.model_dump(exclude_unset=True, exclude={"save_version", "change_summary"})
+    if "description" in fields:
+        fields["description"] = (fields["description"] or "").strip() or None
     if payload.dwells is not None:
         # Whole entries, defaults included (exclude_unset drops them inside).
         fields["dwells"] = [d.model_dump() for d in payload.dwells]
@@ -318,9 +331,71 @@ def update_strategy(
             + (f" — {', '.join(sorted(k.replace('_', ' ') for k in changes))}" if changes else ""),
             changes,
         )
+    if payload.save_version:
+        db.flush()
+        latest = latest_strategy_version(db, strategy.id)
+        if latest is None or latest.snapshot != strategy_snapshot(strategy):
+            version = _commit_strategy(db, strategy, (payload.change_summary or "").strip() or None, user.id)
+            _audit(
+                db, user, AuditAction.commit, AuditEntityType.dwell_strategy, strategy.id,
+                f"Saved Dwell Strategy '{strategy.name}' as v{version.version_number}",
+            )
     db.commit()
     db.refresh(strategy)
     return _strategy_out(db, strategy)
+
+
+@router.get("/dwell-strategies/{strategy_id}/notes", response_model=list[DwellStrategyNoteOut])
+def list_strategy_notes(
+    strategy_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
+) -> list[DwellStrategyNote]:
+    """Newest-first analyst notes, like a Platform's."""
+    _strategy_or_404(db, strategy_id)
+    return (
+        db.query(DwellStrategyNote)
+        .filter(DwellStrategyNote.strategy_id == strategy_id)
+        .order_by(DwellStrategyNote.created_at.desc())
+        .all()
+    )
+
+
+@router.post(
+    "/dwell-strategies/{strategy_id}/notes",
+    response_model=DwellStrategyNoteOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(verify_csrf)],
+)
+def create_strategy_note(
+    strategy_id: UUID, payload: DwellStrategyNoteCreate, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))
+) -> DwellStrategyNote:
+    strategy = _strategy_or_404(db, strategy_id)
+    note = DwellStrategyNote(strategy_id=strategy.id, author_id=user.id, body=payload.body)
+    db.add(note)
+    db.flush()
+    _audit(db, user, AuditAction.create, AuditEntityType.dwell_strategy_note, note.id, f"Added a note to Dwell Strategy '{strategy.name}'")
+    db.commit()
+    db.refresh(note)
+    return note
+
+
+@router.delete(
+    "/dwell-strategies/{strategy_id}/notes/{note_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(verify_csrf)],
+)
+def delete_strategy_note(
+    strategy_id: UUID, note_id: UUID, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))
+) -> None:
+    strategy = _strategy_or_404(db, strategy_id)
+    note = db.get(DwellStrategyNote, note_id)
+    if note is None or note.strategy_id != strategy.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Note not found")
+    _audit(
+        db, user, AuditAction.delete, AuditEntityType.dwell_strategy_note, note.id,
+        f"Deleted a note from Dwell Strategy '{strategy.name}'", {"body": note.body},
+    )
+    db.delete(note)
+    db.commit()
 
 
 @router.delete("/dwell-strategies/{strategy_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(verify_csrf)])

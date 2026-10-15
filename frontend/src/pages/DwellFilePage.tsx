@@ -6,9 +6,9 @@ import { Modal } from "../components/common/Modal";
 import { LoadingState } from "../components/common/LoadingState";
 import { useConfirmDialog } from "../components/common/ConfirmDialog";
 import { RequireRole, useHasRole } from "../auth/RequireAuth";
-import { EntityAuditTrail } from "../components/audit/EntityAuditTrail";
 import { LatestVersion, SaveVersionButton } from "../components/versioning/SaveVersionButton";
 import { DwellChart, num } from "../components/dwells/DwellChart";
+import { usePlatformEmitterOverlay } from "../components/dwells/platformOverlay";
 import { ApiRequestError } from "../api/client";
 import { dwellsApi, type DwellFile, type DwellFileLink } from "../api/dwells";
 import {
@@ -24,8 +24,6 @@ import {
 } from "../state/hooks/useDwells";
 import { useMdfLinks, useMdfs } from "../state/hooks/useMdfs";
 import { usePlatforms } from "../state/hooks/usePlatforms";
-
-type Tab = "strategies" | "audit";
 
 /** Saves a file as the browser's download. */
 export function saveBlob(blob: Blob, filename: string) {
@@ -67,7 +65,6 @@ function DwellFileView({ file }: { file: DwellFile }) {
   const { data: platforms } = usePlatforms();
   const repinAll = useDwellFileMutation(file.id, () => dwellsApi.repinLatest(file.id));
   const { confirmDelete, dialog } = useConfirmDialog();
-  const [tab, setTab] = useState<Tab>("strategies");
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState<string | null>(null); // a Platform id, or "" for any
   const [error, setError] = useState<string | null>(null);
@@ -114,10 +111,10 @@ function DwellFileView({ file }: { file: DwellFile }) {
             <MenuButton
               label="More ▾"
               items={[
+                { label: "Details…", onSelect: () => setEditing(true) },
                 { label: "Version history", to: `/dwells/files/${file.id}/versions` },
                 ...(canEdit
                   ? [
-                      { label: "Edit details…", onSelect: () => setEditing(true) },
                       { label: "Delete this dwell file…", danger: true, onSelect: () => void handleDelete() },
                     ]
                   : []),
@@ -135,9 +132,6 @@ function DwellFileView({ file }: { file: DwellFile }) {
               ) : (
                 "In no MDF"
               )}
-            </span>
-            <span className="dwell-chip">
-              Timeout {num(file.timeout)} · Setup time {num(file.setup_time)}
             </span>
             <LatestVersion versions={versions} />
             {file.unsaved && file.latest_version_number != null && (
@@ -161,18 +155,10 @@ function DwellFileView({ file }: { file: DwellFile }) {
         </p>
       )}
 
-      <div className="tab-bar">
-        <button className={tab === "strategies" ? "tab active" : "tab"} onClick={() => setTab("strategies")}>
-          Strategies <span className="tab-count">{file.links.length}</span>
-        </button>
-        <button className={tab === "audit" ? "tab active" : "tab"} onClick={() => setTab("audit")}>
-          Audit
-        </button>
-      </div>
-
-      {tab === "strategies" && (
-        <>
-          {missing.length > 0 && (
+      <h2 className="dwell-section-title">
+        Strategies <span className="tab-count">{file.links.length}</span>
+      </h2>
+      {missing.length > 0 && (
             <div className="dwell-callout">
               <strong>
                 {missing.length} Platform{missing.length === 1 ? "" : "s"} in {file.mdf_name} {missing.length === 1 ? "has" : "have"} no
@@ -215,11 +201,7 @@ function DwellFileView({ file }: { file: DwellFile }) {
               + Add a Strategy
             </button>
           )}
-        </>
-      )}
-      {tab === "audit" && <EntityAuditTrail entityType="dwell_file" entityId={file.id} />}
-
-      {editing && <EditFileDetails file={file} onClose={() => setEditing(false)} />}
+      {editing && <FileDetails file={file} canEdit={canEdit} onClose={() => setEditing(false)} />}
       {adding != null && (
         <AddStrategy file={file} platformId={adding} mdfPlatformIds={mdfPlatformIds} onClose={() => setAdding(null)} />
       )}
@@ -359,11 +341,7 @@ function PinnedStrategies({ file, canEdit, onError }: { file: DwellFile; canEdit
                 {isOpen && (
                   <tr className="dwell-link-detail">
                     <td colSpan={canEdit ? 8 : 7}>
-                      <DwellChart
-                        dwells={l.dwells}
-                        bandwidthMhz={settings?.dwell_bandwidth_mhz ?? 10}
-                        title={`${l.strategy_name} · v${l.pinned_version_number}`}
-                      />
+                      <PinnedChart link={l} bandwidthMhz={settings?.dwell_bandwidth_mhz ?? 10} />
                     </td>
                   </tr>
                 )}
@@ -375,6 +353,25 @@ function PinnedStrategies({ file, canEdit, onError }: { file: DwellFile; canEdit
       {picking && <PickVersion file={file} link={picking} onClose={() => setPicking(null)} />}
       {dialog}
     </>
+  );
+}
+
+/** A pinned Strategy version's chart, with its Platform's Emitters behind it. */
+function PinnedChart({ link, bandwidthMhz }: { link: DwellFileLink; bandwidthMhz: number }) {
+  const overlay = usePlatformEmitterOverlay(link.platform_id);
+  const emptyText =
+    link.latest_version_number > link.pinned_version_number
+      ? `v${link.pinned_version_number} has no dwells — v${link.latest_version_number} is newer: repin it from the ⋯ menu.`
+      : `v${link.pinned_version_number} has no dwells — add them on the Strategy's page and save.`;
+  return (
+    <DwellChart
+      dwells={link.dwells}
+      bandwidthMhz={bandwidthMhz}
+      title={`${link.strategy_name} · v${link.pinned_version_number}`}
+      overlay={overlay}
+      overlayTitle={link.platform_name ? `${link.platform_name}'s Emitters` : "Emitters"}
+      emptyText={link.dwells.length ? "No dwells." : emptyText}
+    />
   );
 }
 
@@ -541,7 +538,7 @@ function AddStrategy({
 }
 
 /** Name, MDF, the file's settings and notes. */
-function EditFileDetails({ file, onClose }: { file: DwellFile; onClose: () => void }) {
+function FileDetails({ file, canEdit, onClose }: { file: DwellFile; canEdit: boolean; onClose: () => void }) {
   const update = useUpdateDwellFile(file.id);
   const { data: mdfs } = useMdfs();
   const { data: files } = useDwellFiles();
@@ -554,6 +551,7 @@ function EditFileDetails({ file, onClose }: { file: DwellFile; onClose: () => vo
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (!canEdit) return onClose();
     const clash = (files ?? []).some((f) => f.id !== file.id && f.name.toLowerCase() === name.trim().toLowerCase());
     if (!name.trim()) return setError("Give it a name.");
     if (clash) return setError("Another dwell file has that name.");
@@ -573,8 +571,9 @@ function EditFileDetails({ file, onClose }: { file: DwellFile; onClose: () => vo
   }
 
   return (
-    <Modal title="Edit details" onClose={onClose} wide>
+    <Modal title="Details" onClose={onClose} wide>
       <form className="rename-form" onSubmit={submit}>
+        <fieldset className="plain-fieldset" disabled={!canEdit}>
         <label>
           Name
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={200} autoFocus />
@@ -605,6 +604,7 @@ function EditFileDetails({ file, onClose }: { file: DwellFile; onClose: () => vo
           Notes (optional)
           <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </label>
+        </fieldset>
         {error && (
           <p className="error-text" role="alert">
             {error}
@@ -612,11 +612,13 @@ function EditFileDetails({ file, onClose }: { file: DwellFile; onClose: () => vo
         )}
         <div className="modal-actions">
           <button type="button" className="button secondary" onClick={onClose}>
-            Cancel
+            {canEdit ? "Cancel" : "Close"}
           </button>
-          <button type="submit" className="button primary" disabled={update.isPending}>
-            {update.isPending ? "Saving…" : "Save"}
-          </button>
+          {canEdit && (
+            <button type="submit" className="button primary" disabled={update.isPending}>
+              {update.isPending ? "Saving…" : "Save"}
+            </button>
+          )}
         </div>
       </form>
     </Modal>

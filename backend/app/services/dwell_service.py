@@ -14,7 +14,7 @@ def strategy_snapshot(strategy: DwellStrategy) -> dict:
         "name": strategy.name,
         "platform_id": str(strategy.platform_id) if strategy.platform_id else None,
         "platform_name": strategy.platform.name if strategy.platform else None,
-        "notes": strategy.notes,
+        "description": strategy.description,
         "manual_collect_time_ms": strategy.manual_collect_time_ms,
         "dwells": list(strategy.dwells or []),
         "rapid_df": strategy.rapid_df,
@@ -69,7 +69,7 @@ def _dwell_text(d: dict) -> str:
 def strategy_diff(old: dict, new: dict) -> list[dict]:
     """What changed in a Strategy: its fields, then its dwells by place."""
     entries: list[dict] = []
-    for key, label in (("name", "Name"), ("platform_name", "Platform"), ("notes", "Notes")):
+    for key, label in (("name", "Name"), ("platform_name", "Platform"), ("description", "Description")):
         if old.get(key) != new.get(key):
             entries.append(_entry("Strategy", label, "changed", old.get(key), new.get(key)))
     if old.get("manual_collect_time_ms") != new.get("manual_collect_time_ms"):

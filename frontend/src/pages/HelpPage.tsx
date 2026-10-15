@@ -897,28 +897,28 @@ export function HelpPage() {
           </p>
           <p>
             On a Strategy&apos;s page you edit its <strong>dwells</strong> in order: each a frequency in MHz (as in the
-            file), a dwell time and a collect time in ms (50 by default), and the Strategy&apos;s{" "}
-            <strong>manual collect time</strong>. <strong>Enter</strong> in a row adds the next one, and{" "}
-            <strong>Add several…</strong> takes a list of frequencies at once; then <strong>Save changes</strong>. The
-            chart beside the table draws one cycle as a waterfall — frequency across, time running down — with each
-            dwell a band of the <strong>chart band width</strong> (the Strategy&apos;s own, or the default an admin sets
-            under Admin → Settings). Hovering a row picks out its band and the other way round. RapidDF and Split Mode
-            are kept as the file had them.
+            file), a dwell time and a collect time in ms (50 by default). <strong>Enter</strong> in a row adds the next
+            one and <strong>Add several…</strong> takes a list of frequencies at once. <strong>Save as vN</strong> saves
+            them as a new version straight away; until then they&apos;re kept in your browser, so leaving the page
+            doesn&apos;t lose them. Name, Platform, description and manual collect time are under More ▾ → Details…, and
+            the Notes panel keeps running notes.
           </p>
           <p>
-            The chart also shows the frequencies the Strategy&apos;s Platform&apos;s pinned Emitters occupy (their
-            Modes&apos; RF ranges): shaded behind the dwells and in a lane each under the chart. The legend says how much
-            of each Emitter the dwells sit on — <strong>not dwelt on</strong> is flagged — and its swatch hides or shows
-            it. A Platform&apos;s page has a <strong>Dwells</strong> tab with its Strategies and this chart for the one
-            picked.
+            The chart beside the table draws one cycle as a waterfall — frequency across, time running down — with
+            each dwell a band of the <strong>band width</strong> (set in the chart&apos;s header; the default is an
+            admin&apos;s, under Admin → Settings). Hover a band or a row to see the stretch it covers, e.g. 3020–3040
+            MHz. Behind the dwells are the frequencies the Platform&apos;s pinned Emitters occupy, each in a lane under
+            the chart; the legend says how much of each the dwells sit on (<strong>not dwelt on</strong> is flagged) and
+            hides or shows it. The axis <strong>cuts gaps</strong> where nothing is dwelt on or transmitted (or pick
+            Linear or Log). A Platform&apos;s page has a <strong>Dwells</strong> tab with its Strategies and this chart —
+            before any Strategy exists it shows the Emitters alone.
           </p>
           <p>
-            Strategies and dwell files are <strong>versioned</strong> like Platforms: <strong>Save version</strong>{" "}
-            keeps the current state, Version history shows what each version changed, and the Audit tab every edit. A
-            file flags Strategies with a newer version (<strong>Repin all</strong> takes the latest) and the MDF&apos;s
-            Platforms that have no Strategy in it yet. When logging a test run, <strong>Dwell → Strategy…</strong>{" "}
-            records which Strategy (its latest saved version) the run used; a Platform test offers that Platform&apos;s
-            Strategies. A Strategy&apos;s <strong>Used in</strong> tab lists its files and test runs.
+            A dwell file pins a saved version of each Strategy, flags newer versions (<strong>Repin all</strong>) and the
+            MDF&apos;s Platforms with no Strategy yet; its row opens to the pinned version&apos;s chart. Timeout, setup
+            time and the MDF are under More ▾ → Details…. Version history shows what each version changed. When logging a
+            test run, <strong>Dwell → Strategy…</strong> records the Strategy (its latest version) the run used; a
+            Strategy&apos;s <strong>Used in</strong> tab lists its files and test runs.
           </p>
           <p>
             <strong>Import XML</strong> (under Dwell files) makes a file from an existing one: each Strategy in it

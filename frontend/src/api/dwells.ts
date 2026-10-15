@@ -32,6 +32,7 @@ export interface DwellStrategySummary {
   name: string;
   platform_id: string | null;
   platform_name: string | null;
+  description: string | null;
   dwell_count: number;
   cycle_ms: number;
   lowest_mhz: number | null;
@@ -50,7 +51,7 @@ export interface DwellStrategy {
   name: string;
   platform_id: string | null;
   platform_name: string | null;
-  notes: string | null;
+  description: string | null;
   manual_collect_time_ms: number;
   dwells: Dwell[];
   /** Kept as the file had them — not edited in the app. */
@@ -69,10 +70,21 @@ export interface DwellStrategy {
 export interface DwellStrategyUpdate {
   name?: string;
   platform_id?: string;
-  notes?: string | null;
+  description?: string | null;
   manual_collect_time_ms?: number;
   dwells?: Dwell[];
   bandwidth_mhz?: number | null;
+  /** Also save the result as a new version (when it differs from the latest). */
+  save_version?: boolean;
+  change_summary?: string | null;
+}
+
+export interface DwellStrategyNote {
+  id: string;
+  author_id: string | null;
+  author_username: string | null;
+  body: string;
+  created_at: string;
 }
 
 /** A Strategy pinned in a dwell file. */
@@ -145,10 +157,13 @@ export const dwellsApi = {
   strategies: (platformId?: string) =>
     api.get<DwellStrategySummary[]>(platformId ? `/dwell-strategies?platform_id=${platformId}` : "/dwell-strategies"),
   strategy: (id: string) => api.get<DwellStrategy>(`/dwell-strategies/${id}`),
-  createStrategy: (input: { name: string; platform_id: string; copy_from_id?: string | null }) =>
+  createStrategy: (input: { name: string; platform_id: string; description?: string | null; copy_from_id?: string | null }) =>
     api.post<DwellStrategy>("/dwell-strategies", input),
   updateStrategy: (id: string, input: DwellStrategyUpdate) => api.patch<DwellStrategy>(`/dwell-strategies/${id}`, input),
   deleteStrategy: (id: string) => api.delete<void>(`/dwell-strategies/${id}`),
+  notes: (id: string) => api.get<DwellStrategyNote[]>(`/dwell-strategies/${id}/notes`),
+  addNote: (id: string, body: string) => api.post<DwellStrategyNote>(`/dwell-strategies/${id}/notes`, { body }),
+  deleteNote: (id: string, noteId: string) => api.delete<void>(`/dwell-strategies/${id}/notes/${noteId}`),
 
   files: () => api.get<DwellFileSummary[]>("/dwell-files"),
   file: (id: string) => api.get<DwellFile>(`/dwell-files/${id}`),

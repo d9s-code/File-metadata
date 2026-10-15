@@ -34,10 +34,20 @@ export function PlatformDwells({ platformId, platformName }: { platformId: strin
         </RequireRole>
       </div>
       {!strategies?.length ? (
-        <p className="hint-text dwell-empty">
-          No Strategies for {platformName} yet. Make one here, or give an imported one this Platform on its page under{" "}
-          <Link to="/dwells">Dwells</Link>.
-        </p>
+        <>
+          <p className="hint-text dwell-empty">
+            No Strategies for {platformName} yet. Make one here, or give an imported one this Platform on its page under{" "}
+            <Link to="/dwells">Dwells</Link>. The chart shows where its Emitters transmit, to plan the dwells against.
+          </p>
+          <DwellChart
+            dwells={[]}
+            bandwidthMhz={settings?.dwell_bandwidth_mhz ?? 10}
+            title={`${platformName}'s Emitters`}
+            overlay={overlay}
+            overlayTitle={`${platformName}'s Emitters`}
+            emptyText="No Strategy yet."
+          />
+        </>
       ) : (
         <>
           <table className="data-table dwell-strategy-list platform-dwells-table">
@@ -64,6 +74,7 @@ export function PlatformDwells({ platformId, platformName }: { platformId: strin
                     <Link to={`/dwells/strategies/${s.id}`} onClick={(e) => e.stopPropagation()}>
                       {s.name}
                     </Link>
+                    {s.description && <div className="dwell-desc">{s.description}</div>}
                   </td>
                   <td className="num">{s.dwell_count}</td>
                   <td className="nowrap">

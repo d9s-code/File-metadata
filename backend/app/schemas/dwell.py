@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import AliasPath, BaseModel, ConfigDict, Field
 
 
 class Dwell(BaseModel):
@@ -18,6 +18,7 @@ class Dwell(BaseModel):
 class DwellStrategyCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     platform_id: UUID
+    description: str | None = Field(default=None, max_length=2000)
     # Start from another Strategy's dwells and settings (a copy).
     copy_from_id: UUID | None = None
 
@@ -25,11 +26,14 @@ class DwellStrategyCreate(BaseModel):
 class DwellStrategyUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     platform_id: UUID | None = None
-    notes: str | None = None
+    description: str | None = Field(default=None, max_length=2000)
     manual_collect_time_ms: float | None = Field(default=None, ge=0)
     dwells: list[Dwell] | None = Field(default=None, max_length=500)
     # None clears it: the app-wide default applies again.
     bandwidth_mhz: float | None = Field(default=None, gt=0)
+    # Also save the result as a new version (when it differs from the latest).
+    save_version: bool = False
+    change_summary: str | None = Field(default=None, max_length=2000)
 
 
 class StrategyUse(BaseModel):
@@ -58,6 +62,7 @@ class DwellStrategySummary(BaseModel):
     name: str
     platform_id: UUID | None
     platform_name: str | None
+    description: str | None
     dwell_count: int
     cycle_ms: float
     lowest_mhz: float | None
@@ -75,7 +80,7 @@ class DwellStrategyOut(BaseModel):
     name: str
     platform_id: UUID | None
     platform_name: str | None
-    notes: str | None
+    description: str | None
     manual_collect_time_ms: float
     dwells: list[Dwell]
     rapid_df: dict | None
@@ -192,6 +197,23 @@ class DwellDiffOut(BaseModel):
 
 class CommitDwellVersion(BaseModel):
     change_summary: str | None = Field(default=None, max_length=2000)
+
+
+# Notes
+
+
+class DwellStrategyNoteCreate(BaseModel):
+    body: str = Field(min_length=1)
+
+
+class DwellStrategyNoteOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    author_id: UUID | None = None
+    author_username: str | None = Field(default=None, validation_alias=AliasPath("author", "username"))
+    body: str
+    created_at: datetime
 
 
 # Settings

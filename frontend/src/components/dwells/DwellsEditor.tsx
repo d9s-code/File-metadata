@@ -1,6 +1,7 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { Dwell, DwellStrategy, DwellStrategyUpdate } from "../../api/dwells";
 import { ApiRequestError } from "../../api/client";
+import { formatDateTime } from "../common/dates";
 import { MenuButton } from "../common/MenuButton";
 import { Modal } from "../common/Modal";
 import { DwellChart, num } from "./DwellChart";
@@ -17,6 +18,35 @@ interface Row {
 
 const toRow = (d: Dwell): Row => ({ freq: num(d.freq_mhz), dwell: num(d.dwell_time_ms), collect: num(d.collect_time_ms) });
 const blankRow = (): Row => ({ freq: "", dwell: String(DEFAULT_MS), collect: String(DEFAULT_MS) });
+
+/** Unsaved dwells, kept in this browser so leaving the page (a link, the
+ * back button, a refresh) doesn't lose them. `base` is the Strategy's dwells
+ * they were made from, to tell whether it was saved since. */
+interface DwellDraft {
+  rows: Row[];
+  base: string;
+  savedAt: number;
+}
+const draftKey = (strategyId: string) => `dwell-draft:${strategyId}`;
+
+function readDraft(strategyId: string): DwellDraft | null {
+  try {
+    const raw = localStorage.getItem(draftKey(strategyId));
+    const draft = raw ? (JSON.parse(raw) as DwellDraft) : null;
+    return draft && Array.isArray(draft.rows) ? draft : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeDraft(strategyId: string, draft: DwellDraft | null) {
+  try {
+    if (draft) localStorage.setItem(draftKey(strategyId), JSON.stringify(draft));
+    else localStorage.removeItem(draftKey(strategyId));
+  } catch {
+    // No storage: nothing kept, as before.
+  }
+}
 
 function parse(rows: Row[]): { dwells: Dwell[]; problem: string | null } {
   const dwells: Dwell[] = [];
@@ -35,8 +65,9 @@ function parse(rows: Row[]): { dwells: Dwell[]; problem: string | null } {
   return { dwells, problem };
 }
 
-/** A Strategy's dwells: the table (edited here, then saved) beside the
- * chart of one cycle, the manual collect time, and the chart's band width. */
+/** A Strategy's dwells: the table beside the chart of one cycle (with the
+ * Platform's Emitters behind it). Edits are kept in this browser until
+ * they're saved — and saving makes a new version, which dwell files can pin. */
 export function DwellsEditor({
   strategy,
   defaultBandwidth,
@@ -48,22 +79,38 @@ export function DwellsEditor({
   canEdit: boolean;
   onSave: (input: DwellStrategyUpdate) => Promise<unknown>;
 }) {
-  const [rows, setRows] = useState<Row[]>(() => strategy.dwells.map(toRow));
-  const [manual, setManual] = useState(num(strategy.manual_collect_time_ms));
+  const stored = JSON.stringify(strategy.dwells.map(toRow));
+  const [restored] = useState(() => {
+    const draft = canEdit ? readDraft(strategy.id) : null;
+    return draft && JSON.stringify(draft.rows) !== stored ? draft : null;
+  });
+  const [rows, setRows] = useState<Row[]>(() => restored?.rows ?? strategy.dwells.map(toRow));
+  const [notice, setNotice] = useState<DwellDraft | null>(restored);
+  const [summary, setSummary] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [hover, setHover] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
   // The row whose frequency gets the focus once it's drawn (after Enter or "+ Add dwell").
   const [focusRow, setFocusRow] = useState<number | null>(null);
+  const overlay = usePlatformEmitterOverlay(strategy.platform_id);
 
-  // Saved (here or elsewhere): start again from what's stored.
-  const stored = JSON.stringify([strategy.dwells, strategy.manual_collect_time_ms]);
+  // Saved (here or elsewhere) while nothing's being edited: show what's stored.
+  const lastStored = useRef(stored);
   useEffect(() => {
-    setRows(strategy.dwells.map(toRow));
-    setManual(num(strategy.manual_collect_time_ms));
+    if (lastStored.current === stored) return;
+    lastStored.current = stored;
+    if (!readDraft(strategy.id)) setRows(JSON.parse(stored) as Row[]);
+  }, [stored, strategy.id]);
+
+  const dirty = JSON.stringify(rows) !== stored;
+  // Keep unsaved rows in this browser as they're typed.
+  useEffect(() => {
+    if (!canEdit) return;
+    writeDraft(strategy.id, dirty ? { rows, base: notice?.base ?? stored, savedAt: Date.now() } : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stored]);
+  }, [rows, dirty, strategy.id, canEdit]);
+
   useEffect(() => {
     if (focusRow == null) return;
     document.querySelector<HTMLInputElement>(`[data-dwell-freq="${focusRow}"]`)?.focus();
@@ -71,11 +118,8 @@ export function DwellsEditor({
   }, [focusRow]);
 
   const { dwells, problem } = parse(rows);
-  const dirty =
-    JSON.stringify(rows) !== JSON.stringify(strategy.dwells.map(toRow)) || manual !== num(strategy.manual_collect_time_ms);
-  const manualValue = manual.trim() === "" ? DEFAULT_MS : Number(manual);
   const bandwidth = strategy.bandwidth_mhz ?? defaultBandwidth;
-  const overlay = usePlatformEmitterOverlay(strategy.platform_id);
+  const nextVersion = (strategy.latest_version_number ?? 0) + 1;
 
   const setRow = (i: number, patch: Partial<Row>) => setRows(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   function insertAt(i: number, row: Row = blankRow()) {
@@ -87,16 +131,25 @@ export function DwellsEditor({
     [next[i], next[to]] = [next[to], next[i]];
     setRows(next);
   }
+  function discard() {
+    writeDraft(strategy.id, null);
+    setRows(JSON.parse(stored) as Row[]);
+    setNotice(null);
+    setSummary("");
+    setError(null);
+  }
 
   async function save() {
     if (problem) return setError(problem);
-    if (!(manualValue >= 0)) return setError("The manual collect time can't be negative.");
     setError(null);
     setSaving(true);
     try {
-      await onSave({ dwells, manual_collect_time_ms: manualValue });
+      await onSave({ dwells, save_version: true, change_summary: summary.trim() || null });
+      writeDraft(strategy.id, null);
+      setNotice(null);
+      setSummary("");
     } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : "Couldn't save the dwells.");
+      setError(err instanceof ApiRequestError ? err.message : "Couldn't save the dwells — they're still kept here.");
     } finally {
       setSaving(false);
     }
@@ -133,22 +186,12 @@ export function DwellsEditor({
   return (
     <div className="dwell-editor">
       <section className="card dwell-editor-table">
-        <div className="dwell-editor-settings">
-          <label>
-            Manual collect time (ms)
-            <input
-              type="number"
-              step="any"
-              min="0"
-              value={manual}
-              disabled={!canEdit}
-              onChange={(e) => setManual(e.target.value)}
-              placeholder={String(DEFAULT_MS)}
-            />
-          </label>
-          <BandwidthField strategy={strategy} defaultBandwidth={defaultBandwidth} canEdit={canEdit} onSave={onSave} />
-        </div>
-
+        {notice && dirty && (
+          <div className="dwell-restored" role="status">
+            Restored your unsaved dwells from {formatDateTime(new Date(notice.savedAt).toISOString())}.
+            {notice.base !== stored && " The Strategy has been saved since — check them before saving."}
+          </div>
+        )}
         <div className="dwell-table-wrap">
           <table className="data-table dwell-table">
             <thead>
@@ -214,21 +257,31 @@ export function DwellsEditor({
 
         {canEdit && dirty && (
           <div className="dwell-save-bar" role="status">
-            <span>{problem ?? "Unsaved changes"}</span>
-            <button
-              type="button"
-              className="link-button"
-              onClick={() => {
-                setRows(strategy.dwells.map(toRow));
-                setManual(num(strategy.manual_collect_time_ms));
-                setError(null);
-              }}
-            >
-              Discard
-            </button>
-            <button type="button" className="button primary small" disabled={saving || !!problem} onClick={() => void save()}>
-              {saving ? "Saving…" : "Save changes"}
-            </button>
+            <span className="dwell-save-state">
+              {problem ?? "Unsaved — kept in this browser until you save or discard."}
+            </span>
+            <input
+              aria-label="What changed? (optional)"
+              placeholder="What changed? (optional)"
+              value={summary}
+              maxLength={2000}
+              onChange={(e) => setSummary(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && !problem && void save()}
+            />
+            <div className="dwell-save-actions">
+              <button type="button" className="link-button" onClick={discard}>
+                Discard
+              </button>
+              <button
+                type="button"
+                className="button primary small"
+                disabled={saving || !!problem}
+                title="Saves the dwells as a new version — dwell files can then pin it"
+                onClick={() => void save()}
+              >
+                {saving ? "Saving…" : `Save as v${nextVersion}`}
+              </button>
+            </div>
           </div>
         )}
         {error && (
@@ -236,29 +289,6 @@ export function DwellsEditor({
             {error}
           </p>
         )}
-
-        <details className="dwell-kept">
-          <summary>RapidDF and Split Mode</summary>
-          <p className="hint-text">Written to the file as they are; not edited here.</p>
-          <dl className="dwell-kept-list">
-            <dt>RapidDF</dt>
-            <dd>
-              {strategy.rapid_df
-                ? `${strategy.rapid_df.freq ?? "?"} MHz · dwell ${strategy.rapid_df.dwell_time ?? "?"} ms · collect ${
-                    strategy.rapid_df.collect_time ?? "?"
-                  } ms`
-                : "none"}
-            </dd>
-            <dt>Split Mode</dt>
-            <dd>
-              {strategy.split_mode?.length
-                ? strategy.split_mode
-                    .map((d) => `${d.freqs.join(" + ")} MHz · dwell ${d.dwell_time} ms · collect ${d.collect_time} ms`)
-                    .join("; ")
-                : "none"}
-            </dd>
-          </dl>
-        </details>
       </section>
 
       <div className="dwell-editor-chart">
@@ -269,6 +299,7 @@ export function DwellsEditor({
           onHover={setHover}
           overlay={overlay}
           overlayTitle={strategy.platform_name ? `${strategy.platform_name}'s Emitters` : "Emitters"}
+          controls={<BandwidthField strategy={strategy} defaultBandwidth={defaultBandwidth} canEdit={canEdit} onSave={onSave} />}
         />
       </div>
 
@@ -285,7 +316,8 @@ export function DwellsEditor({
   );
 }
 
-/** The chart's band width for this Strategy: saved when left; blank for the default. */
+/** The chart's band width for this Strategy: saved when left; blank for the
+ * default. (A display setting — not part of the Strategy's versions.) */
 function BandwidthField({
   strategy,
   defaultBandwidth,
@@ -310,19 +342,23 @@ function BandwidthField({
     if (next !== value) void onSave({ bandwidth_mhz: next });
   }
   return (
-    <label title="How wide each dwell is drawn in the chart. Blank: the default an admin sets under Admin → Settings.">
-      Chart band width (MHz)
+    <label
+      className="dwell-bandwidth"
+      title="How wide each dwell is drawn. Blank: the default an admin sets under Admin → Settings."
+    >
+      Band width
       <input
         type="number"
         step="any"
         min="0"
         value={text}
-        placeholder={`${num(defaultBandwidth)} (default)`}
+        placeholder={num(defaultBandwidth)}
         disabled={!canEdit}
         onChange={(e) => setText(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => e.key === "Enter" && commit()}
       />
+      MHz
     </label>
   );
 }
@@ -369,7 +405,7 @@ function AddSeveral({ onAdd, onClose }: { onAdd: (rows: Row[]) => void; onClose:
             <input type="number" step="any" min="0" value={collect} onChange={(e) => setCollect(e.target.value)} />
           </label>
         </div>
-        <p className="hint-text">They&apos;re added after the dwells already there; save changes to keep them.</p>
+        <p className="hint-text">They&apos;re added after the dwells already there; save to keep them.</p>
         {error && (
           <p className="error-text" role="alert">
             {error}

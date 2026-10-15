@@ -90,7 +90,9 @@ function StrategyList({ onNew }: { onNew: () => void }) {
 
   const needle = filter.trim().toLowerCase();
   const shown = strategies.filter(
-    (s) => !needle || s.name.toLowerCase().includes(needle) || (s.platform_name ?? "").toLowerCase().includes(needle),
+    (s) =>
+      !needle ||
+      [s.name, s.platform_name ?? "", s.description ?? ""].some((text) => text.toLowerCase().includes(needle)),
   );
   const groups = new Map<string, DwellStrategySummary[]>();
   for (const s of shown) {
@@ -104,7 +106,7 @@ function StrategyList({ onNew }: { onNew: () => void }) {
         <input
           type="search"
           className="dwell-filter"
-          placeholder="Filter by Strategy or Platform"
+          placeholder="Filter by Strategy, Platform or description"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
@@ -144,6 +146,7 @@ function StrategyList({ onNew }: { onNew: () => void }) {
                 <tr key={s.id}>
                   <td>
                     <Link to={`/dwells/strategies/${s.id}`}>{s.name}</Link>
+                    {s.description && <div className="dwell-desc">{s.description}</div>}
                   </td>
                   <td className="num">{s.dwell_count}</td>
                   <td className="nowrap">
@@ -236,6 +239,7 @@ export function NewStrategy({ onClose, platformId: initialPlatform = "" }: { onC
   const [name, setName] = useState("");
   const [platformId, setPlatformId] = useState(initialPlatform);
   const [copyFrom, setCopyFrom] = useState("");
+  const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -245,7 +249,12 @@ export function NewStrategy({ onClose, platformId: initialPlatform = "" }: { onC
     if (!platformId) return setError("Pick its Platform.");
     setSaving(true);
     try {
-      const made = await dwellsApi.createStrategy({ name: name.trim(), platform_id: platformId, copy_from_id: copyFrom || null });
+      const made = await dwellsApi.createStrategy({
+        name: name.trim(),
+        platform_id: platformId,
+        description: description.trim() || null,
+        copy_from_id: copyFrom || null,
+      });
       refresh();
       navigate(`/dwells/strategies/${made.id}`);
     } catch (err) {
@@ -262,6 +271,15 @@ export function NewStrategy({ onClose, platformId: initialPlatform = "" }: { onC
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={200} placeholder="e.g. Summer" autoFocus />
         </label>
         <PlatformSelect value={platformId} onChange={setPlatformId} platforms={platforms ?? []} />
+        <label>
+          Description (optional)
+          <input
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            maxLength={2000}
+            placeholder="e.g. Coastal patrol, summer"
+          />
+        </label>
         <label>
           Start from (optional)
           <select value={copyFrom} onChange={(e) => setCopyFrom(e.target.value)}>

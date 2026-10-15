@@ -23,7 +23,8 @@ class DwellStrategy(UUIDPkMixin, TimestampMixin, Base):
     platform_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("platforms.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # A line or two about it, shown in the lists.
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     manual_collect_time_ms: Mapped[float] = mapped_column(Float, nullable=False, default=50)
     # [{"freq_mhz", "dwell_time_ms", "collect_time_ms"}], in order.
     dwells: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
@@ -62,6 +63,26 @@ class DwellStrategyVersion(UUIDPkMixin, Base):
     @property
     def created_by_username(self) -> str | None:
         return self.creator.username if self.creator else None
+
+
+class DwellStrategyNote(UUIDPkMixin, Base):
+    """One append-only analyst note on a Strategy — the same shape as
+    PlatformNote."""
+
+    __tablename__ = "dwell_strategy_notes"
+
+    strategy_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("dwell_strategies.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    author_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
+
+    author: Mapped["User | None"] = relationship()  # noqa: F821
 
 
 class DwellFile(UUIDPkMixin, TimestampMixin, Base):

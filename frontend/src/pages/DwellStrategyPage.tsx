@@ -6,23 +6,28 @@ import { Modal } from "../components/common/Modal";
 import { LoadingState } from "../components/common/LoadingState";
 import { useConfirmDialog } from "../components/common/ConfirmDialog";
 import { formatDate } from "../components/common/dates";
-import { EntityAuditTrail } from "../components/audit/EntityAuditTrail";
+import { NotesFeed } from "../components/common/NotesFeed";
+import { NotesDrawer } from "../components/common/NotesDrawer";
 import { LatestVersion, SaveVersionButton } from "../components/versioning/SaveVersionButton";
 import { DwellsEditor } from "../components/dwells/DwellsEditor";
+import { num } from "../components/dwells/DwellChart";
 import { useHasRole } from "../auth/RequireAuth";
 import { ApiRequestError } from "../api/client";
 import { dwellsApi, type DwellStrategy, type StrategyTestUse } from "../api/dwells";
 import {
+  useAddDwellStrategyNote,
   useAppSettings,
   useCommitDwellVersion,
+  useDeleteDwellStrategyNote,
   useDwellStrategy,
+  useDwellStrategyNotes,
   useDwellVersions,
   useRefreshDwellLists,
   useUpdateDwellStrategy,
 } from "../state/hooks/useDwells";
 import { usePlatforms } from "../state/hooks/usePlatforms";
 
-type Tab = "dwells" | "used" | "audit";
+type Tab = "dwells" | "used";
 
 /** One Dwell Strategy: a Platform's dwells, edited, charted and saved as
  * versions that dwell files pin and test runs record. */
@@ -48,6 +53,9 @@ function StrategyView({ strategy }: { strategy: DwellStrategy }) {
   const { data: versions } = useDwellVersions("strategies", strategy.id);
   const commit = useCommitDwellVersion("strategies", strategy.id);
   const update = useUpdateDwellStrategy(strategy.id);
+  const { data: notes, isLoading: notesLoading } = useDwellStrategyNotes(strategy.id);
+  const addNote = useAddDwellStrategyNote(strategy.id);
+  const deleteNote = useDeleteDwellStrategyNote(strategy.id);
   const { confirmDelete, dialog } = useConfirmDialog();
   const [tab, setTab] = useState<Tab>("dwells");
   const [editing, setEditing] = useState<"details" | "copy" | null>(null);
@@ -79,18 +87,20 @@ function StrategyView({ strategy }: { strategy: DwellStrategy }) {
         title={strategy.name}
         actions={
           <>
-            <SaveVersionButton
-              noun="Strategy"
-              save={(summary) => commit.mutateAsync(summary)}
-              pending={commit.isPending}
-            />
+            {strategy.unsaved && (
+              <SaveVersionButton
+                noun="Strategy"
+                save={(summary) => commit.mutateAsync(summary)}
+                pending={commit.isPending}
+              />
+            )}
             <MenuButton
               label="More ▾"
               items={[
+                { label: "Details…", onSelect: () => setEditing("details") },
                 { label: "Version history", to: `/dwells/strategies/${strategy.id}/versions` },
                 ...(canEdit
                   ? [
-                      { label: "Edit details…", onSelect: () => setEditing("details") },
                       { label: "Make a copy…", onSelect: () => setEditing("copy") },
                       { label: "Delete this Strategy…", danger: true, onSelect: () => void handleDelete() },
                     ]
@@ -127,7 +137,7 @@ function StrategyView({ strategy }: { strategy: DwellStrategy }) {
           </>
         }
       >
-        {strategy.notes && <p className="muted emitter-description">{strategy.notes}</p>}
+        {strategy.description && <p className="muted emitter-description">{strategy.description}</p>}
       </EntityHeader>
       {error && (
         <p className="error-text" role="alert">
@@ -142,9 +152,6 @@ function StrategyView({ strategy }: { strategy: DwellStrategy }) {
         <button className={tab === "used" ? "tab active" : "tab"} onClick={() => setTab("used")}>
           Used in <span className="tab-count">{uses}</span>
         </button>
-        <button className={tab === "audit" ? "tab active" : "tab"} onClick={() => setTab("audit")}>
-          Audit
-        </button>
       </div>
 
       {tab === "dwells" && (
@@ -156,9 +163,22 @@ function StrategyView({ strategy }: { strategy: DwellStrategy }) {
         />
       )}
       {tab === "used" && <UsedIn strategy={strategy} />}
-      {tab === "audit" && <EntityAuditTrail entityType="dwell_strategy" entityId={strategy.id} />}
 
-      {editing === "details" && <EditDetails strategy={strategy} onClose={() => setEditing(null)} />}
+      <NotesDrawer count={notes?.length ?? 0} subject={strategy.name} draftKey={`notes-draft:dwell-strategy:${strategy.id}`}>
+        <NotesFeed
+          key={strategy.id}
+          draftKey={`notes-draft:dwell-strategy:${strategy.id}`}
+          notes={notes}
+          isLoading={notesLoading}
+          placeholder="Running notes about this Strategy — why it dwells where it does, what to check next."
+          onAdd={(body) => addNote.mutateAsync(body)}
+          isAdding={addNote.isPending}
+          onDelete={(noteId) => deleteNote.mutateAsync(noteId)}
+          inDrawer
+        />
+      </NotesDrawer>
+
+      {editing === "details" && <Details strategy={strategy} canEdit={canEdit} onClose={() => setEditing(null)} />}
       {editing === "copy" && <MakeCopy strategy={strategy} onClose={() => setEditing(null)} />}
       {dialog}
     </div>
@@ -240,25 +260,33 @@ function UsedIn({ strategy }: { strategy: DwellStrategy }) {
   );
 }
 
-/** Name, Platform and notes. */
-function EditDetails({ strategy, onClose }: { strategy: DwellStrategy; onClose: () => void }) {
+/** The Strategy's details: name, Platform, description and manual collect
+ * time — read-only for viewers. Saving them saves a new version. */
+function Details({ strategy, canEdit, onClose }: { strategy: DwellStrategy; canEdit: boolean; onClose: () => void }) {
   const update = useUpdateDwellStrategy(strategy.id);
   const { data: platforms } = usePlatforms();
   const [name, setName] = useState(strategy.name);
   const [platformId, setPlatformId] = useState(strategy.platform_id ?? "");
-  const [notes, setNotes] = useState(strategy.notes ?? "");
+  const [description, setDescription] = useState(strategy.description ?? "");
+  const [manual, setManual] = useState(num(strategy.manual_collect_time_ms));
   const [error, setError] = useState<string | null>(null);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (!canEdit) return onClose();
     if (!name.trim()) return setError("Give it a name.");
     if (!platformId) return setError("Pick its Platform.");
+    const manualValue = manual.trim() === "" ? 50 : Number(manual);
+    if (!(manualValue >= 0)) return setError("The manual collect time can't be negative.");
     setError(null);
     try {
       await update.mutateAsync({
         name: name.trim(),
         ...(platformId !== strategy.platform_id ? { platform_id: platformId } : {}),
-        notes: notes.trim() || null,
+        description: description.trim() || null,
+        manual_collect_time_ms: manualValue,
+        save_version: true,
+        change_summary: "Changed its details",
       });
       onClose();
     } catch (err) {
@@ -267,17 +295,24 @@ function EditDetails({ strategy, onClose }: { strategy: DwellStrategy; onClose: 
   }
 
   return (
-    <Modal title="Edit details" onClose={onClose} wide>
+    <Modal title="Details" onClose={onClose} wide>
       <form className="rename-form" onSubmit={submit}>
-        <label>
-          Name
-          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={200} autoFocus />
-        </label>
-        <PlatformSelect value={platformId} onChange={setPlatformId} platforms={platforms ?? []} />
-        <label>
-          Notes (optional)
-          <textarea rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} />
-        </label>
+        <fieldset className="plain-fieldset" disabled={!canEdit}>
+          <label>
+            Name
+            <input value={name} onChange={(e) => setName(e.target.value)} maxLength={200} autoFocus />
+          </label>
+          <PlatformSelect value={platformId} onChange={setPlatformId} platforms={platforms ?? []} />
+          <label>
+            Description (shown in the lists)
+            <textarea rows={2} value={description} maxLength={2000} onChange={(e) => setDescription(e.target.value)} />
+          </label>
+          <label>
+            Manual collect time (ms)
+            <input type="number" step="any" min="0" value={manual} placeholder="50" onChange={(e) => setManual(e.target.value)} />
+          </label>
+        </fieldset>
+        {canEdit && <p className="hint-text">Saving changes here saves a new version of the Strategy.</p>}
         {error && (
           <p className="error-text" role="alert">
             {error}
@@ -285,11 +320,13 @@ function EditDetails({ strategy, onClose }: { strategy: DwellStrategy; onClose: 
         )}
         <div className="modal-actions">
           <button type="button" className="button secondary" onClick={onClose}>
-            Cancel
+            {canEdit ? "Cancel" : "Close"}
           </button>
-          <button type="submit" className="button primary" disabled={update.isPending}>
-            {update.isPending ? "Saving…" : "Save"}
-          </button>
+          {canEdit && (
+            <button type="submit" className="button primary" disabled={update.isPending}>
+              {update.isPending ? "Saving…" : "Save"}
+            </button>
+          )}
         </div>
       </form>
     </Modal>

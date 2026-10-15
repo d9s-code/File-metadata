@@ -199,3 +199,39 @@ def test_a_test_run_records_the_strategy_version_used(editor_client):
     ]
     # Used in a test: kept.
     assert editor_client.delete(f"/dwell-strategies/{strategy['id']}").status_code == 409
+
+
+def test_saving_dwells_can_save_a_version_and_files_pin_it(editor_client):
+    platform = _platform(editor_client, "Pin Site")
+    strategy = editor_client.post(
+        "/dwell-strategies", json={"name": "Patrol", "platform_id": platform["id"], "description": "  Coastal  "}
+    ).json()
+    assert strategy["description"] == "Coastal"
+    saved = editor_client.patch(
+        f"/dwell-strategies/{strategy['id']}",
+        json={"dwells": [{"freq_mhz": 3030, "dwell_time_ms": 50}], "save_version": True, "change_summary": "First dwell"},
+    ).json()
+    assert saved["latest_version_number"] == 2 and saved["unsaved"] is False
+    # Nothing changed: no new version.
+    again = editor_client.patch(f"/dwell-strategies/{strategy['id']}", json={"save_version": True}).json()
+    assert again["latest_version_number"] == 2
+    versions = editor_client.get(f"/dwell-strategies/{strategy['id']}/versions").json()
+    assert versions[-1]["change_summary"] == "First dwell"
+
+    dwell_file = editor_client.post("/dwell-files", json={"name": "Pin file"}).json()
+    link = editor_client.post(f"/dwell-files/{dwell_file['id']}/strategies", json={"strategy_id": strategy["id"]}).json()["links"][0]
+    assert link["pinned_version_number"] == 2 and link["dwells"][0]["freq_mhz"] == 3030
+
+    listed = next(s for s in editor_client.get("/dwell-strategies").json() if s["id"] == strategy["id"])
+    assert listed["description"] == "Coastal"
+
+
+def test_strategy_notes(editor_client, viewer_client):
+    platform = _platform(editor_client, "Noted Site")
+    strategy = editor_client.post("/dwell-strategies", json={"name": "Noted", "platform_id": platform["id"]}).json()
+    note = editor_client.post(f"/dwell-strategies/{strategy['id']}/notes", json={"body": "Check X band"}).json()
+    assert note["body"] == "Check X band" and note["author_username"]
+    assert viewer_client.post(f"/dwell-strategies/{strategy['id']}/notes", json={"body": "no"}).status_code == 403
+    assert [n["body"] for n in viewer_client.get(f"/dwell-strategies/{strategy['id']}/notes").json()] == ["Check X band"]
+    assert editor_client.delete(f"/dwell-strategies/{strategy['id']}/notes/{note['id']}").status_code == 204
+    assert editor_client.get(f"/dwell-strategies/{strategy['id']}/notes").json() == []

@@ -46,6 +46,26 @@ export function useUpdateDwellStrategy(id: string) {
   });
 }
 
+export function useDwellStrategyNotes(id: string) {
+  return useQuery({ queryKey: [...strategiesKey, id, "notes"], queryFn: () => dwellsApi.notes(id), enabled: !!id });
+}
+
+export function useAddDwellStrategyNote(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: string) => dwellsApi.addNote(id, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...strategiesKey, id, "notes"] }),
+  });
+}
+
+export function useDeleteDwellStrategyNote(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (noteId: string) => dwellsApi.deleteNote(id, noteId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...strategiesKey, id, "notes"] }),
+  });
+}
+
 export function useDwellFiles() {
   return useQuery({ queryKey: [...filesKey, "list"], queryFn: dwellsApi.files });
 }
