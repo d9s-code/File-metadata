@@ -15,7 +15,7 @@ const LINKS: { to: string; label: string; also?: string[] }[] = [
   { to: "/dashboard", label: "Dashboard" },
   { to: "/emitters", label: "Emitters", also: ["/source-groups", "/ambiguity/emitter"] },
   { to: "/platforms", label: "Platforms", also: ["/ambiguity/platform"] },
-  { to: "/mdfs", label: "MDFs", also: ["/customers", "/ambiguity/mdf"] },
+  { to: "/mdfs", label: "MDFs", also: ["/customers", "/dwells", "/ambiguity/mdf"] },
   { to: "/intercepts", label: "Intercepts" },
   { to: "/tasks", label: "Tasks" },
 ];

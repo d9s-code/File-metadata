@@ -55,9 +55,10 @@ def build_platform_export_zip(platform_snapshot: dict, *, platform_id: str) -> b
     return buffer.getvalue()
 
 
-def build_mdf_export_zip(mdf_snapshot: dict, *, mdf_id: str) -> bytes:
+def build_mdf_export_zip(mdf_snapshot: dict, *, mdf_id: str, dwell_files: dict[str, bytes] | None = None) -> bytes:
     """A full MDF: every pinned Platform, and every Emitter pinned into each
-    of those Platforms.
+    of those Platforms — plus its dwell files, `dwells/<name>.xml`, given
+    already written (they aren't versioned with the MDF: the current ones).
     """
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -75,6 +76,9 @@ def build_mdf_export_zip(mdf_snapshot: dict, *, mdf_id: str) -> bytes:
                 written_platforms.add(platform_name)
                 platform_el = build_platform_element(platform_snapshot)
                 zf.writestr(f"platforms/{sanitize_filename(platform_name)}.xml", to_xml_bytes(platform_el))
+
+        for name, content in (dwell_files or {}).items():
+            zf.writestr(f"dwells/{sanitize_filename(name)}.xml", content)
 
         root_el = build_library_root(mdf_id=mdf_id, mdf_name=mdf_snapshot["name"])
         zf.writestr(f"{sanitize_filename(mdf_snapshot['name'])}.xml", to_xml_bytes(root_el))

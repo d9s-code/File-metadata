@@ -31,6 +31,7 @@ export const EMITTERS_SECTION: SectionLink[] = [
 export const MDFS_SECTION: SectionLink[] = [
   { to: "/mdfs", label: "MDFs" },
   { to: "/customers", label: "Customers" },
+  { to: "/dwells", label: "Dwells" },
 ];
 
 export function SectionTabs({ links }: { links: SectionLink[] }) {

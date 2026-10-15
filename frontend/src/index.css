@@ -6327,3 +6327,16 @@ input[aria-invalid="true"] {
   flex-basis: 100%;
   margin: 0 0 0.25rem;
 }
+
+/* Dwells: the Merged Mode table, and the dwell drawn over time. */
+.dwell-table { width: auto; }
+.dwell-table input { width: 8rem; }
+.dwell-actions { align-items: center; margin-top: 0.4rem; }
+.dwell-strategy h4 { margin: 0.6rem 0 0.3rem; }
+.dwell-chart { margin-top: 0.6rem; }
+.viz-plot .dwell-band { fill-opacity: 0.35; stroke-opacity: 0.9; stroke-width: 1; }
+.viz-plot .dwell-step.hovered .dwell-band { fill-opacity: 0.6; }
+.viz-plot .dwell-centre { stroke: var(--text); stroke-width: 1.5; }
+.viz-plot text.dwell-step-label { fill: var(--muted); font-size: 11px; }
+.viz-plot .viz-axis { stroke: var(--border); }
+.dwell-kept { font-size: 0.8rem; margin-top: 0.4rem; }

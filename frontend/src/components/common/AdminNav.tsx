@@ -15,6 +15,9 @@ export function AdminNav() {
       <NavLink to="/admin/backups" className={({ isActive }) => (isActive ? "tab active" : "tab")}>
         Backups
       </NavLink>
+      <NavLink to="/admin/settings" className={({ isActive }) => (isActive ? "tab active" : "tab")}>
+        Settings
+      </NavLink>
     </div>
   );
 }

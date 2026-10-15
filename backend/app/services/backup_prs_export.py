@@ -23,8 +23,10 @@ from sqlalchemy.orm import Session
 
 from app.models.emitter import Emitter
 from app.models.emitter_version import EmitterVersion
+from app.models.dwell import DwellFile
 from app.models.mdf import Mdf, MdfVersion
 from app.models.platform import Platform, PlatformVersion
+from app.services.dwell_xml import build_dwell_xml
 from app.services.prs_export.packager import _template_bytes, build_mdf_export_zip, build_platform_export_zip
 from app.services.prs_export.serializer import build_emitter_element, sanitize_filename, to_xml_bytes
 from app.services.snapshots import build_emitter_snapshot, build_mdf_snapshot, build_platform_snapshot
@@ -117,7 +119,13 @@ def build_repository_prs_zip(db: Session, taken_at: datetime) -> tuple[bytes, di
             version = versions.get(mdf.id)
             snapshot = version.snapshot if version else build_mdf_snapshot(mdf)
             folder = _unique(mdf.name, taken)
-            summary["files"] += _add_package(out, f"mdfs/{folder}", build_mdf_export_zip(snapshot, mdf_id=str(mdf.id)))
+            dwell_files = {
+                f.name: build_dwell_xml(f)
+                for f in db.query(DwellFile).filter(DwellFile.mdf_id == mdf.id).order_by(DwellFile.name)
+            }
+            summary["files"] += _add_package(
+                out, f"mdfs/{folder}", build_mdf_export_zip(snapshot, mdf_id=str(mdf.id), dwell_files=dwell_files)
+            )
             summary["mdfs"] += 1
             lines.append(f"  {folder}/: {source(version, mdf.name)}")
 

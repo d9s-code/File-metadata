@@ -28,6 +28,9 @@ import { MdfVersionHistoryPage } from "./pages/MdfVersionHistoryPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { SourceGroupsPage } from "./pages/SourceGroupsPage";
 import { CustomersPage } from "./pages/CustomersPage";
+import { DwellsListPage } from "./pages/DwellsListPage";
+import { DwellFilePage } from "./pages/DwellFilePage";
+import { AdminSettingsPage } from "./pages/AdminSettingsPage";
 import { InterceptsPage } from "./pages/InterceptsPage";
 import { InterceptDetailPage } from "./pages/InterceptDetailPage";
 import { InterceptModePlanPage } from "./pages/InterceptModePlanPage";
@@ -188,6 +191,22 @@ export default function App() {
                 }
               />
               <Route
+                path="/dwells"
+                element={
+                  <RequireAuth>
+                    <DwellsListPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/dwells/:dwellId"
+                element={
+                  <RequireAuth>
+                    <DwellFilePage />
+                  </RequireAuth>
+                }
+              />
+              <Route
                 path="/customers"
                 element={
                   <RequireAuth>
@@ -311,6 +330,16 @@ export default function App() {
                   <RequireAuth>
                     <RequireAdmin>
                       <AdminBackupsPage />
+                    </RequireAdmin>
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/admin/settings"
+                element={
+                  <RequireAuth>
+                    <RequireAdmin>
+                      <AdminSettingsPage />
                     </RequireAdmin>
                   </RequireAuth>
                 }

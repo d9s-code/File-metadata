@@ -264,6 +264,16 @@ Before moving an MDF toward `approved` or `released`, the app checks two things 
 
 If either check turns up something, you'll see the warnings in a confirmation prompt before the transition goes through. You can always proceed anyway.
 
+### Dwells
+
+**Dwells** (a tab beside MDFs and Customers) are the dwell files a PRS export carries as `dwells/<name>.xml`. A dwell file holds its **Settings** (timeout, setup time) and one **Dwell Strategy** per Platform — the Platform's dwell in the MDF (a Platform can't have two Strategies in one file). A file can be linked to an MDF: its Strategies' Platform pickers list that MDF's Platforms first, a Strategy for a Platform the MDF doesn't pin is flagged, and the page names the MDF's Platforms that have no Strategy yet (+ Add a Dwell Strategy picks the first of them). An MDF's **PRS export** includes every dwell file linked to it, as it is now (dwell files aren't versioned with the MDF), and so does the backup's PRS copy.
+
+Each Strategy's **Merged Mode** is edited on the page: an ordered list of dwells, each a **frequency in MHz** (the file has it in Hz — 1 MHz is written 1000000), a **dwell time** and a **collect time** in ms (collect defaults to 50 ms); rows are added, removed and moved, then saved together (Discard drops the edits). The Strategy's **manual collect time** (ms, default 50) is set beside its Platform. RapidDF and Split Mode aren't edited: they're kept exactly as the imported file had them, and a new Strategy gets RapidDF 50/50/500 and Split Mode 500, 750 (dwell and collect 50). Strategies can be moved up and down (the order the file lists them in) and removed.
+
+Below the dwells, **Dwell over time** draws one cycle: each dwell in turn for its dwell time, as a band of the chart **bandwidth** around its frequency (± half of it), numbered, with its times on hover. The bandwidth is an app-wide default an admin sets under **Admin → Settings** (10 MHz to start with); a dwell file can keep its own (Chart bandwidth on its page; blank goes back to the default).
+
+**Import XML** makes a dwell file from one (its Settings, and each Strategy's dwells, manual collect time, RapidDF and Split Mode); the file doesn't say which Platform each Strategy is for, so they're picked afterwards. **Download XML** writes it back in the same layout — an imported file comes out as it went in. Every change is in the audit log. (`/dwells`, `/dwells/import`, `/dwells/{id}/xml`, `/dwells/{id}/strategies`, `/dwell-strategies/{id}`; settings at `GET/PATCH /settings`, admins only to change.)
+
 ---
 
 ## 8. Test Tracking

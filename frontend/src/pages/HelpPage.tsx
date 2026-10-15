@@ -45,6 +45,7 @@ const TOC: TocNode[] = [
       { id: "mdf-detail", title: "MDF detail" },
       { id: "mdf-versions", title: "Version history & XML export" },
       { id: "mdf-ambiguity", title: "Ambiguity check" },
+      { id: "dwells", title: "Dwells" },
     ],
   },
   { id: "source-groups", title: "Source Groups" },
@@ -883,6 +884,28 @@ export function HelpPage() {
           <p>
             Works like a Platform&apos;s — which Emitters could be taken for each other — across every Emitter
             reached through the Platforms pinned to this MDF (an Emitter on several of them counts once).
+          </p>
+        </div>
+        <div className="help-subsection" id="dwells">
+          <h3>Dwells</h3>
+          <p>
+            <strong>Dwells</strong> (a tab beside MDFs and Customers) are the dwell files an MDF&apos;s export carries
+            as dwells/&lt;name&gt;.xml. A dwell file has one <strong>Dwell Strategy</strong> per Platform — that
+            Platform&apos;s dwell in the MDF. Link the file to an MDF and its Platforms are offered first; the page says
+            which of them have no Strategy yet, and the MDF&apos;s export includes the file.
+          </p>
+          <p>
+            In each Strategy you edit the <strong>Merged Mode</strong>: the dwells in order, each a frequency in{" "}
+            <strong>MHz</strong> (the file keeps Hz), a dwell time and a collect time in ms (collect 50 ms unless
+            changed) — add, remove or move rows, then <strong>Save changes</strong>. The <strong>manual collect
+            time</strong> (50 ms by default) sits beside the Platform. RapidDF and Split Mode are kept as the file had
+            them. <strong>Dwell over time</strong> draws one cycle, each dwell as a band around its frequency; the
+            band&apos;s width is the <strong>chart bandwidth</strong> — the default an admin sets under Admin → Settings,
+            or the file&apos;s own if set on its page.
+          </p>
+          <p>
+            <strong>Import XML</strong> makes a dwell file from an existing one (then pick each Strategy&apos;s
+            Platform); <strong>Download XML</strong> writes it back in the same layout.
           </p>
         </div>
       </div>

@@ -14,6 +14,7 @@ from app.routers import (
     customers,
     dashboard,
     dsl,
+    dwells,
     emitters,
     ew_groups,
     imports,
@@ -82,6 +83,7 @@ app.include_router(audit_log.router)
 app.include_router(trash.router)
 app.include_router(backups.router)
 app.include_router(backups.status_router)
+app.include_router(dwells.router)
 
 
 @app.get("/health")
