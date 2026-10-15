@@ -11,7 +11,6 @@ from app.models.emitter import Emitter
 from app.models.mode import Mode, ModeLine
 from app.models.ew_group import EwGroup
 from app.models.source import Source
-from app.core.enums import SourceStatus
 from app.services.delta import apply_delta
 from app.services.frametime_service import effective_frametime_us
 from app.services.prs_export.serializer import sanitize_filename
@@ -78,13 +77,7 @@ class XMLExporterService:
         etree.SubElement(root, "Intrapulse", Name="default", Modulation="Unknown")
         
         # 1. Collect all unique EWParameter sets and map them to scans
-        # A Mode is left out only when every Source it comes from was rejected.
-        exported_modes = [
-            mode
-            for source in emitter.sources
-            for mode in source.modes
-            if any(s.status != SourceStatus.rejected for s in mode.sources)
-        ]
+        exported_modes = [mode for source in emitter.sources for mode in source.modes]
         scan_groups = {}
         for mode in exported_modes:
             scan_name = mode.ew_group.name

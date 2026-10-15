@@ -126,7 +126,6 @@ export function formatChanges(changes: Record<string, unknown> | null, entityTyp
 // and field.
 const VALUE_LABELS: Record<string, Record<string, Record<string, string>>> = {
   emitter: { status: EMITTER_STATUS_LABEL },
-  source: { status: { approved: "Approved", pending_review: "Pending review", rejected: "Rejected" } },
 };
 
 /** An entry's summary as shown. Entries written before the edit-lock wording

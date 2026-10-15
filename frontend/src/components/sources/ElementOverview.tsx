@@ -49,7 +49,6 @@ function SourceList({ emitterId, row }: { emitterId: string; row: ElementOvervie
         <span key={o.source_id}>
           {i > 0 && ", "}
           <Link to={`/emitters/${emitterId}?tab=setup&source=${o.source_id}`}>{o.source_name}</Link>
-          {o.source_status === "rejected" && <span className="hint-text"> (rejected)</span>}
         </span>
       ))}
       {rest > 0 && (

@@ -12,8 +12,7 @@ from app.models.mixins import UUIDPkMixin
 class ImportBatch(UUIDPkMixin, Base):
     """One remote-agent import run against a single source document (a vendor
     XML file parsed elsewhere into our JSON contract). Pure provenance/grouping
-    metadata — carries no status of its own; overall progress is a derived
-    count of its Sources' SourceStatus values.
+    metadata — carries no status of its own.
     """
 
     __tablename__ = "import_batches"

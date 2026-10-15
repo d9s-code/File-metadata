@@ -13,12 +13,6 @@ class NeedsAttentionItem(BaseModel):
     category: str
 
 
-class PendingApprovalItem(BaseModel):
-    message: str
-    kind: Literal["source"]
-    emitter_id: str
-
-
 class NeedsRedoTestItem(BaseModel):
     entity_type: Literal["emitter", "mdf"]
     entity_id: str
@@ -62,7 +56,6 @@ class DashboardOut(BaseModel):
     emitter_status_counts: dict[str, int]
     mdf_status_counts: dict[str, int]
     needs_attention: list[NeedsAttentionItem]
-    pending_approvals: list[PendingApprovalItem]
     sim_line_counts: dict[str, int]
     emitter_sim_status: list[EmitterSimStatus]
     recent_test_runs: list[RecentTestRun]
@@ -79,7 +72,6 @@ class OverviewOut(BaseModel):
 
 class AttentionOut(BaseModel):
     needs_attention: list[NeedsAttentionItem]
-    pending_approvals: list[PendingApprovalItem]
 
 
 class TestRunsOut(BaseModel):

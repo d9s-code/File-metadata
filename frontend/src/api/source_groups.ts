@@ -5,7 +5,6 @@ import type { SourceGroup } from "../types/domain";
 export interface SourceOverview {
   id: string;
   name: string;
-  status: string;
   source_type: string | null;
   /** "Date last updated" of the Source's contents (YYYY-MM-DD). */
   source_date: string;

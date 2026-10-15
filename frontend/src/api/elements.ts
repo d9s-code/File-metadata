@@ -61,7 +61,6 @@ export interface ElementOverviewRow {
     element_id: string;
     source_id: string;
     source_name: string;
-    source_status: string;
     variant: ElementVariant | null;
     label: string | null;
     delta: number | null;

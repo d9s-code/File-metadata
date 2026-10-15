@@ -32,17 +32,13 @@ SOURCE_FIELD_LABELS = {
     "name": "Name",
     "description": "Description",
     "source_date": "Source Date",
-    "status": "Review Status",
-    "rejection_reason": "Rejection Reason",
 }
 
-SOURCE_FIELDS_ADDED_LATER = frozenset({"status", "rejection_reason"})
+SOURCE_FIELDS_ADDED_LATER: frozenset[str] = frozenset()
 
 # Stored status values shown by the name a person knows them by.
 EMITTER_VALUE_LABELS = {"status": EMITTER_STATUS_LABELS}
-SOURCE_VALUE_LABELS = {
-    "status": {"approved": "Approved", "pending_review": "Pending review", "rejected": "Rejected"},
-}
+SOURCE_VALUE_LABELS: dict = {}
 
 TEST_LINE_FIELD_LABELS = {
     "label": "Label",

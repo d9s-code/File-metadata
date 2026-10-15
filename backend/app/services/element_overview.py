@@ -59,7 +59,6 @@ def element_overview(db: Session, emitter_id: UUID) -> list[dict]:
                 "element_id": element.id,
                 "source_id": source.id,
                 "source_name": source.name,
-                "source_status": source.status.value,
                 "variant": element.variant.value if element.variant else None,
                 "label": element.label,
                 "delta": _num(element.delta),

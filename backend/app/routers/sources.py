@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.csrf import verify_csrf
-from app.core.enums import AuditAction, AuditEntityType, Role, SourceStatus
+from app.core.enums import AuditAction, AuditEntityType, Role
 from app.database import get_db
 from app.deps import require_emitter_checkout, require_role
 from app.models.cartesian_run import CartesianRun
@@ -30,7 +30,7 @@ from app.schemas.parameter_sequence import (
     ParameterSequenceOut,
     ParameterSequenceUpdate,
 )
-from app.schemas.source import SourceCreate, SourceOut, SourceRejectRequest, SourceUpdate
+from app.schemas.source import SourceCreate, SourceOut, SourceUpdate
 from app.schemas.source_note import SourceNoteCreate, SourceNoteOut
 from app.services.cartesian_log import modes_remaining, record_cartesian_run
 from app.services.mode_sources import set_mode_sources
@@ -253,76 +253,6 @@ def delete_source_note(
     )
     db.delete(note)
     db.commit()
-
-
-@router.post("/{source_id}/approve", response_model=SourceOut, dependencies=[Depends(verify_csrf)])
-def approve_source(
-    emitter_id: UUID,
-    source_id: UUID,
-    db: Session = Depends(get_db),
-    user=Depends(require_emitter_checkout()),
-) -> Source:
-    source = _get_source_or_404(db, emitter_id, source_id)
-    if source.status == SourceStatus.approved:
-        raise HTTPException(status.HTTP_409_CONFLICT, "This Source is already approved")
-    old_status = source.status
-    old_reason = source.rejection_reason
-    source.status = SourceStatus.approved
-    source.rejection_reason = None
-    changes: dict = {"status": {"old": old_status.value, "new": SourceStatus.approved.value}}
-    if old_reason:
-        changes["rejection_reason"] = {"old": old_reason, "new": None}
-    record_audit(
-        db,
-        actor_id=user.id,
-        action=AuditAction.status_change,
-        entity_type=AuditEntityType.source.value,
-        entity_id=source.id,
-        summary=(
-            f"Approved previously rejected Source '{source.name}'"
-            if old_status == SourceStatus.rejected
-            else f"Approved imported Source '{source.name}'"
-        ),
-        changes=changes,
-        emitter_id=emitter_id,
-    )
-    db.commit()
-    db.refresh(source)
-    return source
-
-
-@router.post("/{source_id}/reject", response_model=SourceOut, dependencies=[Depends(verify_csrf)])
-def reject_source(
-    emitter_id: UUID,
-    source_id: UUID,
-    payload: SourceRejectRequest,
-    db: Session = Depends(get_db),
-    user=Depends(require_emitter_checkout()),
-) -> Source:
-    source = _get_source_or_404(db, emitter_id, source_id)
-    if source.status != SourceStatus.pending_review:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            f"Only a pending-review Source can be rejected (this one is {source.status.value})",
-        )
-    source.status = SourceStatus.rejected
-    source.rejection_reason = payload.reason
-    record_audit(
-        db,
-        actor_id=user.id,
-        action=AuditAction.status_change,
-        entity_type=AuditEntityType.source.value,
-        entity_id=source.id,
-        summary=f"Rejected imported Source '{source.name}': {payload.reason}",
-        changes={
-            "status": {"old": SourceStatus.pending_review.value, "new": SourceStatus.rejected.value},
-            "rejection_reason": {"old": None, "new": payload.reason},
-        },
-        emitter_id=emitter_id,
-    )
-    db.commit()
-    db.refresh(source)
-    return source
 
 
 @router.get("/{source_id}/parameter-sequences", response_model=list[ParameterSequenceOut])

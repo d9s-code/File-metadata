@@ -75,26 +75,6 @@ def test_dashboard_flags_needs_rework_emitter(editor_client):
     assert "RF drifted, recheck." in matches[0]["message"]
 
 
-def test_dashboard_lists_pending_source(editor_client, db_session):
-    from app.core.enums import SourceStatus
-    from app.models.source import Source
-
-    emitter = editor_client.post("/emitters", json={"name": "Dash Pending Emitter"}).json()
-    source = editor_client.post(
-        f"/emitters/{emitter['id']}/sources", json={"name": "Source P", "source_date": "2025-01-01"}
-    ).json()
-
-    # No HTTP path creates a pending_review Source directly (only the import
-    # pipeline does) — flip it via the shared session, same as the request
-    # handlers would see it.
-    db_session.query(Source).filter(Source.id == source["id"]).update({"status": SourceStatus.pending_review})
-    db_session.commit()
-
-    items = editor_client.get("/dashboard").json()["pending_approvals"]
-    kinds = {(item["kind"], item["emitter_id"]) for item in items}
-    assert ("source", emitter["id"]) in kinds
-
-
 def test_dashboard_needs_redo_appears_then_disappears_after_retest(editor_client):
     emitter = editor_client.post("/emitters", json={"name": "Dash Redo Emitter"}).json()
     ew_group = editor_client.post(f"/emitters/{emitter['id']}/ew-groups", json={"name": "Group R"}).json()

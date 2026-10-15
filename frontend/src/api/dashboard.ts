@@ -8,12 +8,6 @@ export interface NeedsAttentionItem {
   category: "stale" | "rework" | "sim" | "mdf" | "intercepts" | "ambiguity" | "locks";
 }
 
-export interface PendingApprovalItem {
-  message: string;
-  kind: "source";
-  emitter_id: string;
-}
-
 export interface NeedsRedoTestItem {
   entity_type: "emitter" | "mdf";
   entity_id: string;
@@ -57,7 +51,6 @@ export interface Dashboard {
   emitter_status_counts: Record<string, number>;
   mdf_status_counts: Record<string, number>;
   needs_attention: NeedsAttentionItem[];
-  pending_approvals: PendingApprovalItem[];
   sim_line_counts: SimOutcomeCounts;
   emitter_sim_status: EmitterSimStatus[];
   recent_test_runs: RecentTestRun[];
@@ -69,7 +62,7 @@ export type DashboardOverview = Pick<
   Dashboard,
   "emitter_status_counts" | "mdf_status_counts" | "sim_line_counts" | "emitter_sim_status"
 >;
-export type DashboardAttention = Pick<Dashboard, "needs_attention" | "pending_approvals">;
+export type DashboardAttention = Pick<Dashboard, "needs_attention">;
 export type DashboardTestRuns = Pick<Dashboard, "recent_test_runs" | "needs_redo">;
 
 export interface DashboardAdmin {

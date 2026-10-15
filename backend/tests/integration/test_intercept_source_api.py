@@ -15,7 +15,6 @@ def test_turn_into_source_makes_a_linked_pending_source(editor_client, emitter_c
     assert resp.status_code == 201, resp.text
     linked = resp.json()
     assert linked["source_name"] == "Morning Pass"
-    assert linked["source_status"] == "pending_review"
 
     sources = {s["id"]: s for s in editor_client.get(f"/emitters/{emitter_id}/sources").json()}
     source = sources[linked["source_id"]]
@@ -24,7 +23,6 @@ def test_turn_into_source_makes_a_linked_pending_source(editor_client, emitter_c
     assert source["source_type"] == "Intercept"
     assert source["source_date"] == "2026-09-14"
     assert source["description"] == "Over the strait"
-    assert source["status"] == "pending_review"
 
     # A Mode can now have the Intercept as its Source.
     mode = editor_client.post(

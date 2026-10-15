@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { JsonImportModal } from "../common/JsonImportModal";
 import type { EwGroup, Source } from "../../types/domain";
-import { useApproveSource, useDeleteSource, useUpdateSource } from "../../state/hooks/useSources";
+import { useDeleteSource, useUpdateSource } from "../../state/hooks/useSources";
 import { useCreateSourceNote, useDeleteSourceNote, useSourceNotes } from "../../state/hooks/useSourceNotes";
 import { useSourceGroups } from "../../state/hooks/useSourceGroups";
 import { useElements } from "../../state/hooks/useElements";
@@ -20,14 +20,12 @@ import { ParameterSequencesPanel } from "./ParameterSequencesPanel";
 import { CartesianProductButton } from "./CartesianProductButton";
 import { SourceForm } from "./SourceForm";
 import { SourceBatchAddModal } from "./SourceBatchAddModal";
-import { RejectSourceModal } from "./RejectSourceModal";
 import { RequireRole } from "../../auth/RequireAuth";
 import { ApiRequestError } from "../../api/client";
 import { EmptyState } from "../common/EmptyState";
 import { SortableColumnHeader } from "../common/SortableColumnHeader";
 import { useSortableTable } from "../common/useSortableTable";
 import { compareStrings } from "../common/sortUtils";
-import { statusLabel } from "../common/emitterStatusLabel";
 import { modeSourceIds } from "../modes/modeFormat";
 import { GenerationLog } from "./GenerationLog";
 
@@ -219,9 +217,6 @@ function SourceOverlay({
           <div className="source-overlay-title">
             <h3>
               {source.name}
-              {source.status !== "approved" && (
-                <span className={`status-badge status-${source.status}`}>{statusLabel(source.status)}</span>
-              )}
             </h3>
             <div className="hint-text">
               {source.intercept_id && (
@@ -269,7 +264,6 @@ export function SourcesTable({
   linkedSourceId?: string;
 }) {
   const deleteSource = useDeleteSource(emitterId);
-  const approveSource = useApproveSource(emitterId);
   const { data: allModes } = useEmitterModes(emitterId);
   const { data: emitter } = useEmitter(emitterId);
   const { sourceGroups } = useSourceGroups();
@@ -286,7 +280,6 @@ export function SourcesTable({
   const [renamingSource, setRenamingSource] = useState<Source | null>(null);
   const updateSource = useUpdateSource(emitterId);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [rejectingSource, setRejectingSource] = useState<Source | null>(null);
   const [showJsonImport, setShowJsonImport] = useState(false);
   const queryClient = useQueryClient();
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
@@ -350,15 +343,6 @@ export function SourcesTable({
       else next.add(key);
       return next;
     });
-  }
-
-  async function handleApprove(source: Source) {
-    setDeleteError(null);
-    try {
-      await approveSource.mutateAsync(source.id);
-    } catch (err) {
-      setDeleteError(err instanceof ApiRequestError ? err.message : "Failed to approve source");
-    }
   }
 
   async function handleDelete(source: Source) {
@@ -507,12 +491,6 @@ export function SourcesTable({
                                 Intercept
                               </Link>
                             )}
-                            {s.status !== "approved" && (
-                              <span className={`status-badge status-${s.status}`}>{statusLabel(s.status)}</span>
-                            )}
-                            {s.status === "rejected" && s.rejection_reason && (
-                              <div className="hint-text rejection-reason">Rejected: {s.rejection_reason}</div>
-                            )}
                           </td>
                           <td>{s.rf_legacy_term ?? "—"}</td>
                           <td>{s.pri_legacy_term ?? "—"}</td>
@@ -535,19 +513,6 @@ export function SourcesTable({
                                 className="row-menu-button"
                                 ariaLabel={`Actions for ${s.name}`}
                                 items={[
-                                  ...(s.status !== "approved"
-                                    ? [
-                                        {
-                                          label: "Approve",
-                                          disabled: !canEdit || approveSource.isPending,
-                                          title: editTitle,
-                                          onSelect: () => void handleApprove(s),
-                                        },
-                                      ]
-                                    : []),
-                                  ...(s.status === "pending_review"
-                                    ? [{ label: "Reject…", disabled: !canEdit, title: editTitle, onSelect: () => setRejectingSource(s) }]
-                                    : []),
                                   { label: "Rename…", disabled: !canEdit, title: editTitle, onSelect: () => setRenamingSource(s) },
                                   {
                                     label: "Edit",
@@ -583,9 +548,6 @@ export function SourcesTable({
           onNavigate={setOpenSourceId}
           onClose={closeOverlay}
         />
-      )}
-      {rejectingSource && (
-        <RejectSourceModal emitterId={emitterId} source={rejectingSource} onClose={() => setRejectingSource(null)} />
       )}
       {showJsonImport && (
         <JsonImportModal

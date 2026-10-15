@@ -13,8 +13,6 @@ from app.models.mdf import MdfPlatformLink
 from app.models.platform import Platform, PlatformEmitterLink, PlatformVersion
 from app.services.delta import apply_delta
 from app.services.frametime_service import effective_frametime_us
-from app.services.mode_sources import all_rejected, mode_source_ids
-from app.services.snapshots import rejected_source_ids
 
 
 def _span(lo, hi):
@@ -63,12 +61,11 @@ def _mode_ranges(mode: dict) -> dict | None:
 
 def emitter_coverage(snapshot: dict, *, emitter_id, emitter_name: str, designation, version_number: int) -> dict:
     """One Emitter version's coverage from its snapshot."""
-    rejected = rejected_source_ids(snapshot)
     modes = [
         ranges
         for group in snapshot.get("ew_groups", [])
         for mode in group.get("modes", [])
-        if not all_rejected(mode_source_ids(mode), rejected) and (ranges := _mode_ranges(mode)) is not None
+        if (ranges := _mode_ranges(mode)) is not None
     ]
     return {
         "emitter_id": emitter_id,

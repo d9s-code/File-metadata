@@ -14,7 +14,6 @@ export type PriType = "fixed" | "stagger" | "cw" | "xlet";
 
 export type ElementType = "rf" | "pw" | "pri" | "scan";
 export type ElementVariant = "typical" | "discrete" | "most_probable" | "extreme" | "intercept" | "analysis" | "other";
-export type SourceStatus = "approved" | "pending_review" | "rejected";
 
 export interface User {
   id: string;
@@ -146,8 +145,6 @@ export interface Source {
   pri_legacy_term: string | null;
   source_type: string | null;
   source_date: string;
-  status: SourceStatus;
-  rejection_reason: string | null;
   import_batch_id: string | null;
   group_id: string | null;
   /** Set when this Source stands for an Intercept. */
@@ -301,7 +298,6 @@ export interface Intercept {
   /** The Source made from it with "Turn into Source", if any. */
   source_id: string | null;
   source_name: string | null;
-  source_status: SourceStatus | null;
 }
 
 /** One report kept from an imported file. */

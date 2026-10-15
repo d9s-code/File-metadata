@@ -10,7 +10,6 @@ from app.core.enums import (
     EmitterStatus,
     MdfStatus,
     Role,
-    SourceStatus,
     TestResult,
     TestScopeType,
 )
@@ -24,7 +23,6 @@ from app.models.intercept import Intercept, InterceptEntry
 from app.models.mdf import Mdf, MdfPlatformLink
 from app.models.mode import Mode
 from app.models.platform import Platform
-from app.models.source import Source
 from app.models.user import User
 from app.models.test_line import TestLine
 from app.models.test_record import TestRecord, TestRecordLine
@@ -253,27 +251,6 @@ def _compute_needs_attention(db: Session, sim_rows: list[dict], user: User | Non
     return items
 
 
-def _compute_pending_approvals(db: Session) -> list[dict]:
-    pending: list[dict] = []
-
-    pending_sources = (
-        db.query(Source, Emitter.name)
-        .join(Emitter, Source.emitter_id == Emitter.id)
-        .filter(Source.status == SourceStatus.pending_review, Emitter.is_deleted.is_(False))
-        .all()
-    )
-    for source, emitter_name in pending_sources:
-        pending.append(
-            {
-                "message": f"Source '{source.name}' on Emitter '{emitter_name}' is awaiting review.",
-                "kind": "source",
-                "emitter_id": str(source.emitter_id),
-            }
-        )
-
-    return pending
-
-
 def _compute_emitter_sim_status(db: Session) -> list[dict]:
     """One row per Emitter: how its SIM Test Lines did in their latest run,
     and when it was last validated against a simulation."""
@@ -467,11 +444,9 @@ def overview_section(db: Session) -> dict:
 
 
 def attention_section(db: Session, user: User | None = None) -> dict:
-    """Sources awaiting review go to those who can review them (editors and up)."""
     sim_rows = _compute_emitter_sim_status(db)
     return {
         "needs_attention": _compute_needs_attention(db, sim_rows, user),
-        "pending_approvals": _compute_pending_approvals(db) if user is None or has_role(user, Role.editor) else [],
     }
 
 
@@ -497,7 +472,6 @@ def compute_dashboard(db: Session, user: User | None = None) -> dict:
     return {
         **overview,
         "needs_attention": _compute_needs_attention(db, overview["emitter_sim_status"], user),
-        "pending_approvals": _compute_pending_approvals(db) if user is None or has_role(user, Role.editor) else [],
         **test_runs_section(db),
         "recent_activity": _compute_recent_activity(db),
     }

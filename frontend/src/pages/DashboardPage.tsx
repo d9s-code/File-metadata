@@ -38,11 +38,7 @@ export function DashboardPage() {
         <MyWorkCard />
 
         {attention.data ? (
-          <NeedsAttentionCard
-            items={attention.data.needs_attention}
-            pendingApprovals={attention.data.pending_approvals}
-            wide={!isAdmin}
-          />
+          <NeedsAttentionCard items={attention.data.needs_attention} wide={!isAdmin} />
         ) : (
           <Loading title="Needs Attention" className={isAdmin ? "card" : "card dashboard-wide"} />
         )}

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import type { NeedsAttentionItem, PendingApprovalItem } from "../../api/dashboard";
+import type { NeedsAttentionItem } from "../../api/dashboard";
 import { EmptyState } from "../common/EmptyState";
 
 /** Items listed per group before "Show all". */
@@ -63,11 +63,9 @@ function AttentionGroup({ group, open, onToggle }: { group: Group; open: boolean
  * away; the first two start open. */
 export function NeedsAttentionCard({
   items,
-  pendingApprovals,
   wide,
 }: {
   items: NeedsAttentionItem[];
-  pendingApprovals: PendingApprovalItem[];
   wide: boolean;
 }) {
   const byCategory = (category: NeedsAttentionItem["category"]) =>
@@ -75,12 +73,6 @@ export function NeedsAttentionCard({
   const groups: Group[] = [
     { key: "sim", title: "Simulation", hint: "SIM Test Lines that went wrong, or tests that are out of date", items: byCategory("sim") },
     { key: "rework", title: "Needs rework", hint: "Emitters moved to Needs rework", items: byCategory("rework") },
-    {
-      key: "sources",
-      title: "Sources awaiting review",
-      hint: "Approve or reject them on the Emitter's Groups & Sources tab",
-      items: pendingApprovals.map((p) => ({ message: p.message, to: `/emitters/${p.emitter_id}` })),
-    },
     {
       key: "intercepts",
       title: "Intercepts not covered",

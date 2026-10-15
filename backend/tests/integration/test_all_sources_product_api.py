@@ -1,12 +1,9 @@
 """All Sources: Modes generated from the merged Elements of every Source of
 an Emitter, each Mode given the Sources its Elements were found in."""
 
-import uuid
 
 import pytest
 
-from app.core.enums import SourceStatus
-from app.models.source import Source
 
 
 @pytest.fixture()
@@ -62,26 +59,6 @@ def test_each_mode_gets_the_sources_its_elements_came_from(editor_client, three_
     assert first["line"]["rf_delta"] == 5  # the widest margin its Sources give
     # RF 9500 (Charlie) × PRI (Bravo) × PW (Alpha): all three.
     assert sorted(names[i] for i in modes[9500]["source_ids"]) == ["Alpha", "Bravo", "Charlie"]
-
-
-def test_rejected_sources_only_when_nothing_else(editor_client, db_session, three_sources):
-    emitter, group, s = three_sources
-    rf = _add(editor_client, emitter, s["Alpha"], element_type="rf", value_min=100, value_max=100)
-    _add(editor_client, emitter, s["Charlie"], element_type="rf", value_min=100, value_max=100)
-    pri = _add(
-        editor_client, emitter, s["Charlie"], element_type="pri", value_min=5, value_max=5, jitter_min=0, jitter_max=0
-    )
-    db_session.query(Source).filter(Source.id == uuid.UUID(s["Charlie"]["id"])).update(
-        {"status": SourceStatus.rejected}
-    )
-    db_session.commit()
-    resp = _product(
-        editor_client, emitter, ew_group_id=group["id"], rf_element_ids=[rf["id"]], pri_element_ids=[pri["id"]],
-        pw_element_ids=[], name_prefix="R",
-    )
-    assert resp.status_code == 200, resp.text
-    mode = editor_client.get(f"/ew-groups/{group['id']}/modes").json()[0]
-    assert mode["source_ids"] == [s["Alpha"]["id"]]
 
 
 def test_refuses_elements_of_another_emitter_and_sequence_steps(editor_client, three_sources):

@@ -46,12 +46,6 @@ def sources_label(names: list[str]) -> str:
     return ", ".join(names)
 
 
-def all_rejected(source_ids: list[str], rejected: set[str]) -> bool:
-    """A Mode is left out of exports and checks only when every Source it
-    comes from was rejected — one approved Source is enough to keep it."""
-    return all(sid in rejected for sid in source_ids)
-
-
 def mode_source_ids(mode_snapshot: dict) -> list[str]:
     """Every Source id of a snapshotted Mode (snapshots from before Modes had
     several Sources carry only source_id)."""

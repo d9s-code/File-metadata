@@ -138,7 +138,7 @@ def plan(db: Session, finding: AmbiguityFinding, keep: str) -> dict:
     flat = {m.mode_id: m for m in _flat(emitter)}
     kept_flat, removed_flat = flat.get(str(kept.id)), flat.get(str(removed.id))
     if kept_flat is None or removed_flat is None:
-        raise MergeProblem("One of them only has rejected Sources — accept one of its Sources first")
+        raise MergeProblem("One of them has no parameters to merge")
     merged = _union_line(kept_flat.line, removed_flat.line, kept.pri_type)
     _validated(merged, kept.pri_type)
 

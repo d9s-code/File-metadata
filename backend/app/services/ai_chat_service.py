@@ -341,7 +341,7 @@ def get_emitter(db: Session, step: ChatStep) -> str:
     ).scalars().all()
     lines.append(f"Sources ({len(sources)}):")
     for src in sources[:30]:
-        bits = [f"dated {day_text(src.source_date)}", src.status.value.replace("_", " ")]
+        bits = [f"dated {day_text(src.source_date)}"]
         if src.source_type:
             bits.append(src.source_type)
         lines.append(f"- {src.name} ({', '.join(bits)})")

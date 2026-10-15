@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { ModeRenameDialog } from "./ModeRenameDialog";
 import { MenuButton } from "../common/MenuButton";
 import type { EwGroup, Mode, ModeGenerationBatch, Source } from "../../types/domain";
 import { HoverInfo } from "../common/InfoPopover";
@@ -60,7 +59,6 @@ export function ModesCardGrid({
 }) {
   const [editingModeId, setEditingModeId] = useState<string | null>(null);
   const [duplicatingModeId, setDuplicatingModeId] = useState<string | null>(null);
-  const [renamingMode, setRenamingMode] = useState<Mode | null>(null);
   const [expandedBatchIds, setExpandedBatchIds] = useState<Set<string>>(new Set());
   const { data: emitter } = useEmitter(emitterId);
   const { canEdit } = useEmitterCheckoutState(emitter);
@@ -130,7 +128,6 @@ export function ModesCardGrid({
                   className="row-menu-button"
                   ariaLabel={`Actions for ${m.name}`}
                   items={[
-                    { label: "Rename…", onSelect: () => setRenamingMode(m), disabled: !canEdit, title: editTitle },
                     { label: "Edit", onSelect: () => setEditingModeId(m.id), disabled: !canEdit, title: editTitle },
                     {
                       label: "Duplicate",
@@ -255,9 +252,6 @@ export function ModesCardGrid({
           </div>
         );
       })}
-      {renamingMode && (
-        <ModeRenameDialog emitterId={emitterId} mode={renamingMode} onClose={() => setRenamingMode(null)} />
-      )}
     </div>
   );
 }

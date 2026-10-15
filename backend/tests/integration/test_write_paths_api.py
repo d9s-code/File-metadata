@@ -72,7 +72,6 @@ def test_import_commit_creates_pending_sources_with_elements_and_sequences(edito
 
     sources = editor_client.get(f"/emitters/{emitter['id']}/sources").json()
     created = next(s for s in sources if s["name"] == "Set A")
-    assert created["status"] == "pending_review"
     assert created["import_batch_id"] == body["import_batch"]["id"]
 
 

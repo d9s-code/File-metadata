@@ -74,7 +74,6 @@ def list_sources_overview(db: Session = Depends(get_db), _=Depends(require_role(
         SourceOverviewOut(
             id=s.id,
             name=s.name,
-            status=s.status.value if hasattr(s.status, "value") else str(s.status),
             source_type=s.source_type,
             source_date=s.source_date,
             updated_at=s.updated_at,

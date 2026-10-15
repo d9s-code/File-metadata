@@ -2,7 +2,6 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.core.enums import SourceStatus
 from app.models.import_batch import ImportBatch
 from app.models.mode import ModeElement
 from app.models.parameter_sequence import ParameterSequence
@@ -84,7 +83,6 @@ def commit_import_payload(
             rf_legacy_term=pset.source_description,
             pri_legacy_term=pset.pri_legacy_term,
             source_date=pset.source_date,
-            status=SourceStatus.pending_review,
             import_batch_id=batch.id,
             group_id=target_group_id,
         )

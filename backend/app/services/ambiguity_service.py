@@ -23,8 +23,7 @@ from typing import Any
 
 from app.services.delta import apply_delta
 from app.services.frametime_service import effective_frametime_us
-from app.services.mode_sources import all_rejected, mode_source_ids
-from app.services.snapshots import rejected_source_ids
+from app.services.mode_sources import mode_source_ids
 
 DEFAULT_TOLERANCE = {
     "low_threshold": 30.0,
@@ -69,10 +68,9 @@ def flatten_emitter_snapshot(
     out: list[FlatModeLine] = []
     eid = emitter_id or emitter_snapshot["id"]
     ename = emitter_name or emitter_snapshot["name"]
-    rejected = rejected_source_ids(emitter_snapshot)
     for ew_group in emitter_snapshot["ew_groups"]:
         for mode in ew_group["modes"]:
-            if mode["line"] is None or all_rejected(mode_source_ids(mode), rejected):
+            if mode["line"] is None:
                 continue
             out.append(
                 FlatModeLine(

@@ -155,7 +155,7 @@ export function HelpPage() {
         <p>
           <strong>Tables:</strong> drag the right edge of a column&apos;s heading to make it wider or narrower;
           double-click the edge to put it back. Widths are remembered in this browser for that table. A row&apos;s
-          less common actions — Edit, Delete, Approve and the like — are under its <strong>⋯</strong> menu at the end
+          less common actions — Edit, Delete and the like — are under its <strong>⋯</strong> menu at the end
           of the row. Filters sit on one line above a list, with how many rows are shown; <strong>Reset</strong>{" "}
           appears while a filter is set.
         </p>
@@ -191,7 +191,7 @@ export function HelpPage() {
           <li>
             <span className="role-badge">editor</span> — everything a viewer can do, plus creating and
             editing Emitters/Platforms/MDFs, Modes, EW Groups, Sources, Elements, logging tests, checking
-            out and editing an Emitter, approving or rejecting imported Sources, and committing versions.
+            out and editing an Emitter, and committing versions.
           </li>
           <li>
             <span className="role-badge">admin</span> — everything an editor can do; the highest rank.
@@ -222,7 +222,7 @@ export function HelpPage() {
           <li>
             <strong>Needs Attention</strong> — one line per item, grouped: Simulation (SIM Test Lines missed or
             partial, an Emitter in Testing never simulated, one changed since its last simulation), Needs rework,
-            Sources awaiting review, Intercepts with entries no Mode covers, unreviewed serious overlaps from the latest
+            Intercepts with entries no Mode covers, unreviewed serious overlaps from the latest
             ambiguity check, Emitters held for editing over 8 hours, stalled Emitters and MDF readiness. Click a group
             to fold it; click an item to go to it.
           </li>
@@ -596,18 +596,6 @@ export function HelpPage() {
               &ldquo;9000, 9100-9200, 9300&rdquo; to three Sources adds nine Elements. Below the box it says what
               will be added; an entry that isn&apos;t a number is pointed out first. A delta, label, jitter (PRI) and
               notes apply to each. It&apos;s all or nothing: if anything is refused, nothing is added.
-            </p>
-            <p>
-              A Source that came from an <strong>import</strong> (see below) starts out{" "}
-              <span className="status-badge status-pending_review">pending review</span> rather than{" "}
-              <span className="status-badge status-approved">approved</span> — an editor reviews its
-              Elements and Sequences, then <strong>Approve</strong>s or <strong>Reject</strong>s it via the
-              buttons next to the Source. Rejecting asks for a reason, which is shown under the Source&rsquo;s
-              name. A <span className="status-badge status-rejected">rejected</span> Source stays in the list,
-              but Modes that come only from rejected Sources are left out of exports and ambiguity checks until
-              someone approves one (a Mode with another, approved Source stays in) — the{" "}
-              <strong>Approve</strong> button stays available on rejected Sources for exactly that. A
-              manually-created Source is approved immediately; there&rsquo;s nothing to review.
             </p>
             <p>
               <strong>Import from XML</strong> (in Editorial Tools, currently disabled — "coming soon") is
@@ -1107,7 +1095,7 @@ export function HelpPage() {
             <strong>Turn into Source.</strong> Under the description, an Intercept that isn&apos;t a Source yet has a{" "}
             <strong>Turn into Source</strong> button (Editors, with the Emitter checked out — the page offers to check
             it out). It adds a Source to the Emitter that stands for this Intercept — same name, date and description,
-            type &quot;Intercept&quot;, starting <strong>Pending review</strong> — so a Mode can have the Intercept as
+            type &quot;Intercept&quot; — so a Mode can have the Intercept as
             its Source. It&apos;s only a link: nothing is copied from the entries into it, and Modes already made from
             the entries stay in the Source they&apos;re in. From then on, new Modes made from its entries (one at a time
             or with Plan Modes) start on that Source. The Source shows &quot;Stands for Intercept …&quot; with a link

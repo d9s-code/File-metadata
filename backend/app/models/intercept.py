@@ -56,10 +56,6 @@ class Intercept(UUIDPkMixin, TimestampMixin, Base):
     def source_name(self) -> str | None:
         return self.source.name if self.source is not None else None
 
-    @property
-    def source_status(self) -> str | None:
-        return self.source.status.value if self.source is not None else None
-
 
 class InterceptNote(UUIDPkMixin, Base):
     """One append-only analyst-commentary entry on an Intercept container —

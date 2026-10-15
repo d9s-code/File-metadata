@@ -5,7 +5,6 @@ from sqlalchemy import Date, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.enums import SourceStatus
 from app.database import Base
 from app.models.mixins import TimestampMixin, UUIDPkMixin
 
@@ -29,12 +28,6 @@ class Source(UUIDPkMixin, TimestampMixin, Base):
     source_type: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
     # User-entered fact (e.g. date of the collection/report), independent of created_at/updated_at.
     source_date: Mapped[date] = mapped_column(Date, nullable=False)
-    status: Mapped[SourceStatus] = mapped_column(
-        nullable=False, default=SourceStatus.approved, server_default=SourceStatus.approved.value
-    )
-    # Why a reviewer rejected it; cleared again if it's later approved (the
-    # audit log keeps the history).
-    rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Which import run (if any) created this Source. Nullable — manually-created
     # Sources have no batch. SET NULL on batch deletion: a Source survives even
     # if its provenance record is later removed.

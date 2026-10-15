@@ -16,7 +16,6 @@ import { EmptyState } from "../components/common/EmptyState";
 import { useConfirmDialog } from "../components/common/ConfirmDialog";
 import { ApiRequestError } from "../api/client";
 import type { SourceGroup } from "../types/domain";
-import { statusLabel } from "../components/common/emitterStatusLabel";
 
 function rangeText(min: number | null, max: number | null, unit: string): string {
   if (min == null || max == null) return "—";
@@ -84,11 +83,10 @@ interface Query {
   text: string;
   from: string;
   to: string;
-  status: string;
   type: string;
   ungrouped: boolean;
 }
-const NO_QUERY: Query = { text: "", from: "", to: "", status: "", type: "", ungrouped: true };
+const NO_QUERY: Query = { text: "", from: "", to: "", type: "", ungrouped: true };
 
 /** Oldest and newest "Date last updated", and latest edit, across Sources. */
 function span(sources: SourceOverview[]) {
@@ -117,7 +115,7 @@ function sourceLink(s: SourceOverview) {
   return `/emitters/${s.emitter_id}?tab=setup&source=${s.id}`;
 }
 
-type ListSortKey = "name" | "emitter" | "group" | "source_date" | "updated_at" | "status" | "element_count";
+type ListSortKey = "name" | "emitter" | "group" | "source_date" | "updated_at" | "element_count";
 
 function compareSourceRows(a: SourceOverview, b: SourceOverview, key: ListSortKey, dir: "asc" | "desc") {
   switch (key) {
@@ -131,8 +129,6 @@ function compareSourceRows(a: SourceOverview, b: SourceOverview, key: ListSortKe
       return compareStrings(a.source_date, b.source_date, dir);
     case "updated_at":
       return compareStrings(a.updated_at, b.updated_at, dir);
-    case "status":
-      return compareStrings(a.status, b.status, dir);
     case "element_count":
       return compareNullable(a.element_count, b.element_count, dir);
   }
@@ -165,7 +161,6 @@ function SourceList({ sources }: { sources: SourceOverview[] }) {
           {header("Group", "group")}
           {header("Date last updated", "source_date", "date")}
           {header("Last edited", "updated_at", "date")}
-          {header("Status", "status")}
           {header("Elements", "element_count", "number")}
           <th>Sequences</th>
           <th>Modes</th>
@@ -187,9 +182,6 @@ function SourceList({ sources }: { sources: SourceOverview[] }) {
               <DateCell day={s.source_date} />
             </td>
             <td>{formatDate(s.updated_at)}</td>
-            <td>
-              <span className={`status-badge status-${s.status}`}>{statusLabel(s.status)}</span>
-            </td>
             <td>{s.element_count}</td>
             <td>{s.sequence_count}</td>
             <td>{s.mode_count}</td>
@@ -232,7 +224,6 @@ export function SourceGroupsPage() {
       if (!query.ungrouped && !s.group_id) return false;
       if (query.from && s.source_date < query.from) return false;
       if (query.to && s.source_date > query.to) return false;
-      if (query.status && s.status !== query.status) return false;
       if (query.type && s.source_type !== query.type) return false;
       if (
         text &&
@@ -335,15 +326,6 @@ export function SourceGroupsPage() {
               <option value="12">1 year</option>
               <option value="24">2 years</option>
               <option value="60">5 years</option>
-            </select>
-          </label>
-          <label>
-            Status
-            <select value={query.status} onChange={(e) => set("status", e.target.value)}>
-              <option value="">Any</option>
-              <option value="approved">Approved</option>
-              <option value="pending_review">Pending review</option>
-              <option value="rejected">Rejected</option>
             </select>
           </label>
           {types.length > 0 && (
@@ -533,9 +515,6 @@ export function SourceGroupsPage() {
                                   <tr key={s.id} className="tree-row tree-source">
                                     <td>
                                       <Link to={sourceLink(s)}>{s.name}</Link>
-                                      {s.status !== "approved" && (
-                                        <span className={`status-badge status-${s.status}`}>{statusLabel(s.status)}</span>
-                                      )}
                                       <div className="hint-text cell-subline">
                                         {[s.source_type, `${s.element_count} elements`, `${s.sequence_count} sequences`, `${s.mode_count} Modes`]
                                           .filter(Boolean)

@@ -8,7 +8,6 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.core.enums import SourceStatus
 from app.models.mode import ModeElement
 from app.models.source import Source
 from app.services.cartesian_service import CartesianProductError
@@ -26,9 +25,9 @@ class MergedPool:
             key = element_key(element)
             self.groups.setdefault(key, []).append((element, source))
             self.key_of[element.id] = key
-        # The same order everywhere: by Source name, rejected Sources last.
+        # The same order everywhere: by Source name.
         for members in self.groups.values():
-            members.sort(key=lambda m: (m[1].status == SourceStatus.rejected, m[1].name.lower(), str(m[0].id)))
+            members.sort(key=lambda m: (m[1].name.lower(), str(m[0].id)))
 
     def representative(self, element_id: UUID) -> ModeElement:
         key = self.key_of.get(element_id)
@@ -41,15 +40,14 @@ class MergedPool:
 
     def sources_of(self, elements: list[ModeElement]) -> list[Source]:
         """The Sources a combination's Elements were found in — those holding
-        most of them first. Rejected Sources only when there's nothing else."""
+        most of them first."""
         counts: Counter = Counter()
         by_id: dict[UUID, Source] = {}
         for element in elements:
             for source in {s.id: s for _, s in self.members(element)}.values():
                 counts[source.id] += 1
                 by_id[source.id] = source
-        usable = [s for s in by_id.values() if s.status != SourceStatus.rejected] or list(by_id.values())
-        return sorted(usable, key=lambda s: (-counts[s.id], s.name.lower()))
+        return sorted(by_id.values(), key=lambda s: (-counts[s.id], s.name.lower()))
 
     def default_delta(self, element: ModeElement) -> float | None:
         """A merged Element's margin when the run doesn't set one: the widest

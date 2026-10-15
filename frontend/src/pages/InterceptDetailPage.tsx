@@ -631,11 +631,6 @@ export function InterceptDetailPage() {
               <strong>Source:</strong>{" "}
               <Link to={`/emitters/${intercept.emitter_id}?tab=setup&source=${intercept.source_id}`}>{intercept.source_name}</Link>
             </span>
-            {intercept.source_status && intercept.source_status !== "approved" && (
-              <span className={`status-badge status-${intercept.source_status}`}>
-                {intercept.source_status === "pending_review" ? "Pending review" : "Rejected"}
-              </span>
-            )}
             <span className="hint-text">Modes can have this Intercept as their Source; new ones from its entries start on it.</span>
           </>
         ) : (

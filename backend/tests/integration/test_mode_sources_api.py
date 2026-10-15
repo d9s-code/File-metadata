@@ -1,12 +1,7 @@
 """A Mode can come from more than one Source."""
 
-import io
-import zipfile
-
 import pytest
 
-from app.core.enums import SourceStatus
-from app.models.source import Source
 from tests.integration.test_modes_api import FIXED_LINE
 
 
@@ -85,26 +80,6 @@ def test_deleting_a_source_keeps_modes_that_have_another(editor_client, ctx):
     modes = {m["name"]: m for m in editor_client.get(f"/emitters/{ctx['eid']}/modes").json()}
     assert modes["Shared"]["source_names"] == ["Report B"]
     assert modes["Only C"]["id"] == only_c["id"] and shared["id"] == modes["Shared"]["id"]
-
-
-def _export_xml(client, eid) -> str:
-    resp = client.post(f"/emitters/{eid}/export/xml")
-    assert resp.status_code == 200, resp.text
-    zf = zipfile.ZipFile(io.BytesIO(resp.content))
-    return zf.read(zf.namelist()[0]).decode()
-
-
-def test_a_mode_is_left_out_only_when_all_its_sources_are_rejected(editor_client, db_session, ctx):
-    _mode(editor_client, ctx, "BackedUp", [ctx["a"]["id"], ctx["b"]["id"]])
-    _mode(editor_client, ctx, "OnlyRejected", [ctx["a"]["id"]], rf_min_mhz=5000, rf_max_mhz=5100)
-    db_session.get(Source, ctx["a"]["id"]).status = SourceStatus.pending_review
-    db_session.commit()
-    resp = editor_client.post(f"/emitters/{ctx['eid']}/sources/{ctx['a']['id']}/reject", json={"reason": "Wrong emitter"})
-    assert resp.status_code == 200, resp.text
-
-    xml = _export_xml(editor_client, ctx["eid"])
-    assert 'Name="BackedUp"' in xml
-    assert 'Name="OnlyRejected"' not in xml
 
 
 def test_sources_are_in_versions_and_their_diff(editor_client, ctx):

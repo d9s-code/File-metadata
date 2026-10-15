@@ -230,12 +230,12 @@ def test_prs_import_is_audited(editor_client, source_emitter):
     assert "3 Mode" in audit["items"][0]["summary"]
 
 
-def test_prs_import_new_source_starts_pending_review(editor_client, source_emitter):
-    target = editor_client.post("/emitters", json={"name": "PRS Review Target"}).json()
-    resp = _import(editor_client, target["id"], source_emitter["xml_bytes"], new_source_name="Needs Review")
+def test_prs_import_makes_a_new_source(editor_client, source_emitter):
+    target = editor_client.post("/emitters", json={"name": "PRS Import Target"}).json()
+    resp = _import(editor_client, target["id"], source_emitter["xml_bytes"], new_source_name="From PRS")
     assert resp.status_code == 201, resp.text
     sources = editor_client.get(f"/emitters/{target['id']}/sources").json()
-    assert next(s for s in sources if s["name"] == "Needs Review")["status"] == "pending_review"
+    assert "From PRS" in [s["name"] for s in sources]
 
 
 def test_prs_import_rejects_oversized_upload(editor_client, source_emitter, monkeypatch):

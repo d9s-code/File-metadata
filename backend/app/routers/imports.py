@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core.csrf import verify_csrf
-from app.core.enums import AuditAction, AuditEntityType, Role, SourceStatus
+from app.core.enums import AuditAction, AuditEntityType, Role
 from app.database import get_db
 from app.deps import require_emitter_checkout, require_role
 from app.models.emitter import Emitter
@@ -219,7 +219,6 @@ def commit_prs_import(
             emitter_id=emitter_id,
             name=new_source_name,
             source_date=source_date or date.today(),
-            status=SourceStatus.pending_review,
         )
         db.add(source)
         db.flush()

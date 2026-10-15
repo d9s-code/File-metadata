@@ -93,19 +93,6 @@ MDF_STATUS_TRANSITIONS: dict[MdfStatus, list[MdfStatus]] = {
 }
 
 
-class SourceStatus(str, enum.Enum):
-    """A Source's review state. Manually-created Sources are immediately
-    usable (approved). Imported Sources start pending_review — an editor must
-    approve or reject each one; no draft/supersede complexity since an
-    imported Source is always a brand-new row, never an edit to an existing
-    one.
-    """
-
-    approved = "approved"
-    pending_review = "pending_review"
-    rejected = "rejected"
-
-
 class VersionedEntityType(str, enum.Enum):
     emitter = "emitter"
     platform = "platform"

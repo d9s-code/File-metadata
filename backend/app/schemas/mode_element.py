@@ -153,7 +153,6 @@ class ElementOccurrence(BaseModel):
     element_id: UUID
     source_id: UUID
     source_name: str
-    source_status: str
     variant: str | None = None
     label: str | None = None
     delta: float | None = None

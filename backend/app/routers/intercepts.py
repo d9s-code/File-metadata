@@ -16,7 +16,7 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.csrf import verify_csrf
-from app.core.enums import AuditAction, AuditEntityType, PriType, Role, SourceStatus
+from app.core.enums import AuditAction, AuditEntityType, PriType, Role
 from app.database import get_db
 from app.deps import require_role
 from app.models.emitter import Emitter
@@ -315,7 +315,6 @@ def turn_into_source(intercept_id: UUID, db: Session = Depends(get_db), user=Dep
         description=intercept.description,
         source_type="Intercept",
         source_date=intercept.intercepted_on or date.today(),
-        status=SourceStatus.pending_review,
         intercept_id=intercept.id,
     )
     db.add(source)
@@ -327,7 +326,7 @@ def turn_into_source(intercept_id: UUID, db: Session = Depends(get_db), user=Dep
         entity_type=AuditEntityType.source.value,
         entity_id=source.id,
         summary=f"Turned Intercept '{intercept.name}' into a Source",
-        changes={"name": source.name, "source_type": "Intercept", "intercept_id": str(intercept.id), "status": "pending_review"},
+        changes={"name": source.name, "source_type": "Intercept", "intercept_id": str(intercept.id)},
         emitter_id=emitter.id,
     )
     db.commit()

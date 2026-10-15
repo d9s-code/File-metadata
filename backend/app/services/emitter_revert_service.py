@@ -25,7 +25,7 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from app.core.enums import ElementType, EmitterStatus, PriType, SourceStatus
+from app.core.enums import ElementType, EmitterStatus, PriType
 from app.models.emitter import Emitter
 from app.models.ew_group import EwGroup
 from app.models.mode import (
@@ -70,9 +70,6 @@ def reconcile_emitter_to_snapshot(db: Session, emitter: Emitter, snapshot: dict)
         source.name = s_snap["name"]
         source.description = s_snap.get("description")
         source.source_date = date.fromisoformat(s_snap["source_date"])
-        if "status" in s_snap:
-            source.status = SourceStatus(s_snap["status"])
-            source.rejection_reason = s_snap.get("rejection_reason")
         if "source_type" in s_snap:
             source.source_type = s_snap["source_type"]
         if "intercept_id" in s_snap:
@@ -271,8 +268,6 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
             name=s_snap["name"],
             description=s_snap.get("description"),
             source_date=date.fromisoformat(s_snap["source_date"]),
-            status=SourceStatus(s_snap.get("status", SourceStatus.approved.value)),
-            rejection_reason=s_snap.get("rejection_reason"),
         )
         db.add(new_source)
         db.flush()

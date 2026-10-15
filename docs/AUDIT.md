@@ -108,6 +108,8 @@ There is also no upload size limit: `imports.py:62` and `imports.py:179` read th
 
 ### 3. Source review status has no effect (High, Decision)
 
+**Resolved (removed):** Sources are no longer reviewed — the approve/reject status and rejection reason were dropped, and every Source is used as it is.
+
 `SourceStatus` (`approved` / `pending_review` / `rejected`, `app/core/enums.py:82`) is only read in two places: the dashboard's pending count, and the approve/reject transitions. None of these filter on it:
 - the XML exporters
 - `build_emitter_snapshot`

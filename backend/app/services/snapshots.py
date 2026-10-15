@@ -3,7 +3,6 @@ JSON-serializable dict (no Decimal/UUID/datetime objects) suitable for
 storing in a `snapshot JSONB` column and for structured diffing.
 """
 
-from app.core.enums import SourceStatus
 from app.models.emitter import Emitter
 from app.models.mdf import Mdf
 from app.models.mode import Mode, ModeElement
@@ -86,12 +85,6 @@ def _test_line_dict(tl: TestLine) -> dict:
     }
 
 
-def rejected_source_ids(emitter_snapshot: dict) -> set[str]:
-    """Snapshots committed before Source status was captured have no
-    "status" key; treat those Sources as not rejected."""
-    return {s["id"] for s in emitter_snapshot.get("sources", []) if s.get("status") == SourceStatus.rejected.value}
-
-
 def build_emitter_snapshot(emitter: Emitter) -> dict:
     return {
         "id": str(emitter.id),
@@ -118,8 +111,6 @@ def build_emitter_snapshot(emitter: Emitter) -> dict:
                 "name": s.name,
                 "description": s.description,
                 "source_date": s.source_date.isoformat(),
-                "status": s.status.value,
-                "rejection_reason": s.rejection_reason,
                 "source_type": s.source_type,
                 "intercept_id": str(s.intercept_id) if s.intercept_id else None,
                 "elements": [_mode_element_dict(e) for e in sorted(s.elements, key=lambda e: e.sort_order)],

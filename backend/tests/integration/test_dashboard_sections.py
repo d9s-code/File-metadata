@@ -97,18 +97,6 @@ def test_long_held_locks_shown_to_others_and_admins_not_viewers(admin_client, ed
     assert editor_client.get("/dashboard/admin").status_code == 403
 
 
-def test_viewers_dont_get_review_queue(editor_client, viewer_client, db_session):
-    from app.core.enums import SourceStatus
-    from app.models.source import Source
-
-    emitter = editor_client.post("/emitters", json={"name": "Review Radar"}).json()
-    source = editor_client.post(f"/emitters/{emitter['id']}/sources", json={"name": "S", "source_date": "2025-01-15"}).json()
-    db_session.query(Source).filter(Source.id == uuid.UUID(source["id"])).update({"status": SourceStatus.pending_review})
-    db_session.commit()
-    assert len(editor_client.get("/dashboard/attention").json()["pending_approvals"]) == 1
-    assert viewer_client.get("/dashboard/attention").json()["pending_approvals"] == []
-
-
 def test_recent_activity_is_quiet_unless_asked(admin_client):
     admin_client.post("/emitters", json={"name": "Quiet Radar"})
     quiet = admin_client.get("/dashboard/activity").json()["recent_activity"]

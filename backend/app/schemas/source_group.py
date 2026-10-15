@@ -40,7 +40,6 @@ class SourceOverviewOut(BaseModel):
 
     id: UUID
     name: str
-    status: str
     source_type: str | None = None
     # The user-entered "Date last updated" of the Source's contents.
     source_date: date
