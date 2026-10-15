@@ -1,6 +1,6 @@
 import { Fragment, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { MDFS_SECTION, PageHeader } from "../components/common/PageHeader";
+import { PageHeader } from "../components/common/PageHeader";
 import { RequireRole } from "../auth/RequireAuth";
 import { LoadingState } from "../components/common/LoadingState";
 import { EmptyState } from "../components/common/EmptyState";
@@ -28,7 +28,6 @@ export function DwellsListPage() {
     <div className="page">
       <PageHeader
         title="Dwells"
-        section={MDFS_SECTION}
         info="A Strategy is one Platform's dwells — frequency and how long to sit there, in order — saved in versions. A dwell file pins one Strategy version per Platform; linked to an MDF, its latest saved version goes into that MDF's export as dwells/<name>.xml."
       >
         <RequireRole minimum="editor">

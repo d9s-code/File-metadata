@@ -9,15 +9,16 @@ import { SettingsModal } from "./SettingsModal";
 import { useMyWork } from "../../state/hooks/useTasks";
 import { QuickJump } from "./QuickJump";
 
-/** The top menu. Pages that belong under an item (Source Groups under
- * Emitters, Customers under MDFs) are tabs on its pages and light it up. */
+/** The top menu: the things the team works on. Pages that belong under an
+ * item (Source Groups under Emitters, Customers under MDFs) are tabs on its
+ * pages and light it up; Tasks are on the Dashboard and the account menu. */
 const LINKS: { to: string; label: string; also?: string[] }[] = [
   { to: "/dashboard", label: "Dashboard" },
   { to: "/emitters", label: "Emitters", also: ["/source-groups", "/ambiguity/emitter"] },
   { to: "/platforms", label: "Platforms", also: ["/ambiguity/platform"] },
-  { to: "/mdfs", label: "MDFs", also: ["/customers", "/dwells", "/ambiguity/mdf"] },
+  { to: "/mdfs", label: "MDFs", also: ["/customers", "/ambiguity/mdf"] },
+  { to: "/dwells", label: "Dwells" },
   { to: "/intercepts", label: "Intercepts" },
-  { to: "/tasks", label: "Tasks" },
 ];
 
 function isUnder(pathname: string, prefix: string) {
@@ -79,11 +80,6 @@ export function NavBar() {
               }
             >
               {l.label}
-              {l.to === "/tasks" && myTasks > 0 && (
-                <span className="navbar-count" title={`${myTasks} open task${myTasks === 1 ? "" : "s"} for you`}>
-                  {myTasks}
-                </span>
-              )}
             </NavLink>
           ))}
           <RequireRole minimum="admin">
@@ -113,12 +109,19 @@ export function NavBar() {
             <MenuButton
               label={
                 <>
-                  {user.username} <span className="role-badge">{user.role}</span> ▾
+                  {user.username} <span className="role-badge">{user.role}</span>
+                  {myTasks > 0 && (
+                    <span className="navbar-count" title={`${myTasks} open task${myTasks === 1 ? "" : "s"} for you`}>
+                      {myTasks}
+                    </span>
+                  )}{" "}
+                  ▾
                 </>
               }
               className="navbar-account"
               ariaLabel="Your account"
               items={[
+                { label: myTasks > 0 ? `My tasks (${myTasks})` : "Tasks", to: "/tasks" },
                 { label: "Audit Log", to: "/audit-log" },
                 { label: "Help", to: "/help" },
                 { label: "Settings…", onSelect: () => setShowSettings(true) },

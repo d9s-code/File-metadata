@@ -3036,7 +3036,9 @@ a.button {
   border-radius: 0;
   box-shadow: none;
   color: var(--text);
+  font-family: inherit;
   font-size: 0.88rem;
+  line-height: 1.5;
   font-weight: normal;
   text-decoration: none;
 }

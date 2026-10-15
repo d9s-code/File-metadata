@@ -37,13 +37,14 @@ export function MyWorkCard() {
             <TaskList tasks={work.tasks.slice(0, SHOWN_TASKS)} />
           )}
           <p className="my-work-links">
-            {work.tasks.length > SHOWN_TASKS && <Link to="/tasks">All {work.tasks.length} of your tasks</Link>}
+            <Link to="/tasks">
+              {work.tasks.length > SHOWN_TASKS ? `All ${work.tasks.length} of your tasks` : "All tasks"}
+            </Link>
             {work.unassigned_open > 0 && (
               <Link to="/tasks?view=grabs">
                 {work.unassigned_open} up for grabs
               </Link>
             )}
-            {work.tasks.length <= SHOWN_TASKS && work.unassigned_open === 0 && <Link to="/tasks">Add a task</Link>}
           </p>
         </section>
 

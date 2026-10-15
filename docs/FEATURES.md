@@ -8,7 +8,7 @@ If you just want to see it running, start with the [README](../README.md). This 
 
 **Tables everywhere:** drag the right edge of a column heading to resize the column; double-click it to put it back. Widths are remembered per table in the browser. A row's less common actions (Edit, Delete, Approve, Reject …) are under its **⋯** menu; Delete always asks first. List filters sit on one line above the table with the shown count ("12 of 31 Emitters"); **Reset** appears only while a filter is set.
 
-**Menu.** The top bar holds Dashboard, Emitters, Platforms, MDFs, Intercepts, Tasks (and Admin). **Source Groups** is a tab on the Emitters page and **Customers** a tab on the MDFs page (the menu item stays lit on them); **Help** is the **?** beside Search and the **Audit Log** is in the account menu. Explanations that used to sit under page titles are behind a small **?** beside the title, shown on hover or focus.
+**Menu.** The top bar holds Dashboard, Emitters, Platforms, MDFs, Dwells, Intercepts (and Admin). **Source Groups** is a tab on the Emitters page and **Customers** a tab on the MDFs page (the menu item stays lit on them); **Help** is the **?** beside Search. **Tasks** are on the Dashboard (My work) and in the account menu, which also holds the **Audit Log**; the number by your name is how many tasks are open for you. Explanations that used to sit under page titles are behind a small **?** beside the title, shown on hover or focus.
 
 **Analyst notes** on Emitters, Platforms, MDFs and Intercepts open from a **Notes** tab fixed to the right edge of the window, in a panel that stays put while the page scrolls and doesn't block it; open or closed is remembered across pages. A note written but not yet added is kept in the browser per Emitter/Platform/MDF/Intercept (and per Source and Task) until it's added — closing the panel, leaving the page or the browser, or a stray click doesn't lose it, and the closed tab shows ✎ while one is waiting. Nothing is added to the log until **Add note** is pressed, since notes are append-only.
 
@@ -528,7 +528,7 @@ The backups' health, Back up now, Verify, and the compare overview — see [Back
 **Tasks** are to-dos, three ways:
 
 - **For yourself** — a personal reminder.
-- **For someone else** — giving out work; it shows on their dashboard and in the count by **Tasks** in the top bar.
+- **For someone else** — giving out work; it shows on their dashboard and in the count by their name in the top bar.
 - **For anyone** — up for grabs; whoever takes it becomes its owner.
 
 A task has a title, optional details and due date, and can be about one Emitter, Platform or MDF. Each task also keeps a running **notes** log — progress, questions, what's left — each note stamped with who wrote it and when, newest first. **💬 Notes** on any task row (on the Tasks page, the dashboard, or an item's Tasks list) opens it. Editors and whoever the task is for can add notes; a note can be deleted by whoever wrote it or an admin; deleting a task deletes its notes. The **Tasks** page has views for Mine, Up for grabs, I gave out, Everyone (narrowed to one person if you like) and Done (the latest 200). On an Emitter, Platform or MDF page, **☑ Tasks** lists the tasks about it and adds one already linked. Overdue tasks are marked red, ones due today amber.

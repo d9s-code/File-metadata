@@ -160,10 +160,11 @@ export function HelpPage() {
           appears while a filter is set.
         </p>
         <p>
-          <strong>Menu:</strong> Dashboard, Emitters, Platforms, MDFs, Intercepts and Tasks (and Admin for admins).{" "}
+          <strong>Menu:</strong> Dashboard, Emitters, Platforms, MDFs, Dwells and Intercepts (and Admin for admins).{" "}
           <strong>Source Groups</strong> is a tab on the Emitters page and <strong>Customers</strong> one on the MDFs
-          page; <strong>Help</strong> is the <strong>?</strong> beside Search, and the <strong>Audit Log</strong> is in
-          your name&apos;s menu. A small <strong>?</strong> beside a title says what that page or panel is for.
+          page; <strong>Help</strong> is the <strong>?</strong> beside Search. <strong>Tasks</strong> and the{" "}
+          <strong>Audit Log</strong> are in your name&apos;s menu (the number by your name is your open tasks), and
+          your tasks are at the top of the Dashboard. A small <strong>?</strong> beside a title says what that page or panel is for.
         </p>
         <p>
           <strong>Analyst notes:</strong> on an Emitter, Platform, MDF or Intercept — and on their test pages (a new
@@ -1213,7 +1214,7 @@ export function HelpPage() {
           <strong>notes</strong> — click <strong>💬</strong> on any task to read them or add one (progress, a
           question, what&apos;s left), each stamped with who wrote it and when. A task can be about an
           Emitter, Platform or MDF — use <strong>☑ Tasks</strong> on that page to see its tasks and add one already
-          linked. The <strong>Tasks</strong> page (top bar; the number is how many are open for you) has views for
+          linked. The <strong>Tasks</strong> page (your name&apos;s menu, or <strong>All tasks</strong> on the Dashboard) has views for
           Mine, Up for grabs, I gave out, Everyone and Done. Overdue tasks show red, ones due today amber.
         </p>
         <p className="hint-text">
