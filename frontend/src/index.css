@@ -6353,7 +6353,7 @@ input[aria-invalid="true"] {
 }
 .dwell-editor {
   display: grid;
-  grid-template-columns: minmax(0, 33rem) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 29rem) minmax(0, 1fr);
   gap: 1rem;
   align-items: start;
   margin-top: 0.75rem;
@@ -6363,6 +6363,9 @@ input[aria-invalid="true"] {
 }
 .dwell-editor-table { margin: 0; }
 .dwell-editor-chart { position: sticky; top: 0.75rem; }
+.dwell-editor.wide { grid-template-columns: minmax(0, 1fr); }
+.dwell-editor.wide .dwell-editor-chart { position: static; order: -1; }
+.dwell-editor.wide .dwell-editor-table { max-width: 40rem; }
 .dwell-editor-chart .dwell-chart { margin: 0; }
 .dwell-table-wrap { max-height: 32rem; overflow-y: auto; }
 .dwell-table { width: 100%; }

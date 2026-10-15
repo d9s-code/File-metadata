@@ -28,6 +28,26 @@ interface DwellDraft {
   savedAt: number;
 }
 const draftKey = (strategyId: string) => `dwell-draft:${strategyId}`;
+const WIDE_KEY = "dwellChartWide";
+
+function readWide(): boolean {
+  try {
+    return localStorage.getItem(WIDE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** The window's height, kept up to date — the chart fills what's left of it. */
+function useViewportHeight(): number {
+  const [h, setH] = useState(() => (typeof window === "undefined" ? 900 : window.innerHeight));
+  useEffect(() => {
+    const onResize = () => setH(window.innerHeight);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  return h;
+}
 
 function readDraft(strategyId: string): DwellDraft | null {
   try {
@@ -94,6 +114,19 @@ export function DwellsEditor({
   // The row whose frequency gets the focus once it's drawn (after Enter or "+ Add dwell").
   const [focusRow, setFocusRow] = useState<number | null>(null);
   const overlay = usePlatformEmitterOverlay(strategy.platform_id);
+  const [wide, setWide] = useState(readWide);
+  const viewport = useViewportHeight();
+  // Beside the table the chart fills the window's height (legend included);
+  // full width above the table it can take more, the table follows below.
+  const chartHeight = wide ? Math.max(460, Math.min(900, viewport - 300)) : Math.max(360, Math.min(760, viewport - 480));
+  function toggleWide() {
+    setWide(!wide);
+    try {
+      localStorage.setItem(WIDE_KEY, wide ? "0" : "1");
+    } catch {
+      // Not kept: side by side next time.
+    }
+  }
 
   // Saved (here or elsewhere) while nothing's being edited: show what's stored.
   const lastStored = useRef(stored);
@@ -184,7 +217,7 @@ export function DwellsEditor({
   );
 
   return (
-    <div className="dwell-editor">
+    <div className={wide ? "dwell-editor wide" : "dwell-editor"}>
       <section className="card dwell-editor-table">
         {notice && dirty && (
           <div className="dwell-restored" role="status">
@@ -299,7 +332,21 @@ export function DwellsEditor({
           onHover={setHover}
           overlay={overlay}
           overlayTitle={strategy.platform_name ? `${strategy.platform_name}'s Emitters` : "Emitters"}
-          controls={<BandwidthField strategy={strategy} defaultBandwidth={defaultBandwidth} canEdit={canEdit} onSave={onSave} />}
+          height={chartHeight}
+          controls={
+            <>
+              <BandwidthField strategy={strategy} defaultBandwidth={defaultBandwidth} canEdit={canEdit} onSave={onSave} />
+              <button
+                type="button"
+                className="button secondary small"
+                aria-pressed={wide}
+                title={wide ? "Put the chart back beside the table" : "Show the chart full width, above the table"}
+                onClick={toggleWide}
+              >
+                {wide ? "Beside table" : "Wide chart"}
+              </button>
+            </>
+          }
         />
       </div>
 
