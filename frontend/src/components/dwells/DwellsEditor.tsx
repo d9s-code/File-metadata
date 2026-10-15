@@ -227,6 +227,15 @@ export function DwellsEditor({
         )}
         <div className="dwell-table-wrap">
           <table className="data-table dwell-table">
+            {/* Fixed widths, so the row menu always fits beside the inputs. */}
+            <colgroup>
+              <col className="dwell-col-n" />
+              <col />
+              <col />
+              <col />
+              <col className="dwell-col-start" />
+              {canEdit && <col className="dwell-col-menu" />}
+            </colgroup>
             <thead>
               <tr>
                 <th className="num">#</th>
@@ -234,7 +243,7 @@ export function DwellsEditor({
                 <th>Dwell (ms)</th>
                 <th>Collect (ms)</th>
                 <th className="num" title="When in the cycle it starts">
-                  Starts at
+                  Starts
                 </th>
                 {canEdit && <th aria-label="Actions" />}
               </tr>
