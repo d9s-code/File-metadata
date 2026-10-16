@@ -10,7 +10,12 @@ import { EMITTER_STATUS_LABEL } from "../common/emitterStatusLabel";
 import type { EmitterStatus } from "../../types/domain";
 
 type Action = "assign" | "status" | "pin" | "release";
-const NEEDS_NOTE: EmitterStatus[] = ["validated", "deprecated"];
+const NEEDS_NOTE: EmitterStatus[] = ["validated", "partially_operational", "deprecated"];
+const NOTE_PROMPT: Partial<Record<EmitterStatus, string>> = {
+  validated: "What was validated (required)",
+  partially_operational: "Which part is operational (required)",
+  deprecated: "What needs rework (required)",
+};
 
 /** What to do with the Emitters ticked in the list: assign them, move their
  * status, pin their latest saved version into a Platform, or release their
@@ -97,7 +102,7 @@ export function EmitterBulkBar({ selected, onClear }: { selected: string[]; onCl
             className="emitter-bulk-note"
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder={status === "validated" ? "What was validated (required)" : "What needs rework (required)"}
+            placeholder={NOTE_PROMPT[status]}
             aria-label="Note"
           />
         )}

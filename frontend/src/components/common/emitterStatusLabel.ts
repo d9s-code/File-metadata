@@ -6,6 +6,7 @@ import type { EmitterStatus } from "../../types/domain";
 export const EMITTER_STATUS_LABEL: Record<EmitterStatus, string> = {
   draft: "In progress",
   in_review: "Testing",
+  partially_operational: "Partially operational",
   validated: "Operational",
   deprecated: "Needs rework",
 };

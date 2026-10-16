@@ -122,7 +122,7 @@ export function EmitterSimTable({ rows, counts }: { rows: EmitterSimStatus[]; co
                       <>
                         <Link to={testLink(r.emitter_id, r.last_validated_test_record_id)}>{formatDate(r.last_validated_at)}</Link>
                         {r.changed_since_validation && (
-                          <span className="status-badge status-in_review" title="Changed and committed after this test">
+                          <span className="status-badge status-pending_review" title="Changed and committed after this test">
                             changed since
                           </span>
                         )}

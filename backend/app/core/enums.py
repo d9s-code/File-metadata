@@ -50,6 +50,8 @@ class ElementVariant(str, enum.Enum):
 class EmitterStatus(str, enum.Enum):
     draft = "draft"
     in_review = "in_review"
+    # Some of it is ready for use (said which in the note), the rest isn't yet.
+    partially_operational = "partially_operational"
     validated = "validated"
     deprecated = "deprecated"
 
@@ -59,6 +61,7 @@ class EmitterStatus(str, enum.Enum):
 EMITTER_STATUS_LABELS: dict[str, str] = {
     EmitterStatus.draft.value: "In progress",
     EmitterStatus.in_review.value: "Testing",
+    EmitterStatus.partially_operational.value: "Partially operational",
     EmitterStatus.validated.value: "Operational",
     EmitterStatus.deprecated.value: "Needs rework",
 }
@@ -70,8 +73,9 @@ def emitter_status_label(value: str) -> str:
 
 EMITTER_STATUS_TRANSITIONS: dict[EmitterStatus, list[EmitterStatus]] = {
     EmitterStatus.draft: [EmitterStatus.in_review],
-    EmitterStatus.in_review: [EmitterStatus.validated, EmitterStatus.draft],
-    EmitterStatus.validated: [EmitterStatus.deprecated, EmitterStatus.in_review],
+    EmitterStatus.in_review: [EmitterStatus.validated, EmitterStatus.partially_operational, EmitterStatus.draft],
+    EmitterStatus.partially_operational: [EmitterStatus.validated, EmitterStatus.in_review, EmitterStatus.deprecated],
+    EmitterStatus.validated: [EmitterStatus.deprecated, EmitterStatus.partially_operational, EmitterStatus.in_review],
     EmitterStatus.deprecated: [EmitterStatus.draft],
 }
 

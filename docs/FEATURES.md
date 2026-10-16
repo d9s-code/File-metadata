@@ -35,7 +35,7 @@ Every Mode belongs to exactly one EW Group *and* one or more Sources — two ind
 
 The **Emitters list** shows each Emitter's status, assignee and RF, PRI and PW ranges (min–max in one column each; Scan is a column you can turn on under **Columns ▾**, which also hides any other), plus **SIM correct** — how many of its SIM Test Lines were correct in the latest run that included them, out of all its lines (e.g. "4 / 5"; sortable by the share) — and **Tasks**: its open tasks as "☑ n", opening the Emitter's task list to read, tick off or add one (the counts come from one query for the whole list; a row with none shows the chip only when pointed at). Filters: a search on name or designation, the assignee, and **RF / PRI / PW / Scan ▾** for min/max range filters. Each row's **⋯** menu has Compare with another Emitter and Delete.
 
-**Bulk actions** (Editors and Admins): tick Emitters in the list (the heading's box ticks every one shown) and a bar above the table applies one action to all of them — **Assign to** someone or nobody, **Move status to** (Operational and Needs rework take the required note), **Pin latest saved version into** a Platform, or **Release edit locks** (your own; an Admin anyone's). Each Emitter goes through the same rules as on its own page, one at a time; any that can't are skipped and listed with the reason ("Already Testing", "No saved version to pin", "Only the holder or an Admin can release this checkout"…), the rest are done (`POST /emitters/bulk`).
+**Bulk actions** (Editors and Admins): tick Emitters in the list (the heading's box ticks every one shown) and a bar above the table applies one action to all of them — **Assign to** someone or nobody, **Move status to** (Operational, Partially operational and Needs rework take the required note), **Pin latest saved version into** a Platform, or **Release edit locks** (your own; an Admin anyone's). Each Emitter goes through the same rules as on its own page, one at a time; any that can't are skipped and listed with the reason ("Already Testing", "No saved version to pin", "Only the holder or an Admin can release this checkout"…), the rest are done (`POST /emitters/bulk`).
 
 **Compare two Emitters** (**More ▾ → Compare with another Emitter** on an Emitter, or **Compare these two** with two ticked in the list): pick Emitter A and B and, for each, a saved version (the latest by default); **⇄ Swap** flips them. The page says how many pairs of Modes — one from each — the ambiguity check would flag, by severity; draws both on the RF/PRI/PW coverage charts (per Emitter or per Mode, with the overlaps hatched); lists the overlapping pairs, worst first, with each parameter's overlap; and shows each Emitter's Modes side by side, the overlapping ones marked. If either has no Modes in the version picked, it says there's nothing to compare yet. The address keeps the choice, so it can be shared (`GET /emitters/compare?a=&b=&a_version=&b_version=`).
 
@@ -221,8 +221,10 @@ Nothing is ever silently lost: the live draft can keep changing, but a committed
 
 Emitters and MDFs additionally carry a **status** that moves through a fixed set of legal transitions — you can't jump straight from `draft` to `validated`, for example:
 
-- **Emitter status**: `draft` → `in_review` → `validated` → `deprecated`
+- **Emitter status**: `draft` → `in_review` → `validated` → `deprecated`, with `partially_operational` between Testing and Operational
 - **MDF status**: `draft` → `pending_review` → `approved` → `released` → `deprecated`
+
+As shown: **In progress** (grey), **Testing** (orange), **Partially operational** (yellow), **Operational** (green), **Needs rework** (red). *Partially operational* is for an Emitter that's usable in part — some of its Modes have been checked and can be relied on, the rest are still being worked on; the note required to move it there says which part. From Testing it can go to Partially operational or Operational; from Partially operational to Operational, back to Testing, or to Needs rework (with a note); from Operational back to Partially operational. It counts as not yet Operational wherever that matters (MDF readiness, Platform pin checks), and it sits between Testing and Operational when a Platform shows its worst status.
 
 Every status transition automatically commits a new version with an auto-filled summary (e.g. "Status: In progress → Testing"), so your status history *is* your version history — nothing extra to look up.
 
@@ -245,7 +247,7 @@ The Platform page shows each Emitter's **designation before its name** — in th
 - **Analyst notes** — the same append-only, timestamped log as an Emitter's (also on MDFs), in the Notes panel.
 - **Ambiguity check** (a button at the top) — runs on the latest saved Platform version and answers *which Emitters could be taken for each other*: each Emitter's Modes are compared with the other Emitters' Modes, never with its own (that's the Emitter's own check).
 
-The **Platforms list** shows, for each Platform: how many Emitters it pins, the **worst status** among them (Needs rework, then In progress, Testing, Operational — hover for the count of each), how many pins are **outdated**, the Modes in the pinned versions, how many MDFs it's in, what its latest ambiguity check found (how many Emitters could be taken for another, and how many findings are still open), when it was last saved, and its open Tasks. Every column sorts.
+The **Platforms list** shows, for each Platform: how many Emitters it pins, the **worst status** among them (Needs rework, then In progress, Testing, Partially operational, Operational — hover for the count of each), how many pins are **outdated**, the Modes in the pinned versions, how many MDFs it's in, what its latest ambiguity check found (how many Emitters could be taken for another, and how many findings are still open), when it was last saved, and its open Tasks. Every column sorts.
 
 ---
 
@@ -429,7 +431,7 @@ The **✦ Ask AI** button in the bottom-right corner of every page opens a chat 
 | get_intercept | An Intercept and its entries, with the Modes they're linked to |
 | search_docs | More sections of the documentation |
 
-Names are matched by id, exact name (an Emitter also by designation), or every word of the name. Statuses are given as the app shows them (In progress, Testing, Operational, Needs rework).
+Names are matched by id, exact name (an Emitter also by designation), or every word of the name. Statuses are given as the app shows them (In progress, Testing, Partially operational, Operational, Needs rework).
 
 **Memory.** The last ten turns go with each question, and so do the **lookups behind the latest three answers**: each answer comes back with the lookups it made, the browser sends them with the next question, and the server runs them again (so the data is current, and nothing from the browser is used as data — only lookups the model could have asked for are run) and gives the results to the model as what it looked up before. A follow-up such as "and its PW?" or "what about the other one?" has the Emitter, Modes or test results it refers to in front of the model. The documentation for a follow-up is found from it and the question before. Under an answer, "used N earlier lookups" says when this happened.
 

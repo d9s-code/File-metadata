@@ -957,10 +957,15 @@ def transition_emitter_status(
     # wrong with previously-validated data — require the note explaining
     # what, so the regression is traceable later instead of just a bare
     # status flip.
-    if emitter.status == EmitterStatus.validated and new_status == EmitterStatus.deprecated and not payload.note:
+    if (
+        emitter.status in (EmitterStatus.validated, EmitterStatus.partially_operational)
+        and new_status == EmitterStatus.deprecated
+        and not payload.note
+    ):
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
-            "A note explaining what needs rework is required when moving from Operational to Needs rework",
+            f"A note explaining what needs rework is required when moving from "
+            f"{emitter_status_label(emitter.status.value)} to Needs rework",
         )
     # Mirror of the guard above: declaring something Operational is the one
     # status change everything downstream (Platforms/MDFs pinning this
@@ -971,6 +976,13 @@ def transition_emitter_status(
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "A message describing what was validated is required when moving to Operational",
+        )
+    # Partially operational says only part of it can be trusted — the note
+    # is where that part is named.
+    if new_status == EmitterStatus.partially_operational and not payload.note:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "A message saying which part is operational is required when moving to Partially operational",
         )
 
     old_status = emitter.status.value

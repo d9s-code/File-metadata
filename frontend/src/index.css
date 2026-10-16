@@ -47,6 +47,8 @@
   --badge-blue-fg: #1e40af;
   --badge-orange-bg: #fed7aa;
   --badge-orange-fg: #9a3412;
+  --badge-yellow-bg: #fef9c3;
+  --badge-yellow-fg: #854d0e;
 
   --matrix-none: #e5e7eb;
   --matrix-low: #93c5fd;
@@ -118,6 +120,8 @@
     --badge-blue-fg: #93c5fd;
     --badge-orange-bg: #4a2a12;
     --badge-orange-fg: #fb923c;
+    --badge-yellow-bg: #3d3a10;
+    --badge-yellow-fg: #fde047;
 
     --matrix-none: #333941;
     --matrix-low: #3b6ea5;
@@ -174,6 +178,8 @@
   --badge-blue-fg: #93c5fd;
   --badge-orange-bg: #4a2a12;
   --badge-orange-fg: #fb923c;
+  --badge-yellow-bg: #3d3a10;
+  --badge-yellow-fg: #fde047;
 
   --matrix-none: #333941;
   --matrix-low: #3b6ea5;
@@ -1211,7 +1217,9 @@ body.col-resizing { user-select: none; }
 button.status-badge { border: none; cursor: pointer; font-family: inherit; }
 .range-matching-tag + .range-matching-tag { margin-left: 0.3rem; }
 .status-draft { background: var(--badge-neutral-bg); color: var(--badge-neutral-fg); }
-.status-in_review, .status-pending_review { background: var(--badge-amber-bg); color: var(--badge-amber-fg); }
+.status-pending_review { background: var(--badge-amber-bg); color: var(--badge-amber-fg); }
+.status-in_review { background: var(--badge-orange-bg); color: var(--badge-orange-fg); }
+.status-partially_operational { background: var(--badge-yellow-bg); color: var(--badge-yellow-fg); }
 .status-validated, .status-approved { background: var(--badge-green-bg); color: var(--badge-green-fg); }
 .status-deprecated, .status-rejected { background: var(--badge-red-bg); color: var(--badge-red-fg); }
 .status-released { background: var(--badge-blue-bg); color: var(--badge-blue-fg); }

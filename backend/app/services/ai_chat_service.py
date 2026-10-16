@@ -98,7 +98,10 @@ class ChatStep(BaseModel):
         "designation or id; list_emitters: a Platform to list the Emitters of (optional)",
     )
     status: str | None = Field(
-        None, description="list_emitters: only Emitters with this status (in progress, testing, operational, needs rework)"
+        None, description=(
+            "list_emitters: only Emitters with this status "
+            "(in progress, testing, partially operational, operational, needs rework)"
+        ),
     )
     rf_mhz: float | None = Field(None, description="find_modes: the signal's RF in MHz (or the band's low end)")
     rf_max_mhz: float | None = Field(None, description="find_modes: the band's high end in MHz, for a band")

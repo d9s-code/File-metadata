@@ -301,8 +301,10 @@ export function HelpPage() {
             Changes panel says the status moved while you were editing.{" "}
             Status moves <strong>In progress</strong> → <strong>Testing</strong> →{" "}
             <strong>Operational</strong> → <strong>Needs rework</strong> (and back to In progress from
-            there to start fixing it). Moving from Operational to Needs rework requires a note explaining
-            what's wrong — it's shown afterward via a bright{" "}
+            there to start fixing it). <strong>Partially operational</strong> (yellow) sits between Testing
+            (orange) and Operational: part of the Emitter can be relied on, the rest is still being worked on —
+            moving there asks which part. Moving from Operational or Partially operational to Needs rework
+            requires a note explaining what's wrong — it's shown afterward via a bright{" "}
             <span
               className="rework-note-button"
               style={{ display: "inline-block", padding: "0.1rem 0.4rem", fontSize: "0.75rem", borderRadius: 6 }}

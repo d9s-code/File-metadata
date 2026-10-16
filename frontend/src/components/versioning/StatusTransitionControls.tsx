@@ -8,22 +8,29 @@ import { useEmitterVersions } from "../../state/hooks/useEmitterVersions";
 
 const EMITTER_TRANSITIONS: Record<EmitterStatus, EmitterStatus[]> = {
   draft: ["in_review"],
-  in_review: ["validated", "draft"],
-  validated: ["deprecated", "in_review"],
+  in_review: ["validated", "partially_operational", "draft"],
+  partially_operational: ["validated", "in_review", "deprecated"],
+  validated: ["deprecated", "partially_operational", "in_review"],
   deprecated: ["draft"],
 };
 
-// Two cases require a message, both here and (authoritatively) server-side:
-// flagging previously-Operational data as needing rework is a claim that
-// something concrete broke, and declaring something Operational is the one
+// Some cases require a message, both here and (authoritatively) server-side:
+// flagging (partly) Operational data as needing rework is a claim that
+// something concrete broke; declaring something Operational is the one
 // status change everything downstream (Platforms/MDFs pinning this Emitter)
-// treats as a trust signal — both deserve a documented reason.
+// treats as a trust signal; and Partially operational has to say which part.
 function requiresNote(status: EmitterStatus, next: EmitterStatus): boolean {
-  return (status === "validated" && next === "deprecated") || next === "validated";
+  return (
+    ((status === "validated" || status === "partially_operational") && next === "deprecated") ||
+    next === "validated" ||
+    next === "partially_operational"
+  );
 }
 
 function noteLabel(next: EmitterStatus): string {
-  return next === "validated" ? "What was validated? (required)" : "What needs rework? (required)";
+  if (next === "validated") return "What was validated? (required)";
+  if (next === "partially_operational") return "Which part is operational? (required)";
+  return "What needs rework? (required)";
 }
 
 /** Moving the Emitter along its lifecycle. No Start editing needed: the

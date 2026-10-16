@@ -1,6 +1,6 @@
 export type Role = "admin" | "editor" | "viewer";
 
-export type EmitterStatus = "draft" | "in_review" | "validated" | "deprecated";
+export type EmitterStatus = "draft" | "in_review" | "partially_operational" | "validated" | "deprecated";
 
 export type MdfStatus = "draft" | "pending_review" | "approved" | "released" | "deprecated";
 

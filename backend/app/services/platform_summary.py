@@ -17,7 +17,13 @@ from app.models.mdf import Mdf, MdfPlatformLink
 from app.models.platform import Platform, PlatformEmitterLink, PlatformVersion
 
 # Worst first: an Emitter that needs rework holds the Platform back the most.
-STATUS_SEVERITY = [EmitterStatus.deprecated, EmitterStatus.draft, EmitterStatus.in_review, EmitterStatus.validated]
+STATUS_SEVERITY = [
+    EmitterStatus.deprecated,
+    EmitterStatus.draft,
+    EmitterStatus.in_review,
+    EmitterStatus.partially_operational,
+    EmitterStatus.validated,
+]
 
 _MODE_COUNTS = text(
     """

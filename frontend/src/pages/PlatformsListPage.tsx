@@ -23,8 +23,14 @@ import type { EmitterStatus } from "../types/domain";
 type PlatformSortKey = "name" | "description" | "emitters" | "status" | "outdated" | "modes" | "mdfs" | "ambiguity" | "saved";
 
 // Worst first, as the backend picks the worst status.
-const STATUS_RANK: Record<EmitterStatus, number> = { deprecated: 0, draft: 1, in_review: 2, validated: 3 };
-const STATUS_ORDER: EmitterStatus[] = ["deprecated", "draft", "in_review", "validated"];
+const STATUS_RANK: Record<EmitterStatus, number> = {
+  deprecated: 0,
+  draft: 1,
+  in_review: 2,
+  partially_operational: 3,
+  validated: 4,
+};
+const STATUS_ORDER: EmitterStatus[] = ["deprecated", "draft", "in_review", "partially_operational", "validated"];
 
 function comparePlatforms(a: Platform, b: Platform, key: PlatformSortKey, dir: "asc" | "desc"): number {
   const sa = a.summary;

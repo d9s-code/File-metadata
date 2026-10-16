@@ -318,7 +318,11 @@ def _sim_attention_items(sim_rows: list[dict]) -> list[dict]:
             items.append(
                 {**link, "category": "sim", "message": f"Emitter '{name}' is in Testing but hasn't been checked against a simulation yet."}
             )
-        if row["changed_since_validation"] and row["status"] in (EmitterStatus.in_review.value, EmitterStatus.validated.value):
+        if row["changed_since_validation"] and row["status"] in (
+            EmitterStatus.in_review.value,
+            EmitterStatus.partially_operational.value,
+            EmitterStatus.validated.value,
+        ):
             items.append(
                 {
                     **link,

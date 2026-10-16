@@ -248,3 +248,32 @@ def test_status_changes_without_the_checkout_and_leaves_unsaved_edits_alone(
 def test_viewer_cannot_commit_version(viewer_client, editor_client, emitter_ctx):
     resp = viewer_client.post(f"/emitters/{emitter_ctx['emitter']['id']}/versions", json={"change_summary": "test"})
     assert resp.status_code == 403
+
+
+def test_partially_operational_sits_between_testing_and_operational(editor_client, emitter_ctx):
+    emitter_id = emitter_ctx["emitter"]["id"]
+    status_url = f"/emitters/{emitter_id}/status"
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "v1"})
+    # Not straight from In progress.
+    assert editor_client.post(status_url, json={"new_status": "partially_operational", "note": "x"}).status_code == 409
+    editor_client.post(status_url, json={"new_status": "in_review"})
+
+    # Has to say which part is operational.
+    no_note = editor_client.post(status_url, json={"new_status": "partially_operational"})
+    assert no_note.status_code == 422
+    assert "which part is operational" in no_note.json()["detail"]
+
+    resp = editor_client.post(status_url, json={"new_status": "partially_operational", "note": "Search Modes checked"})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["change_summary"] == "Status: Testing → Partially operational — Search Modes checked"
+
+    # To Needs rework needs a note, as from Operational.
+    rework = editor_client.post(status_url, json={"new_status": "deprecated"})
+    assert rework.status_code == 422
+    assert "from Partially operational to Needs rework" in rework.json()["detail"]
+
+    done = editor_client.post(status_url, json={"new_status": "validated", "note": "All Modes checked"})
+    assert done.status_code == 200, done.text
+    back = editor_client.post(status_url, json={"new_status": "partially_operational", "note": "Track Modes changed"})
+    assert back.status_code == 200, back.text
+    assert editor_client.get(f"/emitters/{emitter_id}").json()["status"] == "partially_operational"
