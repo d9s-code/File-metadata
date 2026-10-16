@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.core.enums import EmitterStatus, TestResult
+from app.core.enums import TestResult
 
 
 class EmitterCreate(BaseModel):
@@ -64,7 +64,7 @@ class EmitterOut(BaseModel):
     name: str
     designation: str | None = None
     description: str | None = None
-    status: EmitterStatus
+    status: str
     rework_note: str | None = None
     is_deleted: bool
     deleted_at: datetime | None = None
@@ -123,6 +123,8 @@ class EmitterBulkAction(BaseModel):
     assignee_id: UUID | None = None
     new_status: str | None = None
     note: str | None = None
+    # status: move even where milestones for it aren't all met.
+    confirm_unmet: bool = False
     platform_id: UUID | None = None
 
 

@@ -177,7 +177,7 @@ def my_work(db: Session = Depends(get_db), user: User = Depends(require_role(Rol
             AssignedEmitterOut(
                 id=e.id,
                 name=e.name,
-                status=e.status.value,
+                status=e.status,
                 checked_out_by_username=names.get(e.checked_out_by_id),
                 open_tasks=open_counts.get(e.id, 0),
             )

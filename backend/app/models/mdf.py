@@ -34,7 +34,8 @@ class Mdf(UUIDPkMixin, TimestampMixin, Base):
     customer_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("customers.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    status: Mapped[MdfStatus] = mapped_column(nullable=False, default=MdfStatus.draft)
+    # A status_definitions key (MdfStatus names the built-in ones).
+    status: Mapped[str] = mapped_column(String(64), nullable=False, default=MdfStatus.draft.value)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(

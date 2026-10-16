@@ -8,8 +8,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.csrf import verify_csrf
-from app.core.enums import MDF_STATUS_TRANSITIONS, AuditAction, AuditEntityType, MdfStatus, Role
+from app.core.enums import AuditAction, AuditEntityType, Role
 from app.database import get_db
+from app.services import milestones, statuses
 from app.deps import require_role
 from app.models.customer import Customer
 from app.models.mdf import Mdf, MdfPlatformLink, MdfVersion
@@ -26,7 +27,6 @@ from app.services.prs_export.packager import build_mdf_export_zip
 from app.services.pin_hygiene import latest_platform_versions, mdf_readiness
 from app.services.readiness_service import compute_mdf_readiness_warnings
 from app.services.snapshots import build_mdf_snapshot
-from app.services.status_service import InvalidStatusTransition, validate_transition
 from app.services.pinned_diff_service import compute_pinned_diff
 from app.services.versioning_service import VersionSpec, commit_version, diff_versions, get_version, list_versions
 from app.xml_export.serializer import serialize_mdf_snapshot_to_xml
@@ -458,7 +458,9 @@ def diff_mdf_version(
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     old = get_version(db, spec=_VERSION_SPEC, entity_id=mdf_id, version_number=from_version)
     new = get_version(db, spec=_VERSION_SPEC, entity_id=mdf_id, version_number=version_number)
-    entries = compute_pinned_diff(old.snapshot, new.snapshot, own="MDF", child="platform")
+    entries = compute_pinned_diff(
+        old.snapshot, new.snapshot, own="MDF", child="platform", status_labels=statuses.labels(db, "mdf")
+    )
     return DiffOut(**result, entries=entries)
 
 
@@ -481,25 +483,20 @@ def transition_mdf_status(
     user=Depends(require_role(Role.editor)),
 ) -> MdfStatusTransitionOut:
     mdf = _get_mdf_or_404(db, mdf_id)
-    try:
-        new_status = MdfStatus(payload.new_status)
-    except ValueError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Unknown status '{payload.new_status}'") from exc
-
-    try:
-        validate_transition(mdf.status.value, new_status.value, MDF_STATUS_TRANSITIONS)
-    except InvalidStatusTransition as exc:
-        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    target, open_ones = milestones.check_status_move(
+        db, "mdf", mdf.id, mdf.status, payload.new_status, payload.note, payload.confirm_unmet
+    )
 
     warnings = compute_mdf_readiness_warnings(db, mdf)
 
-    old_status = mdf.status.value
-    mdf.status = new_status
+    old_status = mdf.status
+    mdf.status = target.key
     db.flush()
 
-    summary = f"Status: {old_status} → {new_status.value}"
+    summary = f"Status: {statuses.label(db, 'mdf', old_status)} → {target.label}"
     if payload.note:
         summary += f" — {payload.note}"
+    summary += milestones.unmet_suffix(open_ones)
 
     record_audit(
         db,
@@ -508,7 +505,7 @@ def transition_mdf_status(
         entity_type=AuditEntityType.mdf.value,
         entity_id=mdf.id,
         summary=f"MDF '{mdf.name}': {summary}",
-        changes={"status": {"old": old_status, "new": new_status.value}},
+        changes={"status": {"old": old_status, "new": target.key}, "milestones_not_met": open_ones or None},
     )
 
     snapshot = build_mdf_snapshot(mdf)

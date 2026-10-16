@@ -10,7 +10,6 @@ Every entry names the actual Mode/EW Group/Source and a human field label —
 never a raw DeepDiff path like `['ew_groups'][0]['modes'][1]['line']['rf_max_mhz']`.
 """
 
-from app.core.enums import EMITTER_STATUS_LABELS
 from app.services.dates import day_text
 
 EMITTER_FIELD_LABELS = {
@@ -37,7 +36,6 @@ SOURCE_FIELD_LABELS = {
 SOURCE_FIELDS_ADDED_LATER: frozenset[str] = frozenset()
 
 # Stored status values shown by the name a person knows them by.
-EMITTER_VALUE_LABELS = {"status": EMITTER_STATUS_LABELS}
 SOURCE_VALUE_LABELS: dict = {}
 
 TEST_LINE_FIELD_LABELS = {
@@ -186,11 +184,17 @@ def _diff_mode(entries: list[dict], old: dict, new: dict, old_group: dict, new_g
     )
 
 
-def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict) -> dict:
+def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict, status_labels: dict[str, str] | None = None) -> dict:
+    """`status_labels`: the statuses' names (by key) to show instead of keys."""
     entries: list[dict] = []
 
     _diff_fields(
-        entries, "Emitter", old_snapshot, new_snapshot, EMITTER_FIELD_LABELS, value_labels=EMITTER_VALUE_LABELS
+        entries,
+        "Emitter",
+        old_snapshot,
+        new_snapshot,
+        EMITTER_FIELD_LABELS,
+        value_labels={"status": status_labels or {}},
     )
 
     old_groups = {g["id"]: g for g in old_snapshot.get("ew_groups", [])}

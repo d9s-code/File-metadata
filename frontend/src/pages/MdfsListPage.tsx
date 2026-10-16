@@ -18,7 +18,8 @@ import { compareNullable, compareStrings } from "../components/common/sortUtils"
 import { useConfirmDialog } from "../components/common/ConfirmDialog";
 import type { Customer } from "../api/customers";
 import type { Mdf } from "../api/mdfs";
-import { statusLabel } from "../components/common/emitterStatusLabel";
+import { useStatuses } from "../state/hooks/useStatuses";
+import { StatusBadge } from "../components/status/StatusBadge";
 
 type MdfSortKey = "name" | "platforms" | "release_date" | "status" | "customer";
 
@@ -111,7 +112,8 @@ export function MdfsListPage() {
       (!statusFilter || m.status === statusFilter) &&
       (!customerFilter || m.customer_id === customerFilter),
   );
-  const statuses = [...new Set((mdfs ?? []).map((m) => m.status))].sort();
+  const mdfStatuses = useStatuses("mdf");
+  const statuses = mdfStatuses.list.map((s) => s.key).filter((k) => (mdfs ?? []).some((m) => m.status === k));
 
   return (
     <div className="page">
@@ -188,7 +190,7 @@ export function MdfsListPage() {
             <option value="">All statuses</option>
             {statuses.map((st) => (
               <option key={st} value={st}>
-                {statusLabel(st)}
+                {mdfStatuses.label(st)}
               </option>
             ))}
           </select>
@@ -267,7 +269,7 @@ export function MdfsListPage() {
                 <td>{m.platforms_count}</td>
                 <td>{formatDate(m.release_date)}</td>
                 <td>
-                  <span className={`status-badge status-${m.status}`}>{statusLabel(m.status)}</span>
+                  <StatusBadge type="mdf" status={m.status} />
                 </td>
                 <td>{m.customer_id ? customersById[m.customer_id]?.name ?? "—" : "—"}</td>
                 <td className="row-actions">

@@ -8,19 +8,14 @@ from app.services.emitter_diff_service import _diff_fields, _entry
 OWN_FIELD_LABELS = {"name": "Name", "description": "Description", "status": "Status"}
 
 
-def _status_label(value: str | None) -> str | None:
-    if not value:
-        return value
-    words = value.replace("_", " ")
-    return words[:1].upper() + words[1:]
-
-
-def compute_pinned_diff(old: dict, new: dict, *, own: str, child: str) -> list[dict]:
+def compute_pinned_diff(
+    old: dict, new: dict, *, own: str, child: str, status_labels: dict[str, str] | None = None
+) -> list[dict]:
     """`own` names the entity ("Platform" or "MDF"); `child` what it pins
-    ("emitter" or "platform"), as its snapshot's link keys spell it."""
+    ("emitter" or "platform"), as its snapshot's link keys spell it;
+    `status_labels` the names of its statuses, by key."""
     entries: list[dict] = []
-    statuses = {v: _status_label(v) for v in (old.get("status"), new.get("status")) if v}
-    _diff_fields(entries, own, old, new, OWN_FIELD_LABELS, value_labels={"status": statuses})
+    _diff_fields(entries, own, old, new, OWN_FIELD_LABELS, value_labels={"status": status_labels or {}})
 
     noun = child.capitalize()
     id_key, name_key, version_key = f"{child}_id", f"{child}_name", f"{child}_version_number"

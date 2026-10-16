@@ -32,11 +32,9 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.enums import (
-    EMITTER_STATUS_LABELS,
     AmbiguityRunStatus,
     AmbiguityScopeType,
     TestScopeType,
-    emitter_status_label,
 )
 from app.models.ambiguity import AmbiguityFinding, AmbiguityRun
 from app.models.emitter import Emitter
@@ -50,7 +48,7 @@ from app.models.customer import Customer
 from app.models.test_line import TestLine
 from app.models.test_record import TestRecord
 from app.models.user import User
-from app.services import knowledge_service, llm_client, search_service
+from app.services import knowledge_service, llm_client, search_service, statuses
 from app.services.pin_hygiene import mdf_readiness
 from app.services.test_line_status_service import latest_line_outcomes
 from app.services.ai_review_service import SEVERITY_LABELS, SEVERITY_ORDER, _finding_line, _n, unverified_numbers
@@ -99,8 +97,8 @@ class ChatStep(BaseModel):
     )
     status: str | None = Field(
         None, description=(
-            "list_emitters: only Emitters with this status "
-            "(in progress, testing, partially operational, operational, needs rework)"
+            "list_emitters: only Emitters with this status, as the app names it "
+            "(e.g. in progress, testing, partially operational, operational, needs rework)"
         ),
     )
     rf_mhz: float | None = Field(None, description="find_modes: the signal's RF in MHz (or the band's low end)")
@@ -237,7 +235,7 @@ def overview(db: Session, step: ChatStep) -> str:
         [
             f"Platforms: {db.scalar(select(func.count(Platform.id)).where(Platform.is_deleted.is_(False)))}",
             f"Emitters: {sum(n for _, n in emitters)} ("
-            + ", ".join(f"{emitter_status_label(s.value)} {n}" for s, n in emitters)
+            + ", ".join(f"{statuses.label(db, 'emitter', s)} {n}" for s, n in emitters)
             + ")",
             f"Modes: {modes}",
             f"MDFs: {db.scalar(select(func.count(Mdf.id)).where(Mdf.is_deleted.is_(False)))}",
@@ -331,7 +329,7 @@ def get_emitter(db: Session, step: ChatStep) -> str:
     ).all()
     lines = [
         f"Emitter {emitter.name} [{emitter.id}]" + (f", designation {emitter.designation}" if emitter.designation else ""),
-        f"Status: {emitter_status_label(emitter.status.value)}",
+        f"Status: {statuses.label(db, 'emitter', emitter.status)}",
     ]
     if emitter.description:
         lines.append(f"Description: {emitter.description.strip()[:400]}")
@@ -382,14 +380,12 @@ def list_emitters(db: Session, step: ChatStep) -> str:
     where = []
     if step.status:
         wanted = step.status.strip().lower().replace("_", " ")
-        matches = [
-            value for value, label in EMITTER_STATUS_LABELS.items()
-            if wanted in (value.replace("_", " "), label.lower())
-        ]
+        names = statuses.labels(db, "emitter")
+        matches = [value for value, label in names.items() if wanted in (value.replace("_", " "), label.lower())]
         if not matches:
-            return f'"{step.status}" is not a status. They are: ' + ", ".join(EMITTER_STATUS_LABELS.values()) + "."
+            return f'"{step.status}" is not a status. They are: ' + ", ".join(names.values()) + "."
         query = query.where(Emitter.status.in_(matches))
-        where.append(f"status {EMITTER_STATUS_LABELS[matches[0]]}")
+        where.append(f"status {names[matches[0]]}")
     if step.target:
         platform, why = _resolve(db, Platform, step.target)
         if platform is None:
@@ -412,7 +408,7 @@ def list_emitters(db: Session, step: ChatStep) -> str:
     )
     lines = [f"{len(emitters)} Emitters" + (f" ({', '.join(where)})" if where else "") + ":"]
     for e in emitters[:80]:
-        bits = [emitter_status_label(e.status.value), f"{modes.get(e.id, 0)} Modes"]
+        bits = [statuses.label(db, "emitter", e.status), f"{modes.get(e.id, 0)} Modes"]
         if e.assignee_id:
             bits.append(f"assigned to {users.get(e.assignee_id, '?')}")
         lines.append(f"- {_label(e)} [{e.id}] · " + " · ".join(bits))
@@ -460,7 +456,7 @@ def get_mdf(db: Session, step: ChatStep) -> str:
     customer = db.get(Customer, mdf.customer_id) if mdf.customer_id else None
     out = [
         f"MDF {mdf.name} [{mdf.id}]",
-        f"Status: {mdf.status.value.replace('_', ' ')}",
+        f"Status: {statuses.label(db, 'mdf', mdf.status)}",
         f"Customer: {customer.name if customer else 'none'}",
         f"Release date: {day_text(mdf.release_date) if mdf.release_date else 'not set'}",
     ]
@@ -495,7 +491,7 @@ def get_platform(db: Session, step: ChatStep) -> str:
     if platform.description:
         lines.append(f"Description: {platform.description.strip()[:400]}")
     lines.append(f"Emitters ({len(emitters)}):")
-    lines += [f"- {n} ({emitter_status_label(s.value)}, {c} Modes)" for n, s, c in emitters]
+    lines += [f"- {n} ({statuses.label(db, 'emitter', s)}, {c} Modes)" for n, s, c in emitters]
     lines.append("In MDFs: " + (", ".join(mdfs) or "none"))
     return "\n".join(lines)
 

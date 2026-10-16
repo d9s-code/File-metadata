@@ -15,6 +15,8 @@ export interface EmitterBulkInput {
   assignee_id?: string | null;
   new_status?: string;
   note?: string;
+  /** status: move even where the new status's milestones aren't all met. */
+  confirm_unmet?: boolean;
   platform_id?: string;
 }
 

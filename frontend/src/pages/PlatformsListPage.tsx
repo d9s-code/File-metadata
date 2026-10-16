@@ -14,23 +14,29 @@ import { SortableColumnHeader, type ColumnType } from "../components/common/Sort
 import { useSortableTable } from "../components/common/useSortableTable";
 import { compareNullable, compareStrings } from "../components/common/sortUtils";
 import { useConfirmDialog } from "../components/common/ConfirmDialog";
-import { EMITTER_STATUS_LABEL } from "../components/common/emitterStatusLabel";
+import { StatusBadge } from "../components/status/StatusBadge";
+import { useStatuses } from "../state/hooks/useStatuses";
 import { TasksButton } from "../components/tasks/TasksButton";
 import { useTasks } from "../state/hooks/useTasks";
 import type { Platform } from "../api/platforms";
-import type { EmitterStatus } from "../types/domain";
 
-type PlatformSortKey = "name" | "description" | "emitters" | "status" | "outdated" | "modes" | "mdfs" | "ambiguity" | "saved";
+type PlatformSortKey =
+  | "name"
+  | "description"
+  | "own_status"
+  | "emitters"
+  | "status"
+  | "outdated"
+  | "modes"
+  | "mdfs"
+  | "ambiguity"
+  | "saved";
 
-// Worst first, as the backend picks the worst status.
-const STATUS_RANK: Record<EmitterStatus, number> = {
-  deprecated: 0,
-  draft: 1,
-  in_review: 2,
-  partially_operational: 3,
-  validated: 4,
-};
-const STATUS_ORDER: EmitterStatus[] = ["deprecated", "draft", "in_review", "partially_operational", "validated"];
+// Worst first: the summary's counts come in that order (as the backend picks the worst).
+function rank(summary: Platform["summary"]): number | null {
+  if (!summary?.worst_status) return null;
+  return Object.keys(summary.status_counts).indexOf(summary.worst_status);
+}
 
 function comparePlatforms(a: Platform, b: Platform, key: PlatformSortKey, dir: "asc" | "desc"): number {
   const sa = a.summary;
@@ -43,11 +49,9 @@ function comparePlatforms(a: Platform, b: Platform, key: PlatformSortKey, dir: "
     case "emitters":
       return compareNullable(sa?.emitter_count, sb?.emitter_count, dir);
     case "status":
-      return compareNullable(
-        sa?.worst_status ? STATUS_RANK[sa.worst_status] : null,
-        sb?.worst_status ? STATUS_RANK[sb.worst_status] : null,
-        dir,
-      );
+      return compareNullable(rank(sa), rank(sb), dir);
+    case "own_status":
+      return compareStrings(a.status, b.status, dir);
     case "outdated":
       return compareNullable(sa?.outdated_pins, sb?.outdated_pins, dir);
     case "modes":
@@ -61,14 +65,14 @@ function comparePlatforms(a: Platform, b: Platform, key: PlatformSortKey, dir: "
   }
 }
 
-function statusTitle(counts: Record<EmitterStatus, number>): string {
-  return STATUS_ORDER.filter((s) => counts[s])
-    .map((s) => `${counts[s]} ${EMITTER_STATUS_LABEL[s]}`)
-    .join(" · ");
-}
-
 export function PlatformsListPage() {
   const { data: platforms, isLoading } = usePlatforms();
+  const emitterStatuses = useStatuses("emitter");
+  const statusTitle = (counts: Record<string, number>) =>
+    Object.entries(counts)
+      .filter(([, n]) => n)
+      .map(([k, n]) => `${n} ${emitterStatuses.label(k)}`)
+      .join(" · ");
   const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(platforms ?? [], comparePlatforms);
   const createPlatform = useCreatePlatform();
   const deletePlatform = useDeletePlatform();
@@ -175,6 +179,7 @@ export function PlatformsListPage() {
             <tr>
               {header("Name", "name")}
               {header("Description", "description")}
+              {header("Status", "own_status", "The Platform's own status")}
               {header("Emitters", "emitters", "Emitters pinned on the Platform", "number")}
               {header("Emitter status", "status", "The worst status among the pinned Emitters")}
               {header("Outdated pins", "outdated", "Pinned Emitters with a newer saved version", "number")}
@@ -197,11 +202,14 @@ export function PlatformsListPage() {
                   <td className="platforms-description" title={p.description ?? undefined}>
                     {p.description ?? "—"}
                   </td>
+                  <td>
+                    <StatusBadge type="platform" status={p.status} />
+                  </td>
                   <td className="num">{s?.emitter_count ?? "—"}</td>
                   <td>
                     {s?.worst_status ? (
                       <span title={statusTitle(s.status_counts)}>
-                        <span className={`status-badge status-${s.worst_status}`}>{EMITTER_STATUS_LABEL[s.worst_status]}</span>
+                        <StatusBadge type="emitter" status={s.worst_status} />
                         {s.emitter_count > 1 && (
                           <span className="hint-text">
                             {" "}

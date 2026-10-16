@@ -9,12 +9,13 @@ from app.core.csrf import verify_csrf
 from app.core.downloads import attachment_disposition
 from app.core.enums import AuditAction, AuditEntityType, Role
 from app.database import get_db
+from app.services import milestones, statuses
 from app.deps import require_role
 from app.models.emitter_version import EmitterVersion
 from app.models.platform import Platform, PlatformEmitterLink, PlatformVersion
 from app.models.platform_note import PlatformNote
 from app.schemas.platform_note import PlatformNoteCreate, PlatformNoteOut
-from app.schemas.emitter_version import CommitVersionRequest, DiffOut
+from app.schemas.emitter_version import CommitVersionRequest, DiffOut, StatusTransitionRequest
 from app.schemas.platform import (
     PlatformCreate,
     PlatformLinkCreate,
@@ -380,6 +381,60 @@ def commit_platform_version(
     )
 
 
+@router.post("/{platform_id}/status", response_model=PlatformOut, dependencies=[Depends(verify_csrf)])
+def transition_platform_status(
+    platform_id: UUID,
+    payload: StatusTransitionRequest,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+) -> Platform:
+    """Move the Platform along its lifecycle. With a saved version, the move
+    is saved as a new version of it with only the status changed (pins
+    changed since stay unsaved), as for an Emitter."""
+    platform = db.query(Platform).filter(Platform.id == platform_id).with_for_update().first()
+    if platform is None or platform.is_deleted:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Platform not found")
+    target, open_ones = milestones.check_status_move(
+        db, "platform", platform.id, platform.status, payload.new_status, payload.note, payload.confirm_unmet
+    )
+    old_status = platform.status
+    platform.status = target.key
+    db.flush()
+
+    summary = f"Status: {statuses.label(db, 'platform', old_status)} → {target.label}"
+    if payload.note:
+        summary += f" — {payload.note}"
+    summary += milestones.unmet_suffix(open_ones)
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.status_change,
+        entity_type=AuditEntityType.platform.value,
+        entity_id=platform.id,
+        summary=f"Platform '{platform.name}': {summary}",
+        changes={"status": {"old": old_status, "new": target.key}, "milestones_not_met": open_ones or None},
+    )
+    latest = (
+        db.query(PlatformVersion)
+        .filter(PlatformVersion.platform_id == platform.id)
+        .order_by(PlatformVersion.version_number.desc())
+        .first()
+    )
+    if latest is not None:
+        commit_version(
+            db,
+            spec=_VERSION_SPEC,
+            entity_id=platform.id,
+            snapshot={**latest.snapshot, "status": target.key},
+            change_summary=summary,
+            created_by=user.id,
+        )
+    else:
+        db.commit()
+    db.refresh(platform)
+    return platform
+
+
 @router.get("/{platform_id}/versions", response_model=list[PlatformVersionOut])
 def list_platform_versions(
     platform_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
@@ -422,7 +477,9 @@ def diff_platform_version(
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     old = get_version(db, spec=_VERSION_SPEC, entity_id=platform_id, version_number=from_version)
     new = get_version(db, spec=_VERSION_SPEC, entity_id=platform_id, version_number=version_number)
-    entries = compute_pinned_diff(old.snapshot, new.snapshot, own="Platform", child="emitter")
+    entries = compute_pinned_diff(
+        old.snapshot, new.snapshot, own="Platform", child="emitter", status_labels=statuses.labels(db, "platform")
+    )
     return DiffOut(**result, entries=entries)
 
 

@@ -1,8 +1,9 @@
 export type Role = "admin" | "editor" | "viewer";
 
-export type EmitterStatus = "draft" | "in_review" | "partially_operational" | "validated" | "deprecated";
+/** A status key — Admins set up the statuses (names, colours, moves); see api/statuses. */
+export type EmitterStatus = string;
 
-export type MdfStatus = "draft" | "pending_review" | "approved" | "released" | "deprecated";
+export type MdfStatus = string;
 
 /** lab_bench/live_range/field_exercise only appear on older records — new tests are simulation or intercept. */
 export type TestType = "simulation" | "lab_bench" | "live_range" | "field_exercise" | "intercept";

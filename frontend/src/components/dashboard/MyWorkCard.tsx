@@ -3,9 +3,8 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { useMyWork } from "../../state/hooks/useTasks";
 import { heldFor, LONG_HELD_MS, useCheckouts } from "../../state/hooks/useEmitterCheckout";
-import { emitterStatusLabel } from "../common/emitterStatusLabel";
 import { TaskList } from "../tasks/TaskList";
-import type { EmitterStatus } from "../../types/domain";
+import { StatusBadge } from "../status/StatusBadge";
 
 /** Tasks listed before "All my tasks". */
 const SHOWN_TASKS = 6;
@@ -59,7 +58,7 @@ export function MyWorkCard() {
               {(allAssigned ? work.emitters : work.emitters.slice(0, SHOWN_LIST)).map((e) => (
                 <li key={e.id}>
                   <Link to={`/emitters/${e.id}`}>{e.name}</Link>
-                  <span className={`status-badge status-${e.status}`}>{emitterStatusLabel(e.status as EmitterStatus)}</span>
+                  <StatusBadge type="emitter" status={e.status} />
                   {e.open_tasks > 0 && (
                     <span className="hint-text">
                       {e.open_tasks} task{e.open_tasks === 1 ? "" : "s"}

@@ -120,8 +120,8 @@ export function useMdfReadiness(mdfId: string) {
 export function useTransitionMdfStatus(mdfId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ newStatus, note }: { newStatus: string; note?: string }) =>
-      mdfsApi.transitionStatus(mdfId, newStatus, note),
+    mutationFn: ({ newStatus, note, confirmUnmet }: { newStatus: string; note?: string; confirmUnmet?: boolean }) =>
+      mdfsApi.transitionStatus(mdfId, newStatus, note, confirmUnmet),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [...mdfsKey, mdfId] });
       qc.invalidateQueries({ queryKey: mdfsKey });

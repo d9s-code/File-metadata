@@ -14,6 +14,7 @@ from app.core.enums import (
     TestScopeType,
 )
 from app.deps import has_role
+from app.services import statuses as status_defs
 from app.models.ambiguity import AmbiguityFinding, AmbiguityRun
 from app.models.audit_log import AuditLog
 from app.models.emitter import Emitter
@@ -42,20 +43,20 @@ SIM_OUTCOME_KEYS = tuple(r.value for r in TestResult) + ("untested",)
 
 
 def _compute_status_counts(db: Session) -> tuple[dict[str, int], dict[str, int]]:
-    emitter_counts = {s.value: 0 for s in EmitterStatus}
+    emitter_counts = {k: 0 for k in status_defs.by_key(db, "emitter")}
     for status_value, count in (
         db.query(Emitter.status, func.count())
         .filter(Emitter.is_deleted.is_(False))
         .group_by(Emitter.status)
         .all()
     ):
-        emitter_counts[status_value.value] = count
+        emitter_counts[status_value] = count
 
-    mdf_counts = {s.value: 0 for s in MdfStatus}
+    mdf_counts = {k: 0 for k in status_defs.by_key(db, "mdf")}
     for status_value, count in (
         db.query(Mdf.status, func.count()).filter(Mdf.is_deleted.is_(False)).group_by(Mdf.status).all()
     ):
-        mdf_counts[status_value.value] = count
+        mdf_counts[status_value] = count
 
     return emitter_counts, mdf_counts
 
@@ -291,7 +292,7 @@ def _compute_emitter_sim_status(db: Session) -> list[dict]:
             {
                 "emitter_id": str(e.id),
                 "name": e.name,
-                "status": e.status.value,
+                "status": e.status,
                 "line_count": sum(counts[e.id].values()),
                 "line_outcomes": counts[e.id],
                 "last_validated_at": validated[0].isoformat() if validated else None,

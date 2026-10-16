@@ -6,16 +6,9 @@ import { ApiRequestError } from "../../api/client";
 import { usePeople } from "../../state/hooks/useTasks";
 import { usePlatforms } from "../../state/hooks/usePlatforms";
 import { useAuth } from "../../auth/AuthContext";
-import { EMITTER_STATUS_LABEL } from "../common/emitterStatusLabel";
-import type { EmitterStatus } from "../../types/domain";
+import { useStatuses } from "../../state/hooks/useStatuses";
 
 type Action = "assign" | "status" | "pin" | "release";
-const NEEDS_NOTE: EmitterStatus[] = ["validated", "partially_operational", "deprecated"];
-const NOTE_PROMPT: Partial<Record<EmitterStatus, string>> = {
-  validated: "What was validated (required)",
-  partially_operational: "Which part is operational (required)",
-  deprecated: "What needs rework (required)",
-};
 
 /** What to do with the Emitters ticked in the list: assign them, move their
  * status, pin their latest saved version into a Platform, or release their
@@ -28,7 +21,10 @@ export function EmitterBulkBar({ selected, onClear }: { selected: string[]; onCl
   const { data: platforms } = usePlatforms();
   const [action, setAction] = useState<Action>("assign");
   const [assignee, setAssignee] = useState("");
-  const [status, setStatus] = useState<EmitterStatus>("in_review");
+  const statuses = useStatuses("emitter");
+  const [status, setStatus] = useState("in_review");
+  // Move even where the new status's milestones aren't all met.
+  const [evenUnmet, setEvenUnmet] = useState(false);
   const [note, setNote] = useState("");
   const [platformId, setPlatformId] = useState("");
   const [result, setResult] = useState<EmitterBulkResult | null>(null);
@@ -43,7 +39,7 @@ export function EmitterBulkBar({ selected, onClear }: { selected: string[]; onCl
   });
 
   const editors = (people ?? []).filter((p) => p.role !== "viewer");
-  const needsNote = action === "status" && NEEDS_NOTE.includes(status);
+  const needsNote = action === "status" && !!statuses.byKey[status]?.requires_note;
   const ready =
     selected.length > 0 &&
     (action !== "pin" || !!platformId) &&
@@ -57,7 +53,9 @@ export function EmitterBulkBar({ selected, onClear }: { selected: string[]; onCl
         emitter_ids: selected,
         action,
         ...(action === "assign" ? { assignee_id: assignee || null } : {}),
-        ...(action === "status" ? { new_status: status, note: note.trim() || undefined } : {}),
+        ...(action === "status"
+          ? { new_status: status, note: note.trim() || undefined, confirm_unmet: evenUnmet }
+          : {}),
         ...(action === "pin" ? { platform_id: platformId } : {}),
       });
     } catch (err) {
@@ -89,20 +87,26 @@ export function EmitterBulkBar({ selected, onClear }: { selected: string[]; onCl
           </select>
         )}
         {action === "status" && (
-          <select value={status} onChange={(e) => setStatus(e.target.value as EmitterStatus)} aria-label="New status">
-            {(Object.keys(EMITTER_STATUS_LABEL) as EmitterStatus[]).map((s) => (
-              <option key={s} value={s}>
-                {EMITTER_STATUS_LABEL[s]}
-              </option>
-            ))}
-          </select>
+          <>
+            <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="New status">
+              {statuses.list.map((s) => (
+                <option key={s.key} value={s.key}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+            <label className="inline-label" title="Otherwise those with milestones not met are skipped and listed">
+              <input type="checkbox" checked={evenUnmet} onChange={(e) => setEvenUnmet(e.target.checked)} />
+              even if milestones aren&apos;t met
+            </label>
+          </>
         )}
         {needsNote && (
           <input
             className="emitter-bulk-note"
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder={NOTE_PROMPT[status]}
+            placeholder={`${statuses.byKey[status]?.note_prompt ?? "Note"} (required)`}
             aria-label="Note"
           />
         )}

@@ -20,6 +20,7 @@ class PlatformOut(BaseModel):
     id: UUID
     name: str
     description: str | None = None
+    status: str
     is_deleted: bool
     deleted_at: datetime | None = None
     created_at: datetime

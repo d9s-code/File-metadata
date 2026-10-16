@@ -14,8 +14,12 @@ export const emitterVersionsApi = {
       `/emitters/${emitterId}/versions/${versionNumber}/diff${against != null ? `?against=${against}` : ""}`
     ),
   liveDiff: (emitterId: string) => api.get<EmitterDiffResult>(`/emitters/${emitterId}/diff/live`),
-  transitionStatus: (emitterId: string, newStatus: string, note?: string) =>
-    api.post<EmitterVersionSummary>(`/emitters/${emitterId}/status`, { new_status: newStatus, note }),
+  transitionStatus: (emitterId: string, newStatus: string, note?: string, confirmUnmet = false) =>
+    api.post<EmitterVersionSummary>(`/emitters/${emitterId}/status`, {
+      new_status: newStatus,
+      note,
+      confirm_unmet: confirmUnmet,
+    }),
   revert: (emitterId: string, versionNumber: number) =>
     api.post<EmitterVersionSummary>(`/emitters/${emitterId}/versions/${versionNumber}/revert`),
   fork: (emitterId: string, versionNumber: number, newName: string) =>

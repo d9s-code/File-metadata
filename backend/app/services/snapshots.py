@@ -91,7 +91,7 @@ def build_emitter_snapshot(emitter: Emitter) -> dict:
         "name": emitter.name,
         "designation": emitter.designation,
         "description": emitter.description,
-        "status": emitter.status.value,
+        "status": emitter.status,
         "ew_groups": [
             {
                 "id": str(g.id),
@@ -126,6 +126,7 @@ def build_platform_snapshot(platform: Platform) -> dict:
         "id": str(platform.id),
         "name": platform.name,
         "description": platform.description,
+        "status": platform.status,
         "links": [
             {
                 "emitter_id": str(link.emitter_id),
@@ -144,7 +145,7 @@ def build_mdf_snapshot(mdf: Mdf) -> dict:
         "id": str(mdf.id),
         "name": mdf.name,
         "description": mdf.description,
-        "status": mdf.status.value,
+        "status": mdf.status,
         "links": [
             {
                 "platform_id": str(link.platform_id),

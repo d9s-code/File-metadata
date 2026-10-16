@@ -77,3 +77,6 @@ class EmitterDiffOut(BaseModel):
 class StatusTransitionRequest(BaseModel):
     new_status: str
     note: str | None = None
+    # Move even though some milestones for the new status aren't met (the
+    # first try without it is refused with the list).
+    confirm_unmet: bool = False

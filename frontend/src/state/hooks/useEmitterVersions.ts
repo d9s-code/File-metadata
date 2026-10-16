@@ -40,8 +40,8 @@ export function useCommitEmitterVersion(emitterId: string) {
 export function useTransitionEmitterStatus(emitterId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ newStatus, note }: { newStatus: string; note?: string }) =>
-      emitterVersionsApi.transitionStatus(emitterId, newStatus, note),
+    mutationFn: ({ newStatus, note, confirmUnmet }: { newStatus: string; note?: string; confirmUnmet?: boolean }) =>
+      emitterVersionsApi.transitionStatus(emitterId, newStatus, note, confirmUnmet),
     onSuccess: () => invalidateEmitter(qc, emitterId),
   });
 }

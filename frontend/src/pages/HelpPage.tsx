@@ -314,6 +314,15 @@ export function HelpPage() {
             button next to the status badge, so the reason a previously-Operational Emitter needs rework
             is never buried in a commit message.
           </p>
+          <p>
+            <strong>Statuses and milestones are set up by Admins</strong> (Admin → Statuses &amp; milestones) — the
+            names, colours and allowed moves above are the defaults, for Emitters and Platforms alike.{" "}
+            <strong>◎ Milestones</strong> beside ☑ Tasks lists what to get done before each status (e.g. a manual
+            dwell test before Partially operational): tick one off by hand, with a note if you like, or add one just
+            for this Emitter. The count shows how many for the next status are met, and each Move to … button shows
+            its own. Moving to a status with milestones not met asks you to confirm, and the version records which
+            weren&apos;t.
+          </p>
 
           <div className="help-subsection" id="emitter-modes-tab">
             <h4>Modes tab</h4>
@@ -1257,7 +1266,11 @@ export function HelpPage() {
           Admins only. <strong>Users</strong>: create accounts, change roles, deactivate or reactivate.{" "}
           <strong>Edit locks</strong>: every Emitter being edited, with Force release for a stale hold.{" "}
           <strong>Recently Deleted</strong>: restore deleted Emitters, Platforms and MDFs, or delete them for good;
-          anything left 30 days is removed each day. <strong>Backups</strong>: below.
+          anything left 30 days is removed each day. <strong>Backups</strong>: below.{" "}
+          <strong>Statuses &amp; milestones</strong>: for Emitters, Platforms and MDFs, rename, recolour, add and
+          reorder statuses, choose which moves are allowed and which ask for a note, and set the default milestones
+          every item has before each status. Built-in statuses can be renamed but not deleted; an added one can be
+          deleted once nothing is in it.
         </p>
         <div className="help-subsection" id="admin-backups">
           <h3>Backups</h3>

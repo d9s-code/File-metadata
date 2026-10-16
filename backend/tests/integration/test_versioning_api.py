@@ -261,7 +261,7 @@ def test_partially_operational_sits_between_testing_and_operational(editor_clien
     # Has to say which part is operational.
     no_note = editor_client.post(status_url, json={"new_status": "partially_operational"})
     assert no_note.status_code == 422
-    assert "which part is operational" in no_note.json()["detail"]
+    assert "Which part is operational?" in no_note.json()["detail"]
 
     resp = editor_client.post(status_url, json={"new_status": "partially_operational", "note": "Search Modes checked"})
     assert resp.status_code == 200, resp.text
@@ -270,7 +270,7 @@ def test_partially_operational_sits_between_testing_and_operational(editor_clien
     # To Needs rework needs a note, as from Operational.
     rework = editor_client.post(status_url, json={"new_status": "deprecated"})
     assert rework.status_code == 422
-    assert "from Partially operational to Needs rework" in rework.json()["detail"]
+    assert "moving to Needs rework" in rework.json()["detail"]
 
     done = editor_client.post(status_url, json={"new_status": "validated", "note": "All Modes checked"})
     assert done.status_code == 200, done.text

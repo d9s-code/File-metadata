@@ -219,14 +219,18 @@ Nothing is ever silently lost: the live draft can keep changing, but a committed
 
 ### Status
 
-Emitters and MDFs additionally carry a **status** that moves through a fixed set of legal transitions — you can't jump straight from `draft` to `validated`, for example:
+Emitters, Platforms and MDFs carry a **status** that moves only along the allowed moves — you can't jump straight from In progress to Operational, for example. Admins set the statuses up under **Admin → Statuses & milestones** (see below); out of the box:
 
-- **Emitter status**: `draft` → `in_review` → `validated` → `deprecated`, with `partially_operational` between Testing and Operational
-- **MDF status**: `draft` → `pending_review` → `approved` → `released` → `deprecated`
+- **Emitters and Platforms**: **In progress** (grey) → **Testing** (orange) → **Partially operational** (yellow) / **Operational** (green) → **Needs rework** (red), and back to In progress from there
+- **MDFs**: **Draft** → **Pending review** → **Approved** → **Released** → **Deprecated**
 
-As shown: **In progress** (grey), **Testing** (orange), **Partially operational** (yellow), **Operational** (green), **Needs rework** (red). *Partially operational* is for an Emitter that's usable in part — some of its Modes have been checked and can be relied on, the rest are still being worked on; the note required to move it there says which part. From Testing it can go to Partially operational or Operational; from Partially operational to Operational, back to Testing, or to Needs rework (with a note); from Operational back to Partially operational. It counts as not yet Operational wherever that matters (MDF readiness, Platform pin checks), and it sits between Testing and Operational when a Platform shows its worst status.
+*Partially operational* is for something usable in part — some of its Modes have been checked and can be relied on, the rest are still being worked on; the note asked for when moving there says which part. From Testing an Emitter can go to Partially operational or Operational; from Partially operational to Operational, back to Testing, or to Needs rework; from Operational back to Partially operational. Moving to Operational, Partially operational or Needs rework asks for a note. Partially operational counts as not yet Operational wherever that matters (MDF readiness, Platform pin checks), and sits between Testing and Operational when a Platform shows its Emitters' worst status.
 
-Every status transition automatically commits a new version with an auto-filled summary (e.g. "Status: In progress → Testing"), so your status history *is* your version history — nothing extra to look up.
+**Statuses Admins set up.** Under **Admin → Statuses & milestones**, for Emitters, Platforms and MDFs separately: rename any status, pick its colour (grey, blue, green, yellow, amber, orange, red, purple), add new ones, reorder them (the order lists and the dashboard show), choose which statuses each can **move to** (and which can reach it), and whether moving there **asks for a note** and with what question. The built-in statuses can be renamed and recoloured but not deleted — the app relies on them: new items start In progress / Draft, Operational is what MDF readiness and pin checks look for, Needs rework keeps the rework note. An added status can be deleted once nothing is in it; its default milestones go with it. Renames show everywhere at once — items store a status's fixed key, not its name (`GET/POST /statuses`, `PATCH/DELETE /statuses/{id}`, `POST /statuses/reorder`).
+
+**Milestones.** What to get done before an item reaches a status — e.g. *Partially operational* needs *Manual dwell test passed*. **Default milestones** are set by Admins on the same page, per type and status, and are on every item of that type (edit or delete one there and it changes everywhere); an item can also have **its own**, added on its page. On the Emitter, Platform and MDF page, **◎ Milestones · 1/3** in the header shows how many of the milestones for the statuses it can move to next are met; it opens the list by status — tick one off by hand (who and when are recorded, with an optional note such as *Passed on the range, 14.10*), untick it, or add and remove the item's own. Each **Move to …** button shows the same count for its status. Moving to a status with milestones not met **warns and asks to confirm**, listing the open ones; confirming goes ahead and the version summary and audit entry record which weren't met (… *(milestones not met: …)*). Bulk status moves on the Emitters list skip those with milestones not met unless **even if milestones aren't met** is ticked (`GET/POST /milestones/{type}/{id}`, `PUT/DELETE /milestones/{milestone}/check/{id}`, defaults at `/milestones/defaults`).
+
+Every status transition automatically commits a new version with an auto-filled summary (e.g. "Status: In progress → Testing"), so your status history *is* your version history — nothing extra to look up. A Platform's status move is saved as a new version of its last saved one (with only the status changed) once it has one.
 
 An Emitter's status describes its saved content, so changing it doesn't need **Start editing**: any Editor can, even while someone else holds the Emitter. The new version is the **last saved version with only the status changed** — never the live draft, so unsaved edits aren't swept into a version titled as a status change; they stay unsaved, and take the new status with them when they're saved. An Emitter never saved can't change status ("Save a version first"). While editing, the Changes panel notes any status change saved since editing began. Each change is in the audit log, with its note where one is required.
 
@@ -247,7 +251,7 @@ The Platform page shows each Emitter's **designation before its name** — in th
 - **Analyst notes** — the same append-only, timestamped log as an Emitter's (also on MDFs), in the Notes panel.
 - **Ambiguity check** (a button at the top) — runs on the latest saved Platform version and answers *which Emitters could be taken for each other*: each Emitter's Modes are compared with the other Emitters' Modes, never with its own (that's the Emitter's own check).
 
-The **Platforms list** shows, for each Platform: how many Emitters it pins, the **worst status** among them (Needs rework, then In progress, Testing, Partially operational, Operational — hover for the count of each), how many pins are **outdated**, the Modes in the pinned versions, how many MDFs it's in, what its latest ambiguity check found (how many Emitters could be taken for another, and how many findings are still open), when it was last saved, and its open Tasks. Every column sorts.
+The **Platforms list** shows, for each Platform: its own **Status**, how many Emitters it pins, the **worst status** among them (Needs rework, then In progress, Testing, Partially operational, Operational — hover for the count of each), how many pins are **outdated**, the Modes in the pinned versions, how many MDFs it's in, what its latest ambiguity check found (how many Emitters could be taken for another, and how many findings are still open), when it was last saved, and its open Tasks. Every column sorts.
 
 ---
 
@@ -502,7 +506,7 @@ Authentication is local username/password (no external identity provider, matchi
 
 ## 14. Admin Panel
 
-Admin-only (both the nav link and the routes themselves redirect a non-admin away, not just hide the link) — Users, Edit locks, Recently Deleted and Backups:
+Admin-only (both the nav link and the routes themselves redirect a non-admin away, not just hide the link) — Users, Edit locks, Recently Deleted, Backups, Statuses & milestones and Settings:
 
 ### Users
 
@@ -526,6 +530,10 @@ Restoring can fail with a 409 if another item now holds the same name — rename
 ### Backups
 
 The backups' health, Back up now, Verify, and the compare overview — see [Backup & Restore](#12-backup--restore).
+
+### Statuses & milestones
+
+Per kind of item (Emitters · Platforms · MDFs): its statuses in order — name and colour, what each can move to, whether moving there asks for a note, how many items are in it — with ↑ ↓ to reorder, **+ Add status**, and **Edit…** / **Delete** in each row's ⋯ menu; and the **default milestones** before each status, added with the form at the bottom, reordered with ↑ ↓, edited or deleted from their ⋯ menu. See [Status](#status).
 
 ---
 

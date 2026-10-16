@@ -25,8 +25,9 @@ import { LoadingState } from "../components/common/LoadingState";
 import { Modal } from "../components/common/Modal";
 import { NotesFeed } from "../components/common/NotesFeed";
 import { NotesDrawer } from "../components/common/NotesDrawer";
-import { statusLabel } from "../components/common/emitterStatusLabel";
 import { TasksButton } from "../components/tasks/TasksButton";
+import { MilestonesButton } from "../components/status/MilestonesButton";
+import { StatusBadge } from "../components/status/StatusBadge";
 
 type Tab = "platforms" | "charts" | "tests" | "audit";
 
@@ -143,10 +144,11 @@ export function MdfBuilderPage() {
         }
         status={
           <>
-            <span className={`status-badge status-${mdf.status}`}>{statusLabel(mdf.status)}</span>
+            <StatusBadge type="mdf" status={mdf.status} />
             <MdfStatusTransitionControls mdfId={mdf.id} status={mdf.status} />
             <LatestVersion versions={versions} />
             <TasksButton type="mdf" id={mdf.id} name={mdf.name} />
+            <MilestonesButton type="mdf" id={mdf.id} status={mdf.status} />
             {outdatedPins > 0 && (
               <button
                 className="status-badge status-pending_review"

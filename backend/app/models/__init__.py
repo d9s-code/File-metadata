@@ -36,6 +36,7 @@ from app.models.mode import Mode, ModeElement, ModeExtraSource, ModeGenerationBa
 from app.models.parameter_sequence import ParameterSequence  # noqa: F401
 from app.models.platform import Platform, PlatformEmitterLink, PlatformVersion  # noqa: F401
 from app.models.source import Source  # noqa: F401
+from app.models.status_definition import MilestoneCheck, MilestoneDefinition, StatusDefinition  # noqa: F401
 from app.models.source_group import SourceGroup  # noqa: F401
 from app.models.source_note import SourceNote  # noqa: F401
 from app.models.task import Task, TaskNote  # noqa: F401

@@ -1,10 +1,10 @@
 import { api } from "./client";
-import type { EmitterStatus } from "../types/domain";
-
 export interface Platform {
   id: string;
   name: string;
   description: string | null;
+  /** Its own status (a key of the Platform statuses Admins set up). */
+  status: string;
   is_deleted: boolean;
   deleted_at: string | null;
   created_at: string;
@@ -17,8 +17,8 @@ export interface Platform {
 export interface PlatformSummary {
   emitter_count: number;
   /** Live statuses of the pinned Emitters, and the worst of them. */
-  status_counts: Record<EmitterStatus, number>;
-  worst_status: EmitterStatus | null;
+  status_counts: Record<string, number>;
+  worst_status: string | null;
   outdated_pins: number;
   /** Modes in the pinned Emitter versions. */
   mode_count: number;
@@ -65,6 +65,8 @@ export const platformsApi = {
   update: (id: string, input: Partial<PlatformCreateInput>) => api.patch<Platform>(`/platforms/${id}`, input),
   delete: (id: string, hard = false) => api.delete<void>(`/platforms/${id}${hard ? "?hard=true" : ""}`),
   restore: (id: string) => api.post<Platform>(`/platforms/${id}/restore`),
+  transitionStatus: (id: string, newStatus: string, note?: string, confirmUnmet = false) =>
+    api.post<Platform>(`/platforms/${id}/status`, { new_status: newStatus, note, confirm_unmet: confirmUnmet }),
 
   listLinks: (platformId: string) => api.get<PlatformLink[]>(`/platforms/${platformId}/links`),
   pinEmitter: (platformId: string, emitterId: string, emitterVersionId: string) =>

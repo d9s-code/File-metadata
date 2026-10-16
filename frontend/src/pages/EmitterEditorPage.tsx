@@ -22,9 +22,10 @@ import { LoadingState } from "../components/common/LoadingState";
 import { Modal } from "../components/common/Modal";
 import { NotesFeed } from "../components/common/NotesFeed";
 import { NotesDrawer, useNotesDrawerOpen } from "../components/common/NotesDrawer";
-import { emitterStatusLabel } from "../components/common/emitterStatusLabel";
 import { AssigneeControl } from "../components/tasks/AssigneeControl";
 import { TasksButton } from "../components/tasks/TasksButton";
+import { StatusBadge } from "../components/status/StatusBadge";
+import { MilestonesButton } from "../components/status/MilestonesButton";
 
 type Tab = "modes" | "setup" | "intercepts" | "tests" | "audit";
 const TABS: readonly Tab[] = ["modes", "setup", "intercepts", "tests", "audit"];
@@ -167,7 +168,7 @@ export function EmitterEditorPage() {
         }
         status={
           <>
-            <span className={`status-badge status-${emitter.status}`}>{emitterStatusLabel(emitter.status)}</span>
+            <StatusBadge type="emitter" status={emitter.status} />
             {emitter.status === "deprecated" && emitter.rework_note && (
               <button className="rework-note-button" onClick={() => setShowReworkNote(true)}>
                 ⚠ View rework note
@@ -176,6 +177,7 @@ export function EmitterEditorPage() {
             <StatusTransitionControls emitterId={emitter.id} status={emitter.status} />
             <AssigneeControl emitter={emitter} />
             <TasksButton type="emitter" id={emitter.id} name={emitter.name} />
+            <MilestonesButton type="emitter" id={emitter.id} status={emitter.status} />
             {exportError && <span className="error-text">{exportError}</span>}
           </>
         }

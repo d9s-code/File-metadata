@@ -56,28 +56,9 @@ class EmitterStatus(str, enum.Enum):
     deprecated = "deprecated"
 
 
-# What each status is called wherever a person reads it. The stored values
-# predate these names and stay as they are (DB, API, CSS classes).
-EMITTER_STATUS_LABELS: dict[str, str] = {
-    EmitterStatus.draft.value: "In progress",
-    EmitterStatus.in_review.value: "Testing",
-    EmitterStatus.partially_operational.value: "Partially operational",
-    EmitterStatus.validated.value: "Operational",
-    EmitterStatus.deprecated.value: "Needs rework",
-}
-
-
-def emitter_status_label(value: str) -> str:
-    return EMITTER_STATUS_LABELS.get(value, value)
-
-
-EMITTER_STATUS_TRANSITIONS: dict[EmitterStatus, list[EmitterStatus]] = {
-    EmitterStatus.draft: [EmitterStatus.in_review],
-    EmitterStatus.in_review: [EmitterStatus.validated, EmitterStatus.partially_operational, EmitterStatus.draft],
-    EmitterStatus.partially_operational: [EmitterStatus.validated, EmitterStatus.in_review, EmitterStatus.deprecated],
-    EmitterStatus.validated: [EmitterStatus.deprecated, EmitterStatus.partially_operational, EmitterStatus.in_review],
-    EmitterStatus.deprecated: [EmitterStatus.draft],
-}
+# Statuses' names, colours and allowed moves are set by Admins (see
+# app/services/statuses.py); these enums name the built-in keys the app
+# gives meaning to.
 
 
 class MdfStatus(str, enum.Enum):
@@ -86,15 +67,6 @@ class MdfStatus(str, enum.Enum):
     approved = "approved"
     released = "released"
     deprecated = "deprecated"
-
-
-MDF_STATUS_TRANSITIONS: dict[MdfStatus, list[MdfStatus]] = {
-    MdfStatus.draft: [MdfStatus.pending_review],
-    MdfStatus.pending_review: [MdfStatus.approved, MdfStatus.draft],
-    MdfStatus.approved: [MdfStatus.released, MdfStatus.pending_review],
-    MdfStatus.released: [MdfStatus.deprecated],
-    MdfStatus.deprecated: [MdfStatus.draft],
-}
 
 
 class VersionedEntityType(str, enum.Enum):
@@ -187,6 +159,8 @@ class AuditEntityType(str, enum.Enum):
     platform_note = "platform_note"
     mdf = "mdf"
     mdf_link = "mdf_link"
+    status_definition = "status_definition"
+    milestone = "milestone"
     mdf_note = "mdf_note"
     test_record = "test_record"
     test_line = "test_line"

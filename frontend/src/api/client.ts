@@ -62,6 +62,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       const body = await resp.json();
       detail = body.detail;
       if (typeof body.detail === "string") message = body.detail;
+      else if (typeof body.detail?.message === "string") message = body.detail.message;
       else if (Array.isArray(body.detail)) {
         message = body.detail.map((d: { msg?: string; error?: string }) => d.msg ?? d.error ?? JSON.stringify(d)).join("; ");
       }

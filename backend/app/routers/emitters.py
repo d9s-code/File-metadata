@@ -9,14 +9,13 @@ from app.config import settings
 from app.core.csrf import verify_csrf
 from app.core.downloads import attachment_disposition
 from app.core.enums import (
-    EMITTER_STATUS_TRANSITIONS,
     AuditAction,
     AuditEntityType,
     EmitterStatus,
     Role,
-    emitter_status_label,
 )
 from app.database import get_db
+from app.services import milestones, statuses
 from app.deps import require_emitter_checkout, require_role
 from app.models.emitter import Emitter
 from app.models.emitter_note import EmitterNote
@@ -56,7 +55,6 @@ from app.services.emitter_summary_service import attach_emitter_summaries
 from app.services.mode_batch_service import apply_batch_edit, plan_batch_edit
 from app.services.mode_test_status_service import attach_mode_extras
 from app.services.snapshots import build_emitter_snapshot
-from app.services.status_service import InvalidStatusTransition, validate_transition
 from app.services.versioning_service import VersionSpec, commit_version, get_version, list_versions
 from app.services.prs_export.serializer import sanitize_filename
 from app.services.xml_export.xml_exporter_service import XMLExporterService
@@ -734,7 +732,7 @@ def diff_emitter_version(
     new = get_version(db, spec=_VERSION_SPEC, entity_id=emitter_id, version_number=version_number)
     if old is None or new is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "One or both versions not found")
-    return EmitterDiffOut(**compute_emitter_diff(old.snapshot, new.snapshot))
+    return EmitterDiffOut(**compute_emitter_diff(old.snapshot, new.snapshot, statuses.labels(db, "emitter")))
 
 
 @router.get("/{emitter_id}/diff/live", response_model=EmitterDiffOut)
@@ -753,7 +751,7 @@ def diff_emitter_live_state(
     versions = list_versions(db, spec=_VERSION_SPEC, entity_id=emitter_id)
     baseline = versions[-1].snapshot if versions else {}
     live_snapshot = build_emitter_snapshot(emitter)
-    return EmitterDiffOut(**compute_emitter_diff(baseline, live_snapshot))
+    return EmitterDiffOut(**compute_emitter_diff(baseline, live_snapshot, statuses.labels(db, "emitter")))
 
 
 @router.post(
@@ -940,62 +938,22 @@ def transition_emitter_status(
         raise HTTPException(
             status.HTTP_409_CONFLICT, "Save a version first — a status describes a saved version, and there isn't one yet"
         )
-    try:
-        new_status = EmitterStatus(payload.new_status)
-    except ValueError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Unknown status '{payload.new_status}'") from exc
+    target, open_ones = milestones.check_status_move(
+        db, "emitter", emitter.id, emitter.status, payload.new_status, payload.note, payload.confirm_unmet
+    )
 
-    try:
-        validate_transition(emitter.status.value, new_status.value, EMITTER_STATUS_TRANSITIONS)
-    except InvalidStatusTransition as exc:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            f"Cannot move from '{emitter_status_label(emitter.status.value)}' to '{emitter_status_label(new_status.value)}'",
-        ) from exc
-
-    # Operational -> Needs rework is a claim that something concrete is
-    # wrong with previously-validated data — require the note explaining
-    # what, so the regression is traceable later instead of just a bare
-    # status flip.
-    if (
-        emitter.status in (EmitterStatus.validated, EmitterStatus.partially_operational)
-        and new_status == EmitterStatus.deprecated
-        and not payload.note
-    ):
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            f"A note explaining what needs rework is required when moving from "
-            f"{emitter_status_label(emitter.status.value)} to Needs rework",
-        )
-    # Mirror of the guard above: declaring something Operational is the one
-    # status change everything downstream (Platforms/MDFs pinning this
-    # Emitter) treats as a trust signal, so it gets the same required-message
-    # treatment as a manual Commit Version — folded into this same request/
-    # note rather than a second prompt.
-    if new_status == EmitterStatus.validated and not payload.note:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            "A message describing what was validated is required when moving to Operational",
-        )
-    # Partially operational says only part of it can be trusted — the note
-    # is where that part is named.
-    if new_status == EmitterStatus.partially_operational and not payload.note:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            "A message saying which part is operational is required when moving to Partially operational",
-        )
-
-    old_status = emitter.status.value
-    if new_status == EmitterStatus.deprecated:
+    old_status = emitter.status
+    if target.key == EmitterStatus.deprecated:
         emitter.rework_note = payload.note
-    elif emitter.status == EmitterStatus.deprecated:
+    elif old_status == EmitterStatus.deprecated:
         emitter.rework_note = None
-    emitter.status = new_status
+    emitter.status = target.key
     db.flush()
 
-    summary = f"Status: {emitter_status_label(old_status)} → {emitter_status_label(new_status.value)}"
+    summary = f"Status: {statuses.label(db, 'emitter', old_status)} → {target.label}"
     if payload.note:
         summary += f" — {payload.note}"
+    summary += milestones.unmet_suffix(open_ones)
 
     record_audit(
         db,
@@ -1004,13 +962,13 @@ def transition_emitter_status(
         entity_type=AuditEntityType.emitter.value,
         entity_id=emitter.id,
         summary=f"Emitter '{emitter.name}': {summary}",
-        changes={"status": {"old": old_status, "new": new_status.value}},
+        changes={"status": {"old": old_status, "new": target.key}, "milestones_not_met": open_ones or None},
         emitter_id=emitter.id,
     )
 
     # The last saved content, with the new status — unsaved edits stay unsaved
     # (and take the new status with them when they're saved).
-    snapshot = {**latest.snapshot, "status": new_status.value}
+    snapshot = {**latest.snapshot, "status": target.key}
     return commit_version(
         db, spec=_VERSION_SPEC, entity_id=emitter.id, snapshot=snapshot, change_summary=summary, created_by=user.id
     )
@@ -1047,17 +1005,19 @@ def bulk_emitter_action(
                 assign_emitter(emitter_id, EmitterAssign(assignee_id=payload.assignee_id), db, user)
                 message = "Assigned" if payload.assignee_id else "Unassigned"
             elif payload.action == "status":
-                if emitter.status.value == payload.new_status:
-                    results.append(
-                        EmitterBulkResult(
-                            id=emitter_id, name=name, ok=False, message=f"Already {emitter_status_label(payload.new_status)}"
-                        )
-                    )
+                new_name = statuses.label(db, "emitter", payload.new_status)
+                if emitter.status == payload.new_status:
+                    results.append(EmitterBulkResult(id=emitter_id, name=name, ok=False, message=f"Already {new_name}"))
                     continue
                 transition_emitter_status(
-                    emitter_id, StatusTransitionRequest(new_status=payload.new_status, note=payload.note), db, user
+                    emitter_id,
+                    StatusTransitionRequest(
+                        new_status=payload.new_status, note=payload.note, confirm_unmet=payload.confirm_unmet
+                    ),
+                    db,
+                    user,
                 )
-                message = f"Moved to {emitter_status_label(payload.new_status)}"
+                message = f"Moved to {new_name}"
             elif payload.action == "pin":
                 latest = (
                     db.query(EmitterVersion)
@@ -1083,7 +1043,8 @@ def bulk_emitter_action(
                 message = "Edit lock released"
         except HTTPException as exc:
             db.rollback()
-            results.append(EmitterBulkResult(id=emitter_id, name=name, ok=False, message=str(exc.detail)))
+            detail = exc.detail["message"] if isinstance(exc.detail, dict) else str(exc.detail)
+            results.append(EmitterBulkResult(id=emitter_id, name=name, ok=False, message=detail))
             continue
         results.append(EmitterBulkResult(id=emitter_id, name=name, ok=True, message=message))
     done = sum(1 for r in results if r.ok)

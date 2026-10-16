@@ -2,10 +2,10 @@ import { useMemo, useState } from "react";
 import { formatDate } from "../common/dates";
 import { Link } from "react-router-dom";
 import type { EmitterSimStatus, SimOutcomeCounts } from "../../api/dashboard";
-import { emitterStatusLabel } from "../common/emitterStatusLabel";
 import { EmptyState } from "../common/EmptyState";
 import { testLink } from "../modes/TestDerivedBadge";
 import { SimOutcomeBar, SimOutcomeLegend } from "./SimOutcomeBar";
+import { StatusBadge } from "../status/StatusBadge";
 
 type Filter = "problems" | "with_lines" | "all";
 
@@ -101,7 +101,7 @@ export function EmitterSimTable({ rows, counts }: { rows: EmitterSimStatus[]; co
                     <Link to={`/emitters/${r.emitter_id}?tab=tests`}>{r.name}</Link>
                   </td>
                   <td>
-                    <span className={`status-badge status-${r.status}`}>{emitterStatusLabel(r.status)}</span>
+                    <StatusBadge type="emitter" status={r.status} />
                   </td>
                   <td className="sim-lines-cell">
                     {r.line_count === 0 ? (

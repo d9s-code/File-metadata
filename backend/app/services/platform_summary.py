@@ -9,7 +9,8 @@ from sqlalchemy import bindparam, func, text
 from sqlalchemy.dialects.postgresql import ARRAY, UUID as PG_UUID
 from sqlalchemy.orm import Session
 
-from app.core.enums import AmbiguityRunStatus, AmbiguityScopeType, EmitterStatus
+from app.core.enums import AmbiguityRunStatus, AmbiguityScopeType
+from app.services import statuses as status_defs
 from app.models.ambiguity import AmbiguityFinding, AmbiguityRun
 from app.models.emitter import Emitter
 from app.models.emitter_version import EmitterVersion
@@ -17,13 +18,6 @@ from app.models.mdf import Mdf, MdfPlatformLink
 from app.models.platform import Platform, PlatformEmitterLink, PlatformVersion
 
 # Worst first: an Emitter that needs rework holds the Platform back the most.
-STATUS_SEVERITY = [
-    EmitterStatus.deprecated,
-    EmitterStatus.draft,
-    EmitterStatus.in_review,
-    EmitterStatus.partially_operational,
-    EmitterStatus.validated,
-]
 
 _MODE_COUNTS = text(
     """
@@ -37,10 +31,10 @@ _MODE_COUNTS = text(
 ).bindparams(bindparam("ids", type_=ARRAY(PG_UUID(as_uuid=True))))
 
 
-def _blank() -> dict:
+def _blank(keys: list[str]) -> dict:
     return {
         "emitter_count": 0,
-        "status_counts": {s.value: 0 for s in EmitterStatus},
+        "status_counts": {k: 0 for k in keys},
         "worst_status": None,
         "outdated_pins": 0,
         "mode_count": 0,
@@ -55,7 +49,9 @@ def _blank() -> dict:
 
 def platform_summaries(db: Session, platforms: list[Platform]) -> dict[UUID, dict]:
     ids = [p.id for p in platforms]
-    out = {pid: _blank() for pid in ids}
+    # Worst first: the furthest-behind status among a Platform's Emitters.
+    severity = status_defs.severity_order(db, "emitter")
+    out = {pid: _blank(severity) for pid in ids}
     if not ids:
         return out
 
@@ -82,14 +78,14 @@ def platform_summaries(db: Session, platforms: list[Platform]) -> dict[UUID, dic
         if status is None:
             continue  # The Emitter was deleted since it was pinned.
         s["emitter_count"] += 1
-        s["status_counts"][status.value] += 1
+        s["status_counts"][status] = s["status_counts"].get(status, 0) + 1
         pinned = pinned_number.get(link.emitter_version_id)
         latest = latest_number.get(link.emitter_id)
         if pinned is not None and latest is not None and latest > pinned:
             s["outdated_pins"] += 1
         s["mode_count"] += int(modes.get(link.emitter_version_id) or 0)
     for s in out.values():
-        s["worst_status"] = next((st.value for st in STATUS_SEVERITY if s["status_counts"][st.value]), None)
+        s["worst_status"] = next((k for k in severity if s["status_counts"].get(k)), None)
 
     for pid, count in (
         db.query(MdfPlatformLink.platform_id, func.count(func.distinct(MdfPlatformLink.mdf_id)))

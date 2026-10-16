@@ -22,7 +22,8 @@ class Emitter(UUIDPkMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
     designation: Mapped[str | None] = mapped_column(String(200), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    status: Mapped[EmitterStatus] = mapped_column(nullable=False, default=EmitterStatus.draft)
+    # A status_definitions key (EmitterStatus names the built-in ones).
+    status: Mapped[str] = mapped_column(String(64), nullable=False, default=EmitterStatus.draft.value)
     # Set from the required note when transitioning validated -> deprecated
     # ("Operational" -> "Needs rework"); cleared on any transition away from
     # deprecated, since a stale note on a since-fixed Emitter would mislead —

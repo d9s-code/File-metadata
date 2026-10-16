@@ -1,12 +1,6 @@
 import { Link } from "react-router-dom";
-import type { EmitterStatus } from "../../types/domain";
-import { emitterStatusLabel } from "../common/emitterStatusLabel";
+import { useStatuses } from "../../state/hooks/useStatuses";
 import { StatusTiles } from "./StatusTiles";
-
-function sentenceCase(status: string): string {
-  const words = status.replace(/_/g, " ");
-  return words.charAt(0).toUpperCase() + words.slice(1);
-}
 
 /** How many Emitters and MDFs sit at each lifecycle stage. */
 export function LifecycleCard({
@@ -16,16 +10,18 @@ export function LifecycleCard({
   emitterCounts: Record<string, number>;
   mdfCounts: Record<string, number>;
 }) {
+  const emitter = useStatuses("emitter");
+  const mdf = useStatuses("mdf");
   return (
     <div className="card lifecycle-card">
       <h4>
         <Link to="/emitters">Emitters</Link>
       </h4>
-      <StatusTiles counts={emitterCounts} labelFor={(s) => emitterStatusLabel(s as EmitterStatus)} />
+      <StatusTiles counts={emitterCounts} labelFor={emitter.label} colorFor={emitter.color} />
       <h4 className="lifecycle-second">
         <Link to="/mdfs">MDFs</Link>
       </h4>
-      <StatusTiles counts={mdfCounts} labelFor={sentenceCase} />
+      <StatusTiles counts={mdfCounts} labelFor={mdf.label} colorFor={mdf.color} />
     </div>
   );
 }

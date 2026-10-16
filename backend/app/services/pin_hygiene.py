@@ -15,13 +15,13 @@ from app.core.enums import (
     TestResult,
     TestScopeType,
     TestType,
-    emitter_status_label,
 )
 from app.models.ambiguity import AmbiguityFinding, AmbiguityRun
 from app.models.emitter_version import EmitterVersion
 from app.models.mdf import Mdf, MdfVersion
 from app.models.platform import PlatformVersion
 from app.models.test_record import TestRecord
+from app.services import statuses
 from app.services.dates import day_text
 
 
@@ -153,7 +153,7 @@ def mdf_readiness(db: Session, mdf: Mdf) -> list[dict]:
 def _emitter_checks(db: Session, emitters: dict[str, dict]) -> list[dict]:
     checks: list[dict] = []
     not_operational = sorted(
-        f"{pl['emitter_name']}: {emitter_status_label(pl['emitter_snapshot'].get('status', ''))}"
+        f"{pl['emitter_name']}: {statuses.label(db, 'emitter', pl['emitter_snapshot'].get('status'))}"
         for pl in emitters.values()
         if pl["emitter_snapshot"].get("status") != "validated"
     )

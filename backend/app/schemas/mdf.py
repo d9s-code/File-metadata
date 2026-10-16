@@ -3,7 +3,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
-from app.core.enums import MdfStatus
 
 
 class MdfCreate(BaseModel):
@@ -31,7 +30,7 @@ class MdfOut(BaseModel):
     notes: str | None = None
     release_date: date | None = None
     customer_id: UUID | None = None
-    status: MdfStatus
+    status: str
     is_deleted: bool
     deleted_at: datetime | None = None
     created_at: datetime

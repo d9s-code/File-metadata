@@ -26,6 +26,7 @@ from app.routers import (
     search,
     source_groups,
     sources,
+    statuses,
     tasks,
     test_drafts,
     test_lines,
@@ -84,6 +85,7 @@ app.include_router(trash.router)
 app.include_router(backups.router)
 app.include_router(backups.status_router)
 app.include_router(dwells.router)
+app.include_router(statuses.router)
 
 
 @app.get("/health")

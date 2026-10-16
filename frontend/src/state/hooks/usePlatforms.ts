@@ -88,3 +88,15 @@ export function useUnpinEmitter(platformId: string) {
     onSuccess: () => qc.invalidateQueries({ queryKey: platformLinksKey(platformId) }),
   });
 }
+
+export function useTransitionPlatformStatus(platformId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ newStatus, note, confirmUnmet }: { newStatus: string; note?: string; confirmUnmet?: boolean }) =>
+      platformsApi.transitionStatus(platformId, newStatus, note, confirmUnmet),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: platformsKey });
+      qc.invalidateQueries({ queryKey: ["platformVersions", platformId] });
+    },
+  });
+}

@@ -6,7 +6,7 @@ first. Deleted things, and things on deleted Emitters, are left out."""
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.core.enums import emitter_status_label
+from app.services import statuses
 from app.models.emitter import Emitter
 from app.models.ew_group import EwGroup
 from app.models.intercept import Intercept
@@ -59,7 +59,7 @@ def search(db: Session, q: str) -> list[dict]:
                 "kind": "emitter",
                 "id": str(e.id),
                 "title": _emitter_label(e.name, e.designation),
-                "subtitle": emitter_status_label(e.status.value),
+                "subtitle": statuses.label(db, "emitter", e.status),
                 "url": f"/emitters/{e.id}",
             }
         )
@@ -106,15 +106,26 @@ def search(db: Session, q: str) -> list[dict]:
         .limit(PER_KIND)
     ).scalars():
         hits.append(
-            {"kind": "platform", "id": str(p.id), "title": p.name, "subtitle": "Platform", "url": f"/platforms/{p.id}"}
+            {
+                "kind": "platform",
+                "id": str(p.id),
+                "title": p.name,
+                "subtitle": f"Platform · {statuses.label(db, 'platform', p.status)}",
+                "url": f"/platforms/{p.id}",
+            }
         )
 
     for m in db.execute(
         select(Mdf).where(Mdf.is_deleted.is_(False), *_all_words(words, Mdf.name)).order_by(*_rank(q, Mdf.name)).limit(PER_KIND)
     ).scalars():
-        status = m.status.value.replace("_", " ")
         hits.append(
-            {"kind": "mdf", "id": str(m.id), "title": m.name, "subtitle": status[:1].upper() + status[1:], "url": f"/mdfs/{m.id}"}
+            {
+                "kind": "mdf",
+                "id": str(m.id),
+                "title": m.name,
+                "subtitle": statuses.label(db, "mdf", m.status),
+                "url": f"/mdfs/{m.id}",
+            }
         )
 
     for iid, name, ename, edes, when in db.execute(

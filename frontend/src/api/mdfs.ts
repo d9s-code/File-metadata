@@ -73,6 +73,10 @@ export const mdfsApi = {
   repinLatest: (mdfId: string) => api.post<MdfLink[]>(`/mdfs/${mdfId}/links/repin-latest`, {}),
   getReadinessChecklist: (mdfId: string) => api.get<ReadinessItem[]>(`/mdfs/${mdfId}/readiness`),
   getReadiness: (mdfId: string) => api.get<{ warnings: string[] }>(`/mdfs/${mdfId}/status/readiness`),
-  transitionStatus: (mdfId: string, newStatus: string, note?: string) =>
-    api.post<{ warnings: string[] }>(`/mdfs/${mdfId}/status`, { new_status: newStatus, note }),
+  transitionStatus: (mdfId: string, newStatus: string, note?: string, confirmUnmet = false) =>
+    api.post<{ warnings: string[] }>(`/mdfs/${mdfId}/status`, {
+      new_status: newStatus,
+      note,
+      confirm_unmet: confirmUnmet,
+    }),
 };

@@ -53,7 +53,7 @@ def reconcile_emitter_to_snapshot(db: Session, emitter: Emitter, snapshot: dict)
     emitter.name = snapshot["name"]
     emitter.designation = snapshot.get("designation")
     emitter.description = snapshot.get("description")
-    new_status = EmitterStatus(snapshot["status"])
+    new_status = snapshot["status"]
     # Mirrors transition_emitter_status's own rule: a rework note only makes
     # sense while sitting at Needs rework.
     if new_status != EmitterStatus.deprecated:

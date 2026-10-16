@@ -15,6 +15,9 @@ import { EntityHeader } from "../components/common/EntityHeader";
 import { PlatformDwells } from "../components/dwells/PlatformDwells";
 import { LatestVersion, SaveVersionButton } from "../components/versioning/SaveVersionButton";
 import { TasksButton } from "../components/tasks/TasksButton";
+import { StatusBadge } from "../components/status/StatusBadge";
+import { MilestonesButton } from "../components/status/MilestonesButton";
+import { PlatformStatusControls } from "../components/platform/PlatformStatusControls";
 import { NotesFeed } from "../components/common/NotesFeed";
 import { NotesDrawer } from "../components/common/NotesDrawer";
 import { PlatformCharts } from "../components/platform/PlatformCharts";
@@ -120,8 +123,11 @@ export function PlatformBuilderPage() {
         }
         status={
           <>
+            <StatusBadge type="platform" status={platform.status} />
+            <PlatformStatusControls platformId={platform.id} status={platform.status} />
             <LatestVersion versions={versions} />
             <TasksButton type="platform" id={platform.id} name={platform.name} />
+            <MilestonesButton type="platform" id={platform.id} status={platform.status} />
             {outdatedPins > 0 && (
               <button
                 className="status-badge status-pending_review"

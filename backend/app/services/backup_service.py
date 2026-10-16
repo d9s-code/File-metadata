@@ -41,7 +41,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import NullPool
 
 from app.config import settings
-from app.core.enums import EMITTER_STATUS_LABELS
+from app.services.statuses import builtin_label
 from app.services.backup_prs_export import build_repository_prs_zip
 
 FILENAME_RE = re.compile(r"^emitterdb_(\d{8})_(\d{6})\.dump$")
@@ -577,10 +577,8 @@ def verify_backup(name: str, directory: Path | None = None) -> dict:
 def _status(kind: str, value: str | None) -> str | None:
     if value is None:
         return None
-    if kind == "emitters":
-        return EMITTER_STATUS_LABELS.get(value, value)
-    words = value.replace("_", " ")
-    return words[:1].upper() + words[1:]
+    # Backups are compared without the live database at hand: the built-in names.
+    return builtin_label(kind.rstrip("s"), value)
 
 
 def _pin_changes(old: list[dict], new: list[dict]) -> list[str]:

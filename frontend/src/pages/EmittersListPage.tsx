@@ -14,13 +14,13 @@ import { useConfirmDialog } from "../components/common/ConfirmDialog";
 import { SortableColumnHeader } from "../components/common/SortableColumnHeader";
 import { useSortableTable } from "../components/common/useSortableTable";
 import { compareNullable, compareStrings } from "../components/common/sortUtils";
-import { emitterStatusLabel } from "../components/common/emitterStatusLabel";
 import type { Emitter } from "../types/domain";
 import { useAuth } from "../auth/AuthContext";
 import { usePeople, useTasks } from "../state/hooks/useTasks";
 import { TasksButton } from "../components/tasks/TasksButton";
 import { EmitterBulkBar } from "../components/emitters/EmitterBulkBar";
 import { useHasRole } from "../auth/RequireAuth";
+import { StatusBadge } from "../components/status/StatusBadge";
 
 type EmitterSortKey =
   | "name"
@@ -390,7 +390,7 @@ export function EmittersListPage() {
                 {show("designation") && <td>{e.designation ?? "—"}</td>}
                 {show("status") && (
                   <td>
-                    <span className={`status-badge status-${e.status}`}>{emitterStatusLabel(e.status)}</span>
+                    <StatusBadge type="emitter" status={e.status} />
                   </td>
                 )}
                 {show("assignee") && (
