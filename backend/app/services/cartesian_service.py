@@ -292,9 +292,16 @@ def run_cartesian_product(
         name for (name,) in db.query(Mode.name).filter(Mode.ew_group_id == ew_group_id).all()
     }
     counter = 1
+    # A run that makes one Mode names it just the prefix — unless that name
+    # is taken, when it's numbered like any other.
+    total = (len(stagger_trains) or len(pri_axis)) * len(rf_elements) * len(pw_elements)
+    single_name = name_prefix if total == 1 and name_prefix not in used_names else None
 
     def _next_name() -> str:
         nonlocal counter
+        if single_name is not None:
+            used_names.add(single_name)
+            return single_name
         while f"{name_prefix} {counter}" in used_names:
             counter += 1
         name = f"{name_prefix} {counter}"

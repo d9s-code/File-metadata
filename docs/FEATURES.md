@@ -97,7 +97,7 @@ Alternatively, build up a pool of reusable building blocks under a Source's **El
 - **PW elements** — a min/max range
 - **PRI elements** — either a Fixed-style range (+ optional Jitter) or a Stagger sequence
 
-Then use the **Cartesian Product** tool: pick one or more RF elements, PW elements, and PRI elements, choose a target EW Group, and run it. The tool generates **one new Mode per combination** — N RF × M PW × K PRI elements produces N×M×K Modes in one action. This is the fast path for generating a large family of related modes (e.g. sweeping RF sub-bands against a couple of PRI options).
+Then use the **Cartesian Product** tool: pick one or more RF elements, PW elements, and PRI elements, choose a target EW Group, and run it. The tool generates **one new Mode per combination** — N RF × M PW × K PRI elements produces N×M×K Modes in one action. This is the fast path for generating a large family of related modes (e.g. sweeping RF sub-bands against a couple of PRI options). The Modes are named from the **name prefix**, numbered (*Search 1*, *Search 2*, …); a run that makes just one Mode names it the prefix alone (*Search*), unless a Mode of that name is already in the EW Group, when it's numbered too.
 
 Mixing Fixed-style and Stagger PRI elements in a single cartesian-product run is rejected — pick one shape per run so the resulting batch is predictable.
 

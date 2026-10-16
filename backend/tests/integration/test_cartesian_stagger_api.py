@@ -183,3 +183,38 @@ def test_all_sources_stagger_and_run_log(editor_client, ctx):
     assert runs[0]["inputs"]["pri_type"] == "stagger"
     orders = {e["value_min"]: e["firing_order"] for e in runs[0]["inputs"]["elements"]}
     assert orders == {800: [2], 900: [1]}
+
+
+def test_a_single_mode_is_named_by_the_prefix_alone(editor_client, ctx):
+    pri = _el(editor_client, ctx, element_type="pri", value_min=800, value_max=800, jitter_min=0, jitter_max=1)
+    run = lambda: editor_client.post(  # noqa: E731
+        f"{ctx['base']}/elements/cartesian-product",
+        json={
+            "ew_group_id": ctx["ew_group"]["id"],
+            "rf_element_ids": [],
+            "pw_element_ids": [],
+            "pri_element_ids": [pri["id"]],
+            "name_prefix": "Search",
+        },
+    )
+    assert run().status_code == 200
+    # Taken already: numbered instead.
+    assert run().status_code == 200
+    assert sorted(m["name"] for m in _modes(editor_client, ctx)) == ["Search", "Search 1"]
+
+    # More than one: numbered from 1 as before.
+    other = _el(editor_client, ctx, element_type="pri", value_min=900, value_max=900, jitter_min=0, jitter_max=1)
+    editor_client.post(
+        f"{ctx['base']}/elements/cartesian-product",
+        json={
+            "ew_group_id": ctx["ew_group"]["id"],
+            "rf_element_ids": [],
+            "pw_element_ids": [],
+            "pri_element_ids": [pri["id"], other["id"]],
+            "name_prefix": "Track",
+        },
+    )
+    assert sorted(m["name"] for m in _modes(editor_client, ctx) if m["name"].startswith("Track")) == [
+        "Track 1",
+        "Track 2",
+    ]

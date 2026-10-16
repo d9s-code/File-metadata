@@ -324,7 +324,8 @@ def test_repeated_cartesian_product_runs_with_same_prefix_get_distinct_names(edi
     modes = editor_client.get(f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes").json()
     names = [m["name"] for m in modes]
     assert len(names) == len(set(names)), f"expected unique names, got {names}"
-    assert set(names) == {"SameName 1", "SameName 2"}
+    # A single Mode takes the bare prefix; the second run's is numbered.
+    assert set(names) == {"SameName", "SameName 1"}
 
 
 def test_cartesian_product_requires_csrf_token(editor_client, emitter_ctx):
@@ -733,7 +734,7 @@ def test_each_cartesian_run_is_logged_on_its_source_and_outlives_its_modes(edito
     [run] = editor_client.get(log_url).json()
     assert run["name_prefix"] == "Logged" and run["note"] == "first try"
     assert run["ew_group_name"] == "Group A" and run["created_by_username"] == "editor_t"
-    assert run["mode_names"] == ["Logged 1"] and run["modes_remaining"] == 1
+    assert run["mode_names"] == ["Logged"] and run["modes_remaining"] == 1
     used = {e["element_type"]: e for e in run["inputs"]["elements"]}
     assert used["rf"]["label"] == "RF A" and used["rf"]["value_min"] == 2900
     assert used["pri"]["delta"] == 12 and used["pri"]["delta_overridden"] is True
@@ -743,7 +744,7 @@ def test_each_cartesian_run_is_logged_on_its_source_and_outlives_its_modes(edito
     batches = editor_client.get(f"/emitters/{emitter_ctx['emitter']['id']}/generation-batches").json()
     editor_client.delete(f"/emitters/{emitter_ctx['emitter']['id']}/generation-batches/{batches[0]['id']}")
     [run] = editor_client.get(log_url).json()
-    assert run["modes_remaining"] == 0 and run["mode_names"] == ["Logged 1"]
+    assert run["modes_remaining"] == 0 and run["mode_names"] == ["Logged"]
 
 
 def test_element_overview_merges_the_same_values_across_sources(editor_client, emitter_ctx):
