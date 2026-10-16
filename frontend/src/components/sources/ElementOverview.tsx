@@ -8,6 +8,7 @@ import { useAllSourcesProduct, useElementOverview } from "../../state/hooks/useE
 import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 import { elementValues, VariantTag } from "./elementDisplay";
+import { parsePositions } from "./firingOrder";
 
 const TYPES: [ElementType | "", string][] = [
   ["", "All"],
@@ -331,15 +332,20 @@ function GenerateFromAll({
   const [note, setNote] = useState("");
   const [deltas, setDeltas] = useState<Partial<Record<ElementType, string>>>({});
   const [matching, setMatching] = useState({ rf: false, pri: false, pw: false });
+  const [priType, setPriType] = useState<"fixed" | "stagger">("fixed");
+  // Stagger: each ticked PRI's place in the train, as typed; blank takes its place in the list.
+  const [firingOrder, setFiringOrder] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
   const of = (t: ElementType) => chosen.filter((r) => r.element_type === t);
   const rf = of("rf");
   const pri = of("pri");
   const pw = of("pw");
+  const isStagger = priType === "stagger";
   const stagger = pri.filter((r) => r.stagger_values?.length).length;
-  const mixed = stagger > 0 && stagger < pri.length;
-  const count = Math.max(rf.length, 1) * pri.length * Math.max(pw.length, 1);
+  const mixed = !isStagger && stagger > 0 && stagger < pri.length;
+  const count = Math.max(rf.length, 1) * (isStagger ? Math.min(pri.length, 1) : pri.length) * Math.max(pw.length, 1);
+  const orderOf = (r: ElementOverviewRow, i: number) => firingOrder[rowId(r)] ?? String(i + 1);
   const sourceCount = new Set(chosen.flatMap((r) => r.occurrences.map((o) => o.source_id))).size;
 
   function overrides(rows: ElementOverviewRow[], t: ElementType) {
@@ -353,6 +359,15 @@ function GenerateFromAll({
     if (!groupId) return setError("Add an EW Group first.");
     if (pri.length === 0) return setError("Tick at least one PRI Element.");
     if (mixed) return setError("Tick Fixed-style PRI ranges or stagger sequences, not both.");
+    let order: Record<string, number[]> | undefined;
+    if (isStagger) {
+      order = {};
+      for (const [i, r] of pri.entries()) {
+        const positions = parsePositions(orderOf(r, i));
+        if (!positions) return setError("Each PRI needs its place in the firing order: a whole number from 1, or several (1, 3).");
+        order[rowId(r)] = positions;
+      }
+    }
     try {
       const res = await product.mutateAsync({
         ew_group_id: groupId,
@@ -362,11 +377,13 @@ function GenerateFromAll({
         name_prefix: prefix.trim() || "Mode",
         batch_note: note.trim() || null,
         rf_delta_overrides: overrides(rf, "rf"),
-        pri_delta_overrides: overrides(pri, "pri"),
+        pri_delta_overrides: isStagger ? undefined : overrides(pri, "pri"),
         pw_delta_overrides: overrides(pw, "pw"),
         rf_range_matching: matching.rf,
         pri_range_matching: matching.pri,
         pw_range_matching: matching.pw,
+        pri_type: priType,
+        pri_firing_order: order,
       });
       onDone(`Generated ${res.count} Mode${res.count === 1 ? "" : "s"} in ${ewGroups.find((g) => g.id === groupId)?.name}.`);
     } catch (err) {
@@ -378,7 +395,8 @@ function GenerateFromAll({
     <form className="all-sources-generate" onSubmit={handleSubmit}>
       <div className="all-sources-generate-head">
         <strong>
-          {rf.length} RF × {pri.length} PRI × {pw.length} PW = {count} Mode{count === 1 ? "" : "s"}
+          {rf.length} RF × {isStagger ? "1 stagger" : `${pri.length} PRI`} × {pw.length} PW = {count} Mode
+          {count === 1 ? "" : "s"}
         </strong>
         <span className="hint-text">
           from Elements in {sourceCount} Source{sourceCount === 1 ? "" : "s"} — each Mode gets the Sources its own Elements
@@ -403,8 +421,15 @@ function GenerateFromAll({
           Name prefix
           <input value={prefix} onChange={(e) => setPrefix(e.target.value)} />
         </label>
+        <label>
+          PRI type
+          <select value={priType} onChange={(e) => setPriType(e.target.value as "fixed" | "stagger")}>
+            <option value="fixed">Fixed</option>
+            <option value="stagger">Stagger</option>
+          </select>
+        </label>
         {(["rf", "pri", "pw"] as const)
-          .filter((t) => of(t).length > 0)
+          .filter((t) => of(t).length > 0 && !(isStagger && t === "pri"))
           .map((t) => (
             <label key={t} title="Blank: each Element's widest margin among its Sources">
               {t.toUpperCase()} ± margin ({UNIT[t]})
@@ -419,6 +444,23 @@ function GenerateFromAll({
             </label>
           ))}
       </div>
+      {isStagger && pri.length > 0 && (
+        <div className="form-row stagger-order">
+          <span className="hint-text">Firing order (a range fires at its mean):</span>
+          {pri.map((r, i) => (
+            <label key={rowId(r)} className="inline-label">
+              {elementValues(r)}
+              <input
+                inputMode="numeric"
+                style={{ width: "4.5rem" }}
+                value={orderOf(r, i)}
+                onChange={(e) => setFiringOrder({ ...firingOrder, [rowId(r)]: e.target.value })}
+                title="Its place in the stagger, from 1 — e.g. 1, 3 fires it first and third"
+              />
+            </label>
+          ))}
+        </div>
+      )}
       <div className="form-row">
         <span className="hint-text">Range matching:</span>
         {(["rf", "pri", "pw"] as const).map((t) => (

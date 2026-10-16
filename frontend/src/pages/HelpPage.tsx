@@ -612,6 +612,13 @@ export function HelpPage() {
               starts at 0 — that&rsquo;s exactly the delta the generated Modes get unless you type another
               value. Each of its RF/PRI/PW columns sorts independently.
             </p>
+            <p className="hint-text">
+              <strong>PRI type</strong> (Fixed by default) beside the PRI column: <strong>Stagger</strong> makes one
+              stagger train from the ticked PRIs, crossed with every RF × PW. Their Delta column becomes{" "}
+              <strong>Firing order</strong> — each PRI&rsquo;s place in the train (<em>1, 3</em> fires it twice); a
+              range fires at its mean. Or tick Sequence steps instead: they fire in their step order, so there&rsquo;s
+              nothing to type twice.
+            </p>
           </div>
 
           <div className="help-subsection" id="emitter-intercepts-tab">

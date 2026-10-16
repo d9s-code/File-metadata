@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { sourcesApi } from "../../api/sources";
 import { groupElements } from "./elementMerge";
 import { stepHas, stepValueText } from "./sequenceStep";
+import { parsePositions } from "./firingOrder";
 import { SortableColumnHeader } from "../common/SortableColumnHeader";
 import { useSortableTable } from "../common/useSortableTable";
 import { compareNullable, compareStrings } from "../common/sortUtils";
@@ -77,6 +78,7 @@ function CheckboxList({
   showVariant = false,
   deltaOverrides,
   onDeltaChange,
+  firingOrder,
   sortKey,
   sortDir,
   onSort,
@@ -92,13 +94,15 @@ function CheckboxList({
   /** Per-element delta for this run, keyed by element id — only rendered when both this and onDeltaChange are given. */
   deltaOverrides?: Record<string, string>;
   onDeltaChange?: (id: string, value: string) => void;
+  /** Stagger: each picked item's place in the firing order, instead of a delta. */
+  firingOrder?: { values: Record<string, string>; onChange: (id: string, value: string) => void };
   sortKey?: ItemSortKey | null;
   sortDir?: "asc" | "desc";
   onSort?: (key: ItemSortKey, dir: "asc" | "desc") => void;
   onClear?: () => void;
 }) {
   if (items.length === 0) return <p className="hint-text">No items available.</p>;
-  const showDelta = !!(deltaOverrides && onDeltaChange);
+  const showDelta = !firingOrder && !!(deltaOverrides && onDeltaChange);
   const selectedHere = items.filter((i) => selected.has(i.id)).length;
   const selectionBar = onSetSelected && items.length > 1 && (
     <SelectionBar
@@ -131,6 +135,7 @@ function CheckboxList({
                 <th className="px-2 py-1">Label</th>
               )}
               {showDelta && <th className="px-2 py-1 w-28">Delta</th>}
+              {firingOrder && <th className="px-2 py-1 w-28">Firing order</th>}
               <th className="px-2 py-1 w-10"></th>
             </tr>
           </thead>
@@ -190,6 +195,21 @@ function CheckboxList({
                         value={deltaOverrides?.[item.id] ?? DEFAULT_DELTA}
                         onChange={(e) => onDeltaChange?.(item.id, e.target.value)}
                         title="± delta applied to the generated Modes (0 = none)"
+                      />
+                    )}
+                  </td>
+                )}
+                {firingOrder && (
+                  <td className="px-2 py-1 align-middle">
+                    {selected.has(item.id) && (
+                      <input
+                        inputMode="numeric"
+                        style={{ width: "5.5rem" }}
+                        value={firingOrder.values[item.id] ?? ""}
+                        onChange={(e) => firingOrder.onChange(item.id, e.target.value)}
+                        placeholder="e.g. 1"
+                        title="Its place in the stagger, from 1 — e.g. 1, 3 fires it first and third"
+                        aria-label={`Firing order of ${item.label}`}
                       />
                     )}
                   </td>
@@ -273,6 +293,7 @@ function SequenceStepGroup({
   onRfDelta,
   onPriDelta,
   onPwDelta,
+  stagger = false,
 }: {
   label: string;
   rows: SequenceStepRow[];
@@ -284,6 +305,8 @@ function SequenceStepGroup({
   onRfDelta: (id: string, v: string) => void;
   onPriDelta: (id: string, v: string) => void;
   onPwDelta: (id: string, v: string) => void;
+  /** Stagger: the steps fire in step order and the PRI takes no delta. */
+  stagger?: boolean;
 }) {
   const [open, setOpen] = useState(rows.length <= SEQUENCE_OPEN_LIMIT);
   const selectedHere = rows.filter((r) => selected.has(r.id)).length;
@@ -318,7 +341,7 @@ function SequenceStepGroup({
               <tr>
                 <th>Step</th>
                 <th style={{ width: "6.5rem" }}>RF delta</th>
-                <th style={{ width: "6.5rem" }}>PRI delta</th>
+                {!stagger && <th style={{ width: "6.5rem" }}>PRI delta</th>}
                 <th style={{ width: "6.5rem" }}>PW delta</th>
               </tr>
             </thead>
@@ -338,11 +361,13 @@ function SequenceStepGroup({
                         <DeltaInput param="RF" value={rfDeltas[row.id] ?? DEFAULT_DELTA} onChange={(v) => onRfDelta(row.id, v)} />
                       )}
                     </td>
-                    <td>
-                      {isSelected && row.hasPri && (
-                        <DeltaInput param="PRI" value={priDeltas[row.id] ?? DEFAULT_DELTA} onChange={(v) => onPriDelta(row.id, v)} />
-                      )}
-                    </td>
+                    {!stagger && (
+                      <td>
+                        {isSelected && row.hasPri && (
+                          <DeltaInput param="PRI" value={priDeltas[row.id] ?? DEFAULT_DELTA} onChange={(v) => onPriDelta(row.id, v)} />
+                        )}
+                      </td>
+                    )}
                     <td>
                       {isSelected && row.hasPw && (
                         <DeltaInput param="PW" value={pwDeltas[row.id] ?? DEFAULT_DELTA} onChange={(v) => onPwDelta(row.id, v)} />
@@ -396,6 +421,9 @@ export function CartesianProductButton({
   const [rfRangeMatching, setRfRangeMatching] = useState(false);
   const [pwRangeMatching, setPwRangeMatching] = useState(false);
   const [priRangeMatching, setPriRangeMatching] = useState(false);
+  const [priType, setPriType] = useState<"fixed" | "stagger">("fixed");
+  // Stagger: each picked PRI Element's place(s) in the train, as typed ("1" or "1, 3").
+  const [firingOrder, setFiringOrder] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
 
@@ -549,6 +577,42 @@ export function CartesianProductButton({
     return out;
   }
 
+  /** The next free place in the firing order. */
+  function nextPosition(orders: Record<string, string>, picked: Set<string>): string {
+    const used = [...picked].flatMap((id) => parsePositions(orders[id] ?? "") ?? []);
+    return String(used.length ? Math.max(...used) + 1 : 1);
+  }
+
+  function togglePri(id: string) {
+    const next = toggle(priSelected, id);
+    setPriSelected(next);
+    if (priType !== "stagger") return;
+    setFiringOrder((prev) => {
+      const out = { ...prev };
+      if (next.has(id)) out[id] = out[id]?.trim() ? out[id] : nextPosition(prev, priSelected);
+      else delete out[id];
+      return out;
+    });
+  }
+
+  function setPriSelection(ids: Set<string>) {
+    setPriSelected(ids);
+    if (priType === "stagger") setFiringOrder(numbered(ids, firingOrder));
+  }
+
+  /** Picked PRI Elements without a place get the next ones, in list order. */
+  function numbered(ids: Set<string>, prev: Record<string, string>): Record<string, string> {
+    const out: Record<string, string> = {};
+    for (const item of priItems) if (ids.has(item.id) && prev[item.id]?.trim()) out[item.id] = prev[item.id];
+    for (const item of priItems) if (ids.has(item.id) && !out[item.id]) out[item.id] = nextPosition(out, ids);
+    return out;
+  }
+
+  function changePriType(next: "fixed" | "stagger") {
+    setPriType(next);
+    if (next === "stagger") setFiringOrder(numbered(priSelected, firingOrder));
+  }
+
   async function handleRun() {
     setError(null);
     setResult(null);
@@ -570,10 +634,34 @@ export function CartesianProductButton({
         pri_delta: row?.hasPri ? deltaFor(sequencePriDeltaOverrides, id) : undefined,
       };
     });
-    const badStep = steps.some((st) => st.rf_delta === null || st.pw_delta === null || st.pri_delta === null);
-    if (!rfDeltas || !pwDeltas || !priDeltas || badStep) {
+    const stagger = priType === "stagger";
+    const badStep = steps.some(
+      (st) => st.rf_delta === null || st.pw_delta === null || (!stagger && st.pri_delta === null),
+    );
+    if (!rfDeltas || !pwDeltas || (!stagger && !priDeltas) || badStep) {
       setError("Every delta must be a number of 0 or more.");
       return;
+    }
+    let order: Record<string, number[]> | undefined;
+    if (stagger) {
+      const priSteps = steps.filter((st) => sequenceStepRows.find((r) => r.id === `${st.sequence_id}:${st.order}`)?.hasPri);
+      if (priSelected.size === 0 && priSteps.length === 0) {
+        setError("A stagger needs PRI Elements with a firing order, or Sequence steps that set PRI.");
+        return;
+      }
+      if (priSelected.size > 0 && steps.length > 0) {
+        setError("Make the stagger from PRI Elements or from Sequence steps, not both.");
+        return;
+      }
+      order = {};
+      for (const id of priSelected) {
+        const positions = parsePositions(firingOrder[id] ?? "");
+        if (!positions) {
+          setError("Each picked PRI needs its place in the firing order: a whole number from 1, or several (1, 3).");
+          return;
+        }
+        order[id] = positions;
+      }
     }
     try {
       const res = await cartesianProduct.mutateAsync({
@@ -585,16 +673,18 @@ export function CartesianProductButton({
           ...st,
           rf_delta: st.rf_delta ?? undefined,
           pw_delta: st.pw_delta ?? undefined,
-          pri_delta: st.pri_delta ?? undefined,
+          pri_delta: stagger ? undefined : (st.pri_delta ?? undefined),
         })),
         name_prefix: namePrefix,
         batch_note: batchNote || undefined,
         rf_delta_overrides: rfDeltas,
         pw_delta_overrides: pwDeltas,
-        pri_delta_overrides: priDeltas,
+        pri_delta_overrides: stagger ? undefined : (priDeltas ?? undefined),
         rf_range_matching: rfRangeMatching,
         pw_range_matching: pwRangeMatching,
         pri_range_matching: priRangeMatching,
+        pri_type: priType,
+        pri_firing_order: order,
       });
       setResult(`Created ${res.count} mode(s).`);
     } catch (err) {
@@ -635,18 +725,39 @@ export function CartesianProductButton({
             />
           </div>
           <div>
-            <strong>PRI</strong> <label className="checkbox-label" style={{ display: "inline-flex", width: "auto" }}>
+            <strong>PRI</strong>{" "}
+            <select
+              className="pri-type-select"
+              value={priType}
+              onChange={(e) => changePriType(e.target.value as "fixed" | "stagger")}
+              aria-label="PRI type of the Modes made"
+            >
+              <option value="fixed">Fixed</option>
+              <option value="stagger">Stagger</option>
+            </select>{" "}
+            <label className="checkbox-label" style={{ display: "inline-flex", width: "auto" }}>
               <input type="checkbox" checked={priRangeMatching} onChange={(e) => setPriRangeMatching(e.target.checked)} />
               Range matching
             </label>
+            {priType === "stagger" && (
+              <p className="hint-text">
+                One stagger from the picked PRIs, in their firing order (a range fires at its mean) — or pick Sequence
+                steps below instead; they fire in their step order.
+              </p>
+            )}
             <CheckboxList
               items={priItems}
               selected={priSelected}
-              onToggle={(id) => setPriSelected((s) => toggle(s, id))}
-              onSetSelected={setPriSelected}
+              onToggle={togglePri}
+              onSetSelected={setPriSelection}
               showVariant={true}
               deltaOverrides={priDeltaOverrides}
               onDeltaChange={(id, value) => setPriDeltaOverrides((prev) => ({ ...prev, [id]: value }))}
+              firingOrder={
+                priType === "stagger"
+                  ? { values: firingOrder, onChange: (id, v) => setFiringOrder((prev) => ({ ...prev, [id]: v })) }
+                  : undefined
+              }
               sortKey={priSort.sortKey}
               sortDir={priSort.sortDir}
               onSort={priSort.onSort}
@@ -695,6 +806,7 @@ export function CartesianProductButton({
                   onRfDelta={(id, v) => setSequenceRfDeltaOverrides((prev) => ({ ...prev, [id]: v }))}
                   onPriDelta={(id, v) => setSequencePriDeltaOverrides((prev) => ({ ...prev, [id]: v }))}
                   onPwDelta={(id, v) => setSequencePwDeltaOverrides((prev) => ({ ...prev, [id]: v }))}
+                  stagger={priType === "stagger"}
                 />
               ))
           )}

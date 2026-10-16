@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
@@ -147,6 +148,16 @@ class CartesianProductRequest(BaseModel):
     rf_range_matching: bool = False
     pw_range_matching: bool = False
     pri_range_matching: bool = False
+    # The PRI type of the Modes made. Fixed: one Mode per PRI Element (or
+    # sequence step). Stagger: the picked PRI Elements, in their firing
+    # order, become one stagger train — or each picked sequence's PRI steps
+    # do, in step order — crossed with the RF and PW Elements.
+    pri_type: Literal["fixed", "stagger"] = "fixed"
+    # Stagger from Elements: each PRI Element's position(s) in the train,
+    # 1-based; an Element can fire more than once ([1, 3]). It takes the
+    # place of the PRI delta, which a stagger doesn't use: a PRI range
+    # fires at its mean.
+    pri_firing_order: dict[UUID, list[int]] | None = None
 
 
 class ElementOccurrence(BaseModel):

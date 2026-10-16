@@ -42,6 +42,104 @@ def _step_range(step: dict, point: str, lo: str, hi: str) -> tuple[float, float]
         return float(step[point]), float(step[point])
     return None
 
+def _pri_label(e: ModeElement) -> str:
+    if e.label:
+        return e.label
+    if e.stagger_values:
+        return "stagger [" + ", ".join(f"{float(v):g}" for v in e.stagger_values) + "]"
+    return f"{float(e.value_min):g}–{float(e.value_max):g} µs"
+
+
+def _stagger_values_of(e: ModeElement) -> list[float]:
+    """What one PRI Element puts in a stagger train: a stored stagger's own
+    values, else its value — the mean when it's a range."""
+    if e.stagger_values:
+        return [float(v) for v in e.stagger_values]
+    return [(float(e.value_min) + float(e.value_max)) / 2]
+
+
+def _stagger_from_elements(
+    elements: list[ModeElement], firing_order: dict[UUID, list[int]]
+) -> list[float]:
+    """The stagger train the PRI Elements make, each at its firing
+    position(s); the positions must run 1..N with no gaps or repeats."""
+    slots: dict[int, ModeElement] = {}
+    for e in elements:
+        positions = firing_order.get(e.id)
+        if not positions:
+            raise CartesianProductError(f"Give PRI Element {_pri_label(e)} its place in the firing order")
+        for p in positions:
+            if p < 1:
+                raise CartesianProductError("Firing order starts at 1")
+            if p in slots:
+                raise CartesianProductError(
+                    f"{_pri_label(slots[p])} and {_pri_label(e)} both fire at position {p}"
+                )
+            slots[p] = e
+    missing = [p for p in range(1, len(slots) + 1) if p not in slots]
+    if missing:
+        raise CartesianProductError(
+            f"The firing order runs 1 to {len(slots)} with no gaps — nothing fires at "
+            + ", ".join(str(p) for p in missing)
+        )
+    values: list[float] = []
+    for p in sorted(slots):
+        values.extend(_stagger_values_of(slots[p]))
+    return values
+
+
+def _span(ranges: list[tuple[float, float]]) -> tuple[float, float] | None:
+    if not ranges:
+        return None
+    return min(lo for lo, _ in ranges), max(hi for _, hi in ranges)
+
+
+def _stagger_from_steps(
+    selected: list[tuple[ParameterSequence, dict, SequenceStepSelection]],
+) -> list[dict]:
+    """One stagger train per picked sequence: its picked PRI steps in step
+    order (a range at its mean), with the RF and PW its steps span."""
+    by_seq: dict[UUID, list[tuple[ParameterSequence, dict, SequenceStepSelection]]] = {}
+    for item in selected:
+        by_seq.setdefault(item[0].id, []).append(item)
+    trains = []
+    for items in by_seq.values():
+        seq = items[0][0]
+        items.sort(key=lambda it: it[1].get("order", 0))
+        values = []
+        rf_ranges, pw_ranges, rf_deltas, pw_deltas = [], [], [], []
+        for _, step, selection in items:
+            pri = _step_range(step, "pri_us", "pri_min_us", "pri_max_us")
+            if pri is not None:
+                values.append((pri[0] + pri[1]) / 2)
+            rf = _step_range(step, "rf_mhz", "rf_min_mhz", "rf_max_mhz")
+            if rf is not None:
+                rf_ranges.append(rf)
+                d = selection.rf_delta if selection.rf_delta is not None else seq.rf_delta
+                if d is not None:
+                    rf_deltas.append(float(d))
+            pw = _step_range(step, "pw_us", "pw_min_us", "pw_max_us")
+            if pw is not None:
+                pw_ranges.append(pw)
+                d = selection.pw_delta if selection.pw_delta is not None else seq.pw_delta
+                if d is not None:
+                    pw_deltas.append(float(d))
+        if not values:
+            raise CartesianProductError(
+                f"Sequence '{seq.label or 'Sequence'}' has no PRI in the picked steps — a stagger needs PRI values"
+            )
+        trains.append(
+            {
+                "values": values,
+                "rf": _span(rf_ranges),
+                "rf_delta": max(rf_deltas) if rf_deltas else None,
+                "pw": _span(pw_ranges),
+                "pw_delta": max(pw_deltas) if pw_deltas else None,
+            }
+        )
+    return trains
+
+
 def _fetch_elements(
     db: Session, source_id: UUID | None, ids: list[UUID], expected_type: ElementType
 ) -> list[ModeElement]:
@@ -114,12 +212,20 @@ def run_cartesian_product(
     pri_range_matching: bool = False,
     elements_from_any_source: bool = False,
     mode_sources: Callable[[list[ModeElement]], list[Source]] | None = None,
+    pri_type: PriType = PriType.fixed,
+    pri_firing_order: dict[UUID, list[int]] | None = None,
 ) -> list[Mode]:
     """Every combination of the chosen RF, PRI (or sequence steps) and PW
     Elements as a Mode. Normally the Elements are the Source's and so is each
     Mode; `elements_from_any_source` takes them from any of the Emitter's
     Sources (checked by the caller), and `mode_sources` gives each Mode its
-    Sources from the Elements it was made of."""
+    Sources from the Elements it was made of.
+
+    With `pri_type` stagger, the PRI Elements in their `pri_firing_order`
+    make one stagger train — or each picked sequence's PRI steps make one —
+    and every RF × PW combination gets it."""
+    if pri_type not in (PriType.fixed, PriType.stagger):
+        raise CartesianProductError("Modes can be made with Fixed or Stagger PRI")
     rf_delta_overrides = rf_delta_overrides or {}
     element_source = None if elements_from_any_source else source.id
     pw_delta_overrides = pw_delta_overrides or {}
@@ -131,12 +237,31 @@ def run_cartesian_product(
 
     selected_steps = _fetch_selected_steps(db, source.id, sequence_steps) if sequence_steps else []
 
+    # Stagger: the trains (each with the PRI Elements it uses, and the RF/PW
+    # its sequence steps span when no RF/PW Elements are picked).
+    stagger_trains: list[dict] = []
+    if pri_type == PriType.stagger:
+        if selected_steps and pri_element_ids:
+            raise CartesianProductError("Make the stagger from PRI Elements or from Sequence steps, not both")
+        if selected_steps:
+            stagger_trains = [{**t, "used": []} for t in _stagger_from_steps(selected_steps)]
+        elif pri_element_ids:
+            pri_elements = _fetch_elements(db, element_source, pri_element_ids, ElementType.pri)
+            values = _stagger_from_elements(pri_elements, pri_firing_order or {})
+            stagger_trains = [{"values": values, "rf": None, "pw": None, "used": pri_elements}]
+        else:
+            raise CartesianProductError(
+                "A stagger needs PRI Elements with a firing order, or Sequence steps that set PRI"
+            )
+
     # The "PRI axis" of the cartesian run: either real fetched PRI Elements
     # (no steps selected — the original, element-only path), or the caller's
     # individually-chosen (sequence, step) pairs. Exactly one axis is active
     # per run — selecting steps disables PRI Element selection, same as the
     # old whole-sequence behavior did.
-    if selected_steps:
+    if stagger_trains:
+        pri_axis = []
+    elif selected_steps:
         pri_axis: list[
             tuple[ModeElement | None, ParameterSequence | None, dict | None, SequenceStepSelection | None]
         ] = [(None, seq, step, selection) for seq, step, selection in selected_steps]
@@ -210,6 +335,36 @@ def run_cartesian_product(
         )
         created.append(mode)
         return mode
+
+    for train in stagger_trains:
+        for rf_el in rf_elements:
+            for pw_el in pw_elements:
+                if rf_el:
+                    rf_range = (rf_el.value_min, rf_el.value_max)
+                    rf_delta = rf_delta_overrides.get(rf_el.id, rf_el.delta)
+                else:
+                    rf_range, rf_delta = train.get("rf") or (0.0, 0.0), train.get("rf_delta")
+                if pw_el:
+                    pw_range = (pw_el.value_min, pw_el.value_max)
+                    pw_delta = pw_delta_overrides.get(pw_el.id, pw_el.delta)
+                else:
+                    pw_range, pw_delta = train.get("pw") or (0.0, 0.0), train.get("pw_delta")
+                line_kwargs = dict(
+                    rf_min_mhz=rf_range[0],
+                    rf_max_mhz=rf_range[1],
+                    rf_delta=rf_delta,
+                    rf_range_matching=rf_range_matching,
+                    pw_min_us=pw_range[0],
+                    pw_max_us=pw_range[1],
+                    pw_delta=pw_delta,
+                    pw_range_matching=pw_range_matching,
+                    pri_range_matching=pri_range_matching,
+                    pri_stagger_values_us=train["values"],
+                    # A stagger made here carries no PRI tolerance; edit
+                    # the Mode to give its frame time one.
+                    frame_time_delta_us=0.0,
+                )
+                _create_mode(PriType.stagger, line_kwargs, [rf_el, pw_el, *train["used"]])
 
     for pri_el, seq, step, selection in pri_axis:
         pri_type = PriType.stagger if (pri_el and pri_el.stagger_values) else PriType.fixed

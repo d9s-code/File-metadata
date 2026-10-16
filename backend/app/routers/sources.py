@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.csrf import verify_csrf
-from app.core.enums import AuditAction, AuditEntityType, Role
+from app.core.enums import AuditAction, AuditEntityType, PriType, Role
 from app.database import get_db
 from app.deps import require_emitter_checkout, require_role
 from app.models.cartesian_run import CartesianRun
@@ -657,6 +657,11 @@ def all_sources_cartesian_product(
         pri, pri_deltas = resolve_selection(pool, payload.pri_element_ids, payload.pri_delta_overrides)
         pw, pw_deltas = resolve_selection(pool, payload.pw_element_ids, payload.pw_delta_overrides)
         source = batch_source(pool, [pool.representative(i) for i in [*rf, *pri, *pw]])
+        # Firing positions given on any Element of a merged group belong to
+        # the group's representative.
+        firing_order: dict[UUID, list[int]] = {}
+        for element_id, positions in (payload.pri_firing_order or {}).items():
+            firing_order.setdefault(pool.representative(element_id).id, []).extend(positions)
         created = run_cartesian_product(
             db,
             source=source,
@@ -675,6 +680,8 @@ def all_sources_cartesian_product(
             pri_range_matching=payload.pri_range_matching,
             elements_from_any_source=True,
             mode_sources=pool.sources_of,
+            pri_type=PriType(payload.pri_type),
+            pri_firing_order=firing_order,
         )
     except CartesianProductError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
@@ -686,6 +693,7 @@ def all_sources_cartesian_product(
             "rf_delta_overrides": rf_deltas,
             "pri_delta_overrides": pri_deltas,
             "pw_delta_overrides": pw_deltas,
+            "pri_firing_order": firing_order or None,
             "batch_note": f"From All Sources. {payload.batch_note or ''}".strip(),
         }
     )
@@ -741,6 +749,8 @@ def cartesian_product(
             rf_range_matching=payload.rf_range_matching,
             pw_range_matching=payload.pw_range_matching,
             pri_range_matching=payload.pri_range_matching,
+            pri_type=PriType(payload.pri_type),
+            pri_firing_order=payload.pri_firing_order,
         )
     except CartesianProductError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc

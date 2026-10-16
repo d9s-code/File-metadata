@@ -101,6 +101,12 @@ Then use the **Cartesian Product** tool: pick one or more RF elements, PW elemen
 
 Mixing Fixed-style and Stagger PRI elements in a single cartesian-product run is rejected — pick one shape per run so the resulting batch is predictable.
 
+**PRI type** (beside the PRI column; **Fixed** by default) sets the PRI of the Modes made. **Fixed** works as above: one Mode per PRI Element or Sequence step. **Stagger** makes **one stagger train**, crossed with every RF × PW combination, from either:
+- the ticked **PRI Elements**, whose **Delta** column becomes **Firing order** — each Element's place in the train, from 1 (filled in as you tick them; `1, 3` fires an Element first and third). The positions must run 1 to N with no gaps or repeats. A PRI range fires at its **mean** (900–1000 µs → 950); a stored stagger Element puts in all its values. No PRI delta is asked for; or
+- the ticked **Sequence steps** — each Sequence's PRI steps fire in its **step order**, so the order isn't typed twice (one train per Sequence; a step's PRI range fires at its mean). With no RF or PW Element ticked, the Mode takes the RF and PW its steps span.
+
+Not both at once. The Modes' frame-time delta starts at 0; edit a Mode to give it one. All Sources' **Generate** has the same **PRI type** choice, with a firing-order box per ticked PRI. The Generation log notes the PRI type and each PRI's firing position.
+
 Each run is kept in the Source's **Generation log** tab, newest first: when and by whom, the EW Group, name prefix and note, the Elements or Sequence steps combined (values, variant, and the margin used — marked when it was overridden for that run), range matching, and the Modes it made, with how many are still there. An entry outlives its Modes: deleting the generation batch leaves it in the log.
 
 **All Sources** (Setup tab, under the Sources) is every Element of the Emitter's Sources as one pool: the same type and values (and a PRI's jitter) in several Sources — or twice in one — is one Element, merged the way the per-Source generator merges them. Each row shows the values, the margin (a range when its Sources differ), its variants, and its Sources: two by name, the rest folded into **+N** (every name on hover; click to list them). **Search** matches values, Source names, labels and variants (every word); **from – to** keeps Elements whose values reach into that range (in the unit of the type picked); filter by type, Source, variant, or to Elements in more than one Source; **Reset** clears them.

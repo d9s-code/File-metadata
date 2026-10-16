@@ -42,6 +42,11 @@ export interface CartesianProductInput {
   rf_range_matching?: boolean;
   pw_range_matching?: boolean;
   pri_range_matching?: boolean;
+  /** Stagger: the PRI Elements in their firing order — or a picked
+   * sequence's PRI steps in step order — make one stagger train. */
+  pri_type?: "fixed" | "stagger";
+  /** Stagger from Elements: each PRI Element's 1-based position(s). */
+  pri_firing_order?: Record<string, number[]>;
 }
 
 export interface CartesianProductResult {
@@ -79,6 +84,8 @@ export interface CartesianRunElement {
   jitter_max: number | null;
   delta: number | null;
   delta_overridden: boolean;
+  /** Stagger runs: this PRI Element's place(s) in the train. */
+  firing_order?: number[] | null;
 }
 
 /** One entry of a Source's generation log. */
@@ -90,6 +97,8 @@ export interface CartesianRun {
   name_prefix: string;
   note: string | null;
   inputs: {
+    /** Missing on runs logged before the PRI type choice: Fixed. */
+    pri_type?: "fixed" | "stagger";
     elements: CartesianRunElement[];
     sequence_steps: {
       sequence_label: string | null;

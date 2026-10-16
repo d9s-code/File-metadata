@@ -31,6 +31,8 @@ def record_cartesian_run(
         **(payload.pw_delta_overrides or {}),
         **(payload.pri_delta_overrides or {}),
     }
+    stagger = payload.pri_type == "stagger"
+    firing = dict(payload.pri_firing_order or {}) if stagger else {}
     ids = [*payload.rf_element_ids, *payload.pri_element_ids, *payload.pw_element_ids]
     by_id = {e.id: e for e in db.query(ModeElement).filter(ModeElement.id.in_(ids)).all()} if ids else {}
     elements = []
@@ -39,6 +41,8 @@ def record_cartesian_run(
         if e is None:
             continue
         delta = overrides.get(element_id, e.delta)
+        if stagger and e.element_type.value == "pri":
+            delta = None  # a stagger's PRI has a firing order, not a margin
         elements.append(
             {
                 "element_type": e.element_type.value,
@@ -51,6 +55,7 @@ def record_cartesian_run(
                 "jitter_max": _num(e.jitter_max),
                 "delta": _num(delta),
                 "delta_overridden": element_id in overrides,
+                "firing_order": firing.get(element_id),
             }
         )
     steps = []
@@ -77,6 +82,7 @@ def record_cartesian_run(
         name_prefix=payload.name_prefix,
         note=payload.batch_note or None,
         inputs={
+            "pri_type": payload.pri_type,
             "elements": elements,
             "sequence_steps": steps,
             "range_matching": {

@@ -11,12 +11,16 @@ function UsedElement({ e }: { e: CartesianRunElement }) {
     <li>
       <strong>{TYPE_LABEL[e.element_type] ?? e.element_type}</strong> {elementValues(e)}
       {e.label && <span className="hint-text"> · {e.label}</span>} <VariantTag variant={e.variant} />
-      {e.delta != null && (
-        <span className="hint-text">
-          {" "}
-          ± {e.delta}
-          {e.delta_overridden && " (this run)"}
-        </span>
+      {e.firing_order?.length ? (
+        <span className="hint-text"> · fires {e.firing_order.join(", ")}</span>
+      ) : (
+        e.delta != null && (
+          <span className="hint-text">
+            {" "}
+            ± {e.delta}
+            {e.delta_overridden && " (this run)"}
+          </span>
+        )
       )}
     </li>
   );
@@ -70,7 +74,10 @@ function RunEntry({ run }: { run: CartesianRun }) {
           </li>
         ))}
       </ul>
-      <p className="hint-text">Range matching: {matching.length ? matching.join(", ") : "none"}</p>
+      <p className="hint-text">
+        PRI: {run.inputs.pri_type === "stagger" ? "Stagger" : "Fixed"} · Range matching:{" "}
+        {matching.length ? matching.join(", ") : "none"}
+      </p>
       <details>
         <summary className="hint-text">Modes made ({made})</summary>
         <p className="generation-log-modes">{run.mode_names.join(", ") || "—"}</p>
