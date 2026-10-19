@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.csrf import verify_csrf
@@ -10,7 +10,7 @@ from app.database import get_db
 from app.deps import require_emitter_checkout, require_role
 from app.models.emitter import Emitter
 from app.models.ew_group import EwGroup
-from app.schemas.ew_group import EwGroupCreate, EwGroupOut, EwGroupUpdate
+from app.schemas.ew_group import EwGroupCreate, EwGroupOut, EwGroupSuggestion, EwGroupUpdate
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
 
 router = APIRouter(prefix="/emitters/{emitter_id}/ew-groups", tags=["ew-groups"])
@@ -21,6 +21,37 @@ def _get_emitter_or_404(db: Session, emitter_id: UUID) -> Emitter:
     if emitter is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Emitter not found")
     return emitter
+
+
+@router.get("/suggestion", response_model=EwGroupSuggestion | None)
+def suggest_ew_group(
+    emitter_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
+) -> EwGroupSuggestion | None:
+    """The scan range for an Emitter's first EW Group: the shortest and
+    longest scan time (s) among the scan Elements of all its Sources — a
+    single value counting as both ends. None when no Source has one."""
+    from app.core.enums import ElementType
+    from app.models.mode import ModeElement
+    from app.models.source import Source
+
+    _get_emitter_or_404(db, emitter_id)
+    rows = (
+        db.query(ModeElement.value_min, ModeElement.value_max, Source.name)
+        .join(Source, ModeElement.source_id == Source.id)
+        .filter(Source.emitter_id == emitter_id, ModeElement.element_type == ElementType.scan)
+        .all()
+    )
+    values = [(lo, hi, name) for lo, hi, name in rows if lo is not None or hi is not None]
+    if not values:
+        return None
+    lows = [float(lo if lo is not None else hi) for lo, hi, _ in values]
+    highs = [float(hi if hi is not None else lo) for lo, hi, _ in values]
+    return EwGroupSuggestion(
+        scan_min=min(lows),
+        scan_max=max(highs),
+        element_count=len(values),
+        source_names=sorted({name for _, _, name in values}),
+    )
 
 
 @router.get("", response_model=list[EwGroupOut])

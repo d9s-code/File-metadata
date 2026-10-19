@@ -6708,3 +6708,15 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
   font-weight: 600;
   font-size: 0.85rem;
 }
+
+/* "Suggested: scan 2–10 s" under an Emitter's empty EW Groups card. */
+.ew-group-suggestion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+}

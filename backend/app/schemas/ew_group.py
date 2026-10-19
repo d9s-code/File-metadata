@@ -69,3 +69,15 @@ class EwGroupOut(BaseModel):
     @property
     def engineered_scan_max(self) -> float | None:
         return apply_delta(self.scan_min, self.scan_max, self.scan_delta)[1]
+
+
+class EwGroupSuggestion(BaseModel):
+    """A starting point for an Emitter's first EW Group: the scan range its
+    Sources give — the shortest and longest scan time (s) among their scan
+    Elements."""
+
+    scan_min: float
+    scan_max: float
+    # How many scan Elements, in how many Sources, it was taken from.
+    element_count: int
+    source_names: list[str]

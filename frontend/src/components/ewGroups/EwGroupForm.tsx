@@ -6,10 +6,12 @@ import type { EwGroup } from "../../types/domain";
 interface EwGroupFormProps {
   emitterId: string;
   initialData?: EwGroup | null;
+  /** Values to start a new EW Group with (e.g. the suggested scan range). */
+  prefill?: { scan_min: number; scan_max: number } | null;
   onClose?: () => void;
 }
 
-export function EwGroupForm({ emitterId, initialData, onClose }: EwGroupFormProps) {
+export function EwGroupForm({ emitterId, initialData, prefill, onClose }: EwGroupFormProps) {
   const createEwGroup = useCreateEwGroup(emitterId);
   const updateEwGroup = useUpdateEwGroup(emitterId);
 
@@ -31,13 +33,13 @@ export function EwGroupForm({ emitterId, initialData, onClose }: EwGroupFormProp
       setAgeout(initialData.ageout?.toString() ?? "");
     } else {
       setName("");
-      setScanMin("");
-      setScanMax("");
+      setScanMin(prefill ? String(prefill.scan_min) : "");
+      setScanMax(prefill ? String(prefill.scan_max) : "");
       setScanDelta("");
       setThreatPriority("");
       setAgeout("");
     }
-  }, [initialData]);
+  }, [initialData, prefill]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();

@@ -9,6 +9,15 @@ export function useEwGroups(emitterId: string) {
   return useQuery({ queryKey: ewGroupsKey(emitterId), queryFn: () => ewGroupsApi.list(emitterId) });
 }
 
+/** Only asked for while the Emitter has no EW Group. */
+export function useEwGroupSuggestion(emitterId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [...ewGroupsKey(emitterId), "suggestion"],
+    queryFn: () => ewGroupsApi.suggestion(emitterId),
+    enabled,
+  });
+}
+
 export function useCreateEwGroup(emitterId: string) {
   const qc = useQueryClient();
   return useMutation({

@@ -2,7 +2,8 @@ import { useState } from "react";
 import { RenameDialog } from "../common/RenameDialog";
 import { MenuButton } from "../common/MenuButton";
 import type { EwGroup } from "../../types/domain";
-import { useDeleteEwGroup, useUpdateEwGroup } from "../../state/hooks/useEwGroups";
+import { useDeleteEwGroup, useEwGroupSuggestion, useUpdateEwGroup } from "../../state/hooks/useEwGroups";
+import type { EwGroupSuggestion } from "../../api/ewGroups";
 import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 import { useConfirmDialog } from "../common/ConfirmDialog";
@@ -32,6 +33,8 @@ export function EwGroupsTable({ emitterId, ewGroups }: { emitterId: string; ewGr
   const deleteEwGroup = useDeleteEwGroup(emitterId);
   const { confirmDelete, dialog } = useConfirmDialog();
   const [showForm, setShowForm] = useState(false);
+  const { data: suggestion } = useEwGroupSuggestion(emitterId, ewGroups.length === 0);
+  const [prefill, setPrefill] = useState<EwGroupSuggestion | null>(null);
   const [editingGroup, setEditingGroup] = useState<EwGroup | null>(null);
   const [renamingGroup, setRenamingGroup] = useState<EwGroup | null>(null);
   const updateEwGroup = useUpdateEwGroup(emitterId);
@@ -67,12 +70,41 @@ export function EwGroupsTable({ emitterId, ewGroups }: { emitterId: string; ewGr
         </RequireRole>
       </div>
       {ewGroups.length === 0 ? (
-        <EmptyState
-          compact
-          icon="◇"
-          title="No EW Groups yet"
-          message="An EW Group is an operational bucket (scan range + threat priority) that Modes are organized under."
-        />
+        <>
+          <EmptyState
+            compact
+            icon="◇"
+            title="No EW Groups yet"
+            message="An EW Group is an operational bucket (scan range + threat priority) that Modes are organized under."
+          />
+          {suggestion && !showForm && (
+            <div className="ew-group-suggestion">
+              <span>
+                <strong>Suggested:</strong> scan {suggestion.scan_min}–{suggestion.scan_max} s
+              </span>
+              <span className="hint-text" title={suggestion.source_names.join("\n")}>
+                the shortest and longest scan time in {suggestion.element_count} scan Element
+                {suggestion.element_count === 1 ? "" : "s"} of {suggestion.source_names.length === 1
+                  ? suggestion.source_names[0]
+                  : `${suggestion.source_names.length} Sources`}
+              </span>
+              <RequireRole minimum="editor">
+                <button
+                  type="button"
+                  className="button secondary small"
+                  disabled={!canEdit}
+                  title={editTitle}
+                  onClick={() => {
+                    setPrefill(suggestion);
+                    setShowForm(true);
+                  }}
+                >
+                  Use it for a new EW Group
+                </button>
+              </RequireRole>
+            </div>
+          )}
+        </>
       ) : (
         <table className="data-table">
           <thead>
@@ -150,7 +182,14 @@ export function EwGroupsTable({ emitterId, ewGroups }: { emitterId: string; ewGr
             onClose={() => setEditingGroup(null)} 
           />
         ) : showForm ? (
-          <EwGroupForm emitterId={emitterId} onClose={() => setShowForm(false)} />
+          <EwGroupForm
+            emitterId={emitterId}
+            prefill={prefill}
+            onClose={() => {
+              setShowForm(false);
+              setPrefill(null);
+            }}
+          />
         ) : null}
       </RequireRole>
       {dialog}

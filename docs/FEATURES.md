@@ -50,6 +50,8 @@ An EW Group represents an operational grouping — think "the set of modes this 
 
 EW Groups are how the "EW Groups → Modes" tab on the Emitter page is organized: expand a group to see (and add) its Modes.
 
+**A suggested first EW Group.** While an Emitter has no EW Group, the empty EW Groups card suggests a scan range from its Sources: the **shortest to the longest scan time** (s) among the scan Elements of all its Sources (a single value counts as both ends; scan times are used as entered, never converted to a rate), with how many Elements and Sources it came from. **Use it for a new EW Group** opens the form with Scan min / max filled in, to name and save. Nothing shows when no Source has a scan Element (`GET /emitters/{id}/ew-groups/suggestion`).
+
 ---
 
 ## 2. Modes and PRI Types

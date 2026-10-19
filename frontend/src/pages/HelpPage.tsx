@@ -565,7 +565,10 @@ export function HelpPage() {
             <h4>EW Groups & Sources tab</h4>
             <p>
               <strong>EW Groups</strong> are the operational buckets (scan range + threat priority) Modes
-              are organized under. <strong>Sources</strong> record
+              are organized under. While an Emitter has none and its Sources have scan Elements, a{" "}
+              <strong>Suggested</strong> scan range shows under the empty EW Groups card — the shortest to the longest
+              scan time among them — and <strong>Use it for a new EW Group</strong> opens the form with it filled in.{" "}
+              <strong>Sources</strong> record
               where a parameter set came from — a datasheet, a lab measurement — and hold the RF/PRI/PW/Scan{" "}
               <strong>Elements</strong> you build Modes from (min/max, optional jitter and a tolerance{" "}
               <strong>delta</strong>, or a stagger sequence for PRI).
