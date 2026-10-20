@@ -14,6 +14,12 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
+# Which build this is — shown in the app (Admin, Help) as the commit and date.
+commit="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+# Local edits (other than docker-compose.yml, which is always edited) mark it.
+if [ -n "$(git status --porcelain --untracked-files=no -- . ':!docker-compose.yml' 2>/dev/null)" ]; then commit="$commit+changes"; fi
+printf '{"commit": "%s", "built_at": "%s"}\n' "$commit" "$(date -u +%Y-%m-%dT%H:%MZ)" > backend/app/build_info.json
+
 docker compose build backend frontend
 
 out="rf-emitter-images.tar"

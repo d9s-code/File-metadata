@@ -6959,3 +6959,4 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
 /* Revert preview. */
 .revert-preview { display: flex; flex-direction: column; gap: 0.6rem; }
 .revert-preview-list { max-height: 22rem; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.4rem 0.6rem; }
+.tab-bar .build-label { margin-left: auto; align-self: center; font-size: 0.78rem; white-space: nowrap; }

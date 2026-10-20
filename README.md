@@ -154,9 +154,18 @@ server, so there's no database image to build or transfer.
    `docker-compose.yml` expects (`rf-emitter-backend:latest`, `rf-emitter-frontend:latest`),
    so plain `docker compose up` uses them directly without touching the network.
 
-To ship a code change afterwards: rebuild and re-save on the connected machine, then repeat
-steps 2–3 on the server (`docker load` overwrites the existing image tags; `docker compose up
--d` recreates any changed containers).
+To ship a code change afterwards: rebuild and re-save on the connected machine
+(`build-images.sh` records the commit and build time in the image), copy it over as in step 2,
+then on the server run:
+```bash
+./scripts/offline/update.sh
+```
+It loads the images, stops the web app, takes a backup, upgrades the database on its own —
+so a problem shows there, plainly, with nothing changed, rather than as a backend that keeps
+restarting — then starts everything and prints the build now running. Admin shows the same
+build (commit and date) at the right of its tabs, so you can see the server has the new
+images. If an upgrade finds the database half-restored (it records an older version than the
+tables it holds), it says so and how to fix it: restore a backup with the restore script.
 
 ## Backups
 

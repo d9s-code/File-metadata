@@ -25,3 +25,6 @@ frontend/.vite/
 # Local-only files
 *.log
 .claude/launch.json
+
+# Written by scripts/offline/build-images.sh: which build an image holds.
+backend/app/build_info.json

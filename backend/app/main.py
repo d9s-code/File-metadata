@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.build_info import build_info
 from app.config import insecure_setting_problems, settings
 from app.database import engine
 from app.routers import (
@@ -86,6 +87,13 @@ app.include_router(backups.router)
 app.include_router(backups.status_router)
 app.include_router(dwells.router)
 app.include_router(statuses.router)
+
+
+@app.get("/version")
+def version():
+    """The build running: its commit and when it was built (both null on a
+    build made without scripts/offline/build-images.sh, e.g. in development)."""
+    return build_info()
 
 
 @app.get("/health")

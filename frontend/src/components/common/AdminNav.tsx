@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { BuildLabel } from "./BuildLabel";
 
 export function AdminNav() {
   return (
@@ -21,6 +22,7 @@ export function AdminNav() {
       <NavLink to="/admin/settings" className={({ isActive }) => (isActive ? "tab active" : "tab")}>
         Settings
       </NavLink>
+      <BuildLabel />
     </div>
   );
 }
