@@ -19,6 +19,7 @@ import { useStatuses } from "../state/hooks/useStatuses";
 import { TasksButton } from "../components/tasks/TasksButton";
 import { useTasks } from "../state/hooks/useTasks";
 import type { Platform } from "../api/platforms";
+import { useSessionState } from "../components/common/useSessionState";
 
 type PlatformSortKey =
   | "name"
@@ -73,7 +74,7 @@ export function PlatformsListPage() {
       .filter(([, n]) => n)
       .map(([k, n]) => `${n} ${emitterStatuses.label(k)}`)
       .join(" · ");
-  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(platforms ?? [], comparePlatforms);
+  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(platforms ?? [], comparePlatforms, "platforms");
   const createPlatform = useCreatePlatform();
   const deletePlatform = useDeletePlatform();
   const { confirmDelete, dialog } = useConfirmDialog();
@@ -81,7 +82,7 @@ export function PlatformsListPage() {
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
-  const [filter, setFilter] = useState("");
+  const [filter, setFilter] = useSessionState("platforms.filter", "");
   const navigate = useNavigate();
   // Open tasks about each Platform, counted once for the whole list.
   const { data: platformTasks } = useTasks({ entity_type: "platform", state: "open" });

@@ -21,6 +21,7 @@ import { TasksButton } from "../components/tasks/TasksButton";
 import { EmitterBulkBar } from "../components/emitters/EmitterBulkBar";
 import { useHasRole } from "../auth/RequireAuth";
 import { StatusBadge } from "../components/status/StatusBadge";
+import { useSessionState } from "../components/common/useSessionState";
 
 type EmitterSortKey =
   | "name"
@@ -121,18 +122,18 @@ export function EmittersListPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Matches the name or the designation.
-  const [nameFilter, setNameFilter] = useState("");
-  const [showRanges, setShowRanges] = useState(false);
-  const [rfMin, setRfMin] = useState("");
-  const [rfMax, setRfMax] = useState("");
-  const [pwMin, setPwMin] = useState("");
-  const [pwMax, setPwMax] = useState("");
-  const [priMin, setPriMin] = useState("");
-  const [priMax, setPriMax] = useState("");
-  const [scanMin, setScanMin] = useState("");
-  const [scanMax, setScanMax] = useState("");
+  const [nameFilter, setNameFilter] = useSessionState("emitters.nameFilter", "");
+  const [showRanges, setShowRanges] = useSessionState("emitters.showRanges", false);
+  const [rfMin, setRfMin] = useSessionState("emitters.rfMin", "");
+  const [rfMax, setRfMax] = useSessionState("emitters.rfMax", "");
+  const [pwMin, setPwMin] = useSessionState("emitters.pwMin", "");
+  const [pwMax, setPwMax] = useSessionState("emitters.pwMax", "");
+  const [priMin, setPriMin] = useSessionState("emitters.priMin", "");
+  const [priMax, setPriMax] = useSessionState("emitters.priMax", "");
+  const [scanMin, setScanMin] = useSessionState("emitters.scanMin", "");
+  const [scanMax, setScanMax] = useSessionState("emitters.scanMax", "");
   // "" anyone, "me", "none", or a person's id.
-  const [assignedFilter, setAssignedFilter] = useState("");
+  const [assignedFilter, setAssignedFilter] = useSessionState("emitters.assignedFilter", "");
   const { user } = useAuth();
   const { data: people } = usePeople();
   const canWrite = useHasRole("editor");
@@ -159,7 +160,7 @@ export function EmittersListPage() {
     return true;
   });
 
-  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(filtered, compareEmitters);
+  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(filtered, compareEmitters, "emitters");
   const columns = useColumnVisibility("emitters-list-columns", COLUMNS);
   const columnMenu = useColumnVisibilityMenu(columns);
   const show = columns.isVisible;

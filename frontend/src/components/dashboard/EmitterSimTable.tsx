@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { formatDate } from "../common/dates";
 import { Link } from "react-router-dom";
 import type { EmitterSimStatus, SimOutcomeCounts } from "../../api/dashboard";
@@ -6,6 +6,7 @@ import { EmptyState } from "../common/EmptyState";
 import { testLink } from "../modes/TestDerivedBadge";
 import { SimOutcomeBar, SimOutcomeLegend } from "./SimOutcomeBar";
 import { StatusBadge } from "../status/StatusBadge";
+import { useSessionState } from "../common/useSessionState";
 
 type Filter = "problems" | "with_lines" | "all";
 
@@ -25,8 +26,8 @@ export function EmitterSimTable({ rows, counts }: { rows: EmitterSimStatus[]; co
   const withLines = rows.filter((r) => r.line_count > 0);
   const allCorrect = withLines.filter((r) => r.line_outcomes.pass === r.line_count).length;
   const neverTested = withLines.filter((r) => r.last_validated_at === null).length;
-  const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<Filter>("with_lines");
+  const [query, setQuery] = useSessionState("dashboardSim.query", "");
+  const [filter, setFilter] = useSessionState<Filter>("dashboardSim.filter", "with_lines");
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();

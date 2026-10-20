@@ -38,7 +38,7 @@ export function EwGroupsTable({ emitterId, ewGroups }: { emitterId: string; ewGr
   const [editingGroup, setEditingGroup] = useState<EwGroup | null>(null);
   const [renamingGroup, setRenamingGroup] = useState<EwGroup | null>(null);
   const updateEwGroup = useUpdateEwGroup(emitterId);
-  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(ewGroups, compareEwGroups);
+  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(ewGroups, compareEwGroups, "ewGroups");
   const { data: emitter } = useEmitter(emitterId);
   const { canEdit } = useEmitterCheckoutState(emitter);
   const editTitle = canEdit ? undefined : "Start editing this Emitter first";

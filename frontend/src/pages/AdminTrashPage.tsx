@@ -37,7 +37,7 @@ export function AdminTrashPage() {
   const restoreEntity = useRestoreEntity();
   const purgeForever = usePurgeForever();
   const { confirmDelete, dialog } = useConfirmDialog();
-  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(items ?? [], compareDeletedItems);
+  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(items ?? [], compareDeletedItems, "trash");
 
   async function handleRestore(item: DeletedItem) {
     // No confirm step here — restoring is safe and trivially reversible

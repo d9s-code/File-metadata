@@ -10,17 +10,18 @@ import {
 } from "../state/hooks/useAuditLog";
 import { actionLabel, entityTypeLabel } from "../components/audit/auditFormat";
 import { AuditLogList } from "../components/audit/AuditLogList";
+import { useSessionState } from "../components/common/useSessionState";
 
 const PAGE_SIZE = 50;
 
 export function AuditLogPage() {
-  const [entityType, setEntityType] = useState<string | null>(null);
-  const [action, setAction] = useState<AuditAction | "">("");
-  const [search, setSearch] = useState("");
+  const [entityType, setEntityType] = useSessionState<string | null>("auditLog.entityType", null);
+  const [action, setAction] = useSessionState<AuditAction | "">("auditLog.action", "");
+  const [search, setSearch] = useSessionState("auditLog.search", "");
   const [selectedEntity, setSelectedEntity] = useState<AuditEntitySearchResult | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useSessionState("auditLog.dateFrom", "");
+  const [dateTo, setDateTo] = useSessionState("auditLog.dateTo", "");
   const [offset, setOffset] = useState(0);
 
   const { data: groups } = useAuditEntityTypeCounts();

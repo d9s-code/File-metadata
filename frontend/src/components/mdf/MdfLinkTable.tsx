@@ -73,7 +73,7 @@ export function MdfLinkTable({
         return compareStrings(a.added_at, b.added_at, dir);
     }
   }
-  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(links, compareLinks);
+  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(links, compareLinks, "mdfPinnedPlatforms");
 
   if (links.length === 0) {
     return <EmptyState icon="○" title="No Platforms pinned yet" message="Pin a saved Platform version below." />;

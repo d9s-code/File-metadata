@@ -13,6 +13,7 @@ import { useDwellFiles, useDwellStrategies, useRefreshDwellLists } from "../stat
 import { useMdfs } from "../state/hooks/useMdfs";
 import { usePlatforms } from "../state/hooks/usePlatforms";
 import { PlatformsPicker } from "../components/dwells/PlatformsPicker";
+import { useSessionState } from "../components/common/useSessionState";
 
 /** Names shown in a cell before the rest fold into "+N". */
 const SHOWN = 2;
@@ -69,7 +70,7 @@ export function DwellsListPage() {
 
 function StrategyList({ onNew }: { onNew: () => void }) {
   const { data: strategies, isLoading } = useDwellStrategies();
-  const [filter, setFilter] = useState("");
+  const [filter, setFilter] = useSessionState("dwells.filter", "");
   if (isLoading) return <LoadingState label="Loading Strategies…" />;
   if (!strategies?.length)
     return (

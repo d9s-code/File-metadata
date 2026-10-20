@@ -16,6 +16,7 @@ import { EmptyState } from "../components/common/EmptyState";
 import { useConfirmDialog } from "../components/common/ConfirmDialog";
 import { ApiRequestError } from "../api/client";
 import type { SourceGroup } from "../types/domain";
+import { useSessionState } from "../components/common/useSessionState";
 
 function rangeText(min: number | null, max: number | null, unit: string): string {
   if (min == null || max == null) return "—";
@@ -139,6 +140,7 @@ function SourceList({ sources }: { sources: SourceOverview[] }) {
   const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable<SourceOverview, ListSortKey>(
     sources,
     compareSourceRows,
+    "sourceOverview",
     { key: "source_date", dir: "asc" },
   );
   const header = (label: string, key: ListSortKey, columnType?: "string" | "number" | "date") => (
@@ -199,7 +201,7 @@ export function SourceGroupsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const { confirmDelete, dialog } = useConfirmDialog();
-  const [query, setQuery] = useState<Query>(NO_QUERY);
+  const [query, setQuery] = useSessionState<Query>("sourceGroups.query", NO_QUERY);
   const [view, setView] = useState<"tree" | "list">("tree");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 

@@ -42,6 +42,7 @@ import {
   type FindingStatus,
 } from "../components/ambiguity/ambiguityText";
 import { ApiRequestError } from "../api/client";
+import { useSessionState } from "../components/common/useSessionState";
 
 const RUN_VERSION_FIELD: Record<AmbiguityScopeType, keyof AmbiguityRun> = {
   emitter: "emitter_version_id",
@@ -86,7 +87,7 @@ export function AmbiguityDashboardPage() {
   const [emitterPair, setEmitterPair] = useState<{ ids: EmitterPair; names: [string, string] } | null>(null);
   const [status, setStatus] = useState<FindingStatus | "">("");
   const [severity, setSeverity] = useState<AmbiguitySeverity | "">("");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useSessionState("ambiguity.search", "");
   const [ewGroup, setEwGroup] = useState("");
   const [source, setSource] = useState("");
 

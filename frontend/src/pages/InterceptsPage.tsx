@@ -17,6 +17,7 @@ import { SortableColumnHeader } from "../components/common/SortableColumnHeader"
 import { useSortableTable } from "../components/common/useSortableTable";
 import { compareNullable, compareStrings } from "../components/common/sortUtils";
 import type { Intercept } from "../types/domain";
+import { useSessionState } from "../components/common/useSessionState";
 
 type InterceptSortKey = "name" | "emitter" | "intercepted_on" | "collected_by" | "entry_count" | "created_at";
 
@@ -30,8 +31,8 @@ export function InterceptsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const [nameFilter, setNameFilter] = useState("");
-  const [emitterFilter, setEmitterFilter] = useState("");
+  const [nameFilter, setNameFilter] = useSessionState("intercepts.nameFilter", "");
+  const [emitterFilter, setEmitterFilter] = useSessionState("intercepts.emitterFilter", "");
 
   const emitterNameById = Object.fromEntries((emitters ?? []).map((e) => [e.id, e.name]));
 
@@ -60,7 +61,7 @@ export function InterceptsPage() {
     return true;
   });
 
-  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(filtered, compareIntercepts);
+  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(filtered, compareIntercepts, "intercepts");
 
   const header = (label: string, key: InterceptSortKey, columnType?: "string" | "number" | "date") => (
     <SortableColumnHeader

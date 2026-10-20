@@ -20,6 +20,7 @@ import type { Customer } from "../api/customers";
 import type { Mdf } from "../api/mdfs";
 import { useStatuses } from "../state/hooks/useStatuses";
 import { StatusBadge } from "../components/status/StatusBadge";
+import { useSessionState } from "../components/common/useSessionState";
 
 type MdfSortKey = "name" | "platforms" | "release_date" | "status" | "customer";
 
@@ -63,7 +64,7 @@ export function MdfsListPage() {
     () => (a: Mdf, b: Mdf, key: MdfSortKey, dir: "asc" | "desc") => compareMdfs(a, b, key, dir, customersById),
     [customersById],
   );
-  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(mdfs ?? [], comparator);
+  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(mdfs ?? [], comparator, "mdfs");
   const createMdf = useCreateMdf();
   const deleteMdf = useDeleteMdf();
   const { confirmDelete, dialog } = useConfirmDialog();
@@ -73,9 +74,9 @@ export function MdfsListPage() {
   const [customerId, setCustomerId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
-  const [filter, setFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [customerFilter, setCustomerFilter] = useState("");
+  const [filter, setFilter] = useSessionState("mdfs.filter", "");
+  const [statusFilter, setStatusFilter] = useSessionState("mdfs.statusFilter", "");
+  const [customerFilter, setCustomerFilter] = useSessionState("mdfs.customerFilter", "");
   const navigate = useNavigate();
 
   async function handleDelete(mdf: Mdf) {

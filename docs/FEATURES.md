@@ -20,6 +20,8 @@ If you just want to see it running, start with the [README](../README.md). This 
 
 **Search (quick-jump).** **⌕ Search** in the menu bar, or Ctrl+K (⌘K on a Mac) from any page, opens a box that finds Emitters (name or designation), Modes, Platforms, MDFs, Sources, Intercepts, Dwell Strategies (name or description) and dwell files as you type — every word has to match, in any order; exact and starts-with matches first; up to 8 of each kind; deleted things left out. ↑↓ and Enter open one: a Mode on its Emitter's Modes tab, a Source on the Groups & Sources tab (`GET /search?q=`).
 
+**Sorts and filters are remembered for the session.** Every table's sort (the column and direction) and the filters on the lists and tables — Emitters (name, ranges, assigned), Platforms, MDFs (name, status, customer), Intercepts, Dwells, the Audit Log, the Dashboard's Emitter table, Ambiguity, Source Groups, an Emitter's Modes (every filter, sort and the margins switch) and All Sources (per Emitter), Mode ladders, an Intercept's reports — are kept in the browser tab's session storage: a reload, or going to another page and back, finds them as they were. They're forgotten when the tab closes, and a new tab starts with none. Ticked rows and open dialogs aren't kept.
+
 An address that doesn't exist (mistyped or out of date) shows **Page not found**, with a link to the Dashboard.
 
 ## 1. Emitters

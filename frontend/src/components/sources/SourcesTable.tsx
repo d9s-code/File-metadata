@@ -285,7 +285,7 @@ export function SourcesTable({
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showBatchAdd, setShowBatchAdd] = useState(false);
-  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(sources, compareSources);
+  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(sources, compareSources, "sources");
 
   const sourceNameById = useMemo(() => Object.fromEntries(sources.map((s) => [s.id, s.name])), [sources]);
 

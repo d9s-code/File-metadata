@@ -1,25 +1,31 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { SortDirection } from "./sortUtils";
+import { useSessionState } from "./useSessionState";
 
 /** Generic client-side table sort. Takes a per-table comparator rather than a
  * column-config object — each table's fields differ too much (nested
  * id-lookups, nullable numerics, date strings) to genericize further without
- * losing type safety. */
+ * losing type safety. `storageKey` names the table, so its sort is kept for
+ * the browser tab's session (a reload, or another page and back). */
 export function useSortableTable<T, K extends string>(
   rows: T[],
   comparator: (a: T, b: T, key: K, dir: SortDirection) => number,
+  storageKey: string,
   initial?: { key: K; dir: SortDirection },
 ) {
-  const [sortKey, setSortKey] = useState<K | null>(initial?.key ?? null);
-  const [sortDir, setSortDir] = useState<SortDirection>(initial?.dir ?? "asc");
+  const [sort, setSort] = useSessionState<{ key: K | null; dir: SortDirection }>(`sort:${storageKey}`, {
+    key: initial?.key ?? null,
+    dir: initial?.dir ?? "asc",
+  });
+  const sortKey = sort.key;
+  const sortDir = sort.dir;
 
   function onSort(key: K, dir: SortDirection) {
-    setSortKey(key);
-    setSortDir(dir);
+    setSort({ key, dir });
   }
 
   function onClear() {
-    setSortKey(null);
+    setSort({ key: null, dir: sortDir });
   }
 
   const sorted = useMemo(() => {

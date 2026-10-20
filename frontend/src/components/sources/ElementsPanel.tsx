@@ -215,6 +215,7 @@ export function ElementsPanel({
   const { sortKey, sortDir, onSort, onClear } = useSortableTable<MergedElementGroup, ElementSortKey>(
     [],
     compareGroups,
+    "sourceElements",
   );
 
   const grouped = ELEMENT_TYPES.map((t) => {

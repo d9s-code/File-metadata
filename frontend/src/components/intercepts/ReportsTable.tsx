@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useInterceptReports } from "../../state/hooks/useIntercepts";
 import type { ReportSort } from "../../api/intercepts";
 import type { InterceptReport } from "../../types/domain";
+import { useSessionState } from "../common/useSessionState";
 
 const PRI_TYPE_LABEL: Record<string, string> = { fixed: "Fixed", stagger: "Stagger", cw: "CW" };
 
@@ -37,7 +38,7 @@ export function ReportsTable({
   showFile?: boolean;
   pageSize?: number;
 }) {
-  const [sort, setSort] = useState<ReportSort>("line");
+  const [sort, setSort] = useSessionState<ReportSort>("interceptReports.sort", "line");
   const [direction, setDirection] = useState<"asc" | "desc">("asc");
   const [page, setPage] = useState(0);
   const { data, isLoading, isFetching, error } = useInterceptReports(interceptId, {

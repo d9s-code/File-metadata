@@ -49,6 +49,7 @@ import { ReportsTable } from "../components/intercepts/ReportsTable";
 import { useInterceptReports, useTurnInterceptIntoSource } from "../state/hooks/useIntercepts";
 import { useCheckoutEmitter } from "../state/hooks/useEmitterCheckout";
 import type { Emitter, InterceptEntry, Mode } from "../types/domain";
+import { useSessionState } from "../components/common/useSessionState";
 
 const PAGE_SIZE = 100;
 
@@ -385,7 +386,7 @@ export function InterceptDetailPage() {
   const [ranges, setRanges] = useState<Record<RangeParam, Range>>({ rf: null, pri: null, pw: null });
   const [view, setView] = useState<"entries" | "reports">("entries");
   // Entries to create Modes from (the selection, or every entry from the More menu).
-  const [reportFilter, setReportFilter] = useState<"all" | "none">("all");
+  const [reportFilter, setReportFilter] = useSessionState<"all" | "none">("interceptDetail.reportFilter", "all");
   const hasReports = (intercept?.report_count ?? 0) > 0;
   // How many kept reports are in no entry — left out at import, or their entry deleted.
   const { data: leftOutPage } = useInterceptReports(interceptId ?? "", { entryId: "none", limit: 1 }, hasReports);
@@ -454,7 +455,7 @@ export function InterceptDetailPage() {
     }
   }, []);
   // Imported entries share one creation time, so the default order is by RF.
-  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable<Row, SortKey>(shown, compare, {
+  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable<Row, SortKey>(shown, compare, "interceptEntries", {
     key: "rf",
     dir: "asc",
   });

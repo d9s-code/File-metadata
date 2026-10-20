@@ -9,6 +9,7 @@ import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 import { elementValues, VariantTag } from "./elementDisplay";
 import { parsePositions } from "./firingOrder";
+import { useSessionState } from "../common/useSessionState";
 
 const TYPES: [ElementType | "", string][] = [
   ["", "All"],
@@ -73,13 +74,13 @@ export function ElementOverview({ emitterId, ewGroups }: { emitterId: string; ew
   const { data: rows, isLoading } = useElementOverview(emitterId);
   const { data: emitter } = useEmitter(emitterId);
   const { canEdit } = useEmitterCheckoutState(emitter);
-  const [type, setType] = useState<ElementType | "">("");
-  const [variant, setVariant] = useState("");
-  const [sourceId, setSourceId] = useState("");
-  const [search, setSearch] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [sharedOnly, setSharedOnly] = useState(false);
+  const [type, setType] = useSessionState<ElementType | "">(`allSources.${emitterId}.type`, "");
+  const [variant, setVariant] = useSessionState(`allSources.${emitterId}.variant`, "");
+  const [sourceId, setSourceId] = useSessionState(`allSources.${emitterId}.sourceId`, "");
+  const [search, setSearch] = useSessionState(`allSources.${emitterId}.search`, "");
+  const [from, setFrom] = useSessionState(`allSources.${emitterId}.from`, "");
+  const [to, setTo] = useSessionState(`allSources.${emitterId}.to`, "");
+  const [sharedOnly, setSharedOnly] = useSessionState(`allSources.${emitterId}.sharedOnly`, false);
   const [open, setOpen] = useState(true);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [doneNote, setDoneNote] = useState<string | null>(null);

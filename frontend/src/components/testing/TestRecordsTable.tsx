@@ -70,7 +70,7 @@ export function TestRecordsTable({
 }) {
   const { confirmDelete, dialog } = useConfirmDialog();
   const highlightedRowRef = useRef<HTMLTableRowElement>(null);
-  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(records, compareRecords);
+  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(records, compareRecords, "testRecords");
 
   useEffect(() => {
     if (highlightId) highlightedRowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });

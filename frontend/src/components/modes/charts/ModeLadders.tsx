@@ -12,6 +12,7 @@ import {
   valueOf,
 } from "./modeRanges";
 import type { Mode } from "../../../types/domain";
+import { useSessionState } from "../../common/useSessionState";
 
 const ROW = 20;
 const HEAD = 54;
@@ -67,7 +68,7 @@ export function ModeLadders({
   onOpen: (mode: Mode) => void;
 }) {
   const { ref, width } = useWidth<HTMLDivElement>();
-  const [sortBy, setSortBy] = useState<SortBy>("rf");
+  const [sortBy, setSortBy] = useSessionState<SortBy>("modeLadders.sortBy", "rf");
   const [hoverRow, setHoverRow] = useState<number | null>(null);
 
   const rows = useMemo(() => {

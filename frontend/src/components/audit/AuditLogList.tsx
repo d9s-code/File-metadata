@@ -60,7 +60,7 @@ export function AuditLogList({
   /** Hide the Entity column when the list is already scoped to one entity type (e.g. a per-entity tab). */
   showEntityType?: boolean;
 }) {
-  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(entries, compareEntries);
+  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(entries, compareEntries, "auditLog");
 
   if (entries.length === 0) {
     return <p className="hint-text">No audit entries match the current filters.</p>;

@@ -107,7 +107,7 @@ export function PlatformLinkTable({
         return compareStrings(a.added_at, b.added_at, dir);
     }
   }
-  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(links, compareLinks);
+  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(links, compareLinks, "platformPinnedEmitters");
 
   if (links.length === 0) {
     return <EmptyState icon="○" title="No Emitters pinned yet" message="Use + Pin Emitters to add them." />;

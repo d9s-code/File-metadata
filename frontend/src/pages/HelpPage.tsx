@@ -346,6 +346,12 @@ export function HelpPage() {
               same way on every table in the app, not just here.
             </p>
             <p>
+              Sorts and filters are <strong>remembered for the session</strong>: sort a table or filter a list, and
+              they&apos;re still set after a reload or after going to another page and back. They&apos;re kept per
+              browser tab and forgotten when it closes; an Emitter&apos;s Modes and All Sources filters are kept for
+              each Emitter.
+            </p>
+            <p>
               <strong>Right-click</strong> the Modes table&rsquo;s header row to choose which columns show —
               tick or untick each one, or <strong>Show all columns</strong> to bring them all back. Your choice
               is remembered in this browser. Confirmation Quality and Confirmation Quantity have their own

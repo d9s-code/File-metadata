@@ -525,9 +525,9 @@ export function CartesianProductButton({
   // Each list gets its own independent sort state — sorting the RF column
   // must never re-sort PW/PRI, which a single shared useSortableTable call
   // used to do.
-  const rfSort = useSortableTable<CheckboxItem, ItemSortKey>(rfItemsUnsorted, compareItems);
-  const pwSort = useSortableTable<CheckboxItem, ItemSortKey>(pwItemsUnsorted, compareItems);
-  const priSort = useSortableTable<CheckboxItem, ItemSortKey>(priItemsUnsorted, compareItems);
+  const rfSort = useSortableTable<CheckboxItem, ItemSortKey>(rfItemsUnsorted, compareItems, "generateRf");
+  const pwSort = useSortableTable<CheckboxItem, ItemSortKey>(pwItemsUnsorted, compareItems, "generatePw");
+  const priSort = useSortableTable<CheckboxItem, ItemSortKey>(priItemsUnsorted, compareItems, "generatePri");
 
   const rfItems = rfSort.sortKey ? rfSort.sorted : defaultVariantSort(rfItemsUnsorted);
   const pwItems = pwSort.sortKey ? pwSort.sorted : defaultVariantSort(pwItemsUnsorted);

@@ -34,7 +34,7 @@ export function AdminUsersPage() {
   const { data: users, isLoading, error } = useUsers();
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
-  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(users ?? [], compareUsers);
+  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(users ?? [], compareUsers, "users");
 
 const [showAddModal, setShowAddModal] = useState(false);
 const [username, setUsername] = useState("");
