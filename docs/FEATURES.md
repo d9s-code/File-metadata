@@ -195,7 +195,7 @@ A Source can't be deleted while it still has Modes attached.
 
 ### A Mode from several Sources
 
-A Mode can come from **more than one Source** — the same signal in two reports, say. The Mode form picks them as chips (*+ another Source…* adds one, × removes one; at least one stays); the Modes table's **Sources** column and the cards list them all, and the Source filter and search match any of them. **Batch Edit** can add a Source to every selected Mode, or make one Source their only one. Changes are audited ("Sources: A → A, B") and kept in versions: the diff shows a **Sources** change, and revert and fork bring them back.
+A Mode can come from **more than one Source** — the same signal in two reports, say. The Mode form picks them as chips (*+ another Source…* adds one, × removes one; at least one stays); the Modes table's **Sources** column and the cards list them all, and the Source filter and search match any of them. **Batch Edit** can add a Source to every selected Mode, or make one Source their only one. **Delete (N)**, beside Batch Edit while Modes are ticked, deletes them all at once after asking — all or none, each kept whole in the Audit Log, logged test results keeping their names, and Discard bringing them back until the Emitter is saved (`POST /emitters/{id}/modes/batch-delete`). Changes are audited ("Sources: A → A, B") and kept in versions: the diff shows a **Sources** change, and revert and fork bring them back.
 
 - **Deleting a Source** is refused only while it's some Mode's *only* Source (the message names them); Modes that have another just lose it.
 - **Rejected Sources**: a Mode is left out of exports and ambiguity checks only when *every* Source it comes from is rejected — one approved Source keeps it in.

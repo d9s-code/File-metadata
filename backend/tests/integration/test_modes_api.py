@@ -333,3 +333,27 @@ def test_a_mode_can_be_renamed(editor_client, emitter_ctx):
     # Not blank, and not another Mode's name in the same EW Group.
     assert editor_client.patch(f"/ew-groups/{group}/modes/{mode['id']}", json={"name": "  "}).status_code == 422
     assert editor_client.patch(f"/ew-groups/{group}/modes/{mode['id']}", json={"name": "Search 2"}).status_code == 409
+
+
+def test_selected_modes_are_deleted_together_or_not_at_all(editor_client, emitter_ctx):
+    group, source = emitter_ctx["ew_group"]["id"], emitter_ctx["source"]["id"]
+    eid = emitter_ctx["emitter"]["id"]
+    made = [
+        editor_client.post(
+            f"/ew-groups/{group}/modes", json={"source_id": source, "name": f"Bulk {i}", "pri_type": "fixed", "line": FIXED_LINE}
+        ).json()["id"]
+        for i in range(3)
+    ]
+    other = editor_client.post("/emitters", json={"name": "Someone else's"}).json()
+    # One that isn't this Emitter's refuses the lot.
+    refused = editor_client.post(f"/emitters/{eid}/modes/batch-delete", json={"mode_ids": [made[0], other["id"]]})
+    assert refused.status_code == 404
+    assert {m["id"] for m in editor_client.get(f"/emitters/{eid}/modes").json()} >= set(made)
+
+    resp = editor_client.post(f"/emitters/{eid}/modes/batch-delete", json={"mode_ids": made[:2]})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["count"] == 2
+    left = [m["id"] for m in editor_client.get(f"/emitters/{eid}/modes").json()]
+    assert made[2] in left and made[0] not in left and made[1] not in left
+    audit = editor_client.get("/audit-log", params={"emitter_id": eid, "action": "delete"}).json()["items"]
+    assert {"Deleted Mode 'Bulk 0'", "Deleted Mode 'Bulk 1'"} <= {r["summary"] for r in audit}

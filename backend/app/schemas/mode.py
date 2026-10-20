@@ -382,6 +382,15 @@ class ModeBatchEditError(BaseModel):
     error: str
 
 
+class ModeBatchDeleteRequest(BaseModel):
+    mode_ids: list[UUID] = Field(min_length=1, max_length=5000)
+
+
+class ModeBatchDeleteResult(BaseModel):
+    deleted_mode_ids: list[UUID]
+    count: int
+
+
 class ModeBatchEditResult(BaseModel):
     updated_mode_ids: list[UUID]
     count: int

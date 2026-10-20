@@ -3,7 +3,7 @@ import { formatDate } from "../common/dates";
 import { DateInput } from "../common/DateInput";
 import { ApiRequestError } from "../../api/client";
 import type { EwGroup, Source } from "../../types/domain";
-import { useDeleteMode, useEmitterModes } from "../../state/hooks/useModes";
+import { useBatchDeleteModes, useDeleteMode, useEmitterModes } from "../../state/hooks/useModes";
 import { useDeleteBatch, useEmitterBatches } from "../../state/hooks/useModeBatches";
 import { useConfirmDialog } from "../common/ConfirmDialog";
 import { ModesTable } from "./ModesTable";
@@ -58,6 +58,7 @@ export function ModesSection({
   const { data: modes, isLoading } = useEmitterModes(emitterId);
   const { data: batches } = useEmitterBatches(emitterId);
   const deleteMode = useDeleteMode(emitterId);
+  const deleteSelected = useBatchDeleteModes(emitterId);
   const deleteBatch = useDeleteBatch(emitterId);
   const [batchDeleteError, setBatchDeleteError] = useState<string | null>(null);
   const { confirmDelete, dialog } = useConfirmDialog();
@@ -191,6 +192,19 @@ export function ModesSection({
     lastTestedFrom || lastTestedTo,
   ].filter(Boolean).length;
 
+  async function handleDeleteSelected() {
+    const n = selected.size;
+    if (
+      await confirmDelete(
+        `Delete ${n} selected Mode${n === 1 ? "" : "s"}? Test results that named them are kept, and Discard brings them back until the Emitter is saved.`,
+        { confirmLabel: `Delete ${n} Mode${n === 1 ? "" : "s"}` },
+      )
+    ) {
+      await deleteSelected.mutateAsync([...selected]);
+      setSelected(new Set());
+    }
+  }
+
   async function handleDelete(modeId: string, ewGroupId: string, name: string) {
     if (await confirmDelete(`Delete Mode "${name}"?`)) {
       await deleteMode.mutateAsync({ ewGroupId, modeId });
@@ -275,6 +289,16 @@ export function ModesSection({
             >
               Batch Edit{selected.size > 0 ? ` (${selected.size})` : ""}
             </button>
+            {selected.size > 0 && (
+              <button
+                className="button danger-outline"
+                disabled={!canEdit || deleteSelected.isPending}
+                title={!canEdit ? "Start editing this Emitter first" : undefined}
+                onClick={() => void handleDeleteSelected()}
+              >
+                {deleteSelected.isPending ? "Deleting…" : `Delete (${selected.size})`}
+              </button>
+            )}
             {selected.size > 0 && (
               <button className="link-button" onClick={() => setSelected(new Set())}>
                 Clear selection

@@ -112,4 +112,9 @@ export const modesApi = {
   delete: (ewGroupId: string, modeId: string) => api.delete<void>(`/ew-groups/${ewGroupId}/modes/${modeId}`),
   batchEdit: (emitterId: string, input: ModeBatchEditInput) =>
     api.post<ModeBatchEditResult>(`/emitters/${emitterId}/modes/batch-edit`, input),
+  /** All or none; each deleted Mode is kept whole in the Audit Log. */
+  batchDelete: (emitterId: string, modeIds: string[]) =>
+    api.post<{ deleted_mode_ids: string[]; count: number }>(`/emitters/${emitterId}/modes/batch-delete`, {
+      mode_ids: modeIds,
+    }),
 };

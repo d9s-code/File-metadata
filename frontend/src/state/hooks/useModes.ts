@@ -79,6 +79,18 @@ export function useBatchEditModes(emitterId: string) {
   });
 }
 
+export function useBatchDeleteModes(emitterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (modeIds: string[]) => modesApi.batchDelete(emitterId, modeIds),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["modes"] });
+      qc.invalidateQueries({ queryKey: emitterVersionsKey(emitterId) });
+      qc.invalidateQueries({ queryKey: ["intercept-entries"] });
+    },
+  });
+}
+
 export function useDeleteMode(emitterId: string) {
   const qc = useQueryClient();
   return useMutation({

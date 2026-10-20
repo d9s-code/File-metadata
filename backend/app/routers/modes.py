@@ -310,6 +310,12 @@ def delete_mode(
     mode = db.get(Mode, mode_id)
     if mode is None or mode.ew_group_id != ew_group_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Mode not found")
+    delete_mode_audited(db, user.id, mode)
+    db.commit()
+
+
+def delete_mode_audited(db: Session, actor_id, mode: Mode) -> None:
+    """Deletes a Mode, its whole state kept in the Audit Log."""
     mode_snapshot = snapshot(
         mode,
         [
@@ -331,7 +337,7 @@ def delete_mode(
         )
     record_audit(
         db,
-        actor_id=user.id,
+        actor_id=actor_id,
         action=AuditAction.delete,
         entity_type=AuditEntityType.mode.value,
         entity_id=mode.id,
@@ -340,7 +346,6 @@ def delete_mode(
         emitter_id=mode.source.emitter_id,
     )
     db.delete(mode)
-    db.commit()
 
 
 def _f(v) -> float | None:

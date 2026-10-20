@@ -407,7 +407,9 @@ export function HelpPage() {
             <p>
               Tick a Mode's checkbox (or several) to reveal a <strong>Batch Edit</strong> button for
               applying the same field, delta, or range-shift change to all of them at once — muted until at
-              least one Mode is selected. A <strong>Collapse generation batches</strong> toggle folds every
+              least one Mode is selected. <strong>Delete (N)</strong> beside it deletes every ticked Mode at once,
+              after asking (all or none; each is kept in the Audit Log, logged test results keep their names, and
+              Discard brings them back until you save). A <strong>Collapse generation batches</strong> toggle folds every
               Mode a single Cartesian Product run created into one expandable summary row, so a run that
               produced 20+ Modes doesn't clutter the table.
             </p>

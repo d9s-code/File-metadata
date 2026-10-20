@@ -22,6 +22,7 @@ from app.models.emitter_note import EmitterNote
 from app.models.emitter_version import EmitterVersion
 from app.models.ew_group import EwGroup
 from app.models.mode import Mode, ModeGenerationBatch
+from app.routers.modes import delete_mode_audited
 from app.models.user import User
 from app.schemas.emitter import (
     EmitterBulkAction,
@@ -38,7 +39,14 @@ from app.schemas.mode_element import ElementCoverageOut, ElementOverviewRow
 from app.services.element_coverage import element_coverage
 from app.services.element_overview import element_overview
 from app.services.emitter_compare import compare_emitters
-from app.schemas.mode import ModeBatchEditRequest, ModeBatchEditResult, ModeGenerationBatchOut, ModeOut
+from app.schemas.mode import (
+    ModeBatchDeleteRequest,
+    ModeBatchDeleteResult,
+    ModeBatchEditRequest,
+    ModeBatchEditResult,
+    ModeGenerationBatchOut,
+    ModeOut,
+)
 from app.schemas.emitter_version import (
     CommitEmitterVersionRequest,
     EmitterDiffOut,
@@ -525,6 +533,35 @@ def list_emitter_modes(
         .all()
     )
     return attach_mode_extras(db, modes)
+
+
+@router.post(
+    "/{emitter_id}/modes/batch-delete",
+    response_model=ModeBatchDeleteResult,
+    dependencies=[Depends(verify_csrf)],
+)
+def batch_delete_modes(
+    emitter_id: UUID,
+    payload: ModeBatchDeleteRequest,
+    db: Session = Depends(get_db),
+    user=Depends(require_emitter_checkout()),
+) -> ModeBatchDeleteResult:
+    """Deletes the given Modes of this Emitter, all or none: one that isn't
+    the Emitter's refuses the lot. Each is in the Audit Log, whole, and a
+    discard brings them back until the Emitter is saved."""
+    ids = list(dict.fromkeys(payload.mode_ids))
+    modes = (
+        db.query(Mode)
+        .join(EwGroup, Mode.ew_group_id == EwGroup.id)
+        .filter(Mode.id.in_(ids), EwGroup.emitter_id == emitter_id)
+        .all()
+    )
+    if len(modes) != len(ids):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"{len(ids) - len(modes)} of the Modes aren't this Emitter's")
+    for mode in modes:
+        delete_mode_audited(db, user.id, mode)
+    db.commit()
+    return ModeBatchDeleteResult(deleted_mode_ids=[m.id for m in modes], count=len(modes))
 
 
 @router.post(
