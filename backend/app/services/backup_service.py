@@ -241,12 +241,26 @@ def backup_lock(directory: Path):
 OVERVIEW_KINDS = ("emitters", "platforms", "mdfs", "dwell_strategies", "dwell_files")
 
 
+def _columns(conn: Connection) -> dict[str, set[str]]:
+    """Each table in the current schema, with its columns."""
+    out: dict[str, set[str]] = {}
+    for table, column in conn.execute(
+        text("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = current_schema()")
+    ):
+        out.setdefault(table, set()).add(column)
+    return out
+
+
 def compute_overview(conn: Connection) -> dict:
     """Each Emitter, Platform, MDF, Dwell Strategy and dwell file in one line: enough
-    to say what changed between two backups without restoring either."""
+    to say what changed between two backups without restoring either. Reads
+    databases on an older schema too — a backup's own, being verified, or one
+    about to be restored over — leaving out what they don't have yet."""
 
     def rows(sql: str) -> list[dict]:
         return [dict(r) for r in conn.execute(text(sql)).mappings().all()]
+
+    has = _columns(conn)
 
     emitters = rows(
         """
@@ -270,10 +284,10 @@ def compute_overview(conn: Connection) -> dict:
         platform_pins.setdefault(r.pop("owner"), []).append(r)
     platforms = rows(
         """
-        SELECT p.id::text AS id, p.name, p.status, p.is_deleted AS deleted,
+        SELECT p.id::text AS id, p.name, {status} p.is_deleted AS deleted,
                (SELECT max(v.version_number) FROM platform_versions v WHERE v.platform_id = p.id) AS version
         FROM platforms p ORDER BY p.name
-        """
+        """.format(status="p.status," if "status" in has.get("platforms", set()) else "")
     )
     for p in platforms:
         p["pins"] = platform_pins.get(p["id"], [])
@@ -297,12 +311,21 @@ def compute_overview(conn: Connection) -> dict:
     )
     for m in mdfs:
         m["pins"] = mdf_pins.get(m["id"], [])
+    overview = {"emitters": emitters, "platforms": platforms, "mdfs": mdfs}
+    dwell_tables = ("dwell_strategies", "dwell_strategy_versions", "dwell_files", "dwell_file_strategies", "dwell_file_versions")
+    if not all(t in has for t in dwell_tables):
+        return overview
     strategy_platforms: dict[str, list[str]] = {}
     for r in rows(
         """
         SELECT l.strategy_id::text AS owner, p.name
         FROM dwell_strategy_platforms l JOIN platforms p ON p.id = l.platform_id
         ORDER BY l.sort_order, p.name
+        """
+        if "dwell_strategy_platforms" in has
+        # Before a Strategy could cover several Platforms.
+        else """
+        SELECT s.id::text AS owner, p.name FROM dwell_strategies s JOIN platforms p ON p.id = s.platform_id
         """
     ):
         strategy_platforms.setdefault(r["owner"], []).append(r["name"])
@@ -335,13 +358,7 @@ def compute_overview(conn: Connection) -> dict:
     )
     for f in files:
         f["pins"] = file_pins.get(f["id"], [])
-    return {
-        "emitters": emitters,
-        "platforms": platforms,
-        "mdfs": mdfs,
-        "dwell_strategies": strategies,
-        "dwell_files": files,
-    }
+    return {**overview, "dwell_strategies": strategies, "dwell_files": files}
 
 
 def table_counts(conn: Connection) -> dict[str, int]:
@@ -408,7 +425,9 @@ def take_backup(*, kind: str = "manual", created_by: str | None = None, director
                 # The PRS export from the same snapshot, so it matches the dump. If it
                 # can't be made, the database backup still stands — the record says why.
                 try:
-                    with Session(bind=conn) as session:
+                    # A savepoint: if it fails (say, on a database not yet upgraded), the
+                    # snapshot's transaction carries on.
+                    with conn.begin_nested(), Session(bind=conn) as session:
                         prs_bytes, prs_summary = build_repository_prs_zip(session, when)
                     prs_error = None
                 except Exception as err:  # noqa: BLE001 — any failure here mustn't lose the dump
