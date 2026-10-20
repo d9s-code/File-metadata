@@ -407,7 +407,11 @@ export function HelpPage() {
             <p>
               Tick a Mode's checkbox (or several) to reveal a <strong>Batch Edit</strong> button for
               applying the same field, delta, or range-shift change to all of them at once — muted until at
-              least one Mode is selected. <strong>Delete (N)</strong> beside it deletes every ticked Mode at once,
+              least one Mode is selected. <strong>+ Add a value…</strong> adds one RF, PRI or PW value — a
+              stray PRI from a test, say — to every combination of the other two among your Modes: tick the
+              combinations it applies to and it makes one new Mode for each, a copy with only that value changed, as
+              one batch. It&apos;s also offered, already filled in, from a test run&apos;s logged intercepts that no Mode
+              matches and from Element coverage&apos;s uncovered Elements. <strong>Delete (N)</strong> beside it deletes every ticked Mode at once,
               after asking (all or none; each is kept in the Audit Log, logged test results keep their names, and
               Discard brings them back until you save). A <strong>Collapse generation batches</strong> toggle folds every
               Mode a single Cartesian Product run created into one expandable summary row, so a run that

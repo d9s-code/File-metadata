@@ -7,6 +7,8 @@ import {
 } from "../../api/modes";
 import { dslApi, type ModeFromDslInput } from "../../api/dsl";
 import { emitterVersionsKey } from "./useEmitterVersions";
+import { emitterBatchesKey } from "./useModeBatches";
+import { testRecordsKey } from "./useTestRecords";
 
 export function modesKey(ewGroupId: string) {
   return ["modes", ewGroupId] as const;
@@ -75,6 +77,20 @@ export function useBatchEditModes(emitterId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: emitterModesKey(emitterId) });
       qc.invalidateQueries({ queryKey: emitterVersionsKey(emitterId) });
+    },
+  });
+}
+
+/** Adds one parameter value across the picked combinations of the Modes. */
+export function useAddParameter(emitterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Parameters<typeof modesApi.addParameter>[1]) => modesApi.addParameter(emitterId, input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["modes"] });
+      qc.invalidateQueries({ queryKey: emitterVersionsKey(emitterId) });
+      qc.invalidateQueries({ queryKey: testRecordsKey("emitter", emitterId) });
+      qc.invalidateQueries({ queryKey: emitterBatchesKey(emitterId) });
     },
   });
 }

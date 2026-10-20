@@ -382,6 +382,46 @@ class ModeBatchEditError(BaseModel):
     error: str
 
 
+class ParameterAcrossModes(BaseModel):
+    """One parameter value to add to the Modes (see mode_parameter_service)."""
+
+    parameter: Literal["rf", "pri", "pw"]
+    # The value as that parameter's line fields: rf_min_mhz, rf_max_mhz,
+    # rf_delta; pw_min_us, pw_max_us, pw_delta; a fixed PRI's pri_min_us,
+    # pri_max_us, jitter_min_us, jitter_max_us, pri_delta, or a stagger's
+    # pri_stagger_values_us and frame_time_delta_us.
+    values: dict[str, float | list[float] | None]
+    # A PRI's type: fixed or stagger.
+    pri_type: PriType | None = None
+
+
+class ParameterAcrossModesCreate(ParameterAcrossModes):
+    # The combinations picked (each row's key, from the plan).
+    row_keys: list[str] = Field(min_length=1, max_length=2000)
+    name_suffix: str = Field(min_length=1, max_length=100)
+    # Sources to add to each new Mode's own (its template's) — e.g. an
+    # Element's Source, the evidence for the value.
+    extra_source_ids: list[UUID] = []
+    derived_from_test_record_id: UUID | None = None
+
+
+class ParameterPlanRow(BaseModel):
+    key: str
+    ew_group_id: UUID
+    ew_group_name: str
+    # The other two parameters, in words.
+    label: str
+    mode_ids: list[UUID]
+    mode_names: list[str]
+    # One of its Modes has the value already: nothing to add.
+    has_value: bool
+
+
+class ParameterPlanOut(BaseModel):
+    value: str
+    rows: list[ParameterPlanRow]
+
+
 class ModeBatchDeleteRequest(BaseModel):
     mode_ids: list[UUID] = Field(min_length=1, max_length=5000)
 
@@ -509,3 +549,8 @@ class ModeGenerationBatchOut(BaseModel):
 class InterceptModePlanResult(BaseModel):
     created: list[ModeOut]
     widened: list[ModeOut]
+
+
+class ParameterAddResult(BaseModel):
+    created: list[ModeOut]
+    skipped: list[str]

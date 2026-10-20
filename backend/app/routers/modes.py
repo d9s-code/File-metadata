@@ -99,16 +99,29 @@ def create_mode(
     user=Depends(require_ew_group_checkout()),
 ) -> Mode:
     ew_group = _get_ew_group_or_404(db, ew_group_id)
+    mode = create_mode_record(db, ew_group, payload, user.id)
+    db.commit()
+    db.refresh(mode)
+    return mode
+
+
+def create_mode_record(
+    db: Session, ew_group: EwGroup, payload: ModeCreate, actor_id, generation_batch_id=None
+) -> Mode:
+    """A new Mode in the EW Group from a validated payload — its line, its
+    Sources, the test records and Intercept entries it's derived from, and
+    its Audit Log entry. The caller commits."""
     sources = resolve_sources(db, emitter_id=ew_group.emitter_id, source_ids=payload.all_source_ids())
 
     mode = Mode(
-        ew_group_id=ew_group_id,
+        ew_group_id=ew_group.id,
         name=payload.name,
         pri_type=payload.pri_type,
         notes=payload.notes,
         sort_order=payload.sort_order,
         confirmation_quality=payload.confirmation_quality,
         confirmation_quantity=payload.confirmation_quantity,
+        generation_batch_id=generation_batch_id,
     )
     set_mode_sources(mode, sources)
     db.add(mode)
@@ -132,7 +145,7 @@ def create_mode(
         summary += f" (test-derived, {len(payload.derived_from_test_record_ids)} test record(s))"
     record_audit(
         db,
-        actor_id=user.id,
+        actor_id=actor_id,
         action=AuditAction.create,
         entity_type=AuditEntityType.mode.value,
         entity_id=mode.id,
@@ -140,8 +153,6 @@ def create_mode(
         changes=payload.model_dump(mode="json"),
         emitter_id=ew_group.emitter_id,
     )
-    db.commit()
-    db.refresh(mode)
     return mode
 
 

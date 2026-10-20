@@ -22,7 +22,7 @@ from app.models.emitter_note import EmitterNote
 from app.models.emitter_version import EmitterVersion
 from app.models.ew_group import EwGroup
 from app.models.mode import Mode, ModeGenerationBatch
-from app.routers.modes import delete_mode_audited
+from app.routers.modes import create_mode_record, delete_mode_audited
 from app.models.user import User
 from app.schemas.emitter import (
     EmitterBulkAction,
@@ -40,6 +40,10 @@ from app.services.element_coverage import element_coverage
 from app.services.element_overview import element_overview
 from app.services.emitter_compare import compare_emitters
 from app.schemas.mode import (
+    ParameterAcrossModes,
+    ParameterAcrossModesCreate,
+    ParameterAddResult,
+    ParameterPlanOut,
     ModeBatchDeleteRequest,
     ModeBatchDeleteResult,
     ModeBatchEditRequest,
@@ -61,6 +65,7 @@ from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.emitter_diff_service import compute_emitter_diff
 from app.services.emitter_revert_service import build_forked_emitter, reconcile_emitter_to_snapshot
 from app.services.emitter_summary_service import attach_emitter_summaries
+from app.services import mode_parameter_service
 from app.services.mode_batch_service import apply_batch_edit, plan_batch_edit
 from app.services.mode_test_status_service import attach_mode_extras
 from app.services.snapshots import build_emitter_snapshot
@@ -533,6 +538,62 @@ def list_emitter_modes(
         .all()
     )
     return attach_mode_extras(db, modes)
+
+
+@router.post("/{emitter_id}/modes/add-parameter/plan", response_model=ParameterPlanOut)
+def plan_parameter_across_modes(
+    emitter_id: UUID,
+    payload: ParameterAcrossModes,
+    db: Session = Depends(get_db),
+    _=Depends(require_role(Role.editor)),
+) -> dict:
+    """The combinations of the other two parameters among the Emitter's
+    Modes that a value could be added to — see mode_parameter_service."""
+    _get_emitter_or_404(db, emitter_id)
+    try:
+        rows = mode_parameter_service.plan(db, emitter_id, payload.parameter, payload.values, payload.pri_type)
+    except mode_parameter_service.ParameterError as err:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(err)) from err
+    return {
+        "value": mode_parameter_service.value_text(payload.parameter, payload.pri_type, payload.values),
+        "rows": rows,
+    }
+
+
+@router.post(
+    "/{emitter_id}/modes/add-parameter",
+    response_model=ParameterAddResult,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(verify_csrf)],
+)
+def add_parameter_across_modes(
+    emitter_id: UUID,
+    payload: ParameterAcrossModesCreate,
+    db: Session = Depends(get_db),
+    user=Depends(require_emitter_checkout()),
+) -> dict:
+    """One new Mode per picked combination, with the value — all or none,
+    in one generation batch per EW Group (so they can be deleted together)."""
+    try:
+        created, skipped = mode_parameter_service.add(
+            db,
+            emitter_id,
+            parameter=payload.parameter,
+            values=payload.values,
+            pri_type=payload.pri_type,
+            row_keys=payload.row_keys,
+            name_suffix=payload.name_suffix.strip(),
+            extra_source_ids=payload.extra_source_ids,
+            derived_from_test_record_id=payload.derived_from_test_record_id,
+            actor_id=user.id,
+            create_mode=create_mode_record,
+        )
+    except mode_parameter_service.ParameterError as err:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(err)) from err
+    db.commit()
+    for mode in created:
+        db.refresh(mode)
+    return {"created": attach_mode_extras(db, created), "skipped": skipped}
 
 
 @router.post(

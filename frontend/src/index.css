@@ -6928,3 +6928,30 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
 .version-list-fold { font-size: 0.82rem; margin: 0 0 0.4rem; }
 .version-row.status-only { opacity: 0.7; }
 .version-row.status-only .version-row-summary { font-style: italic; }
+
+/* Add a value to the Modes. */
+.add-value { display: flex; flex-direction: column; gap: 0.7rem; }
+.add-value-params { display: flex; gap: 0.4rem; }
+.add-value-fields { display: flex; flex-wrap: wrap; gap: 0.5rem 0.8rem; align-items: flex-end; }
+.add-value-fields label { font-size: 0.85rem; }
+.add-value-fields input { width: 7rem; }
+.add-value-fields .add-value-steps input { width: 16rem; }
+.add-value-rows-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.8rem; }
+.add-value-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 18rem;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.add-value-rows li { padding: 0.3rem 0.6rem; border-bottom: 1px solid var(--border); }
+.add-value-rows li:last-child { border-bottom: none; }
+.add-value-rows li.muted { opacity: 0.6; }
+.add-value-rows .checkbox-label { flex-direction: row; align-items: center; gap: 0.5rem; font-size: 0.88rem; color: var(--text); flex-wrap: wrap; }
+.add-value-rows .checkbox-label input { width: auto; margin: 0; }
+.add-value-row-label { font-weight: 500; }
+.add-value-name { flex-direction: row; align-items: center; gap: 0.5rem; font-size: 0.85rem; flex-wrap: wrap; }
+.add-value-name input { width: 14rem; }
+.add-value .modal-actions .hint-text { margin-right: auto; }

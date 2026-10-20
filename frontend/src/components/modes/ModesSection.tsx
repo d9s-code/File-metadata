@@ -12,6 +12,7 @@ import { ModesViewToggle, type ModesView } from "./ModesViewToggle";
 import { ModeCharts } from "./charts/ModeCharts";
 import { ModeForm } from "./ModeForm";
 import { BatchEditModal } from "./BatchEditModal";
+import { AddValueToModesDialog } from "./AddValueToModesDialog";
 import { PrsImportModal } from "./PrsImportModal";
 import { compareModes, modeSourceIds, rangeOverlaps, searchableText, type ModeSortKey, type SortDir } from "./modeFormat";
 import type { PriType } from "../../types/domain";
@@ -77,6 +78,7 @@ export function ModesSection({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showBatchEdit, setShowBatchEdit] = useState(false);
   const [showPrsImport, setShowPrsImport] = useState(false);
+  const [addingValue, setAddingValue] = useState(false);
   const [showMoreFilters, setShowMoreFilters] = useSessionState(`modes.${emitterId}.showMoreFilters`, false);
   const [rfMin, setRfMin] = useSessionState(`modes.${emitterId}.rfMin`, "");
   const [rfMax, setRfMax] = useSessionState(`modes.${emitterId}.rfMax`, "");
@@ -306,6 +308,14 @@ export function ModesSection({
             )}
             <button
               className="button secondary"
+              disabled={!hasSetup}
+              title="Add one RF, PRI or PW value to every applicable combination of the other two among the Modes"
+              onClick={() => setAddingValue(true)}
+            >
+              + Add a value…
+            </button>
+            <button
+              className="button secondary"
               disabled={!canEdit}
               title={canEdit ? undefined : "Start editing this Emitter first"}
               onClick={() => setShowPrsImport(true)}
@@ -512,6 +522,7 @@ export function ModesSection({
         />
       )}
 
+      {addingValue && <AddValueToModesDialog emitterId={emitterId} onClose={() => setAddingValue(false)} />}
       {showBatchEdit && (
         <BatchEditModal
           emitterId={emitterId}

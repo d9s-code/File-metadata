@@ -22,6 +22,8 @@ import { useEmitterModes } from "../../state/hooks/useModes";
 import { useEwGroups } from "../../state/hooks/useEwGroups";
 import type { Coverage, CoverageRange, ElementCoverageRow } from "../../api/elements";
 import type { ElementType } from "../../types/domain";
+import { AddValueToModesDialog, type ValueSeed } from "../modes/AddValueToModesDialog";
+import { useHasRole } from "../../auth/RequireAuth";
 
 const TYPES: { key: ElementType; label: string; unit: string; pad: number; ranges: string }[] = [
   { key: "rf", label: "RF", unit: "MHz", pad: 1, ranges: "Modes' RF" },
@@ -314,6 +316,23 @@ function CoverageChart({
   );
 }
 
+/** An uncovered Element (or a sequence's stagger) as the value to add to the
+ * Modes; null for what can't be added that way (scan, a sequence of RF hops). */
+function seedOf(r: ElementCoverageRow): ValueSeed | null {
+  if (r.element_type === "scan" || (r.sequence && r.element_type !== "pri")) return null;
+  const margin = r.occurrences.find((o) => o.delta != null)?.delta ?? 0;
+  if (r.stagger_values?.length) return { parameter: "pri", priType: "stagger", steps: r.stagger_values, margin };
+  return {
+    parameter: r.element_type as "rf" | "pri" | "pw",
+    priType: "fixed",
+    from: r.value_min,
+    to: r.value_max,
+    jitterFrom: r.jitter_min ?? 0,
+    jitterTo: r.jitter_max ?? 0,
+    margin,
+  };
+}
+
 /** Which Elements in the Emitter's Sources its Modes cover — each parameter
  * as a chart (Modes' ranges above, Elements below, coloured by coverage),
  * then the ones not, or not wholly, covered as a list. */
@@ -323,6 +342,8 @@ export function ElementCoverage({ emitterId }: { emitterId: string }) {
   const { data, isLoading } = useElementCoverage(emitterId, modes.dataUpdatedAt, groups.dataUpdatedAt);
   const [open, setOpen] = useState(true);
   const [included, setIncluded] = useState<Set<ElementType>>(readIncluded);
+  const [adding, setAdding] = useState<ElementCoverageRow | null>(null);
+  const canWrite = useHasRole("editor");
 
   function toggleType(t: ElementType) {
     const next = new Set(included);
@@ -419,6 +440,15 @@ export function ElementCoverage({ emitterId }: { emitterId: string }) {
                 );
               })}
             </div>
+            {adding && (
+              <AddValueToModesDialog
+                emitterId={emitterId}
+                seed={seedOf(adding)!}
+                context={`From ${rowValues(adding, TYPES.find((t) => t.key === adding.element_type)?.unit ?? "")} — the new Modes also get its Sources.`}
+                extraSourceIds={[...new Set(adding.occurrences.map((o) => o.source_id))]}
+                onClose={() => setAdding(null)}
+              />
+            )}
             {rows.length === 0 ? null : gaps.length === 0 ? (
               <p className="coverage-all-good">
                 <span className="viz-swatch status-good" /> ✓ Every{" "}
@@ -459,6 +489,13 @@ export function ElementCoverage({ emitterId }: { emitterId: string }) {
                           <td>
                             {r.note ??
                               (r.covered_by.length ? `Partly by ${r.covered_by.map((c) => c.name).join(", ")}` : "—")}
+                            {canWrite && seedOf(r) && (
+                              <div>
+                                <button type="button" className="link-button" onClick={() => setAdding(r)}>
+                                  Add to the Modes…
+                                </button>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       );

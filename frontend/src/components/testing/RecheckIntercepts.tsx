@@ -5,6 +5,8 @@ import { describeMiss, matchEntry, type EntryMatch } from "../intercepts/interce
 import { asEntry } from "./signalCoverage";
 import { formatObservedValueSet, nonEmptySets, compareLineLabels } from "./testFormat";
 import { useEmitterTestLines } from "../../state/hooks/useTestLines";
+import { AddValueToModesDialog, type ValueSeed } from "../modes/AddValueToModesDialog";
+import { useHasRole } from "../../auth/RequireAuth";
 import type { ObservedValues, TestRecord } from "../../api/testRecords";
 import type { Mode } from "../../types/domain";
 
@@ -34,6 +36,27 @@ interface Row {
 
 const sameIds = (a: string[], b: string[]) => a.length === b.length && a.every((id) => b.includes(id));
 
+const mid = (mean?: number, lo?: number, hi?: number) => mean ?? (lo != null && hi != null ? (lo + hi) / 2 : (lo ?? hi ?? null));
+
+/** The value to add from a logged set: the parameter it was one off on (a
+ * near miss), else its PRI — the usual stray — with the logged numbers. */
+function seedFrom(r: Row): ValueSeed {
+  const s = r.set;
+  const off = r.match?.near[0]?.misses[0]?.param;
+  if (off === "RF") {
+    const v = mid(s.rf_mean_mhz, s.rf_min_mhz, s.rf_max_mhz);
+    return { parameter: "rf", from: s.rf_min_mhz ?? v, to: s.rf_max_mhz ?? v };
+  }
+  if (off === "PW") {
+    const v = mid(s.pw_mean_us, s.pw_min_us, s.pw_max_us);
+    return { parameter: "pw", from: s.pw_min_us ?? v, to: s.pw_max_us ?? v };
+  }
+  if (s.pri_stagger_values_us?.length) return { parameter: "pri", priType: "stagger", steps: s.pri_stagger_values_us };
+  const pri = mid(s.pri_mean_us, s.pri_min_us, s.pri_max_us);
+  const jitter = s.jitter_mean_us ?? s.jitter_max_us ?? 0;
+  return { parameter: "pri", priType: "fixed", from: s.pri_min_us ?? pri, to: s.pri_max_us ?? pri, jitterFrom: 0, jitterTo: jitter };
+}
+
 /** Every set of parameters logged in a run — on SIM lines, Mode results and
  * signals — matched against the Emitter's Modes as they are now, beside what
  * the system reported during the test: would they be matched now? */
@@ -50,6 +73,8 @@ export function RecheckIntercepts({
 }) {
   const { data: testLines } = useEmitterTestLines(emitterId);
   const [changedOnly, setChangedOnly] = useState(false);
+  const [adding, setAdding] = useState<Row | null>(null);
+  const canWrite = useHasRole("editor");
   const expectedOf = new Map((testLines ?? []).map((t) => [t.id, t]));
 
   const rows: Row[] = [];
@@ -144,6 +169,15 @@ export function RecheckIntercepts({
         Only where the match differs from what was reported ({rows.filter(changed).length})
       </label>
 
+      {adding && (
+        <AddValueToModesDialog
+          emitterId={emitterId}
+          seed={seedFrom(adding)}
+          context={`From ${adding.where} in "${record.title}" — the new Modes are marked as derived from this run.`}
+          derivedFromTestRecordId={record.id}
+          onClose={() => setAdding(null)}
+        />
+      )}
       <div className="table-scroll">
         <table className="data-table recheck-table">
           <thead>
@@ -188,6 +222,13 @@ export function RecheckIntercepts({
                       ))}
                     {r.now === "none" && <span className="hint-text">Outside every Mode of its PRI type</span>}
                     {r.now === "unknown" && <span className="hint-text">Needs an RF and a PRI to compare</span>}
+                    {canWrite && (r.now === "near" || r.now === "none") && (
+                      <div>
+                        <button type="button" className="link-button" onClick={() => setAdding(r)}>
+                          Add to the Modes…
+                        </button>
+                      </div>
+                    )}
                     {r.expected && r.now !== "unknown" && (
                       <div className={expectedHit ? "recheck-expected ok" : "recheck-expected"}>
                         Expected {r.expected.name}: {expectedHit ? "✓ matched" : "✕ not matched"}
