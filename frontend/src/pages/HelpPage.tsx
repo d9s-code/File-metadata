@@ -257,7 +257,7 @@ export function HelpPage() {
         <h2>Emitters</h2>
         <p>
           The Emitters list (top nav) shows every Emitter with its current status, and its RF, PRI and PW
-          ranges (min–max) across its Modes, <strong>SIM correct</strong> — how many of its SIM Test Lines
+          ranges across its Modes — a <strong>min</strong> and a <strong>max</strong> column for each, each sortable, <strong>SIM correct</strong> — how many of its SIM Test Lines
           were correct in the latest run that included them, out of all of them (e.g. 4 / 5) — and{" "}
           <strong>Tasks</strong>: its open tasks (☑ 2; with none, the chip shows when you point at the row), which open
           its task list to read, tick off or add one. <strong>Columns ▾</strong> (or right-clicking the header) picks

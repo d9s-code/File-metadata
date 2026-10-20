@@ -33,7 +33,15 @@ export function SortableColumnHeader<K extends string>({
   activeDir,
   onSort,
   onClear,
+  rowSpan,
+  className,
+  title,
 }: {
+  /** For a two-row header: a column with no group above it spans both rows. */
+  rowSpan?: number;
+  className?: string;
+  /** The header's tooltip — e.g. a unit a short label leaves out. */
+  title?: string;
   label: ReactNode;
   columnKey: K;
   /** Governs the direction-option wording — "smallest/largest" for numbers,
@@ -82,7 +90,7 @@ export function SortableColumnHeader<K extends string>({
   }
 
   return (
-    <th>
+    <th rowSpan={rowSpan} className={className} title={title}>
       <button
         ref={triggerRef}
         type="button"

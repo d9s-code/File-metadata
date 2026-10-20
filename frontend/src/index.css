@@ -6960,3 +6960,40 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
 .revert-preview { display: flex; flex-direction: column; gap: 0.6rem; }
 .revert-preview-list { max-height: 22rem; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.4rem 0.6rem; }
 .tab-bar .build-label { margin-left: auto; align-self: center; font-size: 0.78rem; white-space: nowrap; }
+
+/* Emitters list: each range as min and max columns, compact. */
+.emitters-table th,
+.emitters-table td {
+  padding: 0.3rem 0.45rem;
+  font-size: 0.86rem;
+}
+.emitters-table td.num,
+.emitters-table th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.emitters-table th.num .sortable-th-trigger { justify-content: flex-end; width: 100%; }
+.emitters-table .range-group {
+  text-align: center;
+  border-left: 1px solid var(--border);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.emitters-table .range-unit { color: var(--muted); font-weight: 400; }
+.emitters-table .range-start { border-left: 1px solid var(--border); }
+/* Wider filters: the search, and the ranges across the page's width. */
+.filter-bar input.filter-search-wide { width: 24rem; }
+.filter-bar-ranges {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: 0.5rem 1.2rem;
+  align-items: center;
+}
+.filter-bar-ranges .range-filter { display: flex; flex-direction: row; align-items: center; gap: 0.4rem; }
+.filter-bar-ranges .range-filter-label { min-width: 4.5rem; color: var(--muted); }
+.filter-bar-ranges .range-filter input { flex: 1; width: auto; min-width: 5rem; }
+/* Every column but the name shrinks to its content; the name takes the rest. */
+.emitters-table th:not(.emitters-name-col),
+.emitters-table td:not(.emitters-name-col) { width: 1%; white-space: nowrap; }
+.emitters-table .sortable-th-trigger { padding-left: 0; padding-right: 0; }

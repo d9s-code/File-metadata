@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { Fragment, useState, type FormEvent } from "react";
 import { EMITTERS_SECTION, InfoTip, PageHeader } from "../components/common/PageHeader";
 import { MenuButton } from "../components/common/MenuButton";
 import { FilterBar, shownCount } from "../components/common/FilterBar";
@@ -87,12 +87,6 @@ const COLUMNS: ToggleableColumn<ColumnId>[] = [
   { id: "tasks", label: "Tasks" },
 ];
 
-/** "9000–9460", one value when both ends match, "—" without data. */
-function rangeText(min: number | null, max: number | null): string {
-  if (min == null || max == null) return "—";
-  return min === max ? String(min) : `${min}–${max}`;
-}
-
 /** No filter applied when both ends are blank. Otherwise an Emitter matches
  * only if it actually has data for this parameter AND that data's range
  * overlaps the filter range at all. */
@@ -165,7 +159,14 @@ export function EmittersListPage() {
   const columnMenu = useColumnVisibilityMenu(columns);
   const show = columns.isVisible;
 
-  const header = (label: string, key: EmitterSortKey, columnType?: "string" | "number" | "date") => (
+  // Two header rows: each range's min and max under one group label; every
+  // other column spans both.
+  const header = (
+    label: string,
+    key: EmitterSortKey,
+    columnType?: "string" | "number" | "date",
+    opts: { rowSpan?: number; className?: string; title?: string } = { rowSpan: 2 },
+  ) => (
     <SortableColumnHeader
       label={label}
       columnKey={key}
@@ -174,8 +175,25 @@ export function EmittersListPage() {
       activeDir={sortDir}
       onSort={onSort}
       onClear={onClear}
+      {...opts}
     />
   );
+  const RANGES = (
+    [
+      ["rf", "RF", "MHz", "rf_min", "rf_max"],
+      ["pri", "PRI", "µs", "pri_min", "pri_max"],
+      ["pw", "PW", "µs", "pw_min", "pw_max"],
+      ["scan", "Scan", "s", "scan_min", "scan_max"],
+    ] as const
+  ).filter(([id]) => show(id));
+  const summaryOf = (e: Emitter, id: (typeof RANGES)[number][0]): [number | null, number | null] =>
+    id === "rf"
+      ? [e.summary.rf_min_mhz, e.summary.rf_max_mhz]
+      : id === "pri"
+        ? [e.summary.pri_min_us, e.summary.pri_max_us]
+        : id === "pw"
+          ? [e.summary.pw_min_us, e.summary.pw_max_us]
+          : [e.summary.scan_min, e.summary.scan_max];
 
   const rangesSet = [rfMin, rfMax, pwMin, pwMax, priMin, priMax, scanMin, scanMax].some(Boolean);
   const filtering = !!nameFilter || !!assignedFilter || rangesSet;
@@ -278,6 +296,7 @@ export function EmittersListPage() {
       >
         <input
           type="search"
+          className="filter-search-wide"
           placeholder="Name or designation…"
           aria-label="Filter by name or designation"
           value={nameFilter}
@@ -314,12 +333,12 @@ export function EmittersListPage() {
               ["Scan", scanMin, setScanMin, scanMax, setScanMax],
             ] as const
           ).map(([label, min, setMin, max, setMax]) => (
-            <span key={label} className="range-filter">
-              {label}
+            <label key={label} className="range-filter">
+              <span className="range-filter-label">{label}</span>
               <input type="number" step="any" placeholder="min" aria-label={`${label} min`} value={min} onChange={(e) => setMin(e.target.value)} />
-              –
+              <span aria-hidden="true">–</span>
               <input type="number" step="any" placeholder="max" aria-label={`${label} max`} value={max} onChange={(e) => setMax(e.target.value)} />
-            </span>
+            </label>
           ))}
           <InfoTip label="How the range filters match">
             RF, PRI and PW match an Emitter if any of its approved Modes falls within the range. Scan matches against
@@ -344,11 +363,11 @@ export function EmittersListPage() {
           <EmitterBulkBar selected={[...selected]} onClear={() => setSelected(new Set())} />
         )}
         <div className="matrix-scroll">
-        <table className="data-table">
+        <table className="data-table emitters-table">
           <thead>
             <tr {...columnMenu.openProps}>
               {canWrite && (
-                <th className="select-col">
+                <th className="select-col" rowSpan={2}>
                   <input
                     type="checkbox"
                     aria-label="Select all shown"
@@ -359,18 +378,29 @@ export function EmittersListPage() {
                   />
                 </th>
               )}
-              {header("Name", "name")}
+              {header("Name", "name", undefined, { rowSpan: 2, className: "emitters-name-col" })}
               {show("designation") && header("Designation", "designation")}
               {show("status") && header("Status", "status")}
               {show("assignee") && header("Assigned to", "assignee")}
-              {show("rf") && header("RF (MHz)", "rf_min", "number")}
-              {show("pri") && header("PRI (µs)", "pri_min", "number")}
-              {show("pw") && header("PW (µs)", "pw_min", "number")}
-              {show("scan") && header("Scan", "scan_min", "number")}
+              {RANGES.map(([id, label, unit]) => (
+                <th key={id} colSpan={2} className="range-group">
+                  {label} <span className="range-unit">({unit})</span>
+                </th>
+              ))}
               {show("sim") && header("SIM correct", "sim_correct", "number")}
-              {show("tasks") && <th>Tasks</th>}
-              <th className="row-actions" aria-label="Actions"></th>
+              {show("tasks") && <th rowSpan={2}>Tasks</th>}
+              <th className="row-actions" aria-label="Actions" rowSpan={2}></th>
             </tr>
+            {RANGES.length > 0 && (
+              <tr {...columnMenu.openProps}>
+                {RANGES.map(([id, label, unit, minKey, maxKey]) => (
+                  <Fragment key={id}>
+                    {header("min", minKey, "number", { className: "num range-start", title: `Lowest ${label} (${unit})` })}
+                    {header("max", maxKey, "number", { className: "num", title: `Highest ${label} (${unit})` })}
+                  </Fragment>
+                ))}
+              </tr>
+            )}
           </thead>
           <tbody>
             {sorted.map((e) => (
@@ -385,7 +415,7 @@ export function EmittersListPage() {
                     />
                   </td>
                 )}
-                <td>
+                <td className="emitters-name-col">
                   <Link to={`/emitters/${e.id}`}>{e.name}</Link>
                 </td>
                 {show("designation") && <td>{e.designation ?? "—"}</td>}
@@ -397,10 +427,17 @@ export function EmittersListPage() {
                 {show("assignee") && (
                   <td>{e.assignee_id === user?.id ? <strong>You</strong> : (e.assignee_username ?? <span className="muted">—</span>)}</td>
                 )}
-                {show("rf") && <td className="nowrap">{rangeText(e.summary.rf_min_mhz, e.summary.rf_max_mhz)}</td>}
-                {show("pri") && <td className="nowrap">{rangeText(e.summary.pri_min_us, e.summary.pri_max_us)}</td>}
-                {show("pw") && <td className="nowrap">{rangeText(e.summary.pw_min_us, e.summary.pw_max_us)}</td>}
-                {show("scan") && <td className="nowrap">{rangeText(e.summary.scan_min, e.summary.scan_max)}</td>}
+                {RANGES.flatMap(([id]) => {
+                  const [min, max] = summaryOf(e, id);
+                  return [
+                    <td key={`${id}-min`} className="num range-start">
+                      {min ?? "—"}
+                    </td>,
+                    <td key={`${id}-max`} className="num">
+                      {max ?? "—"}
+                    </td>,
+                  ];
+                })}
                 {show("sim") && (
                   <td
                     className="nowrap"
