@@ -1,5 +1,5 @@
 """Dwells: Strategies (a Platform's dwell, named, versioned) pinned into dwell
-files (versioned, one Strategy per Platform), imported from and written as
+files (versioned, any Strategies), imported from and written as
 XML (MHz and ms, as in the file); the charts' default bandwidth; an MDF's
 export carrying its dwell files; test runs recording the Strategy used."""
 
@@ -121,7 +121,7 @@ def test_a_strategy_is_edited_saved_and_repinned(editor_client):
     assert editor_client.delete(f"/dwell-strategies/{sid}").status_code == 409
 
 
-def test_one_strategy_per_platform_in_a_file(editor_client):
+def test_a_file_can_hold_several_strategies_for_one_platform(editor_client):
     north = _platform(editor_client, "North Site")
     summer = editor_client.post("/dwell-strategies", json={"name": "Summer", "platform_id": north["id"]}).json()
     winter = editor_client.post(
@@ -130,8 +130,12 @@ def test_one_strategy_per_platform_in_a_file(editor_client):
     assert winter["rapid_df"] == summer["rapid_df"]
     dwell_file = editor_client.post("/dwell-files", json={"name": "File"}).json()
     assert editor_client.post(f"/dwell-files/{dwell_file['id']}/strategies", json={"strategy_id": summer["id"]}).status_code == 200
-    clash = editor_client.post(f"/dwell-files/{dwell_file['id']}/strategies", json={"strategy_id": winter["id"]})
-    assert clash.status_code == 409 and "one per Platform" in clash.json()["detail"]
+    both = editor_client.post(f"/dwell-files/{dwell_file['id']}/strategies", json={"strategy_id": winter["id"]})
+    assert both.status_code == 200, both.text
+    assert [link["strategy_name"] for link in both.json()["links"]] == ["Summer", "Winter"]
+    # The same Strategy twice is still refused.
+    again = editor_client.post(f"/dwell-files/{dwell_file['id']}/strategies", json={"strategy_id": winter["id"]})
+    assert again.status_code == 409 and "already in this file" in again.json()["detail"]
 
 
 def test_bad_files_names_and_viewers_are_refused(editor_client, viewer_client):
@@ -269,10 +273,13 @@ def test_default_dwells_and_strategies_for_several_platforms(editor_client):
     diff = editor_client.get(f"/dwell-strategies/{both['id']}/versions/2/diff").json()["entries"]
     assert any(e["label"] == "Platforms" and e["new_value"] == "South Ship" for e in diff)
 
-    # A dwell file holds one Strategy per Platform; default dwells don't count.
+    # A dwell file takes a Strategy for a Platform another of its Strategies covers.
     dwell_file = editor_client.post("/dwell-files", json={"name": "Fleet"}).json()
     for s in (wide, both):
         assert editor_client.post(f"/dwell-files/{dwell_file['id']}/strategies", json={"strategy_id": s["id"]}).status_code == 200
     other = editor_client.post("/dwell-strategies", json={"name": "South only", "platform_ids": [south["id"]]}).json()
-    refused = editor_client.post(f"/dwell-files/{dwell_file['id']}/strategies", json={"strategy_id": other["id"]})
-    assert refused.status_code == 409 and "South Ship" in refused.json()["detail"]
+    added = editor_client.post(f"/dwell-files/{dwell_file['id']}/strategies", json={"strategy_id": other["id"]})
+    assert added.status_code == 200, added.text
+    # And a Strategy in it can take on a Platform another one there covers.
+    resp = editor_client.patch(f"/dwell-strategies/{other['id']}", json={"platform_ids": [south["id"], north["id"]]})
+    assert resp.status_code == 200, resp.text

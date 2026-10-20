@@ -6768,3 +6768,71 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
   width: auto;
   margin: 0;
 }
+
+/* Platform → Emitters: the head row and the Pin Emitters dialog */
+.pinned-emitters-head {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+.pinned-emitters-head .hint-text {
+  margin-right: auto;
+}
+.pinned-version {
+  white-space: nowrap;
+}
+.pinned-version select {
+  width: auto;
+  max-width: 16rem;
+  padding: 0.15rem 0.35rem;
+  font-size: 0.85rem;
+}
+.pin-emitters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.pin-emitters-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 22rem;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.pin-emitters-list li {
+  padding: 0.3rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+.pin-emitters-list li:last-child {
+  border-bottom: none;
+}
+.pin-emitters-list li.muted {
+  opacity: 0.6;
+}
+.pin-emitters .checkbox-label {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+.pin-emitters .checkbox-label input {
+  width: auto;
+  margin: 0;
+}
+.pin-emitters-name {
+  flex: 1;
+  min-width: 0;
+}
+.pin-emitters-version {
+  white-space: nowrap;
+}
+.pin-emitters .modal-actions .hint-text {
+  margin-right: auto;
+  font-size: 0.8rem;
+}

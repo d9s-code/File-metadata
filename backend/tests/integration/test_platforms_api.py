@@ -267,3 +267,24 @@ def test_repin_latest_moves_every_outdated_pin_and_reports_numbers(editor_client
     assert by_emitter[a["id"]]["emitter_version_id"] == a2["id"]
     assert by_emitter[a["id"]]["pinned_version_number"] == by_emitter[a["id"]]["latest_version_number"] == 2
     assert by_emitter[b["id"]]["emitter_version_id"] == vb["id"]  # already current: untouched
+
+
+def test_pin_without_a_version_takes_the_latest_and_candidates_say_what_can_be_pinned(editor_client):
+    platform = editor_client.post("/platforms", json={"name": "Pick Platform"}).json()
+    saved = editor_client.post("/emitters", json={"name": "Saved", "designation": "A-1"}).json()
+    editor_client.post(f"/emitters/{saved['id']}/versions", json={"change_summary": "v1"})
+    v2 = editor_client.post(f"/emitters/{saved['id']}/versions", json={"change_summary": "v2"}).json()
+    never = editor_client.post("/emitters", json={"name": "Never saved"}).json()
+
+    resp = editor_client.post(f"/platforms/{platform['id']}/links", json={"emitter_id": saved["id"]})
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["emitter_version_id"] == v2["id"]
+    refused = editor_client.post(f"/platforms/{platform['id']}/links", json={"emitter_id": never["id"]})
+    assert refused.status_code == 422 and "no saved version" in refused.json()["detail"]
+
+    candidates = {c["name"]: c for c in editor_client.get(f"/platforms/{platform['id']}/pin-candidates").json()}
+    assert (candidates["Saved"]["latest_version_number"], candidates["Saved"]["pinned_version_number"]) == (2, 2)
+    assert (candidates["Never saved"]["latest_version_number"], candidates["Never saved"]["pinned_version_number"]) == (None, None)
+    audit = editor_client.get("/audit-log", params={"entity_type": "platform_link"}).json()
+    rows = audit["items"] if isinstance(audit, dict) else audit
+    assert any("Pinned Emitter 'Saved' v2" in r["summary"] for r in rows)

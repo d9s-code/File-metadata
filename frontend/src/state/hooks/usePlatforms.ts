@@ -63,12 +63,24 @@ export function usePlatformLinks(platformId: string) {
   });
 }
 
+export function usePinCandidates(platformId: string, enabled = true) {
+  return useQuery({
+    queryKey: ["pinCandidates", platformId],
+    queryFn: () => platformsApi.pinCandidates(platformId),
+    enabled: !!platformId && enabled,
+  });
+}
+
+/** Pins (or repins) an Emitter — at the version given, or its latest saved one. */
 export function usePinEmitter(platformId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ emitterId, emitterVersionId }: { emitterId: string; emitterVersionId: string }) =>
+    mutationFn: ({ emitterId, emitterVersionId }: { emitterId: string; emitterVersionId?: string }) =>
       platformsApi.pinEmitter(platformId, emitterId, emitterVersionId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: platformLinksKey(platformId) }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: platformLinksKey(platformId) });
+      void qc.invalidateQueries({ queryKey: ["pinCandidates", platformId] });
+    },
   });
 }
 
@@ -85,7 +97,10 @@ export function useUnpinEmitter(platformId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (emitterId: string) => platformsApi.unpinEmitter(platformId, emitterId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: platformLinksKey(platformId) }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: platformLinksKey(platformId) });
+      void qc.invalidateQueries({ queryKey: ["pinCandidates", platformId] });
+    },
   });
 }
 

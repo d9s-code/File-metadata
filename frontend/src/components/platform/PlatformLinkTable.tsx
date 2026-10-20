@@ -4,7 +4,8 @@ import { isOutdatedPin, type PlatformLink } from "../../api/platforms";
 import type { Emitter } from "../../types/domain";
 import { usePinEmitter, useUnpinEmitter } from "../../state/hooks/usePlatforms";
 import { useEmitterVersions } from "../../state/hooks/useEmitterVersions";
-import { RequireRole } from "../../auth/RequireAuth";
+import { RequireRole, useHasRole } from "../../auth/RequireAuth";
+import { useConfirmDialog } from "../common/ConfirmDialog";
 import { EmptyState } from "../common/EmptyState";
 import { SortableColumnHeader } from "../common/SortableColumnHeader";
 import { useSortableTable } from "../common/useSortableTable";
@@ -12,14 +13,38 @@ import { compareStrings } from "../common/sortUtils";
 
 type PlatformLinkSortKey = "designation" | "emitter" | "added";
 
-function PinnedVersionCell({ emitterId, versionId }: { emitterId: string; versionId: string }) {
-  const { data: versions } = useEmitterVersions(emitterId);
-  const version = versions?.find((v) => v.id === versionId);
-  if (!version) return <span title={versionId}>{versionId.slice(0, 8)}…</span>;
-  return (
-    <Link to={`/emitters/${emitterId}/versions?version=${version.version_number}`}>
-      v{version.version_number}
+/** The pinned version — for editors, a picker of the Emitter's saved
+ * versions (newest first) that repins on change. */
+function PinnedVersionCell({ platformId, link }: { platformId: string; link: PlatformLink }) {
+  const canEdit = useHasRole("editor");
+  const { data: versions } = useEmitterVersions(canEdit ? link.emitter_id : "");
+  const pin = usePinEmitter(platformId);
+  const number = link.pinned_version_number;
+  const view = number != null && (
+    <Link to={`/emitters/${link.emitter_id}/versions?version=${number}`} title="See this version">
+      {canEdit ? "view" : `v${number}`}
     </Link>
+  );
+  if (!canEdit || !versions) return <>{view || "—"}</>;
+  const newestFirst = [...versions].sort((a, b) => b.version_number - a.version_number);
+  return (
+    <span className="pinned-version">
+      <select
+        value={link.emitter_version_id}
+        disabled={pin.isPending}
+        aria-label="Pinned version"
+        onChange={(e) => void pin.mutateAsync({ emitterId: link.emitter_id, emitterVersionId: e.target.value })}
+      >
+        {newestFirst.map((v, i) => (
+          <option key={v.id} value={v.id}>
+            v{v.version_number}
+            {i === 0 ? " (latest)" : ""}
+            {v.change_summary ? ` — ${v.change_summary.slice(0, 40)}` : ""}
+          </option>
+        ))}
+      </select>{" "}
+      {view}
+    </span>
   );
 }
 
@@ -64,6 +89,13 @@ export function PlatformLinkTable({
   emittersById: Record<string, Emitter>;
 }) {
   const unpin = useUnpinEmitter(platformId);
+  const { confirmDelete, dialog } = useConfirmDialog();
+
+  async function handleUnpin(link: PlatformLink) {
+    const name = emittersById[link.emitter_id]?.name ?? "this Emitter";
+    if (await confirmDelete(`Unpin ${name} from this Platform?`, { confirmLabel: "Unpin", danger: true }))
+      await unpin.mutateAsync(link.emitter_id);
+  }
 
   function compareLinks(a: PlatformLink, b: PlatformLink, key: PlatformLinkSortKey, dir: "asc" | "desc"): number {
     switch (key) {
@@ -78,10 +110,12 @@ export function PlatformLinkTable({
   const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(links, compareLinks);
 
   if (links.length === 0) {
-    return <EmptyState icon="○" title="No Emitters pinned yet" message="Pin a saved Emitter version below." />;
+    return <EmptyState icon="○" title="No Emitters pinned yet" message="Use + Pin Emitters to add them." />;
   }
 
   return (
+    <>
+    {dialog}
     <table className="data-table">
       <thead>
         <tr>
@@ -110,13 +144,13 @@ export function PlatformLinkTable({
               </Link>
             </td>
             <td>
-              <PinnedVersionCell emitterId={link.emitter_id} versionId={link.emitter_version_id} />
+              <PinnedVersionCell platformId={platformId} link={link} />
               <OutdatedPin platformId={platformId} link={link} />
             </td>
             <td>{formatDateTime(link.added_at)}</td>
             <td>
               <RequireRole minimum="editor">
-                <button className="link-button" onClick={() => void unpin.mutateAsync(link.emitter_id)}>
+                <button className="link-button" onClick={() => void handleUnpin(link)}>
                   Unpin
                 </button>
               </RequireRole>
@@ -125,5 +159,6 @@ export function PlatformLinkTable({
         ))}
       </tbody>
     </table>
+    </>
   );
 }

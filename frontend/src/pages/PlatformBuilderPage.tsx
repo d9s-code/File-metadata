@@ -5,7 +5,7 @@ import { useCommitPlatformVersion, usePlatformVersions } from "../state/hooks/us
 import { useEmitters } from "../state/hooks/useEmitters";
 import { isOutdatedPin, platformsApi } from "../api/platforms";
 import { PlatformLinkTable } from "../components/platform/PlatformLinkTable";
-import { PlatformEmitterVersionPicker } from "../components/platform/PlatformEmitterVersionPicker";
+import { PinEmittersDialog } from "../components/platform/PinEmittersDialog";
 import { EntityAuditTrail } from "../components/audit/EntityAuditTrail";
 import { RequireRole, useHasRole } from "../auth/RequireAuth";
 import { LoadingState } from "../components/common/LoadingState";
@@ -45,6 +45,7 @@ export function PlatformBuilderPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [pinning, setPinning] = useState(false);
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const { data: notes, isLoading: notesLoading } = usePlatformNotes(platformId ?? "");
@@ -199,12 +200,14 @@ export function PlatformBuilderPage() {
 
       {tab === "emitters" && (
         <div>
-          {outdatedPins > 0 && (
+          <div className="pinned-emitters-head">
+            {outdatedPins > 0 && (
+              <span className="hint-text">
+                {outdatedPins} pinned Emitter{outdatedPins === 1 ? " has" : "s have"} a newer saved version.
+              </span>
+            )}
             <RequireRole minimum="editor">
-              <p className="repin-all-row">
-                <span className="hint-text">
-                  {outdatedPins} pinned Emitter{outdatedPins === 1 ? " has" : "s have"} a newer saved version.
-                </span>{" "}
+              {outdatedPins > 0 && (
                 <button
                   type="button"
                   className="button secondary small"
@@ -213,19 +216,14 @@ export function PlatformBuilderPage() {
                 >
                   {repinAll.isPending ? "Repinning…" : "Repin all to their latest version"}
                 </button>
-              </p>
+              )}
+              <button type="button" className="button primary small" onClick={() => setPinning(true)}>
+                + Pin Emitters
+              </button>
             </RequireRole>
-          )}
+          </div>
           <PlatformLinkTable platformId={platform.id} links={links ?? []} emittersById={emittersById} />
-
-          <RequireRole minimum="editor">
-            <h4>Pin an Emitter Version</h4>
-            <p className="hint-text">
-              Pinning needs a saved version of the Emitter — if it only has unsaved changes, save a version
-              on the Emitter first.
-            </p>
-            <PlatformEmitterVersionPicker platformId={platform.id} />
-          </RequireRole>
+          {pinning && <PinEmittersDialog platformId={platform.id} onClose={() => setPinning(false)} />}
         </div>
       )}
 

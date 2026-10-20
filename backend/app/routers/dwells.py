@@ -1,6 +1,6 @@
-"""Dwells: Dwell Strategies (a Platform's dwell, named — a Platform can have
-several) and dwell files that pin saved versions of them, at most one per
-Platform, for an MDF's export (`dwells/<name>.xml`). Both are versioned and
+"""Dwells: Dwell Strategies (dwells for one or more Platforms, or none — a
+default dwell; a Platform can have several) and dwell files that pin saved
+versions of them, for an MDF's export (`dwells/<name>.xml`). Both are versioned and
 audited like Platforms. Plus the app-wide settings an admin sets."""
 
 from uuid import UUID
@@ -143,18 +143,6 @@ def _strategy_name_free(db: Session, name: str, platforms: list[Platform], strat
         if not ids and other.is_default:
             raise HTTPException(status.HTTP_409_CONFLICT, f"There's already a default dwell called '{name}'")
     return name
-
-
-def _file_clash(dwell_file: DwellFile, strategy_id: UUID, platform_ids: list[UUID]) -> tuple[DwellFileStrategy, str] | None:
-    """Another Strategy in the file covering one of these Platforms — a file
-    holds one Strategy per Platform (default dwells aside)."""
-    for other in dwell_file.links:
-        if other.strategy_id == strategy_id:
-            continue
-        for link in other.strategy.platform_links:
-            if link.platform_id in platform_ids:
-                return other, link.platform.name
-    return None
 
 
 def _commit_strategy(db: Session, strategy: DwellStrategy, summary: str | None, user_id) -> DwellStrategyVersion:
@@ -351,16 +339,6 @@ def update_strategy(
         if changing_platforms
         else [link.platform for link in strategy.platform_links]
     )
-    if changing_platforms:
-        # A file it's in can't then have two Strategies for one Platform.
-        new_ids = [p.id for p in platforms]
-        for link in db.query(DwellFileStrategy).filter(DwellFileStrategy.strategy_id == strategy.id):
-            clash = _file_clash(link.dwell_file, strategy.id, new_ids)
-            if clash is not None:
-                raise HTTPException(
-                    status.HTTP_409_CONFLICT,
-                    f"'{link.dwell_file.name}' already has a Strategy for {clash[1]} ('{clash[0].strategy.name}')",
-                )
     if "name" in fields or changing_platforms:
         fields["name"] = _strategy_name_free(db, fields.get("name", strategy.name), platforms, strategy.id)
     changes = {}
@@ -609,12 +587,6 @@ def _file_out(db: Session, dwell_file: DwellFile) -> DwellFileOut:
 def _pin(db: Session, dwell_file: DwellFile, strategy: DwellStrategy, version: DwellStrategyVersion | None) -> DwellFileStrategy:
     if any(link.strategy_id == strategy.id for link in dwell_file.links):
         raise HTTPException(status.HTTP_409_CONFLICT, f"'{strategy.name}' is already in this file")
-    clash = _file_clash(dwell_file, strategy.id, strategy.platform_ids)
-    if clash is not None:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            f"This file already has a Strategy for {clash[1]} ('{clash[0].strategy.name}') — one per Platform",
-        )
     version = version or latest_strategy_version(db, strategy.id)
     if version is None or version.strategy_id != strategy.id:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Pick a saved version of that Strategy")

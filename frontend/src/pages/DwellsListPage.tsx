@@ -17,8 +17,8 @@ import { PlatformsPicker } from "../components/dwells/PlatformsPicker";
 /** Names shown in a cell before the rest fold into "+N". */
 const SHOWN = 2;
 
-/** Dwells: the Strategies (each a Platform's dwells, grouped by Platform)
- * and the dwell files that pin them, one Strategy per Platform. */
+/** Dwells: the Strategies (default dwells, then grouped by the Platforms
+ * they cover) and the dwell files that pin them. */
 export function DwellsListPage() {
   const [params, setParams] = useSearchParams();
   const view = params.get("view") === "files" ? "files" : "strategies";
@@ -28,7 +28,7 @@ export function DwellsListPage() {
     <div className="page">
       <PageHeader
         title="Dwells"
-        info="A Strategy is one Platform's dwells — frequency and how long to sit there, in order — saved in versions. A dwell file pins one Strategy version per Platform; linked to an MDF, its latest saved version goes into that MDF's export as dwells/<name>.xml."
+        info="A Strategy is a set of dwells — frequency and how long to sit there, in order — for one or more Platforms, or none (a default dwell), saved in versions. A dwell file pins saved versions of any Strategies; linked to an MDF, its latest saved version goes into that MDF's export as dwells/<name>.xml."
       >
         <RequireRole minimum="editor">
           {view === "strategies" ? (

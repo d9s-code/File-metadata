@@ -52,7 +52,20 @@ class PlatformListItem(PlatformOut):
 
 class PlatformLinkCreate(BaseModel):
     emitter_id: UUID
-    emitter_version_id: UUID
+    # Blank: the Emitter's latest saved version.
+    emitter_version_id: UUID | None = None
+
+
+class PinCandidateOut(BaseModel):
+    """An Emitter as offered for pinning: its latest saved version (none: it
+    can't be pinned yet) and the version this Platform pins, if any."""
+
+    emitter_id: UUID
+    name: str
+    designation: str | None
+    status: str
+    latest_version_number: int | None
+    pinned_version_number: int | None
 
 
 class PlatformLinkOut(BaseModel):

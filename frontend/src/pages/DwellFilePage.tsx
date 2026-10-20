@@ -40,7 +40,7 @@ export function saveBlob(blob: Blob, filename: string) {
 export const xmlName = (name: string) => `${name.replace(/[^\w.-]+/g, "_")}.xml`;
 
 /** One dwell file: its settings and the Strategies it pins — a saved
- * version of each, at most one per Platform. */
+ * version of each, any number per Platform. */
 export function DwellFilePage() {
   const { fileId = "" } = useParams<{ fileId: string }>();
   const { data: file, isLoading, error } = useDwellFile(fileId);
@@ -242,7 +242,7 @@ function PinnedStrategies({ file, canEdit, onError }: { file: DwellFile; canEdit
   }
 
   if (file.links.length === 0) {
-    return <p className="hint-text dwell-empty">No Strategies in this file yet{canEdit ? " — add one per Platform." : "."}</p>;
+    return <p className="hint-text dwell-empty">No Strategies in this file yet{canEdit ? " — add the Strategies it should hold." : "."}</p>;
   }
   return (
     <>
@@ -452,8 +452,9 @@ function AddStrategy({
   const [strategyId, setStrategyId] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  // A file holds one Strategy per Platform; default dwells don't count.
-  const taken = new Set(file.links.flatMap((l) => l.platform_ids));
+  // How many of the file's Strategies cover each Platform — a Platform can have several here.
+  const inFile = new Map<string, number>();
+  for (const l of file.links) for (const id of l.platform_ids) inFile.set(id, (inFile.get(id) ?? 0) + 1);
   // Platforms that have a Strategy to offer, the file's MDF's first.
   const platforms = new Map<string, string>();
   for (const s of strategies ?? []) s.platform_ids.forEach((id, i) => platforms.set(id, s.platform_names[i] ?? "?"));
@@ -465,14 +466,13 @@ function AddStrategy({
   const choices = (strategies ?? []).filter((s) =>
     platformId === DEFAULT_KEY ? s.is_default : s.platform_ids.includes(platformId),
   );
-  const blocked = (s: (typeof choices)[number]) =>
-    file.links.some((l) => l.strategy_id === s.id) || s.platform_ids.some((id) => taken.has(id));
+  const blocked = (s: (typeof choices)[number]) => file.links.some((l) => l.strategy_id === s.id);
   const chosen = choices.find((s) => s.id === strategyId) ?? (choices.length === 1 ? choices[0] : undefined);
 
   const option = ([id, name]: [string, string]) => (
-    <option key={id} value={id} disabled={taken.has(id)}>
+    <option key={id} value={id}>
       {name}
-      {taken.has(id) ? " — has one here" : ""}
+      {inFile.has(id) ? ` — ${inFile.get(id)} in this file` : ""}
     </option>
   );
 
@@ -527,7 +527,7 @@ function AddStrategy({
                   {s.name} — {s.dwell_count} dwell{s.dwell_count === 1 ? "" : "s"}
                   {s.latest_version_number ? `, v${s.latest_version_number}` : ", not saved"}
                   {s.platform_ids.length > 1 ? ` · also ${s.platform_names.filter((_, i) => s.platform_ids[i] !== platformId).join(", ")}` : ""}
-                  {blocked(s) ? " — a Platform it covers has one here" : ""}
+                  {blocked(s) ? " — already in this file" : ""}
                 </option>
               ))}
             </select>

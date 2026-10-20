@@ -789,8 +789,11 @@ export function HelpPage() {
           <p>
             Laid out like an Emitter: <strong>Save version</strong>, <strong>Ambiguity check</strong>,{" "}
             <strong>Export XML</strong> and <strong>More ▾</strong> (Version history, Edit details) along the top,
-            with when it was last saved under the name. Pin and unpin Emitters below — each pin references one saved
-            Emitter version; the picker and the table show each Emitter&apos;s designation first. A pin whose Emitter
+            with when it was last saved under the name. <strong>+ Pin Emitters</strong> opens a list of every Emitter
+            (designation first, with a search box): tick any number and they&apos;re pinned at their latest saved
+            version in one go — ones already pinned, or never saved, are shown but can&apos;t be ticked. Each pin
+            references one saved Emitter version; change it with the version picker in its row (<strong>view</strong>{" "}
+            opens it), and <strong>Unpin</strong> asks first. A pin whose Emitter
             has been saved again since is flagged <strong>Outdated — vN saved</strong>, with <strong>Repin to vN</strong>{" "}
             beside it; the header counts outdated pins, and <strong>Repin all to their latest version</strong> moves
             them all at once. A Platform has no
@@ -905,8 +908,8 @@ export function HelpPage() {
             <strong>Dwells</strong> (a tab beside MDFs and Customers) has two lists. A <strong>Strategy</strong> is a
             named set of dwells (e.g. &quot;Summer&quot;) for one or more Platforms — a Platform can have several, and
             one Strategy can cover several Platforms. With no Platform ticked it&apos;s a <strong>default dwell</strong>:
-            not tied to any Platform, typically a larger sweep, listed first. A <strong>dwell file</strong> pins a saved
-            version of one Strategy per Platform (default dwells don&apos;t count against any); linked to an MDF, its
+            not tied to any Platform, typically a larger sweep, listed first. A <strong>dwell file</strong> pins saved
+            versions of any Strategies — a Platform can have several in one file; linked to an MDF, its
             latest saved version goes into that MDF&apos;s export as dwells/&lt;name&gt;.xml. The same Strategy can be in
             several files.
           </p>

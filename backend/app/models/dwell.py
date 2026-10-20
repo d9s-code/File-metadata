@@ -117,7 +117,7 @@ class DwellStrategyNote(UUIDPkMixin, Base):
 
 class DwellFile(UUIDPkMixin, TimestampMixin, Base):
     """A dwell file (`dwells/<name>.xml` in an MDF export): its settings and
-    the Strategies in it — a saved version of each, at most one per Platform."""
+    the Strategies in it — a saved version of each, any number per Platform."""
 
     __tablename__ = "dwell_files"
 

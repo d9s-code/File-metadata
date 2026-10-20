@@ -11,12 +11,14 @@ from app.core.enums import AuditAction, AuditEntityType, Role
 from app.database import get_db
 from app.services import milestones, statuses
 from app.deps import require_role
+from app.models.emitter import Emitter
 from app.models.emitter_version import EmitterVersion
 from app.models.platform import Platform, PlatformEmitterLink, PlatformVersion
 from app.models.platform_note import PlatformNote
 from app.schemas.platform_note import PlatformNoteCreate, PlatformNoteOut
 from app.schemas.emitter_version import CommitVersionRequest, DiffOut, StatusTransitionRequest
 from app.schemas.platform import (
+    PinCandidateOut,
     PlatformCreate,
     PlatformLinkCreate,
     PlatformLinkOut,
@@ -237,6 +239,32 @@ def list_links(
     return with_version_numbers(db, links)
 
 
+@router.get("/{platform_id}/pin-candidates", response_model=list[PinCandidateOut])
+def pin_candidates(
+    platform_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
+) -> list[PinCandidateOut]:
+    """Every Emitter (not deleted), designation first, for the Pin Emitters list."""
+    _get_platform_or_404(db, platform_id)
+    emitters = db.query(Emitter).filter(Emitter.is_deleted.is_(False)).all()
+    latest = latest_emitter_versions(db, [e.id for e in emitters])
+    pinned = {
+        link.emitter_id: link.emitter_version.version_number
+        for link in db.query(PlatformEmitterLink).filter(PlatformEmitterLink.platform_id == platform_id)
+    }
+    out = [
+        PinCandidateOut(
+            emitter_id=e.id,
+            name=e.name,
+            designation=e.designation,
+            status=e.status,
+            latest_version_number=latest.get(e.id, (None, None))[0],
+            pinned_version_number=pinned.get(e.id),
+        )
+        for e in emitters
+    ]
+    return sorted(out, key=lambda c: (c.designation is None, (c.designation or "").lower(), c.name.lower()))
+
+
 @router.post(
     "/{platform_id}/links/repin-latest", response_model=list[PlatformLinkOut], dependencies=[Depends(verify_csrf)]
 )
@@ -281,11 +309,19 @@ def pin_emitter(
     db: Session = Depends(get_db),
     user=Depends(require_role(Role.editor)),
 ) -> PlatformEmitterLink:
-    """Pins (or repins) a specific committed Emitter version into this
-    Platform. Always requires an existing `emitter_versions` row — an
-    Emitter with only uncommitted draft changes cannot be pinned.
+    """Pins (or repins) a committed Emitter version into this Platform — the
+    one given, or the Emitter's latest. Always requires an existing
+    `emitter_versions` row — an Emitter with only uncommitted draft changes
+    cannot be pinned.
     """
     platform = _get_platform_or_404(db, platform_id)
+    if payload.emitter_version_id is None:
+        _, latest_id = latest_emitter_versions(db, [payload.emitter_id]).get(payload.emitter_id, (None, None))
+        if latest_id is None:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT, "That Emitter has no saved version yet — save one on the Emitter first"
+            )
+        payload.emitter_version_id = latest_id
     emitter_version = db.get(EmitterVersion, payload.emitter_version_id)
     if emitter_version is None or emitter_version.emitter_id != payload.emitter_id:
         raise HTTPException(
@@ -311,7 +347,7 @@ def pin_emitter(
         action=AuditAction.update,
         entity_type=AuditEntityType.platform_link.value,
         entity_id=platform.id,
-        summary=f"Pinned Emitter version {emitter_version.version_number} into Platform '{platform.name}'",
+        summary=f"Pinned Emitter '{emitter_version.emitter.name}' v{emitter_version.version_number} into Platform '{platform.name}'",
     )
     db.commit()
     db.refresh(link)

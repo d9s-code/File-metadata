@@ -57,6 +57,18 @@ export interface PlatformCreateInput {
   description?: string;
 }
 
+/** An Emitter as offered for pinning. */
+export interface PinCandidate {
+  emitter_id: string;
+  name: string;
+  designation: string | null;
+  status: string;
+  /** Null: never saved, so it can't be pinned yet. */
+  latest_version_number: number | null;
+  /** The version this Platform pins, if it does. */
+  pinned_version_number: number | null;
+}
+
 export const platformsApi = {
   list: (includeDeleted = false) =>
     api.get<Platform[]>(`/platforms${includeDeleted ? "?include_deleted=true" : ""}`),
@@ -69,11 +81,13 @@ export const platformsApi = {
     api.post<Platform>(`/platforms/${id}/status`, { new_status: newStatus, note, confirm_unmet: confirmUnmet }),
 
   listLinks: (platformId: string) => api.get<PlatformLink[]>(`/platforms/${platformId}/links`),
-  pinEmitter: (platformId: string, emitterId: string, emitterVersionId: string) =>
+  /** Without a version: the Emitter's latest saved one. */
+  pinEmitter: (platformId: string, emitterId: string, emitterVersionId?: string) =>
     api.post<PlatformLink>(`/platforms/${platformId}/links`, {
       emitter_id: emitterId,
-      emitter_version_id: emitterVersionId,
+      emitter_version_id: emitterVersionId ?? null,
     }),
+  pinCandidates: (platformId: string) => api.get<PinCandidate[]>(`/platforms/${platformId}/pin-candidates`),
   repinLatest: (platformId: string) => api.post<PlatformLink[]>(`/platforms/${platformId}/links/repin-latest`, {}),
   unpinEmitter: (platformId: string, emitterId: string) =>
     api.delete<void>(`/platforms/${platformId}/links/${emitterId}`),
