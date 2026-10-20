@@ -6993,7 +6993,8 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
 .filter-bar-ranges .range-filter { display: flex; flex-direction: row; align-items: center; gap: 0.4rem; }
 .filter-bar-ranges .range-filter-label { min-width: 4.5rem; color: var(--muted); }
 .filter-bar-ranges .range-filter input { flex: 1; width: auto; min-width: 5rem; }
-/* Every column but the name shrinks to its content; the name takes the rest. */
-.emitters-table th:not(.emitters-name-col),
-.emitters-table td:not(.emitters-name-col) { width: 1%; white-space: nowrap; }
+/* As wide as its contents, not the page: no column takes up spare width. */
+.matrix-scroll > .data-table.emitters-table { width: max-content; min-width: 0; }
+.emitters-table th,
+.emitters-table td { white-space: nowrap; }
 .emitters-table .sortable-th-trigger { padding-left: 0; padding-right: 0; }
