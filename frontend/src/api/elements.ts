@@ -78,6 +78,11 @@ export type Coverage = "covered" | "partial" | "not_covered";
 export interface ElementCoverageRow extends ElementOverviewRow {
   coverage: Coverage;
   covered_by: { id: string; name: string; kind: "mode" | "ew_group" }[];
+  /** Why it's only partly (or not) covered, when there's more to say. */
+  note: string | null;
+  /** Set when the row is one of a Source's sequences: its steps are in
+   * stagger_values (a PRI sequence's stagger train, else its steps' RF or PW). */
+  sequence: { id: string; label: string; steps: number } | null;
 }
 
 /** A Mode's (or EW Group's) range with its margin; `step` is one step of a Stagger Mode. */

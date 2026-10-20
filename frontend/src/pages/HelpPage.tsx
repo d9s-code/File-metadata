@@ -594,8 +594,12 @@ export function HelpPage() {
               <strong>Element coverage</strong>, under All Sources, shows which of those Elements the Modes cover:
               <strong> ✓ covered</strong>, <strong>½ partly</strong> (a range running past the Modes, or some of a
               stagger&apos;s steps) or <strong>✕ not covered</strong> — an RF, PRI or PW inside a Mode&apos;s range with
-              its margin, a PRI used as a Stagger Mode&apos;s step, a stagger matching a Stagger Mode&apos;s steps, a scan
-              inside an EW Group&apos;s scan range. Tick under <strong>Include</strong> which parameters count. Each has a
+              its margin, a PRI used as a Stagger Mode&apos;s step, a scan inside an EW Group&apos;s scan range. A
+              stagger — a stagger Element, or a Source&apos;s sequence with PRI steps (in step order, a range at its
+              middle) — is checked against the Stagger Modes <em>in order</em>: covered by one with the same steps in the
+              same order (from any step), a sequence&apos;s RF and PW fitting that Mode too; the same steps in another
+              order, or only some, is partly covered, and the note says which. A sequence without PRI has each
+              step&apos;s RF and PW checked. Tick under <strong>Include</strong> which parameters count. Each has a
               chart — the Modes&apos; ranges above, the Elements below; hover either to see what covers what — and the
               Elements not wholly covered are listed under it, with their Sources.
             </p>

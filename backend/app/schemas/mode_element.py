@@ -189,10 +189,23 @@ class CoveredBy(BaseModel):
     kind: str  # "mode" or "ew_group"
 
 
+class CoverageSequence(BaseModel):
+    """The Source's sequence a coverage row stands for."""
+
+    id: str
+    label: str
+    steps: int
+
+
 class ElementCoverageRow(ElementOverviewRow):
     # "covered", "partial" or "not_covered".
     coverage: str
     covered_by: list[CoveredBy]
+    # Why it's only partly (or not) covered, when there's more to say.
+    note: str | None = None
+    # Set when the row is a sequence: its steps are in stagger_values (a PRI
+    # sequence's stagger train, else the steps' RF or PW, in step order).
+    sequence: CoverageSequence | None = None
 
 
 class CoverageRange(BaseModel):

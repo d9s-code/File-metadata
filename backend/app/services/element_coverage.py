@@ -1,17 +1,25 @@
 """Which of the Elements in an Emitter's Sources its Modes cover.
 
-Each distinct Element (as on All Sources) is checked against the Modes'
-engineered ranges (their values with the margin) for its parameter:
+Each distinct Element (as on All Sources), and each of the Sources'
+sequences, is checked against the Modes' engineered ranges (their values
+with the margin) for its parameter:
 
 - RF and PW: the Modes' RF / PW ranges.
 - PRI: a fixed or jittered PRI against the Modes' PRI ranges, and against a
-  Stagger Mode's steps (a PRI used as one of its steps is covered by it); a
-  stagger Element against Stagger Modes' sequences, step by step.
+  Stagger Mode's steps (a PRI used as one of its steps is covered by it).
+- A stagger — a stagger Element, or a sequence with PRI steps (its PRI steps
+  in step order, a range at its mean, as generating Modes from it makes the
+  train) — against the Stagger Modes' trains, in order: covered by a Stagger
+  Mode with the same steps in the same order (starting at any step — a train
+  repeats); partly when one has all its steps in another order or among
+  others, or some of them. A sequence's RF and PW must also sit in that
+  Mode's RF and PW.
+- A sequence without PRI steps: each step's RF and PW against the Modes'.
 - Scan: the EW Groups' scan ranges.
 
-An Element is covered when the ranges together hold all of it (a range of
-values, or every step of a stagger), partly covered when they hold some of
-it, and not covered otherwise. What covers it is listed, as are the ranges
+An Element is covered when the ranges together hold all of it, partly
+covered when they hold some of it, and not covered otherwise; a note says
+why it's only partly covered. What covers it is listed, as are the ranges
 themselves, for the chart."""
 
 from uuid import UUID
@@ -21,6 +29,9 @@ from sqlalchemy.orm import Session
 from app.core.enums import PriType
 from app.models.ew_group import EwGroup
 from app.models.mode import Mode
+from app.models.parameter_sequence import ParameterSequence
+from app.models.source import Source
+from app.services.cartesian_service import _span, _step_range
 from app.services.element_overview import element_overview
 
 # Floating-point slack when comparing values written with up to 4 decimals.
@@ -55,6 +66,66 @@ def _cover(lo: float, hi: float, ranges: list[dict]) -> tuple[str, list[dict]]:
     return ("covered" if reach >= hi - EPS else "partial"), touching
 
 
+def _same(a: float, b: float, delta: float) -> bool:
+    return abs(a - b) <= delta + EPS
+
+
+def _in_order(train: list[float], steps: list[float], delta: float) -> bool:
+    """The same steps in the same order, starting at any of them."""
+    n = len(steps)
+    if len(train) != n:
+        return False
+    return any(all(_same(train[i], steps[(i + r) % n], delta) for i in range(n)) for r in range(n))
+
+
+def _found(train: list[float], steps: list[float], delta: float) -> int:
+    """How many of the train's steps the Mode has (each of its steps used once)."""
+    left = list(steps)
+    hits = 0
+    for v in train:
+        for i, w in enumerate(left):
+            if _same(v, w, delta):
+                hits += 1
+                del left[i]
+                break
+    return hits
+
+
+def _fits(span: tuple[float, float] | None, mode_range: tuple[float, float] | None) -> bool:
+    if span is None:
+        return True
+    return mode_range is not None and mode_range[0] <= span[0] + EPS and span[1] <= mode_range[1] + EPS
+
+
+def _values(train: list[float]) -> str:
+    return ", ".join(f"{v:g}" for v in train)
+
+
+def _stagger_cover(train: list[float], staggers: list[dict], rf=None, pw=None) -> tuple[str, list[dict], str | None]:
+    """A stagger train against the Stagger Modes, in order (see the module's
+    docstring); `rf` / `pw`: the span a sequence's steps give, to fit too."""
+    if not staggers:
+        return "not_covered", [], "No Stagger Mode"
+    exact = [s for s in staggers if _in_order(train, s["steps"], s["delta"])]
+    whole = [s for s in exact if _fits(rf, s["rf"]) and _fits(pw, s["pw"])]
+    if whole:
+        return "covered", whole, None
+    if exact:
+        s = exact[0]
+        off = [name for name, span, own in (("RF", rf, s["rf"]), ("PW", pw, s["pw"])) if not _fits(span, own)]
+        return "partial", exact, f"Same steps in the same order as {s['name']}, but its {' and '.join(off)} doesn't hold this one's"
+    counts = [(s, _found(train, s["steps"], s["delta"])) for s in staggers]
+    best = max(n for _, n in counts)
+    if best == 0:
+        return "not_covered", [], "No Stagger Mode has any of its steps"
+    near = [s for s, n in counts if n == best]
+    s = near[0]
+    if best == len(train):
+        how = "in another order" if len(s["steps"]) == len(train) else f"among its {len(s['steps'])} steps ({_values(s['steps'])})"
+        return "partial", near, f"{s['name']} has all its steps, {how}"
+    return "partial", near, f"{s['name']} has {best} of its {len(train)} steps"
+
+
 def _who(ranges: list[dict]) -> list[dict]:
     seen: dict[str, dict] = {}
     for r in ranges:
@@ -84,7 +155,7 @@ def element_coverage(db: Session, emitter_id: UUID) -> dict:
         if mode.pri_type == PriType.stagger and line.pri_stagger_values_us:
             delta = _num(line.pri_delta) or 0.0
             steps = [float(v) for v in line.pri_stagger_values_us]
-            staggers.append({**base, "steps": steps, "delta": delta})
+            staggers.append({**base, "steps": steps, "delta": delta, "rf": rf, "pw": pw})
             # Each step is a narrow PRI range of its own, so the chart shows it too.
             for v in steps:
                 ranges["pri"].append({**base, "min": v - delta, "max": v + delta, "step": True})
@@ -104,15 +175,9 @@ def element_coverage(db: Session, emitter_id: UUID) -> dict:
     for row in element_overview(db, emitter_id):
         kind = row["element_type"]
         stagger = row["stagger_values"]
+        note = None
         if kind == "pri" and stagger:
-            # Every step of the Element must be a step of one Stagger Mode.
-            best, by = 0, []
-            for s in staggers:
-                hit = sum(1 for v in stagger if any(abs(v - w) <= s["delta"] + EPS for w in s["steps"]))
-                if hit:
-                    by.append(s)
-                best = max(best, hit)
-            status = "covered" if best == len(stagger) else "partial" if best else "not_covered"
+            status, by, note = _stagger_cover(stagger, staggers)
             covered_by = _who(by)
         elif row["value_min"] is None and row["value_max"] is None:
             status, covered_by = "not_covered", []
@@ -129,7 +194,11 @@ def element_coverage(db: Session, emitter_id: UUID) -> dict:
                 if used:
                     status, touching = "covered", touching + used
             covered_by = _who(touching)
-        rows.append({**row, "coverage": status, "covered_by": covered_by})
+            if status == "partial":
+                note = "Runs past the " + ("EW Groups' scan ranges" if kind == "scan" else "Modes' ranges")
+        rows.append({**row, "coverage": status, "covered_by": covered_by, "note": note, "sequence": None})
+
+    rows += _sequence_rows(db, emitter_id, ranges, staggers)
 
     summary = {
         kind: {
@@ -140,3 +209,57 @@ def element_coverage(db: Session, emitter_id: UUID) -> dict:
         for kind in ("rf", "pri", "pw", "scan")
     }
     return {"elements": rows, "ranges": ranges, "summary": summary}
+
+
+def _sequence_rows(db: Session, emitter_id: UUID, ranges: dict, staggers: list[dict]) -> list[dict]:
+    """The Sources' sequences: one with PRI steps as a stagger train (one PRI
+    row); one without, a row per parameter its steps set (RF, PW)."""
+    out = []
+    sequences = (
+        db.query(ParameterSequence, Source)
+        .join(Source, ParameterSequence.source_id == Source.id)
+        .filter(Source.emitter_id == emitter_id)
+        .order_by(Source.name, ParameterSequence.sort_order)
+        .all()
+    )
+    for seq, source in sequences:
+        steps = sorted(seq.steps or [], key=lambda st: st.get("order", 0))
+
+        def spans(point, lo, hi):
+            return [r for r in (_step_range(st, point, lo, hi) for st in steps) if r is not None]
+
+        pri, rf, pw = spans("pri_us", "pri_min_us", "pri_max_us"), spans("rf_mhz", "rf_min_mhz", "rf_max_mhz"), spans(
+            "pw_us", "pw_min_us", "pw_max_us"
+        )
+        base = {
+            "value_min": None,
+            "value_max": None,
+            "stagger_values": None,
+            "jitter_min": None,
+            "jitter_max": None,
+            "occurrences": [
+                {"element_id": seq.id, "source_id": source.id, "source_name": source.name,
+                 "variant": seq.variant.value if seq.variant else None, "label": seq.label,
+                 "delta": None}
+            ],
+            "sequence": {"id": str(seq.id), "label": seq.label or "Sequence", "steps": len(steps)},
+        }
+        if pri:
+            train = [(lo + hi) / 2 for lo, hi in pri]
+            status, by, note = _stagger_cover(train, staggers, rf=_span(rf), pw=_span(pw))
+            out.append({**base, "element_type": "pri", "stagger_values": train, "coverage": status,
+                        "covered_by": _who(by), "note": note})
+            continue
+        for kind, values in (("rf", rf), ("pw", pw)):
+            if not values:
+                continue
+            results = [_cover(lo, hi, ranges[kind]) for lo, hi in values]
+            done = sum(1 for status, _ in results if status == "covered")
+            status = "covered" if done == len(results) else "not_covered" if all(
+                st == "not_covered" for st, _ in results
+            ) else "partial"
+            touching = [r for _, t in results for r in t]
+            out.append({**base, "element_type": kind, "stagger_values": [(lo + hi) / 2 for lo, hi in values],
+                        "coverage": status, "covered_by": _who(touching),
+                        "note": None if status != "partial" else f"{done} of its {len(results)} steps are covered"})
+    return out

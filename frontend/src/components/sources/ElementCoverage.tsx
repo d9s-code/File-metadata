@@ -55,6 +55,13 @@ const elementSpan = (r: ElementCoverageRow): Span | null => {
 };
 const elementKey = (r: ElementCoverageRow) => r.occurrences[0].element_id;
 
+/** An Element's values, or a sequence's steps, in words. */
+function rowValues(r: ElementCoverageRow, unit: string): string {
+  if (!r.sequence) return elementValues(r);
+  const what = r.element_type === "pri" ? "stagger" : `${r.element_type.toUpperCase()} steps`;
+  return `Sequence '${r.sequence.label}' — ${what} ${(r.stagger_values ?? []).map(num).join(", ")} ${unit}`;
+}
+
 /** Greedy rows: each item goes in the first row it fits without touching. */
 function pack<T>(items: T[], extent: (t: T) => Span): { item: T; row: number }[] {
   const ends: number[] = [];
@@ -153,12 +160,15 @@ function CoverageChart({
     tip = (
       <>
         <div>
-          <strong>{elementValues(r)}</strong>
+          <strong>{rowValues(r, type.unit)}</strong>
         </div>
         <div>
           <span className={`viz-swatch ${st.cls}`} /> {st.icon} {st.label}
-          {r.covered_by.length > 0 && ` by ${r.covered_by.map((c) => c.name).join(", ")}`}
+          {r.coverage === "covered" && r.covered_by.length > 0 && ` by ${r.covered_by.map((c) => c.name).join(", ")}`}
         </div>
+        {r.coverage !== "covered" && (r.note || r.covered_by.length > 0) && (
+          <div>{r.note ?? `Partly by ${r.covered_by.map((c) => c.name).join(", ")}`}</div>
+        )}
         <div className="hint-text">
           {sources.length === 1 ? "Source" : "Sources"}: {sources.join(", ")}
         </div>
@@ -273,9 +283,13 @@ function CoverageChart({
                   {r.stagger_values?.length ? (
                     <>
                       <line className="coverage-steps-line" x1={x0} x2={x1} y1={y + ELEMENT_H / 2} y2={y + ELEMENT_H / 2} />
-                      {r.stagger_values.map((v, i) => (
-                        <circle key={i} cx={x(v)} cy={y + ELEMENT_H / 2} r={4} />
-                      ))}
+                      {r.stagger_values.map((v, i) =>
+                        r.sequence ? (
+                          <rect key={i} x={x(v) - 4} y={y + ELEMENT_H / 2 - 4} width={8} height={8} rx={1.5} />
+                        ) : (
+                          <circle key={i} cx={x(v)} cy={y + ELEMENT_H / 2} r={4} />
+                        ),
+                      )}
                     </>
                   ) : point ? (
                     <circle cx={(x0 + x1) / 2} cy={y + ELEMENT_H / 2} r={4.5} />
@@ -343,10 +357,12 @@ export function ElementCoverage({ emitterId }: { emitterId: string }) {
           )}{" "}
           <InfoTip label="About Element coverage">
             Whether each Element in this Emitter&apos;s Sources is covered by a Mode: its RF, PRI or PW inside a
-            Mode&apos;s range (with the Mode&apos;s margin), a PRI used as a step of a Stagger Mode, a stagger Element
-            matching a Stagger Mode&apos;s steps, a scan inside an EW Group&apos;s scan range. <strong>Partly</strong>{" "}
-            means only some of it is (a range running past the Modes, some of a stagger&apos;s steps). Hover a mark to
-            see what covers it; hover a Mode to see what it covers.
+            Mode&apos;s range (with the Mode&apos;s margin), a PRI used as a step of a Stagger Mode, a scan inside an
+            EW Group&apos;s scan range. A stagger — a stagger Element, or a Source&apos;s sequence with PRI steps (in
+            step order, a range at its middle) — is checked against the Stagger Modes in order: covered by one with the
+            same steps in the same order (from any step), and a sequence&apos;s RF and PW must fit that Mode too. A
+            sequence without PRI has each step&apos;s RF and PW checked. <strong>Partly</strong> means only some of it
+            is; the note says how. Hover a mark to see what covers it; hover a Mode to see what it covers.
           </InfoTip>
         </h3>
         <button type="button" className="link-button" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
@@ -385,6 +401,7 @@ export function ElementCoverage({ emitterId }: { emitterId: string }) {
               <span>
                 <span className="viz-swatch viz-marks-swatch" /> A Stagger Mode&apos;s steps
               </span>
+              <span>● Element · ■ A Source&apos;s sequence (each step)</span>
             </div>
             <div className="coverage-charts">
               {types.map((t) => {
@@ -417,7 +434,7 @@ export function ElementCoverage({ emitterId }: { emitterId: string }) {
                       <th>Type</th>
                       <th>Values</th>
                       <th>In Sources</th>
-                      <th>Partly by</th>
+                      <th>Why</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -430,7 +447,7 @@ export function ElementCoverage({ emitterId }: { emitterId: string }) {
                             <span className={`viz-swatch ${st.cls}`} /> {st.icon} {st.label}
                           </td>
                           <td>{TYPES.find((t) => t.key === r.element_type)?.label}</td>
-                          <td>{elementValues(r)}</td>
+                          <td>{rowValues(r, TYPES.find((t) => t.key === r.element_type)?.unit ?? "")}</td>
                           <td>
                             {sources.map(([id, name], i) => (
                               <span key={id}>
@@ -439,7 +456,10 @@ export function ElementCoverage({ emitterId }: { emitterId: string }) {
                               </span>
                             ))}
                           </td>
-                          <td>{r.covered_by.map((c) => c.name).join(", ") || "—"}</td>
+                          <td>
+                            {r.note ??
+                              (r.covered_by.length ? `Partly by ${r.covered_by.map((c) => c.name).join(", ")}` : "—")}
+                          </td>
                         </tr>
                       );
                     })}
