@@ -6993,8 +6993,9 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
 .filter-bar-ranges .range-filter { display: flex; flex-direction: row; align-items: center; gap: 0.4rem; }
 .filter-bar-ranges .range-filter-label { min-width: 4.5rem; color: var(--muted); }
 .filter-bar-ranges .range-filter input { flex: 1; width: auto; min-width: 5rem; }
-/* As wide as its contents, not the page: no column takes up spare width. */
-.matrix-scroll > .data-table.emitters-table { width: max-content; min-width: 0; }
+/* The table spans the page; the name gets a set width (long names wrap)
+   and the page's spare width is shared among the other columns. */
 .emitters-table th,
 .emitters-table td { white-space: nowrap; }
+.emitters-table .emitters-name-col { width: 14rem; white-space: normal; }
 .emitters-table .sortable-th-trigger { padding-left: 0; padding-right: 0; }
