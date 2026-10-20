@@ -246,10 +246,13 @@ docker compose exec backup python scripts/backup_db.py --verify
 # "before-restore" backup first, so restoring the wrong file can be undone.
 # It empties the database, restores the file, then upgrades it to the current
 # schema (alembic upgrade head), so older backups restore too.
-# Stop the web app while it runs.
+# Stop the web app while it runs. `run --no-deps` starts a one-off container
+# that doesn't wait for the backend, so this works even when the backend
+# can't start (e.g. a database left half-restored).
 docker compose stop backend
-docker compose exec backup python scripts/restore_db.py /backups/emitterdb_20260101_030000.dump --confirm-db rf_emitter_db
-docker compose start backend
+docker compose run --rm --no-deps backup ls -lt /backups
+docker compose run --rm --no-deps backup python scripts/restore_db.py /backups/emitterdb_20260101_030000.dump --confirm-db rf_emitter_db
+docker compose up -d
 ```
 
 Without Docker, run the same scripts from `backend/` (`python scripts/backup_scheduler.py`
