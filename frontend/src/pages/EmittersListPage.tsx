@@ -378,8 +378,8 @@ export function EmittersListPage() {
                   />
                 </th>
               )}
-              {header("Name", "name", undefined, { rowSpan: 2, className: "emitters-name-col" })}
               {show("designation") && header("Designation", "designation")}
+              {header("Name", "name", undefined, { rowSpan: 2, className: "emitters-name-col" })}
               {show("status") && header("Status", "status")}
               {show("assignee") && header("Assigned to", "assignee")}
               {RANGES.map(([id, label, unit]) => (
@@ -415,10 +415,10 @@ export function EmittersListPage() {
                     />
                   </td>
                 )}
+                {show("designation") && <td>{e.designation ?? "—"}</td>}
                 <td className="emitters-name-col">
                   <Link to={`/emitters/${e.id}`}>{e.name}</Link>
                 </td>
-                {show("designation") && <td>{e.designation ?? "—"}</td>}
                 {show("status") && (
                   <td>
                     <StatusBadge type="emitter" status={e.status} />
