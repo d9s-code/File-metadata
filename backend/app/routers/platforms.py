@@ -424,9 +424,9 @@ def transition_platform_status(
     db: Session = Depends(get_db),
     user=Depends(require_role(Role.editor)),
 ) -> Platform:
-    """Move the Platform along its lifecycle. With a saved version, the move
-    is saved as a new version of it with only the status changed (pins
-    changed since stay unsaved), as for an Emitter."""
+    """Move the Platform along its lifecycle. Status is where it stands, not
+    part of its content: no version is saved for it (the Audit Log has it,
+    and the next saved version records it), as for an Emitter."""
     platform = db.query(Platform).filter(Platform.id == platform_id).with_for_update().first()
     if platform is None or platform.is_deleted:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Platform not found")
@@ -450,23 +450,9 @@ def transition_platform_status(
         summary=f"Platform '{platform.name}': {summary}",
         changes={"status": {"old": old_status, "new": target.key}, "milestones_not_met": open_ones or None},
     )
-    latest = (
-        db.query(PlatformVersion)
-        .filter(PlatformVersion.platform_id == platform.id)
-        .order_by(PlatformVersion.version_number.desc())
-        .first()
-    )
-    if latest is not None:
-        commit_version(
-            db,
-            spec=_VERSION_SPEC,
-            entity_id=platform.id,
-            snapshot={**latest.snapshot, "status": target.key},
-            change_summary=summary,
-            created_by=user.id,
-        )
-    else:
-        db.commit()
+    # Where it stands, not part of its content: no version for it (the next
+    # saved version records it).
+    db.commit()
     db.refresh(platform)
     return platform
 

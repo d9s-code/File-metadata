@@ -170,24 +170,29 @@ def test_live_diff_shows_uncommitted_change_and_clears_after_commit(editor_clien
     assert clean_again["identical"] is True
 
 
-def test_status_transition_commits_a_version(editor_client, emitter_ctx):
+def test_status_transition_saves_no_version(editor_client, emitter_ctx):
     emitter_id = emitter_ctx["emitter"]["id"]
     editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "v1"})
     resp = editor_client.post(f"/emitters/{emitter_id}/status", json={"new_status": "in_review"})
     assert resp.status_code == 200, resp.text
-    version = resp.json()
-    assert version["version_number"] == 2
+    assert resp.json()["status"] == "in_review"
+    # Where it stands, not its content: no version for it, the Audit Log has it.
+    assert [v["version_number"] for v in editor_client.get(f"/emitters/{emitter_id}/versions").json()] == [1]
+    rows = editor_client.get("/audit-log", params={"emitter_id": emitter_id}).json()["items"]
     # Written with the names people see, not the stored values.
-    assert version["change_summary"] == "Status: In progress → Testing"
-
-    emitter = editor_client.get(f"/emitters/{emitter_id}").json()
-    assert emitter["status"] == "in_review"
+    assert any("Status: In progress → Testing" in r["summary"] for r in rows)
 
 
 def test_status_change_shows_status_names_in_the_version_diff(editor_client, emitter_ctx):
     emitter_id = emitter_ctx["emitter"]["id"]
     editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "v1"})
     editor_client.post(f"/emitters/{emitter_id}/status", json={"new_status": "in_review"})
+    # Not an unsaved change...
+    live = editor_client.get(f"/emitters/{emitter_id}/diff/live").json()
+    assert live["identical"] is True
+    # ...but the next saved version records it.
+    editor_client.post(f"/emitters/{emitter_id}/checkout")
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "v2"})
     entries = editor_client.get(f"/emitters/{emitter_id}/versions/2/diff").json()["entries"]
     assert [(e["old_value"], e["new_value"]) for e in entries if e["label"] == "Status"] == [("In progress", "Testing")]
 
@@ -208,10 +213,10 @@ def test_status_transition_rejects_unknown_status(editor_client, emitter_ctx):
     assert resp.status_code == 422
 
 
-def test_status_needs_a_saved_version(editor_client, emitter_ctx):
+def test_status_can_change_before_a_version_is_saved(editor_client, emitter_ctx):
     resp = editor_client.post(f"/emitters/{emitter_ctx['emitter']['id']}/status", json={"new_status": "in_review"})
-    assert resp.status_code == 409
-    assert "Save a version first" in resp.json()["detail"]
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "in_review"
 
 
 def test_status_changes_without_the_checkout_and_leaves_unsaved_edits_alone(
@@ -227,19 +232,18 @@ def test_status_changes_without_the_checkout_and_leaves_unsaved_edits_alone(
     # Someone else moves it to Testing while it's checked out by the editor.
     resp = admin_client.post(f"/emitters/{emitter_id}/status", json={"new_status": "in_review"})
     assert resp.status_code == 200, resp.text
-    assert resp.json()["version_number"] == 2
-    snapshot = admin_client.get(f"/emitters/{emitter_id}/versions/2").json()["snapshot"]
-    names = [m["name"] for g in snapshot["ew_groups"] for m in g["modes"]]
-    assert names == ["Saved Mode"]  # the unsaved Mode isn't swept in
-    assert snapshot["status"] == "in_review"
+    assert len(admin_client.get(f"/emitters/{emitter_id}/versions").json()) == 1
 
-    # The editor's unsaved work is still there, and saves with the new status.
+    # The editor's unsaved work is still there; discarding it keeps the status.
     emitter = editor_client.get(f"/emitters/{emitter_id}").json()
     assert emitter["status"] == "in_review" and emitter["checked_out_by_username"] == "editor_t"
-    v3 = editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "more modes"}).json()
-    snapshot = editor_client.get(f"/emitters/{emitter_id}/versions/{v3['version_number']}").json()["snapshot"]
-    assert sorted(m["name"] for g in snapshot["ew_groups"] for m in g["modes"]) == ["Saved Mode", "Unsaved Mode"]
-    assert snapshot["status"] == "in_review"
+    assert editor_client.post(f"/emitters/{emitter_id}/discard").json()["status"] == "in_review"
+    modes = editor_client.get(f"/emitters/{emitter_id}/modes").json()
+    assert [m["name"] for m in modes] == ["Saved Mode"]
+    # And a revert does too.
+    editor_client.post(f"/emitters/{emitter_id}/checkout")
+    editor_client.post(f"/emitters/{emitter_id}/versions/1/revert")
+    assert editor_client.get(f"/emitters/{emitter_id}").json()["status"] == "in_review"
 
     # Still Editors only.
     assert viewer_client.post(f"/emitters/{emitter_id}/status", json={"new_status": "draft"}).status_code == 403
@@ -265,7 +269,7 @@ def test_partially_operational_sits_between_testing_and_operational(editor_clien
 
     resp = editor_client.post(status_url, json={"new_status": "partially_operational", "note": "Search Modes checked"})
     assert resp.status_code == 200, resp.text
-    assert resp.json()["change_summary"] == "Status: Testing → Partially operational — Search Modes checked"
+    assert resp.json()["status"] == "partially_operational"
 
     # To Needs rework needs a note, as from Operational.
     rework = editor_client.post(status_url, json={"new_status": "deprecated"})

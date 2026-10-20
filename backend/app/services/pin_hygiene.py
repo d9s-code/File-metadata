@@ -19,6 +19,7 @@ from app.core.enums import (
 from app.models.ambiguity import AmbiguityFinding, AmbiguityRun
 from app.models.emitter_version import EmitterVersion
 from app.models.dwell import DwellFile
+from app.models.emitter import Emitter
 from app.models.mdf import Mdf, MdfVersion
 from app.models.platform import PlatformVersion
 from app.models.test_record import TestRecord
@@ -196,19 +197,21 @@ def _dwell_check(db: Session, mdf: Mdf, latest_mdf) -> dict:
 
 def _emitter_checks(db: Session, emitters: dict[str, dict]) -> list[dict]:
     checks: list[dict] = []
+    # Status is where an Emitter stands now — not something its versions hold.
+    now = {str(eid): st for eid, st in db.query(Emitter.id, Emitter.status).filter(Emitter.id.in_([UUID(e) for e in emitters]))}
     not_operational = sorted(
-        f"{pl['emitter_name']}: {statuses.label(db, 'emitter', pl['emitter_snapshot'].get('status'))}"
-        for pl in emitters.values()
-        if pl["emitter_snapshot"].get("status") != "validated"
+        f"{pl['emitter_name']}: {statuses.label(db, 'emitter', now.get(eid))}"
+        for eid, pl in emitters.items()
+        if now.get(eid) != "validated"
     )
     checks.append(
         _item(
             "operational",
             "Emitters Operational",
             "fail" if not_operational else "ok",
-            f"{_plural(len(not_operational), 'Emitter')} not Operational in the pinned version."
+            f"{_plural(len(not_operational), 'Emitter')} not Operational."
             if not_operational
-            else "Every Emitter is Operational in the version pinned.",
+            else "Every Emitter is Operational.",
             not_operational,
         )
     )

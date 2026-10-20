@@ -520,11 +520,10 @@ def transition_mdf_status(
         changes={"status": {"old": old_status, "new": target.key}, "milestones_not_met": open_ones or None},
     )
 
-    snapshot = build_mdf_snapshot(mdf)
-    version = commit_version(
-        db, spec=_VERSION_SPEC, entity_id=mdf.id, snapshot=snapshot, change_summary=summary, created_by=user.id
-    )
-    return MdfStatusTransitionOut(**MdfVersionOut.model_validate(version).model_dump(), warnings=warnings)
+    # Where it stands, not part of its content: no version for it (the next
+    # saved version records it).
+    db.commit()
+    return MdfStatusTransitionOut(status=mdf.status, warnings=warnings)
 
 
 @router.get("/{mdf_id}/versions/{version_number}/export.xml")

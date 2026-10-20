@@ -763,7 +763,8 @@ def diff_emitter_live_state(
     emitter = _get_emitter_or_404(db, emitter_id)
     versions = list_versions(db, spec=_VERSION_SPEC, entity_id=emitter_id)
     baseline = versions[-1].snapshot if versions else {}
-    live_snapshot = build_emitter_snapshot(emitter)
+    # Status isn't part of what a save captures or a discard throws away.
+    live_snapshot = {**build_emitter_snapshot(emitter), "status": baseline.get("status")}
     return EmitterDiffOut(**compute_emitter_diff(baseline, live_snapshot, statuses.labels(db, "emitter")))
 
 
@@ -927,30 +928,21 @@ def export_emitter_xml(
     )
 
 
-@router.post("/{emitter_id}/status", response_model=EmitterVersionOut, dependencies=[Depends(verify_csrf)])
+@router.post("/{emitter_id}/status", response_model=EmitterOut, dependencies=[Depends(verify_csrf)])
 def transition_emitter_status(
     emitter_id: UUID,
     payload: StatusTransitionRequest,
     db: Session = Depends(get_db),
     user=Depends(require_role(Role.editor)),
-) -> EmitterVersion:
-    """Move the Emitter along its lifecycle. Status describes the saved
-    Emitter, not an edit to it: no checkout is needed (whoever is editing
-    keeps their unsaved work), and the version it saves is the last saved
-    version with only the status changed — never the live draft."""
+) -> Emitter:
+    """Move the Emitter along its lifecycle. Status is where the Emitter
+    stands, not part of its content: no checkout is needed (whoever is
+    editing keeps their unsaved work), no version is saved for it (the
+    Audit Log has it, and the next saved version records it), and discard
+    and revert leave it as it is."""
     emitter = db.query(Emitter).filter(Emitter.id == emitter_id).with_for_update().first()
     if emitter is None or emitter.is_deleted:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Emitter not found")
-    latest = (
-        db.query(EmitterVersion)
-        .filter(EmitterVersion.emitter_id == emitter.id)
-        .order_by(EmitterVersion.version_number.desc())
-        .first()
-    )
-    if latest is None:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT, "Save a version first — a status describes a saved version, and there isn't one yet"
-        )
     target, open_ones = milestones.check_status_move(
         db, "emitter", emitter.id, emitter.status, payload.new_status, payload.note, payload.confirm_unmet
     )
@@ -979,12 +971,9 @@ def transition_emitter_status(
         emitter_id=emitter.id,
     )
 
-    # The last saved content, with the new status — unsaved edits stay unsaved
-    # (and take the new status with them when they're saved).
-    snapshot = {**latest.snapshot, "status": target.key}
-    return commit_version(
-        db, spec=_VERSION_SPEC, entity_id=emitter.id, snapshot=snapshot, change_summary=summary, created_by=user.id
-    )
+    db.commit()
+    db.refresh(emitter)
+    return emitter
 
 
 

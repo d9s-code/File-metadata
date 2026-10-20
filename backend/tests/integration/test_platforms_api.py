@@ -216,9 +216,9 @@ def test_list_summarises_each_platforms_emitters_versions_and_mdfs(editor_client
         return e, editor_client.post(f"/emitters/{e['id']}/versions", json={"change_summary": "v"}).json()
 
     a, va = emitter_with_modes("Summary A", 2)
-    b, _ = emitter_with_modes("Summary B", 1)
-    # A status change saves a version, so pin b's after it.
-    vb = editor_client.post(f"/emitters/{b['id']}/status", json={"new_status": "in_review"}).json()
+    b, vb = emitter_with_modes("Summary B", 1)
+    # A status change saves no version: b's pin stays current.
+    editor_client.post(f"/emitters/{b['id']}/status", json={"new_status": "in_review"})
     platform = editor_client.post("/platforms", json={"name": "Summary Platform"}).json()
     for e, v in ((a, va), (b, vb)):
         editor_client.post(f"/platforms/{platform['id']}/links", json={"emitter_id": e["id"], "emitter_version_id": v["id"]})

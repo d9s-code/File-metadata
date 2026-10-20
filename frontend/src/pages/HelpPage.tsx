@@ -296,9 +296,11 @@ export function HelpPage() {
           </p>
           <p>
             Changing the status doesn&apos;t need <strong>Start editing</strong> — any Editor can, even while someone
-            else is editing. It&apos;s saved as a new version of the <em>last saved</em> version with only the status
-            changed (so the Emitter must have been saved at least once); anything being edited stays unsaved, and the
-            Changes panel says the status moved while you were editing.{" "}
+            else is editing. The status is where the Emitter stands, not part of its content, so changing it
+            doesn&apos;t save a version (the Audit Log keeps every move, and the next version you save records the
+            status it had); anything being edited stays as it is, and discarding or reverting leaves the status
+            alone. Versions saved only for a status change, before this, are folded away in the version history
+            (<strong>Show them</strong> brings them back).{" "}
             Status moves <strong>In progress</strong> → <strong>Testing</strong> →{" "}
             <strong>Operational</strong> → <strong>Needs rework</strong> (and back to In progress from
             there to start fixing it). <strong>Partially operational</strong> (yellow) sits between Testing

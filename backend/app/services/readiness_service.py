@@ -2,9 +2,12 @@
 hard gates, just information surfaced to the person making the call.
 """
 
+from uuid import UUID
+
 from sqlalchemy.orm import Session
 
 from app.core.enums import TestResult, TestScopeType
+from app.models.emitter import Emitter
 from app.models.mdf import Mdf
 from app.models.test_record import TestRecord
 
@@ -22,9 +25,14 @@ def compute_mdf_readiness_warnings(db: Session, mdf: Mdf, has_passing_test: bool
     if not referenced_emitters:
         warnings.append("This MDF has no platforms pinned yet.")
     else:
-        not_validated = [
-            e["emitter_name"] for e in referenced_emitters.values() if e["emitter_snapshot"]["status"] != "validated"
-        ]
+        # Where each Emitter stands now — status isn't something its versions hold.
+        now = {
+            str(eid): st
+            for eid, st in db.query(Emitter.id, Emitter.status).filter(
+                Emitter.id.in_([UUID(e) for e in referenced_emitters])
+            )
+        }
+        not_validated = [e["emitter_name"] for eid, e in referenced_emitters.items() if now.get(eid) != "validated"]
         if not_validated:
             names = ", ".join(sorted(not_validated))
             warnings.append(

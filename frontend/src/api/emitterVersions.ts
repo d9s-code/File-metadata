@@ -15,7 +15,7 @@ export const emitterVersionsApi = {
     ),
   liveDiff: (emitterId: string) => api.get<EmitterDiffResult>(`/emitters/${emitterId}/diff/live`),
   transitionStatus: (emitterId: string, newStatus: string, note?: string, confirmUnmet = false) =>
-    api.post<EmitterVersionSummary>(`/emitters/${emitterId}/status`, {
+    api.post<Emitter>(`/emitters/${emitterId}/status`, {
       new_status: newStatus,
       note,
       confirm_unmet: confirmUnmet,

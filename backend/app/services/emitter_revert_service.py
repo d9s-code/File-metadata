@@ -75,12 +75,8 @@ def reconcile_emitter_to_snapshot(db: Session, emitter: Emitter, snapshot: dict)
     emitter.name = snapshot["name"]
     emitter.designation = snapshot.get("designation")
     emitter.description = snapshot.get("description")
-    new_status = snapshot["status"]
-    # Mirrors transition_emitter_status's own rule: a rework note only makes
-    # sense while sitting at Needs rework.
-    if new_status != EmitterStatus.deprecated:
-        emitter.rework_note = None
-    emitter.status = new_status
+    # Status (and its rework note) is where the Emitter stands, not part of
+    # its content: a revert or discard leaves it as it is.
 
     live_sources = {str(s.id): s for s in emitter.sources}
     target_sources = snapshot.get("sources", [])

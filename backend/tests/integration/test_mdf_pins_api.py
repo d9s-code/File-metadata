@@ -49,6 +49,7 @@ def test_mdf_readiness_lists_each_check(editor_client):
         "emitter_pins",
         "operational",
         "simulation",
+        "dwells",
         "ambiguity",
         "mdf_test",
     ]
@@ -58,6 +59,7 @@ def test_mdf_readiness_lists_each_check(editor_client):
         "Ready Emitter B: In progress"
     ]
     assert checks["simulation"]["status"] == "warn"  # never simulation-tested
+    assert checks["dwells"]["status"] == "ok"  # no dwell file goes into it
     assert checks["ambiguity"]["status"] == "warn"  # never checked
 
     # A newer Emitter version than the one the pinned Platform version holds.

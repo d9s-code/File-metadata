@@ -285,7 +285,7 @@ export function EmitterEditorPage() {
       {isMine && showChanges && (
         <div className="card">
           <h4>Changes since the last saved version</h4>
-          <LiveDiffPanel emitterId={emitter.id} since={emitter.checked_out_at} />
+          <LiveDiffPanel emitterId={emitter.id} />
         </div>
       )}
 

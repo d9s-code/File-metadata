@@ -20,5 +20,8 @@ class MdfVersionDetailOut(MdfVersionOut):
     snapshot: dict
 
 
-class MdfStatusTransitionOut(MdfVersionOut):
+class MdfStatusTransitionOut(BaseModel):
+    """The MDF's status after the move, and the readiness warnings it was made with."""
+
+    status: str
     warnings: list[str] = []

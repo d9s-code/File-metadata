@@ -3,6 +3,12 @@ milestones — defaults for every item of a type, an item's own, ticked by
 hand — with a status move warning when its milestones aren't met."""
 
 
+def _last_status_summary(client, entity_type, entity_id):
+    """The latest status move's summary in the Audit Log, without the item's name."""
+    rows = client.get("/audit-log", params={"entity_type": entity_type, "entity_id": entity_id, "action": "status_change"}).json()["items"]
+    return rows[0]["summary"].split(": ", 1)[1]
+
+
 def _statuses(client, entity_type):
     return [s for s in client.get("/statuses").json() if s["entity_type"] == entity_type]
 
@@ -45,7 +51,8 @@ def test_admin_renames_adds_moves_and_deletes_a_status(admin_client, editor_clie
 
     emitter = _saved_emitter(admin_client)
     moved = admin_client.post(f"/emitters/{emitter['id']}/status", json={"new_status": "in_review"})
-    assert moved.json()["change_summary"] == "Status: In progress → Under test"
+    assert moved.json()["status"] == "in_review"
+    assert _last_status_summary(admin_client, "emitter", emitter["id"]) == "Status: In progress → Under test"
 
     # A new status, reachable from Under test, asking for a note.
     new = admin_client.post("/statuses", json={"entity_type": "emitter", "label": "Field trial", "color": "blue"}).json()
@@ -126,7 +133,7 @@ def test_milestones_warn_before_a_status_and_are_ticked_by_hand(admin_client, ed
         json={"new_status": "partially_operational", "note": "Search", "confirm_unmet": True},
     )
     assert moved.status_code == 200, moved.text
-    assert moved.json()["change_summary"].endswith("(milestones not met: Search Modes checked)")
+    assert _last_status_summary(editor_client, "emitter", emitter["id"]).endswith("(milestones not met: Search Modes checked)")
 
     # Unticking, and another Emitter's list doesn't carry this one's own.
     after = editor_client.delete(f"/milestones/{items[0]['id']}/check/{eid}").json()
@@ -158,11 +165,12 @@ def test_platform_status_and_milestones(admin_client):
     assert moved.json()["status"] == "in_review"
     assert admin_client.post(f"/platforms/{platform['id']}/status", json={"new_status": "deprecated"}).status_code == 409
 
-    # With a saved version, the move is saved as a new one.
+    # No version for a status move, saved version or not; the Audit Log has it.
     admin_client.post(f"/platforms/{platform['id']}/versions", json={"change_summary": "v1"})
     admin_client.post(f"/platforms/{platform['id']}/status", json={"new_status": "draft"})
     versions = admin_client.get(f"/platforms/{platform['id']}/versions").json()
-    assert versions[-1]["change_summary"] == "Status: Testing → In progress"
+    assert [v["change_summary"] for v in versions] == ["Initial platform creation", "v1"]
+    assert _last_status_summary(admin_client, "platform", platform["id"]) == "Status: Testing → In progress"
 
 
 def test_mdf_status_uses_its_definitions(admin_client):
@@ -171,4 +179,6 @@ def test_mdf_status_uses_its_definitions(admin_client):
     admin_client.patch(f"/statuses/{pending['id']}", json={"label": "With the customer"})
     resp = admin_client.post(f"/mdfs/{mdf['id']}/status", json={"new_status": "pending_review"})
     assert resp.status_code == 200, resp.text
-    assert resp.json()["change_summary"] == "Status: Draft → With the customer"
+    assert resp.json()["status"] == "pending_review"
+    assert admin_client.get(f"/mdfs/{mdf['id']}/versions").json() == []
+    assert _last_status_summary(admin_client, "mdf", mdf["id"]) == "Status: Draft → With the customer"

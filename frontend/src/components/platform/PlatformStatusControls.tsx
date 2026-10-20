@@ -1,8 +1,8 @@
 import { useTransitionPlatformStatus } from "../../state/hooks/usePlatforms";
 import { StatusControls } from "../status/StatusControls";
 
-/** Moving the Platform along its lifecycle. With a saved version, the move
- * is saved as a new version with only the status changed. */
+/** Moving the Platform along its lifecycle — where it stands, not part of
+ * its content, so no version is saved for it. */
 export function PlatformStatusControls({ platformId, status }: { platformId: string; status: string }) {
   const transition = useTransitionPlatformStatus(platformId);
   return (
