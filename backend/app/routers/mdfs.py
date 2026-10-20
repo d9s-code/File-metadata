@@ -22,12 +22,12 @@ from app.schemas.mdf_note import MdfNoteCreate, MdfNoteOut
 from app.services.platform_coverage import mdf_coverage
 from app.schemas.mdf_version import MdfStatusTransitionOut, MdfVersionDetailOut, MdfVersionOut
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
-from app.services.dwell_service import mdf_dwell_files
+from app.services.dwell_service import commit_file, mdf_dwell_files, unsaved_files
 from app.services.prs_export.packager import build_mdf_export_zip
 from app.services.pin_hygiene import latest_platform_versions, mdf_readiness
 from app.services.readiness_service import compute_mdf_readiness_warnings
 from app.services.snapshots import build_mdf_snapshot
-from app.services.pinned_diff_service import compute_pinned_diff
+from app.services.pinned_diff_service import compute_pinned_diff, dwell_file_entries
 from app.services.versioning_service import VersionSpec, commit_version, diff_versions, get_version, list_versions
 from app.xml_export.serializer import serialize_mdf_snapshot_to_xml
 
@@ -408,6 +408,18 @@ def commit_mdf_version(
     user=Depends(require_role(Role.editor)),
 ) -> MdfVersion:
     mdf = _get_mdf_or_404(db, mdf_id)
+    # Its dwell files go in as they are now: one changed since its last saved
+    # version (or never saved) is saved first, so the MDF version holds it.
+    for dwell_file in unsaved_files(db, mdf.id):
+        saved = commit_file(db, dwell_file, f"Saved with MDF '{mdf.name}'", user.id)
+        record_audit(
+            db,
+            actor_id=user.id,
+            action=AuditAction.commit,
+            entity_type=AuditEntityType.dwell_file.value,
+            entity_id=dwell_file.id,
+            summary=f"Saved v{saved.version_number} of dwell file '{dwell_file.name}' with MDF '{mdf.name}'",
+        )
     snapshot = build_mdf_snapshot(mdf)
     record_audit(
         db,
@@ -460,7 +472,7 @@ def diff_mdf_version(
     new = get_version(db, spec=_VERSION_SPEC, entity_id=mdf_id, version_number=version_number)
     entries = compute_pinned_diff(
         old.snapshot, new.snapshot, own="MDF", child="platform", status_labels=statuses.labels(db, "mdf")
-    )
+    ) + dwell_file_entries(old.snapshot, new.snapshot)
     return DiffOut(**result, entries=entries)
 
 
@@ -557,7 +569,7 @@ def export_mdf_version_prs(
     if version is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Version not found")
 
-    dwell_files = mdf_dwell_files(db, mdf_id)
+    dwell_files = mdf_dwell_files(db, mdf_id, version.snapshot)
     zip_bytes = build_mdf_export_zip(version.snapshot, mdf_id=str(mdf_id), dwell_files=dwell_files)
     filename = f"mdf_{mdf_id}_v{version_number}_prs.zip"
     return Response(

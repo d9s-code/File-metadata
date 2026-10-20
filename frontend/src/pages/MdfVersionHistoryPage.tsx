@@ -4,7 +4,6 @@ import { useMdf } from "../state/hooks/useMdfs";
 import { useCommitMdfVersion, useMdfVersionDiff, useMdfVersions } from "../state/hooks/useMdfVersions";
 import { VersionList } from "../components/versioning/VersionList";
 import { VersionPanel } from "../components/versioning/VersionPanel";
-import { ExportXmlButton } from "../components/mdf/ExportXmlButton";
 import { ExportPrsButton } from "../components/versioning/ExportPrsButton";
 import { SaveVersionButton } from "../components/versioning/SaveVersionButton";
 import { LoadingState } from "../components/common/LoadingState";
@@ -63,10 +62,7 @@ export function MdfVersionHistoryPage() {
             diff={diff && { entries: diff.entries ?? [], identical: diff.identical }}
             loading={diffLoading}
             actions={
-              <>
-                  <ExportXmlButton mdfId={mdf.id} versionNumber={selected} />
-                  <ExportPrsButton kind="mdf" id={mdf.id} versionNumber={selected} />
-                </>
+<ExportPrsButton kind="mdf" id={mdf.id} versionNumber={selected} />
             }
           />
         )}

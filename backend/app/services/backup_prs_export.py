@@ -131,7 +131,7 @@ def build_repository_prs_zip(db: Session, taken_at: datetime) -> tuple[bytes, di
             version = versions.get(mdf.id)
             snapshot = version.snapshot if version else build_mdf_snapshot(mdf)
             folder = _unique(mdf.name, taken)
-            dwell_files = mdf_dwell_files(db, mdf.id)
+            dwell_files = mdf_dwell_files(db, mdf.id, version.snapshot if version else None)
             summary["files"] += _add_package(
                 out, f"mdfs/{folder}", build_mdf_export_zip(snapshot, mdf_id=str(mdf.id), dwell_files=dwell_files)
             )

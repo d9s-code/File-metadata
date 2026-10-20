@@ -167,6 +167,10 @@ def build_platform_snapshot(platform: Platform) -> dict:
 
 
 def build_mdf_snapshot(mdf: Mdf) -> dict:
+    from sqlalchemy.orm import object_session
+
+    from app.services.dwell_service import mdf_dwell_pins
+
     return {
         "id": str(mdf.id),
         "name": mdf.name,
@@ -182,4 +186,6 @@ def build_mdf_snapshot(mdf: Mdf) -> dict:
             }
             for link in sorted(mdf.links, key=lambda link: link.platform.name)
         ],
+        # Its dwell files, each at its latest saved version.
+        "dwell_files": mdf_dwell_pins(object_session(mdf), mdf.id),
     }

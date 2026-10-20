@@ -40,3 +40,31 @@ def compute_pinned_diff(
                 )
             )
     return entries
+
+
+def dwell_file_entries(old: dict, new: dict) -> list[dict]:
+    """An MDF's dwell files between two versions: added, removed, or at
+    another saved version. Versions saved before MDF versions kept their dwell
+    files have none to compare."""
+    if "dwell_files" not in old or "dwell_files" not in new:
+        return []
+    entries: list[dict] = []
+    before = {d["dwell_file_id"]: d for d in old["dwell_files"]}
+    after = {d["dwell_file_id"]: d for d in new["dwell_files"]}
+    for file_id, d in after.items():
+        if file_id not in before:
+            entries.append(_entry(f"Dwell file '{d['name']}'", "Added", "added", new_value=f"At its v{d['version_number']}"))
+        elif before[file_id]["version_number"] != d["version_number"]:
+            entries.append(
+                _entry(
+                    f"Dwell file '{d['name']}'",
+                    "Saved version",
+                    "changed",
+                    f"v{before[file_id]['version_number']}",
+                    f"v{d['version_number']}",
+                )
+            )
+    for file_id, d in before.items():
+        if file_id not in after:
+            entries.append(_entry(f"Dwell file '{d['name']}'", "Removed", "removed", old_value=f"Was at its v{d['version_number']}"))
+    return entries

@@ -18,6 +18,7 @@ from app.core.enums import (
 )
 from app.models.ambiguity import AmbiguityFinding, AmbiguityRun
 from app.models.emitter_version import EmitterVersion
+from app.models.dwell import DwellFile
 from app.models.mdf import Mdf, MdfVersion
 from app.models.platform import PlatformVersion
 from app.models.test_record import TestRecord
@@ -146,8 +147,51 @@ def mdf_readiness(db: Session, mdf: Mdf) -> list[dict]:
     else:
         checks.extend(_emitter_checks(db, emitters))
 
+    checks.append(_dwell_check(db, mdf, latest_mdf))
     _ambiguity_and_mdf_test(db, mdf, latest_mdf, checks)
     return checks
+
+
+def _dwell_check(db: Session, mdf: Mdf, latest_mdf) -> dict:
+    """Its dwell files: changed since saved (saved with the next MDF version),
+    saved since the latest MDF version (not in it yet), a Strategy pinned at
+    a version with no dwells, or one with a newer saved version."""
+    from app.services.dwell_service import file_snapshot, latest_file_version, latest_strategy_version
+
+    files = db.query(DwellFile).filter(DwellFile.mdf_id == mdf.id).order_by(DwellFile.name).all()
+    if not files:
+        return _item("dwells", "Dwell files", "ok", "No dwell file goes into this MDF.")
+    in_mdf = {d["dwell_file_id"]: d["version_number"] for d in (latest_mdf.snapshot.get("dwell_files", []) if latest_mdf else [])}
+    problems: list[str] = []
+    warn = False
+    for f in files:
+        latest = latest_file_version(db, f.id)
+        if latest is None or latest.snapshot != file_snapshot(f):
+            problems.append(f"{f.name}: changed since it was saved — saving the MDF saves it too")
+            warn = True
+        elif latest_mdf is not None and in_mdf.get(str(f.id)) != latest.version_number:
+            problems.append(f"{f.name}: v{latest.version_number} isn't in MDF v{latest_mdf.version_number} yet — save a version")
+            warn = True
+        if not f.links:
+            problems.append(f"{f.name}: no Strategy in it — its file would be empty")
+            warn = True
+        for link in f.links:
+            if not (link.strategy_version.snapshot.get("dwells") or []):
+                problems.append(f"{f.name} → {link.strategy.name}: v{link.strategy_version.version_number} pinned has no dwells")
+                warn = True
+            newest = latest_strategy_version(db, link.strategy_id)
+            if newest and newest.version_number > link.strategy_version.version_number:
+                problems.append(
+                    f"{f.name} → {link.strategy.name}: v{link.strategy_version.version_number} pinned, v{newest.version_number} saved"
+                )
+                warn = True
+    return _item(
+        "dwells",
+        "Dwell files",
+        "warn" if warn else "ok",
+        f"{_plural(len(problems), 'thing')} to look at in its dwell files." if warn else f"{_plural(len(files), 'dwell file')}, saved and up to date.",
+        problems,
+    )
 
 
 def _emitter_checks(db: Session, emitters: dict[str, dict]) -> list[dict]:

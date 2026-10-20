@@ -478,7 +478,9 @@ Two things worth knowing:
 - **Confirmation quality/quantity** come from each Mode (see [Confirmation quality & quantity](#confirmation-quality--quantity)); snapshots taken before these fields existed export as 100 and 2.
 - **Not yet exported at all:** per-parameter deltas (`rf_delta`/`pw_delta`/`pri_delta`), `frame_time_delta_us`, Range Matching flags, and EW Group `ageout`. None of these existed when the export mapping was built; whether they belong in the target XML format (and under what tag names) is undecided — see [docs/XML_IMPORT_BRIEF.md](XML_IMPORT_BRIEF.md), which flags this explicitly since it matters for any future import work too.
 
-Export is available from the MDF page (latest committed version) and from the MDF's Version History page (any specific version) — click **Export XML** to download.
+Export is available from the MDF page (**Export PRS**, the latest saved version) and from the MDF's Version History page (any version) — one PRS package: its Platforms, Emitters and dwell files. (The older single-file MDF XML, with placeholder tags, is no longer offered in the app; `GET /mdfs/{id}/versions/{n}/export.xml` still answers.)
+
+**An MDF version keeps its dwell files.** Saving an MDF version records each of its dwell files at a saved version, whole, and the version's export writes those — so exporting an older MDF version gives the dwells it had then. A dwell file changed since it was last saved (or never saved) is **saved with the MDF** first ("Saved with MDF '…'"), so what you see is what goes in. The version's changes list dwell files added, removed or at another saved version, and the MDF's readiness checklist has a **Dwell files** item: one changed since saved, saved since the latest MDF version (not in it yet), with no Strategy, pinning a Strategy version with no dwells, or behind its Strategy's latest. MDF versions saved before this have no dwell files recorded; their export uses each file's latest saved version, as before.
 
 ---
 

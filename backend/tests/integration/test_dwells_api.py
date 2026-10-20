@@ -157,21 +157,44 @@ def test_bandwidth_default_is_an_admin_setting(admin_client, editor_client):
     assert editor_client.patch(f"/dwell-strategies/{strategy['id']}", json={"bandwidth_mhz": 40}).json()["bandwidth_mhz"] == 40
 
 
-def test_an_mdf_export_carries_its_dwell_files_saved_version(editor_client):
+def test_an_mdf_version_keeps_the_dwell_files_it_was_saved_with(editor_client):
     platform = _platform(editor_client, "Dwell Platform")
     pv = editor_client.post(f"/platforms/{platform['id']}/versions", json={}).json()
     mdf = editor_client.post("/mdfs", json={"name": "Dwell MDF"}).json()
     editor_client.post(f"/mdfs/{mdf['id']}/links", json={"platform_id": platform["id"], "platform_version_id": pv["id"]})
-    editor_client.post(f"/mdfs/{mdf['id']}/versions", json={})
+    editor_client.post(f"/mdfs/{mdf['id']}/versions", json={})  # v1: no dwell file yet
     dwell_file = _import(editor_client).json()
     editor_client.patch(f"/dwell-strategies/{dwell_file['links'][0]['strategy_id']}", json={"platform_ids": [platform["id"]]})
     body = editor_client.patch(f"/dwell-files/{dwell_file['id']}", json={"mdf_id": mdf["id"]}).json()
     assert body["mdf_name"] == "Dwell MDF" and body["links"][0]["platforms_not_in_mdf"] == []
-    # Changed but not saved: the export has the saved version.
-    editor_client.patch(f"/dwell-files/{dwell_file['id']}", json={"timeout": 9})
 
-    package = zipfile.ZipFile(io.BytesIO(editor_client.get(f"/mdfs/{mdf['id']}/versions/1/export/prs").content))
-    assert _canonical(package.read("dwells/Northern_dwells.xml")) == _canonical(EXAMPLE)
+    def export(number):
+        resp = editor_client.get(f"/mdfs/{mdf['id']}/versions/{number}/export/prs")
+        return zipfile.ZipFile(io.BytesIO(resp.content))
+
+    def readiness():
+        checks = editor_client.get(f"/mdfs/{mdf['id']}/readiness").json()
+        return next(c for c in checks if c["key"] == "dwells")
+
+    # Changed, not saved: the MDF's readiness says saving the MDF saves it too.
+    editor_client.patch(f"/dwell-files/{dwell_file['id']}", json={"timeout": 9})
+    assert readiness()["status"] == "warn" and "saving the MDF saves it too" in readiness()["items"][0]
+
+    v2 = editor_client.post(f"/mdfs/{mdf['id']}/versions", json={}).json()
+    assert v2["version_number"] == 2
+    versions = editor_client.get(f"/dwell-files/{dwell_file['id']}/versions").json()
+    assert versions[-1]["change_summary"] == "Saved with MDF 'Dwell MDF'"
+    assert readiness()["status"] == "ok"
+    assert b'timeout="9"' in export(2).read("dwells/Northern_dwells.xml")
+    assert not [n for n in export(1).namelist() if n.startswith("dwells/")]
+    diff = editor_client.get(f"/mdfs/{mdf['id']}/versions/2/diff").json()["entries"]
+    assert any(e["scope"] == "Dwell file 'Northern dwells'" and e["kind"] == "added" for e in diff)
+
+    # Later changes, even saved, stay out of v2 until the MDF is saved again.
+    editor_client.patch(f"/dwell-files/{dwell_file['id']}", json={"timeout": 4})
+    editor_client.post(f"/dwell-files/{dwell_file['id']}/versions", json={})
+    assert b'timeout="9"' in export(2).read("dwells/Northern_dwells.xml")
+    assert "isn't in MDF v2 yet" in readiness()["items"][0]
 
 
 def test_a_test_run_records_the_strategy_version_used(editor_client):

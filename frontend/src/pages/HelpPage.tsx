@@ -937,9 +937,11 @@ export function HelpPage() {
             named set of dwells (e.g. &quot;Summer&quot;) for one or more Platforms — a Platform can have several, and
             one Strategy can cover several Platforms. With no Platform ticked it&apos;s a <strong>default dwell</strong>:
             not tied to any Platform, typically a larger sweep, listed first. A <strong>dwell file</strong> pins saved
-            versions of any Strategies — a Platform can have several in one file; linked to an MDF, its
-            latest saved version goes into that MDF&apos;s export as dwells/&lt;name&gt;.xml. The same Strategy can be in
-            several files.
+            versions of any Strategies — a Platform can have several in one file; linked to an MDF, it goes into
+            that MDF&apos;s export as dwells/&lt;name&gt;.xml. <strong>Saving an MDF version</strong> records its dwell
+            files at a saved version (saving any changed since, first), so exporting that MDF version always gives the
+            same dwells; the MDF&apos;s readiness checklist flags a dwell file that&apos;s changed, empty, or behind.
+            The same Strategy can be in several files.
           </p>
           <p>
             On a Strategy&apos;s page you edit its <strong>dwells</strong> in order: each a frequency in MHz (as in the

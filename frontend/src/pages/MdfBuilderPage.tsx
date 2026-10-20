@@ -12,7 +12,6 @@ import { isOutdatedMdfPin } from "../api/mdfs";
 import { MdfCharts } from "../components/platform/PlatformCharts";
 import { PlatformVersionPicker } from "../components/mdf/PlatformVersionPicker";
 import { MdfStatusTransitionControls } from "../components/mdf/MdfStatusTransitionControls";
-import { downloadMdfXml } from "../components/mdf/ExportXmlButton";
 import { downloadPrs } from "../components/versioning/ExportPrsButton";
 import { LatestVersion, SaveVersionButton } from "../components/versioning/SaveVersionButton";
 import { EntityHeader } from "../components/common/EntityHeader";
@@ -115,23 +114,21 @@ export function MdfBuilderPage() {
               save={(summary) => commitVersion.mutateAsync(summary)}
               pending={commitVersion.isPending}
             />
-            <MenuButton
-              label="Export ▾"
-              items={
+            <button
+              type="button"
+              className="button secondary"
+              disabled={!latestVersion}
+              title={
                 latestVersion
-                  ? [
-                      {
-                        label: `XML (v${latestVersion.version_number})`,
-                        onSelect: () => void runExport(() => downloadMdfXml(mdf.id, latestVersion.version_number)),
-                      },
-                      {
-                        label: `PRS package (v${latestVersion.version_number})`,
-                        onSelect: () => void runExport(() => downloadPrs("mdf", mdf.id, latestVersion.version_number)),
-                      },
-                    ]
-                  : [{ label: "Save a version first — exports come from a saved version", disabled: true }]
+                  ? `The PRS package of v${latestVersion.version_number}: its Platforms, Emitters and dwell files`
+                  : "Save a version first — exports come from a saved version"
               }
-            />
+              onClick={() =>
+                latestVersion && void runExport(() => downloadPrs("mdf", mdf.id, latestVersion.version_number))
+              }
+            >
+              Export PRS{latestVersion ? ` (v${latestVersion.version_number})` : ""}
+            </button>
             <MenuButton
               label="More ▾"
               items={[

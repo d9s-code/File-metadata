@@ -52,6 +52,7 @@ from app.schemas.dwell import (
 from app.services import app_settings
 from app.services.audit_service import record_audit
 from app.services.dwell_service import (
+    commit_file,
     file_diff,
     file_snapshot,
     latest_file_version,
@@ -516,25 +517,6 @@ def _file_name_free(db: Session, name: str, file_id=None) -> str:
     return name
 
 
-def _commit_file(db: Session, dwell_file: DwellFile, summary: str | None, user_id) -> DwellFileVersion:
-    db.flush()
-    db.refresh(dwell_file)
-    number = (
-        db.query(func.max(DwellFileVersion.version_number)).filter(DwellFileVersion.dwell_file_id == dwell_file.id).scalar()
-        or 0
-    ) + 1
-    version = DwellFileVersion(
-        dwell_file_id=dwell_file.id,
-        version_number=number,
-        snapshot=file_snapshot(dwell_file),
-        change_summary=summary,
-        created_by=user_id,
-    )
-    db.add(version)
-    db.flush()
-    return version
-
-
 def _file_out(db: Session, dwell_file: DwellFile) -> DwellFileOut:
     pinned = None
     if dwell_file.mdf_id is not None:
@@ -632,7 +614,7 @@ def create_file(payload: DwellFileCreate, db: Session = Depends(get_db), user=De
     dwell_file = DwellFile(name=name, mdf_id=payload.mdf_id, timeout=5, setup_time=5, created_by=user.id)
     db.add(dwell_file)
     db.flush()
-    _commit_file(db, dwell_file, "Created", user.id)
+    commit_file(db, dwell_file, "Created", user.id)
     _audit(db, user, AuditAction.create, AuditEntityType.dwell_file, dwell_file.id, f"Created dwell file '{name}'")
     db.commit()
     db.refresh(dwell_file)
@@ -673,7 +655,7 @@ def import_file(
         db.flush()
         version = _commit_strategy(db, strategy, f"Imported from '{name}'", user.id)
         _pin(db, dwell_file, strategy, version)
-    _commit_file(db, dwell_file, "Imported", user.id)
+    commit_file(db, dwell_file, "Imported", user.id)
     _audit(
         db, user, AuditAction.create, AuditEntityType.dwell_file, dwell_file.id,
         f"Imported dwell file '{name}' ({len(parsed['strategies'])} Strategies)",
@@ -836,7 +818,7 @@ def commit_file_version(
 ) -> DwellFileVersion:
     dwell_file = _file_or_404(db, file_id)
     summary = (payload.change_summary or "").strip() or None
-    version = _commit_file(db, dwell_file, summary, user.id)
+    version = commit_file(db, dwell_file, summary, user.id)
     _audit(
         db, user, AuditAction.commit, AuditEntityType.dwell_file, dwell_file.id,
         f"Saved v{version.version_number} of dwell file '{dwell_file.name}'" + (f" — {summary}" if summary else ""),

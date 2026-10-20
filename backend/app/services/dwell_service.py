@@ -2,6 +2,7 @@
 and what a file's XML is written from), and the readable changes between
 two versions."""
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.dwell import DwellFile, DwellFileVersion, DwellStrategy, DwellStrategyVersion
@@ -149,12 +150,60 @@ def file_diff(old: dict, new: dict) -> list[dict]:
     return entries
 
 
-def mdf_dwell_files(db: Session, mdf_id) -> dict[str, bytes]:
-    """An MDF's dwell files for its export, each as its latest saved version
-    (as an MDF uses its Platforms' saved versions), by name."""
-    out = {}
+def commit_file(db: Session, dwell_file: DwellFile, summary: str | None, user_id) -> DwellFileVersion:
+    """Saves the file as it is now as its next version."""
+    db.flush()
+    db.refresh(dwell_file)
+    number = (
+        db.query(func.max(DwellFileVersion.version_number)).filter(DwellFileVersion.dwell_file_id == dwell_file.id).scalar()
+        or 0
+    ) + 1
+    version = DwellFileVersion(
+        dwell_file_id=dwell_file.id,
+        version_number=number,
+        snapshot=file_snapshot(dwell_file),
+        change_summary=summary,
+        created_by=user_id,
+    )
+    db.add(version)
+    db.flush()
+    return version
+
+
+def unsaved_files(db: Session, mdf_id) -> list[DwellFile]:
+    """The MDF's dwell files whose current state isn't their latest saved
+    version (or that have never been saved)."""
+    out = []
+    for dwell_file in db.query(DwellFile).filter(DwellFile.mdf_id == mdf_id).order_by(DwellFile.name):
+        latest = latest_file_version(db, dwell_file.id)
+        if latest is None or latest.snapshot != file_snapshot(dwell_file):
+            out.append(dwell_file)
+    return out
+
+
+def mdf_dwell_pins(db: Session, mdf_id) -> list[dict]:
+    """What an MDF version keeps of its dwell files: each one's latest saved
+    version, whole, so the version's export is written from it alone."""
+    pins = []
     for dwell_file in db.query(DwellFile).filter(DwellFile.mdf_id == mdf_id).order_by(DwellFile.name):
         saved = latest_file_version(db, dwell_file.id)
         if saved is not None:
-            out[dwell_file.name] = build_dwell_xml(saved.snapshot)
-    return out
+            pins.append(
+                {
+                    "dwell_file_id": str(dwell_file.id),
+                    "name": dwell_file.name,
+                    "version_id": str(saved.id),
+                    "version_number": saved.version_number,
+                    "snapshot": saved.snapshot,
+                }
+            )
+    return pins
+
+
+def mdf_dwell_files(db: Session, mdf_id, mdf_snapshot: dict | None = None) -> dict[str, bytes]:
+    """An MDF's dwell files for its export, by name: the versions an MDF
+    version recorded — or, for one saved before MDF versions kept them (or
+    no version given), each file's latest saved version."""
+    if mdf_snapshot is not None and "dwell_files" in mdf_snapshot:
+        return {d["name"]: build_dwell_xml(d["snapshot"]) for d in mdf_snapshot["dwell_files"]}
+    return {d["name"]: build_dwell_xml(d["snapshot"]) for d in mdf_dwell_pins(db, mdf_id)}
