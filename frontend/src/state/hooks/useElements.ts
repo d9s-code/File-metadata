@@ -15,6 +15,17 @@ export function cartesianRunsKey(emitterId: string, sourceId: string) {
   return ["cartesian-runs", emitterId, sourceId] as const;
 }
 
+/** Which Elements the Modes cover. Keyed under the overview (so Element
+ * changes refresh it) and on when the Modes and EW Groups were last read (so
+ * Mode changes do too). */
+export function useElementCoverage(emitterId: string, modesAt: number, groupsAt: number) {
+  return useQuery({
+    queryKey: [...elementOverviewKey(emitterId), "coverage", modesAt, groupsAt],
+    queryFn: () => elementsApi.coverage(emitterId),
+    placeholderData: (previous) => previous,
+  });
+}
+
 /** Every distinct Element across the Emitter's Sources. */
 export function useElementOverview(emitterId: string) {
   return useQuery({ queryKey: elementOverviewKey(emitterId), queryFn: () => elementsApi.overview(emitterId) });

@@ -591,6 +591,15 @@ export function HelpPage() {
               steps are picked on their own Source.
             </p>
             <p>
+              <strong>Element coverage</strong>, under All Sources, shows which of those Elements the Modes cover:
+              <strong> ✓ covered</strong>, <strong>½ partly</strong> (a range running past the Modes, or some of a
+              stagger&apos;s steps) or <strong>✕ not covered</strong> — an RF, PRI or PW inside a Mode&apos;s range with
+              its margin, a PRI used as a Stagger Mode&apos;s step, a stagger matching a Stagger Mode&apos;s steps, a scan
+              inside an EW Group&apos;s scan range. Tick under <strong>Include</strong> which parameters count. Each has a
+              chart — the Modes&apos; ranges above, the Elements below; hover either to see what covers what — and the
+              Elements not wholly covered are listed under it, with their Sources.
+            </p>
+            <p>
               An Element can carry a <strong>measurement variant</strong> — <em>typical</em>,{" "}
               <em>discrete</em>, <em>most probable</em>, <em>extreme</em>, <em>intercept</em>, or{" "}
               <em>analysis</em> — shown as a <span className="hint-text">[variant]</span> tag before its

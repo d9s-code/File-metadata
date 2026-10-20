@@ -72,6 +72,31 @@ export interface ElementOverviewRow {
   }[];
 }
 
+export type Coverage = "covered" | "partial" | "not_covered";
+
+/** A distinct Element and how much of it the Modes (for scan: the EW Groups) cover. */
+export interface ElementCoverageRow extends ElementOverviewRow {
+  coverage: Coverage;
+  covered_by: { id: string; name: string; kind: "mode" | "ew_group" }[];
+}
+
+/** A Mode's (or EW Group's) range with its margin; `step` is one step of a Stagger Mode. */
+export interface CoverageRange {
+  id: string;
+  name: string;
+  kind: "mode" | "ew_group";
+  group: string;
+  min: number;
+  max: number;
+  step: boolean;
+}
+
+export interface ElementCoverage {
+  elements: ElementCoverageRow[];
+  ranges: Record<ElementType, CoverageRange[]>;
+  summary: Record<ElementType, Record<Coverage, number>>;
+}
+
 /** An Element as it was used in a cartesian run (delta: the margin used). */
 export interface CartesianRunElement {
   element_type: ElementType;
@@ -148,6 +173,7 @@ export const elementsApi = {
   delete: (emitterId: string, sourceId: string, elementId: string) =>
     api.delete<void>(`${base(emitterId, sourceId)}/${elementId}`),
   overview: (emitterId: string) => api.get<ElementOverviewRow[]>(`/emitters/${emitterId}/element-overview`),
+  coverage: (emitterId: string) => api.get<ElementCoverage>(`/emitters/${emitterId}/element-coverage`),
   cartesianRuns: (emitterId: string, sourceId: string) =>
     api.get<CartesianRun[]>(`/emitters/${emitterId}/sources/${sourceId}/cartesian-runs`),
   /** Modes from All Sources: the merged Elements of every Source. Any Element

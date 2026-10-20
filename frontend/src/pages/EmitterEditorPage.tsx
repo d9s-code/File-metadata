@@ -8,6 +8,7 @@ import { useCreateEmitterNote, useDeleteEmitterNote, useEmitterNotes } from "../
 import { emittersApi } from "../api/emitters";
 import { EwGroupsTable } from "../components/ewGroups/EwGroupsTable";
 import { ElementOverview } from "../components/sources/ElementOverview";
+import { ElementCoverage } from "../components/sources/ElementCoverage";
 import { SourcesTable } from "../components/sources/SourcesTable";
 import { ModesSection } from "../components/modes/ModesSection";
 import { EmitterIntercepts } from "../components/intercepts/EmitterIntercepts";
@@ -328,6 +329,7 @@ export function EmitterEditorPage() {
           linkedSourceId={searchParams.get("source") ?? undefined}
         />
         <ElementOverview emitterId={emitter.id} ewGroups={ewGroups ?? []} />
+        <ElementCoverage emitterId={emitter.id} />
       </div>
 
       <div hidden={tab !== "intercepts"}>

@@ -6836,3 +6836,60 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
   margin-right: auto;
   font-size: 0.8rem;
 }
+
+/* Element coverage: Modes' ranges above, Elements below, per parameter. */
+.element-coverage .coverage-legend {
+  margin: 0.2rem 0 0.6rem;
+  font-size: 0.85rem;
+}
+.coverage-charts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.coverage-chart .viz-plot svg text {
+  font-size: 11px;
+}
+.viz-plot .coverage-grid { stroke: var(--viz-grid); stroke-width: 1; }
+.viz-plot .coverage-axis { stroke: var(--viz-axis); stroke-width: 1; }
+.viz-plot .coverage-tick { fill: var(--viz-ink-muted); }
+.viz-plot .coverage-lane-label { fill: var(--muted); font-weight: 600; }
+.viz-plot .coverage-break rect { fill: var(--viz-grid); fill-opacity: 0.5; }
+.viz-plot .coverage-break text { fill: var(--viz-ink-muted); }
+.viz-plot .coverage-hit { fill: transparent; stroke: none; }
+.viz-plot .coverage-range rect:not(.coverage-hit) { fill: var(--viz-ink-muted); fill-opacity: 0.55; }
+.viz-plot .coverage-range:hover rect:not(.coverage-hit) { fill-opacity: 0.9; }
+.viz-plot .coverage-steps-line { stroke: var(--viz-ink-muted); stroke-width: 1; stroke-opacity: 0.6; }
+.viz-plot .coverage-element circle,
+.viz-plot .coverage-element rect:not(.coverage-hit) { stroke: var(--card-bg); stroke-width: 1.5; }
+.viz-plot .coverage-element .coverage-steps-line { stroke-width: 1.5; stroke-opacity: 1; }
+.viz-plot .coverage-element.status-good .coverage-steps-line { stroke: var(--status-good); }
+.viz-plot .coverage-element.status-warning .coverage-steps-line { stroke: var(--status-warning); }
+.viz-plot .coverage-element.status-critical .coverage-steps-line { stroke: var(--status-critical); }
+.viz-plot .coverage-element { cursor: default; }
+.viz-plot .coverage-element .coverage-hit,
+.viz-plot .coverage-range .coverage-hit { cursor: pointer; }
+.viz-swatch.coverage-range-swatch { background: var(--viz-ink-muted); opacity: 0.55; height: 6px; border-radius: 3px; }
+.coverage-tip { min-width: 14rem; }
+.coverage-type-summary { margin: 0.15rem 0 0; font-size: 0.8rem; }
+.coverage-gaps caption { text-align: left; font-weight: 600; padding: 0.6rem 0 0.3rem; color: var(--text); }
+.coverage-state { white-space: nowrap; }
+.coverage-all-good { margin: 0.6rem 0 0.2rem; }
+.coverage-include {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 1rem;
+  margin: 0.2rem 0 0.4rem;
+}
+.coverage-include .checkbox-label {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+.coverage-include .checkbox-label input {
+  width: auto;
+  margin: 0;
+}

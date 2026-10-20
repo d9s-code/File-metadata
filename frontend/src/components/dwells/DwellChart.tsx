@@ -71,7 +71,7 @@ export function dwellCoverage(spans: Span[], bands: Span[]): number {
   return covered / total;
 }
 
-interface XScale {
+export interface XScale {
   x: (mhz: number) => number;
   ticks: number[];
   /** Cut-out stretches, in px, to mark on the chart. */

@@ -181,6 +181,46 @@ class ElementOverviewRow(BaseModel):
     occurrences: list[ElementOccurrence]
 
 
+class CoveredBy(BaseModel):
+    """A Mode (or, for a scan, an EW Group) whose range holds some of an Element."""
+
+    id: str
+    name: str
+    kind: str  # "mode" or "ew_group"
+
+
+class ElementCoverageRow(ElementOverviewRow):
+    # "covered", "partial" or "not_covered".
+    coverage: str
+    covered_by: list[CoveredBy]
+
+
+class CoverageRange(BaseModel):
+    """A Mode's (or EW Group's) range with its margin; `step` marks one step of a
+    Stagger Mode's sequence."""
+
+    id: str
+    name: str
+    kind: str
+    group: str
+    min: float
+    max: float
+    step: bool = False
+
+
+class CoverageCounts(BaseModel):
+    covered: int
+    partial: int
+    not_covered: int
+
+
+class ElementCoverageOut(BaseModel):
+    elements: list[ElementCoverageRow]
+    # By Element type: rf, pri, pw, scan.
+    ranges: dict[str, list[CoverageRange]]
+    summary: dict[str, CoverageCounts]
+
+
 class CartesianRunOut(BaseModel):
     """One entry of a Source's generation log."""
 

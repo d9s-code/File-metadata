@@ -34,7 +34,8 @@ from app.schemas.emitter import (
 )
 from app.schemas.emitter_note import EmitterNoteCreate, EmitterNoteOut
 from app.schemas.task import EmitterAssign
-from app.schemas.mode_element import ElementOverviewRow
+from app.schemas.mode_element import ElementCoverageOut, ElementOverviewRow
+from app.services.element_coverage import element_coverage
 from app.services.element_overview import element_overview
 from app.services.emitter_compare import compare_emitters
 from app.schemas.mode import ModeBatchEditRequest, ModeBatchEditResult, ModeGenerationBatchOut, ModeOut
@@ -570,6 +571,18 @@ def get_element_overview(
     """Every distinct Element across the Emitter's Sources, with where each is."""
     _get_emitter_or_404(db, emitter_id)
     return element_overview(db, emitter_id)
+
+
+@router.get("/{emitter_id}/element-coverage", response_model=ElementCoverageOut)
+def get_element_coverage(
+    emitter_id: UUID,
+    db: Session = Depends(get_db),
+    _=Depends(require_role(Role.viewer)),
+) -> dict:
+    """Which of the Elements in the Emitter's Sources its Modes (and, for scan,
+    EW Groups) cover — see element_coverage."""
+    _get_emitter_or_404(db, emitter_id)
+    return element_coverage(db, emitter_id)
 
 
 @router.get("/{emitter_id}/generation-batches", response_model=list[ModeGenerationBatchOut])
