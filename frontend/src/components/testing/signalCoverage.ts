@@ -10,19 +10,28 @@ function mid(mean: number | undefined, min: number | undefined, max: number | un
 }
 
 /** A logged set as an Intercept entry, so it's matched against the Modes
- * the same way. Null without an RF or a PRI type — there's nothing to compare on. */
-function asEntry(set: ObservedValues): MatchableEntry | null {
+ * the same way. Its PRI type, when not logged, from what was: stagger steps
+ * make a stagger, a PRI a fixed one. Null without an RF or anything to say
+ * the PRI type — there's nothing to compare on. */
+export function asEntry(set: ObservedValues): MatchableEntry | null {
   const rf = mid(set.rf_mean_mhz, set.rf_min_mhz, set.rf_max_mhz);
-  if (!set.pri_type || rf == null) return null;
   const stagger = set.pri_stagger_values_us ?? null;
+  const priType =
+    set.pri_type ??
+    (stagger?.length || set.frame_time_us != null
+      ? "stagger"
+      : set.pri_mean_us != null || set.pri_min_us != null || set.pri_max_us != null
+        ? "fixed"
+        : undefined);
+  if (!priType || rf == null) return null;
   const pri =
-    set.pri_type === "stagger"
+    priType === "stagger"
       ? (set.frame_time_us ?? (stagger?.length ? stagger.reduce((a, b) => a + b, 0) : null))
-      : set.pri_type === "fixed"
+      : priType === "fixed"
         ? mid(set.pri_mean_us, set.pri_min_us, set.pri_max_us)
         : null;
   return {
-    pri_type: set.pri_type,
+    pri_type: priType,
     rf_mean_mhz: rf,
     pri_mean_us: pri,
     pw_mean_us: mid(set.pw_mean_us, set.pw_min_us, set.pw_max_us),

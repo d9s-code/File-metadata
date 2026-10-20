@@ -17,6 +17,7 @@ import { ModeForm } from "../components/modes/ModeForm";
 import { useEmitterVersions } from "../state/hooks/useEmitterVersions";
 import { useEmitterModes } from "../state/hooks/useModes";
 import { InterceptSignalsList } from "../components/testing/InterceptSignals";
+import { RecheckIntercepts } from "../components/testing/RecheckIntercepts";
 import { ElementsFromTestModal } from "../components/testing/ElementsFromTestModal";
 import type { TestRecord } from "../api/testRecords";
 import type { TestResult } from "../types/domain";
@@ -266,6 +267,8 @@ export function TestRunDetailPage() {
           </div>
         )}
       </RequireRole>
+
+      <RecheckIntercepts emitterId={emitterId} record={record} modes={modes ?? []} versionTested={versionNumber} />
 
       {record.signals?.length > 0 && (
         <div className="card">

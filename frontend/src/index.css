@@ -6893,3 +6893,32 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
   width: auto;
   margin: 0;
 }
+
+/* Test run: logged intercepts against the Modes now. */
+.recheck-bar {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  margin: 0.4rem 0;
+  border-radius: 5px;
+  overflow: hidden;
+}
+.recheck-bar-part { min-width: 6px; }
+.recheck-bar-part.status-good { background: var(--status-good); }
+.recheck-bar-part.status-warning { background: var(--status-warning); }
+.recheck-bar-part.status-critical { background: var(--status-critical); }
+.recheck-bar-part.status-neutral { background: var(--status-neutral); }
+.recheck-legend { font-size: 0.85rem; margin-bottom: 0.4rem; }
+.recheck-filter {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--text);
+  margin-bottom: 0.4rem;
+}
+.recheck-filter input { width: auto; margin: 0; }
+.recheck-state { white-space: nowrap; }
+.recheck-changed-badge { margin-left: 0.4rem; }
+.recheck-expected { font-size: 0.82rem; color: var(--error); }
+.recheck-expected.ok { color: var(--success); }

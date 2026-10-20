@@ -540,6 +540,15 @@ export function HelpPage() {
                 pre-filled as a retest of it), and <strong>More ▾</strong> to change the result or delete the run.
               </li>
               <li>
+                <strong>Logged intercepts against the Modes now</strong> takes every set of parameters logged in the
+                run — on SIM lines, Mode results and signals — and matches it against the Emitter&apos;s Modes as they
+                are now, the way an Intercept&apos;s entries are matched: <strong>✓ would match</strong> (which Modes),{" "}
+                <strong>≈ near</strong> (one value off, and which), <strong>✕ no Mode</strong>, or can&apos;t compare
+                (no RF or PRI logged). Beside it is what the system reported in the test; rows where that differs are
+                marked <strong>Changed</strong> (tick to see only those), and a SIM line says whether its expected Mode
+                matches now. The bar on top shows the split at a glance.
+              </li>
+              <li>
                 <strong>+ From this test → Elements to a Source…</strong> turns the run&apos;s logged values into
                 Elements: each logged RF, PRI (a range with its jitter, or a stagger&apos;s steps) and PW is listed once —
                 the same value logged on several lines is one — ticked to start with. Pick the variant (intercept to
