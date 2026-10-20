@@ -4,20 +4,25 @@ uncommitted changes" (discard is just "reconcile to the *latest* commit"),
 plus the row-cloning behind "fork".
 
 A committed snapshot (see snapshots.py::build_emitter_snapshot) preserves the
-live UUID of every EwGroup/Source/Mode/ModeElement/TestLine, so reconciliation
-can match by id instead of guessing from names: a row whose id is still in
-the target snapshot gets its fields overwritten in place (preserving its id,
-and therefore any TestRecordMode/TestRecordLine FK pointing at a surviving
-Mode/TestLine); a row absent from the target snapshot gets deleted — the
-same cascade delete_mode already does today with zero safety checks, so this
-introduces no new class of data loss, just a bulk version of it.
+live UUID of every EwGroup/Source/Mode/ModeElement/ParameterSequence/TestLine,
+so reconciliation can match by id instead of guessing from names: a row whose
+id is still in the target snapshot gets its fields overwritten in place
+(preserving its id); a row absent from it gets deleted, and one in it but not
+live is recreated with its id.
 
-Note on fidelity: a snapshot only captures the fields snapshots.py chooses to
-capture (e.g. EwGroup.scan_delta and ModeElement.variant/delta/details are
-not part of it). Reconciliation only ever touches what the snapshot actually
-recorded — any live field the snapshot doesn't capture is left exactly as it
-is, since overwriting it to a default would destroy data the revert was
-never asked to touch.
+What hangs off those rows without being part of a version — test results,
+Source notes, cartesian-run logs, generation batches, Intercept entries'
+links to Modes — names them by id with no cascading foreign key, so it's
+kept while the row is gone and shows again when a revert brings it back.
+A Source's sequences are kept the same way, so a version saved before
+snapshots held them still gets them back.
+
+Note on fidelity: a snapshot only holds the fields snapshots.py captured when
+it was saved — older snapshots lack some (scan_delta, an Element's variant,
+delta and details, sequences, ...). Reconciliation only touches what the
+snapshot actually recorded — any field it lacks is left exactly as it is,
+since overwriting it to a default would destroy data the revert was never
+asked to touch.
 """
 
 import uuid
@@ -25,7 +30,7 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from app.core.enums import ElementType, EmitterStatus, PriType
+from app.core.enums import ElementType, ElementVariant, EmitterStatus, PriType
 from app.models.emitter import Emitter
 from app.models.ew_group import EwGroup
 from app.models.mode import (
@@ -34,11 +39,16 @@ from app.models.mode import (
     DEFAULT_CONFIRMATION_QUANTITY,
     Mode,
     ModeElement,
+    ModeGenerationBatch,
     ModeLine,
 )
+from app.models.import_batch import ImportBatch
 from app.models.intercept import Intercept
+from app.models.parameter_sequence import ParameterSequence
 from app.models.source import Source
+from app.models.source_group import SourceGroup
 from app.models.test_line import TestLine
+from app.models.user import User
 
 
 def _date_or_none(value: str | None) -> date | None:
@@ -47,6 +57,18 @@ def _date_or_none(value: str | None) -> date | None:
 
 def _num(value):
     return float(value) if value is not None else None
+
+
+def _existing(db: Session, model, raw_id: str | None) -> uuid.UUID | None:
+    """The id, if that row still exists — a link to one since deleted stays clear."""
+    if not raw_id:
+        return None
+    row_id = uuid.UUID(raw_id)
+    return row_id if db.get(model, row_id) is not None else None
+
+
+def _variant(value: str | None) -> ElementVariant | None:
+    return ElementVariant(value) if value else None
 
 
 def reconcile_emitter_to_snapshot(db: Session, emitter: Emitter, snapshot: dict) -> None:
@@ -74,10 +96,16 @@ def reconcile_emitter_to_snapshot(db: Session, emitter: Emitter, snapshot: dict)
             source.source_type = s_snap["source_type"]
         if "intercept_id" in s_snap:
             # The Intercept may have been deleted since; then the link stays clear.
-            intercept_id = uuid.UUID(s_snap["intercept_id"]) if s_snap["intercept_id"] else None
-            source.intercept_id = intercept_id if intercept_id and db.get(Intercept, intercept_id) else None
+            source.intercept_id = _existing(db, Intercept, s_snap["intercept_id"])
+        if "rf_legacy_term" in s_snap:
+            source.rf_legacy_term = s_snap["rf_legacy_term"]
+            source.pri_legacy_term = s_snap["pri_legacy_term"]
+            source.group_id = _existing(db, SourceGroup, s_snap["group_id"])
+            source.import_batch_id = _existing(db, ImportBatch, s_snap["import_batch_id"])
         db.flush()
         _reconcile_elements(db, source, s_snap.get("elements", []))
+        if "parameter_sequences" in s_snap:
+            _reconcile_sequences(db, source, s_snap["parameter_sequences"])
 
     live_ew_groups = {str(g.id): g for g in emitter.ew_groups}
     target_ew_groups = snapshot.get("ew_groups", [])
@@ -89,6 +117,8 @@ def reconcile_emitter_to_snapshot(db: Session, emitter: Emitter, snapshot: dict)
         group.name = g_snap["name"]
         group.scan_min = _num(g_snap.get("scan_min"))
         group.scan_max = _num(g_snap.get("scan_max"))
+        if "scan_delta" in g_snap:
+            group.scan_delta = _num(g_snap["scan_delta"])
         group.threat_priority = g_snap.get("threat_priority")
         group.ageout = _num(g_snap.get("ageout"))
         group.sort_order = g_snap.get("sort_order", 0)
@@ -151,9 +181,39 @@ def _reconcile_elements(db: Session, source: Source, element_snaps: list[dict]) 
         element.jitter_max = _num(e_snap.get("jitter_max"))
         element.label = e_snap.get("label")
         element.sort_order = e_snap.get("sort_order", 0)
+        if "variant" in e_snap:
+            element.variant = _variant(e_snap["variant"])
+            element.delta = _num(e_snap["delta"])
+            element.details = e_snap["details"]
     for element_id, element in live.items():
         if element_id not in target_ids:
             db.delete(element)
+
+
+def _reconcile_sequences(db: Session, source: Source, sequence_snaps: list[dict]) -> None:
+    """Sequences aren't deleted with their Source, so one coming back with
+    its id is found here, kept or brought back as the snapshot has it."""
+    live = {str(q.id): q for q in db.query(ParameterSequence).filter(ParameterSequence.source_id == source.id)}
+    target_ids = {q["id"] for q in sequence_snaps}
+    for q_snap in sequence_snaps:
+        sequence = live.get(q_snap["id"]) or db.get(ParameterSequence, uuid.UUID(q_snap["id"]))
+        if sequence is None:
+            sequence = ParameterSequence(id=uuid.UUID(q_snap["id"]), source_id=source.id, steps=q_snap["steps"])
+            db.add(sequence)
+        sequence.source_id = source.id
+        sequence.label = q_snap.get("label")
+        sequence.variant = _variant(q_snap.get("variant"))
+        sequence.steps = q_snap["steps"]
+        sequence.sort_order = q_snap.get("sort_order", 0)
+        sequence.rf_delta = _num(q_snap.get("rf_delta"))
+        sequence.pw_delta = _num(q_snap.get("pw_delta"))
+        sequence.pri_delta = _num(q_snap.get("pri_delta"))
+    for sequence_id, sequence in live.items():
+        if sequence_id not in target_ids:
+            db.delete(sequence)
+    # The Source's (view-only) list is read again with these.
+    db.flush()
+    db.expire(source, ["parameter_sequences"])
 
 
 def _reconcile_modes(db: Session, group: EwGroup, *, mode_snaps: list[dict]) -> None:
@@ -180,6 +240,8 @@ def _reconcile_modes(db: Session, group: EwGroup, *, mode_snaps: list[dict]) -> 
             mode.confirmation_quality = m_snap["confirmation_quality"]
             mode.confirmation_quantity = m_snap["confirmation_quantity"]
         mode.extra_source_links = _extra_source_links(m_snap.get("extra_source_ids", []))
+        if "generation_batch_id" in m_snap:
+            mode.generation_batch_id = _existing(db, ModeGenerationBatch, m_snap["generation_batch_id"])
         _reconcile_mode_line(db, mode, m_snap.get("line"))
 
 
@@ -238,6 +300,9 @@ def _reconcile_test_lines(
         line.expected_parameters = tl_snap.get("expected_parameters")
         if "created_date" in tl_snap:
             line.created_date = _date_or_none(tl_snap["created_date"])
+        if "import_batch_label" in tl_snap:
+            line.import_batch_label = tl_snap["import_batch_label"]
+            line.imported_by = _existing(db, User, tl_snap["imported_by"])
         line.sort_order = tl_snap.get("sort_order", 0)
     for line_id, line in live.items():
         if line_id not in target_ids:
@@ -268,6 +333,10 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
             name=s_snap["name"],
             description=s_snap.get("description"),
             source_date=date.fromisoformat(s_snap["source_date"]),
+            source_type=s_snap.get("source_type"),
+            rf_legacy_term=s_snap.get("rf_legacy_term"),
+            pri_legacy_term=s_snap.get("pri_legacy_term"),
+            group_id=_existing(db, SourceGroup, s_snap.get("group_id")),
         )
         db.add(new_source)
         db.flush()
@@ -284,6 +353,22 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
                     jitter_max=_num(e_snap.get("jitter_max")),
                     label=e_snap.get("label"),
                     sort_order=e_snap.get("sort_order", 0),
+                    variant=_variant(e_snap.get("variant")),
+                    delta=_num(e_snap.get("delta")),
+                    details=e_snap.get("details"),
+                )
+            )
+        for q_snap in s_snap.get("parameter_sequences", []):
+            db.add(
+                ParameterSequence(
+                    source_id=new_source.id,
+                    label=q_snap.get("label"),
+                    variant=_variant(q_snap.get("variant")),
+                    steps=q_snap["steps"],
+                    sort_order=q_snap.get("sort_order", 0),
+                    rf_delta=_num(q_snap.get("rf_delta")),
+                    pw_delta=_num(q_snap.get("pw_delta")),
+                    pri_delta=_num(q_snap.get("pri_delta")),
                 )
             )
 
@@ -294,6 +379,7 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
             name=g_snap["name"],
             scan_min=_num(g_snap.get("scan_min")),
             scan_max=_num(g_snap.get("scan_max")),
+            scan_delta=_num(g_snap.get("scan_delta")),
             threat_priority=g_snap.get("threat_priority"),
             ageout=_num(g_snap.get("ageout")),
             sort_order=g_snap.get("sort_order", 0),
@@ -354,6 +440,7 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
                 expected_mode_id=mode_id_map.get(raw_mode_id) if raw_mode_id else None,
                 expected_parameters=tl_snap.get("expected_parameters"),
                 created_date=_date_or_none(tl_snap.get("created_date")),
+                import_batch_label=tl_snap.get("import_batch_label"),
                 sort_order=tl_snap.get("sort_order", 0),
             )
         )

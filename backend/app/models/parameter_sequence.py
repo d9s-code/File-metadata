@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, func
+from sqlalchemy import DateTime, Integer, Numeric, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -21,9 +21,10 @@ class ParameterSequence(UUIDPkMixin, Base):
 
     __tablename__ = "parameter_sequences"
 
-    source_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("sources.id", ondelete="CASCADE"), nullable=False, index=True
-    )
+    # Not a foreign key: kept when the Source goes (deleted, or a revert to a
+    # version without it) and shown again when a revert or discard brings it
+    # back with its id.
+    source_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
     label: Mapped[str | None] = mapped_column(String(200), nullable=True)
     # A sequence has no single element_type (it's inherently multi-parameter),
     # so this reuses ElementVariant directly rather than pairing with ElementType.
@@ -43,4 +44,6 @@ class ParameterSequence(UUIDPkMixin, Base):
     pri_delta: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    source: Mapped["Source"] = relationship(back_populates="parameter_sequences")  # noqa: F821
+    source: Mapped["Source | None"] = relationship(  # noqa: F821
+        primaryjoin="foreign(ParameterSequence.source_id) == Source.id", viewonly=True
+    )

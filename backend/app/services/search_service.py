@@ -1,5 +1,6 @@
 """Search across the repository by name, for the quick-jump box: Emitters
-(name or designation), Modes, Sources, Platforms, MDFs and Intercepts. Every
+(name or designation), Modes, Sources, Platforms, MDFs, Intercepts, Dwell
+Strategies (name or description) and dwell files. Every
 word typed must appear (in any order); exact and starts-with matches come
 first. Deleted things, and things on deleted Emitters, are left out."""
 
@@ -7,6 +8,7 @@ from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.services import statuses
+from app.models.dwell import DwellFile, DwellStrategy
 from app.models.emitter import Emitter
 from app.models.ew_group import EwGroup
 from app.models.intercept import Intercept
@@ -142,6 +144,35 @@ def search(db: Session, q: str) -> list[dict]:
                 "title": name,
                 "subtitle": _emitter_label(ename, edes) + (f" · {day_text(when)}" if when else ""),
                 "url": f"/intercepts/{iid}",
+            }
+        )
+
+    for st in db.execute(
+        select(DwellStrategy)
+        .where(*_all_words(words, DwellStrategy.name, DwellStrategy.description))
+        .order_by(*_rank(q, DwellStrategy.name))
+        .limit(PER_KIND)
+    ).scalars():
+        hits.append(
+            {
+                "kind": "dwell_strategy",
+                "id": str(st.id),
+                "title": st.name,
+                "subtitle": ", ".join(st.platform_names) or "Default dwell",
+                "url": f"/dwells/strategies/{st.id}",
+            }
+        )
+
+    for f in db.execute(
+        select(DwellFile).where(*_all_words(words, DwellFile.name)).order_by(*_rank(q, DwellFile.name)).limit(PER_KIND)
+    ).scalars():
+        hits.append(
+            {
+                "kind": "dwell_file",
+                "id": str(f.id),
+                "title": f.name,
+                "subtitle": f"Dwell file · {f.mdf.name}" if f.mdf else "Dwell file",
+                "url": f"/dwells/files/{f.id}",
             }
         )
     return hits

@@ -148,8 +148,8 @@ export function HelpPage() {
         </p>
         <p>
           <strong>Search:</strong> <strong>⌕ Search</strong> in the menu bar, or <kbd>Ctrl K</kbd> (<kbd>⌘K</kbd> on a
-          Mac) from any page, finds Emitters (by name or designation), Modes, Platforms, MDFs, Sources and
-          Intercepts — every word you type has to match, in any order. ↑↓ moves, Enter opens, Esc closes. A Mode
+          Mac) from any page, finds Emitters (by name or designation), Modes, Platforms, MDFs, Sources,
+          Intercepts, Dwell Strategies and dwell files — every word you type has to match, in any order. ↑↓ moves, Enter opens, Esc closes. A Mode
           opens on its Emitter&apos;s Modes tab, a Source on the Groups &amp; Sources tab.
         </p>
         <p>
@@ -678,7 +678,8 @@ export function HelpPage() {
             and immediately commits a new version documenting the revert — like <code>git revert</code>,
             history is never rewritten or deleted. Logged test results are kept whatever a revert removes: a Mode or
             SIM Test Line that&apos;s gone shows as <em>(deleted)</em> on the run, and reverting back to a version
-            that has it links its results again. <strong>Fork this version</strong> instead spins that
+            that has it links its results again. Nothing else is lost either: a Source&apos;s notes, sequences and
+            generation log, and an Intercept&apos;s link to the Mode made from it, all come back with it. <strong>Fork this version</strong> instead spins that
             version off into a brand-new, fully independent Emitter you can experiment on freely without
             touching the original.
           </p>
@@ -1310,17 +1311,18 @@ export function HelpPage() {
           </p>
           <p>
             <strong>No time to restore?</strong> Every backup also carries a <strong>PRS export</strong> of the whole
-            repository, taken at the same moment: every Emitter as XML, and every Platform and MDF as its own complete
-            PRS package — the same files exporting each from the app would give, from its latest saved version
+            repository, taken at the same moment: every Emitter as XML, every Platform and MDF as its own complete
+            PRS package, every dwell file, and every Dwell Strategy (default dwells too) — the same files exporting each from the app would give, from its latest saved version
             (anything never saved is from its current state). Download it with <strong>PRS (XML)</strong> and use the
             MDF folders as they are; the README.txt inside lists what&apos;s there and from which version. On the
             server it sits next to the backup, as <code>emitterdb_&lt;date&gt;_prs.zip</code>.
           </p>
           <p>
             <strong>Compare</strong> gives an overview of what changed between two backups, or between a backup and
-            the current data: which Emitters, Platforms and MDFs were added, removed or changed, and for each changed
-            one a line per change — renamed, status, number of Modes, moved to or restored from Recently Deleted,
-            saved version, and the versions a Platform or MDF pins. It&apos;s the quick way to see what a restore
+            the current data: which Emitters, Platforms, MDFs, Dwell Strategies and dwell files were added, removed or
+            changed, and for each changed one a line per change — renamed, status, number of Modes, a Strategy&apos;s
+            Platforms and dwells, moved to or restored from Recently Deleted, saved version, and the versions a
+            Platform, MDF or dwell file pins. It&apos;s the quick way to see what a restore
             would bring back or lose; for the detail, use an item&apos;s own version history.
           </p>
           <p className="hint-text">

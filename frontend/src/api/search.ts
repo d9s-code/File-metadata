@@ -1,6 +1,14 @@
 import { api } from "./client";
 
-export type SearchKind = "emitter" | "mode" | "source" | "platform" | "mdf" | "intercept";
+export type SearchKind =
+  | "emitter"
+  | "mode"
+  | "source"
+  | "platform"
+  | "mdf"
+  | "intercept"
+  | "dwell_strategy"
+  | "dwell_file";
 
 export interface SearchHit {
   kind: SearchKind;

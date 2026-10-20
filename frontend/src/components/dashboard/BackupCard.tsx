@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { useBackUpNow, useBackupStatus } from "../../state/hooks/useBackups";
 import { backupWhen, duration, relativeTime } from "../common/backupFormat";
-import type { BackupDiffKind, BackupFreshness, FreshnessLevel } from "../../api/backups";
+import { BACKUP_KINDS, type BackupFreshness, type FreshnessLevel } from "../../api/backups";
 
 const LEVEL_LABEL: Record<FreshnessLevel, string> = {
   ok: "Up to date",
@@ -11,11 +11,6 @@ const LEVEL_LABEL: Record<FreshnessLevel, string> = {
   none: "No backup yet",
 };
 
-const KINDS: { key: BackupDiffKind; label: string; path: string }[] = [
-  { key: "emitters", label: "Emitters", path: "/emitters" },
-  { key: "platforms", label: "Platforms", path: "/platforms" },
-  { key: "mdfs", label: "MDFs", path: "/mdfs" },
-];
 
 /** "Due in 2 days at this rate", "Due 5 hours ago", "Nothing has changed since". */
 function dueLine(f: BackupFreshness) {
@@ -46,8 +41,12 @@ export function BackupCard() {
   if (!f) return <div className="card backup-card" />;
 
   const fill = f.level === "none" || f.level === "overdue" ? 1 : f.due_after_hours && f.age_hours !== null ? Math.min(1, f.age_hours / f.due_after_hours) : 0;
-  const touched = f.kinds ? KINDS.filter((k) => kindLine(f.kinds![k.key]) !== "No changes") : [];
-  const named = f.kinds ? KINDS.flatMap((k) => f.kinds![k.key].named.map((n) => ({ ...n, path: k.path }))).slice(0, 6) : [];
+  const kinds = BACKUP_KINDS.flatMap((k) => {
+    const changes = f.kinds?.[k.key];
+    return changes ? [{ ...k, changes }] : [];
+  });
+  const touched = kinds.filter((k) => kindLine(k.changes) !== "No changes");
+  const named = kinds.flatMap((k) => k.changes.named.map((n) => ({ ...n, path: k.path }))).slice(0, 6);
 
   return (
     <div className={`card backup-card level-${f.level}`}>
@@ -82,14 +81,14 @@ export function BackupCard() {
             {touched.map((k) => (
               <div key={k.key}>
                 <dt>{k.label}</dt>
-                <dd>{kindLine(f.kinds![k.key])}</dd>
+                <dd>{kindLine(k.changes)}</dd>
               </div>
             ))}
           </dl>
         ) : (
           <p className="hint-text">
-            No Emitter, Platform or MDF added, removed, renamed or saved as a new version since — the changes are edits
-            inside them.
+            Nothing added, removed, renamed or saved as a new version since — the changes are edits inside Emitters,
+            Platforms, MDFs or dwells.
           </p>
         )
       )}

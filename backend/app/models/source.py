@@ -54,14 +54,20 @@ class Source(UUIDPkMixin, TimestampMixin, Base):
     elements: Mapped[list["ModeElement"]] = relationship(  # noqa: F821
         back_populates="source", cascade="all, delete-orphan", order_by="ModeElement.sort_order"
     )
+    # View-only: a Source's sequences and notes aren't deleted with it (see
+    # ParameterSequence.source_id), so a revert that brings it back finds them.
     parameter_sequences: Mapped[list["ParameterSequence"]] = relationship(  # noqa: F821
-        back_populates="source", cascade="all, delete-orphan", order_by="ParameterSequence.sort_order"
+        primaryjoin="Source.id == foreign(ParameterSequence.source_id)",
+        viewonly=True,
+        order_by="ParameterSequence.sort_order",
     )
     import_batch: Mapped["ImportBatch | None"] = relationship(back_populates="sources")  # noqa: F821
     # Free-form analyst commentary on this specific Source — separate from
     # `description` (what the Source is), same append-only shape as Emitter.notes.
     notes: Mapped[list["SourceNote"]] = relationship(  # noqa: F821
-        back_populates="source", cascade="all, delete-orphan", order_by="SourceNote.created_at.desc()"
+        primaryjoin="Source.id == foreign(SourceNote.source_id)",
+        viewonly=True,
+        order_by="SourceNote.created_at.desc()",
     )
 
     @property

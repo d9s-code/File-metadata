@@ -1,4 +1,5 @@
 import os
+import zipfile
 
 import pytest
 from sqlalchemy import create_engine, text
@@ -68,7 +69,7 @@ def test_backup_writes_a_dump_with_a_matching_overview(admin_client, backup_dir)
     assert resp.status_code == 201, resp.text
     item = resp.json()
     assert item["kind"] == "manual" and item["created_by"] == "admin_t"
-    assert item["summary"] == {"emitters": 1, "platforms": 1, "mdfs": 0}
+    assert item["summary"] == {"emitters": 1, "platforms": 1, "mdfs": 0, "dwell_strategies": 0, "dwell_files": 0}
 
     dump = backup_dir / item["file"]
     assert dump.exists() and dump.stat().st_size > 0
@@ -81,7 +82,7 @@ def test_backup_writes_a_dump_with_a_matching_overview(admin_client, backup_dir)
 
     listing = admin_client.get("/admin/backups").json()
     assert [b["file"] for b in listing["backups"]] == [item["file"]]
-    assert listing["live"] == {"emitters": 1, "platforms": 1, "mdfs": 0}
+    assert listing["live"] == {"emitters": 1, "platforms": 1, "mdfs": 0, "dwell_strategies": 0, "dwell_files": 0}
 
 
 def test_diff_between_backups_and_against_live_data(admin_client, backup_dir):
@@ -136,6 +137,43 @@ def test_diff_lines_cover_status_pins_and_removals():
     ]
     assert diff["platforms"]["changed"][0]["changes"] == ["Saved version: v1 → v2", "A pin: v1 → v2"]
     assert diff["mdfs"]["removed"] == [{"id": "m1", "name": "M"}]
+
+
+def test_dwells_are_listed_and_compared(admin_client, backup_dir):
+    platform = admin_client.post("/platforms", json={"name": "Dwell Platform"}).json()
+    strategy = admin_client.post(
+        "/dwell-strategies",
+        json={"name": "Summer", "platform_ids": [platform["id"]]},
+    ).json()
+    sweep = admin_client.post("/dwell-strategies", json={"name": "Wide sweep", "platform_ids": []}).json()
+    dwell_file = admin_client.post("/dwell-files", json={"name": "Ops"}).json()
+    admin_client.post(f"/dwell-files/{dwell_file['id']}/strategies", json={"strategy_id": strategy["id"]})
+    first = admin_client.post("/admin/backups").json()
+    assert first["summary"]["dwell_strategies"] == 2 and first["summary"]["dwell_files"] == 1
+    overview = backup_service.read_manifest(backup_dir / first["file"])["overview"]
+    assert {s["name"]: s["platforms"] for s in overview["dwell_strategies"]} == {
+        "Summer": "Dwell Platform",
+        "Wide sweep": "Default dwell",
+    }
+    assert [p["name"] for p in overview["dwell_files"][0]["pins"]] == ["Summer"]
+    # The PRS export beside it has every dwell file and Strategy — a default dwell is in no file.
+    with zipfile.ZipFile(backup_service.prs_path(backup_dir / first["file"])) as zf:
+        names = set(zf.namelist())
+    assert {"dwells/Ops.xml", "dwell_strategies/Summer.xml", "dwell_strategies/Wide_sweep.xml"} <= names, names
+
+    admin_client.patch(f"/dwell-strategies/{sweep['id']}", json={"platform_ids": [platform["id"]]})
+    admin_client.delete(f"/dwell-files/{dwell_file['id']}")
+    live = admin_client.get("/admin/backups/diff", params={"from": first["file"]}).json()["changes"]
+    [changed] = live["dwell_strategies"]["changed"]
+    assert changed["name"] == "Wide sweep" and "Platforms: Default dwell → Dwell Platform" in changed["changes"]
+    assert live["dwell_files"]["removed"] == [{"id": dwell_file["id"], "name": "Ops"}]
+
+
+def test_a_backup_from_before_dwells_were_listed_leaves_them_out_of_the_comparison():
+    old = {"emitters": [], "platforms": [], "mdfs": []}
+    new = {**old, "dwell_strategies": [{"id": "s1", "name": "S", "platforms": "Default dwell", "dwells": 3, "version": 1}]}
+    assert set(backup_service.diff_overviews(old, new)) == {"emitters", "platforms", "mdfs"}
+    assert backup_service.counts_summary(old) == {"emitters": 0, "platforms": 0, "mdfs": 0}
 
 
 def test_verify_restores_and_catches_a_changed_file(admin_client, backup_dir):

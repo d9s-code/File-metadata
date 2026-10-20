@@ -146,17 +146,18 @@ class InterceptEntryMode(UUIDPkMixin, Base):
     intercept_entry_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("intercept_entries.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    # CASCADE: deleting a Mode just drops it from the entry's produced-Modes
-    # list, same reasoning as TestRecordMode.mode_id.
-    mode_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("modes.id", ondelete="CASCADE"), nullable=False, index=True
-    )
+    # Not a foreign key, like TestRecordMode.mode_id: the link is kept when
+    # the Mode goes (deleted, or a revert to a version without it) and
+    # counts again when a revert or discard brings it back with its id.
+    mode_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
     intercept_entry: Mapped["InterceptEntry"] = relationship(back_populates="modes")
-    mode: Mapped["Mode"] = relationship()  # noqa: F821
+    mode: Mapped["Mode | None"] = relationship(  # noqa: F821
+        primaryjoin="foreign(InterceptEntryMode.mode_id) == Mode.id", viewonly=True
+    )
 
 
 class InterceptReport(UUIDPkMixin, Base):

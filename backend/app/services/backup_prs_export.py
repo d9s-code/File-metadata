@@ -7,6 +7,9 @@ One zip, laid out as:
     emitters/<Emitter>.xml           every Emitter
     platforms/<Platform>/...         each Platform as its own PRS package
     mdfs/<MDF>/...                   each MDF as its own PRS package (ready to use as-is)
+    dwells/<dwell file>.xml          every dwell file, whether or not an MDF has it
+    dwell_strategies/<Strategy>.xml  every Dwell Strategy (default dwells too), each as
+                                     a dwell file of its own — Import XML takes it back
 
 It uses the same serializer and packager as the PRS downloads in the app, so
 the files are exactly what an export from the app would give. Each item is
@@ -21,11 +24,13 @@ from datetime import datetime
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.models.dwell import DwellFile, DwellFileVersion, DwellStrategy, DwellStrategyVersion
 from app.models.emitter import Emitter
 from app.models.emitter_version import EmitterVersion
 from app.models.mdf import Mdf, MdfVersion
 from app.models.platform import Platform, PlatformVersion
-from app.services.dwell_service import mdf_dwell_files
+from app.services.dwell_service import file_snapshot, mdf_dwell_files, strategy_snapshot
+from app.services.dwell_xml import build_dwell_xml
 from app.services.prs_export.packager import _template_bytes, build_mdf_export_zip, build_platform_export_zip
 from app.services.prs_export.serializer import build_emitter_element, sanitize_filename, to_xml_bytes
 from app.services.snapshots import build_emitter_snapshot, build_mdf_snapshot, build_platform_snapshot
@@ -71,7 +76,15 @@ def build_repository_prs_zip(db: Session, taken_at: datetime) -> tuple[bytes, di
     """The zip, and a summary for the backup's record: how many of each, and how
     many were taken from their current state because they've never been saved."""
     lines: list[str] = []
-    summary = {"emitters": 0, "platforms": 0, "mdfs": 0, "files": 0, "never_saved": 0}
+    summary = {
+        "emitters": 0,
+        "platforms": 0,
+        "mdfs": 0,
+        "dwell_files": 0,
+        "dwell_strategies": 0,
+        "files": 0,
+        "never_saved": 0,
+    }
     buffer = io.BytesIO()
 
     def source(version, label: str) -> str:
@@ -125,6 +138,39 @@ def build_repository_prs_zip(db: Session, taken_at: datetime) -> tuple[bytes, di
             summary["mdfs"] += 1
             lines.append(f"  {folder}/: {source(version, mdf.name)}")
 
+        # Dwell files, each as an MDF export would write it
+        versions = _latest_versions(db, DwellFileVersion, "dwell_file_id")
+        taken = set()
+        lines += ["", "DWELL FILES (dwells/)"]
+        for dwell_file in db.query(DwellFile).order_by(func.lower(DwellFile.name)):
+            version = versions.get(dwell_file.id)
+            snapshot = version.snapshot if version else file_snapshot(dwell_file)
+            filename = _unique(dwell_file.name, taken)
+            out.writestr(f"dwells/{filename}.xml", build_dwell_xml(snapshot))
+            summary["dwell_files"] += 1
+            summary["files"] += 1
+            lines.append(f"  {filename}.xml: {source(version, dwell_file.name)}")
+
+        # Dwell Strategies, each on its own — default dwells are in no file
+        versions = _latest_versions(db, DwellStrategyVersion, "strategy_id")
+        taken = set()
+        lines += ["", "DWELL STRATEGIES (dwell_strategies/ — each as a dwell file of its own)"]
+        defaults = DwellFile.__table__.c
+        for strategy in db.query(DwellStrategy).order_by(func.lower(DwellStrategy.name)):
+            version = versions.get(strategy.id)
+            snapshot = version.snapshot if version else strategy_snapshot(strategy)
+            filename = _unique(strategy.name, taken)
+            alone = {
+                "timeout": defaults.timeout.default.arg,
+                "setup_time": defaults.setup_time.default.arg,
+                "strategies": [{"snapshot": snapshot}],
+            }
+            out.writestr(f"dwell_strategies/{filename}.xml", build_dwell_xml(alone))
+            summary["dwell_strategies"] += 1
+            summary["files"] += 1
+            platforms = ", ".join(snapshot.get("platform_names") or []) or "default dwell"
+            lines.append(f"  {filename}.xml: {source(version, strategy.name)} ({platforms})")
+
         header = [
             "PRS export of the whole repository",
             f"Taken {taken_at:%Y-%m-%d %H:%M} UTC, together with the database backup of the same name.",
@@ -133,7 +179,8 @@ def build_repository_prs_zip(db: Session, taken_at: datetime) -> tuple[bytes, di
             "is a complete PRS package, the same as exporting that MDF from the app. Everything is",
             "from its latest saved version; anything never saved is from its current state.",
             "",
-            f"{summary['emitters']} Emitters, {summary['platforms']} Platforms, {summary['mdfs']} MDFs.",
+            f"{summary['emitters']} Emitters, {summary['platforms']} Platforms, {summary['mdfs']} MDFs,"
+            f" {summary['dwell_files']} dwell files, {summary['dwell_strategies']} Dwell Strategies.",
             "",
         ]
         out.writestr("README.txt", "\n".join(header + lines) + "\n")

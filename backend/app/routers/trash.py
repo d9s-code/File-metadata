@@ -9,7 +9,7 @@ from app.database import get_db
 from app.deps import require_role
 from app.schemas.trash import DeletedItemOut
 from app.services.audit_service import record_audit, snapshot
-from app.services.trash_service import get_deleted_entity, list_deleted
+from app.services.trash_service import get_deleted_entity, list_deleted, purge
 from app.models.mdf import MdfPlatformLink
 from app.models.platform import PlatformEmitterLink
 from app.models.platform import Platform as PlatformModel
@@ -72,5 +72,5 @@ def purge_forever(
         summary=f"Permanently deleted {label} '{entity.name}' from trash",
         changes=snapshot(entity, _ENTITY_SNAPSHOT_FIELDS[entity_type]),
     )
-    db.delete(entity)
+    purge(db, entity)
     db.commit()

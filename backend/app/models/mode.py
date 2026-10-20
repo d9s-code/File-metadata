@@ -181,12 +181,11 @@ class ModeGenerationBatch(UUIDPkMixin, Base):
 
     __tablename__ = "mode_generation_batches"
 
-    ew_group_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("ew_groups.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    source_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("sources.id", ondelete="CASCADE"), nullable=False, index=True
-    )
+    # Not a foreign key: kept when the EW Group or Source goes (deleted, or a revert to a
+    # version without it) and shown again when a revert or discard brings it
+    # back with its id.
+    ew_group_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    source_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
     name_prefix: Mapped[str] = mapped_column(String(200), nullable=False)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
@@ -196,4 +195,6 @@ class ModeGenerationBatch(UUIDPkMixin, Base):
     )
 
     modes: Mapped[list["Mode"]] = relationship(back_populates="generation_batch")
-    ew_group: Mapped["EwGroup"] = relationship()  # noqa: F821
+    ew_group: Mapped["EwGroup | None"] = relationship(  # noqa: F821
+        primaryjoin="foreign(ModeGenerationBatch.ew_group_id) == EwGroup.id", viewonly=True
+    )

@@ -236,9 +236,14 @@ def backup_lock(directory: Path):
 # --- What a backup holds --------------------------------------------------------
 
 
+#: What an overview lists, in order. Backups taken before dwells were listed lack
+#: the last two; a comparison leaves out what either side lacks.
+OVERVIEW_KINDS = ("emitters", "platforms", "mdfs", "dwell_strategies", "dwell_files")
+
+
 def compute_overview(conn: Connection) -> dict:
-    """Each Emitter, Platform and MDF in one line: enough to say what changed between
-    two backups without restoring either."""
+    """Each Emitter, Platform, MDF, Dwell Strategy and dwell file in one line: enough
+    to say what changed between two backups without restoring either."""
 
     def rows(sql: str) -> list[dict]:
         return [dict(r) for r in conn.execute(text(sql)).mappings().all()]
@@ -265,7 +270,7 @@ def compute_overview(conn: Connection) -> dict:
         platform_pins.setdefault(r.pop("owner"), []).append(r)
     platforms = rows(
         """
-        SELECT p.id::text AS id, p.name, p.is_deleted AS deleted,
+        SELECT p.id::text AS id, p.name, p.status, p.is_deleted AS deleted,
                (SELECT max(v.version_number) FROM platform_versions v WHERE v.platform_id = p.id) AS version
         FROM platforms p ORDER BY p.name
         """
@@ -292,7 +297,51 @@ def compute_overview(conn: Connection) -> dict:
     )
     for m in mdfs:
         m["pins"] = mdf_pins.get(m["id"], [])
-    return {"emitters": emitters, "platforms": platforms, "mdfs": mdfs}
+    strategy_platforms: dict[str, list[str]] = {}
+    for r in rows(
+        """
+        SELECT l.strategy_id::text AS owner, p.name
+        FROM dwell_strategy_platforms l JOIN platforms p ON p.id = l.platform_id
+        ORDER BY l.sort_order, p.name
+        """
+    ):
+        strategy_platforms.setdefault(r["owner"], []).append(r["name"])
+    strategies = rows(
+        """
+        SELECT s.id::text AS id, s.name, jsonb_array_length(coalesce(s.dwells, '[]'::jsonb)) AS dwells,
+               (SELECT max(v.version_number) FROM dwell_strategy_versions v WHERE v.strategy_id = s.id) AS version
+        FROM dwell_strategies s ORDER BY s.name
+        """
+    )
+    for st in strategies:
+        st["platforms"] = ", ".join(strategy_platforms.get(st["id"], [])) or "Default dwell"
+    file_pins: dict[str, list[dict]] = {}
+    for r in rows(
+        """
+        SELECT l.dwell_file_id::text AS owner, l.strategy_id::text AS id, s.name, v.version_number AS version
+        FROM dwell_file_strategies l
+        JOIN dwell_strategies s ON s.id = l.strategy_id
+        JOIN dwell_strategy_versions v ON v.id = l.strategy_version_id
+        ORDER BY l.sort_order
+        """
+    ):
+        file_pins.setdefault(r.pop("owner"), []).append(r)
+    files = rows(
+        """
+        SELECT f.id::text AS id, f.name, m.name AS mdf,
+               (SELECT max(v.version_number) FROM dwell_file_versions v WHERE v.dwell_file_id = f.id) AS version
+        FROM dwell_files f LEFT JOIN mdfs m ON m.id = f.mdf_id ORDER BY f.name
+        """
+    )
+    for f in files:
+        f["pins"] = file_pins.get(f["id"], [])
+    return {
+        "emitters": emitters,
+        "platforms": platforms,
+        "mdfs": mdfs,
+        "dwell_strategies": strategies,
+        "dwell_files": files,
+    }
 
 
 def table_counts(conn: Connection) -> dict[str, int]:
@@ -315,7 +364,8 @@ def counts_summary(overview: dict | None) -> dict | None:
         return None
     return {
         key: sum(1 for item in overview[key] if not item.get("deleted"))
-        for key in ("emitters", "platforms", "mdfs")
+        for key in OVERVIEW_KINDS
+        if key in overview
     }
 
 
@@ -604,15 +654,22 @@ def _item_changes(kind: str, old: dict, new: dict) -> list[str]:
         out.append(f"Designation: {old.get('designation') or '—'} → {new.get('designation') or '—'}")
     if old.get("deleted") != new.get("deleted"):
         out.append("Moved to Recently Deleted" if new.get("deleted") else "Restored from Recently Deleted")
-    if "status" in new and old.get("status") != new.get("status"):
+    # Not before it was listed (Platforms' wasn't at first).
+    if "status" in old and "status" in new and old["status"] != new["status"]:
         out.append(f"Status: {_status(kind, old.get('status'))} → {_status(kind, new.get('status'))}")
     if kind == "emitters" and old.get("modes") != new.get("modes"):
         out.append(f"Modes: {old.get('modes')} → {new.get('modes')}")
+    if kind == "dwell_strategies" and old.get("platforms") != new.get("platforms"):
+        out.append(f"Platforms: {old.get('platforms')} → {new.get('platforms')}")
+    if kind == "dwell_strategies" and old.get("dwells") != new.get("dwells"):
+        out.append(f"Dwells: {old.get('dwells')} → {new.get('dwells')}")
+    if kind == "dwell_files" and old.get("mdf") != new.get("mdf"):
+        out.append(f"MDF: {old.get('mdf') or '—'} → {new.get('mdf') or '—'}")
     if old.get("version") != new.get("version"):
         out.append(
             f"Saved version: v{old['version']} → v{new['version']}" if old.get("version") else f"First saved as v{new['version']}"
         )
-    if kind != "emitters":
+    if "pins" in new:
         out += _pin_changes(old.get("pins", []), new.get("pins", []))
     return out
 
@@ -620,9 +677,12 @@ def _item_changes(kind: str, old: dict, new: dict) -> list[str]:
 def diff_overviews(old: dict, new: dict) -> dict:
     """What changed from one overview to another, per kind: added, removed and changed
     items (each change as a short line), and how many stayed the same (not counting
-    ones that sat in Recently Deleted throughout)."""
+    ones that sat in Recently Deleted throughout). A kind one of them doesn't list
+    (taken before it was) is left out."""
     result = {}
-    for kind in ("emitters", "platforms", "mdfs"):
+    for kind in OVERVIEW_KINDS:
+        if kind not in old or kind not in new:
+            continue
         before = {item["id"]: item for item in old.get(kind, [])}
         after = {item["id"]: item for item in new.get(kind, [])}
         added = [after[i] for i in after if i not in before]

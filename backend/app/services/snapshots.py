@@ -6,6 +6,7 @@ storing in a `snapshot JSONB` column and for structured diffing.
 from app.models.emitter import Emitter
 from app.models.mdf import Mdf
 from app.models.mode import Mode, ModeElement
+from app.models.parameter_sequence import ParameterSequence
 from app.models.platform import Platform
 from app.models.test_line import TestLine
 
@@ -29,6 +30,22 @@ def _mode_element_dict(element: ModeElement) -> dict:
         "jitter_max": _num(element.jitter_max),
         "label": element.label,
         "sort_order": element.sort_order,
+        "variant": element.variant.value if element.variant else None,
+        "delta": _num(element.delta),
+        "details": element.details,
+    }
+
+
+def _sequence_dict(sequence: ParameterSequence) -> dict:
+    return {
+        "id": str(sequence.id),
+        "label": sequence.label,
+        "variant": sequence.variant.value if sequence.variant else None,
+        "steps": sequence.steps,
+        "sort_order": sequence.sort_order,
+        "rf_delta": _num(sequence.rf_delta),
+        "pw_delta": _num(sequence.pw_delta),
+        "pri_delta": _num(sequence.pri_delta),
     }
 
 
@@ -47,6 +64,7 @@ def _mode_dict(mode: Mode) -> dict:
         "source_name": mode.source.name,
         "extra_source_ids": [str(link.source_id) for link in mode.extra_source_links],
         "source_names": mode.source_names,
+        "generation_batch_id": str(mode.generation_batch_id) if mode.generation_batch_id else None,
         "line": None
         if line is None
         else {
@@ -82,6 +100,8 @@ def _test_line_dict(tl: TestLine) -> dict:
         "expected_parameters": tl.expected_parameters,
         "created_date": tl.created_date.isoformat() if tl.created_date else None,
         "sort_order": tl.sort_order,
+        "import_batch_label": tl.import_batch_label,
+        "imported_by": str(tl.imported_by) if tl.imported_by else None,
     }
 
 
@@ -98,6 +118,7 @@ def build_emitter_snapshot(emitter: Emitter) -> dict:
                 "name": g.name,
                 "scan_min": _num(g.scan_min),
                 "scan_max": _num(g.scan_max),
+                "scan_delta": _num(g.scan_delta),
                 "threat_priority": g.threat_priority,
                 "ageout": _num(g.ageout),
                 "sort_order": g.sort_order,
@@ -113,7 +134,12 @@ def build_emitter_snapshot(emitter: Emitter) -> dict:
                 "source_date": s.source_date.isoformat(),
                 "source_type": s.source_type,
                 "intercept_id": str(s.intercept_id) if s.intercept_id else None,
+                "rf_legacy_term": s.rf_legacy_term,
+                "pri_legacy_term": s.pri_legacy_term,
+                "group_id": str(s.group_id) if s.group_id else None,
+                "import_batch_id": str(s.import_batch_id) if s.import_batch_id else None,
                 "elements": [_mode_element_dict(e) for e in sorted(s.elements, key=lambda e: e.sort_order)],
+                "parameter_sequences": [_sequence_dict(q) for q in s.parameter_sequences],
             }
             for s in sorted(emitter.sources, key=lambda s: s.name)
         ],

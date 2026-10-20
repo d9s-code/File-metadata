@@ -176,8 +176,11 @@ def _attach_derived_mode_ids(db: Session, entries: list[InterceptEntry]) -> list
     entry_ids = [e.id for e in entries]
     mode_ids_by_entry: dict[UUID, list[UUID]] = {}
     if entry_ids:
+        # Only Modes that exist now: a link to one deleted or reverted away is
+        # kept, and counts again if a revert brings the Mode back.
         rows = (
             db.query(InterceptEntryMode.intercept_entry_id, InterceptEntryMode.mode_id)
+            .join(Mode, Mode.id == InterceptEntryMode.mode_id)
             .filter(InterceptEntryMode.intercept_entry_id.in_(entry_ids))
             .all()
         )

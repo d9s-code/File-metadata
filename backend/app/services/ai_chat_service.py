@@ -37,6 +37,7 @@ from app.core.enums import (
     TestScopeType,
 )
 from app.models.ambiguity import AmbiguityFinding, AmbiguityRun
+from app.models.dwell import DwellFile, DwellStrategy
 from app.models.emitter import Emitter
 from app.models.ew_group import EwGroup
 from app.models.intercept import Intercept, InterceptEntry, InterceptEntryMode
@@ -240,6 +241,8 @@ def overview(db: Session, step: ChatStep) -> str:
             f"Modes: {modes}",
             f"MDFs: {db.scalar(select(func.count(Mdf.id)).where(Mdf.is_deleted.is_(False)))}",
             f"Intercepts: {db.scalar(select(func.count(Intercept.id)).join(Emitter).where(Emitter.is_deleted.is_(False)))}",
+            f"Dwell Strategies: {db.scalar(select(func.count(DwellStrategy.id)))}",
+            f"Dwell files: {db.scalar(select(func.count(DwellFile.id)))}",
         ]
     )
 
@@ -251,6 +254,8 @@ _SEARCH_KINDS = [
     ("platform", "Platforms"),
     ("mdf", "MDFs"),
     ("intercept", "Intercepts"),
+    ("dwell_strategy", "Dwell Strategies"),
+    ("dwell_file", "Dwell files"),
 ]
 
 

@@ -17,9 +17,10 @@ class CartesianRun(UUIDPkMixin, Base):
 
     __tablename__ = "cartesian_runs"
 
-    source_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("sources.id", ondelete="CASCADE"), nullable=False, index=True
-    )
+    # Not a foreign key: kept when the Source goes (deleted, or a revert to a
+    # version without it) and shown again when a revert or discard brings it
+    # back with its id.
+    source_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
     batch_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("mode_generation_batches.id", ondelete="SET NULL"), nullable=True
     )

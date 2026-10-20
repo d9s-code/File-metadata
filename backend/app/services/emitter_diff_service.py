@@ -23,9 +23,12 @@ EW_GROUP_FIELD_LABELS = {
     "name": "Name",
     "scan_min": "Scan Min",
     "scan_max": "Scan Max",
+    "scan_delta": "Scan Delta",
     "threat_priority": "Threat Priority",
     "ageout": "Ageout (s)",
 }
+
+EW_GROUP_FIELDS_ADDED_LATER = frozenset({"scan_delta"})
 
 SOURCE_FIELD_LABELS = {
     "name": "Name",
@@ -184,6 +187,25 @@ def _diff_mode(entries: list[dict], old: dict, new: dict, old_group: dict, new_g
     )
 
 
+def _diff_items(entries: list[dict], scope: str, label: str, old: list[dict] | None, new: list[dict] | None) -> None:
+    """A Source's Elements or sequences, as one line: how many, and how many
+    were added, removed or changed. Fields one snapshot lacks (saved before
+    they were kept) aren't compared; neither is a list one of them lacks."""
+    if old is None or new is None:
+        return
+    before, after = {i["id"]: i for i in old}, {i["id"]: i for i in new}
+    added = len(set(after) - set(before))
+    removed = len(set(before) - set(after))
+    changed = 0
+    for item_id in set(before) & set(after):
+        a, b = before[item_id], after[item_id]
+        if any(a[k] != b[k] for k in set(a) & set(b) if k != "sort_order"):
+            changed += 1
+    parts = [f"{n} {what}" for n, what in ((added, "added"), (removed, "removed"), (changed, "changed")) if n]
+    if parts:
+        entries.append(_entry(scope, label, "changed", str(len(old)), f"{len(new)} ({', '.join(parts)})"))
+
+
 def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict, status_labels: dict[str, str] | None = None) -> dict:
     """`status_labels`: the statuses' names (by key) to show instead of keys."""
     entries: list[dict] = []
@@ -207,7 +229,14 @@ def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict, status_labels: 
         if group_id not in old_groups:
             entries.append(_entry(f"EW Group '{g['name']}'", "Added", "added", new_value=_group_summary(g)))
         else:
-            _diff_fields(entries, f"EW Group '{g['name']}'", old_groups[group_id], g, EW_GROUP_FIELD_LABELS)
+            _diff_fields(
+                entries,
+                f"EW Group '{g['name']}'",
+                old_groups[group_id],
+                g,
+                EW_GROUP_FIELD_LABELS,
+                EW_GROUP_FIELDS_ADDED_LATER,
+            )
         for m in g.get("modes", []):
             if m["id"] in old_modes:
                 old_mode, old_group = old_modes[m["id"]]
@@ -241,6 +270,10 @@ def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict, status_labels: 
             SOURCE_FIELD_LABELS,
             SOURCE_FIELDS_ADDED_LATER,
             value_labels=SOURCE_VALUE_LABELS,
+        )
+        _diff_items(entries, f"Source '{ns['name']}'", "Elements", os_.get("elements"), ns.get("elements"))
+        _diff_items(
+            entries, f"Source '{ns['name']}'", "Sequences", os_.get("parameter_sequences"), ns.get("parameter_sequences")
         )
 
     old_lines = {tl["id"]: tl for tl in old_snapshot.get("test_lines", [])}

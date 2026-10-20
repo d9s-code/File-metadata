@@ -6,6 +6,9 @@ export interface BackupCounts {
   emitters: number;
   platforms: number;
   mdfs: number;
+  /** Not on backups taken before dwells were listed. */
+  dwell_strategies?: number;
+  dwell_files?: number;
 }
 
 export interface BackupVerification {
@@ -33,7 +36,18 @@ export interface BackupItem {
 }
 
 export type PrsExport =
-  | { file: string; size_bytes: number; sha256: string; emitters: number; platforms: number; mdfs: number; files: number; never_saved: number }
+  | {
+      file: string;
+      size_bytes: number;
+      sha256: string;
+      emitters: number;
+      platforms: number;
+      mdfs: number;
+      dwell_files?: number;
+      dwell_strategies?: number;
+      files: number;
+      never_saved: number;
+    }
   | { error: string };
 
 export interface SchedulerStatus {
@@ -66,7 +80,8 @@ export interface BackupFreshness {
   due_after_hours: number | null;
   due_at: string | null;
   changes_per_week: number;
-  kinds: Record<BackupDiffKind, FreshnessKind> | null;
+  /** A kind the latest backup didn't list (taken before it was) is left out. */
+  kinds: Partial<Record<BackupDiffKind, FreshnessKind>> | null;
   /** "Sundays at 03:00 UTC". */
   schedule: string;
   next_scheduled_at: string | null;
@@ -89,7 +104,16 @@ export interface BackupListing {
   live: BackupCounts;
 }
 
-export type BackupDiffKind = "emitters" | "platforms" | "mdfs";
+export type BackupDiffKind = "emitters" | "platforms" | "mdfs" | "dwell_strategies" | "dwell_files";
+
+/** What a backup lists and compares, in order, and where each item opens. */
+export const BACKUP_KINDS: { key: BackupDiffKind; label: string; path: string }[] = [
+  { key: "emitters", label: "Emitters", path: "/emitters" },
+  { key: "platforms", label: "Platforms", path: "/platforms" },
+  { key: "mdfs", label: "MDFs", path: "/mdfs" },
+  { key: "dwell_strategies", label: "Dwell Strategies", path: "/dwells/strategies" },
+  { key: "dwell_files", label: "Dwell files", path: "/dwells/files" },
+];
 
 export interface BackupKindChanges {
   added: { id: string; name: string; deleted?: boolean }[];
@@ -101,7 +125,8 @@ export interface BackupKindChanges {
 export interface BackupDiff {
   from: { name: string; label: string };
   to: { name: string; label: string };
-  changes: Record<BackupDiffKind, BackupKindChanges>;
+  /** A kind either side didn't list (taken before it was) is left out. */
+  changes: Partial<Record<BackupDiffKind, BackupKindChanges>>;
 }
 
 /** Compare against the current data instead of a second backup. */

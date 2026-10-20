@@ -10,8 +10,19 @@ const KIND_LABEL: Record<SearchKind, string> = {
   platform: "Platforms",
   mdf: "MDFs",
   intercept: "Intercepts",
+  dwell_strategy: "Dwell Strategies",
+  dwell_file: "Dwell files",
 };
-const KIND_ORDER: SearchKind[] = ["emitter", "mode", "platform", "mdf", "source", "intercept"];
+const KIND_ORDER: SearchKind[] = [
+  "emitter",
+  "mode",
+  "platform",
+  "mdf",
+  "source",
+  "intercept",
+  "dwell_strategy",
+  "dwell_file",
+];
 const IS_MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
 function useDebounced<T>(value: T, ms: number): T {

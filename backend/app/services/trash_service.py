@@ -1,11 +1,20 @@
+import uuid
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.core.enums import AuditAction, AuditEntityType
+from app.core.enums import AuditAction, AuditEntityType, TestScopeType
+from app.models.ambiguity import AmbiguityRun
+from app.models.cartesian_run import CartesianRun
 from app.models.emitter import Emitter
+from app.models.emitter_version import EmitterVersion
 from app.models.mdf import Mdf
+from app.models.mode import ModeGenerationBatch
+from app.models.parameter_sequence import ParameterSequence
+from app.models.source_note import SourceNote
+from app.models.test_record import TestRecord
 from app.models.platform import Platform
 from app.schemas.trash import DeletedItemOut
 from app.services.audit_service import record_audit
@@ -57,6 +66,35 @@ _TARGETS = [
 ]
 
 
+def purge(db: Session, row) -> None:
+    """Deletes a trashed item for good, with its logged test runs and
+    ambiguity checks (they name it by id, so they aren't deleted with it).
+    An Emitter's Source notes, sequences, cartesian-run logs and generation
+    batches aren't deleted with their Source or EW Group either (a revert can
+    bring those back), so they go here — for every Source and EW Group it
+    has, or had in a saved version."""
+    scope = {Emitter: "emitter", Platform: "platform", Mdf: "mdf"}[type(row)]
+    if scope in TestScopeType.__members__:
+        for record in db.query(TestRecord).filter(TestRecord.scope_type == scope, TestRecord.scope_id == row.id):
+            db.delete(record)
+    db.query(AmbiguityRun).filter(AmbiguityRun.scope_type == scope, AmbiguityRun.scope_id == row.id).delete(
+        synchronize_session=False
+    )
+    if isinstance(row, Emitter):
+        source_ids = {s.id for s in row.sources}
+        group_ids = {g.id for g in row.ew_groups}
+        for (snap,) in db.query(EmitterVersion.snapshot).filter(EmitterVersion.emitter_id == row.id):
+            source_ids |= {uuid.UUID(s["id"]) for s in snap.get("sources", [])}
+            group_ids |= {uuid.UUID(g["id"]) for g in snap.get("ew_groups", [])}
+        for model in (SourceNote, ParameterSequence, CartesianRun):
+            db.query(model).filter(model.source_id.in_(source_ids)).delete(synchronize_session=False)
+        db.query(ModeGenerationBatch).filter(
+            or_(ModeGenerationBatch.source_id.in_(source_ids), ModeGenerationBatch.ew_group_id.in_(group_ids))
+        ).delete(synchronize_session=False)
+    db.flush()  # before the versions they pin go
+    db.delete(row)
+
+
 def purge_expired() -> int:
     """Hard-deletes everything past the retention window; returns how many."""
     cutoff = datetime.now(timezone.utc) - timedelta(days=settings.trash_retention_days)
@@ -80,7 +118,7 @@ def purge_expired() -> int:
                     entity_id=row.id,
                     summary=f"Auto-purged {label} '{row.name}' after {settings.trash_retention_days}-day retention window",
                 )
-                db.delete(row)
+                purge(db, row)
                 purged += 1
         db.commit()
     finally:

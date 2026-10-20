@@ -613,7 +613,7 @@ def delete_generation_batch(
     """Deletes every Mode this batch generated (cascading their ModeLines), then the batch."""
     _get_emitter_or_404(db, emitter_id)
     batch = db.get(ModeGenerationBatch, batch_id)
-    if batch is None or batch.ew_group.emitter_id != emitter_id:
+    if batch is None or batch.ew_group is None or batch.ew_group.emitter_id != emitter_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Generation batch not found")
     mode_count = len(batch.modes)
     for mode in list(batch.modes):

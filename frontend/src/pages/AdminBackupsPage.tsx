@@ -6,9 +6,9 @@ import { EmptyState } from "../components/common/EmptyState";
 import { backupWhen as when, relativeTime as relative } from "../components/common/backupFormat";
 import { useBackUpNow, useBackupDiff, useBackups, useVerifyBackup } from "../state/hooks/useBackups";
 import {
+  BACKUP_KINDS,
   backupsApi,
   LIVE_DATA,
-  type BackupDiffKind,
   type BackupItem,
   type BackupKind,
   type BackupKindChanges,
@@ -21,12 +21,6 @@ const KIND_LABELS: Record<BackupKind, string> = {
   "before-restore": "Before restore",
   unknown: "—",
 };
-
-const DIFF_KINDS: { key: BackupDiffKind; label: string; path: string }[] = [
-  { key: "emitters", label: "Emitters", path: "/emitters" },
-  { key: "platforms", label: "Platforms", path: "/platforms" },
-  { key: "mdfs", label: "MDFs", path: "/mdfs" },
-];
 
 /** Listed per section before "Show all". */
 const SHOWN = 15;
@@ -221,7 +215,7 @@ export function AdminBackupsPage() {
               {health.freshness.changes_per_week} changes, half a week at twice that, and so on — that&apos;s when the
               warning shows. Old backups are thinned out to the newest 14, then one a week for 8 weeks and one a month for 6
               months. Each backup also carries a <strong>PRS export</strong> of the whole repository — every MDF as a
-              ready-to-use PRS package, every Platform and Emitter as XML — for when there&apos;s no time to restore the
+              ready-to-use PRS package, every Platform, Emitter, dwell file and Dwell Strategy as XML — for when there&apos;s no time to restore the
               database. <strong>Database</strong> and <strong>PRS (XML)</strong> download either to your own computer;
               the database file holds everything, user accounts included, so store it somewhere safe. Downloads show in
               the Audit Log.
@@ -248,6 +242,8 @@ export function AdminBackupsPage() {
                       <th className="num">Emitters</th>
                       <th className="num">Platforms</th>
                       <th className="num">MDFs</th>
+                      <th className="num">Strategies</th>
+                      <th className="num">Dwell files</th>
                       <th>Verified</th>
                       {health.copy_dir && <th>Second copy</th>}
                       <th />
@@ -261,6 +257,8 @@ export function AdminBackupsPage() {
                       <td className="num">{data.live.emitters}</td>
                       <td className="num">{data.live.platforms}</td>
                       <td className="num">{data.live.mdfs}</td>
+                      <td className="num">{data.live.dwell_strategies}</td>
+                      <td className="num">{data.live.dwell_files}</td>
                       <td />
                       {health.copy_dir && <td />}
                       <td />
@@ -276,6 +274,8 @@ export function AdminBackupsPage() {
                         <td className="num">{b.summary?.emitters ?? "—"}</td>
                         <td className="num">{b.summary?.platforms ?? "—"}</td>
                         <td className="num">{b.summary?.mdfs ?? "—"}</td>
+                        <td className="num">{b.summary?.dwell_strategies ?? "—"}</td>
+                        <td className="num">{b.summary?.dwell_files ?? "—"}</td>
                         <td>
                           <VerificationBadge check={b.verification} />
                         </td>
@@ -303,7 +303,11 @@ export function AdminBackupsPage() {
                               className="backup-download"
                               href={backupsApi.downloadUrl(b.file, "prs")}
                               download={b.prs_export.file}
-                              title={`The whole repository as PRS XML: ${b.prs_export.emitters} Emitters, ${b.prs_export.platforms} Platforms, ${b.prs_export.mdfs} MDFs`}
+                              title={`The whole repository as PRS XML: ${b.prs_export.emitters} Emitters, ${b.prs_export.platforms} Platforms, ${b.prs_export.mdfs} MDFs${
+                                b.prs_export.dwell_files !== undefined
+                                  ? `, ${b.prs_export.dwell_files} dwell files, ${b.prs_export.dwell_strategies} Dwell Strategies`
+                                  : ""
+                              }`}
                             >
                               PRS (XML)
                             </a>
@@ -337,8 +341,9 @@ export function AdminBackupsPage() {
               <h4>Compare</h4>
             </div>
             <p className="hint-text">
-              What changed between two backups, or between a backup and the current data — Emitters, Platforms and MDFs added,
-              removed or changed, and for each changed one what changed: name, status, Modes, saved version, pins.
+              What changed between two backups, or between a backup and the current data — Emitters, Platforms, MDFs and
+              dwells added, removed or changed, and for each changed one what changed: name, status, Modes, a
+              Strategy&apos;s Platforms and dwells, saved version, pins.
             </p>
             {backups.length === 0 ? (
               <EmptyState compact title="Nothing to compare yet" />
@@ -379,9 +384,18 @@ export function AdminBackupsPage() {
                   <div className="error-text">{(diff.error as Error).message}</div>
                 ) : diff.data ? (
                   <div className="backup-diff">
-                    {DIFF_KINDS.map((k) => (
-                      <DiffSection key={k.key} label={k.label} path={k.path} changes={diff.data.changes[k.key]} />
-                    ))}
+                    {BACKUP_KINDS.map((k) => {
+                      const changes = diff.data.changes[k.key];
+                      return changes ? (
+                        <DiffSection key={k.key} label={k.label} path={k.path} changes={changes} />
+                      ) : (
+                        <section key={k.key} className="backup-diff-section">
+                          <h5>
+                            {k.label} <span className="hint-text">not listed in a backup this old</span>
+                          </h5>
+                        </section>
+                      );
+                    })}
                   </div>
                 ) : null}
               </>
