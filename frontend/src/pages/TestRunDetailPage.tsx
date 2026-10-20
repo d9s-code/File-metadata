@@ -304,7 +304,7 @@ export function TestRunDetailPage() {
                   </td>
                   <td>
                     {l.intercepted_as_unknown || l.intercepted_modes.length
-                      ? [...(l.intercepted_as_unknown ? ["Default Unknown"] : []), ...l.intercepted_modes.map((m) => m.mode_name)].join(", ")
+                      ? [...(l.intercepted_as_unknown ? ["Default Unknown"] : []), ...l.intercepted_modes.map((m) => (m.mode_exists ? m.mode_name : `${m.mode_name} (deleted)`))].join(", ")
                       : "—"}
                   </td>
                   <td>
@@ -333,7 +333,15 @@ export function TestRunDetailPage() {
             <tbody>
               {exercised.map((m) => (
                 <tr key={m.mode_id}>
-                  <td>{m.mode_name}</td>
+                  <td>
+                    {m.mode_name}
+                    {!m.mode_exists && (
+                      <span className="hint-text" title="No longer in the Emitter — the result is kept">
+                        {" "}
+                        (deleted)
+                      </span>
+                    )}
+                  </td>
                   <td>{m.result && <span className={`test-result-badge test-result-${m.result}`}>{testResultLabel(m.result)}</span>}</td>
                   <td>
                     <ObservedValuesTable sets={m.observed_values} />

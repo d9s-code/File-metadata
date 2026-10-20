@@ -101,9 +101,10 @@ def test_deleting_a_test_linked_mode_does_not_block_deletion(editor_client, emit
     resp = editor_client.delete(f"/ew-groups/{mode['ew_group_id']}/modes/{mode['id']}")
     assert resp.status_code == 204, resp.text
 
-    # The test record survives, just with that Mode dropped from its list.
+    # The test record survives with its result for that Mode, named as it was.
     [record] = editor_client.get(f"/emitters/{emitter_id}/test-records").json()
-    assert record["modes"] == []
+    [result] = record["modes"]
+    assert result["mode_name"] == mode["name"] and result["result"] == "pass" and result["mode_exists"] is False
 
 
 def test_create_test_record_without_modes_still_works(editor_client, emitter_with_mode):

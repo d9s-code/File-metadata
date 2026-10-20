@@ -5,7 +5,7 @@ import { formatDateTime } from "../common/dates";
 import { MenuButton } from "../common/MenuButton";
 import { Modal } from "../common/Modal";
 import { DwellChart, num } from "./DwellChart";
-import { usePlatformEmitterOverlay } from "./platformOverlay";
+import { overlayTitle, usePlatformsEmitterOverlay } from "./platformOverlay";
 
 const DEFAULT_MS = 50;
 
@@ -113,7 +113,7 @@ export function DwellsEditor({
   const [adding, setAdding] = useState(false);
   // The row whose frequency gets the focus once it's drawn (after Enter or "+ Add dwell").
   const [focusRow, setFocusRow] = useState<number | null>(null);
-  const overlay = usePlatformEmitterOverlay(strategy.platform_id);
+  const overlay = usePlatformsEmitterOverlay(strategy.platform_ids);
   const [wide, setWide] = useState(readWide);
   const viewport = useViewportHeight();
   // Beside the table the chart fills the window's height (legend included);
@@ -340,7 +340,7 @@ export function DwellsEditor({
           hover={hover}
           onHover={setHover}
           overlay={overlay}
-          overlayTitle={strategy.platform_name ? `${strategy.platform_name}'s Emitters` : "Emitters"}
+          overlayTitle={overlayTitle(strategy.platform_names)}
           height={chartHeight}
           controls={
             <>

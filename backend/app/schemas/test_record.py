@@ -1,7 +1,7 @@
 from datetime import date, datetime, time
 from uuid import UUID
 
-from pydantic import AliasPath, BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.core.enums import PriType, TestRecordModeLinkType, TestResult, TestScopeType, TestType
 
@@ -217,7 +217,9 @@ class TestRecordModeOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     mode_id: UUID
-    mode_name: str = Field(validation_alias=AliasPath("mode", "name"))
+    # Its name now, or when the result was logged if it's since been deleted.
+    mode_name: str = Field(validation_alias="display_mode_name")
+    mode_exists: bool = True
     link_type: TestRecordModeLinkType
     result: TestResult | None = None
     notes: str | None = None
@@ -228,14 +230,16 @@ class InterceptedModeOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     mode_id: UUID
-    mode_name: str = Field(validation_alias=AliasPath("mode", "name"))
+    mode_name: str = Field(validation_alias="display_mode_name")
+    mode_exists: bool = True
 
 
 class TestRecordLineOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     test_line_id: UUID
-    test_line_label: str = Field(validation_alias=AliasPath("test_line", "label"))
+    # Its label now, or when the result was logged if it's since been deleted.
+    test_line_label: str = Field(validation_alias="display_test_line_label")
     outcome: TestResult
     intercepted_modes: list[InterceptedModeOut] = []
     intercepted_as_unknown: bool = False

@@ -12,8 +12,8 @@ from app.services.emitter_diff_service import _entry
 def strategy_snapshot(strategy: DwellStrategy) -> dict:
     return {
         "name": strategy.name,
-        "platform_id": str(strategy.platform_id) if strategy.platform_id else None,
-        "platform_name": strategy.platform.name if strategy.platform else None,
+        "platform_ids": [str(pid) for pid in strategy.platform_ids],
+        "platform_names": strategy.platform_names,
         "description": strategy.description,
         "manual_collect_time_ms": strategy.manual_collect_time_ms,
         "dwells": list(strategy.dwells or []),
@@ -66,12 +66,23 @@ def _dwell_text(d: dict) -> str:
     return f"{fmt(d['freq_mhz'])} MHz · dwell {fmt(d['dwell_time_ms'])} ms · collect {fmt(d['collect_time_ms'])} ms"
 
 
+def platforms_text(snapshot: dict) -> str:
+    """A snapshot's Platforms as a line ("Default dwell" when none) — read
+    from versions saved before a Strategy could cover several, too."""
+    names = snapshot.get("platform_names")
+    if names is None:
+        names = [snapshot["platform_name"]] if snapshot.get("platform_name") else []
+    return ", ".join(names) if names else "Default dwell (no Platform)"
+
+
 def strategy_diff(old: dict, new: dict) -> list[dict]:
     """What changed in a Strategy: its fields, then its dwells by place."""
     entries: list[dict] = []
-    for key, label in (("name", "Name"), ("platform_name", "Platform"), ("description", "Description")):
+    for key, label in (("name", "Name"), ("description", "Description")):
         if old.get(key) != new.get(key):
             entries.append(_entry("Strategy", label, "changed", old.get(key), new.get(key)))
+    if platforms_text(old) != platforms_text(new):
+        entries.append(_entry("Strategy", "Platforms", "changed", platforms_text(old), platforms_text(new)))
     if old.get("manual_collect_time_ms") != new.get("manual_collect_time_ms"):
         entries.append(
             _entry(
@@ -112,8 +123,7 @@ def file_diff(old: dict, new: dict) -> list[dict]:
         return {s["strategy_id"]: s for s in snapshot.get("strategies", [])}
 
     def name(s):
-        platform = s["snapshot"].get("platform_name")
-        return f"Strategy '{s['snapshot']['name']}'" + (f" ({platform})" if platform else "")
+        return f"Strategy '{s['snapshot']['name']}' ({platforms_text(s['snapshot'])})"
 
     before, after = by_id(old), by_id(new)
     for sid, s in after.items():

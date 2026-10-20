@@ -6720,3 +6720,51 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
   border: 1px dashed var(--border);
   border-radius: var(--radius-sm);
 }
+
+/* The length of a dwell cycle, made to stand out on the chart. */
+.dwell-cycle {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  margin-right: 0.6rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  background: var(--badge-blue-bg);
+  color: var(--badge-blue-fg);
+  font-size: 0.95rem;
+}
+.dwell-cycle strong {
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
+.dwell-cycle-s {
+  font-size: 0.85rem;
+}
+.platforms-picker {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.75rem 0.6rem;
+}
+.platforms-picker legend {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.platforms-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  max-height: 11rem;
+  overflow-y: auto;
+  margin: 0.35rem 0;
+}
+.platforms-picker-list .checkbox-label {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+.platforms-picker-list .checkbox-label input {
+  width: auto;
+  margin: 0;
+}

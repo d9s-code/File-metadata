@@ -10,19 +10,16 @@ from app.models.mixins import TimestampMixin, UUIDPkMixin
 
 
 class DwellStrategy(UUIDPkMixin, TimestampMixin, Base):
-    """A Platform's dwell: its dwells (frequency and times, in order), the
-    manual collect time, and RapidDF / Split Mode as a file had them. A
-    Platform can have several (e.g. per season); dwell files pin saved
-    versions of them, the way a Platform pins Emitter versions."""
+    """A dwell plan: its dwells (frequency and times, in order), the manual
+    collect time, and RapidDF / Split Mode as a file had them. It covers
+    the Platforms it lists — one, several, or none: a **default dwell**,
+    usually a larger plan not tied to any Platform. A Platform can have
+    several (e.g. per season); dwell files pin saved versions of them, the
+    way a Platform pins Emitter versions."""
 
     __tablename__ = "dwell_strategies"
-    __table_args__ = (UniqueConstraint("platform_id", "name", name="uq_dwell_strategy_platform_name"),)
 
     name: Mapped[str] = mapped_column(String(200), nullable=False)
-    # Null only for a Strategy imported from a file and not yet given its Platform.
-    platform_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("platforms.id", ondelete="SET NULL"), nullable=True, index=True
-    )
     # A line or two about it, shown in the lists.
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     manual_collect_time_ms: Mapped[float] = mapped_column(Float, nullable=False, default=50)
@@ -38,10 +35,43 @@ class DwellStrategy(UUIDPkMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
 
-    platform: Mapped["Platform | None"] = relationship()  # noqa: F821
+    platform_links: Mapped[list["DwellStrategyPlatform"]] = relationship(
+        back_populates="strategy", cascade="all, delete-orphan", order_by="DwellStrategyPlatform.sort_order"
+    )
     versions: Mapped[list["DwellStrategyVersion"]] = relationship(
         back_populates="strategy", cascade="all, delete-orphan", order_by="DwellStrategyVersion.version_number"
     )
+
+    @property
+    def platform_ids(self) -> list[uuid.UUID]:
+        return [link.platform_id for link in self.platform_links]
+
+    @property
+    def platform_names(self) -> list[str]:
+        return [link.platform.name for link in self.platform_links]
+
+    @property
+    def is_default(self) -> bool:
+        """A default dwell: tied to no Platform."""
+        return not self.platform_links
+
+
+class DwellStrategyPlatform(UUIDPkMixin, Base):
+    """A Platform a Strategy covers."""
+
+    __tablename__ = "dwell_strategy_platforms"
+    __table_args__ = (UniqueConstraint("strategy_id", "platform_id", name="uq_dwell_strategy_platform"),)
+
+    strategy_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("dwell_strategies.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    platform_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("platforms.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    strategy: Mapped[DwellStrategy] = relationship(back_populates="platform_links")
+    platform: Mapped["Platform"] = relationship(lazy="joined")  # noqa: F821
 
 
 class DwellStrategyVersion(UUIDPkMixin, Base):

@@ -313,8 +313,14 @@ export function DwellChart({
     <div className="viz-card dwell-chart">
       {header}
       <div className="dwell-chart-summary hint-text">
+        {steps.length > 0 && (
+          <span className="dwell-cycle" title="How long one pass through every dwell takes">
+            Cycle <strong>{num(t)} ms</strong>
+            {t >= 1000 && <span className="dwell-cycle-s"> ({num(Math.round(t / 10) / 100)} s)</span>}
+          </span>
+        )}
         {steps.length
-          ? `${steps.length} dwell${steps.length === 1 ? "" : "s"} · ${num(t)} ms a cycle · bands ${num(bandwidthMhz)} MHz wide`
+          ? `${steps.length} dwell${steps.length === 1 ? "" : "s"} · bands ${num(bandwidthMhz)} MHz wide`
           : `${emptyText} The ${overlayTitle.toLowerCase().includes("emitter") ? "Emitters'" : "overlaid"} frequencies are shown to plan against.`}
         {scale.breaks.length > 0 &&
           ` · ${scale.breaks.length} empty stretch${scale.breaks.length === 1 ? "" : "es"} cut (${scale.breaks

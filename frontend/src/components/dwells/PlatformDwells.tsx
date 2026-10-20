@@ -74,6 +74,12 @@ export function PlatformDwells({ platformId, platformName }: { platformId: strin
                     <Link to={`/dwells/strategies/${s.id}`} onClick={(e) => e.stopPropagation()}>
                       {s.name}
                     </Link>
+                    {s.platform_names.length > 1 && (
+                      <span className="hint-text">
+                        {" "}
+                        · also {s.platform_names.filter((n) => n !== platformName).join(", ")}
+                      </span>
+                    )}
                     {s.description && <div className="dwell-desc">{s.description}</div>}
                   </td>
                   <td className="num">{s.dwell_count}</td>

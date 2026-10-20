@@ -676,7 +676,9 @@ export function HelpPage() {
           <p>
             <strong>Revert to vN…</strong> resets live data to match an older saved version
             and immediately commits a new version documenting the revert — like <code>git revert</code>,
-            history is never rewritten or deleted. <strong>Fork this version</strong> instead spins that
+            history is never rewritten or deleted. Logged test results are kept whatever a revert removes: a Mode or
+            SIM Test Line that&apos;s gone shows as <em>(deleted)</em> on the run, and reverting back to a version
+            that has it links its results again. <strong>Fork this version</strong> instead spins that
             version off into a brand-new, fully independent Emitter you can experiment on freely without
             touching the original.
           </p>
@@ -899,10 +901,12 @@ export function HelpPage() {
         <div className="help-subsection" id="dwells">
           <h3>Dwells</h3>
           <p>
-            <strong>Dwells</strong> (a tab beside MDFs and Customers) has two lists. A <strong>Strategy</strong> is one
-            Platform&apos;s dwells, named (e.g. &quot;Summer&quot;) — a Platform can have several. A{" "}
-            <strong>dwell file</strong> pins a saved version of one Strategy per Platform; linked to an MDF, its latest
-            saved version goes into that MDF&apos;s export as dwells/&lt;name&gt;.xml. The same Strategy can be in
+            <strong>Dwells</strong> (a tab beside MDFs and Customers) has two lists. A <strong>Strategy</strong> is a
+            named set of dwells (e.g. &quot;Summer&quot;) for one or more Platforms — a Platform can have several, and
+            one Strategy can cover several Platforms. With no Platform ticked it&apos;s a <strong>default dwell</strong>:
+            not tied to any Platform, typically a larger sweep, listed first. A <strong>dwell file</strong> pins a saved
+            version of one Strategy per Platform (default dwells don&apos;t count against any); linked to an MDF, its
+            latest saved version goes into that MDF&apos;s export as dwells/&lt;name&gt;.xml. The same Strategy can be in
             several files.
           </p>
           <p>
@@ -910,11 +914,12 @@ export function HelpPage() {
             file), a dwell time and a collect time in ms (50 by default). <strong>Enter</strong> in a row adds the next
             one and <strong>Add several…</strong> takes a list of frequencies at once. <strong>Save as vN</strong> saves
             them as a new version straight away; until then they&apos;re kept in your browser, so leaving the page
-            doesn&apos;t lose them. Name, Platform, description and manual collect time are under More ▾ → Details…, and
+            doesn&apos;t lose them. Name, Platforms, description and manual collect time are under More ▾ → Details…, and
             the Notes panel keeps running notes.
           </p>
           <p>
-            The chart beside the table draws one cycle as a waterfall — frequency across, time running down — with
+            The <strong>Cycle</strong> badge at the top of the chart says how long one pass through all the dwells
+            takes. The chart beside the table draws one cycle as a waterfall — frequency across, time running down — with
             each dwell a band of the <strong>band width</strong> (set in the chart&apos;s header; the default is an
             admin&apos;s, under Admin → Settings). Hover a band or a row to see the stretch it covers, e.g. 3020–3040
             MHz. Behind the dwells are the frequencies the Platform&apos;s pinned Emitters occupy, each in a lane under

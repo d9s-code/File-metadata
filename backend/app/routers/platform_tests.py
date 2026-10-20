@@ -181,8 +181,9 @@ def log_platform_test(
         dwell_version = db.get(DwellStrategyVersion, payload.dwell_strategy_version_id)
         if dwell_version is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "That Dwell Strategy version wasn't found")
-        if dwell_version.strategy.platform_id != platform_id:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "That Dwell Strategy is another Platform's")
+        # One covering this Platform, or a default dwell.
+        if not dwell_version.strategy.is_default and platform_id not in dwell_version.strategy.platform_ids:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "That Dwell Strategy doesn't cover this Platform")
     test = PlatformTest(
         platform_id=platform_id,
         platform_version_id=latest_version.id if latest_version else None,

@@ -20,10 +20,10 @@ export function DwellInput({
   strategyVersionId?: string;
   /** Picks a Strategy version ("" for none); the page sets the dwell text to `label` too. */
   onStrategy?: (versionId: string, label: string) => void;
-  /** Only this Platform's Strategies. */
+  /** Only this Platform's Strategies (and the default dwells). */
   platformId?: string;
 }) {
-  const { data: strategies } = useDwellStrategies(platformId);
+  const { data: strategies } = useDwellStrategies(platformId, true);
   const isManual = value === MANUAL_DWELL;
   const [kind, setKind] = useState<Kind>(strategyVersionId ? "strategy" : isManual ? "manual" : "value");
   // Keeps what was typed, so switching to Manual and back doesn't lose it.
@@ -38,7 +38,7 @@ export function DwellInput({
     }
   }, [strategyVersionId, isManual, value]);
 
-  const offered = (strategies ?? []).filter((s) => s.latest_version_id && s.platform_id);
+  const offered = (strategies ?? []).filter((s) => s.latest_version_id);
   const canPick = !!onStrategy && (offered.length > 0 || !!strategyVersionId);
   const known = offered.some((s) => s.latest_version_id === strategyVersionId);
 
@@ -50,8 +50,12 @@ export function DwellInput({
     if (next === "strategy") onChange("");
   }
 
+  // Default dwells first, then by Platform(s).
   const groups = new Map<string, typeof offered>();
-  for (const s of offered) groups.set(s.platform_name ?? "", [...(groups.get(s.platform_name ?? "") ?? []), s]);
+  for (const s of offered) {
+    const key = s.is_default ? "Default dwells" : s.platform_names.join(", ");
+    groups.set(key, [...(groups.get(key) ?? []), s]);
+  }
 
   return (
     <label>
@@ -88,7 +92,7 @@ export function DwellInput({
             <option value="">— Pick the Strategy —</option>
             {strategyVersionId && !known && <option value={strategyVersionId}>{value || "As picked before"}</option>}
             {[...groups.entries()].map(([platform, items]) =>
-              platformId ? (
+              platformId && groups.size === 1 ? (
                 items.map((s) => (
                   <option key={s.id} value={s.latest_version_id ?? ""}>
                     {s.name} (v{s.latest_version_number})

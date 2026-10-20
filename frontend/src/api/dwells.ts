@@ -30,8 +30,10 @@ export interface StrategyTestUse {
 export interface DwellStrategySummary {
   id: string;
   name: string;
-  platform_id: string | null;
-  platform_name: string | null;
+  /** The Platforms it covers, in order; none: a default dwell. */
+  platform_ids: string[];
+  platform_names: string[];
+  is_default: boolean;
   description: string | null;
   dwell_count: number;
   cycle_ms: number;
@@ -49,8 +51,10 @@ export interface DwellStrategySummary {
 export interface DwellStrategy {
   id: string;
   name: string;
-  platform_id: string | null;
-  platform_name: string | null;
+  /** The Platforms it covers, in order; none: a default dwell. */
+  platform_ids: string[];
+  platform_names: string[];
+  is_default: boolean;
   description: string | null;
   manual_collect_time_ms: number;
   dwells: Dwell[];
@@ -69,7 +73,8 @@ export interface DwellStrategy {
 
 export interface DwellStrategyUpdate {
   name?: string;
-  platform_id?: string;
+  /** Replaces the Platforms it covers; [] makes it a default dwell. */
+  platform_ids?: string[];
   description?: string | null;
   manual_collect_time_ms?: number;
   dwells?: Dwell[];
@@ -92,10 +97,11 @@ export interface DwellFileLink {
   id: string;
   strategy_id: string;
   strategy_name: string;
-  platform_id: string | null;
-  platform_name: string | null;
-  /** False when the file is for an MDF that doesn't pin this Platform. */
-  platform_in_mdf: boolean | null;
+  platform_ids: string[];
+  platform_names: string[];
+  is_default: boolean;
+  /** For an MDF's file: those of its Platforms the MDF doesn't pin. */
+  platforms_not_in_mdf: string[] | null;
   pinned_version_id: string;
   pinned_version_number: number;
   latest_version_number: number;
@@ -154,10 +160,21 @@ export type DwellKind = "strategies" | "files";
 const base = (kind: DwellKind) => (kind === "strategies" ? "/dwell-strategies" : "/dwell-files");
 
 export const dwellsApi = {
-  strategies: (platformId?: string) =>
-    api.get<DwellStrategySummary[]>(platformId ? `/dwell-strategies?platform_id=${platformId}` : "/dwell-strategies"),
+  /** All, or those covering a Platform (with the default dwells too, if asked). */
+  strategies: (platformId?: string, includeDefault = false) =>
+    api.get<DwellStrategySummary[]>(
+      platformId
+        ? `/dwell-strategies?platform_id=${platformId}${includeDefault ? "&include_default=true" : ""}`
+        : "/dwell-strategies",
+    ),
   strategy: (id: string) => api.get<DwellStrategy>(`/dwell-strategies/${id}`),
-  createStrategy: (input: { name: string; platform_id: string; description?: string | null; copy_from_id?: string | null }) =>
+  createStrategy: (input: {
+    name: string;
+    /** None: a default dwell. */
+    platform_ids: string[];
+    description?: string | null;
+    copy_from_id?: string | null;
+  }) =>
     api.post<DwellStrategy>("/dwell-strategies", input),
   updateStrategy: (id: string, input: DwellStrategyUpdate) => api.patch<DwellStrategy>(`/dwell-strategies/${id}`, input),
   deleteStrategy: (id: string) => api.delete<void>(`/dwell-strategies/${id}`),

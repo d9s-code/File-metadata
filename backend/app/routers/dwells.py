@@ -20,6 +20,7 @@ from app.models.dwell import (
     DwellFileVersion,
     DwellStrategy,
     DwellStrategyNote,
+    DwellStrategyPlatform,
     DwellStrategyVersion,
 )
 from app.models.mdf import Mdf, MdfPlatformLink
@@ -77,13 +78,36 @@ def _audit(db: Session, user, action: AuditAction, entity: AuditEntityType, enti
     )
 
 
-def _platform(db: Session, platform_id: UUID | None) -> Platform | None:
-    if platform_id is None:
-        return None
-    platform = db.get(Platform, platform_id)
-    if platform is None or platform.is_deleted:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Platform not found")
-    return platform
+def _platforms(db: Session, platform_ids: list[UUID]) -> list[Platform]:
+    """The Platforms asked for, once each, in order."""
+    out: list[Platform] = []
+    for platform_id in dict.fromkeys(platform_ids):
+        platform = db.get(Platform, platform_id)
+        if platform is None or platform.is_deleted:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Platform not found")
+        out.append(platform)
+    return out
+
+
+def _set_platforms(strategy: DwellStrategy, platforms: list[Platform]) -> None:
+    """Make the Strategy cover exactly these Platforms, in this order —
+    keeping the links it already has."""
+    wanted = [p.id for p in platforms]
+    by_platform = {link.platform_id: link for link in strategy.platform_links}
+    for link in list(strategy.platform_links):
+        if link.platform_id not in wanted:
+            strategy.platform_links.remove(link)
+    for i, platform in enumerate(platforms):
+        link = by_platform.get(platform.id)
+        if link is None:
+            link = DwellStrategyPlatform(platform_id=platform.id, platform=platform)
+            strategy.platform_links.append(link)
+        link.sort_order = i
+    strategy.platform_links.sort(key=lambda link: link.sort_order)
+
+
+def _platforms_text(names: list[str]) -> str:
+    return ", ".join(names) if names else "no Platform (a default dwell)"
 
 
 def _mdf(db: Session, mdf_id: UUID | None) -> Mdf | None:
@@ -105,18 +129,32 @@ def _strategy_or_404(db: Session, strategy_id: UUID) -> DwellStrategy:
     return strategy
 
 
-def _strategy_name_free(db: Session, name: str, platform_id: UUID | None, strategy_id=None) -> str:
+def _strategy_name_free(db: Session, name: str, platforms: list[Platform], strategy_id=None) -> str:
+    """No two Strategies of one name on the same Platform, nor two default
+    dwells of one name."""
     name = name.strip()
     if not name:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Give the Strategy a name")
-    clash = (
-        db.query(DwellStrategy)
-        .filter(DwellStrategy.name == name, DwellStrategy.platform_id == platform_id, DwellStrategy.id != strategy_id)
-        .first()
-    )
-    if clash is not None:
-        raise HTTPException(status.HTTP_409_CONFLICT, f"This Platform already has a Strategy called '{name}'")
+    ids = {p.id for p in platforms}
+    for other in db.query(DwellStrategy).filter(DwellStrategy.name == name, DwellStrategy.id != strategy_id):
+        shared = [link.platform.name for link in other.platform_links if link.platform_id in ids]
+        if shared:
+            raise HTTPException(status.HTTP_409_CONFLICT, f"{shared[0]} already has a Strategy called '{name}'")
+        if not ids and other.is_default:
+            raise HTTPException(status.HTTP_409_CONFLICT, f"There's already a default dwell called '{name}'")
     return name
+
+
+def _file_clash(dwell_file: DwellFile, strategy_id: UUID, platform_ids: list[UUID]) -> tuple[DwellFileStrategy, str] | None:
+    """Another Strategy in the file covering one of these Platforms — a file
+    holds one Strategy per Platform (default dwells aside)."""
+    for other in dwell_file.links:
+        if other.strategy_id == strategy_id:
+            continue
+        for link in other.strategy.platform_links:
+            if link.platform_id in platform_ids:
+                return other, link.platform.name
+    return None
 
 
 def _commit_strategy(db: Session, strategy: DwellStrategy, summary: str | None, user_id) -> DwellStrategyVersion:
@@ -146,8 +184,9 @@ def _strategy_out(db: Session, strategy: DwellStrategy) -> DwellStrategyOut:
     return DwellStrategyOut(
         id=strategy.id,
         name=strategy.name,
-        platform_id=strategy.platform_id,
-        platform_name=strategy.platform.name if strategy.platform else None,
+        platform_ids=strategy.platform_ids,
+        platform_names=strategy.platform_names,
+        is_default=strategy.is_default,
         description=strategy.description,
         manual_collect_time_ms=strategy.manual_collect_time_ms,
         dwells=strategy.dwells or [],
@@ -199,11 +238,17 @@ def _strategy_tests(db: Session, strategy_id: UUID) -> list[StrategyTestUse]:
 
 @router.get("/dwell-strategies", response_model=list[DwellStrategySummary])
 def list_strategies(
-    platform_id: UUID | None = None, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
+    platform_id: UUID | None = None,
+    include_default: bool = False,
+    db: Session = Depends(get_db),
+    _=Depends(require_role(Role.viewer)),
 ) -> list[DwellStrategySummary]:
+    """Every Strategy; with platform_id, those covering that Platform (and
+    with include_default, the default dwells too)."""
     query = db.query(DwellStrategy)
     if platform_id is not None:
-        query = query.filter(DwellStrategy.platform_id == platform_id)
+        covers = DwellStrategy.platform_links.any(DwellStrategyPlatform.platform_id == platform_id)
+        query = query.filter(covers | ~DwellStrategy.platform_links.any()) if include_default else query.filter(covers)
     strategies = query.all()
     latest = {
         sid: (n, snap, vid)
@@ -228,8 +273,9 @@ def list_strategies(
             DwellStrategySummary(
                 id=s.id,
                 name=s.name,
-                platform_id=s.platform_id,
-                platform_name=s.platform.name if s.platform else None,
+                platform_ids=s.platform_ids,
+                platform_names=s.platform_names,
+                is_default=s.is_default,
                 description=s.description,
                 dwell_count=len(s.dwells or []),
                 cycle_ms=sum(d["dwell_time_ms"] for d in s.dwells or []),
@@ -242,7 +288,8 @@ def list_strategies(
                 updated_at=s.updated_at,
             )
         )
-    return sorted(out, key=lambda s: ((s.platform_name or "￿").lower(), s.name.lower()))
+    # Default dwells first, then by Platform.
+    return sorted(out, key=lambda s: (not s.is_default, ", ".join(s.platform_names).lower(), s.name.lower()))
 
 
 @router.post(
@@ -251,12 +298,11 @@ def list_strategies(
 def create_strategy(
     payload: DwellStrategyCreate, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))
 ) -> DwellStrategyOut:
-    platform = _platform(db, payload.platform_id)
-    name = _strategy_name_free(db, payload.name, payload.platform_id)
+    platforms = _platforms(db, [*payload.platform_ids, *([payload.platform_id] if payload.platform_id else [])])
+    name = _strategy_name_free(db, payload.name, platforms)
     source = _strategy_or_404(db, payload.copy_from_id) if payload.copy_from_id else None
     strategy = DwellStrategy(
         name=name,
-        platform_id=payload.platform_id,
         description=(payload.description or "").strip() or (source.description if source else None),
         manual_collect_time_ms=source.manual_collect_time_ms if source else DEFAULT_COLLECT_TIME_MS,
         dwells=list(source.dwells or []) if source else [],
@@ -269,12 +315,14 @@ def create_strategy(
         bandwidth_mhz=source.bandwidth_mhz if source else None,
         created_by=user.id,
     )
+    _set_platforms(strategy, platforms)
     db.add(strategy)
     db.flush()
     _commit_strategy(db, strategy, f"Copied from '{source.name}'" if source else "Created", user.id)
     _audit(
         db, user, AuditAction.create, AuditEntityType.dwell_strategy, strategy.id,
-        f"Created Dwell Strategy '{name}' for {platform.name}" + (f" (a copy of '{source.name}')" if source else ""),
+        f"Created Dwell Strategy '{name}' for {_platforms_text([p.name for p in platforms])}"
+        + (f" (a copy of '{source.name}')" if source else ""),
     )
     db.commit()
     db.refresh(strategy)
@@ -291,31 +339,35 @@ def update_strategy(
     strategy_id: UUID, payload: DwellStrategyUpdate, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))
 ) -> DwellStrategyOut:
     strategy = _strategy_or_404(db, strategy_id)
-    fields = payload.model_dump(exclude_unset=True, exclude={"save_version", "change_summary"})
+    fields = payload.model_dump(exclude_unset=True, exclude={"save_version", "change_summary", "platform_ids"})
     if "description" in fields:
         fields["description"] = (fields["description"] or "").strip() or None
     if payload.dwells is not None:
         # Whole entries, defaults included (exclude_unset drops them inside).
         fields["dwells"] = [d.model_dump() for d in payload.dwells]
-    if "platform_id" in fields and fields["platform_id"] is None:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "A Strategy belongs to a Platform")
-    platform_id = fields.get("platform_id", strategy.platform_id)
-    if "platform_id" in fields and platform_id != strategy.platform_id:
-        _platform(db, platform_id)
-        # A file it's in can't have two Strategies for that Platform.
+    changing_platforms = payload.platform_ids is not None and list(dict.fromkeys(payload.platform_ids)) != strategy.platform_ids
+    platforms = (
+        _platforms(db, payload.platform_ids)
+        if changing_platforms
+        else [link.platform for link in strategy.platform_links]
+    )
+    if changing_platforms:
+        # A file it's in can't then have two Strategies for one Platform.
+        new_ids = [p.id for p in platforms]
         for link in db.query(DwellFileStrategy).filter(DwellFileStrategy.strategy_id == strategy.id):
-            clash = next(
-                (o for o in link.dwell_file.links if o.strategy_id != strategy.id and o.strategy.platform_id == platform_id),
-                None,
-            )
+            clash = _file_clash(link.dwell_file, strategy.id, new_ids)
             if clash is not None:
                 raise HTTPException(
                     status.HTTP_409_CONFLICT,
-                    f"'{link.dwell_file.name}' already has a Strategy for that Platform ('{clash.strategy.name}')",
+                    f"'{link.dwell_file.name}' already has a Strategy for {clash[1]} ('{clash[0].strategy.name}')",
                 )
-    if "name" in fields or "platform_id" in fields:
-        fields["name"] = _strategy_name_free(db, fields.get("name", strategy.name), platform_id, strategy.id)
+    if "name" in fields or changing_platforms:
+        fields["name"] = _strategy_name_free(db, fields.get("name", strategy.name), platforms, strategy.id)
     changes = {}
+    if changing_platforms:
+        old_names = strategy.platform_names
+        _set_platforms(strategy, platforms)
+        changes["platforms"] = {"old": _platforms_text(old_names), "new": _platforms_text([p.name for p in platforms])}
     for key, value in fields.items():
         if key in ("manual_collect_time_ms",) and value is None:
             continue
@@ -522,9 +574,14 @@ def _file_out(db: Session, dwell_file: DwellFile) -> DwellFileOut:
                 id=link.id,
                 strategy_id=strategy.id,
                 strategy_name=strategy.name,
-                platform_id=strategy.platform_id,
-                platform_name=strategy.platform.name if strategy.platform else None,
-                platform_in_mdf=(strategy.platform_id in pinned) if pinned is not None and strategy.platform_id else None,
+                platform_ids=strategy.platform_ids,
+                platform_names=strategy.platform_names,
+                is_default=strategy.is_default,
+                platforms_not_in_mdf=(
+                    [link.platform.name for link in strategy.platform_links if link.platform_id not in pinned]
+                    if pinned is not None
+                    else None
+                ),
                 pinned_version_id=link.strategy_version_id,
                 pinned_version_number=link.strategy_version.version_number,
                 latest_version_number=newest.version_number,
@@ -552,13 +609,12 @@ def _file_out(db: Session, dwell_file: DwellFile) -> DwellFileOut:
 def _pin(db: Session, dwell_file: DwellFile, strategy: DwellStrategy, version: DwellStrategyVersion | None) -> DwellFileStrategy:
     if any(link.strategy_id == strategy.id for link in dwell_file.links):
         raise HTTPException(status.HTTP_409_CONFLICT, f"'{strategy.name}' is already in this file")
-    if strategy.platform_id is not None:
-        clash = next((o for o in dwell_file.links if o.strategy.platform_id == strategy.platform_id), None)
-        if clash is not None:
-            raise HTTPException(
-                status.HTTP_409_CONFLICT,
-                f"This file already has a Strategy for {strategy.platform.name} ('{clash.strategy.name}') — one per Platform",
-            )
+    clash = _file_clash(dwell_file, strategy.id, strategy.platform_ids)
+    if clash is not None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"This file already has a Strategy for {clash[1]} ('{clash[0].strategy.name}') — one per Platform",
+        )
     version = version or latest_strategy_version(db, strategy.id)
     if version is None or version.strategy_id != strategy.id:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Pick a saved version of that Strategy")
@@ -587,7 +643,7 @@ def list_files(db: Session = Depends(get_db), _=Depends(require_role(Role.viewer
                 mdf_id=f.mdf_id,
                 mdf_name=f.mdf.name if f.mdf else None,
                 strategy_count=len(f.links),
-                platform_names=[link.strategy.platform.name for link in f.links if link.strategy.platform],
+                platform_names=list(dict.fromkeys(n for link in f.links for n in link.strategy.platform_names)),
                 outdated_count=outdated,
                 latest_version_number=latest.version_number if latest else None,
                 unsaved=latest is None or latest.snapshot != file_snapshot(f),
@@ -640,7 +696,7 @@ def import_file(
     db.add(dwell_file)
     db.flush()
     for i, s in enumerate(parsed["strategies"], start=1):
-        strategy = DwellStrategy(name=f"{name} — Strategy {i}", platform_id=None, created_by=user.id, **s)
+        strategy = DwellStrategy(name=f"{name} — Strategy {i}", created_by=user.id, **s)
         db.add(strategy)
         db.flush()
         version = _commit_strategy(db, strategy, f"Imported from '{name}'", user.id)

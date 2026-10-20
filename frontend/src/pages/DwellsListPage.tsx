@@ -12,7 +12,7 @@ import { dwellsApi, type DwellStrategySummary } from "../api/dwells";
 import { useDwellFiles, useDwellStrategies, useRefreshDwellLists } from "../state/hooks/useDwells";
 import { useMdfs } from "../state/hooks/useMdfs";
 import { usePlatforms } from "../state/hooks/usePlatforms";
-import { PlatformSelect } from "./DwellStrategyPage";
+import { PlatformsPicker } from "../components/dwells/PlatformsPicker";
 
 /** Names shown in a cell before the rest fold into "+N". */
 const SHOWN = 2;
@@ -91,11 +91,14 @@ function StrategyList({ onNew }: { onNew: () => void }) {
   const shown = strategies.filter(
     (s) =>
       !needle ||
-      [s.name, s.platform_name ?? "", s.description ?? ""].some((text) => text.toLowerCase().includes(needle)),
+      [s.name, ...s.platform_names, s.is_default ? "default dwell" : "", s.description ?? ""].some((text) =>
+        text.toLowerCase().includes(needle),
+      ),
   );
+  // Default dwells first (the list comes in that order), then by the Platforms covered.
   const groups = new Map<string, DwellStrategySummary[]>();
   for (const s of shown) {
-    const key = s.platform_id ?? "";
+    const key = s.is_default ? "" : s.platform_ids.join(",");
     groups.set(key, [...(groups.get(key) ?? []), s]);
   }
 
@@ -126,14 +129,19 @@ function StrategyList({ onNew }: { onNew: () => void }) {
           </tr>
         </thead>
         <tbody>
-          {[...groups.entries()].map(([platformId, items]) => (
-            <Fragment key={platformId || "none"}>
+          {[...groups.entries()].map(([key, items]) => (
+            <Fragment key={key || "default"}>
               <tr className="dwell-group-row">
                 <th colSpan={7}>
-                  {platformId ? (
-                    <Link to={`/platforms/${platformId}`}>{items[0].platform_name}</Link>
+                  {key ? (
+                    items[0].platform_ids.map((id, i) => (
+                      <span key={id}>
+                        {i > 0 && " + "}
+                        <Link to={`/platforms/${id}`}>{items[0].platform_names[i]}</Link>
+                      </span>
+                    ))
                   ) : (
-                    <span title="Imported from a file — pick each one's Platform on its page">No Platform yet</span>
+                    <span title="Not tied to any Platform — typically larger plans">Default dwells</span>
                   )}
                   <span className="hint-text">
                     {" "}
@@ -229,14 +237,15 @@ function FileList() {
   );
 }
 
-/** A new Strategy for a Platform: empty, or starting from another's dwells. */
+/** A new Strategy — for some Platforms, or none (a default dwell): empty, or
+ * starting from another's dwells. */
 export function NewStrategy({ onClose, platformId: initialPlatform = "" }: { onClose: () => void; platformId?: string }) {
   const navigate = useNavigate();
   const refresh = useRefreshDwellLists();
   const { data: platforms } = usePlatforms();
   const { data: strategies } = useDwellStrategies();
   const [name, setName] = useState("");
-  const [platformId, setPlatformId] = useState(initialPlatform);
+  const [platformIds, setPlatformIds] = useState<string[]>(initialPlatform ? [initialPlatform] : []);
   const [copyFrom, setCopyFrom] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -245,12 +254,11 @@ export function NewStrategy({ onClose, platformId: initialPlatform = "" }: { onC
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!name.trim()) return setError("Give the Strategy a name.");
-    if (!platformId) return setError("Pick its Platform.");
     setSaving(true);
     try {
       const made = await dwellsApi.createStrategy({
         name: name.trim(),
-        platform_id: platformId,
+        platform_ids: platformIds,
         description: description.trim() || null,
         copy_from_id: copyFrom || null,
       });
@@ -269,7 +277,7 @@ export function NewStrategy({ onClose, platformId: initialPlatform = "" }: { onC
           Name
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={200} placeholder="e.g. Summer" autoFocus />
         </label>
-        <PlatformSelect value={platformId} onChange={setPlatformId} platforms={platforms ?? []} />
+        <PlatformsPicker value={platformIds} onChange={setPlatformIds} platforms={platforms ?? []} />
         <label>
           Description (optional)
           <input
@@ -285,7 +293,7 @@ export function NewStrategy({ onClose, platformId: initialPlatform = "" }: { onC
             <option value="">Empty — no dwells yet</option>
             {(strategies ?? []).map((s) => (
               <option key={s.id} value={s.id}>
-                {s.platform_name ? `${s.platform_name} · ` : ""}
+                {s.is_default ? "Default · " : `${s.platform_names.join(", ")} · `}
                 {s.name} ({s.dwell_count} dwell{s.dwell_count === 1 ? "" : "s"})
               </option>
             ))}
@@ -301,7 +309,7 @@ export function NewStrategy({ onClose, platformId: initialPlatform = "" }: { onC
             Cancel
           </button>
           <button type="submit" className="button primary" disabled={saving}>
-            {saving ? "Making…" : "Create"}
+            {saving ? "Making…" : platformIds.length === 0 ? "Create default dwell" : "Create"}
           </button>
         </div>
       </form>

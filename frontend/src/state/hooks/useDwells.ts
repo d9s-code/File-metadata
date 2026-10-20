@@ -23,10 +23,11 @@ function useRefreshDwells() {
   };
 }
 
-export function useDwellStrategies(platformId?: string) {
+/** All Strategies, or those covering a Platform — with the default dwells too if asked. */
+export function useDwellStrategies(platformId?: string, includeDefault = false) {
   return useQuery({
-    queryKey: [...strategiesKey, "list", platformId ?? "all"],
-    queryFn: () => dwellsApi.strategies(platformId),
+    queryKey: [...strategiesKey, "list", platformId ?? "all", includeDefault],
+    queryFn: () => dwellsApi.strategies(platformId, includeDefault),
   });
 }
 

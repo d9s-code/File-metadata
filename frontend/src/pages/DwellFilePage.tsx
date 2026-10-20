@@ -8,7 +8,7 @@ import { useConfirmDialog } from "../components/common/ConfirmDialog";
 import { RequireRole, useHasRole } from "../auth/RequireAuth";
 import { LatestVersion, SaveVersionButton } from "../components/versioning/SaveVersionButton";
 import { DwellChart, num } from "../components/dwells/DwellChart";
-import { usePlatformEmitterOverlay } from "../components/dwells/platformOverlay";
+import { overlayTitle, usePlatformsEmitterOverlay } from "../components/dwells/platformOverlay";
 import { ApiRequestError } from "../api/client";
 import { dwellsApi, type DwellFile, type DwellFileLink } from "../api/dwells";
 import {
@@ -72,7 +72,9 @@ function DwellFileView({ file }: { file: DwellFile }) {
   const outdated = file.links.filter((l) => l.outdated).length;
   const mdfPlatformIds = file.mdf_id ? new Set((mdfLinks ?? []).map((l) => l.platform_id)) : null;
   const platformName = new Map((platforms ?? []).map((p) => [p.id, p.name]));
-  const missing = mdfPlatformIds ? [...mdfPlatformIds].filter((id) => !file.links.some((l) => l.platform_id === id)) : [];
+  const missing = mdfPlatformIds
+    ? [...mdfPlatformIds].filter((id) => !file.links.some((l) => l.platform_ids.includes(id)))
+    : [];
 
   async function run(action: () => Promise<unknown>) {
     setError(null);
@@ -267,19 +269,22 @@ function PinnedStrategies({ file, canEdit, onError }: { file: DwellFile; canEdit
                 <tr className={isOpen ? "dwell-link-row open" : "dwell-link-row"} onClick={() => setOpen(isOpen ? null : l.id)}>
                   <td className="num muted">{i + 1}</td>
                   <td>
-                    {l.platform_id ? (
+                    {l.is_default ? (
+                      <span className="hint-text" title="Not tied to any Platform">
+                        Default dwell
+                      </span>
+                    ) : (
                       <>
-                        {l.platform_name}
-                        {l.platform_in_mdf === false && (
-                          <span className="status-badge status-pending_review" title="The file's MDF doesn't pin this Platform">
-                            not in the MDF
+                        {l.platform_names.join(", ")}
+                        {(l.platforms_not_in_mdf?.length ?? 0) > 0 && (
+                          <span
+                            className="status-badge status-pending_review"
+                            title={`The file's MDF doesn't pin ${l.platforms_not_in_mdf?.join(", ")}`}
+                          >
+                            {l.platform_names.length > 1 ? `${l.platforms_not_in_mdf?.length} not in the MDF` : "not in the MDF"}
                           </span>
                         )}
                       </>
-                    ) : (
-                      <span className="status-badge status-pending_review" title="Pick it on the Strategy's page">
-                        No Platform yet
-                      </span>
                     )}
                   </td>
                   <td>
@@ -356,9 +361,12 @@ function PinnedStrategies({ file, canEdit, onError }: { file: DwellFile; canEdit
   );
 }
 
+/** The Platform picker's choice for the default dwells. */
+const DEFAULT_KEY = "__default";
+
 /** A pinned Strategy version's chart, with its Platform's Emitters behind it. */
 function PinnedChart({ link, bandwidthMhz }: { link: DwellFileLink; bandwidthMhz: number }) {
-  const overlay = usePlatformEmitterOverlay(link.platform_id);
+  const overlay = usePlatformsEmitterOverlay(link.platform_ids);
   const emptyText =
     link.latest_version_number > link.pinned_version_number
       ? `v${link.pinned_version_number} has no dwells — v${link.latest_version_number} is newer: repin it from the ⋯ menu.`
@@ -369,7 +377,7 @@ function PinnedChart({ link, bandwidthMhz }: { link: DwellFileLink; bandwidthMhz
       bandwidthMhz={bandwidthMhz}
       title={`${link.strategy_name} · v${link.pinned_version_number}`}
       overlay={overlay}
-      overlayTitle={link.platform_name ? `${link.platform_name}'s Emitters` : "Emitters"}
+      overlayTitle={overlayTitle(link.platform_names)}
       emptyText={link.dwells.length ? "No dwells." : emptyText}
     />
   );
@@ -444,15 +452,21 @@ function AddStrategy({
   const [strategyId, setStrategyId] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const taken = new Set(file.links.map((l) => l.platform_id).filter(Boolean));
+  // A file holds one Strategy per Platform; default dwells don't count.
+  const taken = new Set(file.links.flatMap((l) => l.platform_ids));
   // Platforms that have a Strategy to offer, the file's MDF's first.
   const platforms = new Map<string, string>();
-  for (const s of strategies ?? []) if (s.platform_id) platforms.set(s.platform_id, s.platform_name ?? "?");
+  for (const s of strategies ?? []) s.platform_ids.forEach((id, i) => platforms.set(id, s.platform_names[i] ?? "?"));
+  const hasDefaults = (strategies ?? []).some((s) => s.is_default);
   const byName = (a: [string, string], b: [string, string]) => a[1].localeCompare(b[1], undefined, { numeric: true });
   const all = [...platforms.entries()].sort(byName);
   const inMdf = mdfPlatformIds ? all.filter(([id]) => mdfPlatformIds.has(id)) : all;
   const others = mdfPlatformIds ? all.filter(([id]) => !mdfPlatformIds.has(id)) : [];
-  const choices = (strategies ?? []).filter((s) => s.platform_id === platformId);
+  const choices = (strategies ?? []).filter((s) =>
+    platformId === DEFAULT_KEY ? s.is_default : s.platform_ids.includes(platformId),
+  );
+  const blocked = (s: (typeof choices)[number]) =>
+    file.links.some((l) => l.strategy_id === s.id) || s.platform_ids.some((id) => taken.has(id));
   const chosen = choices.find((s) => s.id === strategyId) ?? (choices.length === 1 ? choices[0] : undefined);
 
   const option = ([id, name]: [string, string]) => (
@@ -487,6 +501,7 @@ function AddStrategy({
             }}
           >
             <option value="">— Pick the Platform —</option>
+            {hasDefaults && <option value={DEFAULT_KEY}>Default dwells (no Platform)</option>}
             {mdfPlatformIds ? (
               <>
                 {inMdf.length > 0 && <optgroup label={`In ${file.mdf_name}`}>{inMdf.map(option)}</optgroup>}
@@ -497,7 +512,7 @@ function AddStrategy({
             )}
           </select>
         </label>
-        {platformId && !platforms.has(platformId) && (
+        {platformId && platformId !== DEFAULT_KEY && !platforms.has(platformId) && (
           <p className="hint-text">
             This Platform has no Strategy yet — <Link to="/dwells">make one under Dwells</Link> first.
           </p>
@@ -508,9 +523,11 @@ function AddStrategy({
             <select value={chosen?.id ?? ""} onChange={(e) => setStrategyId(e.target.value)}>
               {choices.length > 1 && <option value="">— Pick one —</option>}
               {choices.map((s) => (
-                <option key={s.id} value={s.id}>
+                <option key={s.id} value={s.id} disabled={blocked(s)}>
                   {s.name} — {s.dwell_count} dwell{s.dwell_count === 1 ? "" : "s"}
                   {s.latest_version_number ? `, v${s.latest_version_number}` : ", not saved"}
+                  {s.platform_ids.length > 1 ? ` · also ${s.platform_names.filter((_, i) => s.platform_ids[i] !== platformId).join(", ")}` : ""}
+                  {blocked(s) ? " — a Platform it covers has one here" : ""}
                 </option>
               ))}
             </select>

@@ -13,6 +13,7 @@ from app.models.dwell import (  # noqa: F401
     DwellFileVersion,
     DwellStrategy,
     DwellStrategyNote,
+    DwellStrategyPlatform,
     DwellStrategyVersion,
 )
 from app.models.emitter import Emitter  # noqa: F401

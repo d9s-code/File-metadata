@@ -30,7 +30,10 @@ export interface ObservedValues {
 
 export interface TestRecordModeLink {
   mode_id: string;
+  /** Its name now — or, once deleted, the name it had when the run was logged. */
   mode_name: string;
+  /** False once the Mode is gone (deleted, or reverted away); the result stays. */
+  mode_exists: boolean;
   link_type: "exercised" | "derived";
   result: TestResult | null;
   notes: string | null;
@@ -44,7 +47,7 @@ export interface TestRecordLineResult {
   /** pass = correctly intercepted, partial = partly recognised (e.g. reported as the wrong Mode), fail = missed, inconclusive = couldn't be assessed. */
   outcome: TestResult;
   /** The Emitter's Modes the system reported for this line — any number. */
-  intercepted_modes: { mode_id: string; mode_name: string }[];
+  intercepted_modes: { mode_id: string; mode_name: string; mode_exists: boolean }[];
   /** Reported as Default Unknown — no Mode matched. */
   intercepted_as_unknown: boolean;
   notes: string | null;

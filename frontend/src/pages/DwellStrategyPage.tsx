@@ -26,6 +26,7 @@ import {
   useUpdateDwellStrategy,
 } from "../state/hooks/useDwells";
 import { usePlatforms } from "../state/hooks/usePlatforms";
+import { PlatformsPicker } from "../components/dwells/PlatformsPicker";
 
 type Tab = "dwells" | "used";
 
@@ -111,14 +112,20 @@ function StrategyView({ strategy }: { strategy: DwellStrategy }) {
         }
         status={
           <>
-            {strategy.platform_id ? (
-              <span className="dwell-chip">
-                Platform <Link to={`/platforms/${strategy.platform_id}`}>{strategy.platform_name}</Link>
+            {strategy.is_default ? (
+              <span className="dwell-chip" title="Not tied to any Platform — give it Platforms under Details…">
+                Default dwell
               </span>
             ) : (
-              <button type="button" className="status-badge status-pending_review" onClick={() => setEditing("details")}>
-                No Platform yet — pick one
-              </button>
+              <span className="dwell-chip">
+                {strategy.platform_ids.length === 1 ? "Platform" : "Platforms"}{" "}
+                {strategy.platform_ids.map((id, i) => (
+                  <span key={id}>
+                    {i > 0 && ", "}
+                    <Link to={`/platforms/${id}`}>{strategy.platform_names[i]}</Link>
+                  </span>
+                ))}
+              </span>
             )}
             <LatestVersion versions={versions} />
             {strategy.unsaved && strategy.latest_version_number != null && (
@@ -266,7 +273,7 @@ function Details({ strategy, canEdit, onClose }: { strategy: DwellStrategy; canE
   const update = useUpdateDwellStrategy(strategy.id);
   const { data: platforms } = usePlatforms();
   const [name, setName] = useState(strategy.name);
-  const [platformId, setPlatformId] = useState(strategy.platform_id ?? "");
+  const [platformIds, setPlatformIds] = useState<string[]>(strategy.platform_ids);
   const [description, setDescription] = useState(strategy.description ?? "");
   const [manual, setManual] = useState(num(strategy.manual_collect_time_ms));
   const [error, setError] = useState<string | null>(null);
@@ -275,14 +282,13 @@ function Details({ strategy, canEdit, onClose }: { strategy: DwellStrategy; canE
     e.preventDefault();
     if (!canEdit) return onClose();
     if (!name.trim()) return setError("Give it a name.");
-    if (!platformId) return setError("Pick its Platform.");
     const manualValue = manual.trim() === "" ? 50 : Number(manual);
     if (!(manualValue >= 0)) return setError("The manual collect time can't be negative.");
     setError(null);
     try {
       await update.mutateAsync({
         name: name.trim(),
-        ...(platformId !== strategy.platform_id ? { platform_id: platformId } : {}),
+        ...(platformIds.join() !== strategy.platform_ids.join() ? { platform_ids: platformIds } : {}),
         description: description.trim() || null,
         manual_collect_time_ms: manualValue,
         save_version: true,
@@ -302,7 +308,7 @@ function Details({ strategy, canEdit, onClose }: { strategy: DwellStrategy; canE
             Name
             <input value={name} onChange={(e) => setName(e.target.value)} maxLength={200} autoFocus />
           </label>
-          <PlatformSelect value={platformId} onChange={setPlatformId} platforms={platforms ?? []} />
+          <PlatformsPicker value={platformIds} onChange={setPlatformIds} platforms={platforms ?? []} />
           <label>
             Description (shown in the lists)
             <textarea rows={2} value={description} maxLength={2000} onChange={(e) => setDescription(e.target.value)} />
@@ -333,49 +339,22 @@ function Details({ strategy, canEdit, onClose }: { strategy: DwellStrategy; canE
   );
 }
 
-export function PlatformSelect({
-  value,
-  onChange,
-  platforms,
-}: {
-  value: string;
-  onChange: (id: string) => void;
-  platforms: { id: string; name: string }[];
-}) {
-  return (
-    <label>
-      Platform
-      <select value={value} onChange={(e) => onChange(e.target.value)}>
-        <option value="">— Pick the Platform —</option>
-        {[...platforms]
-          .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
-          .map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-      </select>
-    </label>
-  );
-}
-
 /** A new Strategy starting from this one's dwells — for this Platform or another. */
 function MakeCopy({ strategy, onClose }: { strategy: DwellStrategy; onClose: () => void }) {
   const navigate = useNavigate();
   const refreshLists = useRefreshDwellLists();
   const { data: platforms } = usePlatforms();
   const [name, setName] = useState(`${strategy.name} (copy)`);
-  const [platformId, setPlatformId] = useState(strategy.platform_id ?? "");
+  const [platformIds, setPlatformIds] = useState<string[]>(strategy.platform_ids);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!name.trim()) return setError("Give the copy a name.");
-    if (!platformId) return setError("Pick its Platform.");
     setSaving(true);
     try {
-      const made = await dwellsApi.createStrategy({ name: name.trim(), platform_id: platformId, copy_from_id: strategy.id });
+      const made = await dwellsApi.createStrategy({ name: name.trim(), platform_ids: platformIds, copy_from_id: strategy.id });
       refreshLists();
       onClose();
       navigate(`/dwells/strategies/${made.id}`);
@@ -392,7 +371,7 @@ function MakeCopy({ strategy, onClose }: { strategy: DwellStrategy; onClose: () 
           Name
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={200} autoFocus />
         </label>
-        <PlatformSelect value={platformId} onChange={setPlatformId} platforms={platforms ?? []} />
+        <PlatformsPicker value={platformIds} onChange={setPlatformIds} platforms={platforms ?? []} />
         <p className="hint-text">The copy starts with these dwells as they stand now, and its own version history.</p>
         {error && (
           <p className="error-text" role="alert">

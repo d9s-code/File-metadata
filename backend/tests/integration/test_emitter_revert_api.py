@@ -230,3 +230,47 @@ def test_discard_brings_back_deleted_modes_with_their_lines(editor_client):
     ]
     assert after[0]["line"]["rf_min_mhz"] == before[0]["line"]["rf_min_mhz"]
     assert after[0]["line"]["jitter_max_us"] == before[0]["line"]["jitter_max_us"]
+
+
+def test_test_history_survives_reverting_away_and_back(editor_client):
+    """Reverting to a version without the Modes and Test Lines a run named,
+    then back, keeps the run's line results, the Modes they intercepted and
+    the per-Mode results — not just its overall result."""
+    ctx = _setup_emitter_with_two_versions(editor_client)
+    eid, mode_id = ctx["emitter"]["id"], ctx["mode"]["id"]
+    line = editor_client.post(
+        f"/emitters/{eid}/test-lines/import",
+        json={"created_date": "2026-08-01", "lines": [{"label": "SIM Alpha", "expected_mode_id": mode_id}]},
+    ).json()[0]
+    editor_client.post(f"/emitters/{eid}/versions", json={"change_summary": "v3: SIM line"})
+    run = editor_client.post(
+        f"/emitters/{eid}/test-records",
+        json={
+            "test_type": "simulation",
+            "title": "Range run",
+            "test_date": "2026-09-01",
+            "simulation_created_date": "2026-08-01",
+            "line_results": [
+                {"test_line_id": line["id"], "outcome": "pass", "intercepted_mode_ids": [mode_id], "notes": "clean"}
+            ],
+        },
+    )
+    assert run.status_code == 201, run.text
+    record_id = run.json()["id"]
+
+    def record():
+        return next(r for r in editor_client.get(f"/emitters/{eid}/test-records").json() if r["id"] == record_id)
+
+    # Away to the version with no Modes or Test Lines: the results stay, by their names.
+    assert editor_client.post(f"/emitters/{eid}/versions/1/revert").status_code == 200
+    away = record()
+    assert away["lines"][0]["test_line_label"] == "SIM Alpha"
+    assert away["lines"][0]["notes"] == "clean"
+    assert away["lines"][0]["intercepted_modes"][0]["mode_name"] == "Mode R"
+    assert away["lines"][0]["intercepted_modes"][0]["mode_exists"] is False
+
+    # And back: linked to the live Mode again.
+    assert editor_client.post(f"/emitters/{eid}/versions/3/revert").status_code == 200
+    back = record()
+    assert back["lines"][0]["outcome"] == "pass"
+    assert back["lines"][0]["intercepted_modes"] == [{"mode_id": mode_id, "mode_name": "Mode R", "mode_exists": True}]

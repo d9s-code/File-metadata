@@ -3,7 +3,8 @@ from datetime import date, time
 
 from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, Integer, String, Text, Time, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import event
+from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 
 from app.core.enums import TestRecordModeLinkType, TestResult, TestScopeType, TestType
 from app.database import Base
@@ -111,13 +112,12 @@ class TestRecordMode(UUIDPkMixin, Base):
     test_record_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("test_records.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    # CASCADE: deleting a Mode just drops it from any test record's exercised-modes
-    # list — the test record itself (and its result/notes/other linked Modes)
-    # survives. Modes get regenerated/edited routinely, so a Mode being test-linked
-    # must never block its own deletion.
-    mode_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("modes.id", ondelete="CASCADE"), nullable=False
-    )
+    # Not a foreign key: test history outlives the Mode. Deleting it (or
+    # reverting to a version without it) keeps this row with `mode_name`;
+    # a revert that brings it back, with its id, links it up again.
+    mode_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    # The Mode's name when the result was logged.
+    mode_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     # 'exercised' (default, matches every link created before this column
     # existed): the Mode was tested as-is. 'derived': this test's findings are
     # why the Mode's values are what they are, rather than a Source's data.
@@ -142,7 +142,17 @@ class TestRecordMode(UUIDPkMixin, Base):
     observed_values: Mapped[list[dict] | None] = mapped_column(JSONB, nullable=True)
 
     test_record: Mapped["TestRecord"] = relationship(back_populates="modes")
-    mode: Mapped["Mode"] = relationship()  # noqa: F821
+    mode: Mapped["Mode | None"] = relationship(  # noqa: F821
+        primaryjoin="foreign(TestRecordMode.mode_id) == Mode.id", viewonly=True
+    )
+
+    @property
+    def display_mode_name(self) -> str:
+        return self.mode.name if self.mode else (self.mode_name or "(deleted Mode)")
+
+    @property
+    def mode_exists(self) -> bool:
+        return self.mode is not None
 
 
 class TestRecordLine(UUIDPkMixin, Base):
@@ -166,11 +176,11 @@ class TestRecordLine(UUIDPkMixin, Base):
     test_record_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("test_records.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    # CASCADE: mirrors TestRecordMode.mode_id — a Test Line being deleted just
-    # drops it from any run's results; the run itself survives.
-    test_line_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("test_lines.id", ondelete="CASCADE"), nullable=False, index=True
-    )
+    # Not a foreign key, like TestRecordMode.mode_id: the result outlives the
+    # Test Line, keeping its label, and links up again if a revert restores it.
+    test_line_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    # The Test Line's label when the result was logged.
+    test_line_label: Mapped[str | None] = mapped_column(Text, nullable=True)
     outcome: Mapped[TestResult] = mapped_column(nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     observed_values: Mapped[list[dict] | None] = mapped_column(JSONB, nullable=True)
@@ -179,16 +189,22 @@ class TestRecordLine(UUIDPkMixin, Base):
     intercepted_as_unknown: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
 
     test_record: Mapped["TestRecord"] = relationship(back_populates="lines")
-    test_line: Mapped["TestLine"] = relationship()  # noqa: F821
+    test_line: Mapped["TestLine | None"] = relationship(  # noqa: F821
+        primaryjoin="foreign(TestRecordLine.test_line_id) == TestLine.id", viewonly=True
+    )
     intercepted_modes: Mapped[list["TestRecordLineMode"]] = relationship(
         back_populates="test_record_line", cascade="all, delete-orphan"
     )
 
+    @property
+    def display_test_line_label(self) -> str:
+        return self.test_line.label if self.test_line else (self.test_line_label or "(deleted Test Line)")
+
 
 class TestRecordLineMode(UUIDPkMixin, Base):
     """One Mode the system reported when a SIM Test Line was presented during
-    a test run. CASCADE on the Mode, like TestRecordMode: regenerating Modes
-    must never be blocked by test history, it just drops the flag."""
+    a test run. Not a foreign key to the Mode, like TestRecordMode: the
+    flag outlives the Mode, keeping its name."""
 
     __tablename__ = "test_record_line_modes"
     __table_args__ = (UniqueConstraint("test_record_line_id", "mode_id", name="uq_test_record_line_mode"),)
@@ -196,12 +212,21 @@ class TestRecordLineMode(UUIDPkMixin, Base):
     test_record_line_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("test_record_lines.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    mode_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("modes.id", ondelete="CASCADE"), nullable=False, index=True
-    )
+    mode_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    mode_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     test_record_line: Mapped["TestRecordLine"] = relationship(back_populates="intercepted_modes")
-    mode: Mapped["Mode"] = relationship()  # noqa: F821
+    mode: Mapped["Mode | None"] = relationship(  # noqa: F821
+        primaryjoin="foreign(TestRecordLineMode.mode_id) == Mode.id", viewonly=True
+    )
+
+    @property
+    def display_mode_name(self) -> str:
+        return self.mode.name if self.mode else (self.mode_name or "(deleted Mode)")
+
+    @property
+    def mode_exists(self) -> bool:
+        return self.mode is not None
 
 
 class TestRecordSignal(UUIDPkMixin, Base):
@@ -283,3 +308,20 @@ class PlatformTest(UUIDPkMixin, TimestampMixin, Base):
     )
 
     records: Mapped[list["TestRecord"]] = relationship(foreign_keys="TestRecord.platform_test_id")
+
+
+@event.listens_for(Session, "before_flush")
+def _keep_names(session: Session, _flush_context, _instances) -> None:
+    """New test results keep the name of the Mode / Test Line they name, so
+    they still read after it's deleted."""
+    from app.models.mode import Mode
+    from app.models.test_line import TestLine
+
+    with session.no_autoflush:
+        for obj in list(session.new):
+            if isinstance(obj, (TestRecordMode, TestRecordLineMode)) and obj.mode_name is None and obj.mode_id:
+                mode = session.get(Mode, obj.mode_id)
+                obj.mode_name = mode.name if mode else None
+            elif isinstance(obj, TestRecordLine) and obj.test_line_label is None and obj.test_line_id:
+                line = session.get(TestLine, obj.test_line_id)
+                obj.test_line_label = line.label if line else None

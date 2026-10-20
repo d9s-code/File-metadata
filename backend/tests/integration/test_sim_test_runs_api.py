@@ -145,7 +145,11 @@ def test_deleting_an_intercepted_mode_keeps_the_run(editor_client, sim_emitter):
     group_id = a["ew_group_id"]
     assert editor_client.delete(f"/ew-groups/{group_id}/modes/{a['id']}").status_code == 204
     line = editor_client.get(f"/emitters/{eid}/test-records").json()[0]["lines"][0]
-    assert [m["mode_name"] for m in line["intercepted_modes"]] == ["Search B"]
+    # The deleted Mode stays in the result, by the name it had.
+    assert [(m["mode_name"], m["mode_exists"]) for m in line["intercepted_modes"]] == [
+        ("Search A", False),
+        ("Search B", True),
+    ]
 
 
 # --- Test types ------------------------------------------------------------

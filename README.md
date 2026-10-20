@@ -244,6 +244,8 @@ docker compose exec backup python scripts/backup_db.py --verify
 
 # restore — overwrites the live database, so it asks for its name. It takes a
 # "before-restore" backup first, so restoring the wrong file can be undone.
+# It empties the database, restores the file, then upgrades it to the current
+# schema (alembic upgrade head), so older backups restore too.
 # Stop the web app while it runs.
 docker compose stop backend
 docker compose exec backup python scripts/restore_db.py /backups/emitterdb_20260101_030000.dump --confirm-db rf_emitter_db

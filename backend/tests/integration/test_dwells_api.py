@@ -62,7 +62,7 @@ def test_import_makes_a_strategy_each_and_writes_the_same_file(editor_client):
     body = resp.json()
     assert body["latest_version_number"] == 1 and body["unsaved"] is False
     first, second = body["links"]
-    assert first["strategy_name"] == "Northern dwells — Strategy 1" and first["platform_id"] is None
+    assert first["strategy_name"] == "Northern dwells — Strategy 1" and first["platform_ids"] == [] and first["is_default"]
     # MHz, as the file has them.
     assert [d["freq_mhz"] for d in first["dwells"]] == [4000, 2000, 3000]
     assert first["pinned_version_number"] == 1 and first["outdated"] is False
@@ -160,9 +160,9 @@ def test_an_mdf_export_carries_its_dwell_files_saved_version(editor_client):
     editor_client.post(f"/mdfs/{mdf['id']}/links", json={"platform_id": platform["id"], "platform_version_id": pv["id"]})
     editor_client.post(f"/mdfs/{mdf['id']}/versions", json={})
     dwell_file = _import(editor_client).json()
-    editor_client.patch(f"/dwell-strategies/{dwell_file['links'][0]['strategy_id']}", json={"platform_id": platform["id"]})
+    editor_client.patch(f"/dwell-strategies/{dwell_file['links'][0]['strategy_id']}", json={"platform_ids": [platform["id"]]})
     body = editor_client.patch(f"/dwell-files/{dwell_file['id']}", json={"mdf_id": mdf["id"]}).json()
-    assert body["mdf_name"] == "Dwell MDF" and body["links"][0]["platform_in_mdf"] is True
+    assert body["mdf_name"] == "Dwell MDF" and body["links"][0]["platforms_not_in_mdf"] == []
     # Changed but not saved: the export has the saved version.
     editor_client.patch(f"/dwell-files/{dwell_file['id']}", json={"timeout": 9})
 
@@ -235,3 +235,44 @@ def test_strategy_notes(editor_client, viewer_client):
     assert [n["body"] for n in viewer_client.get(f"/dwell-strategies/{strategy['id']}/notes").json()] == ["Check X band"]
     assert editor_client.delete(f"/dwell-strategies/{strategy['id']}/notes/{note['id']}").status_code == 204
     assert editor_client.get(f"/dwell-strategies/{strategy['id']}/notes").json() == []
+
+
+def test_default_dwells_and_strategies_for_several_platforms(editor_client):
+    north = editor_client.post("/platforms", json={"name": "North Ship"}).json()
+    south = editor_client.post("/platforms", json={"name": "South Ship"}).json()
+
+    # No Platform: a default dwell.
+    wide = editor_client.post("/dwell-strategies", json={"name": "Wide sweep"}).json()
+    assert wide["is_default"] and wide["platform_ids"] == []
+    assert editor_client.post("/dwell-strategies", json={"name": "Wide sweep"}).status_code == 409
+
+    # Two Platforms at once.
+    both = editor_client.post(
+        "/dwell-strategies", json={"name": "Shared", "platform_ids": [north["id"], south["id"]]}
+    ).json()
+    assert both["platform_names"] == ["North Ship", "South Ship"] and not both["is_default"]
+    # A name is taken on each Platform it covers.
+    clash = editor_client.post("/dwell-strategies", json={"name": "Shared", "platform_ids": [south["id"]]})
+    assert clash.status_code == 409 and "South Ship" in clash.json()["detail"]
+
+    listed = {s["name"] for s in editor_client.get(f"/dwell-strategies?platform_id={south['id']}").json()}
+    assert listed == {"Shared"}
+    with_default = editor_client.get(f"/dwell-strategies?platform_id={south['id']}&include_default=true").json()
+    assert {s["name"] for s in with_default} == {"Shared", "Wide sweep"}
+
+    # Changing its Platforms is saved with the next version, and shows in the diff.
+    resp = editor_client.patch(
+        f"/dwell-strategies/{both['id']}", json={"platform_ids": [south["id"]], "save_version": True}
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["platform_names"] == ["South Ship"]
+    diff = editor_client.get(f"/dwell-strategies/{both['id']}/versions/2/diff").json()["entries"]
+    assert any(e["label"] == "Platforms" and e["new_value"] == "South Ship" for e in diff)
+
+    # A dwell file holds one Strategy per Platform; default dwells don't count.
+    dwell_file = editor_client.post("/dwell-files", json={"name": "Fleet"}).json()
+    for s in (wide, both):
+        assert editor_client.post(f"/dwell-files/{dwell_file['id']}/strategies", json={"strategy_id": s["id"]}).status_code == 200
+    other = editor_client.post("/dwell-strategies", json={"name": "South only", "platform_ids": [south["id"]]}).json()
+    refused = editor_client.post(f"/dwell-files/{dwell_file['id']}/strategies", json={"strategy_id": other["id"]})
+    assert refused.status_code == 409 and "South Ship" in refused.json()["detail"]

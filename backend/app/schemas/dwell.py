@@ -17,7 +17,10 @@ class Dwell(BaseModel):
 
 class DwellStrategyCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
-    platform_id: UUID
+    # The Platforms it covers; none makes it a default dwell.
+    platform_ids: list[UUID] = Field(default_factory=list, max_length=200)
+    # One Platform (older callers); added to platform_ids.
+    platform_id: UUID | None = None
     description: str | None = Field(default=None, max_length=2000)
     # Start from another Strategy's dwells and settings (a copy).
     copy_from_id: UUID | None = None
@@ -25,7 +28,8 @@ class DwellStrategyCreate(BaseModel):
 
 class DwellStrategyUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
-    platform_id: UUID | None = None
+    # Replaces the Platforms it covers; [] makes it a default dwell.
+    platform_ids: list[UUID] | None = Field(default=None, max_length=200)
     description: str | None = Field(default=None, max_length=2000)
     manual_collect_time_ms: float | None = Field(default=None, ge=0)
     dwells: list[Dwell] | None = Field(default=None, max_length=500)
@@ -60,8 +64,10 @@ class StrategyTestUse(BaseModel):
 class DwellStrategySummary(BaseModel):
     id: UUID
     name: str
-    platform_id: UUID | None
-    platform_name: str | None
+    platform_ids: list[UUID]
+    platform_names: list[str]
+    # Tied to no Platform.
+    is_default: bool
     description: str | None
     dwell_count: int
     cycle_ms: float
@@ -78,8 +84,9 @@ class DwellStrategySummary(BaseModel):
 class DwellStrategyOut(BaseModel):
     id: UUID
     name: str
-    platform_id: UUID | None
-    platform_name: str | None
+    platform_ids: list[UUID]
+    platform_names: list[str]
+    is_default: bool
     description: str | None
     manual_collect_time_ms: float
     dwells: list[Dwell]
@@ -125,10 +132,11 @@ class DwellFileLinkOut(BaseModel):
     id: UUID
     strategy_id: UUID
     strategy_name: str
-    platform_id: UUID | None
-    platform_name: str | None
-    # False when the file is for an MDF that doesn't pin this Platform.
-    platform_in_mdf: bool | None
+    platform_ids: list[UUID]
+    platform_names: list[str]
+    is_default: bool
+    # When the file is for an MDF: those of its Platforms the MDF doesn't pin.
+    platforms_not_in_mdf: list[str] | None
     pinned_version_id: UUID
     pinned_version_number: int
     latest_version_number: int
