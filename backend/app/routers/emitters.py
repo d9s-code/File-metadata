@@ -13,6 +13,7 @@ from app.core.enums import (
     AuditEntityType,
     EmitterStatus,
     Role,
+    TestScopeType,
 )
 from app.database import get_db
 from app.services import milestones, statuses
@@ -23,6 +24,7 @@ from app.models.emitter_version import EmitterVersion
 from app.models.ew_group import EwGroup
 from app.models.mode import Mode, ModeGenerationBatch
 from app.routers.modes import create_mode_record, delete_mode_audited
+from app.models.test_record import TestRecord, TestRecordLine, TestRecordLineMode, TestRecordMode
 from app.models.user import User
 from app.schemas.emitter import (
     EmitterBulkAction,
@@ -57,6 +59,7 @@ from app.schemas.emitter_version import (
     EmitterVersionDetailOut,
     EmitterVersionOut,
     ForkRequest,
+    RevertPreviewOut,
     StatusTransitionRequest,
 )
 from app.routers.tasks import active_user
@@ -864,6 +867,53 @@ def diff_emitter_live_state(
     # Status isn't part of what a save captures or a discard throws away.
     live_snapshot = {**build_emitter_snapshot(emitter), "status": baseline.get("status")}
     return EmitterDiffOut(**compute_emitter_diff(baseline, live_snapshot, statuses.labels(db, "emitter")))
+
+
+@router.get("/{emitter_id}/versions/{version_number}/revert-preview", response_model=RevertPreviewOut)
+def preview_revert(
+    emitter_id: UUID,
+    version_number: int,
+    db: Session = Depends(get_db),
+    _=Depends(require_role(Role.viewer)),
+) -> RevertPreviewOut:
+    """What reverting to the version would change, before it's done: the live
+    Emitter against that version, the logged results naming what it removes,
+    and the unsaved changes it throws away."""
+    emitter = _get_emitter_or_404(db, emitter_id)
+    target = get_version(db, spec=_VERSION_SPEC, entity_id=emitter_id, version_number=version_number)
+    if target is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Version not found")
+    live = {**build_emitter_snapshot(emitter), "status": target.snapshot.get("status")}
+    diff = compute_emitter_diff(live, target.snapshot, statuses.labels(db, "emitter"))
+
+    target_modes = {m["id"] for g in target.snapshot.get("ew_groups", []) for m in g.get("modes", [])}
+    target_lines = {tl["id"] for tl in target.snapshot.get("test_lines", [])}
+    gone_modes = [m.id for g in emitter.ew_groups for m in g.modes if str(m.id) not in target_modes]
+    gone_lines = [tl.id for tl in emitter.test_lines if str(tl.id) not in target_lines]
+    records = db.query(TestRecord.id).filter(
+        TestRecord.scope_type == TestScopeType.emitter, TestRecord.scope_id == emitter.id
+    )
+    naming = 0
+    if gone_modes:
+        naming += db.query(TestRecordMode).filter(
+            TestRecordMode.mode_id.in_(gone_modes), TestRecordMode.test_record_id.in_(records)
+        ).count()
+        naming += db.query(TestRecordLineMode).join(TestRecordLine).filter(
+            TestRecordLineMode.mode_id.in_(gone_modes), TestRecordLine.test_record_id.in_(records)
+        ).count()
+    if gone_lines:
+        naming += db.query(TestRecordLine).filter(
+            TestRecordLine.test_line_id.in_(gone_lines), TestRecordLine.test_record_id.in_(records)
+        ).count()
+
+    versions = list_versions(db, spec=_VERSION_SPEC, entity_id=emitter_id)
+    unsaved = 0
+    if versions:
+        latest = versions[-1].snapshot
+        unsaved = len(
+            compute_emitter_diff(latest, {**build_emitter_snapshot(emitter), "status": latest.get("status")})["entries"]
+        )
+    return RevertPreviewOut(**diff, results_naming_removed=naming, unsaved_changes=unsaved)
 
 
 @router.post(

@@ -12,8 +12,8 @@ import { ForkVersionModal } from "../components/versioning/ForkVersionModal";
 import { RequireRole } from "../auth/RequireAuth";
 import { ApiRequestError } from "../api/client";
 import { LoadingState } from "../components/common/LoadingState";
-import { useConfirmDialog } from "../components/common/ConfirmDialog";
 import { EditModeControls } from "../components/versioning/EditModeControls";
+import { RevertPreviewDialog } from "../components/versioning/RevertPreviewDialog";
 
 export function EmitterVersionHistoryPage() {
   const { emitterId } = useParams<{ emitterId: string }>();
@@ -28,7 +28,7 @@ export function EmitterVersionHistoryPage() {
   const [against, setAgainst] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showForkModal, setShowForkModal] = useState(false);
-  const { confirmDelete, dialog } = useConfirmDialog();
+  const [previewing, setPreviewing] = useState(false);
 
   // Open on the newest version rather than an empty "select a version" panel.
   const latest = versions?.length ? Math.max(...versions.map((v) => v.version_number)) : null;
@@ -50,17 +50,11 @@ export function EmitterVersionHistoryPage() {
   async function handleRevert() {
     if (selected == null) return;
     setError(null);
-    if (
-      !(await confirmDelete(
-        `Revert live Emitter data to version ${selected}? This overwrites current EW Groups/Sources/Modes and commits a new version documenting the revert.`,
-        { confirmLabel: "Revert", danger: true },
-      ))
-    ) {
-      return;
-    }
     try {
       await revertVersion.mutateAsync(selected);
+      setPreviewing(false);
     } catch (err) {
+      setPreviewing(false);
       setError(err instanceof ApiRequestError ? err.message : "Failed to revert to this version");
     }
   }
@@ -126,7 +120,7 @@ export function EmitterVersionHistoryPage() {
                         ? "This is already the latest version"
                         : "Make the Emitter match this version again (saved as a new version)"
                   }
-                  onClick={() => void handleRevert()}
+                  onClick={() => setPreviewing(true)}
                 >
                   Revert to v{selected}…
                 </button>
@@ -141,7 +135,15 @@ export function EmitterVersionHistoryPage() {
       {showForkModal && selected != null && (
         <ForkVersionModal emitterId={emitter.id} versionNumber={selected} onClose={() => setShowForkModal(false)} />
       )}
-      {dialog}
+      {previewing && selected != null && emitterId && (
+        <RevertPreviewDialog
+          emitterId={emitterId}
+          versionNumber={selected}
+          pending={revertVersion.isPending}
+          onRevert={() => void handleRevert()}
+          onClose={() => setPreviewing(false)}
+        />
+      )}
     </div>
   );
 }

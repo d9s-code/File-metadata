@@ -20,6 +20,11 @@ export const emitterVersionsApi = {
       note,
       confirm_unmet: confirmUnmet,
     }),
+  /** What reverting would do, before it's done. */
+  revertPreview: (emitterId: string, versionNumber: number) =>
+    api.get<EmitterDiffResult & { results_naming_removed: number; unsaved_changes: number }>(
+      `/emitters/${emitterId}/versions/${versionNumber}/revert-preview`,
+    ),
   revert: (emitterId: string, versionNumber: number) =>
     api.post<EmitterVersionSummary>(`/emitters/${emitterId}/versions/${versionNumber}/revert`),
   fork: (emitterId: string, versionNumber: number, newName: string) =>

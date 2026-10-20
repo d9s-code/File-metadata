@@ -74,6 +74,19 @@ class EmitterDiffOut(BaseModel):
     identical: bool
 
 
+class RevertPreviewOut(BaseModel):
+    """What a revert to a version would do to the live Emitter."""
+
+    # From the live Emitter to that version, item by item.
+    entries: list[EmitterDiffEntry]
+    identical: bool
+    # Logged test results naming a Mode or SIM line the revert removes: they're
+    # kept, and show the name with "(deleted)" until a revert brings it back.
+    results_naming_removed: int
+    # Changes since the last saved version that the revert throws away.
+    unsaved_changes: int
+
+
 class StatusTransitionRequest(BaseModel):
     new_status: str
     note: str | None = None

@@ -6955,3 +6955,7 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
 .add-value-name { flex-direction: row; align-items: center; gap: 0.5rem; font-size: 0.85rem; flex-wrap: wrap; }
 .add-value-name input { width: 14rem; }
 .add-value .modal-actions .hint-text { margin-right: auto; }
+
+/* Revert preview. */
+.revert-preview { display: flex; flex-direction: column; gap: 0.6rem; }
+.revert-preview-list { max-height: 22rem; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.4rem 0.6rem; }

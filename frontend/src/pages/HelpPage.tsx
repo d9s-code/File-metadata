@@ -710,7 +710,9 @@ export function HelpPage() {
             <strong>Changes since</strong> to compare any two. Its actions — Revert, Fork — sit beside it.
           </p>
           <p>
-            <strong>Revert to vN…</strong> resets live data to match an older saved version
+            <strong>Revert to vN…</strong> first shows what it would do — each Mode, Source, EW Group and SIM
+            line it removes, brings back or changes, any unsaved changes it would throw away, and how many logged test
+            results name what it removes — then, if you go ahead, resets live data to match that saved version
             and immediately commits a new version documenting the revert — like <code>git revert</code>,
             history is never rewritten or deleted. Logged test results are kept whatever a revert removes: a Mode or
             SIM Test Line that&apos;s gone shows as <em>(deleted)</em> on the run, and reverting back to a version

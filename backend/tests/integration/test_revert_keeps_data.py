@@ -308,3 +308,26 @@ def test_purging_an_emitter_removes_what_was_kept_for_its_sources(editor_client,
     db_session.expire_all()
     for model in (SourceNote, ParameterSequence, CartesianRun, ModeGenerationBatch):
         assert db_session.query(model).filter(model.source_id == ctx["sid"]).count() == 0
+
+
+def test_a_revert_preview_says_what_it_removes_and_what_it_throws_away(editor_client, admin_client):
+    ctx = _build(editor_client, admin_client)
+    eid = ctx["eid"]
+    preview = editor_client.get(f"/emitters/{eid}/versions/1/revert-preview")
+    assert preview.status_code == 200, preview.text
+    body = preview.json()
+    removed = {e["scope"] for e in body["entries"] if e["kind"] == "removed"}
+    assert "Mode 'From Intercept'" in removed and "Source 'Report 7'" in removed and "Test Line 'SIM 1'" in removed
+    # The intercept run's Mode result, the SIM run's line result and the Mode it intercepted.
+    assert body["results_naming_removed"] == 3
+    assert body["unsaved_changes"] == 0
+    before = editor_client.get(f"/emitters/{eid}/modes").json()
+
+    editor_client.patch(f"/emitters/{eid}", json={"description": "not saved"})
+    assert editor_client.get(f"/emitters/{eid}/versions/1/revert-preview").json()["unsaved_changes"] == 1
+    # A preview changes nothing.
+    assert editor_client.get(f"/emitters/{eid}/modes").json() == before
+    assert editor_client.get(f"/emitters/{eid}/versions/{ctx['v2']}/revert-preview").json()["entries"] == [
+        e for e in editor_client.get(f"/emitters/{eid}/versions/{ctx['v2']}/revert-preview").json()["entries"]
+        if e["label"] == "Description"
+    ]
