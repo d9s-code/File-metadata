@@ -8,7 +8,7 @@ If you just want to see it running, start with the [README](../README.md). This 
 
 **Tables everywhere:** drag the right edge of a column heading to resize the column; double-click it to put it back. Widths are remembered per table in the browser. A row's less common actions (Edit, Delete, Approve, Reject …) are under its **⋯** menu; Delete always asks first. List filters sit on one line above the table with the shown count ("12 of 31 Emitters"); **Reset** appears only while a filter is set.
 
-**Menu.** The top bar holds Dashboard, Emitters, Platforms, MDFs, Dwells, Intercepts (and Admin). **Source Groups** is a tab on the Emitters page and **Customers** a tab on the MDFs page (the menu item stays lit on them); **Help** is the **?** beside Search. **Tasks** are on the Dashboard (My work) and in the account menu, which also holds the **Audit Log**; the number by your name is how many tasks are open for you. Explanations that used to sit under page titles are behind a small **?** beside the title, shown on hover or focus.
+**Menu.** The top bar holds Dashboard, Emitters, Platforms, MDFs, Dwells, Intercepts (and Admin). **Source Groups** and **Report** are tabs on the Emitters page and **Customers** a tab on the MDFs page (the menu item stays lit on them); **Help** is the **?** beside Search. **Tasks** are on the Dashboard (My work) and in the account menu, which also holds the **Audit Log**; the number by your name is how many tasks are open for you. Explanations that used to sit under page titles are behind a small **?** beside the title, shown on hover or focus.
 
 **Analyst notes** on Emitters, Platforms, MDFs and Intercepts open from a **Notes** tab fixed to the right edge of the window, in a panel that stays put while the page scrolls and doesn't block it; open or closed is remembered across pages. A note written but not yet added is kept in the browser per Emitter/Platform/MDF/Intercept (and per Source and Task) until it's added — closing the panel, leaving the page or the browser, or a stray click doesn't lose it, and the closed tab shows ✎ while one is waiting. Nothing is added to the log until **Add note** is pressed, since notes are append-only.
 
@@ -21,6 +21,8 @@ If you just want to see it running, start with the [README](../README.md). This 
 **Search (quick-jump).** **⌕ Search** in the menu bar, or Ctrl+K (⌘K on a Mac) from any page, opens a box that finds Emitters (name or designation), Modes, Platforms, MDFs, Sources, Intercepts, Dwell Strategies (name or description) and dwell files as you type — every word has to match, in any order; exact and starts-with matches first; up to 8 of each kind; deleted things left out. ↑↓ and Enter open one: a Mode on its Emitter's Modes tab, a Source on the Groups & Sources tab (`GET /search?q=`).
 
 **Sorts and filters are remembered for the session.** Every table's sort (the column and direction) and the filters on the lists and tables — Emitters (name, ranges, assigned), Platforms, MDFs (name, status, customer), Intercepts, Dwells, the Audit Log, the Dashboard's Emitter table, Ambiguity, Source Groups, an Emitter's Modes (every filter, sort and the margins switch) and All Sources (per Emitter), Mode ladders, an Intercept's reports — are kept in the browser tab's session storage: a reload, or going to another page and back, finds them as they were. They're forgotten when the tab closes, and a new tab starts with none. Ticked rows and open dialogs aren't kept.
+
+**Modes sort with ties broken by name.** On an Emitter's Modes, sorting by any column (RF, EW Group, PRI type…) lists Modes with the same value by name, A–Z with numbers by value ("Search 2" before "Search 10"), then by EW Group — so equal values never come out in an arbitrary order; sorting by name breaks ties between same-named Modes by EW Group.
 
 An address that doesn't exist (mistyped or out of date) shows **Page not found**, with a link to the Dashboard.
 
@@ -55,6 +57,15 @@ EW Groups are how the "EW Groups → Modes" tab on the Emitter page is organized
 **A suggested first EW Group.** While an Emitter has no EW Group, the empty EW Groups card suggests a scan range from its Sources: the **shortest to the longest scan time** (s) among the scan Elements of all its Sources (a single value counts as both ends; scan times are used as entered, never converted to a rate), with how many Elements and Sources it came from. **Use it for a new EW Group** opens the form with Scan min / max filled in, to name and save. Nothing shows when no Source has a scan Element (`GET /emitters/{id}/ew-groups/suggestion`).
 
 ---
+
+
+### Report
+
+**Report** (a tab on the Emitters page) downloads a spreadsheet (.xlsx) with a line per Mode for the Platforms and Emitters picked. Two lists, each with a search and All / None: **Platforms** (each with how many Emitters it pins) and **Emitters** — an Emitter on a picked Platform is ticked and greyed, "on <Platform>", as it's in the report through it; tick others to add them on their own. The line above says how many Platforms, extra Emitters and Emitters in all; the picks are kept for the session.
+
+The sheet has the export header's columns, with **Platform** in front: Emitter, its designation, Mode, Polarization, Ageout [s], Threat Priority, Quality, Quantity, Scan Type, Period Min/Max [ms] (the EW Group's scan, in ms), Frequency and Pulse Width Min/Max, PRI Type, PRI and Jitter Min/Max, Frame Min/Max, then Stagger 1–32 [µs] (more columns if a stagger has more steps). Frequency, pulse width, PRI and frame time have their margins applied, as the PRS export writes them. Polarization and Scan Type aren't kept in the app, so they're empty. The header row stays in view while scrolling.
+
+**Order:** Platforms A–Z, each one's Emitters A–Z under it, each Emitter's Modes A–Z (numbers by value: "Search 2" before "Search 10"); then the Emitters picked on their own, A–Z, with Platform empty. An Emitter on two picked Platforms is listed under each. A Platform's Emitters are the versions it pins; an Emitter picked on its own is its latest saved version (as it is now, if never saved). An Emitter without Modes still gets a line, its Mode columns empty (`POST /reports/emitters`).
 
 ## 2. Modes and PRI Types
 

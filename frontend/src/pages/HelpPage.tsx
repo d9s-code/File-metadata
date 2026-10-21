@@ -268,6 +268,18 @@ export function HelpPage() {
           than a full page; click a row to open that Emitter.
         </p>
         <p>
+          <strong>Report</strong> (a tab beside Source Groups) downloads a spreadsheet with a line per Mode. Tick the
+          Platforms and Emitters to include — an Emitter on a ticked Platform is already in, through it — then{" "}
+          <strong>Download report (.xlsx)</strong>. It lists Platforms A–Z, each one&apos;s Emitters A–Z, each
+          Emitter&apos;s Modes A–Z, then the Emitters picked on their own. A Platform&apos;s Emitters are the versions it
+          pins; an Emitter picked on its own is its latest saved version. Values are as the PRS export writes them
+          (margins applied; scan period in ms).
+        </p>
+        <p>
+          On an Emitter&apos;s Modes, sorting by a column lists Modes with the same value by name (A–Z, &ldquo;Search
+          2&rdquo; before &ldquo;Search 10&rdquo;), then by EW Group.
+        </p>
+        <p>
           <strong>Bulk actions</strong> (Editors and Admins): tick Emitters in the first column (the box in the heading
           ticks every one shown) and a bar appears above the table — <strong>Assign to</strong> someone (or nobody),{" "}
           <strong>Move status to</strong> (Operational and Needs rework ask for the usual note),{" "}

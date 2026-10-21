@@ -7020,3 +7020,12 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
 .observed-values-editor td.observed-values-steps input { width: 12rem; }
 .observed-values-editor .observed-values-number { color: var(--muted); font-size: 0.8rem; text-align: right; }
 .test-run-header .received-power-input { width: 8rem; }
+/* Report: the Platforms and Emitters to pick, side by side. */
+.report-summary { margin: 0 0 0.75rem; }
+.report-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr)); gap: 1rem; align-items: start; }
+.report-picker-head { display: flex; align-items: baseline; gap: 0.6rem; margin-bottom: 0.5rem; }
+.report-picker-head h2 { margin: 0; font-size: 1rem; }
+.report-picker > .card > input[type="search"] { width: 100%; margin-bottom: 0.4rem; }
+.report-picker-list { list-style: none; margin: 0; padding: 0; max-height: 60vh; overflow-y: auto; }
+.report-picker-list li { padding: 0.2rem 0; }
+.report-picker-list .checkbox-label { display: flex; align-items: center; gap: 0.5rem; }

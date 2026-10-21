@@ -35,6 +35,7 @@ import { DwellVersionHistoryPage } from "./pages/DwellVersionHistoryPage";
 import { AdminSettingsPage } from "./pages/AdminSettingsPage";
 import { AdminStatusesPage } from "./pages/AdminStatusesPage";
 import { InterceptsPage } from "./pages/InterceptsPage";
+import { ReportsPage } from "./pages/ReportsPage";
 import { InterceptDetailPage } from "./pages/InterceptDetailPage";
 import { InterceptModePlanPage } from "./pages/InterceptModePlanPage";
 import { InterceptRegroupPage } from "./pages/InterceptRegroupPage";
@@ -238,6 +239,14 @@ export default function App() {
                 element={
                   <RequireAuth>
                     <CustomersPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/reports"
+                element={
+                  <RequireAuth>
+                    <ReportsPage />
                   </RequireAuth>
                 }
               />

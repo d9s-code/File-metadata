@@ -24,6 +24,7 @@ from app.routers import (
     modes,
     platform_tests,
     platforms,
+    reports,
     search,
     source_groups,
     sources,
@@ -78,6 +79,7 @@ app.include_router(test_lines.router)
 app.include_router(test_drafts.router)
 app.include_router(platform_tests.router)
 app.include_router(search.router)
+app.include_router(reports.router)
 app.include_router(dashboard.router)
 app.include_router(ambiguity.router)
 app.include_router(ambiguity.ai_router)

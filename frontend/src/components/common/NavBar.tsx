@@ -14,7 +14,7 @@ import { QuickJump } from "./QuickJump";
  * pages and light it up; Tasks are on the Dashboard and the account menu. */
 const LINKS: { to: string; label: string; also?: string[] }[] = [
   { to: "/dashboard", label: "Dashboard" },
-  { to: "/emitters", label: "Emitters", also: ["/source-groups", "/ambiguity/emitter"] },
+  { to: "/emitters", label: "Emitters", also: ["/source-groups", "/reports", "/ambiguity/emitter"] },
   { to: "/platforms", label: "Platforms", also: ["/ambiguity/platform"] },
   { to: "/mdfs", label: "MDFs", also: ["/customers", "/ambiguity/mdf"] },
   { to: "/dwells", label: "Dwells" },

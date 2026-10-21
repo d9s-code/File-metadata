@@ -27,6 +27,7 @@ export interface SectionLink {
 export const EMITTERS_SECTION: SectionLink[] = [
   { to: "/emitters", label: "Emitters" },
   { to: "/source-groups", label: "Source Groups" },
+  { to: "/reports", label: "Report" },
 ];
 export const MDFS_SECTION: SectionLink[] = [
   { to: "/mdfs", label: "MDFs" },
