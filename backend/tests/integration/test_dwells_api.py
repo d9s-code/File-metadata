@@ -207,7 +207,7 @@ def test_a_test_run_records_the_strategy_version_used(editor_client):
         json={
             "test_type": "simulation",
             "title": "With a dwell",
-            "test_date": "2026-10-14",
+            "received_power_dbfs": -40, "test_date": "2026-10-14",
             "simulation_created_date": "2026-10-10",
             "result": "pass",
             "dwell_strategy_version_id": version["id"],

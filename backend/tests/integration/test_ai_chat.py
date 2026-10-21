@@ -163,7 +163,7 @@ def test_lists_tests_mdfs_and_bands(editor_client, fake_llm, emitter_with_two_ov
     )
     editor_client.post(
         f"/emitters/{emitter['id']}/test-records",
-        json={"test_type": "intercept", "title": "Range day", "test_date": "2026-10-01", "result": "fail"},
+        json={"test_type": "intercept", "title": "Range day", "received_power_dbfs": -40, "test_date": "2026-10-01", "result": "fail"},
     )
     fake_llm.replies = [
         {"action": "list_emitters", "status": "in progress", "target": "Chat Platform"},

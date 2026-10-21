@@ -191,6 +191,7 @@ export function TestRunDetailPage() {
         ) : (
           record.dwell && <Fact label="Dwell">{record.dwell}</Fact>
         )}
+        {record.received_power_dbfs != null && <Fact label="Received power">{record.received_power_dbfs} dBFS</Fact>}
         {record.simulation_created_date && (
           <Fact label={record.test_type === "intercept" ? "Intercepted" : "Simulation created"}>
             {formatDate(record.simulation_created_date)}

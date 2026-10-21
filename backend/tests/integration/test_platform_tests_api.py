@@ -49,7 +49,7 @@ def test_logging_a_platform_test_writes_a_record_per_emitter_against_the_pinned_
         json={
             "title": "Sea trial",
             "test_type": "simulation",
-            "test_date": "2026-10-01",
+            "received_power_dbfs": -40, "test_date": "2026-10-01",
             "simulation_created_date": "2026-09-30",
             "notes": "Whole run",
             "draft_id": draft["id"],
@@ -89,6 +89,8 @@ def test_logging_a_platform_test_writes_a_record_per_emitter_against_the_pinned_
     assert editor_client.get(f"/platforms/{platform['id']}/test-drafts").json() == []
     [listed] = editor_client.get(f"/platforms/{platform['id']}/tests").json()
     assert listed["id"] == test["id"] and listed["platform_version_number"] is not None
+    # The run's Received Power: on the Platform test and each Emitter's record.
+    assert test["received_power_dbfs"] == -40 and record["received_power_dbfs"] == -40
 
 
 def test_a_platform_test_is_all_or_nothing(editor_client):
@@ -98,7 +100,7 @@ def test_a_platform_test_is_all_or_nothing(editor_client):
     body = {
         "title": "Bad run",
         "test_type": "simulation",
-        "test_date": "2026-10-01",
+        "received_power_dbfs": -40, "test_date": "2026-10-01",
         "simulation_created_date": "2026-09-30",
         "emitters": [
             {"emitter_id": a["emitter"]["id"], "line_results": [{"test_line_id": a["lines"][0]["id"], "outcome": "pass"}]},
@@ -143,7 +145,7 @@ def test_platform_test_counts_outcomes_and_a_redo_links_each_record(editor_clien
     body = {
         "title": "First",
         "test_type": "simulation",
-        "test_date": "2026-10-01",
+        "received_power_dbfs": -40, "test_date": "2026-10-01",
         "simulation_created_date": "2026-09-30",
         "emitters": [
             {
@@ -188,7 +190,7 @@ def test_each_emitter_keeps_its_own_simulation_date(editor_client):
         json={
             "title": "Dated per Emitter",
             "test_type": "simulation",
-            "test_date": "2026-10-01",
+            "received_power_dbfs": -40, "test_date": "2026-10-01",
             "emitters": [
                 {"emitter_id": a["emitter"]["id"], "result": "pass", "simulation_created_date": "2026-09-01"},
                 {"emitter_id": b["emitter"]["id"], "result": "pass", "simulation_created_date": "2026-09-20"},
@@ -207,7 +209,7 @@ def test_each_emitter_keeps_its_own_simulation_date(editor_client):
         json={
             "title": "Undated",
             "test_type": "simulation",
-            "test_date": "2026-10-01",
+            "received_power_dbfs": -40, "test_date": "2026-10-01",
             "emitters": [{"emitter_id": a["emitter"]["id"], "result": "pass"}],
         },
     )
@@ -225,7 +227,7 @@ def test_a_platform_test_records_one_of_the_platforms_dwell_strategies(editor_cl
     body = {
         "title": "With dwells",
         "test_type": "simulation",
-        "test_date": "2026-10-02",
+        "received_power_dbfs": -40, "test_date": "2026-10-02",
         "simulation_created_date": "2026-10-01",
         "dwell": "Patrol v1",
         "dwell_strategy_version_id": foreign_v,

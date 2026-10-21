@@ -26,8 +26,7 @@ export interface ObservedValues {
   pri_stagger_values_us?: number[];
   /** Stagger only — the observed frame time, when it was measured directly. */
   frame_time_us?: number;
-  /** How strong it was received, in dBFS — required on each set a run logs
-   * (sets logged before it was asked don't have it). */
+  /** dBFS, on sets logged while it was asked per set (it's the run's now). */
   received_power_dbfs?: number;
 }
 
@@ -87,6 +86,8 @@ export interface TestRecord {
   test_time: string | null;
   simulation_created_date: string | null;
   /** "Manual", or a value written in; null on runs logged before dwell existed. */
+  /** The run's Received Power in dBFS; null on runs logged before it was asked. */
+  received_power_dbfs: number | null;
   dwell: string | null;
   /** The Dwell Strategy version the run used, if one was picked: the Strategy, its name then, the version. */
   dwell_strategy_version_id: string | null;
@@ -130,6 +131,7 @@ export interface TestRecordInput {
   test_time?: string;
   simulation_created_date?: string;
   /** "Manual", or a value written in (e.g. "50 ms"). */
+  received_power_dbfs: number;
   dwell?: string;
   dwell_strategy_version_id?: string;
   /** Per-Test-Line intercept-correctness outcome — when given, this is what the

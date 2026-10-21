@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { formatDate } from "../common/dates";
 import { DateInput } from "../common/DateInput";
 import { DwellInput, MANUAL_DWELL } from "./DwellInput";
+import { ReceivedPowerInput, receivedPowerError } from "./ReceivedPowerInput";
 import { useCreateMdfTestRecord, useDeleteMdfTestRecord, useMdfTestRecords } from "../../state/hooks/useTestRecords";
 import { LOGGABLE_TEST_TYPES, type LoggableTestType, type TestResult } from "../../types/domain";
 import { ApiRequestError } from "../../api/client";
@@ -25,6 +26,7 @@ export function MdfTestHistory({ mdfId, highlightTestRecordId }: { mdfId: string
   const [testDate, setTestDate] = useState(todayDate());
   const [simCreatedDate, setSimCreatedDate] = useState("");
   const [dwell, setDwell] = useState(MANUAL_DWELL);
+  const [receivedPower, setReceivedPower] = useState("");
   const [result, setResult] = useState<TestResult>("pass");
   const [retestsId, setRetestsId] = useState("");
   const [notes, setNotes] = useState("");
@@ -33,12 +35,18 @@ export function MdfTestHistory({ mdfId, highlightTestRecordId }: { mdfId: string
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    const powerProblem = receivedPowerError(receivedPower);
+    if (powerProblem) {
+      setError(powerProblem);
+      return;
+    }
     try {
       await create.mutateAsync({
         test_type: testType,
         title,
         test_date: testDate,
         simulation_created_date: simCreatedDate || undefined,
+        received_power_dbfs: Number(receivedPower),
         dwell: dwell.trim() || undefined,
         result,
         notes: notes.trim() || undefined,
@@ -50,6 +58,7 @@ export function MdfTestHistory({ mdfId, highlightTestRecordId }: { mdfId: string
     }
     setTitle("");
     setNotes("");
+    setReceivedPower("");
     setRetestsId("");
     setShowForm(false);
   }
@@ -100,6 +109,7 @@ export function MdfTestHistory({ mdfId, highlightTestRecordId }: { mdfId: string
                 />
               </label>
               <DwellInput value={dwell} onChange={setDwell} />
+              <ReceivedPowerInput value={receivedPower} onChange={setReceivedPower} />
               <label className="inline-date-label">
                 Result
                 <select value={result} onChange={(e) => setResult(e.target.value as TestResult)}>

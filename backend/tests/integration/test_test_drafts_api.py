@@ -56,7 +56,7 @@ def test_logging_the_run_deletes_its_draft_and_keeps_default_unknown(editor_clie
         json={
             "test_type": "simulation",
             "title": "Morning run",
-            "test_date": "2026-10-07",
+            "received_power_dbfs": -40, "test_date": "2026-10-07",
             "simulation_created_date": "2026-09-15",
             "draft_id": draft["id"],
             "line_results": [

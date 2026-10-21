@@ -73,6 +73,7 @@ export function PlatformTestDetailPage() {
             {test.dwell_strategy_version_number}
           </Fact>
         )}
+        {test.received_power_dbfs != null && <Fact label="Received power">{test.received_power_dbfs} dBFS</Fact>}
         {test.platform_version_number != null && (
           <Fact label="Platform version">
             <Link to={`/platforms/${platformId}/versions?version=${test.platform_version_number}`}>

@@ -31,7 +31,6 @@ import { SimLineResultsTable, type SimLineEntry } from "../components/testing/Si
 import { InterceptModeResultsTable, type InterceptModeEntry } from "../components/testing/InterceptModeResultsTable";
 import { InterceptSignalsEditor, loggedSignals, type SignalEntry } from "../components/testing/InterceptSignals";
 import {
-  missingPowerMessage,
   nonEmptySets,
   observedValueOptions,
   TEST_RESULTS,
@@ -39,6 +38,7 @@ import {
   testTypeLabel,
 } from "../components/testing/testFormat";
 import { DwellInput, MANUAL_DWELL } from "../components/testing/DwellInput";
+import { ReceivedPowerInput, receivedPowerError } from "../components/testing/ReceivedPowerInput";
 import { lineEntriesFrom, modeEntriesFrom } from "../components/testing/runSeed";
 
 /** Everything on the page that's saved as the run is filled in — the
@@ -53,6 +53,8 @@ interface RunState {
   dwell: string;
   /** The Dwell Strategy version picked under Dwell, if one was. */
   dwellStrategyVersionId?: string;
+  /** dBFS, as typed. */
+  receivedPower?: string;
   retestsId: string;
   copyFromId: string;
   /** The saved Emitter version being tested ("" until the versions load: the latest). */
@@ -140,6 +142,7 @@ export function TestRunNewPage() {
   const [interceptDate, setInterceptDate] = useState("");
   const [dwell, setDwell] = useState(MANUAL_DWELL);
   const [dwellStrategyVersionId, setDwellStrategyVersionId] = useState("");
+  const [receivedPower, setReceivedPower] = useState("");
   const [retestsId, setRetestsId] = useState("");
   const [copyFromId, setCopyFromId] = useState("");
   const [versionId, setVersionId] = useState("");
@@ -168,6 +171,7 @@ export function TestRunNewPage() {
       interceptDate,
       dwell,
       dwellStrategyVersionId,
+      receivedPower,
       retestsId,
       copyFromId,
       versionId,
@@ -180,7 +184,7 @@ export function TestRunNewPage() {
       signals,
       stagedModes,
     }),
-    [testType, title, testDate, testTime, simCreatedDate, interceptDate, dwell, dwellStrategyVersionId, retestsId, copyFromId, versionId, notes, manualResult, resultOverride, resultOverrideNote, lineEntries, modeEntries, signals, stagedModes],
+    [testType, title, testDate, testTime, simCreatedDate, interceptDate, dwell, dwellStrategyVersionId, receivedPower, retestsId, copyFromId, versionId, notes, manualResult, resultOverride, resultOverrideNote, lineEntries, modeEntries, signals, stagedModes],
   );
 
   function applyState(s: Partial<RunState>) {
@@ -192,6 +196,7 @@ export function TestRunNewPage() {
     if (s.interceptDate !== undefined) setInterceptDate(s.interceptDate);
     if (s.dwell !== undefined) setDwell(s.dwell);
     if (s.dwellStrategyVersionId !== undefined) setDwellStrategyVersionId(s.dwellStrategyVersionId);
+    if (s.receivedPower !== undefined) setReceivedPower(s.receivedPower);
     if (s.retestsId !== undefined) setRetestsId(s.retestsId);
     if (s.copyFromId !== undefined) setCopyFromId(s.copyFromId);
     if (s.versionId !== undefined) setVersionId(s.versionId);
@@ -379,8 +384,7 @@ export function TestRunNewPage() {
     navigate(`/emitters/${emitterId}?tab=tests`);
   }
 
-  // Every SIM line, Mode and signal with values logged in this run.
-  const valueOwners = [
+  const preFillOptions = observedValueOptions([
     ...includedLines.map(([id, e]) => ({
       id,
       name: testLines.find((l) => l.id === id)?.label ?? "SIM line",
@@ -388,8 +392,7 @@ export function TestRunNewPage() {
     })),
     ...includedModes.map(([id, e]) => ({ id, name: modes.find((m) => m.id === id)?.name ?? "Mode", sets: e.observedValues })),
     ...(isSimulation ? [] : signals.map((s, i) => ({ id: `signal-${i}`, name: `Signal ${i + 1}`, sets: s.observedValues }))),
-  ];
-  const preFillOptions = observedValueOptions(valueOwners);
+  ]);
 
   function handleCopyFrom(id: string) {
     setCopyFromId(id);
@@ -399,6 +402,7 @@ export function TestRunNewPage() {
     setModeEntries(modeEntriesFrom(previous));
     if (previous.dwell) setDwell(previous.dwell);
     setDwellStrategyVersionId(previous.dwell_strategy_version_id ?? "");
+    if (previous.received_power_dbfs != null) setReceivedPower(String(previous.received_power_dbfs));
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -412,9 +416,9 @@ export function TestRunNewPage() {
       setError("Pick the overall result.");
       return;
     }
-    const noPower = missingPowerMessage(valueOwners);
-    if (noPower) {
-      setError(noPower);
+    const powerProblem = receivedPowerError(receivedPower);
+    if (powerProblem) {
+      setError(powerProblem);
       return;
     }
     const lineResults = isSimulation
@@ -449,6 +453,7 @@ export function TestRunNewPage() {
         // One column holds both: when the simulation was built, or when the intercept happened.
         simulation_created_date: (isSimulation ? simCreatedDate : interceptDate) || undefined,
         signals: isSimulation ? undefined : loggedSignals(signals),
+        received_power_dbfs: Number(receivedPower),
         dwell: dwell.trim() || undefined,
         dwell_strategy_version_id: dwellStrategyVersionId || undefined,
         notes: notes.trim() || undefined,
@@ -534,6 +539,7 @@ export function TestRunNewPage() {
                 if (id) setDwell(label);
               }}
             />
+            <ReceivedPowerInput value={receivedPower} onChange={setReceivedPower} />
           </div>
           <div className="form-row">
             <label>

@@ -79,7 +79,7 @@ def test_revert_deletes_mode_not_in_target_and_cascades_test_record(editor_clien
         json={
             "test_type": "intercept",
             "title": "Bench check",
-            "test_date": "2025-05-01",
+            "received_power_dbfs": -40, "test_date": "2025-05-01",
             "mode_results": [{"mode_id": mode_id, "result": "pass"}],
         },
     ).json()
@@ -248,7 +248,7 @@ def test_test_history_survives_reverting_away_and_back(editor_client):
         json={
             "test_type": "simulation",
             "title": "Range run",
-            "test_date": "2026-09-01",
+            "received_power_dbfs": -40, "test_date": "2026-09-01",
             "simulation_created_date": "2026-08-01",
             "line_results": [
                 {"test_line_id": line["id"], "outcome": "pass", "intercepted_mode_ids": [mode_id], "notes": "clean"}

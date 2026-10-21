@@ -105,6 +105,7 @@ def _out(db: Session, tests: list[PlatformTest]) -> list[PlatformTestOut]:
                 notes=t.notes,
                 tested_by_username=users.get(t.tested_by),
                 created_at=t.created_at,
+                received_power_dbfs=t.received_power_dbfs,
                 **_dwell_of(db, t.dwell_strategy_version_id),
                 result=compute_overall_result([row.result for row in rows]),
                 emitters=rows,
@@ -192,6 +193,7 @@ def log_platform_test(
         test_type=payload.test_type.value,
         test_date=payload.test_date,
         notes=payload.notes,
+        received_power_dbfs=payload.received_power_dbfs,
         tested_by=user.id,
     )
     db.add(test)

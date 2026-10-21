@@ -27,6 +27,7 @@ import { AutoGrowTextarea } from "../components/common/AutoGrowTextarea";
 import { computeOverallResult } from "../components/testing/modeResultAggregate";
 import { TEST_RESULTS, testResultLabel, testTypeLabel } from "../components/testing/testFormat";
 import { DwellInput, MANUAL_DWELL } from "../components/testing/DwellInput";
+import { ReceivedPowerInput, receivedPowerError } from "../components/testing/ReceivedPowerInput";
 
 /** One pinned Emitter's part of the run: whether it's in it, its result and
  * notes. (Per-line and per-Mode detail stays on each Emitter's own runs.) */
@@ -54,6 +55,8 @@ interface PlatformRunState {
   dwell: string;
   /** The Platform's Dwell Strategy version picked under Dwell, if one was. */
   dwellStrategyVersionId?: string;
+  /** dBFS, as typed. */
+  receivedPower?: string;
   notes: string;
   emitters: Record<string, EmitterRun>;
 }
@@ -371,6 +374,11 @@ export function PlatformTestRunPage() {
       setError(`Give the simulation date for ${names.join(", ")} — it has no SIM Test Lines to take it from.`);
       return;
     }
+    const powerProblem = receivedPowerError(state.receivedPower ?? "");
+    if (powerProblem) {
+      setError(powerProblem);
+      return;
+    }
     const emitters: PlatformTestEmitterInput[] = included.map((link) => {
       const run = runFor(link.emitter_id);
       return {
@@ -389,6 +397,7 @@ export function PlatformTestRunPage() {
         test_date: state.testDate,
         test_time: state.testTime || undefined,
         simulation_created_date: isSimulation ? undefined : state.interceptDate || undefined,
+        received_power_dbfs: Number(state.receivedPower),
         dwell: state.dwell.trim() || undefined,
         dwell_strategy_version_id: state.dwellStrategyVersionId || undefined,
         notes: state.notes.trim() || undefined,
@@ -452,6 +461,7 @@ export function PlatformTestRunPage() {
               onStrategy={(id, label) => patch(id ? { dwellStrategyVersionId: id, dwell: label } : { dwellStrategyVersionId: "" })}
               platformId={platformId}
             />
+            <ReceivedPowerInput value={state.receivedPower ?? ""} onChange={(receivedPower) => patch({ receivedPower })} />
           </div>
           <label className="test-notes-field">
             Session notes (optional) — equipment, environment, anything about the run as a whole; an Emitter&apos;s

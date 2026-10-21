@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { ObservedValues } from "../../api/testRecords";
 import type { PriType } from "../../types/domain";
-import { lacksPower, nsOf, usOfNs } from "./testFormat";
+import { nsOf, usOfNs } from "./testFormat";
 
 const PRI_TYPES: PriType[] = ["fixed", "stagger", "cw", "xlet"];
 
-type NumericKey = "rf_mean_mhz" | "pri_mean_us" | "jitter_mean_us" | "pw_mean_us" | "frame_time_us" | "received_power_dbfs";
+type NumericKey = "rf_mean_mhz" | "pri_mean_us" | "jitter_mean_us" | "pw_mean_us" | "frame_time_us";
 
 // Intercepted parameters are logged as means: RF, the PRI type and its PRI
 // (a fixed PRI's mean, a stagger's frame time), PW, then a fixed PRI's
@@ -119,24 +119,9 @@ export function ObservedValuesEditor({
       {sets.map((set, index) => (
         <div key={index} className="mode-observed-value-set">
           {sets.length > 1 && <div className="mode-observed-value-set-label">Set {index + 1}</div>}
-          <div className="form-row">
+          {/* One row, in the order they're typed: RF, PRI type and its value, PW, then jitter or steps. */}
+          <div className="observed-values-row">
             <MeanInput label="RF mean (MHz)" set={set} field="rf_mean_mhz" onChange={(raw) => setNumber(index, "rf_mean_mhz", raw)} />
-            <label className={lacksPower(set) ? "field-missing" : undefined}>
-              <span>
-                Received Power (dBFS) <span className="required-mark" aria-hidden="true">*</span>
-              </span>
-              <input
-                type="number"
-                step="any"
-                value={set.received_power_dbfs ?? ""}
-                onChange={(e) => setNumber(index, "received_power_dbfs", e.target.value)}
-                required={Object.keys(set).length > 0}
-                placeholder="−45"
-                title="How strong it was received, in dBFS (0 is full scale) — required"
-              />
-            </label>
-          </div>
-          <div className="form-row">
             <label>
               PRI type
               <select value={set.pri_type ?? ""} onChange={(e) => setPriType(index, e.target.value as PriType | "")}>
@@ -153,7 +138,7 @@ export function ObservedValuesEditor({
             )}
             {set.pri_type === "stagger" && (
               <label>
-                frame time (µs)
+                Frame time (µs)
                 <input
                   type="number"
                   step="any"
@@ -164,17 +149,10 @@ export function ObservedValuesEditor({
                 />
               </label>
             )}
-          </div>
-          {(set.pri_type === "cw" || set.pri_type === "xlet") && (
-            <p className="hint-text">{set.pri_type.toUpperCase()}: no further PRI value to record.</p>
-          )}
-          <div className="form-row">
             <MeanInput label="PW mean (µs)" set={set} field="pw_mean_us" onChange={(raw) => setNumber(index, "pw_mean_us", raw)} />
-          </div>
-          {set.pri_type === "fixed" && (
-            <div className="form-row">
+            {set.pri_type === "fixed" && (
               <label>
-                jitter mean (ns)
+                Jitter mean (ns)
                 <input
                   type="number"
                   step="any"
@@ -184,23 +162,24 @@ export function ObservedValuesEditor({
                   }
                 />
               </label>
-            </div>
-          )}
-          {set.pri_type === "stagger" && (
-            <div className="form-row">
-              <label className="wide-label">
-                PRI stagger steps (ns, comma-separated, in order)
+            )}
+            {set.pri_type === "stagger" && (
+              <label className="observed-values-steps">
+                Stagger steps (ns, in order)
                 <StaggerNsInput valuesUs={set.pri_stagger_values_us} onChange={(us) => setStagger(index, us)} />
               </label>
-            </div>
-          )}
-          <button
-            type="button"
-            className="link-button link-button-danger"
-            onClick={() => onChange(sets.filter((_, i) => i !== index))}
-          >
-            Remove this set
-          </button>
+            )}
+            {(set.pri_type === "cw" || set.pri_type === "xlet") && (
+              <span className="hint-text observed-values-note">{set.pri_type.toUpperCase()}: no further PRI value</span>
+            )}
+            <button
+              type="button"
+              className="link-button link-button-danger observed-values-remove"
+              onClick={() => onChange(sets.filter((_, i) => i !== index))}
+            >
+              Remove this set
+            </button>
+          </div>
         </div>
       ))}
       <button type="button" className="icon-button" onClick={() => onChange([...sets, {}])}>

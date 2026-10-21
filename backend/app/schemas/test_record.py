@@ -15,7 +15,7 @@ _OBSERVED_VALUE_KEYS = {
     "pri_stagger_values_us",
     "frame_time_us",
     "pw_mean_us",
-    # Required on every set logged from now on (see below); in dBFS.
+    # Accepted on sets logged while it was asked per set; it's the run's now.
     "received_power_dbfs",
     # Earlier min/max form.
     "rf_min_mhz",
@@ -59,14 +59,6 @@ def _validate_observed_value_set(v: dict) -> dict:
         raise ValueError("observed_values: pri_type 'stagger' cannot carry a PRI value")
     if pri_type in (PriType.cw.value, PriType.xlet.value) and (has_pri_range or has_jitter or has_stagger):
         raise ValueError(f"observed_values: pri_type '{pri_type}' does not carry PRI/jitter/stagger values")
-    # Required on each set a run logs: how strong the signal was received.
-    # (Only new runs are checked; sets logged before it was asked are kept.)
-    if cleaned:
-        power = cleaned.get("received_power_dbfs")
-        if power is None:
-            raise ValueError("Each set of logged values needs its Received Power (dBFS)")
-        if isinstance(power, bool) or not isinstance(power, (int, float)):
-            raise ValueError("Received Power (dBFS) must be a number")
     return cleaned
 
 
@@ -147,6 +139,8 @@ class TestRecordCreate(BaseModel):
     # Required for a Simulation test — when the simulation model/scenario itself
     # was built, as distinct from test_date (when the run happened against it).
     simulation_created_date: date | None = None
+    # How strong the signals were received over the whole run, in dBFS — required.
+    received_power_dbfs: float = Field(allow_inf_nan=False)
     # "Manual", or a value written in (e.g. "50 ms") — the dwell the whole run
     # used. Optional; blank means not recorded.
     dwell: str | None = Field(default=None, max_length=100)
@@ -285,6 +279,8 @@ class TestRecordOut(BaseModel):
     # When on test_date it ran (optional).
     test_time: time | None = None
     simulation_created_date: date | None = None
+    # None on runs logged before it was asked.
+    received_power_dbfs: float | None = None
     dwell: str | None = None
     created_at: datetime
     retests_test_record_id: UUID | None = None
@@ -370,6 +366,8 @@ class PlatformTestCreate(BaseModel):
     test_date: date
     test_time: time | None = None
     simulation_created_date: date | None = None
+    # The run's Received Power, in dBFS — required.
+    received_power_dbfs: float = Field(allow_inf_nan=False)
     dwell: str | None = Field(default=None, max_length=100)
     # The saved Dwell Strategy version the run used (one of the Platform's), if any.
     dwell_strategy_version_id: UUID | None = None
@@ -385,6 +383,7 @@ class PlatformTestCreate(BaseModel):
             test_date=self.test_date,
             test_time=self.test_time,
             simulation_created_date=entry.simulation_created_date or self.simulation_created_date,
+            received_power_dbfs=self.received_power_dbfs,
             dwell=self.dwell,
             dwell_strategy_version_id=self.dwell_strategy_version_id,
             line_results=entry.line_results,
@@ -428,6 +427,7 @@ class PlatformTestOut(BaseModel):
     notes: str | None = None
     tested_by_username: str | None = None
     created_at: datetime
+    received_power_dbfs: float | None = None
     # The Dwell Strategy version the run used: the Strategy, its name then, and the version.
     dwell_strategy_version_id: UUID | None = None
     dwell_strategy_id: UUID | None = None

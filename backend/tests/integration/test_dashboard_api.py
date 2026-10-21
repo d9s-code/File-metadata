@@ -90,7 +90,7 @@ def test_dashboard_needs_redo_appears_then_disappears_after_retest(editor_client
         json={
             "test_type": "intercept",
             "title": "Failing run",
-            "test_date": "2026-01-01",
+            "received_power_dbfs": -40, "test_date": "2026-01-01",
             "mode_results": [{"mode_id": mode["id"], "result": "fail"}],
         },
     ).json()
@@ -103,7 +103,7 @@ def test_dashboard_needs_redo_appears_then_disappears_after_retest(editor_client
         json={
             "test_type": "intercept",
             "title": "Retest",
-            "test_date": "2026-01-02",
+            "received_power_dbfs": -40, "test_date": "2026-01-02",
             "mode_results": [{"mode_id": mode["id"], "result": "pass"}],
             "retests_test_record_id": failed["id"],
         },
@@ -134,7 +134,7 @@ def _sim_run(client, emitter_id, outcomes, test_date="2026-09-01"):
         json={
             "test_type": "simulation",
             "title": f"Run {test_date}",
-            "test_date": test_date,
+            "received_power_dbfs": -40, "test_date": test_date,
             "simulation_created_date": "2026-08-01",
             "line_results": [{"test_line_id": line_id, "outcome": o} for line_id, o in outcomes],
         },

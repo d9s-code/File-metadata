@@ -139,6 +139,7 @@ def _create_test_record(
         test_date=payload.test_date,
         test_time=payload.test_time,
         simulation_created_date=payload.simulation_created_date,
+        received_power_dbfs=payload.received_power_dbfs,
         dwell=payload.dwell,
         retests_test_record_id=payload.retests_test_record_id,
         platform_test_id=platform_test_id,

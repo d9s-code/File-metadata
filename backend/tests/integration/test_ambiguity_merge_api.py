@@ -25,7 +25,7 @@ def emitter_with_near_duplicates(editor_client):
     track = mode("Track", src1, rf_min_mhz=3140, rf_max_mhz=3300)  # touches B only
     record = editor_client.post(
         f"/emitters/{emitter['id']}/test-records",
-        json={"test_type": "intercept", "title": "Run 1", "test_date": "2026-01-01",
+        json={"test_type": "intercept", "title": "Run 1", "received_power_dbfs": -40, "test_date": "2026-01-01",
               "mode_results": [{"mode_id": b["id"], "result": "pass"}]},
     ).json()
     editor_client.post(f"/emitters/{emitter['id']}/versions", json={"change_summary": "v1"})

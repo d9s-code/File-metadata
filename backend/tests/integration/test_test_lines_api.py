@@ -277,7 +277,7 @@ def test_create_test_record_with_line_results_derives_worst_of(editor_client, em
         json={
             "test_type": "simulation",
             "title": "Sim run 1",
-            "test_date": "2026-09-22",
+            "received_power_dbfs": -40, "test_date": "2026-09-22",
             "simulation_created_date": "2026-09-01",
             "line_results": [
                 {"test_line_id": lines[0]["id"], "outcome": "pass"},
@@ -305,7 +305,7 @@ def test_line_results_take_precedence_over_mode_results(editor_client, emitter_w
         json={
             "test_type": "intercept",
             "title": "Mixed test",
-            "test_date": "2026-09-22",
+            "received_power_dbfs": -40, "test_date": "2026-09-22",
             "line_results": [{"test_line_id": lines[0]["id"], "outcome": "pass"}],
             "mode_results": [{"mode_id": mode_id, "result": "fail"}],
         },
@@ -322,7 +322,7 @@ def test_create_test_record_rejects_unknown_test_line_id(editor_client, emitter_
         json={
             "test_type": "simulation",
             "title": "Bad line",
-            "test_date": "2026-09-22",
+            "received_power_dbfs": -40, "test_date": "2026-09-22",
             "simulation_created_date": "2026-09-01",
             "line_results": [{"test_line_id": "00000000-0000-0000-0000-000000000000", "outcome": "pass"}],
         },
@@ -339,7 +339,7 @@ def test_create_test_record_rejects_test_line_from_another_emitter(editor_client
         json={
             "test_type": "simulation",
             "title": "Cross-emitter line",
-            "test_date": "2026-09-22",
+            "received_power_dbfs": -40, "test_date": "2026-09-22",
             "simulation_created_date": "2026-09-01",
             "line_results": [{"test_line_id": other_lines[0]["id"], "outcome": "pass"}],
         },
@@ -355,7 +355,7 @@ def test_create_test_record_rejects_unknown_intercepted_mode(editor_client, emit
         json={
             "test_type": "simulation",
             "title": "Bad intercepted mode",
-            "test_date": "2026-09-22",
+            "received_power_dbfs": -40, "test_date": "2026-09-22",
             "simulation_created_date": "2026-09-01",
             "line_results": [
                 {
@@ -376,7 +376,7 @@ def test_mdf_scoped_test_record_rejects_line_results(editor_client, emitter_with
         json={
             "test_type": "simulation",
             "title": "No lines on MDF scope",
-            "test_date": "2026-09-22",
+            "received_power_dbfs": -40, "test_date": "2026-09-22",
             "simulation_created_date": "2026-09-01",
             "line_results": [{"test_line_id": "00000000-0000-0000-0000-000000000000", "outcome": "pass"}],
         },
@@ -397,7 +397,7 @@ def test_emitter_last_validated_reflects_most_recent_line_tested_record(editor_c
         json={
             "test_type": "simulation",
             "title": "First sim",
-            "test_date": "2026-09-01",
+            "received_power_dbfs": -40, "test_date": "2026-09-01",
             "simulation_created_date": "2026-08-01",
             "line_results": [{"test_line_id": lines[0]["id"], "outcome": "fail"}],
         },
@@ -407,7 +407,7 @@ def test_emitter_last_validated_reflects_most_recent_line_tested_record(editor_c
         json={
             "test_type": "simulation",
             "title": "Second sim",
-            "test_date": "2026-09-15",
+            "received_power_dbfs": -40, "test_date": "2026-09-15",
             "simulation_created_date": "2026-08-01",
             "line_results": [{"test_line_id": lines[0]["id"], "outcome": "pass"}],
         },
@@ -425,7 +425,7 @@ def test_emitter_last_validated_reflects_most_recent_line_tested_record(editor_c
         json={
             "test_type": "intercept",
             "title": "Mode-only test",
-            "test_date": "2026-09-20",
+            "received_power_dbfs": -40, "test_date": "2026-09-20",
             "mode_results": [{"mode_id": emitter_with_mode["mode"]["id"], "result": "fail"}],
         },
     )
@@ -445,7 +445,7 @@ def test_the_emitter_summary_counts_sim_lines_correct_in_their_latest_run(editor
     def run(day, outcomes):
         resp = editor_client.post(
             f"/emitters/{emitter_id}/test-records",
-            json={"test_type": "simulation", "title": f"Run {day}", "test_date": day, "simulation_created_date": day,
+            json={"test_type": "simulation", "title": f"Run {day}", "received_power_dbfs": -40, "test_date": day, "simulation_created_date": day,
                   "line_results": [{"test_line_id": lines[i]["id"], "outcome": o} for i, o in outcomes]},
         )
         assert resp.status_code == 201, resp.text

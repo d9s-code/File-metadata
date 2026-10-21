@@ -32,6 +32,8 @@ export interface PlatformTestInput {
   test_date: string;
   test_time?: string;
   simulation_created_date?: string;
+  /** The run's Received Power, in dBFS. */
+  received_power_dbfs: number;
   dwell?: string;
   /** A saved version of one of the Platform's Dwell Strategies. */
   dwell_strategy_version_id?: string;
@@ -68,6 +70,8 @@ export interface PlatformTest {
   test_type: LoggableTestType;
   test_date: string;
   notes: string | null;
+  /** The run's Received Power in dBFS; null on tests logged before it was asked. */
+  received_power_dbfs: number | null;
   tested_by_username: string | null;
   created_at: string;
   /** The Dwell Strategy version the run used, if one was picked. */

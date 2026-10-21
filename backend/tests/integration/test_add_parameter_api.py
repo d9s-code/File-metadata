@@ -91,7 +91,7 @@ def test_a_stagger_and_an_rf_from_a_test_run(editor_client):
     eid, group, source, modes = _setup(editor_client)
     run = editor_client.post(
         f"/emitters/{eid}/test-records",
-        json={"test_type": "intercept", "title": "Field day", "test_date": "2026-09-01", "result": "partial"},
+        json={"test_type": "intercept", "title": "Field day", "received_power_dbfs": -40, "test_date": "2026-09-01", "result": "partial"},
     ).json()
     # A stagger on just A1's combination, derived from the run.
     body = {"parameter": "pri", "pri_type": "stagger", "values": {"pri_stagger_values_us": [700, 750], "frame_time_delta_us": 3}}

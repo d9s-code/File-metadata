@@ -493,7 +493,10 @@ export function HelpPage() {
                 <strong>intercept</strong> (a real-world intercept, checked against the Emitter&rsquo;s own
                 Modes). Older lab-bench, live-range and field-exercise records stay in the history, but new
                 runs are one of these two. Set the run&rsquo;s <strong>Dwell</strong> next to its dates: leave it on
-                Manual, or pick Value and write one in (e.g. 50 ms); it applies to the whole run.
+                Manual, or pick Value and write one in (e.g. 50 ms); it applies to the whole run. Beside it,{" "}
+                <strong>Received Power (dBFS)</strong> — how strong the signals were received over the run — is
+                required (marked *): a run isn&apos;t logged without it. It shows on the run&apos;s page and as a column in
+                Test History.
               </li>
               <li>
                 A run is <strong>saved as you fill it in</strong> — the line under the title says when it last was —
@@ -518,9 +521,7 @@ export function HelpPage() {
                 found — and use <strong>+ Log</strong> to record the intercepted parameters as means — RF mean, PRI mean and jitter mean (Fixed), PW
                 mean; a Stagger set takes its steps and the measured <strong>frame time</strong> instead. Jitter and the
                 stagger steps are typed (and shown) in <strong>ns</strong>; they&apos;re kept in µs, so a Mode or an
-                Element made from them gets µs (1250 ns → 1.25 µs). Each set also needs its{" "}
-                <strong>Received Power</strong> in <strong>dBFS</strong> (marked *): the run can&apos;t be logged until
-                every set with values has one.{" "}
+                Element made from them gets µs (1250 ns → 1.25 µs). A set&apos;s fields sit side by side in one row.{" "}
                 <strong>+ Log</strong> opens the fields with the cursor already in RF mean, so you can type a value and
                 Tab to the next. Add more than one set if it was measured more than once; each is a row in the small
                 table in the cell. Notes grow as you write.

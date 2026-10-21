@@ -11,7 +11,7 @@ import { useSortableTable } from "../common/useSortableTable";
 import { compareNullable, compareStrings } from "../common/sortUtils";
 import { lineOutcomeLabel, TEST_RESULTS, testResultLabel, testTypeLabel } from "./testFormat";
 
-type SortKey = "date" | "version" | "sim_created" | "dwell" | "type" | "result" | "title";
+type SortKey = "date" | "version" | "sim_created" | "dwell" | "power" | "type" | "result" | "title";
 
 function compareRecords(a: TestRecord, b: TestRecord, key: SortKey, dir: "asc" | "desc"): number {
   switch (key) {
@@ -23,6 +23,8 @@ function compareRecords(a: TestRecord, b: TestRecord, key: SortKey, dir: "asc" |
       return compareStrings(a.simulation_created_date, b.simulation_created_date, dir);
     case "dwell":
       return compareStrings(a.dwell, b.dwell, dir);
+    case "power":
+      return compareNullable(a.received_power_dbfs, b.received_power_dbfs, dir);
     case "type":
       return compareStrings(a.test_type, b.test_type, dir);
     case "result":
@@ -103,6 +105,7 @@ export function TestRecordsTable({
             {emitterId && header("Version", "version", "number")}
             {header("Sim created", "sim_created", "date")}
             {header("Dwell", "dwell")}
+            {header("Power (dBFS)", "power", "number")}
             {header("Type", "type")}
             {header("Result", "result")}
             {header("Title", "title")}
@@ -136,6 +139,7 @@ export function TestRecordsTable({
                 )}
                 <td>{formatDate(r.simulation_created_date)}</td>
                 <td>{r.dwell ?? "—"}</td>
+                <td>{r.received_power_dbfs ?? "—"}</td>
                 <td>{testTypeLabel(r.test_type)}</td>
                 <td>
                   <span

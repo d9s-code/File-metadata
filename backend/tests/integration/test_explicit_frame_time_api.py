@@ -126,7 +126,7 @@ def test_explicit_frame_time_is_versioned_and_reverted(editor_client, stagger_ct
 
 def test_test_runs_can_log_an_observed_frame_time_for_stagger(editor_client, stagger_ctx):
     mode = _create(editor_client, stagger_ctx, "Observed", STAGGER_LINE).json()
-    base = {"test_type": "intercept", "title": "FT intercept", "test_date": "2026-09-01"}
+    base = {"test_type": "intercept", "title": "FT intercept", "received_power_dbfs": -40, "test_date": "2026-09-01"}
     ok = editor_client.post(
         f"/emitters/{stagger_ctx['eid']}/test-records",
         json={
@@ -135,7 +135,7 @@ def test_test_runs_can_log_an_observed_frame_time_for_stagger(editor_client, sta
                 {
                     "mode_id": mode["id"],
                     "result": "pass",
-                    "observed_values": [{"pri_type": "stagger", "pri_stagger_values_us": [100, 150], "frame_time_us": 251.5, "received_power_dbfs": -42}],
+                    "observed_values": [{"pri_type": "stagger", "pri_stagger_values_us": [100, 150], "frame_time_us": 251.5}],
                 }
             ],
         },
@@ -148,7 +148,7 @@ def test_test_runs_can_log_an_observed_frame_time_for_stagger(editor_client, sta
         json={
             **base,
             "mode_results": [
-                {"mode_id": mode["id"], "result": "pass", "observed_values": [{"pri_type": "fixed", "frame_time_us": 250, "received_power_dbfs": -42}]}
+                {"mode_id": mode["id"], "result": "pass", "observed_values": [{"pri_type": "fixed", "frame_time_us": 250}]}
             ],
         },
     )

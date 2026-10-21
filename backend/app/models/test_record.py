@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, time
 
-from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, Integer, String, Text, Time, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, Integer, Numeric, String, Text, Time, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy import event
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
@@ -47,6 +47,9 @@ class TestRecord(UUIDPkMixin, TimestampMixin, Base):
     # simulation model/scenario itself was built, as distinct from test_date (when
     # the test run happened against it).
     simulation_created_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # How strong the signals were received over the whole run, in dBFS.
+    # Required when a run is logged; runs from before it was asked have none.
+    received_power_dbfs: Mapped[float | None] = mapped_column(Numeric(10, 3), nullable=True)
     # The dwell the whole run used: "Manual", or whatever value was written in
     # (e.g. "50 ms"). Free text — a run-level setting like test_date.
     dwell: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -306,6 +309,8 @@ class PlatformTest(UUIDPkMixin, TimestampMixin, Base):
     dwell_strategy_version_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("dwell_strategy_versions.id", ondelete="SET NULL"), nullable=True
     )
+    # The run's Received Power, in dBFS (each Emitter's record has it too).
+    received_power_dbfs: Mapped[float | None] = mapped_column(Numeric(10, 3), nullable=True)
 
     records: Mapped[list["TestRecord"]] = relationship(foreign_keys="TestRecord.platform_test_id")
 
