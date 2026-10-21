@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { usePlatform, usePlatformLinks, useRepinPlatformLatest, useUpdatePlatform } from "../state/hooks/usePlatforms";
 import { useCommitPlatformVersion, usePlatformVersions } from "../state/hooks/usePlatformVersions";
 import { useEmitters } from "../state/hooks/useEmitters";
@@ -103,13 +103,6 @@ export function PlatformBuilderPage() {
               save={(summary) => commitVersion.mutateAsync(summary)}
               pending={commitVersion.isPending}
             />
-            <Link
-              className="link-as-button"
-              to={`/ambiguity/platform/${platform.id}`}
-              title="Check the saved Platform version's pinned Emitters for Modes that overlap — across Emitters too"
-            >
-              Ambiguity check
-            </Link>
             <button className="button secondary" onClick={() => void handleExportXml()} disabled={isExporting}>
               {isExporting ? "Exporting…" : "Export XML"}
             </button>
@@ -117,6 +110,7 @@ export function PlatformBuilderPage() {
               label="More ▾"
               items={[
                 { label: "Version history", to: `/platforms/${platform.id}/versions` },
+                { label: "Ambiguity check", to: `/ambiguity/platform/${platform.id}` },
                 ...(canWrite ? [{ label: "Edit details", onSelect: handleStartEdit }] : []),
               ]}
             />
