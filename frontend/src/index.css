@@ -7004,12 +7004,19 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
 .field-missing input { border-color: var(--status-critical); }
 /* Several Platforms wrap, within a cap, rather than widening the table. */
 .emitters-table .emitters-platforms-col { white-space: normal; min-width: 8rem; max-width: 16rem; }
-/* A logged set's fields side by side, wrapping only when the cell is narrow. */
-.observed-values-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.4rem 0.75rem; }
-.observed-values-row > label { display: flex; flex-direction: column; gap: 0.15rem; width: 7.5rem; }
-.observed-values-row > label input,
-.observed-values-row > label select { width: 100%; }
-.observed-values-row > label.observed-values-steps { width: 14rem; }
-.observed-values-row .observed-values-note { align-self: center; }
-.observed-values-row .observed-values-remove { align-self: center; margin-left: auto; }
+/* Logged intercepts: one line each, the parameters as columns. */
+.observed-values-editor { border-collapse: collapse; }
+.observed-values-editor th {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: left;
+  padding: 0 0.4rem 0.2rem 0;
+  white-space: nowrap;
+}
+.observed-values-editor td { padding: 0.15rem 0.4rem 0.15rem 0; vertical-align: middle; }
+.observed-values-editor input { width: 6.5rem; }
+.observed-values-editor select { width: 7.5rem; }
+.observed-values-editor td.observed-values-steps input { width: 12rem; }
+.observed-values-editor .observed-values-number { color: var(--muted); font-size: 0.8rem; text-align: right; }
 .test-run-header .received-power-input { width: 8rem; }

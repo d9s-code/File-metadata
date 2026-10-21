@@ -146,7 +146,8 @@ export function SimLineResultsTable({
                     />
                   </td>
                   <td>
-                    <ObservedValuesTable sets={entry.observedValues} empty="" />
+                    {/* While it's open, the editor below is the table. */}
+                    {!paramsOpen.has(l.id) && <ObservedValuesTable sets={entry.observedValues} empty="" />}
                     <button type="button" className="link-button" disabled={off} onClick={() => toggleParams(l.id)}>
                       {paramsOpen.has(l.id) ? "Done" : logged ? "Edit" : "+ Log"}
                     </button>

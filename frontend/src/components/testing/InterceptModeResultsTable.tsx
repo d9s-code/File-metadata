@@ -120,7 +120,8 @@ export function InterceptModeResultsTable({
                     </select>
                   </td>
                   <td>
-                    <ObservedValuesTable sets={entry.observedValues} empty="" />
+                    {/* While it's open, the editor below is the table. */}
+                    {!paramsOpen.has(m.id) && <ObservedValuesTable sets={entry.observedValues} empty="" />}
                     <button type="button" className="link-button" disabled={off} onClick={() => toggleParams(m.id)}>
                       {paramsOpen.has(m.id) ? "Done" : logged ? "Edit" : "+ Log"}
                     </button>

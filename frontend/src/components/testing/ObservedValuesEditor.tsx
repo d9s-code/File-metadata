@@ -18,10 +18,19 @@ function nsFromUs(us: number | undefined): string {
 
 /** A stagger's steps, typed in ns and kept in µs. Holds what's typed, so a
  * trailing comma or a half-typed number stays while the list is written. */
-function StaggerNsInput({ valuesUs, onChange }: { valuesUs: number[] | undefined; onChange: (us: number[]) => void }) {
+function StaggerNsInput({
+  label,
+  valuesUs,
+  onChange,
+}: {
+  label: string;
+  valuesUs: number[] | undefined;
+  onChange: (us: number[]) => void;
+}) {
   const [text, setText] = useState(() => (valuesUs ?? []).map(nsOf).join(", "));
   return (
     <input
+      aria-label={label}
       placeholder="1250, 1310, 1280"
       inputMode="decimal"
       value={text}
@@ -53,8 +62,8 @@ const PRI_SPECIFIC_KEYS: (keyof ObservedValues)[] = [
   "frame_time_us",
 ];
 
-/** Edits zero or more sets of intercepted/observed parameters — one set per
- * separate measurement. */
+/** Edits zero or more sets of intercepted/observed parameters — one per
+ * logged intercept, each a line of one table. */
 export function ObservedValuesEditor({
   sets,
   onChange,
@@ -114,76 +123,114 @@ export function ObservedValuesEditor({
     });
   }
 
+  // One table line per logged intercept; a value its PRI type doesn't have reads —.
+  const none = <span className="muted">—</span>;
   return (
     <div className="mode-observed-values" ref={rootRef}>
-      {sets.map((set, index) => (
-        <div key={index} className="mode-observed-value-set">
-          {sets.length > 1 && <div className="mode-observed-value-set-label">Set {index + 1}</div>}
-          {/* One row, in the order they're typed: RF, PRI type and its value, PW, then jitter or steps. */}
-          <div className="observed-values-row">
-            <MeanInput label="RF mean (MHz)" set={set} field="rf_mean_mhz" onChange={(raw) => setNumber(index, "rf_mean_mhz", raw)} />
-            <label>
-              PRI type
-              <select value={set.pri_type ?? ""} onChange={(e) => setPriType(index, e.target.value as PriType | "")}>
-                <option value="">—</option>
-                {PRI_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t.toUpperCase()}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {set.pri_type === "fixed" && (
-              <MeanInput label="PRI mean (µs)" set={set} field="pri_mean_us" onChange={(raw) => setNumber(index, "pri_mean_us", raw)} />
-            )}
-            {set.pri_type === "stagger" && (
-              <label>
-                Frame time (µs)
-                <input
-                  type="number"
-                  step="any"
-                  min="0"
-                  value={set.frame_time_us ?? ""}
-                  onChange={(e) => setNumber(index, "frame_time_us", e.target.value)}
-                  title="The frame time as measured, if it was — optional"
-                />
-              </label>
-            )}
-            <MeanInput label="PW mean (µs)" set={set} field="pw_mean_us" onChange={(raw) => setNumber(index, "pw_mean_us", raw)} />
-            {set.pri_type === "fixed" && (
-              <label>
-                Jitter mean (ns)
-                <input
-                  type="number"
-                  step="any"
-                  value={nsFromUs(set.jitter_mean_us)}
-                  onChange={(e) =>
-                    setNumber(index, "jitter_mean_us", e.target.value === "" ? "" : String(Number(e.target.value) / 1000))
-                  }
-                />
-              </label>
-            )}
-            {set.pri_type === "stagger" && (
-              <label className="observed-values-steps">
-                Stagger steps (ns, in order)
-                <StaggerNsInput valuesUs={set.pri_stagger_values_us} onChange={(us) => setStagger(index, us)} />
-              </label>
-            )}
-            {(set.pri_type === "cw" || set.pri_type === "xlet") && (
-              <span className="hint-text observed-values-note">{set.pri_type.toUpperCase()}: no further PRI value</span>
-            )}
-            <button
-              type="button"
-              className="link-button link-button-danger observed-values-remove"
-              onClick={() => onChange(sets.filter((_, i) => i !== index))}
-            >
-              Remove this set
-            </button>
-          </div>
-        </div>
-      ))}
+      {sets.length > 0 && (
+        <table className="observed-values-editor">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>RF mean (MHz)</th>
+              <th>PRI type</th>
+              <th>PRI mean (µs)</th>
+              <th>Frame time (µs)</th>
+              <th>PW mean (µs)</th>
+              <th>Jitter mean (ns)</th>
+              <th>Stagger steps (ns, in order)</th>
+              <th aria-label="Remove"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {sets.map((set, index) => {
+              const n = `intercept ${index + 1}`;
+              return (
+                <tr key={index}>
+                  <td className="observed-values-number">{index + 1}</td>
+                  <td>
+                    <MeanInput label={`RF mean (MHz), ${n}`} set={set} field="rf_mean_mhz" onChange={(raw) => setNumber(index, "rf_mean_mhz", raw)} />
+                  </td>
+                  <td>
+                    <select
+                      aria-label={`PRI type, ${n}`}
+                      value={set.pri_type ?? ""}
+                      onChange={(e) => setPriType(index, e.target.value as PriType | "")}
+                    >
+                      <option value="">—</option>
+                      {PRI_TYPES.map((t) => (
+                        <option key={t} value={t}>
+                          {t.toUpperCase()}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    {set.pri_type === "fixed" ? (
+                      <MeanInput label={`PRI mean (µs), ${n}`} set={set} field="pri_mean_us" onChange={(raw) => setNumber(index, "pri_mean_us", raw)} />
+                    ) : (
+                      none
+                    )}
+                  </td>
+                  <td>
+                    {set.pri_type === "stagger" ? (
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        aria-label={`Frame time (µs), ${n}`}
+                        value={set.frame_time_us ?? ""}
+                        onChange={(e) => setNumber(index, "frame_time_us", e.target.value)}
+                        title="The frame time as measured, if it was — optional"
+                      />
+                    ) : (
+                      none
+                    )}
+                  </td>
+                  <td>
+                    <MeanInput label={`PW mean (µs), ${n}`} set={set} field="pw_mean_us" onChange={(raw) => setNumber(index, "pw_mean_us", raw)} />
+                  </td>
+                  <td>
+                    {set.pri_type === "fixed" ? (
+                      <input
+                        type="number"
+                        step="any"
+                        aria-label={`Jitter mean (ns), ${n}`}
+                        value={nsFromUs(set.jitter_mean_us)}
+                        onChange={(e) =>
+                          setNumber(index, "jitter_mean_us", e.target.value === "" ? "" : String(Number(e.target.value) / 1000))
+                        }
+                      />
+                    ) : (
+                      none
+                    )}
+                  </td>
+                  <td className="observed-values-steps">
+                    {set.pri_type === "stagger" ? (
+                      <StaggerNsInput label={`Stagger steps (ns, in order), ${n}`} valuesUs={set.pri_stagger_values_us} onChange={(us) => setStagger(index, us)} />
+                    ) : (
+                      none
+                    )}
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className="link-button link-button-danger"
+                      aria-label={`Remove ${n}`}
+                      title="Remove this intercept"
+                      onClick={() => onChange(sets.filter((_, i) => i !== index))}
+                    >
+                      ✕
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
       <button type="button" className="icon-button" onClick={() => onChange([...sets, {}])}>
-        {sets.length === 0 ? "+ Add intercepted parameters" : "+ Add another set"}
+        {sets.length === 0 ? "+ Add an intercept" : "+ Add another intercept"}
       </button>
     </div>
   );
@@ -200,10 +247,5 @@ function MeanInput({
   field: NumericKey;
   onChange: (raw: string) => void;
 }) {
-  return (
-    <label>
-      {label}
-      <input type="number" step="any" value={set[field] ?? ""} onChange={(e) => onChange(e.target.value)} />
-    </label>
-  );
+  return <input type="number" step="any" aria-label={label} value={set[field] ?? ""} onChange={(e) => onChange(e.target.value)} />;
 }

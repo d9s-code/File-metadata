@@ -521,10 +521,10 @@ export function HelpPage() {
                 found — and use <strong>+ Log</strong> to record the intercepted parameters as means — RF mean, PRI mean and jitter mean (Fixed), PW
                 mean; a Stagger set takes its steps and the measured <strong>frame time</strong> instead. Jitter and the
                 stagger steps are typed (and shown) in <strong>ns</strong>; they&apos;re kept in µs, so a Mode or an
-                Element made from them gets µs (1250 ns → 1.25 µs). A set&apos;s fields sit side by side in one row.{" "}
+                Element made from them gets µs (1250 ns → 1.25 µs). They&apos;re typed into one table, a numbered line per intercept and a column per parameter; ✕ removes a line.{" "}
                 <strong>+ Log</strong> opens the fields with the cursor already in RF mean, so you can type a value and
-                Tab to the next. Add more than one set if it was measured more than once; each is a row in the small
-                table in the cell. Notes grow as you write.
+                Tab to the next. <strong>+ Add another intercept</strong> adds a line for each further intercept; once you
+                click Done they show as a small table in the cell. Notes grow as you write.
               </li>
               <li>
                 An Intercept Test is a table with one row per Mode: tick the Modes that were intercepted, then
