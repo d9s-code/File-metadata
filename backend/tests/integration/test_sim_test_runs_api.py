@@ -91,7 +91,7 @@ def test_a_line_can_flag_several_intercepted_modes_and_parameters(editor_client,
                 "outcome": "partial",
                 "intercepted_mode_ids": [a["id"], b["id"], a["id"]],
                 "observed_values": [
-                    {"rf_min_mhz": 2900, "rf_max_mhz": 3100, "pri_type": "fixed", "pri_min_us": 800, "pri_max_us": 820},
+                    {"rf_min_mhz": 2900, "rf_max_mhz": 3100, "pri_type": "fixed", "pri_min_us": 800, "pri_max_us": 820, "received_power_dbfs": -42},
                     {},
                 ],
             }
@@ -101,7 +101,7 @@ def test_a_line_can_flag_several_intercepted_modes_and_parameters(editor_client,
     line = resp.json()["lines"][0]
     assert sorted(m["mode_name"] for m in line["intercepted_modes"]) == ["Search A", "Search B"]
     assert line["observed_values"] == [
-        {"rf_min_mhz": 2900, "rf_max_mhz": 3100, "pri_type": "fixed", "pri_min_us": 800, "pri_max_us": 820}
+        {"rf_min_mhz": 2900, "rf_max_mhz": 3100, "pri_type": "fixed", "pri_min_us": 800, "pri_max_us": 820, "received_power_dbfs": -42}
     ]
 
     listed = editor_client.get(f"/emitters/{eid}/test-records").json()[0]["lines"][0]
@@ -132,7 +132,7 @@ def test_contradictory_intercepted_parameters_are_422(editor_client, sim_emitter
             {
                 "test_line_id": sim_emitter["lines"][0]["id"],
                 "outcome": "pass",
-                "observed_values": [{"pri_type": "cw", "pri_min_us": 5}],
+                "observed_values": [{"pri_type": "cw", "pri_min_us": 5, "received_power_dbfs": -42}],
             }
         ],
     )
@@ -173,12 +173,12 @@ def test_intercept_test_logs_per_mode_results_with_parameters(editor_client, sim
             "title": "Field intercept",
             "test_date": "2026-09-05",
             "mode_results": [
-                {"mode_id": a["id"], "result": "pass", "observed_values": [{"rf_min_mhz": 2950, "rf_max_mhz": 2960}]}
+                {"mode_id": a["id"], "result": "pass", "observed_values": [{"rf_min_mhz": 2950, "rf_max_mhz": 2960, "received_power_dbfs": -42}]}
             ],
         },
     )
     assert resp.status_code == 201, resp.text
-    assert resp.json()["modes"][0]["observed_values"] == [{"rf_min_mhz": 2950, "rf_max_mhz": 2960}]
+    assert resp.json()["modes"][0]["observed_values"] == [{"rf_min_mhz": 2950, "rf_max_mhz": 2960, "received_power_dbfs": -42}]
 
 
 def test_records_of_retired_types_are_still_listed(editor_client, sim_emitter, db_session):
@@ -217,8 +217,8 @@ def test_created_date_is_versioned_and_restored_by_revert(editor_client, sim_emi
 
 def test_intercepted_parameters_are_logged_as_means(editor_client, sim_emitter):
     eid, (l1, l2) = sim_emitter["id"], sim_emitter["lines"]
-    fixed = {"rf_mean_mhz": 2950.5, "pri_type": "fixed", "pri_mean_us": 810, "jitter_mean_us": 4, "pw_mean_us": 0.8}
-    stagger = {"rf_mean_mhz": 3000, "pri_type": "stagger", "pri_stagger_values_us": [100, 150], "frame_time_us": 250, "pw_mean_us": 1}
+    fixed = {"rf_mean_mhz": 2950.5, "pri_type": "fixed", "pri_mean_us": 810, "jitter_mean_us": 4, "pw_mean_us": 0.8, "received_power_dbfs": -42.5}
+    stagger = {"rf_mean_mhz": 3000, "pri_type": "stagger", "pri_stagger_values_us": [100, 150], "frame_time_us": 250, "pw_mean_us": 1, "received_power_dbfs": -60}
     resp = _log_run(
         editor_client,
         eid,
@@ -236,10 +236,10 @@ def test_intercepted_parameters_are_logged_as_means(editor_client, sim_emitter):
 @pytest.mark.parametrize(
     "bad",
     [
-        {"pri_type": "stagger", "pri_mean_us": 800},
-        {"pri_type": "cw", "jitter_mean_us": 3},
-        {"pri_mean_us": 800},
-        {"pri_type": "stagger", "pri_stagger_values_us": [100, 150], "jitter_mean_us": 2},
+        {"pri_type": "stagger", "pri_mean_us": 800, "received_power_dbfs": -42},
+        {"pri_type": "cw", "jitter_mean_us": 3, "received_power_dbfs": -42},
+        {"pri_mean_us": 800, "received_power_dbfs": -42},
+        {"pri_type": "stagger", "pri_stagger_values_us": [100, 150], "jitter_mean_us": 2, "received_power_dbfs": -42},
     ],
 )
 def test_pri_and_jitter_means_are_fixed_only(editor_client, sim_emitter, bad):
@@ -271,3 +271,27 @@ def test_dwell_is_at_most_100_characters(editor_client, sim_emitter):
     line = sim_emitter["lines"][0]
     resp = _log_run(editor_client, sim_emitter["id"], [{"test_line_id": line["id"], "outcome": "pass"}], dwell="x" * 101)
     assert resp.status_code == 422
+
+
+def test_each_logged_set_needs_its_received_power(editor_client, sim_emitter):
+    line_id = sim_emitter["lines"][0]["id"]
+    values = {"rf_mean_mhz": 2950, "pri_type": "fixed", "pri_mean_us": 810}
+    missing = _log_run(editor_client, sim_emitter["id"], [{"test_line_id": line_id, "outcome": "pass", "observed_values": [values]}])
+    assert missing.status_code == 422
+    assert "Received Power (dBFS)" in missing.text
+    not_a_number = _log_run(
+        editor_client,
+        sim_emitter["id"],
+        [{"test_line_id": line_id, "outcome": "pass", "observed_values": [{**values, "received_power_dbfs": "loud"}]}],
+    )
+    assert not_a_number.status_code == 422
+    ok = _log_run(
+        editor_client,
+        sim_emitter["id"],
+        [{"test_line_id": line_id, "outcome": "pass", "observed_values": [{**values, "received_power_dbfs": -48.5}]}],
+    )
+    assert ok.status_code == 201, ok.text
+    assert ok.json()["lines"][0]["observed_values"][0]["received_power_dbfs"] == -48.5
+    # A line missed outright logs no values, so there's no power to give.
+    missed = _log_run(editor_client, sim_emitter["id"], [{"test_line_id": line_id, "outcome": "fail"}])
+    assert missed.status_code == 201, missed.text

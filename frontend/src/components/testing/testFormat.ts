@@ -45,6 +45,18 @@ export function nonEmptySets(sets: ObservedValues[] | null | undefined): Observe
   return (sets ?? []).filter((set) => Object.keys(set).length > 0);
 }
 
+/** A set with values but no Received Power — a run can't be logged with one. */
+export function lacksPower(set: ObservedValues): boolean {
+  return Object.keys(set).length > 0 && set.received_power_dbfs == null;
+}
+
+/** "Give the Received Power…" naming each owner (a SIM line, a Mode, a
+ * signal) with a set that lacks it; null when none do. */
+export function missingPowerMessage(owners: { name: string; sets: ObservedValues[] | null | undefined }[]): string | null {
+  const names = owners.filter((o) => (o.sets ?? []).some(lacksPower)).map((o) => o.name);
+  return names.length ? `Give the Received Power (dBFS) of every set of logged values — missing for ${names.join(", ")}.` : null;
+}
+
 function range(min: number | undefined, max: number | undefined): string | null {
   return min != null || max != null ? `${min ?? "?"}–${max ?? "?"}` : null;
 }
@@ -89,6 +101,7 @@ export function formatObservedValueSet(v: ObservedValues): string | null {
   }
   const pw = v.pw_mean_us ?? range(v.pw_min_us, v.pw_max_us);
   if (pw != null) parts.push(`PW ${pw} µs`);
+  if (v.received_power_dbfs != null) parts.push(`${v.received_power_dbfs} dBFS`);
   return parts.length ? parts.join(", ") : null;
 }
 

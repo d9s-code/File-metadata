@@ -12,6 +12,7 @@ interface Row {
   stagger: string | null;
   frame: string | null;
   pw: string | null;
+  power: string | null;
 }
 
 function row(v: ObservedValues): Row {
@@ -31,7 +32,15 @@ function row(v: ObservedValues): Row {
   } else if (v.pri_type === "cw" || v.pri_type === "xlet") {
     pri = v.pri_type === "cw" ? "CW" : "X-let";
   }
-  return { rf: rf != null ? String(rf) : null, pri, jitter, stagger, frame, pw: pw != null ? String(pw) : null };
+  return {
+    rf: rf != null ? String(rf) : null,
+    pri,
+    jitter,
+    stagger,
+    frame,
+    pw: pw != null ? String(pw) : null,
+    power: v.received_power_dbfs != null ? String(v.received_power_dbfs) : null,
+  };
 }
 
 const COLUMNS: { key: keyof Row; label: string }[] = [
@@ -41,6 +50,7 @@ const COLUMNS: { key: keyof Row; label: string }[] = [
   { key: "frame", label: "Frame µs" },
   { key: "pw", label: "PW µs" },
   { key: "jitter", label: "Jitter ns" },
+  { key: "power", label: "Power dBFS" },
 ];
 
 /** Intercepted parameters as a small table inside a cell: one row per set,

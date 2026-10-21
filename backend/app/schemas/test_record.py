@@ -15,6 +15,8 @@ _OBSERVED_VALUE_KEYS = {
     "pri_stagger_values_us",
     "frame_time_us",
     "pw_mean_us",
+    # Required on every set logged from now on (see below); in dBFS.
+    "received_power_dbfs",
     # Earlier min/max form.
     "rf_min_mhz",
     "rf_max_mhz",
@@ -57,6 +59,14 @@ def _validate_observed_value_set(v: dict) -> dict:
         raise ValueError("observed_values: pri_type 'stagger' cannot carry a PRI value")
     if pri_type in (PriType.cw.value, PriType.xlet.value) and (has_pri_range or has_jitter or has_stagger):
         raise ValueError(f"observed_values: pri_type '{pri_type}' does not carry PRI/jitter/stagger values")
+    # Required on each set a run logs: how strong the signal was received.
+    # (Only new runs are checked; sets logged before it was asked are kept.)
+    if cleaned:
+        power = cleaned.get("received_power_dbfs")
+        if power is None:
+            raise ValueError("Each set of logged values needs its Received Power (dBFS)")
+        if isinstance(power, bool) or not isinstance(power, (int, float)):
+            raise ValueError("Received Power (dBFS) must be a number")
     return cleaned
 
 

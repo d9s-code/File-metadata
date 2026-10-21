@@ -110,8 +110,8 @@ def _build(client, admin_client):
         f"/emitters/{eid}/test-records",
         json={"test_type": "intercept", "title": "Live", "test_date": "2026-09-01",
               "mode_results": [{"mode_id": derived["id"], "result": "partial", "notes": "weak",
-                                "observed_values": [{"rf_mean_mhz": 3001}]}],
-              "signals": [{"observed_values": [{"rf_mean_mhz": 9410}], "notes": "burst"}]},
+                                "observed_values": [{"rf_mean_mhz": 3001, "received_power_dbfs": -42}]}],
+              "signals": [{"observed_values": [{"rf_mean_mhz": 9410, "received_power_dbfs": -42}], "notes": "burst"}]},
     )
     assert intercept_run.status_code == 201, intercept_run.text
     sim_run = client.post(

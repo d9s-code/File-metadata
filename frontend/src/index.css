@@ -6999,3 +6999,6 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
 .emitters-table td { white-space: nowrap; }
 .emitters-table .emitters-name-col { width: 14rem; white-space: normal; }
 .emitters-table .sortable-th-trigger { padding-left: 0; padding-right: 0; }
+/* A required field: its star, and the field while it's still empty. */
+.required-mark { color: var(--status-critical); }
+.field-missing input { border-color: var(--status-critical); }

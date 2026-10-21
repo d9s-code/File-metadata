@@ -26,6 +26,9 @@ export interface ObservedValues {
   pri_stagger_values_us?: number[];
   /** Stagger only — the observed frame time, when it was measured directly. */
   frame_time_us?: number;
+  /** How strong it was received, in dBFS — required on each set a run logs
+   * (sets logged before it was asked don't have it). */
+  received_power_dbfs?: number;
 }
 
 export interface TestRecordModeLink {

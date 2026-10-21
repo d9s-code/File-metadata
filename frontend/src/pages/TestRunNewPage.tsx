@@ -30,7 +30,14 @@ import { computeOverallResult } from "../components/testing/modeResultAggregate"
 import { SimLineResultsTable, type SimLineEntry } from "../components/testing/SimLineResultsTable";
 import { InterceptModeResultsTable, type InterceptModeEntry } from "../components/testing/InterceptModeResultsTable";
 import { InterceptSignalsEditor, loggedSignals, type SignalEntry } from "../components/testing/InterceptSignals";
-import { nonEmptySets, observedValueOptions, TEST_RESULTS, testResultLabel, testTypeLabel } from "../components/testing/testFormat";
+import {
+  missingPowerMessage,
+  nonEmptySets,
+  observedValueOptions,
+  TEST_RESULTS,
+  testResultLabel,
+  testTypeLabel,
+} from "../components/testing/testFormat";
 import { DwellInput, MANUAL_DWELL } from "../components/testing/DwellInput";
 import { lineEntriesFrom, modeEntriesFrom } from "../components/testing/runSeed";
 
@@ -372,7 +379,8 @@ export function TestRunNewPage() {
     navigate(`/emitters/${emitterId}?tab=tests`);
   }
 
-  const preFillOptions = observedValueOptions([
+  // Every SIM line, Mode and signal with values logged in this run.
+  const valueOwners = [
     ...includedLines.map(([id, e]) => ({
       id,
       name: testLines.find((l) => l.id === id)?.label ?? "SIM line",
@@ -380,7 +388,8 @@ export function TestRunNewPage() {
     })),
     ...includedModes.map(([id, e]) => ({ id, name: modes.find((m) => m.id === id)?.name ?? "Mode", sets: e.observedValues })),
     ...(isSimulation ? [] : signals.map((s, i) => ({ id: `signal-${i}`, name: `Signal ${i + 1}`, sets: s.observedValues }))),
-  ]);
+  ];
+  const preFillOptions = observedValueOptions(valueOwners);
 
   function handleCopyFrom(id: string) {
     setCopyFromId(id);
@@ -401,6 +410,11 @@ export function TestRunNewPage() {
     }
     if (!derived && !manualResult) {
       setError("Pick the overall result.");
+      return;
+    }
+    const noPower = missingPowerMessage(valueOwners);
+    if (noPower) {
+      setError(noPower);
       return;
     }
     const lineResults = isSimulation

@@ -517,7 +517,9 @@ export function HelpPage() {
                 found — and use <strong>+ Log</strong> to record the intercepted parameters as means — RF mean, PRI mean and jitter mean (Fixed), PW
                 mean; a Stagger set takes its steps and the measured <strong>frame time</strong> instead. Jitter and the
                 stagger steps are typed (and shown) in <strong>ns</strong>; they&apos;re kept in µs, so a Mode or an
-                Element made from them gets µs (1250 ns → 1.25 µs).{" "}
+                Element made from them gets µs (1250 ns → 1.25 µs). Each set also needs its{" "}
+                <strong>Received Power</strong> in <strong>dBFS</strong> (marked *): the run can&apos;t be logged until
+                every set with values has one.{" "}
                 <strong>+ Log</strong> opens the fields with the cursor already in RF mean, so you can type a value and
                 Tab to the next. Add more than one set if it was measured more than once; each is a row in the small
                 table in the cell. Notes grow as you write.

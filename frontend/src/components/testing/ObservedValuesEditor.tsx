@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { ObservedValues } from "../../api/testRecords";
 import type { PriType } from "../../types/domain";
-import { nsOf, usOfNs } from "./testFormat";
+import { lacksPower, nsOf, usOfNs } from "./testFormat";
 
 const PRI_TYPES: PriType[] = ["fixed", "stagger", "cw", "xlet"];
 
-type NumericKey = "rf_mean_mhz" | "pri_mean_us" | "jitter_mean_us" | "pw_mean_us" | "frame_time_us";
+type NumericKey = "rf_mean_mhz" | "pri_mean_us" | "jitter_mean_us" | "pw_mean_us" | "frame_time_us" | "received_power_dbfs";
 
 // Intercepted parameters are logged as means: RF, the PRI type and its PRI
 // (a fixed PRI's mean, a stagger's frame time), PW, then a fixed PRI's
@@ -121,6 +121,20 @@ export function ObservedValuesEditor({
           {sets.length > 1 && <div className="mode-observed-value-set-label">Set {index + 1}</div>}
           <div className="form-row">
             <MeanInput label="RF mean (MHz)" set={set} field="rf_mean_mhz" onChange={(raw) => setNumber(index, "rf_mean_mhz", raw)} />
+            <label className={lacksPower(set) ? "field-missing" : undefined}>
+              <span>
+                Received Power (dBFS) <span className="required-mark" aria-hidden="true">*</span>
+              </span>
+              <input
+                type="number"
+                step="any"
+                value={set.received_power_dbfs ?? ""}
+                onChange={(e) => setNumber(index, "received_power_dbfs", e.target.value)}
+                required={Object.keys(set).length > 0}
+                placeholder="−45"
+                title="How strong it was received, in dBFS (0 is full scale) — required"
+              />
+            </label>
           </div>
           <div className="form-row">
             <label>

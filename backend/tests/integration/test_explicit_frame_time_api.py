@@ -135,7 +135,7 @@ def test_test_runs_can_log_an_observed_frame_time_for_stagger(editor_client, sta
                 {
                     "mode_id": mode["id"],
                     "result": "pass",
-                    "observed_values": [{"pri_type": "stagger", "pri_stagger_values_us": [100, 150], "frame_time_us": 251.5}],
+                    "observed_values": [{"pri_type": "stagger", "pri_stagger_values_us": [100, 150], "frame_time_us": 251.5, "received_power_dbfs": -42}],
                 }
             ],
         },
@@ -148,7 +148,7 @@ def test_test_runs_can_log_an_observed_frame_time_for_stagger(editor_client, sta
         json={
             **base,
             "mode_results": [
-                {"mode_id": mode["id"], "result": "pass", "observed_values": [{"pri_type": "fixed", "frame_time_us": 250}]}
+                {"mode_id": mode["id"], "result": "pass", "observed_values": [{"pri_type": "fixed", "frame_time_us": 250, "received_power_dbfs": -42}]}
             ],
         },
     )
