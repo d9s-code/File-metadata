@@ -54,12 +54,18 @@ MODE_FIELD_LABELS = {
     "name": "Name",
     "pri_type": "PRI Type",
     "notes": "Notes",
-    "sources": "Sources",
     "confirmation_quality": "Confirmation Quality (%)",
     "confirmation_quantity": "Confirmation Quantity",
 }
 
 MODE_FIELDS_ADDED_LATER = frozenset({"confirmation_quality", "confirmation_quantity"})
+
+# Kept in a Mode's snapshot but not one of its parameters: its id, its place
+# in the list, the generation batch it came from, and its Sources (compared
+# on their own, by id, below).
+MODE_FIELDS_NOT_COMPARED = frozenset(
+    {"id", "line", "sort_order", "generation_batch_id", "source_id", "source_name", "extra_source_ids", "source_names"}
+)
 
 # dsl_text deliberately excluded — it's a rendered cache of these other
 # fields, not independent data; showing it alongside the real field that
@@ -82,10 +88,21 @@ MODE_LINE_FIELD_LABELS = {
     "rf_range_matching": "RF Range Matching",
     "pw_range_matching": "PW Range Matching",
     "pri_range_matching": "PRI Range Matching",
+    "type_data": "PRI Details",
 }
 
 
 MODE_LINE_FIELDS_ADDED_LATER = frozenset({"explicit_frame_time_us"})
+
+MODE_LINE_FIELDS_NOT_COMPARED = frozenset({"dsl_text"})
+
+
+def _every_field(labels: dict[str, str], not_compared: frozenset[str], old: dict, new: dict) -> tuple[dict, frozenset]:
+    """The labels plus any field the snapshots have that they don't name — so
+    a field added to a Mode later is never silently left out of its diff —
+    and those extra fields, compared only when both snapshots have them."""
+    extra = sorted((old.keys() | new.keys()) - labels.keys() - not_compared)
+    return {**labels, **{f: f.replace("_", " ").capitalize() for f in extra}}, frozenset(extra)
 
 
 def _entry(scope: str, label: str, kind: str, old_value=None, new_value=None) -> dict:
@@ -110,7 +127,12 @@ def _diff_fields(
         new_v = new.get(field)
         if old_v != new_v:
             names = (value_labels or {}).get(field, {})
-            entries.append(_entry(scope, label, "changed", names.get(old_v, old_v), names.get(new_v, new_v)))
+            entries.append(_entry(scope, label, "changed", _named(names, old_v), _named(names, new_v)))
+
+
+def _named(names: dict, value):
+    """The value's display name, if it has one (a list, say, never does)."""
+    return names.get(value, value) if isinstance(value, (str, int, float, bool)) else value
 
 
 def _num(v) -> str:
@@ -130,11 +152,14 @@ def _span(lo, hi, unit: str) -> str | None:
     return f"{_num(lo)}–{_num(hi)} {unit}"
 
 
+PRI_TYPE_NAMES = {"fixed": "Fixed", "stagger": "Stagger", "cw": "CW", "xlet": "Xlet"}
+
+
 def _mode_summary(m: dict) -> str:
     """One line for an added or removed Mode: what it covered."""
     line = m.get("line") or {}
     pri_type = m.get("pri_type") or ""
-    parts = [{"fixed": "Fixed", "stagger": "Stagger", "cw": "CW"}.get(pri_type, pri_type)]
+    parts = [PRI_TYPE_NAMES.get(pri_type, pri_type)]
     rf = _span(line.get("rf_min_mhz"), line.get("rf_max_mhz"), "MHz")
     if rf:
         parts.append(f"RF {rf}")
@@ -168,23 +193,49 @@ def _test_line_summary(tl: dict) -> str | None:
     return f"expects {tl['expected_mode_name']}" if tl.get("expected_mode_name") else None
 
 
-def _with_sources(m: dict) -> dict:
+def _source_names(m: dict) -> str:
     """The Mode's Sources as one value (snapshots from before Modes could
     have several carry only source_name)."""
-    return {**m, "sources": ", ".join(m.get("source_names") or [m.get("source_name") or ""])}
+    return ", ".join(m.get("source_names") or [m.get("source_name") or ""])
 
 
-def _diff_mode(entries: list[dict], old: dict, new: dict, old_group: dict, new_group: dict) -> None:
+def _source_ids(m: dict) -> tuple | None:
+    """Its first Source, then the rest in any order; None in a snapshot from
+    before Modes could have several."""
+    if "extra_source_ids" not in m:
+        return None
+    return (m.get("source_id"), *sorted(m["extra_source_ids"]))
+
+
+def _details_text(details) -> str | None:
+    """A PRI type's extra details (an Xlet's, say) as one line."""
+    if not details:
+        return None
+    if not isinstance(details, dict):
+        return str(details)
+    return "; ".join(
+        f"{k.replace('_', ' ')}: {', '.join(_num(x) for x in v) if isinstance(v, list) else _num(v)}"
+        for k, v in details.items()
+    )
+
+
+def _diff_mode(entries: list[dict], scope: str, old: dict, new: dict, old_group: dict, new_group: dict) -> None:
     """One Mode in both versions: the EW Group it moved to, if it did, then
-    its fields."""
-    om, nm = _with_sources(old), _with_sources(new)
-    scope = f"Mode '{nm['name']}'"
+    every one of its fields."""
     if old_group["id"] != new_group["id"]:
         entries.append(_entry(scope, "EW Group", "changed", old_value=old_group["name"], new_value=new_group["name"]))
-    _diff_fields(entries, scope, om, nm, MODE_FIELD_LABELS, MODE_FIELDS_ADDED_LATER)
-    _diff_fields(
-        entries, scope, om.get("line") or {}, nm.get("line") or {}, MODE_LINE_FIELD_LABELS, MODE_LINE_FIELDS_ADDED_LATER
-    )
+    labels, later = _every_field(MODE_FIELD_LABELS, MODE_FIELDS_NOT_COMPARED, old, new)
+    _diff_fields(entries, scope, old, new, labels, MODE_FIELDS_ADDED_LATER | later, {"pri_type": PRI_TYPE_NAMES})
+    old_ids, new_ids = _source_ids(old), _source_ids(new)
+    old_names, new_names = _source_names(old), _source_names(new)
+    if (old_ids != new_ids) if old_ids is not None and new_ids is not None else (old_names != new_names):
+        entries.append(_entry(scope, "Sources", "changed", old_names, new_names))
+    old_line, new_line = dict(old.get("line") or {}), dict(new.get("line") or {})
+    for line in (old_line, new_line):
+        if "type_data" in line:
+            line["type_data"] = _details_text(line["type_data"])
+    labels, later = _every_field(MODE_LINE_FIELD_LABELS, MODE_LINE_FIELDS_NOT_COMPARED, old_line, new_line)
+    _diff_fields(entries, scope, old_line, new_line, labels, MODE_LINE_FIELDS_ADDED_LATER | later)
 
 
 def _diff_items(entries: list[dict], scope: str, label: str, old: list[dict] | None, new: list[dict] | None) -> None:
@@ -225,6 +276,18 @@ def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict, status_labels: 
     # (even one since deleted) is the same Mode, not a removal and an addition.
     old_modes = {m["id"]: (m, g) for g in old_groups.values() for m in g.get("modes", [])}
     new_modes = {m["id"] for g in new_groups.values() for m in g.get("modes", [])}
+    # A name two Modes share (in different EW Groups) is told apart by the
+    # group, so their changes aren't shown together as one Mode's.
+    modes_by_name: dict[str, set] = {}
+    for groups in (old_groups, new_groups):
+        for g in groups.values():
+            for m in g.get("modes", []):
+                modes_by_name.setdefault(m["name"], set()).add(m["id"])
+
+    def mode_scope(m: dict, g: dict) -> str:
+        shared = len(modes_by_name.get(m["name"], ())) > 1
+        return f"Mode '{m['name']} ({g['name']})'" if shared else f"Mode '{m['name']}'"
+
     for group_id, g in new_groups.items():
         if group_id not in old_groups:
             entries.append(_entry(f"EW Group '{g['name']}'", "Added", "added", new_value=_group_summary(g)))
@@ -240,9 +303,9 @@ def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict, status_labels: 
         for m in g.get("modes", []):
             if m["id"] in old_modes:
                 old_mode, old_group = old_modes[m["id"]]
-                _diff_mode(entries, old_mode, m, old_group, g)
+                _diff_mode(entries, mode_scope(m, g), old_mode, m, old_group, g)
             else:
-                entries.append(_entry(f"Mode '{m['name']}'", "Added", "added", new_value=_mode_summary(m)))
+                entries.append(_entry(mode_scope(m, g), "Added", "added", new_value=_mode_summary(m)))
     for group_id, g in old_groups.items():
         gone = [m for m in g.get("modes", []) if m["id"] not in new_modes]
         if group_id not in new_groups:
@@ -250,7 +313,7 @@ def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict, status_labels: 
             summary = _group_summary(g) + (f" ({moved} moved to other EW Groups)" if moved else "")
             entries.append(_entry(f"EW Group '{g['name']}'", "Removed", "removed", old_value=summary))
         for m in gone:
-            entries.append(_entry(f"Mode '{m['name']}'", "Removed", "removed", old_value=_mode_summary(m)))
+            entries.append(_entry(mode_scope(m, g), "Removed", "removed", old_value=_mode_summary(m)))
 
     old_sources = {s["id"]: s for s in old_snapshot.get("sources", [])}
     new_sources = {s["id"]: s for s in new_snapshot.get("sources", [])}

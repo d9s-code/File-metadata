@@ -281,3 +281,70 @@ def test_partially_operational_sits_between_testing_and_operational(editor_clien
     back = editor_client.post(status_url, json={"new_status": "partially_operational", "note": "Track Modes changed"})
     assert back.status_code == 200, back.text
     assert editor_client.get(f"/emitters/{emitter_id}").json()["status"] == "partially_operational"
+
+
+def test_diff_names_every_changed_mode_parameter(editor_client, emitter_ctx):
+    emitter_id = emitter_ctx["emitter"]["id"]
+    mode = _add_mode(editor_client, emitter_ctx)
+    second = editor_client.post(
+        f"/emitters/{emitter_id}/sources", json={"name": "Source B", "source_date": "2025-02-01"}
+    ).json()
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "v1"})
+
+    stagger_line = {
+        **{k: v for k, v in FIXED_LINE.items() if not k.startswith(("pri_", "jitter_"))},
+        "rf_max_mhz": 3200,
+        "pw_range_matching": True,
+        "pri_range_matching": False,
+        "pri_stagger_values_us": [700, 750, 1200],
+        "frame_time_delta_us": 4,
+    }
+    resp = editor_client.patch(
+        f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes/{mode['id']}",
+        json={
+            "pri_type": "stagger",
+            "line": stagger_line,
+            "notes": "Seen at sea",
+            "confirmation_quality": 60,
+            "source_ids": [emitter_ctx["source"]["id"], second["id"]],
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+    # A stagger's values are a list: the diff once failed on them outright.
+    live = editor_client.get(f"/emitters/{emitter_id}/diff/live")
+    assert live.status_code == 200, live.text
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "v2"})
+    diff = editor_client.get(f"/emitters/{emitter_id}/versions/2/diff")
+    assert diff.status_code == 200, diff.text
+    changed = {e["label"]: (e["old_value"], e["new_value"]) for e in diff.json()["entries"]}
+    assert changed == {
+        "PRI Type": ("Fixed", "Stagger"),
+        "Notes": (None, "Seen at sea"),
+        "Confirmation Quality (%)": (100, 60),
+        "Sources": ("Source A", "Source A, Source B"),
+        "RF Max (MHz)": (3100, 3200),
+        "PW Range Matching": (False, True),
+        "PRI Min (µs)": (800, None),
+        "PRI Max (µs)": (1200, None),
+        "Jitter Min (µs)": (5, None),
+        "Jitter Max (µs)": (15, None),
+        "PRI Delta (±µs)": (10, None),
+        "Stagger Values (µs)": (None, [700, 750, 1200]),
+        "Frame Time Delta (±µs)": (None, 4),
+    }
+    assert live.json()["entries"] == diff.json()["entries"]
+
+
+def test_diff_tells_same_named_modes_in_two_ew_groups_apart(editor_client, emitter_ctx):
+    emitter_id = emitter_ctx["emitter"]["id"]
+    mode = _add_mode(editor_client, emitter_ctx, name="Search")
+    other = editor_client.post(f"/emitters/{emitter_id}/ew-groups", json={"name": "Group B"}).json()
+    editor_client.post(
+        f"/ew-groups/{other['id']}/modes",
+        json={"source_id": emitter_ctx["source"]["id"], "name": "Search", "pri_type": "fixed", "line": FIXED_LINE},
+    )
+    editor_client.post(f"/emitters/{emitter_id}/versions", json={"change_summary": "v1"})
+    editor_client.patch(f"/ew-groups/{emitter_ctx['ew_group']['id']}/modes/{mode['id']}", json={"notes": "only this one"})
+    entries = editor_client.get(f"/emitters/{emitter_id}/diff/live").json()["entries"]
+    assert [(e["scope"], e["label"]) for e in entries] == [("Mode 'Search (Group A)'", "Notes")]
