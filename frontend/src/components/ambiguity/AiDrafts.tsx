@@ -8,7 +8,6 @@ import {
   useExplainFinding,
   useReviewFinding,
   useSummariseRun,
-  useSyncDocumentation,
 } from "../../state/hooks/useAmbiguity";
 import { relativeTime } from "../common/backupFormat";
 import { SeverityBadge } from "./SeverityBadge";
@@ -88,10 +87,9 @@ function SourcesList({ stamp }: { stamp: AiStamp }) {
 }
 
 /** What the model is given as background: the copy of the Outline
- * documentation, how fresh it is, and (for an Admin) Sync now. */
+ * documentation and how fresh it is (Admins sync it under Admin → Settings). */
 export function DocumentationLine() {
   const doc = useAiStatus().data?.documentation;
-  const sync = useSyncDocumentation();
   if (!doc) return null;
   return (
     <p className="hint-text ai-docs-line">
@@ -108,13 +106,7 @@ export function DocumentationLine() {
           {" "}
           Last refresh failed{doc.tried_at ? ` ${relativeTime(doc.tried_at)}` : ""}: {doc.error}
         </span>
-      )}{" "}
-      <RequireRole minimum="admin">
-        <button type="button" className="link-button" disabled={sync.isPending} onClick={() => sync.mutate()}>
-          {sync.isPending ? "Syncing…" : "Sync now"}
-        </button>
-        {sync.isError && <span className="error-text"> {message(sync.error)}</span>}
-      </RequireRole>
+      )}
     </p>
   );
 }

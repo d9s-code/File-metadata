@@ -8,6 +8,7 @@ from app.build_info import build_info
 from app.config import insecure_setting_problems, settings
 from app.database import engine
 from app.routers import (
+    ai_chats,
     ambiguity,
     audit_log,
     auth,
@@ -80,6 +81,7 @@ app.include_router(test_drafts.router)
 app.include_router(platform_tests.router)
 app.include_router(search.router)
 app.include_router(reports.router)
+app.include_router(ai_chats.router)
 app.include_router(dashboard.router)
 app.include_router(ambiguity.router)
 app.include_router(ambiguity.ai_router)

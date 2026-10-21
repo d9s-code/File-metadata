@@ -4,8 +4,11 @@ import { LoadingState } from "../components/common/LoadingState";
 import { num } from "../components/dwells/DwellChart";
 import { ApiRequestError } from "../api/client";
 import { useAppSettings, useUpdateAppSettings } from "../state/hooks/useDwells";
+import { useAiStatus, useSyncDocumentation } from "../state/hooks/useAmbiguity";
+import { relativeTime } from "../components/common/backupFormat";
 
-/** App-wide settings: for now, the dwell charts' default bandwidth. */
+/** App-wide settings: the dwell charts' default bandwidth, and the AI's
+ * copy of the documentation. */
 export function AdminSettingsPage() {
   const { data: settings, isLoading } = useAppSettings();
   if (isLoading || !settings) return <LoadingState label="Loading settings…" />;
@@ -14,7 +17,62 @@ export function AdminSettingsPage() {
       <h1>Admin</h1>
       <AdminNav />
       <BandwidthSetting current={settings.dwell_bandwidth_mhz} />
+      <DocumentationSetting />
     </div>
+  );
+}
+
+/** The copy of the Outline documentation the AI is given as background:
+ * what it is, how fresh, and Sync now. */
+function DocumentationSetting() {
+  const status = useAiStatus();
+  const sync = useSyncDocumentation();
+  const doc = status.data?.documentation;
+  return (
+    <section className="card">
+      <h3>AI documentation</h3>
+      {!doc ? (
+        <p className="hint-text">
+          No documentation is set up. To give the AI chat and explanations pages from Outline as background, set{" "}
+          <code>OUTLINE_URL</code>, <code>OUTLINE_API_TOKEN</code> and <code>OUTLINE_ROOT</code> (or{" "}
+          <code>OUTLINE_COLLECTION</code>) on the backend.
+        </p>
+      ) : (
+        <>
+          <p>
+            {doc.synced_at ? (
+              <>
+                {doc.label}: {doc.sections} sections (
+                {doc.tokens < 1000 ? `${doc.tokens} tokens` : `about ${Math.round(doc.tokens / 1000)}k tokens`}), copied{" "}
+                {relativeTime(doc.synced_at)}.
+              </>
+            ) : (
+              <>{doc.label}: not copied yet — it&apos;s copied on the first question, or now.</>
+            )}
+          </p>
+          {doc.error && (
+            <p className="error-text">
+              Last refresh failed{doc.tried_at ? ` ${relativeTime(doc.tried_at)}` : ""}: {doc.error}
+            </p>
+          )}
+          <div className="form-row">
+            <button type="button" className="button primary" disabled={sync.isPending} onClick={() => sync.mutate()}>
+              {sync.isPending ? "Syncing…" : "Sync now"}
+            </button>
+          </div>
+          <p className="hint-text">
+            The AI chat and the ambiguity explanations use this copy; it&apos;s refreshed on the next question once
+            it&apos;s more than an hour old. Sync now after changing pages in Outline.
+          </p>
+          {sync.isSuccess && <p className="success-text">Synced.</p>}
+          {sync.isError && (
+            <p className="error-text" role="alert">
+              {sync.error instanceof ApiRequestError ? sync.error.message : "Couldn't sync."}
+            </p>
+          )}
+        </>
+      )}
+    </section>
   );
 }
 

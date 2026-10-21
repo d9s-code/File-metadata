@@ -799,7 +799,8 @@ export function HelpPage() {
             <strong>Documentation cited</strong> lists what it cited, and <strong>Also given, not cited</strong> the
             rest of what it was given. A citation of a section it wasn&apos;t given is flagged. The app keeps a copy of
             the documentation, refreshed when it&apos;s more than an hour old; the line at the top of the AI overview
-            says how fresh it is, and an Admin can press <strong>Sync now</strong> after changing pages in Outline.
+            says how fresh it is, and an Admin can press <strong>Sync now</strong> under Admin → Settings → AI
+            documentation after changing pages in Outline.
           </p>
           <p>
             The <strong>AI overview</strong> of a check is a one- or two-sentence verdict, then a table of the
@@ -819,7 +820,14 @@ export function HelpPage() {
             lookups&rdquo; under an answer says so. Names of things it looked up — Emitters, Modes, Sources, Platforms,
             MDFs, Intercepts — are links in the answer that open their page (a name that could mean two things isn&apos;t
             linked). It can&apos;t change anything, and it never sees accounts or the
-            audit log. The conversation stays in your browser tab; <strong>New chat</strong> starts over.
+            audit log.
+          </p>
+          <p>
+            Your chats are kept (only you see them) in the list beside the conversation — <strong>☰</strong> shows or
+            hides it. Click one to read it again and carry on; <strong>+ New chat</strong> starts another; hover one for{" "}
+            <strong>✎</strong> to rename it or <strong>🗑</strong> to delete it. Drag the window&apos;s top-left corner
+            to resize it, <strong>⤢</strong> maximises it, and <strong>A− / A+</strong> change its text size — all
+            remembered in this browser.
           </p>
           <p>
             <strong>Settings</strong> (your name, top right → Settings…) lets you switch off the AI chat, telling it

@@ -23,7 +23,7 @@ export interface SectionLink {
   label: string;
 }
 
-/** The pages under one top-menu item, as tabs (e.g. Emitters · Source Groups). */
+/** The pages under one top-menu item, as tabs under the title (e.g. Emitters · Source Groups). */
 export const EMITTERS_SECTION: SectionLink[] = [
   { to: "/emitters", label: "Emitters" },
   { to: "/source-groups", label: "Source Groups" },
@@ -47,7 +47,7 @@ export function SectionTabs({ links }: { links: SectionLink[] }) {
 }
 
 /** A list page's title row: the title, an optional "?" with what the page is
- * for, and its actions on the right — with the section's tabs above it. */
+ * for, and its actions on the right — with the section's tabs under it. */
 export function PageHeader({
   title,
   info,
@@ -59,9 +59,9 @@ export function PageHeader({
   section?: SectionLink[];
   children?: ReactNode;
 }) {
+  // The same on every page: the title row first, then the section's tabs.
   return (
     <>
-      {section && <SectionTabs links={section} />}
       <div className="page-header-row">
         <div className="page-title">
           <h1>{title}</h1>
@@ -69,6 +69,7 @@ export function PageHeader({
         </div>
         {children && <div className="page-header-actions">{children}</div>}
       </div>
+      {section && <SectionTabs links={section} />}
     </>
   );
 }

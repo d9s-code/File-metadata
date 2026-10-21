@@ -3,6 +3,7 @@ classes before relationships (declared as string references) are resolved.
 Alembic's env.py imports this module to get the full metadata for autogenerate.
 """
 
+from app.models.ai_chat import AiChat  # noqa: F401
 from app.models.ambiguity import AmbiguityFinding, AmbiguityRun  # noqa: F401
 from app.models.app_setting import AppSetting  # noqa: F401
 from app.models.audit_log import AuditLog  # noqa: F401

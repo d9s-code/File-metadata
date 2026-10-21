@@ -1,41 +1,23 @@
-import { Fragment, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import {
+  Fragment,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react";
 import { Link, useLocation } from "react-router-dom";
-import { aiApi, type ChatLink, type ChatReply } from "../../api/ai";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { aiApi, type ChatLink, type ChatReply, type SavedChatMessage, type SavedChatSummary } from "../../api/ai";
 import type { AiSource } from "../../api/ambiguity";
 import { ApiRequestError } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import { useAiStatus } from "../../state/hooks/useAmbiguity";
 import { Cited } from "../ambiguity/AiDrafts";
-
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-  /** The answer's details: lookups, sources, warnings. */
-  reply?: ChatReply;
-  error?: boolean;
-}
-
-const STORE_KEY = "ai-chat";
-// Earlier turns sent with each question (the server keeps the last ten).
-const SENT_TURNS = 10;
-
-function load(): { open: boolean; messages: Message[] } {
-  try {
-    const raw = sessionStorage.getItem(STORE_KEY);
-    if (raw) return JSON.parse(raw) as { open: boolean; messages: Message[] };
-  } catch {
-    // no storage, or something unreadable: start afresh
-  }
-  return { open: false, messages: [] };
-}
-
-function save(state: { open: boolean; messages: Message[] }) {
-  try {
-    sessionStorage.setItem(STORE_KEY, JSON.stringify(state));
-  } catch {
-    // not kept across reloads, that's all
-  }
-}
+import { relativeTime } from "../common/backupFormat";
+import { useConfirmDialog } from "../common/ConfirmDialog";
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 // Ids the model copied from its lookups: of no use to a reader.
@@ -159,78 +141,244 @@ function AnswerDetails({ reply }: { reply: ChatReply }) {
   );
 }
 
+// The panel's size, text size and layout, remembered in this browser.
+const VIEW_KEY = "ai-chat-view";
+const MIN_W = 340;
+const MIN_H = 360;
+const SCALES = [0.85, 0.92, 1, 1.1, 1.2, 1.35, 1.5];
+
+interface ChatView {
+  width: number;
+  height: number;
+  maximised: boolean;
+  /** Index into SCALES. */
+  scale: number;
+  showHistory: boolean;
+}
+
+const DEFAULT_VIEW: ChatView = { width: 560, height: 640, maximised: false, scale: 2, showHistory: true };
+
+function loadView(): ChatView {
+  try {
+    const raw = localStorage.getItem(VIEW_KEY);
+    if (raw) return { ...DEFAULT_VIEW, ...(JSON.parse(raw) as Partial<ChatView>) };
+  } catch {
+    // no storage: the defaults
+  }
+  return DEFAULT_VIEW;
+}
+
+// Whether it's open, and the chat shown, for this tab.
+const SESSION_KEY = "ai-chat";
+function loadSession(): { open: boolean; chatId: string | null } {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (raw) {
+      const s = JSON.parse(raw) as { open?: boolean; chatId?: string | null };
+      return { open: !!s.open, chatId: s.chatId ?? null };
+    }
+  } catch {
+    // start closed
+  }
+  return { open: false, chatId: null };
+}
+
+function store(storage: "local" | "session", key: string, value: unknown) {
+  try {
+    (storage === "local" ? localStorage : sessionStorage).setItem(key, JSON.stringify(value));
+  } catch {
+    // not remembered, that's all
+  }
+}
+
+/** One chat in the history list: open it, rename it, delete it. */
+function HistoryItem({
+  chat,
+  current,
+  onOpen,
+  onRename,
+  onDelete,
+}: {
+  chat: SavedChatSummary;
+  current: boolean;
+  onOpen: () => void;
+  onRename: (title: string) => void;
+  onDelete: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(chat.title);
+  if (editing) {
+    return (
+      <li className="chat-history-item editing">
+        <input
+          autoFocus
+          aria-label="Chat name"
+          value={title}
+          maxLength={80}
+          onChange={(e) => setTitle(e.target.value)}
+          onBlur={() => setEditing(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && title.trim()) {
+              onRename(title.trim());
+              setEditing(false);
+            } else if (e.key === "Escape") {
+              setTitle(chat.title);
+              setEditing(false);
+            }
+          }}
+        />
+      </li>
+    );
+  }
+  return (
+    <li className={current ? "chat-history-item current" : "chat-history-item"}>
+      <button type="button" className="chat-history-open" onClick={onOpen} title={chat.title} aria-current={current || undefined}>
+        <span className="chat-history-title">{chat.title}</span>
+        <span className="chat-history-when">{relativeTime(chat.updated_at)}</span>
+      </button>
+      <span className="chat-history-actions">
+        <button
+          type="button"
+          className="icon-button"
+          aria-label={`Rename ${chat.title}`}
+          title="Rename"
+          onClick={() => {
+            setTitle(chat.title);
+            setEditing(true);
+          }}
+        >
+          ✎
+        </button>
+        <button type="button" className="icon-button" aria-label={`Delete ${chat.title}`} title="Delete" onClick={onDelete}>
+          🗑
+        </button>
+      </span>
+    </li>
+  );
+}
+
 /** The ✦ Ask AI button in the corner, and the chat it opens. The model can
  * look things up in the library (read-only) and the documentation before it
- * answers. The conversation lives in this browser tab only. */
+ * answers. Chats are kept (for you only) in the history beside it, to read
+ * again, carry on, rename or delete; the panel can be resized from its top
+ * left corner, maximised, and its text made larger or smaller. */
 export function ChatWidget() {
   const { user } = useAuth();
   const status = useAiStatus({ enabled: !!user });
   const location = useLocation();
-  const initial = useRef(load());
+  const qc = useQueryClient();
+  const { confirmDelete, dialog } = useConfirmDialog();
+  const initial = useRef(loadSession());
   const [open, setOpen] = useState(initial.current.open);
-  const [messages, setMessages] = useState<Message[]>(initial.current.messages);
+  const [chatId, setChatId] = useState<string | null>(initial.current.chatId);
+  const [view, setView] = useState<ChatView>(loadView);
   const [draft, setDraft] = useState("");
-  const [asking, setAsking] = useState(false);
-  // A new chat while a question is out: its answer is dropped.
-  const conversation = useRef(0);
+  // The question out now, shown until its answer is in; for which chat ("new" for one not saved yet).
+  const [pending, setPending] = useState<{ chatId: string; question: string; retry: boolean } | null>(null);
+  const [failure, setFailure] = useState<string | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
+  const enabled = !!user && !!status.data?.enabled && !!user.preferences.ai_chat;
 
-  useEffect(() => save({ open, messages }), [open, messages]);
+  const chats = useQuery({ queryKey: ["aiChats"], queryFn: () => aiApi.chats(), enabled: enabled && open });
+  const chat = useQuery({
+    queryKey: ["aiChat", chatId],
+    queryFn: () => aiApi.getChat(chatId!),
+    enabled: enabled && open && !!chatId,
+    retry: false,
+  });
+
+  useEffect(() => store("session", SESSION_KEY, { open, chatId }), [open, chatId]);
+  useEffect(() => store("local", VIEW_KEY, view), [view]);
+  // A chat deleted elsewhere (another tab): back to a new one.
+  useEffect(() => {
+    if (chat.isError) setChatId(null);
+  }, [chat.isError]);
+  const messages: SavedChatMessage[] = chatId ? (chat.data?.messages ?? []) : [];
+  const shownPending = pending && pending.chatId === (chatId ?? "new") ? pending : null;
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight });
-  }, [messages, asking, open]);
+  }, [messages.length, shownPending, open]);
   useEffect(() => {
     if (open) input.current?.focus();
-  }, [open]);
+  }, [open, chatId]);
 
-  if (!user || !status.data?.enabled || !user.preferences.ai_chat || location.pathname === "/login") return null;
+  if (!enabled || location.pathname === "/login") return null;
 
-  async function send(text: string, history: Message[]) {
+  async function send(text: string, retry = false) {
     const question = text.trim();
-    if (!question || asking) return;
-    const asked: Message[] = [...history, { role: "user", content: question }];
-    setMessages(asked);
+    if (!question || pending) return;
+    const target = chatId;
+    setPending({ chatId: target ?? "new", question, retry });
+    setFailure(null);
     setDraft("");
-    setAsking(true);
-    const id = conversation.current;
     try {
-      const turns = asked
-        .filter((m) => !m.error)
-        .slice(-SENT_TURNS)
-        .map((m) => {
-          const lookups = m.reply?.steps.map((step) => step.args).filter((a): a is Record<string, unknown> => !!a);
-          return lookups?.length ? { role: m.role, content: m.content, lookups } : { role: m.role, content: m.content };
-        });
-      const reply = await aiApi.chat(turns, location.pathname);
-      if (id !== conversation.current) return;
-      setMessages([...asked, { role: "assistant", content: reply.reply, reply }]);
+      const ask = { content: question, page: location.pathname, retry };
+      const saved = target ? await aiApi.ask(target, ask) : await aiApi.startChat(ask);
+      qc.setQueryData(["aiChat", saved.id], saved);
+      void qc.invalidateQueries({ queryKey: ["aiChats"] });
+      // Still on the same chat (or the new one being started): show the answer there.
+      setChatId((current) => (current === target ? saved.id : current));
     } catch (err) {
-      if (id !== conversation.current) return;
-      const why = err instanceof ApiRequestError ? err.message : "The model couldn't be asked";
-      setMessages([...asked, { role: "assistant", content: why, error: true }]);
+      setFailure(err instanceof ApiRequestError ? err.message : "The question couldn't be sent");
+      setDraft(question);
     } finally {
-      if (id === conversation.current) setAsking(false);
+      setPending(null);
     }
   }
 
   function onKey(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      void send(draft, messages);
+      void send(draft);
     }
   }
 
-  function newChat() {
-    conversation.current += 1;
-    setMessages([]);
-    setAsking(false);
+  // On a narrow screen the history covers the conversation: picking a chat closes it.
+  function show(id: string | null) {
+    setChatId(id);
+    setFailure(null);
+    if (window.innerWidth <= 600) setView((v) => ({ ...v, showHistory: false }));
     input.current?.focus();
   }
 
-  // The question an error answered, to ask it again.
+  async function rename(id: string, title: string) {
+    const saved = await aiApi.renameChat(id, title);
+    qc.setQueryData(["aiChat", id], saved);
+    void qc.invalidateQueries({ queryKey: ["aiChats"] });
+  }
+
+  async function remove(c: SavedChatSummary) {
+    if (!(await confirmDelete(`Delete the chat "${c.title}"? It can't be brought back.`, { confirmLabel: "Delete", danger: true })))
+      return;
+    await aiApi.deleteChat(c.id);
+    qc.removeQueries({ queryKey: ["aiChat", c.id] });
+    void qc.invalidateQueries({ queryKey: ["aiChats"] });
+    if (chatId === c.id) setChatId(null);
+  }
+
+  // Dragging the top-left corner: the panel is pinned bottom right, so it grows up and left.
+  function startResize(e: ReactPointerEvent<HTMLDivElement>) {
+    if (view.maximised) return;
+    e.preventDefault();
+    const from = { x: e.clientX, y: e.clientY, w: view.width, h: view.height };
+    const move = (ev: PointerEvent) => {
+      const width = Math.max(MIN_W, Math.min(window.innerWidth - 32, from.w + from.x - ev.clientX));
+      const height = Math.max(MIN_H, Math.min(window.innerHeight - 40, from.h + from.y - ev.clientY));
+      setView((v) => ({ ...v, width, height }));
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
+
+  const last = messages[messages.length - 1];
+  const lastFailed = !shownPending && last?.error;
   const lastQuestion = [...messages].reverse().find((m) => m.role === "user")?.content;
-  const lastFailed = messages.length > 0 && messages[messages.length - 1].error;
+  const title = chatId ? (chat.data?.title ?? "…") : "New chat";
 
   if (!open) {
     return (
@@ -240,96 +388,172 @@ export function ChatWidget() {
     );
   }
 
+  const style = {
+    "--chat-scale": SCALES[view.scale] ?? 1,
+    ...(view.maximised ? {} : { width: `min(${view.width}px, calc(100vw - 32px))`, height: `min(${view.height}px, calc(100vh - 80px))` }),
+  } as CSSProperties;
+
   return (
-    <section className="chat-panel" aria-label="AI chat">
+    <section className={view.maximised ? "chat-panel maximised" : "chat-panel"} style={style} aria-label="AI chat">
+      {!view.maximised && (
+        <div className="chat-resize" onPointerDown={startResize} title="Drag to resize" aria-hidden="true" />
+      )}
       <header className="chat-head">
-        <strong>✦ AI chat</strong>
-        <span className="hint-text">{status.data.model ?? ""}</span>
+        <button
+          type="button"
+          className="icon-button"
+          aria-label={view.showHistory ? "Hide chat history" : "Show chat history"}
+          aria-pressed={view.showHistory}
+          title="Chat history"
+          onClick={() => setView((v) => ({ ...v, showHistory: !v.showHistory }))}
+        >
+          ☰
+        </button>
+        <strong className="chat-title" title={title}>
+          ✦ {title}
+        </strong>
+        <span className="hint-text">{status.data?.model ?? ""}</span>
         <span className="chat-head-actions">
-          {messages.length > 0 && (
-            <button type="button" className="link-button" onClick={newChat}>
-              New chat
-            </button>
-          )}
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Smaller text"
+            title="Smaller text"
+            disabled={view.scale === 0}
+            onClick={() => setView((v) => ({ ...v, scale: Math.max(0, v.scale - 1) }))}
+          >
+            A−
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Larger text"
+            title="Larger text"
+            disabled={view.scale === SCALES.length - 1}
+            onClick={() => setView((v) => ({ ...v, scale: Math.min(SCALES.length - 1, v.scale + 1) }))}
+          >
+            A+
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label={view.maximised ? "Restore the chat's size" : "Maximise the chat"}
+            title={view.maximised ? "Restore" : "Maximise"}
+            onClick={() => setView((v) => ({ ...v, maximised: !v.maximised }))}
+          >
+            {view.maximised ? "⤡" : "⤢"}
+          </button>
           <button type="button" className="icon-button" aria-label="Close the chat" onClick={() => setOpen(false)}>
             ✕
           </button>
         </span>
       </header>
-      <div className="chat-messages" ref={scroller}>
-        {messages.length === 0 && (
-          <div className="chat-empty">
-            <p>
-              Ask about the library or the documentation. It can look up Emitters, Platforms, Modes, Intercepts and
-              ambiguity checks — read-only — and find which Modes a signal would match.
-            </p>
+      <div className={view.showHistory ? "chat-body with-history" : "chat-body"}>
+        {view.showHistory && (
+          <nav className="chat-history" aria-label="Chat history">
+            <button type="button" className="button secondary small chat-new" onClick={() => show(null)}>
+              + New chat
+            </button>
+            {chats.data && chats.data.length === 0 && <p className="hint-text">Your chats are kept here.</p>}
             <ul>
-              {[
-                "How many Emitters are validated?",
-                "Which Modes would match RF 9400 MHz, PRI 1000 µs?",
-                "Summarise this Emitter's Modes",
-              ].map((q) => (
-                <li key={q}>
-                  <button type="button" className="link-button" onClick={() => void send(q, messages)}>
-                    {q}
-                  </button>
-                </li>
+              {(chats.data ?? []).map((c) => (
+                <HistoryItem
+                  key={c.id}
+                  chat={c}
+                  current={c.id === chatId}
+                  onOpen={() => show(c.id)}
+                  onRename={(t) => void rename(c.id, t)}
+                  onDelete={() => void remove(c)}
+                />
               ))}
             </ul>
-          </div>
+          </nav>
         )}
-        {messages.map((m, i) => (
-          <div key={i} className={`chat-message ${m.role}${m.error ? " error" : ""}`}>
-            {m.role === "user" ? (
-              <p>{m.content}</p>
-            ) : m.error ? (
-              <p className="error-text">{m.content}</p>
-            ) : (
+        <div className="chat-conversation">
+          <div className="chat-messages" ref={scroller}>
+            {chatId && chat.isLoading && <p className="hint-text">Loading the chat…</p>}
+            {messages.length === 0 && !shownPending && !(chatId && chat.isLoading) && (
+              <div className="chat-empty">
+                <p>
+                  Ask about the library or the documentation. It can look up Emitters, Platforms, Modes, Intercepts and
+                  ambiguity checks — read-only — and find which Modes a signal would match.
+                </p>
+                <ul>
+                  {[
+                    "How many Emitters are validated?",
+                    "Which Modes would match RF 9400 MHz, PRI 1000 µs?",
+                    "Summarise this Emitter's Modes",
+                  ].map((q) => (
+                    <li key={q}>
+                      <button type="button" className="link-button" onClick={() => void send(q)}>
+                        {q}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {(shownPending?.retry ? messages.slice(0, -2) : messages).map((m, i) => (
+              <div key={i} className={`chat-message ${m.role}${m.error ? " error" : ""}`}>
+                {m.role === "user" ? (
+                  <p>{m.content}</p>
+                ) : m.error ? (
+                  <p className="error-text">{m.content}</p>
+                ) : (
+                  <>
+                    <Formatted text={m.content} sources={m.reply?.sources} links={m.reply?.links} />
+                    {m.reply && <AnswerDetails reply={m.reply} />}
+                  </>
+                )}
+              </div>
+            ))}
+            {shownPending && (
               <>
-                <Formatted text={m.content} sources={m.reply?.sources} links={m.reply?.links} />
-                {m.reply && <AnswerDetails reply={m.reply} />}
+                <div className="chat-message user">
+                  <p>{shownPending.question}</p>
+                </div>
+                <div className="chat-message assistant pending">
+                  <span className="chat-dots" aria-label="Thinking">
+                    <span />
+                    <span />
+                    <span />
+                  </span>{" "}
+                  <span className="hint-text">Looking things up — this can take a minute.</span>
+                </div>
               </>
             )}
+            {lastFailed && lastQuestion && (
+              <button type="button" className="link-button chat-retry" onClick={() => void send(lastQuestion, true)}>
+                Ask again
+              </button>
+            )}
+            {failure && (
+              <p className="error-text" role="alert">
+                {failure}
+              </p>
+            )}
           </div>
-        ))}
-        {asking && (
-          <div className="chat-message assistant pending">
-            <span className="chat-dots" aria-label="Thinking">
-              <span />
-              <span />
-              <span />
-            </span>{" "}
-            <span className="hint-text">Looking things up — this can take a minute.</span>
-          </div>
-        )}
-        {lastFailed && !asking && lastQuestion && (
-          <button
-            type="button"
-            className="link-button chat-retry"
-            onClick={() => void send(lastQuestion, messages.slice(0, -2))}
-          >
-            Ask again
-          </button>
-        )}
+          <footer className="chat-input">
+            <textarea
+              ref={input}
+              rows={2}
+              value={draft}
+              placeholder={pending ? "Waiting for the answer…" : "Ask a question…"}
+              aria-label="Your question"
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={onKey}
+            />
+            <button type="button" disabled={!!pending || !draft.trim()} onClick={() => void send(draft)}>
+              Send
+            </button>
+            <p className="hint-text chat-foot">
+              Enter to send, Shift+Enter for a new line. Answers can be wrong — check the lookups and sources under each
+              one.
+            </p>
+          </footer>
+        </div>
       </div>
-      <footer className="chat-input">
-        <textarea
-          ref={input}
-          rows={2}
-          value={draft}
-          placeholder="Ask a question…"
-          aria-label="Your question"
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={onKey}
-        />
-        <button type="button" disabled={asking || !draft.trim()} onClick={() => void send(draft, messages)}>
-          Send
-        </button>
-        <p className="hint-text chat-foot">
-          Enter to send, Shift+Enter for a new line. Answers can be wrong — check the lookups and sources under each
-          one.
-        </p>
-      </footer>
+      {dialog}
     </section>
   );
 }

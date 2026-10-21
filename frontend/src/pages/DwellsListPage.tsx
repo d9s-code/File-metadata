@@ -1,6 +1,7 @@
 import { Fragment, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { PageHeader } from "../components/common/PageHeader";
+import { FilterBar, shownCount } from "../components/common/FilterBar";
 import { RequireRole } from "../auth/RequireAuth";
 import { LoadingState } from "../components/common/LoadingState";
 import { EmptyState } from "../components/common/EmptyState";
@@ -105,18 +106,15 @@ function StrategyList({ onNew }: { onNew: () => void }) {
 
   return (
     <>
-      <div className="dwell-toolbar">
+      <FilterBar active={!!filter} onReset={() => setFilter("")} count={shownCount(shown.length, strategies.length, "Strategy", "Strategies")}>
         <input
           type="search"
-          className="dwell-filter"
-          placeholder="Filter by Strategy, Platform or description"
+          placeholder="Strategy, Platform or description…"
+          aria-label="Filter by Strategy, Platform or description"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
-        <span className="hint-text">
-          {shown.length} of {strategies.length}
-        </span>
-      </div>
+      </FilterBar>
       <table className="data-table dwell-strategy-list">
         <thead>
           <tr>

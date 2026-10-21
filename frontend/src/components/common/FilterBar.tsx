@@ -35,7 +35,7 @@ export function FilterBar({
 }
 
 /** "12 of 27 Emitters", or "27 Emitters" when nothing is filtered out. */
-export function shownCount(shown: number, total: number, noun: string) {
-  const word = total === 1 ? noun : `${noun}s`;
+export function shownCount(shown: number, total: number, noun: string, plural = `${noun}s`) {
+  const word = total === 1 ? noun : plural;
   return shown === total ? `${total} ${word}` : `${shown} of ${total} ${word}`;
 }
