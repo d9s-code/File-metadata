@@ -57,6 +57,13 @@ class EmitterSummary(BaseModel):
     sim_lines_correct: int = 0
 
 
+class EmitterPlatformRef(BaseModel):
+    """A Platform the Emitter is pinned on."""
+
+    id: UUID
+    name: str
+
+
 class EmitterOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -93,6 +100,8 @@ class EmitterOut(BaseModel):
     last_validated_at: date | None = None
     last_validated_result: TestResult | None = None
     last_validated_test_record_id: UUID | None = None
+    # Populated by attach_emitter_summaries: the Platforms it's pinned on, by name.
+    platforms: list[EmitterPlatformRef] = []
 
 
 class EmitterCheckoutOut(BaseModel):

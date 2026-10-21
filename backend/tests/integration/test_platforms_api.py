@@ -288,3 +288,23 @@ def test_pin_without_a_version_takes_the_latest_and_candidates_say_what_can_be_p
     audit = editor_client.get("/audit-log", params={"entity_type": "platform_link"}).json()
     rows = audit["items"] if isinstance(audit, dict) else audit
     assert any("Pinned Emitter 'Saved' v2" in r["summary"] for r in rows)
+
+
+def test_the_emitters_list_names_the_platforms_each_is_pinned_on(editor_client, emitter_with_version):
+    emitter, v1 = emitter_with_version["emitter"], emitter_with_version["version"]
+    north = editor_client.post("/platforms", json={"name": "North"}).json()
+    south = editor_client.post("/platforms", json={"name": "South"}).json()
+    gone = editor_client.post("/platforms", json={"name": "Gone"}).json()
+    for p in (south, north, gone):
+        resp = editor_client.post(
+            f"/platforms/{p['id']}/links", json={"emitter_id": emitter["id"], "emitter_version_id": v1["id"]}
+        )
+        assert resp.status_code == 201, resp.text
+    assert editor_client.delete(f"/platforms/{gone['id']}").status_code == 204
+
+    listed = {e["id"]: e for e in editor_client.get("/emitters").json()}
+    # By name, and not the deleted one.
+    assert [p["name"] for p in listed[emitter["id"]]["platforms"]] == ["North", "South"]
+    assert listed[emitter["id"]]["platforms"][0]["id"] == north["id"]
+    unpinned = editor_client.post("/emitters", json={"name": "Loose"}).json()
+    assert {e["id"]: e for e in editor_client.get("/emitters").json()}[unpinned["id"]]["platforms"] == []

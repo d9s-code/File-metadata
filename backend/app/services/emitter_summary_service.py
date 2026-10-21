@@ -7,9 +7,10 @@ from app.core.enums import TestResult
 from app.models.emitter import Emitter
 from app.models.ew_group import EwGroup
 from app.models.mode import Mode, ModeLine
+from app.models.platform import Platform, PlatformEmitterLink
 from app.models.test_line import TestLine
 from app.models.user import User
-from app.schemas.emitter import EmitterOut, EmitterSummary
+from app.schemas.emitter import EmitterOut, EmitterPlatformRef, EmitterSummary
 from app.services.emitter_validation_service import get_last_validation
 from app.services.test_line_status_service import latest_line_outcomes
 
@@ -125,6 +126,7 @@ def attach_emitter_summaries(db: Session, emitters: list[Emitter]) -> list[Emitt
     validations = get_last_validation(db, [e.id for e in emitters])
     holder_ids = {uid for e in emitters for uid in (e.checked_out_by_id, e.assignee_id) if uid is not None}
     usernames = dict(db.query(User.id, User.username).filter(User.id.in_(holder_ids)).all()) if holder_ids else {}
+    platforms = _platforms_by_emitter(db, [e.id for e in emitters])
     results = []
     for e in emitters:
         out = EmitterOut.model_validate(e)
@@ -135,5 +137,24 @@ def attach_emitter_summaries(db: Session, emitters: list[Emitter]) -> list[Emitt
             out.assignee_username = usernames.get(e.assignee_id)
         if e.id in validations:
             out.last_validated_at, out.last_validated_result, out.last_validated_test_record_id = validations[e.id]
+        out.platforms = platforms.get(e.id, [])
         results.append(out)
     return results
+
+
+def _platforms_by_emitter(db: Session, emitter_ids: list[UUID]) -> dict[UUID, list[EmitterPlatformRef]]:
+    """The (not deleted) Platforms each Emitter is pinned on, by name, in one query."""
+    if not emitter_ids:
+        return {}
+    rows = (
+        db.query(PlatformEmitterLink.emitter_id, Platform.id, Platform.name)
+        .join(Platform, Platform.id == PlatformEmitterLink.platform_id)
+        .filter(PlatformEmitterLink.emitter_id.in_(emitter_ids), Platform.is_deleted.is_(False))
+        .distinct()
+        .order_by(Platform.name)
+        .all()
+    )
+    out: dict[UUID, list[EmitterPlatformRef]] = {}
+    for emitter_id, platform_id, name in rows:
+        out.setdefault(emitter_id, []).append(EmitterPlatformRef(id=platform_id, name=name))
+    return out

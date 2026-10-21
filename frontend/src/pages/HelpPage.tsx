@@ -257,12 +257,13 @@ export function HelpPage() {
         <h2>Emitters</h2>
         <p>
           The Emitters list (top nav) shows every Emitter with its current status, and its RF, PRI and PW
-          ranges across its Modes — a <strong>min</strong> and a <strong>max</strong> column for each, each sortable, <strong>SIM correct</strong> — how many of its SIM Test Lines
+          ranges across its Modes, the <strong>Platforms</strong> it&apos;s pinned on (each a link) — a <strong>min</strong> and a <strong>max</strong> column for each, each sortable, <strong>SIM correct</strong> — how many of its SIM Test Lines
           were correct in the latest run that included them, out of all of them (e.g. 4 / 5) — and{" "}
           <strong>Tasks</strong>: its open tasks (☑ 2; with none, the chip shows when you point at the row), which open
           its task list to read, tick off or add one. <strong>Columns ▾</strong> (or right-clicking the header) picks
           which columns show — Scan is off until you turn it on. Every column but Tasks is sortable. Above the table:
-          a search on name or designation, who it&apos;s assigned to, and <strong>RF / PRI / PW / Scan ▾</strong> for
+          a search on name or designation, a <strong>Platform</strong> search (part of a Platform&apos;s name, picked
+          from a list as you type, or &ldquo;none&rdquo; for Emitters on no Platform), who it&apos;s assigned to, and <strong>RF / PRI / PW / Scan ▾</strong> for
           range filters. A row&apos;s <strong>⋯</strong> menu compares it with another Emitter or deletes it. <strong>+ Add Emitter</strong> opens a small form as an overlay rather
           than a full page; click a row to open that Emitter.
         </p>

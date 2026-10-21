@@ -36,7 +36,12 @@ type EmitterSortKey =
   | "scan_min"
   | "scan_max"
   | "sim_correct"
-  | "assignee";
+  | "assignee"
+  | "platforms";
+
+function platformNames(e: Emitter): string {
+  return (e.platforms ?? []).map((p) => p.name).join(", ");
+}
 
 /** Share of SIM Test Lines correct in their latest run; null without lines. */
 function simShare(e: Emitter): number | null {
@@ -71,14 +76,17 @@ function compareEmitters(a: Emitter, b: Emitter, key: EmitterSortKey, dir: "asc"
       return compareNullable(simShare(a), simShare(b), dir);
     case "assignee":
       return compareStrings(a.assignee_username, b.assignee_username, dir);
+    case "platforms":
+      return compareStrings(platformNames(a) || null, platformNames(b) || null, dir);
   }
 }
 
-type ColumnId = "designation" | "status" | "assignee" | "rf" | "pri" | "pw" | "scan" | "sim" | "tasks";
+type ColumnId = "designation" | "status" | "assignee" | "platforms" | "rf" | "pri" | "pw" | "scan" | "sim" | "tasks";
 const COLUMNS: ToggleableColumn<ColumnId>[] = [
   { id: "designation", label: "Designation" },
   { id: "status", label: "Status" },
   { id: "assignee", label: "Assigned to" },
+  { id: "platforms", label: "Platforms" },
   { id: "rf", label: "RF (MHz)" },
   { id: "pri", label: "PRI (µs)" },
   { id: "pw", label: "PW (µs)" },
@@ -126,6 +134,8 @@ export function EmittersListPage() {
   const [priMax, setPriMax] = useSessionState("emitters.priMax", "");
   const [scanMin, setScanMin] = useSessionState("emitters.scanMin", "");
   const [scanMax, setScanMax] = useSessionState("emitters.scanMax", "");
+  // Matches a Platform the Emitter is pinned on; "none" (or "—") those on none.
+  const [platformFilter, setPlatformFilter] = useSessionState("emitters.platformFilter", "");
   // "" anyone, "me", "none", or a person's id.
   const [assignedFilter, setAssignedFilter] = useSessionState("emitters.assignedFilter", "");
   const { user } = useAuth();
@@ -144,6 +154,10 @@ export function EmittersListPage() {
   const filtered = (emitters ?? []).filter((e) => {
     const nameQ = nameFilter.trim().toLowerCase();
     if (nameQ && !`${e.name} ${e.designation ?? ""}`.toLowerCase().includes(nameQ)) return false;
+    const platformQ = platformFilter.trim().toLowerCase();
+    if (platformQ === "none" || platformQ === "—") {
+      if ((e.platforms ?? []).length) return false;
+    } else if (platformQ && !(e.platforms ?? []).some((p) => p.name.toLowerCase().includes(platformQ))) return false;
     if (!rangeOverlaps(rfMin, rfMax, e.summary.rf_min_mhz, e.summary.rf_max_mhz)) return false;
     if (!rangeOverlaps(pwMin, pwMax, e.summary.pw_min_us, e.summary.pw_max_us)) return false;
     if (!rangeOverlaps(priMin, priMax, e.summary.pri_min_us, e.summary.pri_max_us)) return false;
@@ -196,10 +210,15 @@ export function EmittersListPage() {
           : [e.summary.scan_min, e.summary.scan_max];
 
   const rangesSet = [rfMin, rfMax, pwMin, pwMax, priMin, priMax, scanMin, scanMax].some(Boolean);
-  const filtering = !!nameFilter || !!assignedFilter || rangesSet;
+  const filtering = !!nameFilter || !!platformFilter || !!assignedFilter || rangesSet;
+  // Every Platform some Emitter is on, for the Platform search's suggestions.
+  const platformOptions = [...new Set((emitters ?? []).flatMap((e) => (e.platforms ?? []).map((p) => p.name)))].sort(
+    (a, b) => a.localeCompare(b),
+  );
 
   function resetFilters() {
     setNameFilter("");
+    setPlatformFilter("");
     setRfMin("");
     setRfMax("");
     setPwMin("");
@@ -302,6 +321,21 @@ export function EmittersListPage() {
           value={nameFilter}
           onChange={(e) => setNameFilter(e.target.value)}
         />
+        <input
+          type="search"
+          placeholder="Platform…"
+          aria-label="Filter by Platform"
+          title='Emitters pinned on a Platform whose name contains this; "none" for those on no Platform'
+          list="emitters-platform-options"
+          value={platformFilter}
+          onChange={(e) => setPlatformFilter(e.target.value)}
+        />
+        <datalist id="emitters-platform-options">
+          {platformOptions.map((n) => (
+            <option key={n} value={n} />
+          ))}
+          <option value="none">On no Platform</option>
+        </datalist>
         <select aria-label="Assigned to" value={assignedFilter} onChange={(e) => setAssignedFilter(e.target.value)}>
           <option value="">Assigned to anyone</option>
           <option value="me">Assigned to me</option>
@@ -382,6 +416,7 @@ export function EmittersListPage() {
               {header("Name", "name", undefined, { rowSpan: 2, className: "emitters-name-col" })}
               {show("status") && header("Status", "status")}
               {show("assignee") && header("Assigned to", "assignee")}
+              {show("platforms") && header("Platforms", "platforms")}
               {RANGES.map(([id, label, unit]) => (
                 <th key={id} colSpan={2} className="range-group">
                   {label} <span className="range-unit">({unit})</span>
@@ -426,6 +461,20 @@ export function EmittersListPage() {
                 )}
                 {show("assignee") && (
                   <td>{e.assignee_id === user?.id ? <strong>You</strong> : (e.assignee_username ?? <span className="muted">—</span>)}</td>
+                )}
+                {show("platforms") && (
+                  <td className="emitters-platforms-col">
+                    {(e.platforms ?? []).length === 0 ? (
+                      <span className="muted">—</span>
+                    ) : (
+                      e.platforms.map((p, i) => (
+                        <Fragment key={p.id}>
+                          {i > 0 && ", "}
+                          <Link to={`/platforms/${p.id}`}>{p.name}</Link>
+                        </Fragment>
+                      ))
+                    )}
+                  </td>
                 )}
                 {RANGES.flatMap(([id]) => {
                   const [min, max] = summaryOf(e, id);
