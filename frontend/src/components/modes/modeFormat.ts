@@ -232,6 +232,23 @@ export function compareModes(
   ewGroupsById: Record<string, EwGroup>,
   sourcesById: Record<string, Source>,
 ): number {
+  // Ties (the same RF, EW Group, PRI type…) by name, then EW Group, always A–Z,
+  // so equal values never come out in an arbitrary order.
+  return (
+    compareBy(a, b, key, dir, ewGroupsById, sourcesById) ||
+    compareBy(a, b, "name", "asc", ewGroupsById, sourcesById) ||
+    compareBy(a, b, "ew_group", "asc", ewGroupsById, sourcesById)
+  );
+}
+
+function compareBy(
+  a: Mode,
+  b: Mode,
+  key: ModeSortKey,
+  dir: SortDir,
+  ewGroupsById: Record<string, EwGroup>,
+  sourcesById: Record<string, Source>,
+): number {
   const av = sortValue(a, key, ewGroupsById, sourcesById);
   const bv = sortValue(b, key, ewGroupsById, sourcesById);
   // Nulls (e.g. PRI min/max on a Stagger/CW mode) always sort last, regardless of direction.
