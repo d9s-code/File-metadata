@@ -282,3 +282,21 @@ def test_across_emitters_only_skips_pairs_inside_one_emitter():
         frozenset(("a1", "b1")),
         frozenset(("a2", "b1")),
     }
+
+
+def test_ai_finding_lines_say_what_pri_was_compared_on_and_the_jitter():
+    from types import SimpleNamespace
+
+    from app.services.ai_review_service import _finding_line
+
+    def finding(**details):
+        return SimpleNamespace(
+            details={"mode_a": {"mode_name": "A", "emitter_name": "E"}, "mode_b": {"mode_name": "B", "emitter_name": "E"}, **details},
+            rf_overlap_pct=100.0, pw_overlap_pct=80.0, pri_overlap_pct=60.0,
+            combined_severity=SimpleNamespace(value="medium"), reviewed_by=None,
+        )
+
+    fixed = _finding_line(finding(pri_basis="range", jitter_overlap_pct=50.0))
+    assert "PRI 60%, jitter 50%" in fixed
+    assert "PRI (frame time) 60%" in _finding_line(finding(pri_basis="frame_time", jitter_overlap_pct=None))
+    assert "PRI (identical steps) 60%" in _finding_line(finding(pri_basis="steps"))

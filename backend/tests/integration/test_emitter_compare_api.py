@@ -30,6 +30,9 @@ def test_compare_two_emitters_lists_cross_pairs_only(editor_client):
     assert len(data["findings"]) == 4
     assert all(f["details"]["mode_a"]["emitter_name"] == "Compare A" for f in data["findings"])
     assert all(f["details"]["mode_b"]["emitter_name"] == "Compare B" for f in data["findings"])
+    # Two Fixed Modes are compared on jitter too, as the ambiguity check does.
+    assert all(f["details"]["jitter_overlap_pct"] == 100.0 for f in data["findings"])
+    assert all(f["details"]["pri_basis"] == "range" for f in data["findings"])
 
     far = _emitter(editor_client, "Compare Far", rf_shift=5000)
     assert editor_client.get("/emitters/compare", params={"a": a["id"], "b": far["id"]}).json()["findings"] == []

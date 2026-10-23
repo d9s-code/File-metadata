@@ -78,14 +78,14 @@ function ParamRow({
     <div className={`param-row${limiting ? " limiting" : ""}`}>
       <div className="param-row-head">
         <strong>{label}</strong> <span className="hint-text">{unit}</span>
-        <span className="param-row-pct">
-          {value == null ? "not compared" : pct(value)}
-          {limiting && <span className="param-row-tag">sets the severity</span>}
+        <span className="param-row-values">
+          <span className="side-a-text">A {text(ra, a.stagger)}</span>
+          <span className="side-b-text">B {text(rb, b.stagger)}</span>
         </span>
-      </div>
-      <div className="param-row-values">
-        <span className="side-a-text">A: {text(ra, a.stagger)}</span>
-        <span className="side-b-text">B: {text(rb, b.stagger)}</span>
+        <span className="param-row-pct" title={limiting ? "The least overlap — it sets the severity" : undefined}>
+          {value == null ? "not compared" : pct(value)}
+          {limiting && <span className="param-row-tag">sets severity</span>}
+        </span>
       </div>
       {staggers ? (
         <StaggerPair a={a.stagger as number[]} b={b.stagger as number[]} />
@@ -120,6 +120,7 @@ export function FindingDetail({
   const unreview = useUnreviewFinding(runId);
   const [note, setNote] = useState("");
   const [merging, setMerging] = useState(false);
+  const [acknowledging, setAcknowledging] = useState(false);
   const { mode_a, mode_b } = finding.details;
   const { a, b } = comparedSides(finding);
   const limiting = limitingParam(finding);
@@ -192,51 +193,77 @@ export function FindingDetail({
 
       {!finding.resolution && !gone && (
         <div className="finding-actions">
-          <h4>Handle it</h4>
-          <div className="finding-action">
-            <div>
-              <strong>Open them</strong>
-              <p className="hint-text">Change either Mode in its Emitter, then save a version and run the check again.</p>
-            </div>
-            <span className="finding-action-buttons">
-              <Link to={emitterLink(mode_a)}>Open A</Link> · <Link to={emitterLink(mode_b)}>Open B</Link>
-            </span>
-          </div>
-          {isEditor && (
-            <div className="finding-action">
-              <div>
-                <strong>Merge them</strong>
-                <p className="hint-text">
-                  {sameEmitter
-                    ? "For two Modes that are really the same: keep one, widened to cover both, and delete the other."
-                    : "Only Modes of the same Emitter can be merged."}
-                </p>
-              </div>
-              <button type="button" disabled={!sameEmitter} onClick={() => setMerging(true)}>
-                Merge…
-              </button>
-            </div>
-          )}
-          {isEditor && !finding.reviewed_at && (
-            <div className="finding-action">
-              <div>
-                <strong>Acknowledge it</strong>
-                <p className="hint-text">Known and acceptable as it is — kept on later checks while nothing changes.</p>
-                <input
-                  className="finding-note"
-                  placeholder="Why (optional), e.g. told apart by scan pattern"
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                />
-              </div>
+          {acknowledging ? (
+            <>
+              <input
+                className="finding-note"
+                placeholder="Why (optional), e.g. told apart by scan pattern"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                autoFocus
+              />
               <button
                 type="button"
                 disabled={review.isPending}
-                onClick={() => review.mutate({ findingId: finding.id, note: note.trim() || undefined }, { onSuccess: () => setNote("") })}
+                onClick={() =>
+                  review.mutate(
+                    { findingId: finding.id, note: note.trim() || undefined },
+                    {
+                      onSuccess: () => {
+                        setNote("");
+                        setAcknowledging(false);
+                      },
+                    },
+                  )
+                }
               >
                 Acknowledge
               </button>
-            </div>
+              <button type="button" className="button secondary" onClick={() => setAcknowledging(false)}>
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                className="button secondary"
+                to={emitterLink(mode_a)}
+                title="Change it in its Emitter, then save a version and run the check again"
+              >
+                Open A
+              </Link>
+              <Link
+                className="button secondary"
+                to={emitterLink(mode_b)}
+                title="Change it in its Emitter, then save a version and run the check again"
+              >
+                Open B
+              </Link>
+              {isEditor && (
+                <button
+                  type="button"
+                  className="button secondary"
+                  disabled={!sameEmitter}
+                  onClick={() => setMerging(true)}
+                  title={
+                    sameEmitter
+                      ? "Two Modes that are really the same: keep one, widened to cover both, and delete the other"
+                      : "Only Modes of the same Emitter can be merged"
+                  }
+                >
+                  Merge…
+                </button>
+              )}
+              {isEditor && !finding.reviewed_at && (
+                <button
+                  type="button"
+                  onClick={() => setAcknowledging(true)}
+                  title="Known and acceptable as it is — kept on later checks while nothing changes"
+                >
+                  Acknowledge…
+                </button>
+              )}
+            </>
           )}
         </div>
       )}

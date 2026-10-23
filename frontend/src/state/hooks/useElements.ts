@@ -69,6 +69,19 @@ export function useDeleteElement(emitterId: string, sourceId: string) {
   });
 }
 
+/** Deletes Elements across the Emitter's Sources (the All Sources cleanup). */
+export function useDeleteElements(emitterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (elementIds: string[]) => elementsApi.deleteMany(emitterId, elementIds),
+    onSuccess: () => {
+      // Every Source's list may have changed.
+      qc.invalidateQueries({ queryKey: ["elements", emitterId] });
+      qc.invalidateQueries({ queryKey: elementOverviewKey(emitterId) });
+    },
+  });
+}
+
 /** Modes from the merged Elements of every Source (All Sources). */
 export function useAllSourcesProduct(emitterId: string) {
   const qc = useQueryClient();

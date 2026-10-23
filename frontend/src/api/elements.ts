@@ -178,6 +178,9 @@ export const elementsApi = {
   delete: (emitterId: string, sourceId: string, elementId: string) =>
     api.delete<void>(`${base(emitterId, sourceId)}/${elementId}`),
   overview: (emitterId: string) => api.get<ElementOverviewRow[]>(`/emitters/${emitterId}/element-overview`),
+  /** Deletes these Elements from whichever of the Emitter's Sources they're in — all or none. */
+  deleteMany: (emitterId: string, elementIds: string[]) =>
+    api.post<{ deleted: number; sources: number }>(`/emitters/${emitterId}/elements/delete`, { element_ids: elementIds }),
   coverage: (emitterId: string) => api.get<ElementCoverage>(`/emitters/${emitterId}/element-coverage`),
   cartesianRuns: (emitterId: string, sourceId: string) =>
     api.get<CartesianRun[]>(`/emitters/${emitterId}/sources/${sourceId}/cartesian-runs`),

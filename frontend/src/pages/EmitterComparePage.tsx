@@ -10,7 +10,7 @@ import { useEmitters } from "../state/hooks/useEmitters";
 import { useEmitterVersions } from "../state/hooks/useEmitterVersions";
 import { CoverageCharts, emitterNode } from "../components/platform/PlatformCharts";
 import { SeverityBadge } from "../components/ambiguity/SeverityBadge";
-import { SEVERITY_ORDER, SEVERITY_RANK } from "../components/ambiguity/ambiguityText";
+import { SEVERITY_ORDER, SEVERITY_RANK, limitingParam, overlapPct } from "../components/ambiguity/ambiguityText";
 import { LoadingState } from "../components/common/LoadingState";
 import type { Emitter } from "../types/domain";
 
@@ -252,26 +252,45 @@ export function EmitterComparePage() {
                     <th>{label(data.b)}</th>
                     <th>Severity</th>
                     <th className="num">RF</th>
-                    <th className="num">PRI</th>
+                    <th className="num" title="A Fixed PRI's range; a Stagger's frame time (both range-matched) or its identical steps">
+                      PRI
+                    </th>
                     <th className="num">PW</th>
+                    <th className="num" title="Compared when both are Fixed">Jitter</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {findings.map((f) => (
-                    <tr key={`${f.mode_id_a}:${f.mode_id_b}`}>
-                      <td>{f.details.mode_a.mode_name}</td>
-                      <td>{f.details.mode_b.mode_name}</td>
-                      <td>
-                        <SeverityBadge severity={f.combined_severity} />
+                  {findings.map((f) => {
+                    const limiting = limitingParam(f);
+                    // The overlap, bold where it's the one that set the severity.
+                    const cell = (p: "rf" | "pri" | "pw" | "jitter", note?: string) => (
+                      <td className={p === limiting ? "num limiting" : "num"}>
+                        {pct(overlapPct(f, p))}
+                        {note && overlapPct(f, p) != null && <span className="hint-text"> {note}</span>}
                       </td>
-                      <td className="num">{pct(f.rf_overlap_pct)}</td>
-                      <td className="num">{pct(f.pri_overlap_pct)}</td>
-                      <td className="num">{pct(f.pw_overlap_pct)}</td>
-                    </tr>
-                  ))}
+                    );
+                    const basis = f.details.pri_basis;
+                    return (
+                      <tr key={`${f.mode_id_a}:${f.mode_id_b}`}>
+                        <td>{f.details.mode_a.mode_name}</td>
+                        <td>{f.details.mode_b.mode_name}</td>
+                        <td>
+                          <SeverityBadge severity={f.combined_severity} />
+                        </td>
+                        {cell("rf")}
+                        {cell("pri", basis === "frame_time" ? "frame time" : basis === "steps" ? "steps" : undefined)}
+                        {cell("pw")}
+                        {cell("jitter")}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
-              <p className="hint-text">Overlap is the share of the narrower range the other covers, with margins.</p>
+              <p className="hint-text">
+                Overlap is the share of the narrower range the other covers, with margins; the bold one set the severity.
+                Two Fixed Modes are compared on jitter too; two Staggers on their frame time when both are range-matched,
+                else on their identical steps; CW and X-let have no PRI (—).
+              </p>
             </div>
           )}
 

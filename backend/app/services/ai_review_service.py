@@ -32,6 +32,7 @@ from app.models.mdf import Mdf
 from app.models.mode import Mode
 from app.models.platform import Platform
 from app.services import knowledge_service, llm_client
+from app.services.frametime_service import effective_frametime_us
 
 # The most serious findings a run summary is given, one line each.
 SUMMARY_FINDINGS = 40
@@ -145,8 +146,10 @@ def _mode_block(label: str, side: dict, pri_type: str, notes: str | None) -> str
     elif pri_type == "stagger":
         seq = ", ".join(_n(v) for v in line.get("pri_stagger_values_us") or [])
         parts.append(f"  PRI stagger sequence: {seq or 'not set'} µs")
-        if line.get("explicit_frame_time_us") is not None:
-            parts.append(f"  Frame time: {_n(line['explicit_frame_time_us'])} µs")
+        frame = effective_frametime_us(line.get("pri_stagger_values_us"), line.get("explicit_frame_time_us"))
+        if frame is not None:
+            written = " (written in)" if line.get("explicit_frame_time_us") is not None else " (sum of the steps)"
+            parts.append(f"  Frame time: {_n(frame)} µs{written}")
         if line.get("pri_range_matching"):
             margin = line.get("frame_time_delta_us")
             parts.append(f"  Range matching on: matched on its frame time{f' (margin ±{_n(margin)} µs)' if margin else ''}")
@@ -226,7 +229,11 @@ def pair_label(f: AmbiguityFinding) -> str:
 
 
 def _finding_line(f: AmbiguityFinding, label: str = "-") -> str:
-    pri = f"PRI {_n(f.pri_overlap_pct)}%" if f.pri_overlap_pct is not None else "no PRI compared"
+    details = f.details or {}
+    basis = {"frame_time": " (frame time)", "steps": " (identical steps)"}.get(details.get("pri_basis") or "", "")
+    pri = f"PRI{basis} {_n(f.pri_overlap_pct)}%" if f.pri_overlap_pct is not None else "no PRI compared"
+    if details.get("jitter_overlap_pct") is not None:
+        pri += f", jitter {_n(details['jitter_overlap_pct'])}%"
     reviewed = " — reviewed" if f.reviewed_by else ""
     return (
         f"{label} {pair_label(f)}: "

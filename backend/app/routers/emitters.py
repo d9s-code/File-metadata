@@ -22,7 +22,8 @@ from app.models.emitter import Emitter
 from app.models.emitter_note import EmitterNote
 from app.models.emitter_version import EmitterVersion
 from app.models.ew_group import EwGroup
-from app.models.mode import Mode, ModeGenerationBatch
+from app.models.mode import Mode, ModeElement, ModeGenerationBatch
+from app.models.source import Source
 from app.routers.modes import create_mode_record, delete_mode_audited
 from app.models.test_record import TestRecord, TestRecordLine, TestRecordLineMode, TestRecordMode
 from app.models.user import User
@@ -37,7 +38,7 @@ from app.schemas.emitter import (
 )
 from app.schemas.emitter_note import EmitterNoteCreate, EmitterNoteOut
 from app.schemas.task import EmitterAssign
-from app.schemas.mode_element import ElementCoverageOut, ElementOverviewRow
+from app.schemas.mode_element import ElementBulkDelete, ElementBulkDeleteResult, ElementCoverageOut, ElementOverviewRow
 from app.services.element_coverage import element_coverage
 from app.services.element_overview import element_overview
 from app.services.emitter_compare import compare_emitters
@@ -672,6 +673,71 @@ def get_element_overview(
     """Every distinct Element across the Emitter's Sources, with where each is."""
     _get_emitter_or_404(db, emitter_id)
     return element_overview(db, emitter_id)
+
+
+# What an Element's audit entry keeps, so a cleanup can be read back.
+_ELEMENT_FIELDS = [
+    "element_type",
+    "variant",
+    "value_min",
+    "value_max",
+    "stagger_values",
+    "jitter_min",
+    "jitter_max",
+    "delta",
+    "label",
+    "details",
+    "sort_order",
+]
+
+
+@router.post(
+    "/{emitter_id}/elements/delete",
+    response_model=ElementBulkDeleteResult,
+    dependencies=[Depends(verify_csrf)],
+)
+def delete_elements(
+    emitter_id: UUID,
+    payload: ElementBulkDelete,
+    db: Session = Depends(get_db),
+    user=Depends(require_emitter_checkout()),
+) -> ElementBulkDeleteResult:
+    """Deletes the Elements given, from any of the Emitter's Sources — all or
+    none: one that isn't in its Sources (gone already, or another Emitter's)
+    refuses the lot. One audit entry per Source, listing what went."""
+    _get_emitter_or_404(db, emitter_id)
+    ids = set(payload.element_ids)
+    rows = (
+        db.query(ModeElement, Source)
+        .join(Source, ModeElement.source_id == Source.id)
+        .filter(ModeElement.id.in_(ids), Source.emitter_id == emitter_id)
+        .all()
+    )
+    if len(rows) != len(ids):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"{len(ids) - len(rows)} of the Elements aren't in this Emitter's Sources any more — reload and try again",
+        )
+    by_source: dict[UUID, tuple[Source, list[ModeElement]]] = {}
+    for element, source in rows:
+        by_source.setdefault(source.id, (source, []))[1].append(element)
+    for source, elements in by_source.values():
+        labels = sorted({e.label for e in elements if e.label})
+        named = f" ({', '.join(labels[:5])}{', …' if len(labels) > 5 else ''})" if labels else ""
+        record_audit(
+            db,
+            actor_id=user.id,
+            action=AuditAction.delete,
+            entity_type=AuditEntityType.mode_element.value,
+            entity_id=elements[0].id,
+            summary=f"Cleaned up {len(elements)} element{'' if len(elements) == 1 else 's'}{named} from Source '{source.name}'",
+            changes={"elements": [snapshot(e, _ELEMENT_FIELDS) for e in elements]},
+            emitter_id=emitter_id,
+        )
+        for e in elements:
+            db.delete(e)
+    db.commit()
+    return ElementBulkDeleteResult(deleted=len(rows), sources=len(by_source))
 
 
 @router.get("/{emitter_id}/element-coverage", response_model=ElementCoverageOut)

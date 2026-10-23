@@ -10,6 +10,7 @@ import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 import { elementValues, VariantTag } from "./elementDisplay";
 import { parsePositions } from "./firingOrder";
 import { useSessionState } from "../common/useSessionState";
+import { ElementCleanupDialog } from "./ElementCleanupDialog";
 
 const TYPES: [ElementType | "", string][] = [
   ["", "All"],
@@ -84,6 +85,7 @@ export function ElementOverview({ emitterId, ewGroups }: { emitterId: string; ew
   const [open, setOpen] = useState(true);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [doneNote, setDoneNote] = useState<string | null>(null);
+  const [cleaning, setCleaning] = useState(false);
 
   const variants = useMemo(
     () => [...new Set((rows ?? []).flatMap((r) => r.occurrences.map((o) => o.variant ?? "")))].filter(Boolean).sort(),
@@ -143,10 +145,34 @@ export function ElementOverview({ emitterId, ewGroups }: { emitterId: string; ew
             found in.
           </InfoTip>
         </h3>
-        <button type="button" className="link-button" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-          {open ? "Hide" : "Show"}
-        </button>
+        <span className="card-header-actions">
+          {canEdit && (rows?.length ?? 0) > 0 && (
+            <button
+              type="button"
+              className="button secondary"
+              onClick={() => setCleaning(true)}
+              title="Delete every Element with a name or value, from every Source — imported values that shouldn't be there"
+            >
+              Clean up…
+            </button>
+          )}
+          <button type="button" className="link-button" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+            {open ? "Hide" : "Show"}
+          </button>
+        </span>
       </div>
+      {cleaning && rows && (
+        <ElementCleanupDialog
+          emitterId={emitterId}
+          rows={rows}
+          onClose={() => setCleaning(false)}
+          onDone={(message) => {
+            setCleaning(false);
+            setPicked(new Set());
+            setDoneNote(message);
+          }}
+        />
+      )}
       {open && (
         <>
           <div className="element-overview-filters">

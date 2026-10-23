@@ -13,9 +13,14 @@ function message(err: unknown) {
   return err instanceof ApiRequestError ? err.message : "Something went wrong";
 }
 
-function spanText(s: MergeSpans, key: "rf" | "pw" | "pri") {
-  if (key === "pri" && !s.pri) return s.stagger ? s.stagger.map(num).join(", ") : "—";
-  return rangeText(s[key] ?? null);
+type SpanKey = "rf" | "pri" | "pw" | "jitter" | "frame_time";
+
+const SPAN_LABEL: Record<SpanKey, string> = { rf: "RF", pri: "PRI", pw: "PW", jitter: "Jitter", frame_time: "Frame time" };
+
+function spanText(s: MergeSpans, key: SpanKey) {
+  const margin = key === "jitter" ? undefined : s.margins?.[key];
+  const values = key === "pri" && !s.pri ? (s.stagger ? s.stagger.map(num).join(", ") : "—") : rangeText(s[key] ?? null);
+  return margin ? `${values} ±${num(margin)}` : values;
 }
 
 /** Keep one of the two Modes, widened to cover both; delete the other. Shows
@@ -80,10 +85,12 @@ export function MergeDialog({ finding, runId, onClose }: { finding: AmbiguityFin
                   </tr>
                 </thead>
                 <tbody>
-                  {(["rf", "pri", "pw"] as const).map((k) =>
-                    k === "pri" && !plan.kept.before.pri && !plan.kept.before.stagger ? null : (
+                  {(["rf", "pri", "frame_time", "jitter", "pw"] as const).map((k) =>
+                    // Only the rows its PRI type has: Fixed has jitter, Stagger a frame time, CW and X-let neither.
+                    (k === "pri" && !plan.kept.before.pri && !plan.kept.before.stagger) ||
+                    ((k === "jitter" || k === "frame_time") && !plan.kept.before[k]) ? null : (
                       <tr key={k}>
-                        <th>{k.toUpperCase()}</th>
+                        <th>{SPAN_LABEL[k]}</th>
                         <td>{spanText(plan.kept.before, k)}</td>
                         <td>{spanText(plan.removed.spans, k)}</td>
                         <td className={spanText(plan.kept.after, k) !== spanText(plan.kept.before, k) ? "merge-changed" : undefined}>
@@ -95,8 +102,8 @@ export function MergeDialog({ finding, runId, onClose }: { finding: AmbiguityFin
                 </tbody>
               </table>
               <p className="hint-text">
-                Ranges include their ± margins; the kept Mode takes the wider margin of the two. Its notes record the merge
-                and keep {plan.removed.name}&apos;s notes.
+                Values as typed, with each one&apos;s ± margin. The kept Mode&apos;s values widen to cover both; its margins
+                stay its own. Its notes record the merge and keep {plan.removed.name}&apos;s notes.
               </p>
               <ul className="merge-consequences">
                 <li>

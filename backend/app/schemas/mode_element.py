@@ -259,3 +259,16 @@ class FrametimeResponse(BaseModel):
     element_id: UUID
     frametime_us: float
     values: list[float]
+
+
+class ElementBulkDelete(BaseModel):
+    """Elements to delete from across an Emitter's Sources — a cleanup of
+    imported values that shouldn't have come in (a name, or a value, found in
+    many Sources)."""
+
+    element_ids: list[UUID] = Field(min_length=1, max_length=20_000)
+
+
+class ElementBulkDeleteResult(BaseModel):
+    deleted: int
+    sources: int

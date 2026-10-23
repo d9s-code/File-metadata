@@ -18,7 +18,7 @@ export function ModeEditDialog({
   onClose: () => void;
 }) {
   return (
-    <Modal title={`Edit ${mode.name}`} onClose={onClose} className="mode-dialog">
+    <Modal title={`Edit ${mode.name}`} onClose={onClose} className="form-dialog">
       <ModeEditForm emitterId={emitterId} mode={mode} sources={sources} onDone={onClose} />
     </Modal>
   );
@@ -39,7 +39,7 @@ export function ModeDuplicateDialog({
   onClose: () => void;
 }) {
   return (
-    <Modal title={`Copy of ${mode.name}`} onClose={onClose} className="mode-dialog">
+    <Modal title={`Copy of ${mode.name}`} onClose={onClose} className="form-dialog">
       <ModeForm emitterId={emitterId} ewGroups={ewGroups} sources={sources} duplicateFrom={mode} onClose={onClose} />
     </Modal>
   );

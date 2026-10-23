@@ -179,7 +179,7 @@ def compared_line(line: dict, apply_margins: bool) -> dict:
     return out
 
 
-def _jitter_span(line: dict) -> tuple[float, float]:
+def jitter_span(line: dict) -> tuple[float, float]:
     """A Fixed Mode's jitter range. Every Fixed Mode has one (the form requires
     it); a missing end, from data older than that, reads as the other end or 0."""
     lo, hi = line.get("jitter_min_us"), line.get("jitter_max_us")
@@ -205,7 +205,7 @@ def _compared(line: dict, pri_type: str, frame: tuple[float, float] | None = Non
         "pri": [line["pri_min_us"], line["pri_max_us"]] if pri_type == "fixed" else None,
         "stagger": line.get("pri_stagger_values_us") if pri_type == "stagger" and frame is None else None,
         "frame_time": list(frame) if frame is not None else None,
-        "jitter": list(_jitter_span(line)) if jitter else None,
+        "jitter": list(jitter_span(line)) if jitter else None,
     }
 
 
@@ -215,7 +215,7 @@ def _pri_and_jitter(a: FlatModeLine, b: FlatModeLine, la: dict, lb: dict, apply_
     t = a.pri_type
     if t == "fixed":
         pri_pct = _range_overlap_pct(la["pri_min_us"], la["pri_max_us"], lb["pri_min_us"], lb["pri_max_us"])
-        jitter_pct = _range_overlap_pct(*_jitter_span(a.line), *_jitter_span(b.line))
+        jitter_pct = _range_overlap_pct(*jitter_span(a.line), *jitter_span(b.line))
         return pri_pct, jitter_pct, "range", None
     if t == "stagger":
         ra, rb = bool(a.line.get("pri_range_matching")), bool(b.line.get("pri_range_matching"))

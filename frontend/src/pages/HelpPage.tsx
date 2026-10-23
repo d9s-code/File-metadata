@@ -640,7 +640,9 @@ export function HelpPage() {
               Elements in more than one Source. While editing, tick Elements and <strong>Generate Modes</strong> from
               them, as on a Source: each Mode gets the Sources its own RF, PRI and PW were found in, the one holding most
               of them as its main Source. A blank margin uses the widest any of an Element&apos;s Sources gives. Sequence
-              steps are picked on their own Source.
+              steps are picked on their own Source. <strong>Clean up…</strong> deletes what an import shouldn&apos;t have
+              brought in: search Element names (labels, e.g. &ldquo;scan rate&rdquo;) and/or an exact value (a PRI of 0),
+              tick the names it lists, and every Element under them goes from every Source at once.
             </p>
             <p>
               <strong>Element coverage</strong>, under All Sources, shows which of those Elements the Modes cover:
@@ -779,8 +781,9 @@ export function HelpPage() {
           </p>
           <p>
             <strong>The page.</strong> The findings are listed on the left — open ones first, worst first — with each
-            parameter&apos;s overlap and the one that set the severity in bold; the chips above filter by status and
-            severity, and arrow keys move through the list. The selected finding is on the right: both Modes&apos; ranges
+            parameter&apos;s overlap and the one that set the severity in bold; the views are tabs, and below them one
+            row filters by status and severity (only those with findings), Mode, EW Group and Source. Arrow keys move
+            through the list. The selected finding is on the right: both Modes&apos; ranges
             drawn to scale with the overlap shaded. <strong>Modes involved</strong> lists the Modes in the most findings —
             changing one of those often clears many. <strong>Matrix</strong> shows every pair at once; click a cell to open
             it.
@@ -788,7 +791,8 @@ export function HelpPage() {
           <p>
             <strong>Handling a finding.</strong> <strong>Open A / Open B</strong> takes you to either Mode in its Emitter
             to change it. <strong>Merge</strong> is for two Modes that are really the same: pick the one to keep, see what
-            changes — its ranges become the union of both with the wider margin, the other is deleted, and its test
+            changes — its values become the union of both (jitter too), keeping its own ± margins, never the
+            other&apos;s; the other is deleted, and its test
             history and intercept links move to the kept Mode — including any new overlap the wider ranges would cause
             with other Modes. It changes the Emitter&apos;s unsaved edits, so the Emitter must be checked out by you (the
             dialog can do that); save a version and run the check again to see the result. Findings that involved the

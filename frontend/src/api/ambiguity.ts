@@ -200,6 +200,12 @@ export interface MergeSpans {
   pw: [number, number];
   pri?: [number, number];
   stagger?: number[];
+  /** Fixed: the jitter range. */
+  jitter?: [number, number];
+  /** Stagger: the frame time. */
+  frame_time?: [number, number] | null;
+  /** Each value's ± margin, where it has one (the kept Mode keeps its own). */
+  margins?: Partial<Record<"rf" | "pw" | "pri" | "frame_time", number>>;
 }
 
 export interface MergePlan {

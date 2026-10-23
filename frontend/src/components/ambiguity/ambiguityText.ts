@@ -34,18 +34,21 @@ export function findingStatus(f: AmbiguityFinding): FindingStatus {
   return f.reviewed_at ? "acknowledged" : "open";
 }
 
-export function overlapPct(f: AmbiguityFinding, p: OverlapParam): number | null {
+/** What the overlap helpers read — a stored finding, or a pair the Compare page works out. */
+type Overlaps = Pick<AmbiguityFinding, "rf_overlap_pct" | "pw_overlap_pct" | "pri_overlap_pct" | "details">;
+
+export function overlapPct(f: Overlaps, p: OverlapParam): number | null {
   if (p === "jitter") return f.details.jitter_overlap_pct ?? null;
   return p === "rf" ? f.rf_overlap_pct : p === "pw" ? f.pw_overlap_pct : f.pri_overlap_pct;
 }
 
 /** The PRI row's name: what PRI was compared on. */
-export function priLabel(f: AmbiguityFinding): string {
+export function priLabel(f: Overlaps): string {
   return f.details.pri_basis === "frame_time" ? "PRI frame time" : f.details.pri_basis === "steps" ? "PRI steps" : "PRI";
 }
 
 /** The parameter that overlaps least — the one that set the severity. */
-export function limitingParam(f: AmbiguityFinding): OverlapParam {
+export function limitingParam(f: Overlaps): OverlapParam {
   if (f.details.limiting) return f.details.limiting;
   return PARAMS.map((p) => p.key)
     .filter((k) => overlapPct(f, k) != null)

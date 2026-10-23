@@ -21,7 +21,7 @@ def emitter_with_near_duplicates(editor_client):
         ).json()
 
     a = mode("Search A", src1)  # RF 2900–3100
-    b = mode("Search B", src2, rf_min_mhz=2950, rf_max_mhz=3150, pw_delta=0.1)
+    b = mode("Search B", src2, rf_min_mhz=2950, rf_max_mhz=3150, pw_delta=0.1, jitter_min_us=10, jitter_max_us=20)
     track = mode("Track", src1, rf_min_mhz=3140, rf_max_mhz=3300)  # touches B only
     record = editor_client.post(
         f"/emitters/{emitter['id']}/test-records",
@@ -43,10 +43,16 @@ def test_preview_says_what_would_change_and_changes_nothing(editor_client, emitt
     assert resp.status_code == 200, resp.text
     plan = resp.json()
     assert plan["kept"]["name"] == "Search A" and plan["removed"]["name"] == "Search B"
-    # The kept Mode's RF becomes the union, compared with the wider margin (±1).
-    assert plan["kept"]["before"]["rf"] == [2899, 3101]
-    assert plan["kept"]["after"]["rf"] == [2899, 3151]
-    assert plan["kept"]["after"]["pw"] == [0.4, 1.3]  # the wider PW margin, 0.1
+    # The kept Mode's RF becomes the union of the values as typed.
+    assert plan["kept"]["before"]["rf"] == [2900, 3100]
+    assert plan["kept"]["after"]["rf"] == [2900, 3150]
+    # It keeps its own margins — Search B's wider PW margin (0.1) isn't taken.
+    assert plan["removed"]["spans"]["margins"]["pw"] == 0.1
+    assert plan["kept"]["after"]["margins"] == {"rf": 1, "pw": 0.05, "pri": 10}
+    # Jitter is shown, and widened to cover both.
+    assert plan["kept"]["before"]["jitter"] == [5, 15]
+    assert plan["removed"]["spans"]["jitter"] == [10, 20]
+    assert plan["kept"]["after"]["jitter"] == [5, 20]
     assert plan["links_moved"]["test_records"] == 1
     # Widening A to 3150 makes it overlap Track, which it didn't before.
     assert [(w["mode_name"], w["before"]) for w in plan["new_overlaps"]] == [("Track", "none")]
@@ -68,7 +74,7 @@ def test_merge_widens_the_kept_mode_moves_history_and_deletes_the_other(editor_c
     assert set(modes) == {"Search A", "Track"}
     kept = modes["Search A"]
     assert (kept["line"]["rf_min_mhz"], kept["line"]["rf_max_mhz"]) == (2900, 3150)
-    assert kept["line"]["pw_delta"] == 0.1
+    assert kept["line"]["pw_delta"] == 0.05  # its own margin, not Search B's
     assert 'Merged with "Search B" (sources "Field notes"' in kept["notes"]
     # Search A now comes from both Sources.
     assert kept["source_names"] == ["Datasheet", "Field notes"]

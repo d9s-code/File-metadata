@@ -316,52 +316,61 @@ export function AmbiguityDashboardPage() {
             </div>
           ) : (
             <>
-              <div className="amb-chips" role="group" aria-label="Filter findings">
+              {aiEnabled && <AiRunSummary run={run} onSelectFinding={openFinding} />}
+
+              <div className="tab-bar amb-tabs" role="tablist" aria-label="View">
+                {(
+                  [
+                    ...(showEmitter
+                      ? ([["emitters", "Emitters", "Which Emitters could be taken for another, and the pairs of them"]] as const)
+                      : []),
+                    ["findings", "Findings", "Every pair of Modes, open first and worst first — ↑↓ to move"],
+                    ["modes", "Modes involved", "Modes in the most findings first — changing one can clear many"],
+                    ["matrix", "Matrix", "Every Mode in a finding against every other, by severity — click a cell"],
+                  ] as const
+                ).map(([v, label, title]) => (
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={view === v}
+                    key={v}
+                    className={view === v ? "tab active" : "tab"}
+                    title={title}
+                    onClick={() => setView(v)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="amb-toolbar" role="group" aria-label="Filter findings">
                 <span className="amb-chip-group">
                   <button type="button" className={!status ? "amb-chip on" : "amb-chip"} onClick={() => setStatus("")}>
                     All <strong>{scoped.length}</strong>
                   </button>
-                  {(["open", "acknowledged", "merged"] as const).map((s) => (
-                    <button
-                      type="button"
-                      key={s}
-                      className={status === s ? "amb-chip on" : "amb-chip"}
-                      onClick={() => setStatus(status === s ? "" : s)}
-                      disabled={!counts.byStatus[s] && status !== s}
-                    >
-                      {STATUS_LABEL[s]} <strong>{counts.byStatus[s]}</strong>
-                    </button>
-                  ))}
+                  {/* Only the statuses and severities there are, so nothing is a dead end. */}
+                  {(["open", "acknowledged", "merged"] as const)
+                    .filter((st) => counts.byStatus[st] || status === st)
+                    .map((st) => (
+                      <button
+                        type="button"
+                        key={st}
+                        className={status === st ? "amb-chip on" : "amb-chip"}
+                        onClick={() => setStatus(status === st ? "" : st)}
+                      >
+                        {STATUS_LABEL[st]} <strong>{counts.byStatus[st]}</strong>
+                      </button>
+                    ))}
                 </span>
                 <span className="amb-chip-group">
-                  {SEVERITY_ORDER.map((s) => (
+                  {SEVERITY_ORDER.filter((sv) => counts.bySeverity[sv] || severity === sv).map((sv) => (
                     <button
                       type="button"
-                      key={s}
-                      className={severity === s ? "amb-chip on" : "amb-chip"}
-                      onClick={() => setSeverity(severity === s ? "" : s)}
-                      disabled={!counts.bySeverity[s] && severity !== s}
+                      key={sv}
+                      className={severity === sv ? "amb-chip on" : "amb-chip"}
+                      onClick={() => setSeverity(severity === sv ? "" : sv)}
                     >
-                      <SeverityBadge severity={s} /> <strong>{counts.bySeverity[s]}</strong>
-                    </button>
-                  ))}
-                </span>
-              </div>
-
-              {aiEnabled && <AiRunSummary run={run} onSelectFinding={openFinding} />}
-
-              <div className="amb-toolbar">
-                <span className="amb-views" role="tablist">
-                  {(
-                    [
-                      ...(showEmitter ? ([["emitters", "Emitters"]] as const) : []),
-                      ["findings", "Findings"],
-                      ["modes", "Modes involved"],
-                      ["matrix", "Matrix"],
-                    ] as const
-                  ).map(([v, label]) => (
-                    <button type="button" role="tab" aria-selected={view === v} key={v} className={view === v ? "on" : undefined} onClick={() => setView(v)}>
-                      {label}
+                      <SeverityBadge severity={sv} /> <strong>{counts.bySeverity[sv]}</strong>
                     </button>
                   ))}
                 </span>
@@ -418,10 +427,6 @@ export function AmbiguityDashboardPage() {
 
               {view === "emitters" && (
                 <div className="card">
-                  <p className="hint-text">
-                    Each Emitter&apos;s Modes against the other Emitters&apos; — overlaps between Modes of the same Emitter
-                    aren&apos;t counted here (the Emitter&apos;s own check covers those).
-                  </p>
                   <EmitterPairs
                     findings={scoped.filter(
                       (f) => (!status || findingStatus(f) === status) && (!severity || f.combined_severity === severity),
@@ -438,7 +443,7 @@ export function AmbiguityDashboardPage() {
                 <div className="amb-split">
                   <div className="card amb-list-card">
                     <div className="amb-list-head hint-text">
-                      {shown.length} finding{shown.length === 1 ? "" : "s"} · open first, worst first · ↑↓ to move
+                      {shown.length} finding{shown.length === 1 ? "" : "s"} · ↑↓ to move
                     </div>
                     <FindingList
                       findings={shown}
@@ -466,10 +471,6 @@ export function AmbiguityDashboardPage() {
 
               {view === "modes" && (
                 <div className="card">
-                  <p className="hint-text">
-                    Modes in the most findings, worst first — changing one of these can clear many findings at once. Click
-                    one to see its findings.
-                  </p>
                   <ModesInvolved
                     findings={shown}
                     showEmitter={showEmitter}
@@ -483,9 +484,6 @@ export function AmbiguityDashboardPage() {
 
               {view === "matrix" && (
                 <div className="card">
-                  <p className="hint-text">
-                    Every Mode in a finding against every other, coloured by severity. Click a cell to open that finding.
-                  </p>
                   <AmbiguityMatrix
                     findings={shown}
                     selectedId={selectedId}

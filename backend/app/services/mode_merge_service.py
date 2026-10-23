@@ -1,7 +1,7 @@
 """Merging two Modes an ambiguity check found to be the same.
 
-One Mode is kept and widened to cover both — the union of their ranges, the
-wider of their margins — and the other is deleted. What pointed at the
+One Mode is kept and widened to cover both — the union of their ranges, with
+the kept Mode's own ± margins (never the other's) — and the other is deleted. What pointed at the
 deleted Mode (intercept entries it was derived from, test records and test
 lines) is moved to the kept one, so no history is lost, and the kept Mode's
 notes say what was merged into it.
@@ -31,9 +31,10 @@ from app.schemas.mode import NON_DSL_LINE_FIELDS, ModeLineFields, require_manual
 from app.services.ambiguity_service import (
     DEFAULT_TOLERANCE,
     FlatModeLine,
-    compared_line,
     compute_pairwise_findings,
     flatten_emitter_snapshot,
+    frame_window,
+    jitter_span,
 )
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.mode_sources import add_mode_sources, sources_label
@@ -42,9 +43,9 @@ from app.services.dates import day_text
 
 SEVERITY_RANK = {"none": 0, "low": 1, "medium": 2, "high": 3, "exact_overlap": 4}
 
-# Ranges whose union the kept Mode takes, and margins it takes the wider of.
+# Ranges whose union the kept Mode takes. Its margins stay its own.
 _RANGES = (("rf_min_mhz", "rf_max_mhz"), ("pw_min_us", "pw_max_us"), ("pri_min_us", "pri_max_us"), ("jitter_min_us", "jitter_max_us"))
-_MARGINS = ("rf_delta", "pw_delta", "pri_delta", "frame_time_delta_us")
+_MARGIN_OF = {"rf": "rf_delta", "pw": "pw_delta", "pri": "pri_delta", "frame_time": "frame_time_delta_us"}
 _MATCHING = ("rf_range_matching", "pw_range_matching", "pri_range_matching")
 
 
@@ -86,9 +87,6 @@ def _union_line(kept: dict, removed: dict, pri_type: PriType) -> dict:
         his = [v for v in (kept.get(hi), removed.get(hi)) if v is not None]
         line[lo] = min(los) if los else None
         line[hi] = max(his) if his else None
-    for m in _MARGINS:
-        values = [v for v in (kept.get(m), removed.get(m)) if v is not None]
-        line[m] = max(values) if values else None
     for m in _MATCHING:
         line[m] = bool(kept.get(m)) or bool(removed.get(m))
     if pri_type == PriType.stagger:
@@ -112,13 +110,17 @@ def _validated(line: dict, pri_type: PriType) -> ModeLineFields:
 
 
 def _spans(line: dict, pri_type: str) -> dict:
-    """The ranges as the check compares them (with margins), for showing."""
-    c = compared_line(line, True)
-    out = {"rf": [c["rf_min_mhz"], c["rf_max_mhz"]], "pw": [c["pw_min_us"], c["pw_max_us"]]}
+    """The values as typed, for showing, and each one's ± margin beside them
+    (the check widens the ranges by it)."""
+    out = {"rf": [line["rf_min_mhz"], line["rf_max_mhz"]], "pw": [line["pw_min_us"], line["pw_max_us"]]}
     if pri_type == "fixed":
-        out["pri"] = [c["pri_min_us"], c["pri_max_us"]]
+        out["pri"] = [line["pri_min_us"], line["pri_max_us"]]
+        out["jitter"] = list(jitter_span(line))
     if pri_type == "stagger":
-        out["stagger"] = c.get("pri_stagger_values_us")
+        out["stagger"] = line.get("pri_stagger_values_us")
+        frame = frame_window(line, False)
+        out["frame_time"] = list(frame) if frame is not None else None
+    out["margins"] = {key: line.get(field) for key, field in _MARGIN_OF.items() if line.get(field)}
     return out
 
 
