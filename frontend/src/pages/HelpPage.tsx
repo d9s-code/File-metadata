@@ -570,9 +570,13 @@ export function HelpPage() {
                 pre-filled as a retest of it), and <strong>More ▾</strong> to change the result or delete the run.
               </li>
               <li>
-                <strong>Logged intercepts against the Modes now</strong> takes every set of parameters logged in the
-                run — on SIM lines, Mode results and signals — and matches it against the Emitter&apos;s Modes as they
-                are now, the way an Intercept&apos;s entries are matched: <strong>✓ would match</strong> (which Modes),{" "}
+                <strong>Against the Modes now</strong>, a tab beside <strong>Results</strong> on the run&apos;s page
+                (shown once something was logged), takes every set of parameters logged in the run — on SIM lines,
+                Mode results and signals — and matches it against the Emitter&apos;s Modes as they are now, the way an
+                Intercept&apos;s entries are matched, and more strictly: a fixed PRI&apos;s logged jitter must be inside
+                the Mode&apos;s jitter range, and a stagger must have the Mode&apos;s frame time and its steps in the
+                same order (starting at any step, each within the frame-time margin, at least 0.1%). Each row is{" "}
+                <strong>✓ would match</strong> (which Modes),{" "}
                 <strong>≈ near</strong> (one value off, and which), <strong>✕ no Mode</strong>, or can&apos;t compare
                 (no RF or PRI logged). Beside it is what the system reported in the test; rows where that differs are
                 marked <strong>Changed</strong> (tick to see only those), and a SIM line says whether its expected Mode

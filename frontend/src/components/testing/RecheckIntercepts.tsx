@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { InfoTip } from "../common/PageHeader";
-import { describeMiss, matchEntry, type EntryMatch } from "../intercepts/interceptMatch";
+import { describeMiss, matchEntry, type EntryMatch, type MatchChecks } from "../intercepts/interceptMatch";
 import { asEntry } from "./signalCoverage";
 import { formatObservedValueSet, nonEmptySets, compareLineLabels } from "./testFormat";
 import { useEmitterTestLines } from "../../state/hooks/useTestLines";
@@ -11,6 +11,9 @@ import type { ObservedValues, TestRecord } from "../../api/testRecords";
 import type { Mode } from "../../types/domain";
 
 type Now = "match" | "near" | "none" | "unknown";
+
+/** Beyond RF, PRI and PW: a fixed PRI's jitter, and a stagger's steps in order. */
+const CHECKS: MatchChecks = { jitter: true, sequence: true };
 
 /** Each outcome's colour (status palette), mark and words — never colour alone. */
 const NOW: Record<Now, { cls: string; icon: string; label: string }> = {
@@ -82,7 +85,7 @@ export function RecheckIntercepts({
     const shown = nonEmptySets(sets);
     shown.forEach((set, i) => {
       const entry = asEntry(set);
-      const match = entry ? matchEntry(entry, modes) : null;
+      const match = entry ? matchEntry(entry, modes, CHECKS) : null;
       rows.push({
         key: `${key}-${i}`,
         where: shown.length > 1 ? `${where} · set ${i + 1}` : where,
@@ -130,10 +133,13 @@ export function RecheckIntercepts({
         Logged intercepts against the Modes now{" "}
         <InfoTip label="About this check">
           Each set of parameters logged in this run — on SIM lines, Mode results and signals — matched against the
-          Emitter&apos;s Modes as they are now, the same way as an Intercept&apos;s entries: its mean RF, PRI (a
-          stagger&apos;s frame time and number of steps) and PW inside a Mode&apos;s range with its margin, Modes of
-          the same PRI type only. <strong>Near</strong> is one value off. Beside it, what the system reported during
-          the test, so you can see what the Modes changed since.
+          Emitter&apos;s Modes as they are now, Modes of the same PRI type only: its RF and PW inside a Mode&apos;s
+          range with its margin; a fixed PRI inside its PRI range, and the jitter logged inside its jitter range; a
+          stagger&apos;s frame time (as logged, or the sum of its steps) inside its frame-time range, and its steps
+          the Mode&apos;s steps in the same order — starting at any of them, as a train repeats — each within the
+          Mode&apos;s frame-time margin (at least 0.1% of the step). <strong>Near</strong> is one parameter off (a
+          stagger&apos;s frame time and steps are both its PRI). Beside it, what the system reported during the test,
+          so you can see what the Modes changed since.
         </InfoTip>
       </h4>
       <p className="hint-text">

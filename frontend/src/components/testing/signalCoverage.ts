@@ -36,6 +36,7 @@ export function asEntry(set: ObservedValues): MatchableEntry | null {
     pri_mean_us: pri,
     pw_mean_us: mid(set.pw_mean_us, set.pw_min_us, set.pw_max_us),
     stagger_values: stagger,
+    jitter_mean_us: priType === "fixed" ? mid(set.jitter_mean_us, set.jitter_min_us, set.jitter_max_us) : null,
   };
 }
 

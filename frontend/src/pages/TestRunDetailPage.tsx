@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { EmitterNotesDrawer } from "../components/common/EntityNotesDrawer";
 import { formatDate } from "../components/common/dates";
 import { ObservedValuesTable } from "../components/testing/ObservedValuesTable";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useEmitter } from "../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../state/hooks/useEmitterCheckout";
 import { useEwGroups } from "../state/hooks/useEwGroups";
@@ -94,6 +94,8 @@ export function TestRunDetailPage() {
   const [changingResult, setChangingResult] = useState(false);
   const [makingElements, setMakingElements] = useState(false);
   const [doneNote, setDoneNote] = useState<string | null>(null);
+  // Which panel: the run's results, or its logged intercepts against the Modes now — kept in the URL.
+  const [params, setParams] = useSearchParams();
 
   if (!emitter || isLoading || !records) return <LoadingState label="Loading test run…" />;
   const record = records.find((r) => r.id === testRecordId);
@@ -114,6 +116,18 @@ export function TestRunDetailPage() {
   const hasValues = [...record.lines, ...record.modes, ...(record.signals ?? [])].some((o) => nonEmptySets(o.observed_values).length > 0);
   const versionNumber =
     record.emitter_version_number ?? versions?.find((v) => v.id === record.emitter_version_id)?.version_number ?? null;
+  const loggedSets = [...record.lines, ...exercised, ...(record.signals ?? [])].reduce((n, o) => n + nonEmptySets(o.observed_values).length, 0);
+  const view = params.get("view") === "recheck" && loggedSets > 0 ? "recheck" : "results";
+  const showView = (v: "results" | "recheck") =>
+    setParams(
+      (p) => {
+        const next = new URLSearchParams(p);
+        if (v === "results") next.delete("view");
+        else next.set("view", v);
+        return next;
+      },
+      { replace: true },
+    );
 
   async function handleDelete() {
     if (!record || !(await confirmDelete(`Delete the test record "${record.title}"?`))) return;
@@ -269,8 +283,28 @@ export function TestRunDetailPage() {
         )}
       </RequireRole>
 
-      <RecheckIntercepts emitterId={emitterId} record={record} modes={modes ?? []} versionTested={versionNumber} />
+      {loggedSets > 0 && (
+        <div className="tab-bar" role="tablist" aria-label="Test run">
+          <button type="button" role="tab" aria-selected={view === "results"} className={view === "results" ? "tab active" : "tab"} onClick={() => showView("results")}>
+            Results
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === "recheck"}
+            className={view === "recheck" ? "tab active" : "tab"}
+            onClick={() => showView("recheck")}
+            title="Every set of parameters logged in this run, matched against the Emitter's Modes as they are now"
+          >
+            Against the Modes now <span className="tab-count">{loggedSets}</span>
+          </button>
+        </div>
+      )}
 
+      {view === "recheck" ? (
+        <RecheckIntercepts emitterId={emitterId} record={record} modes={modes ?? []} versionTested={versionNumber} />
+      ) : (
+        <>
       {record.signals?.length > 0 && (
         <div className="card">
           <h4>Signals not tied to a Mode ({record.signals.length})</h4>
@@ -367,6 +401,8 @@ export function TestRunDetailPage() {
 
       {record.lines.length === 0 && exercised.length === 0 && (
         <p className="hint-text">No per-line or per-Mode results were logged — only the overall result above.</p>
+      )}
+        </>
       )}
       {dialog}
     </div>
