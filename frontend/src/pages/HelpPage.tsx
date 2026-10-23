@@ -406,8 +406,17 @@ export function HelpPage() {
             <p>
               Every field — metadata (name, notes, EW Group) and the actual line values (RF/PRI/PW/deltas)
               alike — edits in place immediately, the same way everything else in the app works. The only
-              gate is holding the Emitter's <strong>checkout</strong> (see below): with it, click{" "}
-              <strong>Edit</strong> (in a Mode's <strong>⋯</strong> menu) to change it right there — its <strong>name</strong>, Sources and line; the cursor starts in the name. A name can't be blank or one another Mode in the same EW Group already has. <strong>Rename…</strong> in the same menu just renames it — and EW Groups and Sources have <strong>Rename…</strong> in their ⋯ menus too (a name another EW Group or Source of the Emitter has is refused). Every rename is in the Audit Log as &ldquo;Renamed … &lsquo;old&rsquo; to &lsquo;new&rsquo;&rdquo;.
+              gate is holding the Emitter's <strong>checkout</strong> (see below): with it,{" "}
+              <strong>double-click a value in the Modes table</strong> to change just that one in its cell — the name,
+              RF, PRI and PW min/max and ± margins, a fixed PRI&apos;s jitter (&ldquo;0–1&rdquo;), a stagger&apos;s steps
+              (in the PRI cell, &ldquo;800, 850, 900&rdquo;) and its frame-time margin (PRI Δ), and the confirmation
+              quality and quantity. <strong>Enter</strong> or clicking away saves, <strong>Tab</strong> saves and
+              moves to the row&apos;s next value, <strong>Esc</strong> puts it back; a value the Mode form wouldn&apos;t
+              take (a max below its min, say) stays open with what&apos;s wrong under it. The box holds the programmed
+              value even while the table shows values with their margin. For everything at once — Sources, PRI type,
+              notes — <strong>Edit</strong> (in a Mode&apos;s <strong>⋯</strong> menu) opens the full form in a dialog
+              centred in the window (Save always in view); the cursor starts in the name. <strong>Duplicate</strong>{" "}
+              opens the same way. A name can't be blank or one another Mode in the same EW Group already has. <strong>Rename…</strong> in the same menu just renames it — and EW Groups and Sources have <strong>Rename…</strong> in their ⋯ menus too (a name another EW Group or Source of the Emitter has is refused). Every rename is in the Audit Log as &ldquo;Renamed … &lsquo;old&rsquo; to &lsquo;new&rsquo;&rdquo;.
             </p>
             <p>
               The Mode form lists RF, then PRI, then PW. Each delta starts at <strong>0</strong> — type a

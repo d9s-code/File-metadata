@@ -9,12 +9,15 @@ export function Modal({
   onClose,
   children,
   wide,
+  className,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
   /** Use for content wider than a short confirm message, e.g. a multi-field form. */
   wide?: boolean;
+  /** Extra class on the dialog, for a dialog sized to its content. */
+  className?: string;
 }) {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -27,7 +30,7 @@ export function Modal({
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
-        className={wide ? "modal-dialog modal-dialog-wide" : "modal-dialog"}
+        className={["modal-dialog", wide && "modal-dialog-wide", className].filter(Boolean).join(" ")}
         role="dialog"
         aria-modal="true"
         aria-label={title}

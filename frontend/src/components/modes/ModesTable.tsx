@@ -1,9 +1,10 @@
-import { Fragment, useState, type ReactNode } from "react";
+import { Fragment, useRef, useState, type ReactNode } from "react";
 import type { EwGroup, Mode, ModeGenerationBatch, Source } from "../../types/domain";
 import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 import { HoverInfo } from "../common/InfoPopover";
-import { RequireRole } from "../../auth/RequireAuth";
+import { RequireRole, useHasRole } from "../../auth/RequireAuth";
+import { useFitToViewport } from "../common/useFitToViewport";
 import { SortableColumnHeader, type ColumnType } from "../common/SortableColumnHeader";
 import { useColumnVisibility, useColumnVisibilityMenu, type ToggleableColumn } from "../common/ColumnVisibilityMenu";
 import {
@@ -26,8 +27,9 @@ import {
 import { TestDerivedBadge } from "./TestDerivedBadge";
 import { InterceptDerivedBadge } from "./InterceptDerivedBadge";
 import { LastTestedCell } from "./LastTestedCell";
-import { ModeEditForm } from "./ModeEditForm";
-import { ModeForm } from "./ModeForm";
+import { ModeDuplicateDialog, ModeEditDialog } from "./ModeDialogs";
+import { InlineEditCell, type InlineMove } from "./InlineEditCell";
+import { inlineFieldFor, type InlineField } from "./inlineModeEdit";
 import { MenuButton } from "../common/MenuButton";
 
 type ModeColumnId =
@@ -126,6 +128,12 @@ export function ModesTable({
   const { data: emitter } = useEmitter(emitterId);
   const { canEdit } = useEmitterCheckoutState(emitter);
   const editTitle = canEdit ? undefined : "Start editing this Emitter first";
+  // A value being changed in its cell (double-click to start).
+  const [cellEdit, setCellEdit] = useState<{ modeId: string; field: InlineField } | null>(null);
+  const isEditor = useHasRole("editor");
+  const inlineEditable = canEdit && isEditor;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useFitToViewport(scrollRef);
   const batchNameById = Object.fromEntries(batches.map((b) => [b.id, b.name_prefix]));
   const columns = useColumnVisibility("modesTable.hiddenColumns", MODE_COLUMNS);
   const columnMenu = useColumnVisibilityMenu(columns);
@@ -162,42 +170,73 @@ export function ModesTable({
     const pri = priDisplay(m, showEngineered);
     const jft = jitterOrFrameTimeDisplay(m, showEngineered);
 
-    // Stagger and CW Modes have no PRI min/max; one cell spans whichever of
-    // the two PRI columns are shown.
-    const priSpan = (columns.isVisible("pri_min") ? 1 : 0) + (columns.isVisible("pri_max") ? 1 : 0);
-    const priSpanning =
-      m.pri_type === "stagger" ? (
-        <td colSpan={priSpan}>
-          <StaggerSequenceBox mode={m} />
-        </td>
-      ) : (
-        <td colSpan={priSpan}>{m.pri_type === "cw" ? "CW (constant)" : "—"}</td>
-      );
     const isFixed = m.pri_type === "fixed";
+    const priMinShown = columns.isVisible("pri_min");
+
+    // The row's values that can be changed in place, in column order (Tab moves along them).
+    const fieldOf = (column: ModeColumnId) => (inlineEditable ? inlineFieldFor(column, m, priMinShown) : null);
+    const rowFields = [...new Set(visibleColumns.map((c) => fieldOf(c.id)).filter((f): f is InlineField => f != null))];
+    function finishCellEdit(field: InlineField, move: InlineMove) {
+      const next = rowFields[rowFields.indexOf(field) + (move === "next" ? 1 : -1)];
+      setCellEdit(move !== "close" && next ? { modeId: m.id, field: next } : null);
+    }
+    /** A cell, editable in place when its column holds one of the Mode's values. */
+    function td(column: ModeColumnId, content: ReactNode, colSpan?: number) {
+      const field = fieldOf(column);
+      if (!field) return <td colSpan={colSpan}>{content}</td>;
+      if (cellEdit?.modeId === m.id && cellEdit.field === field) {
+        return (
+          <InlineEditCell
+            emitterId={emitterId}
+            mode={m}
+            field={field}
+            colSpan={colSpan}
+            programmedHint={showEngineered && /(Min|Max)$/.test(field)}
+            onDone={(move) => finishCellEdit(field, move)}
+          />
+        );
+      }
+      return (
+        <td
+          colSpan={colSpan}
+          className="inline-editable"
+          title="Double-click to change"
+          onDoubleClick={() => setCellEdit({ modeId: m.id, field })}
+        >
+          {content}
+        </td>
+      );
+    }
+
+    // Stagger and CW Modes have no PRI min/max; one cell spans whichever of
+    // the two PRI columns are shown (a stagger's steps, editable there).
+    const priSpan = (priMinShown ? 1 : 0) + (columns.isVisible("pri_max") ? 1 : 0);
+    const priSpanning = (column: ModeColumnId) =>
+      td(column, m.pri_type === "stagger" ? <StaggerSequenceBox mode={m} /> : m.pri_type === "cw" ? "CW (constant)" : "—", priSpan);
 
     const cells: Record<ModeColumnId, () => ReactNode | null> = {
-      name: () => (
-        <td>
-          <HoverInfo label={<>{m.name}{m.notes && " 📝"}</>}>
-            <ModeHoverDetail mode={m} source={latestSource(m, sourcesById)} />
-          </HoverInfo>
-          <TestDerivedBadge emitterId={emitterId} records={m.derived_from_test_records} />
-          <InterceptDerivedBadge intercepts={m.derived_from_intercepts} />
-        </td>
-      ),
-      rf_min: () => <td>{rf.min ?? "—"}</td>,
-      rf_max: () => <td>{rf.max ?? "—"}</td>,
-      rf_delta: () => <td>{deltaText(m.line?.rf_delta)}</td>,
+      name: () =>
+        td(
+          "name",
+          <>
+            <HoverInfo label={<>{m.name}{m.notes && " 📝"}</>}>
+              <ModeHoverDetail mode={m} source={latestSource(m, sourcesById)} />
+            </HoverInfo>
+            <TestDerivedBadge emitterId={emitterId} records={m.derived_from_test_records} />
+            <InterceptDerivedBadge intercepts={m.derived_from_intercepts} />
+          </>,
+        ),
+      rf_min: () => td("rf_min", rf.min ?? "—"),
+      rf_max: () => td("rf_max", rf.max ?? "—"),
+      rf_delta: () => td("rf_delta", deltaText(m.line?.rf_delta)),
       pri_type: () => <td>{m.pri_type.toUpperCase()}</td>,
-      pri_min: () => (isFixed ? <td>{pri.min ?? "—"}</td> : priSpanning),
-      pri_max: () => (isFixed ? <td>{pri.max ?? "—"}</td> : columns.isVisible("pri_min") ? null : priSpanning),
-      pri_delta: () => <td>{deltaText(m.pri_type === "stagger" ? m.line?.frame_time_delta_us : m.line?.pri_delta)}</td>,
-      pw_min: () => <td>{pw.min ?? "—"}</td>,
-      pw_max: () => <td>{pw.max ?? "—"}</td>,
-      pw_delta: () => <td>{deltaText(m.line?.pw_delta)}</td>,
-      jitter: () => (
-        <td>{jft.label === "jitter" ? rangeText(jft.min, jft.max) : <span className="hint-text">—</span>}</td>
-      ),
+      pri_min: () => (isFixed ? td("pri_min", pri.min ?? "—") : priSpanning("pri_min")),
+      pri_max: () => (isFixed ? td("pri_max", pri.max ?? "—") : priMinShown ? null : priSpanning("pri_max")),
+      pri_delta: () => td("pri_delta", deltaText(m.pri_type === "stagger" ? m.line?.frame_time_delta_us : m.line?.pri_delta)),
+      pw_min: () => td("pw_min", pw.min ?? "—"),
+      pw_max: () => td("pw_max", pw.max ?? "—"),
+      pw_delta: () => td("pw_delta", deltaText(m.line?.pw_delta)),
+      jitter: () => td("jitter", jft.label === "jitter" ? rangeText(jft.min, jft.max) : <span className="hint-text">—</span>),
       frame_time: () => (
         <td>{jft.label === "frametime" ? rangeText(jft.min, jft.max) : <span className="hint-text">—</span>}</td>
       ),
@@ -214,8 +253,8 @@ export function ModesTable({
           )}
         </td>
       ),
-      confirmation_quality: () => <td>{m.confirmation_quality}%</td>,
-      confirmation_quantity: () => <td>{m.confirmation_quantity}</td>,
+      confirmation_quality: () => td("confirmation_quality", `${m.confirmation_quality}%`),
+      confirmation_quantity: () => td("confirmation_quantity", m.confirmation_quantity),
       ew_group: () => (
         <td>
           {ewGroup ? (
@@ -272,14 +311,14 @@ export function ModesTable({
                       ariaLabel={`Actions for ${m.name}`}
                       items={[
                         {
-                          label: editingModeId === m.id ? "Cancel edit" : "Edit",
-                          onSelect: () => setEditingModeId(editingModeId === m.id ? null : m.id),
+                          label: "Edit",
+                          onSelect: () => setEditingModeId(m.id),
                           disabled: !canEdit,
                           title: editTitle,
                         },
                         {
-                          label: duplicatingModeId === m.id ? "Cancel duplicate" : "Duplicate",
-                          onSelect: () => setDuplicatingModeId(duplicatingModeId === m.id ? null : m.id),
+                          label: "Duplicate",
+                          onSelect: () => setDuplicatingModeId(m.id),
                           disabled: !canEdit,
                           title: editTitle ?? "Start a new Mode pre-filled with this one's line",
                         },
@@ -295,41 +334,18 @@ export function ModesTable({
                   </RequireRole>
                 </td>
               </tr>
-              {editingModeId === m.id && canEdit && (
-                <tr>
-                  <td colSpan={fullSpan}>
-                    <ModeEditForm
-                      emitterId={emitterId}
-                      mode={m}
-                      sources={Object.values(sourcesById)}
-                      onDone={() => setEditingModeId(null)}
-                    />
-                  </td>
-                </tr>
-              )}
-              {duplicatingModeId === m.id && canEdit && (
-                <tr>
-                  <td colSpan={fullSpan}>
-                    <ModeForm
-                      emitterId={emitterId}
-                      ewGroups={Object.values(ewGroupsById)}
-                      sources={Object.values(sourcesById)}
-                      duplicateFrom={m}
-                      onClose={() => setDuplicatingModeId(null)}
-                    />
-                  </td>
-                </tr>
-              )}
       </Fragment>
     );
   }
 
   const displayRows = groupModesForDisplay(modes, collapseBatches);
+  const editingMode = modes.find((m) => m.id === editingModeId);
+  const duplicatingMode = modes.find((m) => m.id === duplicatingModeId);
   const allVisibleSelected = modes.length > 0 && modes.every((m) => selected.has(m.id));
   const someVisibleSelected = modes.some((m) => selected.has(m.id));
 
   return (
-    <div className="matrix-scroll modes-scroll">
+    <div className="matrix-scroll modes-scroll" ref={scrollRef}>
       <table className="data-table">
         <thead>
           <tr {...columnMenu.openProps}>
@@ -389,6 +405,23 @@ export function ModesTable({
         </tbody>
       </table>
       {columnMenu.menu}
+      {editingMode && canEdit && (
+        <ModeEditDialog
+          emitterId={emitterId}
+          mode={editingMode}
+          sources={Object.values(sourcesById)}
+          onClose={() => setEditingModeId(null)}
+        />
+      )}
+      {duplicatingMode && canEdit && (
+        <ModeDuplicateDialog
+          emitterId={emitterId}
+          mode={duplicatingMode}
+          ewGroups={Object.values(ewGroupsById)}
+          sources={Object.values(sourcesById)}
+          onClose={() => setDuplicatingModeId(null)}
+        />
+      )}
     </div>
   );
 }

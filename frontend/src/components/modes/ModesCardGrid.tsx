@@ -13,8 +13,7 @@ import {
 import { TestDerivedBadge } from "./TestDerivedBadge";
 import { InterceptDerivedBadge } from "./InterceptDerivedBadge";
 import { LastTestedCell } from "./LastTestedCell";
-import { ModeEditForm } from "./ModeEditForm";
-import { ModeForm } from "./ModeForm";
+import { ModeDuplicateDialog, ModeEditDialog } from "./ModeDialogs";
 import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 import {
@@ -81,31 +80,6 @@ export function ModesCardGrid({
         const pw = pwDisplay(m, showEngineered);
         const pri = priDisplay(m, showEngineered);
         const jft = jitterOrFrameTimeDisplay(m, showEngineered);
-        if (editingModeId === m.id && canEdit) {
-          return (
-            <div key={m.id} className="mode-card mode-card-editing">
-              <ModeEditForm
-                emitterId={emitterId}
-                mode={m}
-                sources={Object.values(sourcesById)}
-                onDone={() => setEditingModeId(null)}
-              />
-            </div>
-          );
-        }
-        if (duplicatingModeId === m.id && canEdit) {
-          return (
-            <div key={m.id} className="mode-card mode-card-editing">
-              <ModeForm
-                emitterId={emitterId}
-                ewGroups={Object.values(ewGroupsById)}
-                sources={Object.values(sourcesById)}
-                duplicateFrom={m}
-                onClose={() => setDuplicatingModeId(null)}
-              />
-            </div>
-          );
-        }
         return (
           <div key={m.id} className="mode-card">
             <div className="mode-card-header">
@@ -220,6 +194,8 @@ export function ModesCardGrid({
   }
 
   const displayRows = groupModesForDisplay(modes, collapseBatches);
+  const editingMode = modes.find((m) => m.id === editingModeId);
+  const duplicatingMode = modes.find((m) => m.id === duplicatingModeId);
 
   return (
     <div className="mode-card-grid">
@@ -252,6 +228,23 @@ export function ModesCardGrid({
           </div>
         );
       })}
+      {editingMode && canEdit && (
+        <ModeEditDialog
+          emitterId={emitterId}
+          mode={editingMode}
+          sources={Object.values(sourcesById)}
+          onClose={() => setEditingModeId(null)}
+        />
+      )}
+      {duplicatingMode && canEdit && (
+        <ModeDuplicateDialog
+          emitterId={emitterId}
+          mode={duplicatingMode}
+          ewGroups={Object.values(ewGroupsById)}
+          sources={Object.values(sourcesById)}
+          onClose={() => setDuplicatingModeId(null)}
+        />
+      )}
     </div>
   );
 }

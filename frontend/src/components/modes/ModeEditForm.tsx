@@ -44,15 +44,9 @@ export function ModeEditForm({
   const formRef = useRef<HTMLFormElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
 
-  // It opens in a row of a table that may be scrolled sideways (its ⋯ menu
-  // sits at the far right) — bring the table back to its left edge so the
-  // form starts in view, and put the cursor in the name.
+  // The cursor starts in the name.
   useEffect(() => {
-    const form = formRef.current;
-    const scroller = form?.closest<HTMLElement>(".matrix-scroll");
-    if (scroller) scroller.scrollLeft = 0;
-    nameRef.current?.focus({ preventScroll: true });
-    form?.scrollIntoView({ block: "nearest" });
+    nameRef.current?.focus();
   }, []);
 
   async function handleSubmit(e: FormEvent) {

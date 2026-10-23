@@ -6377,12 +6377,65 @@ input[aria-invalid="true"] {
   margin: 0;
 }
 
-/* A form opened in a row of a sideways-scrolling table stays at the
-   table's left edge, whatever the scroll. */
-.matrix-scroll .mode-edit-form {
+/* Editing or duplicating a Mode: a dialog centred in the window and never
+   taller than it, its Save always in reach at the bottom. */
+.modal-dialog.mode-dialog {
+  width: min(64rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+}
+.mode-dialog .mode-form.card {
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+  background: none;
+}
+/* The dialog's title already names it. */
+.mode-dialog .mode-form-head h4 {
+  display: none;
+}
+.mode-dialog .mode-form-actions {
   position: sticky;
-  left: 0;
-  max-width: calc(100vw - 8.5rem);
+  bottom: -1.25rem;
+  margin-bottom: -1.25rem;
+  padding: 0.75rem 0 1.25rem;
+  background: var(--card-bg);
+  border-top: 1px solid var(--border);
+  z-index: 1;
+}
+
+/* Modes table: a value changed in place (double-click its cell). */
+.data-table td.inline-editable {
+  cursor: cell;
+}
+.data-table td.inline-editable:hover {
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+.data-table td.inline-editing {
+  padding: 0.2rem 0.3rem;
+  box-shadow: inset 0 0 0 2px var(--primary);
+}
+.inline-editing input {
+  width: 100%;
+  min-width: 5.5rem;
+  box-sizing: border-box;
+}
+.inline-editing-name input {
+  min-width: 11rem;
+}
+.inline-editing-stagger input {
+  min-width: 13rem;
+}
+.inline-editing input[aria-invalid="true"] {
+  border-color: var(--error);
+}
+.inline-editing .line-row-problem {
+  display: block;
+  margin: 0.2rem 0 0;
+  max-width: 12rem;
+  font-size: 0.75rem;
+  white-space: normal;
 }
 
 /* Renaming one thing from its ⋯ menu. */
