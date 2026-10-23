@@ -1,9 +1,11 @@
 import { useEffect, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 /** Generic overlay dialog — same backdrop/card visual language as
  * useConfirmDialog's built-in confirm/cancel dialog, but a content slot
  * instead of a fixed message+two-buttons shape. Closes on backdrop click or
- * Escape. */
+ * Escape. Rendered at the end of the page, so nothing on it (the checkout
+ * reminder, a sticky table header) can sit above the backdrop. */
 export function Modal({
   title,
   onClose,
@@ -27,7 +29,7 @@ export function Modal({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div
         className={["modal-dialog", wide && "modal-dialog-wide", className].filter(Boolean).join(" ")}
@@ -44,6 +46,7 @@ export function Modal({
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
