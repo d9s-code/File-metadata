@@ -26,9 +26,9 @@ function compareRecords(a: TestRecord, b: TestRecord, key: SortKey, dir: "asc" |
     case "power":
       return compareNullable(a.received_power_dbfs, b.received_power_dbfs, dir);
     case "type":
-      return compareStrings(a.test_type, b.test_type, dir);
+      return compareStrings(testTypeLabel(a.test_type), testTypeLabel(b.test_type), dir);
     case "result":
-      return compareStrings(a.result, b.result, dir);
+      return compareStrings(a.result ? testResultLabel(a.result) : null, b.result ? testResultLabel(b.result) : null, dir);
     case "title":
       return compareStrings(a.title, b.title, dir);
   }

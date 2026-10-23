@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useCallback, useState, type FormEvent } from "react";
 import { formatDate, formatDateTime } from "../components/common/dates";
 import { MenuButton } from "../components/common/MenuButton";
 import { FilterBar, shownCount } from "../components/common/FilterBar";
@@ -33,13 +33,16 @@ type PlatformSortKey =
   | "ambiguity"
   | "saved";
 
-// Worst first: the summary's counts come in that order (as the backend picks the worst).
-function rank(summary: Platform["summary"]): number | null {
-  if (!summary?.worst_status) return null;
-  return Object.keys(summary.status_counts).indexOf(summary.worst_status);
-}
-
-function comparePlatforms(a: Platform, b: Platform, key: PlatformSortKey, dir: "asc" | "desc"): number {
+/** Status columns sort A–Z by the name shown: `emitterStatus` and
+ * `platformStatus` give it for a status key. */
+function comparePlatforms(
+  a: Platform,
+  b: Platform,
+  key: PlatformSortKey,
+  dir: "asc" | "desc",
+  emitterStatus: (key: string) => string,
+  platformStatus: (key: string) => string,
+): number {
   const sa = a.summary;
   const sb = b.summary;
   switch (key) {
@@ -50,9 +53,13 @@ function comparePlatforms(a: Platform, b: Platform, key: PlatformSortKey, dir: "
     case "emitters":
       return compareNullable(sa?.emitter_count, sb?.emitter_count, dir);
     case "status":
-      return compareNullable(rank(sa), rank(sb), dir);
+      return compareStrings(
+        sa?.worst_status ? emitterStatus(sa.worst_status) : null,
+        sb?.worst_status ? emitterStatus(sb.worst_status) : null,
+        dir,
+      );
     case "own_status":
-      return compareStrings(a.status, b.status, dir);
+      return compareStrings(a.status ? platformStatus(a.status) : null, b.status ? platformStatus(b.status) : null, dir);
     case "outdated":
       return compareNullable(sa?.outdated_pins, sb?.outdated_pins, dir);
     case "modes":
@@ -74,7 +81,13 @@ export function PlatformsListPage() {
       .filter(([, n]) => n)
       .map(([k, n]) => `${n} ${emitterStatuses.label(k)}`)
       .join(" · ");
-  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(platforms ?? [], comparePlatforms, "platforms");
+  const platformStatuses = useStatuses("platform");
+  const comparator = useCallback(
+    (a: Platform, b: Platform, key: PlatformSortKey, dir: "asc" | "desc") =>
+      comparePlatforms(a, b, key, dir, emitterStatuses.label, platformStatuses.label),
+    [emitterStatuses, platformStatuses],
+  );
+  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(platforms ?? [], comparator, "platforms");
   const createPlatform = useCreatePlatform();
   const deletePlatform = useDeletePlatform();
   const { confirmDelete, dialog } = useConfirmDialog();

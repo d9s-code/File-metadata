@@ -1,4 +1,4 @@
-import { Fragment, useState, type FormEvent } from "react";
+import { Fragment, useCallback, useState, type FormEvent } from "react";
 import { EMITTERS_SECTION, InfoTip, PageHeader } from "../components/common/PageHeader";
 import { MenuButton } from "../components/common/MenuButton";
 import { FilterBar, shownCount } from "../components/common/FilterBar";
@@ -21,6 +21,7 @@ import { TasksButton } from "../components/tasks/TasksButton";
 import { EmitterBulkBar } from "../components/emitters/EmitterBulkBar";
 import { useHasRole } from "../auth/RequireAuth";
 import { StatusBadge } from "../components/status/StatusBadge";
+import { useStatuses } from "../state/hooks/useStatuses";
 import { useSessionState } from "../components/common/useSessionState";
 
 type EmitterSortKey =
@@ -48,14 +49,21 @@ function simShare(e: Emitter): number | null {
   return e.summary.sim_lines ? e.summary.sim_lines_correct / e.summary.sim_lines : null;
 }
 
-function compareEmitters(a: Emitter, b: Emitter, key: EmitterSortKey, dir: "asc" | "desc"): number {
+/** `statusLabel` gives a status's name as shown, so Status sorts A–Z by it. */
+function compareEmitters(
+  a: Emitter,
+  b: Emitter,
+  key: EmitterSortKey,
+  dir: "asc" | "desc",
+  statusLabel: (key: string) => string,
+): number {
   switch (key) {
     case "name":
       return compareStrings(a.name, b.name, dir);
     case "designation":
       return compareStrings(a.designation, b.designation, dir);
     case "status":
-      return compareStrings(a.status, b.status, dir);
+      return compareStrings(statusLabel(a.status), statusLabel(b.status), dir);
     case "rf_min":
       return compareNullable(a.summary.rf_min_mhz, b.summary.rf_min_mhz, dir);
     case "rf_max":
@@ -168,7 +176,12 @@ export function EmittersListPage() {
     return true;
   });
 
-  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(filtered, compareEmitters, "emitters");
+  const statuses = useStatuses("emitter");
+  const comparator = useCallback(
+    (a: Emitter, b: Emitter, key: EmitterSortKey, dir: "asc" | "desc") => compareEmitters(a, b, key, dir, statuses.label),
+    [statuses],
+  );
+  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(filtered, comparator, "emitters");
   const columns = useColumnVisibility("emitters-list-columns", COLUMNS);
   const columnMenu = useColumnVisibilityMenu(columns);
   const show = columns.isVisible;

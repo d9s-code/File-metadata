@@ -34,6 +34,7 @@ function compareMdfs(
   key: MdfSortKey,
   dir: "asc" | "desc",
   customersById: Record<string, Customer>,
+  statusLabel: (key: string) => string,
 ): number {
   switch (key) {
     case "name":
@@ -43,7 +44,7 @@ function compareMdfs(
     case "release_date":
       return compareNullable(a.release_date, b.release_date, dir);
     case "status":
-      return compareStrings(a.status, b.status, dir);
+      return compareStrings(statusLabel(a.status), statusLabel(b.status), dir);
     case "customer":
       return compareStrings(
         a.customer_id ? customersById[a.customer_id]?.name : null,
@@ -60,9 +61,11 @@ export function MdfsListPage() {
     () => Object.fromEntries((customers ?? []).map((c) => [c.id, c])),
     [customers],
   );
+  const mdfStatuses = useStatuses("mdf");
   const comparator = useMemo(
-    () => (a: Mdf, b: Mdf, key: MdfSortKey, dir: "asc" | "desc") => compareMdfs(a, b, key, dir, customersById),
-    [customersById],
+    () => (a: Mdf, b: Mdf, key: MdfSortKey, dir: "asc" | "desc") =>
+      compareMdfs(a, b, key, dir, customersById, mdfStatuses.label),
+    [customersById, mdfStatuses],
   );
   const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(mdfs ?? [], comparator, "mdfs");
   const createMdf = useCreateMdf();
@@ -113,7 +116,6 @@ export function MdfsListPage() {
       (!statusFilter || m.status === statusFilter) &&
       (!customerFilter || m.customer_id === customerFilter),
   );
-  const mdfStatuses = useStatuses("mdf");
   const statuses = mdfStatuses.list.map((s) => s.key).filter((k) => (mdfs ?? []).some((m) => m.status === k));
 
   return (

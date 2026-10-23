@@ -18,7 +18,7 @@ type TrashSortKey = "entity_type" | "name" | "deleted_at" | "expires_at";
 function compareDeletedItems(a: DeletedItem, b: DeletedItem, key: TrashSortKey, dir: "asc" | "desc"): number {
   switch (key) {
     case "entity_type":
-      return compareStrings(a.entity_type, b.entity_type, dir);
+      return compareStrings(ENTITY_LABELS[a.entity_type], ENTITY_LABELS[b.entity_type], dir);
     case "name":
       return compareStrings(a.name, b.name, dir);
     case "deleted_at":
