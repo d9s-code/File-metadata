@@ -1,4 +1,6 @@
-"""A chat with the language model that can look things up — read-only.
+"""A chat with the language model that can look things up — read-only — and
+propose new Modes for the user to add (it never adds them itself: see
+ai_mode_proposals).
 
 The model isn't handed the database; it asks for what it needs, one lookup
 at a time, from a fixed set: search by name, lists of Emitters, an Emitter's
@@ -49,7 +51,7 @@ from app.models.customer import Customer
 from app.models.test_line import TestLine
 from app.models.test_record import TestRecord
 from app.models.user import User
-from app.services import knowledge_service, llm_client, search_service, statuses
+from app.services import ai_mode_proposals, knowledge_service, llm_client, search_service, statuses
 from app.services.pin_hygiene import mdf_readiness
 from app.services.test_line_status_service import latest_line_outcomes
 from app.services.ai_review_service import SEVERITY_LABELS, SEVERITY_ORDER, _finding_line, _n, unverified_numbers
@@ -71,6 +73,14 @@ RESULT_CHARS = 12_000
 DOCS_WITH_QUESTION = 3_000
 DOCS_PER_SEARCH = 2_500
 MODES_LISTED = 150
+# Rough sizes, to keep a question inside the model's context: characters per
+# token for this kind of text, and what one image costs.
+CHARS_PER_TOKEN = 3.5
+IMAGE_TOKENS = 1_000
+
+
+def estimate_tokens(text: str) -> int:
+    return int(len(text) / CHARS_PER_TOKEN) + 1
 
 Action = Literal[
     "answer",
@@ -85,6 +95,7 @@ Action = Literal[
     "get_ambiguity",
     "get_intercept",
     "search_docs",
+    "propose_modes",
 ]
 
 
@@ -106,6 +117,9 @@ class ChatStep(BaseModel):
     rf_max_mhz: float | None = Field(None, description="find_modes: the band's high end in MHz, for a band")
     pri_us: float | None = Field(None, description="find_modes: its PRI in µs, if known")
     pw_us: float | None = Field(None, description="find_modes: its PW in µs, if known")
+    modes: list[ai_mode_proposals.ProposedMode] | None = Field(
+        None, description="propose_modes: the Modes to propose, every one of them (a new proposal replaces the last)"
+    )
     answer: str | None = Field(None, description="answer: the reply to the user")
 
 
@@ -135,6 +149,11 @@ SIM results.
 - get_ambiguity (target: an Emitter): its latest ambiguity check.
 - get_intercept (target): an Intercept and its entries.
 - search_docs (query): more sections of the team's documentation.
+- propose_modes (modes): when the user asks you to write or create Modes, propose them: for each, the Emitter, \
+one of its existing EW Groups and Sources (look them up first with get_emitter), a name, the PRI type and its \
+values — RF in MHz; PRI, PW, jitter and stagger steps in µs; each range's ± margin. The app checks them and shows \
+them to the user, who decides whether to add them. You can't add or change anything yourself; never say a Mode \
+was added.
 Then answer (action "answer").
 
 Rules:
@@ -645,6 +664,9 @@ def _step_label(step: ChatStep) -> str:
         rf = f"{_n(step.rf_mhz)}–{_n(step.rf_max_mhz)}" if step.rf_max_mhz is not None else _n(step.rf_mhz)
         vals = [f"RF {rf}"] + [f"{k} {_n(v)}" for k, v in (("PRI", step.pri_us), ("PW", step.pw_us)) if v is not None]
         return "Modes matching " + ", ".join(vals)
+    if step.action == "propose_modes":
+        n = len(step.modes or [])
+        return f"Proposed {n} Mode{'' if n == 1 else 's'} for you to add"
     if step.action == "list_emitters":
         bits = [f"status {step.status}" if step.status else "", f"on {step.target}" if step.target else ""]
         return "Emitters " + " ".join(b for b in bits if b) if any(bits) else "All Emitters"
@@ -763,8 +785,18 @@ def answer_links(db: Session, looked_up: str, answer: str) -> list[dict]:
     return sorted(links, key=lambda link: -len(link["text"]))
 
 
-def chat(db: Session, messages: list[dict], page: str | None = None) -> dict:
-    """Answer the last user message, looking up what's needed."""
+def chat(
+    db: Session,
+    messages: list[dict],
+    page: str | None = None,
+    *,
+    images: list[str] | None = None,
+    summary: str | None = None,
+    max_context: int | None = None,
+) -> dict:
+    """Answer the last user message, looking up what's needed. `images` go
+    with the question (data URLs); `summary` stands for the turns compacted
+    away; older turns are left out to stay inside `max_context` tokens."""
     turns = [
         {"role": m["role"], "content": str(m["content"])[:HISTORY_CHARS]}
         for m in messages
@@ -788,6 +820,8 @@ def chat(db: Session, messages: list[dict], page: str | None = None) -> dict:
     where = page_context(db, page)
     if where:
         system += "\n\n" + where
+    if summary:
+        system += "\n\nEarlier in this conversation (summarised):\n" + summary
     first = question
     if memory:
         first += (
@@ -796,8 +830,21 @@ def chat(db: Session, messages: list[dict], page: str | None = None) -> dict:
         )
     if sources:
         first += "\n\n" + knowledge_service.background(sources)
-    transcript = [*turns[:-1], {"role": "user", "content": first}]
+    # Inside the context: the reply's room kept free, the oldest turns left out first.
+    if max_context:
+        budget = max_context - llm_client.settings.llm_max_tokens
+        cost = estimate_tokens(system) + estimate_tokens(first) + IMAGE_TOKENS * len(images or [])
+        older = turns[:-1]
+        while older and cost + sum(estimate_tokens(t["content"]) for t in older) > budget:
+            older = older[1:]
+        turns = [*older, turns[-1]]
+    content: str | list[dict] = first
+    if images:
+        content = [{"type": "text", "text": first}, *({"type": "image_url", "image_url": {"url": u}} for u in images)]
+    transcript = [*turns[:-1], {"role": "user", "content": content}]
     given = [system, first]
+    proposals: list[dict] = []
+    last_meta: llm_client.LlmReply | None = None
     steps: list[dict] = []
     totals = {"seconds": 0.0, "prompt_tokens": 0, "completion_tokens": 0}
     model = None
@@ -806,6 +853,7 @@ def chat(db: Session, messages: list[dict], page: str | None = None) -> dict:
     for i in range(MAX_STEPS + 1):
         schema = FinalStep if i == MAX_STEPS else ChatStep
         reply, meta = llm_client.chat_json_messages(system, transcript, schema)
+        last_meta = meta
         model = meta.model
         totals["seconds"] += meta.seconds
         totals["prompt_tokens"] += meta.prompt_tokens or 0
@@ -828,11 +876,17 @@ def chat(db: Session, messages: list[dict], page: str | None = None) -> dict:
                 result = knowledge_service.background(new) if new else "No more documentation matched."
             else:
                 result = "No documentation is set up."
+        elif reply.action == "propose_modes":
+            # Checked and kept for the user to see; the latest proposal replaces any before it.
+            proposals = ai_mode_proposals.check(db, reply.modes or [])
+            result = ai_mode_proposals.summary_for_model(proposals) if proposals else "No Modes were given."
         else:
             result = TOOLS[reply.action](db, reply)
         result = _clip(result)
         given.append(result)
-        steps.append({"action": reply.action, "label": _step_label(reply), "args": _lookup_args(reply)})
+        # A proposal isn't a lookup to run again with the next question.
+        args = None if reply.action == "propose_modes" else _lookup_args(reply)
+        steps.append({"action": reply.action, "label": _step_label(reply), "args": args})
         transcript += [
             {"role": "assistant", "content": reply.model_dump_json(exclude_none=True)},
             {"role": "user", "content": f"Result of {reply.action}:\n{result}\n\nLook up something else, or answer."},
@@ -857,4 +911,12 @@ def chat(db: Session, messages: list[dict], page: str | None = None) -> dict:
         "seconds": round(totals["seconds"], 1),
         "prompt_tokens": totals["prompt_tokens"],
         "completion_tokens": totals["completion_tokens"],
+        # How much of the context the last step used (as the server counted it, or a guess).
+        "context_tokens": (
+            (last_meta.prompt_tokens or 0) + (last_meta.completion_tokens or 0)
+            if last_meta and last_meta.prompt_tokens
+            else sum(estimate_tokens(str(t["content"])) for t in transcript) + estimate_tokens(system)
+        ),
+        # Modes proposed for the user to add — never added here.
+        "proposals": proposals,
     }

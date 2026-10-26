@@ -10,7 +10,14 @@ import {
 } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { aiApi, type ChatLink, type ChatReply, type SavedChatMessage, type SavedChatSummary } from "../../api/ai";
+import {
+  aiApi,
+  type ChatLink,
+  type ChatReply,
+  type SavedChat,
+  type SavedChatMessage,
+  type SavedChatSummary,
+} from "../../api/ai";
 import type { AiSource } from "../../api/ambiguity";
 import { ApiRequestError } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
@@ -18,6 +25,35 @@ import { useAiStatus } from "../../state/hooks/useAmbiguity";
 import { Cited } from "../ambiguity/AiDrafts";
 import { relativeTime } from "../common/backupFormat";
 import { useConfirmDialog } from "../common/ConfirmDialog";
+import { Modal } from "../common/Modal";
+import { useHasRole } from "../../auth/RequireAuth";
+import { useAppSettings } from "../../state/hooks/useDwells";
+import { ProposalPreview } from "./ProposalPreview";
+import { ChatContextSetting } from "./ChatContextSetting";
+import { MAX_IMAGES, imageForChat } from "./chatImages";
+
+/** "12.3k" for a token count. */
+function tokens(n: number): string {
+  return n < 1000 ? String(n) : `${(n / 1000).toFixed(n < 10_000 ? 1 : 0)}k`;
+}
+
+/** How much of the context the chat takes, of the most it may: a bar that
+ * turns amber, then red, as it fills. */
+function ContextMeter({ used, max }: { used: number; max: number }) {
+  const share = Math.min(1, used / Math.max(max, 1));
+  const level = share >= 0.8 ? "full" : share >= 0.6 ? "filling" : "ok";
+  return (
+    <span
+      className={`chat-context ${level}`}
+      title={`About ${used.toLocaleString()} of ${max.toLocaleString()} tokens of context. Older turns are left out to fit; Compact summarises them.`}
+    >
+      <span className="chat-context-bar" aria-hidden="true">
+        <span style={{ width: `${Math.round(share * 100)}%` }} />
+      </span>
+      {tokens(used)} / {tokens(max)}
+    </span>
+  );
+}
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 // Ids the model copied from its lookups: of no use to a reader.
@@ -141,6 +177,25 @@ function AnswerDetails({ reply }: { reply: ChatReply }) {
   );
 }
 
+/** Images sent with a question, small; click one to see it full size. */
+function ChatImages({ images }: { images: string[] }) {
+  const [shown, setShown] = useState<number | null>(null);
+  return (
+    <div className="chat-images">
+      {images.map((src, i) => (
+        <button key={i} type="button" className="chat-image-thumb" title="Show full size" onClick={() => setShown(i)}>
+          <img src={src} alt={`Image ${i + 1} sent with the question`} />
+        </button>
+      ))}
+      {shown != null && (
+        <Modal title={`Image ${shown + 1}`} onClose={() => setShown(null)} className="chat-image-dialog">
+          <img src={images[shown]} alt={`Image ${shown + 1} sent with the question`} />
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 // The panel's size, text size and layout, remembered in this browser.
 const VIEW_KEY = "ai-chat-view";
 const MIN_W = 340;
@@ -259,7 +314,9 @@ function HistoryItem({
 
 /** The ✦ Ask AI button in the corner, and the chat it opens. The model can
  * look things up in the library (read-only) and the documentation before it
- * answers. Chats are kept (for you only) in the history beside it, to read
+ * answers, and propose Modes the user may add (it can't write anything
+ * itself). Questions can bring images; the header shows the context used,
+ * and Compact summarises the chat to free it. Chats are kept (for you only) in the history beside it, to read
  * again, carry on, rename or delete; the panel can be resized from its top
  * left corner, maximised, and its text made larger or smaller. */
 export function ChatWidget() {
@@ -278,6 +335,13 @@ export function ChatWidget() {
   const [failure, setFailure] = useState<string | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  // Images to send with the next question (data URLs, already shrunk).
+  const [images, setImages] = useState<string[]>([]);
+  const [compacting, setCompacting] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const isAdmin = useHasRole("admin");
+  const appSettings = useAppSettings();
   const enabled = !!user && !!status.data?.enabled && !!user.preferences.ai_chat;
 
   const chats = useQuery({ queryKey: ["aiChats"], queryFn: () => aiApi.chats(), enabled: enabled && open });
@@ -305,15 +369,44 @@ export function ChatWidget() {
 
   if (!enabled || location.pathname === "/login") return null;
 
+  async function attach(files: Iterable<File>) {
+    setFailure(null);
+    const room = MAX_IMAGES - images.length;
+    const picked = [...files].filter((f) => f.type.startsWith("image/"));
+    if (picked.length > room) setFailure(`At most ${MAX_IMAGES} images with a question.`);
+    try {
+      const urls = await Promise.all(picked.slice(0, Math.max(room, 0)).map(imageForChat));
+      setImages((prev) => [...prev, ...urls].slice(0, MAX_IMAGES));
+    } catch (err) {
+      setFailure(err instanceof Error ? err.message : "The image couldn't be added");
+    }
+  }
+
+  async function compact() {
+    if (!chatId || compacting) return;
+    setCompacting(true);
+    setFailure(null);
+    try {
+      const saved = await aiApi.compact(chatId);
+      qc.setQueryData(["aiChat", saved.id], saved);
+    } catch (err) {
+      setFailure(err instanceof ApiRequestError ? err.message : "The chat couldn't be compacted");
+    } finally {
+      setCompacting(false);
+    }
+  }
+
   async function send(text: string, retry = false) {
     const question = text.trim();
     if (!question || pending) return;
     const target = chatId;
+    const withImages = retry ? [] : images;
     setPending({ chatId: target ?? "new", question, retry });
     setFailure(null);
     setDraft("");
+    setImages([]);
     try {
-      const ask = { content: question, page: location.pathname, retry };
+      const ask = { content: question, page: location.pathname, retry, images: withImages };
       const saved = target ? await aiApi.ask(target, ask) : await aiApi.startChat(ask);
       qc.setQueryData(["aiChat", saved.id], saved);
       void qc.invalidateQueries({ queryKey: ["aiChats"] });
@@ -322,6 +415,7 @@ export function ChatWidget() {
     } catch (err) {
       setFailure(err instanceof ApiRequestError ? err.message : "The question couldn't be sent");
       setDraft(question);
+      setImages(withImages);
     } finally {
       setPending(null);
     }
@@ -413,7 +507,29 @@ export function ChatWidget() {
           ✦ {title}
         </strong>
         <span className="hint-text">{status.data?.model ?? ""}</span>
+        {chatId && chat.data?.context && <ContextMeter used={chat.data.context.used} max={chat.data.context.max} />}
         <span className="chat-head-actions">
+          {chatId && (
+            <button
+              type="button"
+              className="icon-button"
+              title="Summarise the chat so far: the summary stands in for it from now on, freeing the context"
+              disabled={compacting || !!pending || messages.length === 0 || messages[messages.length - 1]?.role === "summary"}
+              onClick={() => void compact()}
+            >
+              {compacting ? "Compacting…" : "Compact"}
+            </button>
+          )}
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Chat settings"
+            aria-expanded={showSettings}
+            title="Chat settings"
+            onClick={() => setShowSettings((s) => !s)}
+          >
+            ⚙
+          </button>
           <button
             type="button"
             className="icon-button"
@@ -448,6 +564,23 @@ export function ChatWidget() {
           </button>
         </span>
       </header>
+      {showSettings && appSettings.data && (
+        <div className="chat-settings">
+          <strong>Max context</strong>
+          <span className="hint-text">
+            The most the chat gives the model at once. Older turns are left out to fit, and a chat about to fill it is
+            compacted on its own.
+          </span>
+          {isAdmin ? (
+            <ChatContextSetting current={appSettings.data.ai_chat_max_context_tokens} compact />
+          ) : (
+            <span>
+              {appSettings.data.ai_chat_max_context_tokens.toLocaleString()} tokens{" "}
+              <span className="hint-text">— an admin sets it</span>
+            </span>
+          )}
+        </div>
+      )}
       <div className={view.showHistory ? "chat-body with-history" : "chat-body"}>
         {view.showHistory && (
           <nav className="chat-history" aria-label="Chat history">
@@ -476,7 +609,8 @@ export function ChatWidget() {
               <div className="chat-empty">
                 <p>
                   Ask about the library or the documentation. It can look up Emitters, Platforms, Modes, Intercepts and
-                  ambiguity checks — read-only — and find which Modes a signal would match.
+                  ambiguity checks, find which Modes a signal would match, and write Modes for you — shown as a preview
+                  you add yourself; it never changes anything on its own. Attach images with 📎 or by pasting.
                 </p>
                 <ul>
                   {[
@@ -493,20 +627,41 @@ export function ChatWidget() {
                 </ul>
               </div>
             )}
-            {(shownPending?.retry ? messages.slice(0, -2) : messages).map((m, i) => (
-              <div key={i} className={`chat-message ${m.role}${m.error ? " error" : ""}`}>
-                {m.role === "user" ? (
+            {(shownPending?.retry ? messages.slice(0, -2) : messages).map((m, i) =>
+              m.role === "summary" ? (
+                <details key={i} className="chat-summary">
+                  <summary>
+                    {m.auto ? "Compacted on its own to fit the context" : "Compacted"} — the model sees this summary
+                    instead of the {m.covers ?? ""} message{m.covers === 1 ? "" : "s"} above
+                  </summary>
                   <p>{m.content}</p>
-                ) : m.error ? (
-                  <p className="error-text">{m.content}</p>
-                ) : (
-                  <>
-                    <Formatted text={m.content} sources={m.reply?.sources} links={m.reply?.links} />
-                    {m.reply && <AnswerDetails reply={m.reply} />}
-                  </>
-                )}
-              </div>
-            ))}
+                </details>
+              ) : (
+                <div key={i} className={`chat-message ${m.role}${m.error ? " error" : ""}`}>
+                  {m.role === "user" ? (
+                    <>
+                      {m.images && m.images.length > 0 && <ChatImages images={m.images} />}
+                      <p>{m.content}</p>
+                    </>
+                  ) : m.error ? (
+                    <p className="error-text">{m.content}</p>
+                  ) : (
+                    <>
+                      <Formatted text={m.content} sources={m.reply?.sources} links={m.reply?.links} />
+                      {chatId && m.reply?.proposals && m.reply.proposals.length > 0 && (
+                        <ProposalPreview
+                          chatId={chatId}
+                          messageIndex={i}
+                          proposals={m.reply.proposals}
+                          onSaved={(saved: SavedChat) => qc.setQueryData(["aiChat", saved.id], saved)}
+                        />
+                      )}
+                      {m.reply && <AnswerDetails reply={m.reply} />}
+                    </>
+                  )}
+                </div>
+              ),
+            )}
             {shownPending && (
               <>
                 <div className="chat-message user">
@@ -533,7 +688,56 @@ export function ChatWidget() {
               </p>
             )}
           </div>
-          <footer className="chat-input">
+          <footer
+            className="chat-input"
+            onDragOver={(e) => {
+              if (e.dataTransfer.types.includes("Files")) e.preventDefault();
+            }}
+            onDrop={(e) => {
+              if (e.dataTransfer.files.length) {
+                e.preventDefault();
+                void attach(e.dataTransfer.files);
+              }
+            }}
+          >
+            {images.length > 0 && (
+              <div className="chat-attached">
+                {images.map((src, i) => (
+                  <span key={i} className="chat-attached-image">
+                    <img src={src} alt={`Attached image ${i + 1}`} />
+                    <button
+                      type="button"
+                      className="icon-button"
+                      aria-label={`Remove image ${i + 1}`}
+                      onClick={() => setImages((prev) => prev.filter((_, j) => j !== i))}
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <input
+              ref={fileInput}
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              onChange={(e) => {
+                if (e.target.files) void attach(e.target.files);
+                e.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              className="icon-button chat-attach"
+              aria-label="Attach images"
+              title={`Attach images (up to ${MAX_IMAGES}) — or paste or drop them here`}
+              disabled={!!pending || images.length >= MAX_IMAGES}
+              onClick={() => fileInput.current?.click()}
+            >
+              📎
+            </button>
             <textarea
               ref={input}
               rows={2}
@@ -542,6 +746,13 @@ export function ChatWidget() {
               aria-label="Your question"
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={onKey}
+              onPaste={(e) => {
+                const files = [...e.clipboardData.files].filter((f) => f.type.startsWith("image/"));
+                if (files.length) {
+                  e.preventDefault();
+                  void attach(files);
+                }
+              }}
             />
             <button type="button" disabled={!!pending || !draft.trim()} onClick={() => void send(draft)}>
               Send

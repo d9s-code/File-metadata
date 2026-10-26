@@ -229,7 +229,9 @@ class DwellStrategyNoteOut(BaseModel):
 
 class SettingsOut(BaseModel):
     dwell_bandwidth_mhz: float
+    ai_chat_max_context_tokens: int
 
 
 class SettingsUpdate(BaseModel):
     dwell_bandwidth_mhz: float | None = Field(default=None, gt=0)
+    ai_chat_max_context_tokens: int | None = Field(default=None, ge=4_096, le=2_000_000)

@@ -5542,7 +5542,7 @@ a.ai-cite:hover { text-decoration: underline; }
 .chat-meta { display: block; margin-top: 0.25em; color: var(--muted); font-size: 0.85em; }
 .chat-retry { align-self: flex-start; font-size: 0.88em; }
 .chat-messages > .error-text { font-size: 0.85em; margin: 0; }
-.chat-input { border-top: 1px solid var(--border); padding: 0.55em 0.75em; display: grid; grid-template-columns: 1fr auto; gap: 0.4em; align-items: end; }
+.chat-input { border-top: 1px solid var(--border); padding: 0.55em 0.75em; display: grid; grid-template-columns: auto 1fr auto; gap: 0.4em; align-items: end; }
 .chat-input textarea {
   resize: vertical;
   min-height: 2.6em;
@@ -5557,6 +5557,36 @@ a.ai-cite:hover { text-decoration: underline; }
 }
 .chat-input > button { font-size: 0.88em; }
 .chat-foot { grid-column: 1 / -1; margin: 0; font-size: 0.72em; }
+/* Images to go with the next question, and those sent with one. */
+.chat-attached { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 0.4em; }
+.chat-attached-image { position: relative; }
+.chat-attached-image img, .chat-images img { display: block; height: 4.2em; max-width: 8em; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+.chat-attached-image .icon-button { position: absolute; top: -0.4em; right: -0.4em; padding: 0 0.3em; font-size: 0.7em; background: var(--card-bg); border-radius: 50%; }
+.chat-images { display: flex; flex-wrap: wrap; gap: 0.3em; margin-bottom: 0.35em; }
+.chat-image-thumb { padding: 0; border: 0; background: none; cursor: zoom-in; }
+.modal-dialog.chat-image-dialog { width: auto; max-width: calc(100vw - 2rem); max-height: calc(100vh - 2rem); overflow: auto; }
+.chat-image-dialog img { display: block; max-width: min(90vw, 1600px); max-height: calc(100vh - 7rem); }
+.chat-attach { align-self: end; }
+/* How much of the context the chat takes. */
+.chat-context { display: inline-flex; align-items: center; gap: 0.35em; font-size: 0.72em; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
+.chat-context-bar { width: 3.2em; height: 0.45em; border-radius: 1em; background: var(--border); overflow: hidden; }
+.chat-context-bar span { display: block; height: 100%; background: var(--primary); }
+.chat-context.filling .chat-context-bar span { background: var(--badge-amber-fg); }
+.chat-context.full .chat-context-bar span { background: var(--error); }
+.chat-context.full { color: var(--error); }
+.chat-settings { display: flex; flex-direction: column; gap: 0.3em; padding: 0.55em 0.75em; border-bottom: 1px solid var(--border); font-size: 0.85em; }
+.chat-settings .form-row { margin: 0; }
+.chat-summary { align-self: stretch; font-size: 0.82em; color: var(--muted); border-top: 1px dashed var(--border); border-bottom: 1px dashed var(--border); padding: 0.35em 0; }
+.chat-summary summary { cursor: pointer; }
+.chat-summary p { white-space: pre-line; color: var(--text); margin: 0.4em 0 0; }
+/* Modes the chat proposed: a preview to add from. */
+.chat-proposal { margin: 0.5em 0; padding: 0.5em; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card-bg); font-size: 0.9em; }
+.chat-proposal-head { display: flex; flex-wrap: wrap; gap: 0.3em 0.6em; align-items: baseline; margin-bottom: 0.35em; }
+.chat-proposal .data-table td, .chat-proposal .data-table th { font-size: 0.85em; }
+.chat-proposal-bad td { color: var(--muted); }
+.chat-proposal td .hint-text { font-size: 0.9em; }
+.chat-proposal-problem { margin: 0.3em 0 0; color: var(--error); font-size: 0.85em; }
+.chat-proposal-actions { display: flex; flex-wrap: wrap; gap: 0.5em; align-items: center; margin-top: 0.45em; }
 @media (max-width: 600px) {
   /* Too narrow for both: the history covers the conversation while it's open. */
   .chat-body.with-history { grid-template-columns: 1fr; }

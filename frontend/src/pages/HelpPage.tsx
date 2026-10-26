@@ -851,6 +851,14 @@ export function HelpPage() {
             remembered in this browser.
           </p>
           <p>
+            Ask it to <strong>write Modes</strong> and it proposes them under its answer as a preview — where each would
+            go, its values and margins, and why any can&apos;t be added. It never adds anything itself: tick the ones you
+            want and press <strong>Add N Modes</strong> (editors, into an Emitter you&apos;re editing). <strong>📎</strong>,
+            pasting or dropping attaches images to a question. The bar in the header shows how much of the model&apos;s
+            context the chat takes of its maximum (an admin sets it under <strong>⚙</strong> or Admin → Settings);
+            <strong> Compact</strong> summarises the chat so far to free it, and it compacts on its own when nearly full.
+          </p>
+          <p>
             <strong>Settings</strong> (your name, top right → Settings…) lets you switch off the AI chat, telling it
             which page you&apos;re on, or the AI drafts on the ambiguity page — for you only, wherever you sign in.
           </p>

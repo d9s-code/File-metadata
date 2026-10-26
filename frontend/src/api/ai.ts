@@ -1,5 +1,6 @@
 import { api } from "./client";
 import type { AiSource } from "./ambiguity";
+import type { Mode } from "../types/domain";
 
 export interface ChatTurn {
   role: "user" | "assistant";
@@ -38,12 +39,43 @@ export interface ChatReply {
   seconds: number;
   prompt_tokens: number;
   completion_tokens: number;
+  /** How much of the context the answer took. */
+  context_tokens?: number;
+  /** Modes proposed for the user to add — nothing is added until they do. */
+  proposals?: ModeProposal[];
 }
 
-/** One message of a saved chat. */
+/** A Mode the chat proposed, as checked by the app. */
+export interface ModeProposal {
+  id: string;
+  name: string;
+  pri_type: "fixed" | "stagger" | "cw";
+  emitter_id: string | null;
+  emitter_name: string;
+  ew_group_id: string | null;
+  ew_group_name: string;
+  source_id: string | null;
+  source_name: string | null;
+  notes: string | null;
+  line: Record<string, number | number[] | boolean | null>;
+  /** The Mode line as it'd be written. */
+  dsl: string | null;
+  /** Why it can't be added; null when it can. */
+  problem: string | null;
+  status: "proposed" | "added";
+  mode_id?: string;
+}
+
+/** One message of a saved chat. A "summary" stands in for the turns before
+ * it, once the chat was compacted. */
 export interface SavedChatMessage {
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "summary";
   content: string;
+  /** Pictures sent with a question (data URLs). */
+  images?: string[];
+  /** A summary: how many turns it stands for, and whether it was made on its own. */
+  covers?: number;
+  auto?: boolean;
   /** An answer's details: lookups, sources, warnings. */
   reply?: ChatReply;
   /** Why the model couldn't answer — the question can be asked again. */
@@ -60,6 +92,8 @@ export interface SavedChatSummary {
 
 export interface SavedChat extends SavedChatSummary {
   messages: SavedChatMessage[];
+  /** Tokens the conversation takes now, and the most it may. */
+  context: { used: number; max: number };
 }
 
 export interface ChatAsk {
@@ -67,6 +101,7 @@ export interface ChatAsk {
   page: string | null;
   /** Replaces a failed question and its error rather than keeping them. */
   retry?: boolean;
+  images?: string[];
 }
 
 export const aiApi = {
@@ -79,4 +114,12 @@ export const aiApi = {
   ask: (id: string, ask: ChatAsk) => api.post<SavedChat>(`/ai/chats/${id}/messages`, ask),
   renameChat: (id: string, title: string) => api.patch<SavedChat>(`/ai/chats/${id}`, { title }),
   deleteChat: (id: string) => api.delete<void>(`/ai/chats/${id}`),
+  /** Summarise the chat so far; the summary stands in for it from then on. */
+  compact: (id: string) => api.post<SavedChat>(`/ai/chats/${id}/compact`),
+  /** Add the picked Modes of one answer's proposal — the only way they're written. */
+  applyProposals: (id: string, messageIndex: number, proposalIds: string[]) =>
+    api.post<{ created: Mode[]; chat: SavedChat }>(`/ai/chats/${id}/proposals/apply`, {
+      message_index: messageIndex,
+      proposal_ids: proposalIds,
+    }),
 };

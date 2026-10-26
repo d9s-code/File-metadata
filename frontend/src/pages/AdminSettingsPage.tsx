@@ -6,6 +6,7 @@ import { ApiRequestError } from "../api/client";
 import { useAppSettings, useUpdateAppSettings } from "../state/hooks/useDwells";
 import { useAiStatus, useSyncDocumentation } from "../state/hooks/useAmbiguity";
 import { relativeTime } from "../components/common/backupFormat";
+import { ChatContextSetting } from "../components/ai/ChatContextSetting";
 
 /** App-wide settings: the dwell charts' default bandwidth, and the AI's
  * copy of the documentation. */
@@ -17,6 +18,7 @@ export function AdminSettingsPage() {
       <h1>Admin</h1>
       <AdminNav />
       <BandwidthSetting current={settings.dwell_bandwidth_mhz} />
+      <ChatContextSetting current={settings.ai_chat_max_context_tokens} />
       <DocumentationSetting />
     </div>
   );

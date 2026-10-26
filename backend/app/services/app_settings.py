@@ -8,7 +8,11 @@ from app.models.app_setting import AppSetting
 # unless a dwell file sets its own.
 DWELL_BANDWIDTH_MHZ = "dwell_bandwidth_mhz"
 
-DEFAULTS: dict[str, object] = {DWELL_BANDWIDTH_MHZ: 10.0}
+# How much the AI chat may give the model at once, in tokens (its context
+# window): older turns are left out, or compacted, to stay inside it.
+AI_CHAT_MAX_CONTEXT = "ai_chat_max_context_tokens"
+
+DEFAULTS: dict[str, object] = {DWELL_BANDWIDTH_MHZ: 10.0, AI_CHAT_MAX_CONTEXT: 32_768}
 
 
 def get_setting(db: Session, key: str):

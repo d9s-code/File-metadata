@@ -153,6 +153,8 @@ export interface DwellVersionDetail extends VersionSummary {
 
 export interface AppSettings {
   dwell_bandwidth_mhz: number;
+  /** The most the AI chat gives the model at once, in tokens. */
+  ai_chat_max_context_tokens: number;
 }
 
 /** "strategies" or "files": the two versioned kinds, for the shared version pages. */
