@@ -29,7 +29,6 @@ export function EmitterTestHistory({
 
   return (
     <div>
-      <SimTestLinesPanel emitterId={emitterId} lines={testLines ?? []} />
       <SimulationTrend emitterId={emitterId} records={records ?? []} lineIds={(testLines ?? []).map((l) => l.id)} />
       <div className="card">
         <div className="card-header">
@@ -51,6 +50,8 @@ export function EmitterTestHistory({
           highlightId={highlightTestRecordId}
         />
       </div>
+      {/* Set up once and seldom changed: below the results, which are what's looked at most. */}
+      <SimTestLinesPanel emitterId={emitterId} lines={testLines ?? []} />
     </div>
   );
 }

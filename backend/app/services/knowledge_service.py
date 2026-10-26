@@ -13,6 +13,12 @@ the analyst's notes) — the model never picks its own sources.
 Each section given is numbered [S1], [S2] … and the model is asked to cite
 them; the answer keeps the list, with links to the page and heading in
 Outline, and which ones it did cite.
+
+Not everything in Outline is the same kind of thing: an admin says, per page
+(its sub-pages following), whether it's documentation, a test result,
+analysis, or to be left out. Each section is handed over marked with its
+kind, and the model told how far each can be relied on — a single test
+result is what was seen that time, not proof of how the sensor behaves.
 """
 
 import logging
@@ -26,7 +32,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import SessionLocal
 from app.models.knowledge import KnowledgeSection, KnowledgeSync
-from app.services import outline_client
+from app.services import app_settings, outline_client
 
 log = logging.getLogger(__name__)
 
@@ -108,6 +114,7 @@ def sync() -> dict:
                     db.add(
                         KnowledgeSection(
                             outline_doc_id=doc.id,
+                            page_path=paths[doc.id],
                             path=path if len(pieces) == 1 else f"{path} (part {n} of {len(pieces)})",
                             url=f"{doc.url}#{anchor}" if anchor else doc.url,
                             text=piece,
@@ -178,6 +185,66 @@ def note_words(notes: list[str | None], limit: int = 12) -> list[str]:
     return out[:limit]
 
 
+# What a page holds — set per page by an admin (its sub-pages follow), so the
+# model knows how far to rely on each section. "documentation" unless set.
+KINDS: dict[str, dict[str, str]] = {
+    "documentation": {
+        "label": "Documentation",
+        "tag": "documentation",
+        "meaning": "reference documentation of how the sensor and the library work",
+    },
+    "test_result": {
+        "label": "Test result",
+        "tag": "test result",
+        "meaning": "a record of one test or trial — what was observed that time, under those conditions",
+    },
+    "analysis": {
+        "label": "Analysis",
+        "tag": "analysis",
+        "meaning": "analysts' notes, assessments and working conclusions — opinions, not established fact",
+    },
+    "exclude": {"label": "Leave out", "tag": "", "meaning": "not given to the AI"},
+}
+DEFAULT_KIND = "documentation"
+
+
+def page_kinds(db: Session) -> dict[str, str]:
+    """The kinds an admin set, by page path."""
+    return dict(app_settings.get_setting(db, app_settings.OUTLINE_PAGE_KINDS) or {})
+
+
+def kind_of(page_path: str | None, rules: dict[str, str]) -> str:
+    """A page's kind: its own, else the nearest page above it that has one."""
+    if page_path:
+        parts = page_path.split(" › ")
+        for n in range(len(parts), 0, -1):
+            kind = rules.get(" › ".join(parts[:n]))
+            if kind in KINDS:
+                return kind
+    return DEFAULT_KIND
+
+
+def pages(db: Session) -> list[dict]:
+    """Every copied page, in reading order, with its sections, its tokens,
+    the kind set on it (if any) and the kind it ends up with."""
+    rules = page_kinds(db)
+    rows = db.execute(
+        select(
+            KnowledgeSection.page_path,
+            func.count(),
+            func.sum(KnowledgeSection.tokens),
+            func.min(KnowledgeSection.position),
+        )
+        .where(KnowledgeSection.page_path.is_not(None))
+        .group_by(KnowledgeSection.page_path)
+        .order_by(func.min(KnowledgeSection.position))
+    ).all()
+    return [
+        {"path": path, "sections": n, "tokens": int(tokens or 0), "set": rules.get(path), "kind": kind_of(path, rules)}
+        for path, n, tokens, _ in rows
+    ]
+
+
 @dataclass
 class Source:
     ref: str
@@ -185,6 +252,7 @@ class Source:
     url: str
     text: str
     tokens: int
+    kind: str = DEFAULT_KIND
 
 
 def select_sections(db: Session, specific: list[str], general: list[str], budget: int | None = None) -> list[Source]:
@@ -192,6 +260,9 @@ def select_sections(db: Session, specific: list[str], general: list[str], budget
     budget, else the best matches — the specific terms (what the question is
     about) counting double the general ones — in reading order."""
     budget = budget or settings.outline_context_tokens
+    rules = page_kinds(db)
+    # Pages left out aren't given at all.
+    excluded = [p for p, k in rules.items() if k == "exclude"]
     total = db.scalar(select(func.coalesce(func.sum(KnowledgeSection.tokens), 0))) or 0
     if total == 0:
         return []
@@ -217,7 +288,10 @@ def select_sections(db: Session, specific: list[str], general: list[str], budget
             {"qs": q_specific or "", "qg": q_general or ""},
         ).all()
         chosen, used = [], 0
+        kinds = dict(db.execute(select(KnowledgeSection.id, KnowledgeSection.page_path)).all()) if excluded else {}
         for section_id, tokens, _ in ranked:
+            if excluded and kind_of(kinds.get(section_id), rules) == "exclude":
+                continue
             if used + tokens > budget:
                 continue
             chosen.append(section_id)
@@ -229,15 +303,32 @@ def select_sections(db: Session, specific: list[str], general: list[str], budget
             .scalars()
             .all()
         )
-    return [Source(f"S{i}", r.path, r.url, r.text, r.tokens) for i, r in enumerate(rows, start=1)]
+    rows = [r for r in rows if kind_of(r.page_path, rules) != "exclude"]
+    return [Source(f"S{i}", r.path, r.url, r.text, r.tokens, kind_of(r.page_path, rules)) for i, r in enumerate(rows, start=1)]
+
+
+# How the model is told to weigh each kind it's given.
+WEIGHING = (
+    "Each section is marked with what it is: (documentation) is reference material on how the sensor and the "
+    "library work; (test result) is a record of one test or trial — what was observed that time, under those "
+    "conditions: report it as that test's finding, never as proof of how the sensor always behaves, and say when "
+    "one test is all there is; (analysis) is analysts' notes and working conclusions — opinions, not established "
+    "fact. Where they disagree, say so; documentation outweighs a single test, several consistent tests outweigh one."
+)
 
 
 def background(sources: list[Source]) -> str:
-    """The sections as the model reads them, after the data."""
+    """The sections as the model reads them, after the data — each marked
+    with its kind, and how to weigh the kinds."""
     if not sources:
         return ""
-    blocks = [f"[{s.ref}] {s.path}\n{s.text}" for s in sources]
-    return "Background — sections of the team's documentation, cite as [S1], [S2] …:\n\n" + "\n\n".join(blocks)
+    blocks = [f"[{s.ref}] ({KINDS.get(s.kind, KINDS[DEFAULT_KIND])['tag']}) {s.path}\n{s.text}" for s in sources]
+    return (
+        "Background — sections of the team's documentation, cite as [S1], [S2] …. "
+        + WEIGHING
+        + "\n\n"
+        + "\n\n".join(blocks)
+    )
 
 
 CITATION = re.compile(r"\[(S\d+)\]")
@@ -248,5 +339,5 @@ def cited(sources: list[Source], answer_text: str) -> tuple[list[dict], list[str
     citation of a section that wasn't given."""
     refs = set(CITATION.findall(answer_text))
     known = {s.ref for s in sources}
-    listed = [{"ref": s.ref, "path": s.path, "url": s.url, "cited": s.ref in refs} for s in sources]
+    listed = [{"ref": s.ref, "path": s.path, "url": s.url, "kind": s.kind, "cited": s.ref in refs} for s in sources]
     return listed, sorted(refs - known, key=lambda r: int(r[1:]))

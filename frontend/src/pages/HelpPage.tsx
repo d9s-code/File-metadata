@@ -821,7 +821,10 @@ export function HelpPage() {
             rest of what it was given. A citation of a section it wasn&apos;t given is flagged. The app keeps a copy of
             the documentation, refreshed when it&apos;s more than an hour old; the line at the top of the AI overview
             says how fresh it is, and an Admin can press <strong>Sync now</strong> under Admin → Settings → AI
-            documentation after changing pages in Outline.
+            documentation after changing pages in Outline. There, <strong>What lives where</strong> says what each
+            page holds — documentation, a test result, analysis, or left out (sub-pages follow their page). The AI is
+            told which each section is: it reports a test result as that one test&apos;s finding, not as how the sensor
+            always behaves, and cited sections show <em>test result</em> or <em>analysis</em> beside them.
           </p>
           <p>
             The <strong>AI overview</strong> of a check is a one- or two-sentence verdict, then a table of the

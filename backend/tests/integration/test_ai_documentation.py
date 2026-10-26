@@ -108,7 +108,8 @@ def test_explanations_cite_the_documentation(
     sent = fake_llm.requests[0]["messages"]
     assert "[S2]" in sent[0]["content"]  # the system prompt asks for citations
     assert "Background — sections of the team's documentation" in sent[1]["content"]
-    assert "[S1] Page 1" in sent[1]["content"] or "[S1] Lazy page" in sent[1]["content"]
+    # Each marked with what it is (documentation, to start with).
+    assert "[S1] (documentation) Page 1" in sent[1]["content"] or "[S1] (documentation) Lazy page" in sent[1]["content"]
     assert "sums consecutive intervals" in sent[1]["content"]
 
     by_ref = {s["ref"]: s for s in draft["sources"]}
@@ -143,3 +144,37 @@ def test_only_an_admin_syncs_on_demand(docs, admin_client, editor_client, monkey
     monkeypatch.setattr(settings, "outline_collection", None)
     assert admin_client.post("/ai/documentation/sync").status_code == 409
     assert editor_client.get("/ai/status").json()["documentation"] is None
+
+
+def test_a_page_says_what_it_holds_and_the_model_is_told(docs, admin_client, editor_client, db_session):
+    knowledge_service.sync()
+    resp = admin_client.get("/ai/documentation/pages")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert [p["path"] for p in body["pages"]] == ["Lazy page", "Page 1", "Page 2", "Stagger logic"]
+    assert {p["kind"] for p in body["pages"]} == {"documentation"}
+    assert {k["key"] for k in body["kinds"]} == {"documentation", "test_result", "analysis", "exclude"}
+    assert editor_client.get("/ai/documentation/pages").status_code == 403
+
+    kinds = {"Page 1": "test_result", "Page 2": "exclude"}
+    saved = admin_client.patch("/settings", json={"outline_page_kinds": kinds})
+    assert saved.status_code == 200 and saved.json()["outline_page_kinds"] == kinds
+    assert admin_client.patch("/settings", json={"outline_page_kinds": {"Page 1": "gospel"}}).status_code == 422
+    by_path = {p["path"]: p for p in admin_client.get("/ai/documentation/pages").json()["pages"]}
+    assert (by_path["Page 1"]["kind"], by_path["Page 1"]["set"]) == ("test_result", "test_result")
+    assert by_path["Stagger logic"]["set"] is None
+
+    sources = knowledge_service.select_sections(db_session, ["page"], [], budget=100_000)
+    pages = {s.path.split(" › ")[0] for s in sources}
+    assert "Page 1" in pages and "Stagger logic" in pages and "Page 2" not in pages  # left out
+    text = knowledge_service.background(sources)
+    assert "(test result) Page 1" in text and "(documentation) Stagger logic" in text
+    assert "never as proof of how the sensor always behaves" in text
+
+
+def test_a_sub_page_follows_the_nearest_page_above_it_with_a_kind():
+    rules = {"Trials": "test_result", "Trials › Summary": "analysis"}
+    assert knowledge_service.kind_of("Trials › 2026 › Run 4", rules) == "test_result"
+    assert knowledge_service.kind_of("Trials › Summary › Notes", rules) == "analysis"
+    assert knowledge_service.kind_of("Handbook", rules) == "documentation"
+    assert knowledge_service.kind_of(None, rules) == "documentation"

@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import AliasPath, BaseModel, ConfigDict, Field
+from pydantic import AliasPath, BaseModel, ConfigDict, Field, field_validator
 
 
 class Dwell(BaseModel):
@@ -230,8 +230,25 @@ class DwellStrategyNoteOut(BaseModel):
 class SettingsOut(BaseModel):
     dwell_bandwidth_mhz: float
     ai_chat_max_context_tokens: int
+    # What each Outline page holds, by its path (see knowledge_service.KINDS).
+    outline_page_kinds: dict[str, str]
 
 
 class SettingsUpdate(BaseModel):
     dwell_bandwidth_mhz: float | None = Field(default=None, gt=0)
     ai_chat_max_context_tokens: int | None = Field(default=None, ge=4_096, le=2_000_000)
+    outline_page_kinds: dict[str, str] | None = None
+
+    @field_validator("outline_page_kinds")
+    @classmethod
+    def known_kinds(cls, kinds: dict[str, str] | None) -> dict[str, str] | None:
+        from app.services.knowledge_service import KINDS
+
+        if kinds is None:
+            return None
+        if len(kinds) > 2_000:
+            raise ValueError("Too many pages")
+        bad = sorted({k for k in kinds.values() if k not in KINDS})
+        if bad:
+            raise ValueError(f"Unknown kind(s): {', '.join(bad)}")
+        return {path.strip(): kind for path, kind in kinds.items() if path.strip()}

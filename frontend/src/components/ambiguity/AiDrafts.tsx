@@ -12,6 +12,15 @@ import {
 import { relativeTime } from "../common/backupFormat";
 import { SeverityBadge } from "./SeverityBadge";
 
+const KIND_TAG: Record<string, string> = { test_result: "test result", analysis: "analysis" };
+
+/** A cited section's kind, when it isn't plain documentation: a test result
+ * is one test's finding, analysis is opinion. */
+export function SourceKind({ kind }: { kind?: string }) {
+  const tag = kind ? KIND_TAG[kind] : undefined;
+  return tag ? <span className={`ai-source-kind ${kind}`}>{tag}</span> : null;
+}
+
 function message(err: unknown) {
   return err instanceof ApiRequestError ? err.message : "The language model couldn't be asked";
 }
@@ -54,6 +63,7 @@ function SourcesList({ stamp }: { stamp: AiStamp }) {
       <a href={s.url} target="_blank" rel="noreferrer">
         {s.path}
       </a>
+      <SourceKind kind={s.kind} />
     </li>
   );
   return (

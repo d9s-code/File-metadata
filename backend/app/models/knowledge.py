@@ -19,6 +19,9 @@ class KnowledgeSection(UUIDPkMixin, Base):
     outline_doc_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     # Where it sits: "Page › Heading › Subheading" — what the model cites.
     path: Mapped[str] = mapped_column(Text, nullable=False)
+    # The page it's from ("Parent › Page"), what an admin says the kind of
+    # content of (see knowledge_service.KINDS). Null until the next sync.
+    page_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     url: Mapped[str] = mapped_column(Text, nullable=False)
     text: Mapped[str] = mapped_column(Text, nullable=False)
     tokens: Mapped[int] = mapped_column(Integer, nullable=False)

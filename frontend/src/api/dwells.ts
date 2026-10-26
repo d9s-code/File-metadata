@@ -155,6 +155,8 @@ export interface AppSettings {
   dwell_bandwidth_mhz: number;
   /** The most the AI chat gives the model at once, in tokens. */
   ai_chat_max_context_tokens: number;
+  /** What each Outline page holds, by its path ("Parent › Page"). */
+  outline_page_kinds: Record<string, string>;
 }
 
 /** "strategies" or "files": the two versioned kinds, for the shared version pages. */

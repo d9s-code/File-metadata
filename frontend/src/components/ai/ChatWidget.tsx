@@ -22,7 +22,7 @@ import type { AiSource } from "../../api/ambiguity";
 import { ApiRequestError } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import { useAiStatus } from "../../state/hooks/useAmbiguity";
-import { Cited } from "../ambiguity/AiDrafts";
+import { Cited, SourceKind } from "../ambiguity/AiDrafts";
 import { relativeTime } from "../common/backupFormat";
 import { useConfirmDialog } from "../common/ConfirmDialog";
 import { Modal } from "../common/Modal";
@@ -163,6 +163,7 @@ function AnswerDetails({ reply }: { reply: ChatReply }) {
                   <a href={s.url} target="_blank" rel="noreferrer">
                     {s.path}
                   </a>
+                  <SourceKind kind={s.kind} />
                 </li>
               ))}
             </ul>

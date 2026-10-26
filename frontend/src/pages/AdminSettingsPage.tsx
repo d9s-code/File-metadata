@@ -7,6 +7,7 @@ import { useAppSettings, useUpdateAppSettings } from "../state/hooks/useDwells";
 import { useAiStatus, useSyncDocumentation } from "../state/hooks/useAmbiguity";
 import { relativeTime } from "../components/common/backupFormat";
 import { ChatContextSetting } from "../components/ai/ChatContextSetting";
+import { DocumentationKinds } from "../components/ai/DocumentationKinds";
 
 /** App-wide settings: the dwell charts' default bandwidth, and the AI's
  * copy of the documentation. */
@@ -72,6 +73,7 @@ function DocumentationSetting() {
               {sync.error instanceof ApiRequestError ? sync.error.message : "Couldn't sync."}
             </p>
           )}
+          <DocumentationKinds />
         </>
       )}
     </section>

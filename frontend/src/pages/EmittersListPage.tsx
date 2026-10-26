@@ -181,7 +181,11 @@ export function EmittersListPage() {
     (a: Emitter, b: Emitter, key: EmitterSortKey, dir: "asc" | "desc") => compareEmitters(a, b, key, dir, statuses.label),
     [statuses],
   );
-  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(filtered, comparator, "emitters");
+  // Z–A by name until someone sorts it otherwise (kept for the tab's session).
+  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable<Emitter, EmitterSortKey>(filtered, comparator, "emitters", {
+    key: "name",
+    dir: "desc",
+  });
   const columns = useColumnVisibility("emitters-list-columns", COLUMNS);
   const columnMenu = useColumnVisibilityMenu(columns);
   const show = columns.isVisible;

@@ -226,6 +226,17 @@ def ai_chat(payload: ChatRequest, db: Session = Depends(get_db), user=Depends(re
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(err)) from err
 
 
+@ai_router.get("/documentation/pages")
+def documentation_pages(db: Session = Depends(get_db), _=Depends(require_role(Role.admin))) -> dict:
+    """Every copied Outline page with the kind of content it holds, and the
+    kinds there are — for an admin to say what lives where."""
+    return {
+        "pages": knowledge_service.pages(db),
+        "kinds": [{"key": k, "label": v["label"], "meaning": v["meaning"]} for k, v in knowledge_service.KINDS.items()],
+        "default": knowledge_service.DEFAULT_KIND,
+    }
+
+
 @ai_router.post("/documentation/sync", dependencies=[Depends(verify_csrf)])
 def sync_documentation(_=Depends(require_role(Role.admin))) -> dict:
     """Copy the documentation from Outline now, rather than when it's next

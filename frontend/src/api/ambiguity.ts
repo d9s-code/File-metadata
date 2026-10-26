@@ -54,7 +54,26 @@ export interface AiSource {
   ref: string;
   path: string;
   url: string;
+  /** What its page holds: documentation, test_result or analysis. */
+  kind?: string;
   cited: boolean;
+}
+
+/** A copied Outline page and the kind of content it holds. */
+export interface DocumentationPage {
+  path: string;
+  sections: number;
+  tokens: number;
+  /** The kind set on this page itself, if any. */
+  set: string | null;
+  /** Its kind: its own, else the nearest page above it with one. */
+  kind: string;
+}
+
+export interface DocumentationPages {
+  pages: DocumentationPage[];
+  kinds: { key: string; label: string; meaning: string }[];
+  default: string;
 }
 
 /** The copy of the Outline documentation the model is given as background. */
@@ -244,4 +263,5 @@ export const ambiguityApi = {
     api.post<AmbiguityFinding>(`/ambiguity/findings/${findingId}/merge`, { keep }),
   aiStatus: () => api.get<AiStatus>("/ai/status"),
   syncDocumentation: () => api.post<DocumentationStatus>("/ai/documentation/sync"),
+  documentationPages: () => api.get<DocumentationPages>("/ai/documentation/pages"),
 };

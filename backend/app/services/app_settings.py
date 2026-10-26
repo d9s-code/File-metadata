@@ -12,7 +12,11 @@ DWELL_BANDWIDTH_MHZ = "dwell_bandwidth_mhz"
 # window): older turns are left out, or compacted, to stay inside it.
 AI_CHAT_MAX_CONTEXT = "ai_chat_max_context_tokens"
 
-DEFAULTS: dict[str, object] = {DWELL_BANDWIDTH_MHZ: 10.0, AI_CHAT_MAX_CONTEXT: 32_768}
+# What each Outline page holds, by its path ("Parent › Page"): documentation,
+# test_result, analysis or exclude — its sub-pages follow (knowledge_service).
+OUTLINE_PAGE_KINDS = "outline_page_kinds"
+
+DEFAULTS: dict[str, object] = {DWELL_BANDWIDTH_MHZ: 10.0, AI_CHAT_MAX_CONTEXT: 32_768, OUTLINE_PAGE_KINDS: {}}
 
 
 def get_setting(db: Session, key: str):

@@ -166,6 +166,9 @@ missing.
 - Write numbers exactly as given, with their units (MHz, µs).
 - Documentation sections are numbered [S1], [S2] …: cite the one a sentence relies on, like [S2], and only for \
 what it says. It never overrides the library's data.
+- Each section is marked documentation, test result or analysis. A test result is what one test observed: say \
+"in that test …", never present it as how the sensor behaves in general, and say so when one test is all \
+there is. Analysis is opinion. Documentation outweighs a single test.
 - Answer briefly and plainly. Short paragraphs; a list with "- " where it helps. No headings, no tables."""
 
 
