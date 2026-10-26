@@ -49,26 +49,26 @@ function range(min: number | undefined, max: number | undefined): string | null 
   return min != null || max != null ? `${min ?? "?"}–${max ?? "?"}` : null;
 }
 
-/** A value kept in µs, as the ns it's typed and shown in on a test run
- * (jitter, stagger steps). Rounded so 0.0012 µs reads 1.2, not 1.2000000000000002. */
-export function nsOf(us: number): number {
-  return Number((us * 1000).toPrecision(12));
-}
-/** Typed in ns, kept in µs. */
+/** The test format logs jitter and stagger steps in ns; they're typed as
+ * logged and turned into µs at once — kept, matched and shown in µs. */
 export function usOfNs(ns: number): number {
   return Number((ns / 1000).toPrecision(12));
 }
-
-/** A stagger's logged steps in ns, in order — "1250, 1310, 1280". */
-export function staggerNs(v: ObservedValues): string | null {
-  return v.pri_stagger_values_us?.length ? v.pri_stagger_values_us.map(nsOf).join(", ") : null;
+/** A µs value back in ns, to show in the box it was typed into. Rounded so
+ * 0.0012 µs reads 1.2, not 1.2000000000000002. */
+export function nsOf(us: number): number {
+  return Number((us * 1000).toPrecision(12));
 }
 
-/** A jitter logged in µs, in ns — how it's typed and shown. */
-export function jitterNs(v: ObservedValues): string | null {
-  const ns = (us: number | undefined) => (us == null ? undefined : nsOf(us));
-  if (v.jitter_mean_us != null) return String(ns(v.jitter_mean_us));
-  return range(ns(v.jitter_min_us), ns(v.jitter_max_us));
+/** A stagger's logged steps in µs, in order — "800, 850, 900". */
+export function staggerUs(v: ObservedValues): string | null {
+  return v.pri_stagger_values_us?.length ? v.pri_stagger_values_us.join(", ") : null;
+}
+
+/** A logged jitter in µs: its mean, or the range on older sets. */
+export function jitterUs(v: ObservedValues): string | null {
+  if (v.jitter_mean_us != null) return String(v.jitter_mean_us);
+  return range(v.jitter_min_us, v.jitter_max_us);
 }
 
 export function formatObservedValueSet(v: ObservedValues): string | null {
@@ -77,11 +77,11 @@ export function formatObservedValueSet(v: ObservedValues): string | null {
   if (rf != null) parts.push(`RF ${rf} MHz`);
   if (v.pri_type === "fixed") {
     const pri = v.pri_mean_us ?? range(v.pri_min_us, v.pri_max_us);
-    const jitter = jitterNs(v);
-    if (pri != null) parts.push(`PRI ${pri} µs${jitter != null ? ` (jitter ${jitter} ns)` : ""}`);
-    else if (jitter != null) parts.push(`jitter ${jitter} ns`);
+    const jitter = jitterUs(v);
+    if (pri != null) parts.push(`PRI ${pri} µs${jitter != null ? ` (jitter ${jitter} µs)` : ""}`);
+    else if (jitter != null) parts.push(`jitter ${jitter} µs`);
   } else if (v.pri_type === "stagger" && (v.pri_stagger_values_us?.length || v.frame_time_us != null)) {
-    let pri = v.pri_stagger_values_us?.length ? `PRI stagger [${staggerNs(v)}] ns` : "PRI stagger";
+    let pri = v.pri_stagger_values_us?.length ? `PRI stagger [${staggerUs(v)}] µs` : "PRI stagger";
     if (v.frame_time_us != null) pri += ` (frame time ${v.frame_time_us} µs)`;
     parts.push(pri);
   } else if (v.pri_type === "cw" || v.pri_type === "xlet") {

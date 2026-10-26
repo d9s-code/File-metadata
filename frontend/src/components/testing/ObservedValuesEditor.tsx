@@ -11,7 +11,8 @@ type NumericKey = "rf_mean_mhz" | "pri_mean_us" | "jitter_mean_us" | "pw_mean_us
 // (a fixed PRI's mean, a stagger's frame time), PW, then a fixed PRI's
 // jitter or a stagger's steps.
 
-/** Jitter and stagger steps are typed in ns but stored in µs, like every other time. */
+/** Jitter and stagger steps are typed in ns, as the test format logs them, and
+ * turned into µs straight away — kept, matched and shown in µs like every other time. */
 function nsFromUs(us: number | undefined): string {
   return us == null ? "" : String(nsOf(us));
 }
@@ -228,6 +229,9 @@ export function ObservedValuesEditor({
             })}
           </tbody>
         </table>
+      )}
+      {sets.some((set) => set.pri_type === "fixed" || set.pri_type === "stagger") && (
+        <p className="hint-text">Jitter and stagger steps are typed in ns, as logged, and kept and matched in µs.</p>
       )}
       <button type="button" className="icon-button" onClick={() => onChange([...sets, {}])}>
         {sets.length === 0 ? "+ Add an intercept" : "+ Add another intercept"}

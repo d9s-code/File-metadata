@@ -1,5 +1,5 @@
 import type { ObservedValues } from "../../api/testRecords";
-import { jitterNs, nonEmptySets, staggerNs } from "./testFormat";
+import { jitterUs, nonEmptySets, staggerUs } from "./testFormat";
 
 function range(min: number | undefined, max: number | undefined): string | null {
   return min != null || max != null ? `${min ?? "?"}–${max ?? "?"}` : null;
@@ -25,9 +25,9 @@ function row(v: ObservedValues): Row {
   if (v.pri_type === "fixed") {
     const p = v.pri_mean_us ?? range(v.pri_min_us, v.pri_max_us);
     pri = p != null ? String(p) : null;
-    jitter = jitterNs(v);
+    jitter = jitterUs(v);
   } else if (v.pri_type === "stagger") {
-    stagger = staggerNs(v);
+    stagger = staggerUs(v);
     frame = v.frame_time_us != null ? String(v.frame_time_us) : null;
   } else if (v.pri_type === "cw" || v.pri_type === "xlet") {
     pri = v.pri_type === "cw" ? "CW" : "X-let";
@@ -46,10 +46,10 @@ function row(v: ObservedValues): Row {
 const COLUMNS: { key: keyof Row; label: string }[] = [
   { key: "rf", label: "RF MHz" },
   { key: "pri", label: "PRI µs" },
-  { key: "stagger", label: "Stagger ns" },
+  { key: "stagger", label: "Stagger µs" },
   { key: "frame", label: "Frame µs" },
   { key: "pw", label: "PW µs" },
-  { key: "jitter", label: "Jitter ns" },
+  { key: "jitter", label: "Jitter µs" },
   { key: "power", label: "Power dBFS" },
 ];
 

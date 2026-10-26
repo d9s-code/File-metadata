@@ -9,7 +9,7 @@ import type { ObservedValues, TestRecord } from "../../api/testRecords";
 import type { ElementType, ElementVariant } from "../../types/domain";
 import { elementOverviewKey, elementsKey } from "../../state/hooks/useElements";
 import { sourcesKey } from "../../state/hooks/useSources";
-import { nonEmptySets, nsOf } from "./testFormat";
+import { nonEmptySets } from "./testFormat";
 
 const UNITS: Record<ElementType, string> = { rf: "MHz", pri: "µs", pw: "µs", scan: "s" };
 const TYPE_ORDER: ElementType[] = ["rf", "pri", "pw"];
@@ -50,9 +50,9 @@ function fromSet(v: ObservedValues): Omit<Candidate, "key" | "from">[] {
 }
 
 function describe(c: Candidate): string {
-  if (c.stagger) return `stagger ${c.stagger.map(nsOf).join(", ")} ns (${c.stagger.join(", ")} µs)`;
+  if (c.stagger) return `stagger ${c.stagger.join(", ")} µs`;
   const value = c.min === c.max ? `${c.min}` : `${c.min}–${c.max}`;
-  const jitter = c.jitter ? ` · jitter ${nsOf(c.jitter[0])}${c.jitter[1] !== c.jitter[0] ? `–${nsOf(c.jitter[1])}` : ""} ns` : "";
+  const jitter = c.jitter ? ` · jitter ${c.jitter[0]}${c.jitter[1] !== c.jitter[0] ? `–${c.jitter[1]}` : ""} µs` : "";
   return `${value} ${UNITS[c.type]}${jitter}`;
 }
 

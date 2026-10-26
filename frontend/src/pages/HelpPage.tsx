@@ -541,8 +541,9 @@ export function HelpPage() {
                 open between picks, and <strong>+ Add all N matches</strong> adds everything the search
                 found — and use <strong>+ Log</strong> to record the intercepted parameters as means — RF mean, PRI mean and jitter mean (Fixed), PW
                 mean; a Stagger set takes its steps and the measured <strong>frame time</strong> instead. Jitter and the
-                stagger steps are typed (and shown) in <strong>ns</strong>; they&apos;re kept in µs, so a Mode or an
-                Element made from them gets µs (1250 ns → 1.25 µs). They&apos;re typed into one table, a numbered line per intercept and a column per parameter; ✕ removes a line.{" "}
+                stagger steps are typed in <strong>ns</strong>, as the test format logs them, and turned into µs at
+                once — they&apos;re kept, matched against the Modes and shown in µs, so a Mode or an Element made from
+                them gets µs (1250 ns → 1.25 µs). They&apos;re typed into one table, a numbered line per intercept and a column per parameter; ✕ removes a line.{" "}
                 <strong>+ Log</strong> opens the fields with the cursor already in RF mean, so you can type a value and
                 Tab to the next. <strong>+ Add another intercept</strong> adds a line for each further intercept; once you
                 click Done they show as a small table in the cell. Notes grow as you write.
