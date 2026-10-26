@@ -149,9 +149,12 @@ def test_bad_files_names_and_viewers_are_refused(editor_client, viewer_client):
 
 
 def test_bandwidth_default_is_an_admin_setting(admin_client, editor_client):
-    assert editor_client.get("/settings").json() == {"dwell_bandwidth_mhz": 10.0}
+    assert editor_client.get("/settings").json()["dwell_bandwidth_mhz"] == 10.0
     assert editor_client.patch("/settings", json={"dwell_bandwidth_mhz": 25}).status_code == 403
-    assert admin_client.patch("/settings", json={"dwell_bandwidth_mhz": 25}).json() == {"dwell_bandwidth_mhz": 25}
+    saved = admin_client.patch("/settings", json={"dwell_bandwidth_mhz": 25}).json()
+    assert saved["dwell_bandwidth_mhz"] == 25
+    # The other settings are left as they were.
+    assert saved["ai_chat_max_context_tokens"] == 32_768 and saved["outline_page_kinds"] == {}
     platform = _platform(editor_client, "Wide Site")
     strategy = editor_client.post("/dwell-strategies", json={"name": "Wide", "platform_id": platform["id"]}).json()
     assert editor_client.patch(f"/dwell-strategies/{strategy['id']}", json={"bandwidth_mhz": 40}).json()["bandwidth_mhz"] == 40
