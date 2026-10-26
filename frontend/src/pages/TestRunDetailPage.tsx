@@ -19,7 +19,8 @@ import { useEmitterModes } from "../state/hooks/useModes";
 import { InterceptSignalsList } from "../components/testing/InterceptSignals";
 import { RecheckIntercepts } from "../components/testing/RecheckIntercepts";
 import { ElementsFromTestModal } from "../components/testing/ElementsFromTestModal";
-import type { TestRecord } from "../api/testRecords";
+import { DerivedModesTable } from "../components/testing/DerivedModesTable";
+import type { ObservedValues, TestRecord } from "../api/testRecords";
 import type { TestResult } from "../types/domain";
 import {
   compareLineLabels,
@@ -92,7 +93,8 @@ export function TestRunDetailPage() {
   const { confirmDelete, dialog } = useConfirmDialog();
   const [addingMode, setAddingMode] = useState(false);
   const [changingResult, setChangingResult] = useState(false);
-  const [makingElements, setMakingElements] = useState(false);
+  // Elements (and sequences) from the run: all its values, or one logged intercept's.
+  const [makingElements, setMakingElements] = useState<{ only?: ObservedValues } | null>(null);
   const [doneNote, setDoneNote] = useState<string | null>(null);
   // Which panel: the run's results, or its logged intercepts against the Modes now — kept in the URL.
   const [params, setParams] = useSearchParams();
@@ -160,7 +162,7 @@ export function TestRunDetailPage() {
                   label: "Elements to a Source…",
                   disabled: !hasValues,
                   title: hasValues ? "Its logged RF, PRI and PW as Elements, on a Source or a new one" : "No values were logged in this run",
-                  onSelect: () => setMakingElements(true),
+                  onSelect: () => setMakingElements({}),
                 },
               ]}
             />
@@ -241,9 +243,10 @@ export function TestRunDetailPage() {
           emitterId={emitterId}
           record={record}
           sources={(sources ?? []).map((s) => ({ id: s.id, name: s.name }))}
-          onClose={() => setMakingElements(false)}
+          only={makingElements.only}
+          onClose={() => setMakingElements(null)}
           onDone={(message) => {
-            setMakingElements(false);
+            setMakingElements(null);
             setDoneNote(message);
           }}
         />
@@ -302,7 +305,13 @@ export function TestRunDetailPage() {
       )}
 
       {view === "recheck" ? (
-        <RecheckIntercepts emitterId={emitterId} record={record} modes={modes ?? []} versionTested={versionNumber} />
+        <RecheckIntercepts
+          emitterId={emitterId}
+          record={record}
+          modes={modes ?? []}
+          versionTested={versionNumber}
+          onMakeElements={(set) => setMakingElements({ only: set })}
+        />
       ) : (
         <>
       {record.signals?.length > 0 && (
@@ -394,8 +403,10 @@ export function TestRunDetailPage() {
 
       {derivedModes.length > 0 && (
         <div className="card">
-          <h4>Modes derived from this run</h4>
-          <p>{derivedModes.map((m) => m.mode_name).join(", ")}</p>
+          <h4>
+            Modes derived from this run <span className="hint-text">{derivedModes.length}</span>
+          </h4>
+          <DerivedModesTable emitterId={emitterId} derived={derivedModes} modes={modes ?? []} ewGroups={ewGroups ?? []} />
         </div>
       )}
 

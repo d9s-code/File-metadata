@@ -68,11 +68,14 @@ export function RecheckIntercepts({
   record,
   modes,
   versionTested,
+  onMakeElements,
 }: {
   emitterId: string;
   record: TestRecord;
   modes: Mode[];
   versionTested: number | null;
+  /** Elements (or a sequence) from one logged intercept. */
+  onMakeElements?: (set: ObservedValues) => void;
 }) {
   const { data: testLines } = useEmitterTestLines(emitterId);
   const [changedOnly, setChangedOnly] = useState(false);
@@ -233,6 +236,19 @@ export function RecheckIntercepts({
                         <button type="button" className="link-button" onClick={() => setAdding(r)}>
                           Add to the Modes…
                         </button>
+                        {onMakeElements && (
+                          <>
+                            {" · "}
+                            <button
+                              type="button"
+                              className="link-button"
+                              onClick={() => onMakeElements(r.set)}
+                              title="Its RF, PRI and PW as Elements on a Source, to build Modes from"
+                            >
+                              Make Elements…
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
                     {r.expected && r.now !== "unknown" && (

@@ -428,11 +428,12 @@ export function HelpPage() {
             </p>
             <p>
               Tick a Mode's checkbox (or several) to reveal a <strong>Batch Edit</strong> button for
-              applying the same field, delta, or range-shift change to all of them at once — muted until at
-              least one Mode is selected. <strong>+ Add a value…</strong> adds one RF, PRI or PW value — a
+              applying the same field, delta, jitter (Fixed Modes only) or range-shift change to all of them at
+              once — muted until at least one Mode is selected. <strong>+ Add a value…</strong> adds one RF, PRI or PW value — a
               stray PRI from a test, say — to every combination of the other two among your Modes: tick the
               combinations it applies to and it makes one new Mode for each, a copy with only that value changed, as
-              one batch. It&apos;s also offered, already filled in, from a test run&apos;s logged intercepts that no Mode
+              one batch — named with a name of your own and a running number (&ldquo;Range day 1&rdquo;, the default
+              from a test) or after the Mode each copies plus a suffix. It&apos;s also offered, already filled in, from a test run&apos;s logged intercepts that no Mode
               matches and from Element coverage&apos;s uncovered Elements. <strong>Delete (N)</strong> beside it deletes every ticked Mode at once,
               after asking (all or none; each is kept in the Audit Log, logged test results keep their names, and
               Discard brings them back until you save). A <strong>Collapse generation batches</strong> toggle folds every
@@ -597,9 +598,11 @@ export function HelpPage() {
                 Elements: each logged RF, PRI (a range with its jitter, or a stagger&apos;s steps) and PW is listed once —
                 the same value logged on several lines is one — ticked to start with. Pick the variant (intercept to
                 start with), an optional ± delta per parameter, and where they go: one of the Emitter&apos;s Sources, or a
-                <strong> new Source</strong> named after the run and dated when it was intercepted or simulated. Each
-                Element is labelled with the lines or Modes it was logged on and noted as coming from the run. All or
-                nothing, like Batch Add.
+                <strong> new Source</strong> named after the run and dated when it was intercepted or simulated. They&apos;re
+                named with a name of your own and a running number (the run&apos;s title to start with) or after the
+                lines they were logged on, and noted as coming from the run. A line logged with several intercepts can
+                also be kept as a <strong>sequence</strong>, a step per intercept in order. <strong>Make Elements…</strong>{" "}
+                on a row of <strong>Against the Modes now</strong> opens the same with only that intercept ticked.
               </li>
             </ul>
           </div>

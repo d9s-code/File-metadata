@@ -8,6 +8,7 @@ their margins and range matching) among the Emitter's Modes, per EW Group;
 the person picks which apply. A combination whose Mode already has the new
 value is skipped, as a duplicate would be."""
 
+import re
 from uuid import UUID
 
 from pydantic import ValidationError
@@ -121,6 +122,14 @@ def _signature(pri_type: PriType | None, line: dict, fields: list[str]) -> tuple
     return (pri_type.value if pri_type else None, *(tuple(line[f]) if isinstance(line[f], list) else line[f] for f in fields))
 
 
+def _next_number(db: Session, emitter_id: UUID, base: str) -> int:
+    """One past the highest N among the Emitter's Modes named "<base> N"."""
+    pattern = re.compile(rf"^{re.escape(base)} (\d+)$")
+    names = db.query(Mode.name).join(EwGroup, Mode.ew_group_id == EwGroup.id).filter(EwGroup.emitter_id == emitter_id)
+    numbers = [int(m.group(1)) for (name,) in names if (m := pattern.match(name))]
+    return max(numbers, default=0) + 1
+
+
 def plan(db: Session, emitter_id: UUID, parameter: str, values: dict, pri_type: PriType | None) -> list[dict]:
     """Every combination of the other two parameters among the Emitter's
     Modes, per EW Group: its Modes, and whether one of them has the value
@@ -176,6 +185,7 @@ def add(
     row_keys: list[str],
     name_suffix: str,
     extra_source_ids: list[UUID],
+    name_base: str | None = None,
     derived_from_test_record_id: UUID | None,
     actor_id,
     create_mode,
@@ -190,17 +200,22 @@ def add(
         raise ParameterError("The Modes changed since this was shown — open it again")
     picked = [rows[k] for k in row_keys]
     payloads, skipped, problems = [], [], []
+    # Numbered names carry on from the highest "<name> N" any of the Emitter's Modes has.
+    number = _next_number(db, emitter_id, name_base) if name_base else 1
     for row in picked:
         if row["has_value"]:
             skipped.append(f"{row['label']} ({row['ew_group_name']}): {', '.join(row['mode_names'])} has it already")
             continue
         template: Mode = row["template"]
         line = _new_line(parameter, _line_dict(template), values, pri_type)
-        taken = {m.name for m in template.ew_group.modes}
-        name = f"{template.name} {name_suffix}".strip()
-        n = 2
-        while name in taken:
-            name, n = f"{template.name} {name_suffix} ({n})", n + 1
+        if name_base:
+            name, number = f"{name_base} {number}", number + 1
+        else:
+            taken = {m.name for m in template.ew_group.modes}
+            name = f"{template.name} {name_suffix}".strip()
+            n = 2
+            while name in taken:
+                name, n = f"{template.name} {name_suffix} ({n})", n + 1
         source_ids = list(dict.fromkeys([*template.source_ids, *extra_source_ids]))
         try:
             payload = ModeCreate(
@@ -223,7 +238,10 @@ def add(
     for group, payload in payloads:
         if group.id not in batches:
             batch = ModeGenerationBatch(
-                ew_group_id=group.id, source_id=payload.all_source_ids()[0], name_prefix=name_suffix, created_by=actor_id
+                ew_group_id=group.id,
+                source_id=payload.all_source_ids()[0],
+                name_prefix=name_base or name_suffix,
+                created_by=actor_id,
             )
             db.add(batch)
             db.flush()

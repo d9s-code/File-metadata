@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { Modal } from "../common/Modal";
 import { ApiRequestError } from "../../api/client";
 import { modesApi, type ParameterValue, type ValueParameter } from "../../api/modes";
-import { useAddParameter } from "../../state/hooks/useModes";
+import { useAddParameter, useEmitterModes } from "../../state/hooks/useModes";
 import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 
@@ -100,9 +101,14 @@ export function AddValueToModesDialog({
     steps: (seed?.steps ?? []).join(", "),
   });
   const [suffix, setSuffix] = useState<string | null>(null);
+  // From a test, the new Modes get a name of their own with a running number
+  // by default, rather than the copied Mode's name with something added.
+  const [naming, setNaming] = useState<"numbered" | "suffix">(derivedFromTestRecordId ? "numbered" : "suffix");
+  const [base, setBase] = useState<string | null>(null);
+  const { data: emitterModes } = useEmitterModes(emitterId);
   const [unticked, setUnticked] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<string | null>(null);
+  const [done, setDone] = useState<{ names: string[]; skipped: number } | null>(null);
 
   const value = toValue(parameter, fields);
   // Asked for a moment after the typing stops.
@@ -121,6 +127,17 @@ export function AddValueToModesDialog({
   const rows = useMemo(() => plan.data?.rows ?? [], [plan.data]);
   const picked = rows.filter((r) => !r.has_value && !unticked.has(r.key));
   const name = suffix ?? suffixFor(parameter, fields);
+  const baseName = base ?? suffixFor(parameter, fields);
+  // The numbers carry on from the highest "<name> N" the Emitter has — as the server numbers them.
+  const firstNumber = useMemo(() => {
+    const trimmed = baseName.trim();
+    const numbers = (emitterModes ?? [])
+      .map((m) => (m.name.startsWith(`${trimmed} `) ? m.name.slice(trimmed.length + 1) : ""))
+      .filter((rest) => /^\d+$/.test(rest))
+      .map(Number);
+    return Math.max(0, ...numbers) + 1;
+  }, [emitterModes, baseName]);
+  const nameGiven = naming === "numbered" ? baseName.trim() !== "" : name.trim() !== "";
   const set = (k: keyof typeof fields) => (e: { target: { value: string } }) => setFields({ ...fields, [k]: e.target.value });
 
   async function submit(e: FormEvent) {
@@ -131,15 +148,11 @@ export function AddValueToModesDialog({
       const result = await add.mutateAsync({
         ...value,
         row_keys: picked.map((r) => r.key),
-        name_suffix: name,
+        ...(naming === "numbered" ? { name_base: baseName.trim() } : { name_suffix: name }),
         extra_source_ids: extraSourceIds,
         derived_from_test_record_id: derivedFromTestRecordId,
       });
-      setDone(
-        `Added ${result.created.length} Mode${result.created.length === 1 ? "" : "s"} (${result.created
-          .map((m) => m.name)
-          .join(", ")})${result.skipped.length ? ` — ${result.skipped.length} skipped, they had it already` : ""}. They're one generation batch on the Modes tab.`,
-      );
+      setDone({ names: result.created.map((m) => m.name), skipped: result.skipped.length });
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : "Couldn't add them.");
     }
@@ -150,7 +163,20 @@ export function AddValueToModesDialog({
     <Modal title="Add a value to the Modes" onClose={onClose} wide>
       {done ? (
         <div className="add-value">
-          <p>{done}</p>
+          <p>
+            Added {done.names.length} Mode{done.names.length === 1 ? "" : "s"}
+            {done.skipped ? ` — ${done.skipped} skipped, they had it already` : ""}. They&apos;re one generation batch
+            on the Modes tab.
+          </p>
+          <ul className="add-value-created">
+            {done.names.map((n) => (
+              <li key={n}>
+                <Link to={`/emitters/${emitterId}?tab=modes&mode=${encodeURIComponent(n)}`} onClick={onClose}>
+                  {n}
+                </Link>
+              </li>
+            ))}
+          </ul>
           <div className="modal-actions">
             <button type="button" className="button primary" onClick={onClose}>
               Done
@@ -276,10 +302,43 @@ export function AddValueToModesDialog({
             </>
           )}
 
-          <label className="add-value-name">
-            Each new Mode is named after the one it copies, plus
-            <input value={name} onChange={(e) => setSuffix(e.target.value)} />
-          </label>
+          <fieldset className="add-value-naming">
+            <legend>Name the new Modes</legend>
+            <label className="inline-label">
+              <input type="radio" checked={naming === "numbered"} onChange={() => setNaming("numbered")} />
+              <input
+                value={baseName}
+                onChange={(e) => {
+                  setBase(e.target.value);
+                  setNaming("numbered");
+                }}
+                aria-label="Name to number"
+              />
+              <span className="hint-text">
+                with a number
+                {baseName.trim() && picked.length > 0 && (
+                  <>
+                    {" "}
+                    — {baseName.trim()} {firstNumber}
+                    {picked.length > 1 && <>, {baseName.trim()} {firstNumber + 1}</>}
+                    {picked.length > 2 && " …"}
+                  </>
+                )}
+              </span>
+            </label>
+            <label className="inline-label">
+              <input type="radio" checked={naming === "suffix"} onChange={() => setNaming("suffix")} />
+              <span>After the Mode each one copies, plus</span>
+              <input
+                value={name}
+                onChange={(e) => {
+                  setSuffix(e.target.value);
+                  setNaming("suffix");
+                }}
+                aria-label="Suffix"
+              />
+            </label>
+          </fieldset>
           {error && (
             <p className="error-text" role="alert">
               {error}
@@ -293,7 +352,7 @@ export function AddValueToModesDialog({
             <button
               type="submit"
               className="button primary"
-              disabled={!canEdit || add.isPending || typeof value === "string" || picked.length === 0 || !name.trim()}
+              disabled={!canEdit || add.isPending || typeof value === "string" || picked.length === 0 || !nameGiven}
             >
               {add.isPending ? "Adding…" : `Add ${picked.length} Mode${picked.length === 1 ? "" : "s"}`}
             </button>

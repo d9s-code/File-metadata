@@ -5,10 +5,12 @@ import { DateInput } from "../common/DateInput";
 import { formatDate } from "../common/dates";
 import { ApiRequestError } from "../../api/client";
 import { elementsApi, type ModeElementInput } from "../../api/elements";
+import { parameterSequencesApi } from "../../api/parameterSequences";
 import type { ObservedValues, TestRecord } from "../../api/testRecords";
 import type { ElementType, ElementVariant } from "../../types/domain";
 import { elementOverviewKey, elementsKey } from "../../state/hooks/useElements";
 import { sourcesKey } from "../../state/hooks/useSources";
+import { parameterSequencesKey } from "../../state/hooks/useParameterSequences";
 import { nonEmptySets } from "./testFormat";
 
 const UNITS: Record<ElementType, string> = { rf: "MHz", pri: "µs", pw: "µs", scan: "s" };
@@ -49,6 +51,30 @@ function fromSet(v: ObservedValues): Omit<Candidate, "key" | "from">[] {
   return out;
 }
 
+/** A line logged with several intercepts, in order — kept as a sequence: a
+ * step per intercept with its RF, PRI (a Fixed one's mean) and PW. */
+interface SequenceCandidate {
+  name: string;
+  steps: { order: number; rf_mhz?: number; pri_us?: number; pw_us?: number }[];
+}
+
+function sequenceOf(name: string, sets: ObservedValues[]): SequenceCandidate | null {
+  const steps = sets
+    .map((v) => ({
+      rf_mhz: v.rf_mean_mhz ?? undefined,
+      pri_us: v.pri_type === "fixed" ? (v.pri_mean_us ?? undefined) : undefined,
+      pw_us: v.pw_mean_us ?? undefined,
+    }))
+    .filter((s) => s.rf_mhz != null || s.pri_us != null || s.pw_us != null)
+    .map((s, order) => ({ order, ...s }));
+  return steps.length >= 2 ? { name, steps } : null;
+}
+
+/** One Element's identity: the same values logged twice are one. */
+function keyOf(c: Omit<Candidate, "key" | "from">): string {
+  return `${c.type}|${c.min}|${c.max}|${c.stagger?.join(",") ?? ""}|${c.jitter?.join(",") ?? ""}`;
+}
+
 function describe(c: Candidate): string {
   if (c.stagger) return `stagger ${c.stagger.join(", ")} µs`;
   const value = c.min === c.max ? `${c.min}` : `${c.min}–${c.max}`;
@@ -63,27 +89,40 @@ export function ElementsFromTestModal({
   emitterId,
   record,
   sources,
+  only,
   onClose,
   onDone,
 }: {
   emitterId: string;
   record: TestRecord;
   sources: { id: string; name: string }[];
+  /** Opened from one logged intercept: only its values start ticked. */
+  only?: ObservedValues;
   onClose: () => void;
   onDone: (message: string) => void;
 }) {
   const qc = useQueryClient();
-  const candidates = useMemo(() => {
-    const owners = [
+  const owners = useMemo(
+    () => [
       ...record.lines.map((l) => ({ name: l.test_line_label, sets: l.observed_values })),
       ...record.modes.map((m) => ({ name: m.mode_name, sets: m.observed_values })),
       ...(record.signals ?? []).map((s, i) => ({ name: `Signal ${i + 1}`, sets: s.observed_values })),
-    ];
+    ],
+    [record],
+  );
+  const sequences = useMemo(
+    () =>
+      owners
+        .map((o) => sequenceOf(o.name, nonEmptySets(o.sets)))
+        .filter((s): s is SequenceCandidate => s != null),
+    [owners],
+  );
+  const candidates = useMemo(() => {
     const byKey = new Map<string, Candidate>();
     for (const owner of owners) {
       for (const set of nonEmptySets(owner.sets)) {
         for (const c of fromSet(set)) {
-          const key = `${c.type}|${c.min}|${c.max}|${c.stagger?.join(",") ?? ""}|${c.jitter?.join(",") ?? ""}`;
+          const key = keyOf(c);
           const known = byKey.get(key);
           if (known) {
             if (!known.from.includes(owner.name)) known.from.push(owner.name);
@@ -94,9 +133,15 @@ export function ElementsFromTestModal({
     return [...byKey.values()].sort(
       (a, b) => TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type) || (a.min ?? 0) - (b.min ?? 0),
     );
-  }, [record]);
+  }, [owners]);
 
-  const [picked, setPicked] = useState<Set<string>>(() => new Set(candidates.map((c) => c.key)));
+  const [picked, setPicked] = useState<Set<string>>(
+    () => new Set(only ? fromSet(only).map(keyOf) : candidates.map((c) => c.key)),
+  );
+  // Labelled with a name of their own and a running number, or after the lines they were logged on.
+  const [naming, setNaming] = useState<"numbered" | "lines">("numbered");
+  const [labelBase, setLabelBase] = useState(record.title);
+  const [pickedSequences, setPickedSequences] = useState<Set<string>>(new Set());
   const [variant, setVariant] = useState<ElementVariant>("intercept");
   const [deltas, setDeltas] = useState<Partial<Record<ElementType, string>>>({});
   const [target, setTarget] = useState<"new" | "existing">(sources.length ? "existing" : "new");
@@ -121,15 +166,20 @@ export function ElementsFromTestModal({
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    if (chosen.length === 0) return setError("Tick at least one value.");
+    const chosenSequences = sequences.filter((s) => pickedSequences.has(s.name));
+    if (chosen.length === 0 && chosenSequences.length === 0) return setError("Tick at least one value or sequence.");
+    if (naming === "numbered" && !labelBase.trim()) return setError("Give them a name to number.");
+    if (target === "new" && chosen.length === 0) return setError("A new Source needs at least one Element — or pick a Source.");
     if (target === "existing" && !sourceId) return setError("Pick a Source.");
     if (target === "new" && (!newName.trim() || !newDate)) return setError("Give the new Source a name and a date.");
     if (variant === "analysis" && !notes.trim()) return setError("The 'analysis' variant needs a note saying how it was derived.");
     const delta = (t: ElementType) => (deltas[t]?.trim() ? Number(deltas[t]) : undefined);
-    const elements: ModeElementInput[] = chosen.map((c) => ({
+    const label = (c: { from: string[] }, i: number) =>
+      naming === "numbered" ? `${labelBase.trim()} ${i + 1}`.slice(0, 120) : c.from.join(", ").slice(0, 120);
+    const elements: ModeElementInput[] = chosen.map((c, i) => ({
       element_type: c.type,
       variant,
-      label: c.from.join(", ").slice(0, 120),
+      label: label(c, i),
       details: notes.trim() || undefined,
       ...(c.stagger
         ? { stagger_values: c.stagger, delta: delta("pri") ?? 0 }
@@ -143,28 +193,41 @@ export function ElementsFromTestModal({
     }));
     setSaving(true);
     try {
-      const res = await elementsApi.batch(
-        emitterId,
-        target === "existing" ? [sourceId] : [],
-        elements,
-        target === "new"
-          ? { name: newName.trim(), source_date: newDate, description: `Values logged in the test run "${record.title}".` }
-          : undefined,
-      );
+      const res =
+        elements.length > 0
+          ? await elementsApi.batch(
+              emitterId,
+              target === "existing" ? [sourceId] : [],
+              elements,
+              target === "new"
+                ? { name: newName.trim(), source_date: newDate, description: `Values logged in the test run "${record.title}".` }
+                : undefined,
+            )
+          : { created: 0, new_source_id: null };
       const intoId = res.new_source_id ?? sourceId;
+      // Sequences go on the same Source, numbered on after the Elements.
+      for (const [i, s] of chosenSequences.entries()) {
+        await parameterSequencesApi.create(emitterId, intoId, {
+          label: naming === "numbered" ? `${labelBase.trim()} ${elements.length + i + 1}`.slice(0, 200) : s.name,
+          variant,
+          steps: s.steps,
+        });
+      }
+      if (chosenSequences.length) qc.invalidateQueries({ queryKey: parameterSequencesKey(emitterId, intoId) });
       qc.invalidateQueries({ queryKey: sourcesKey(emitterId) });
       qc.invalidateQueries({ queryKey: elementsKey(emitterId, intoId) });
       qc.invalidateQueries({ queryKey: elementOverviewKey(emitterId) });
       const into = target === "new" ? `the new Source "${newName.trim()}"` : `"${sources.find((s) => s.id === sourceId)?.name}"`;
-      onDone(`Added ${res.created} Element${res.created === 1 ? "" : "s"} to ${into}.`);
+      const seqs = chosenSequences.length ? ` and ${chosenSequences.length} sequence${chosenSequences.length === 1 ? "" : "s"}` : "";
+      onDone(`Added ${res.created} Element${res.created === 1 ? "" : "s"}${seqs} to ${into}.`);
     } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : "Couldn't add the Elements — nothing was added.");
+      setError(err instanceof ApiRequestError ? err.message : "Couldn't add them.");
       setSaving(false);
     }
   }
 
   return (
-    <Modal title="Elements from this test" onClose={onClose} wide>
+    <Modal title="Elements and sequences from this test" onClose={onClose} wide>
       <form className="batch-edit-form" onSubmit={handleSubmit}>
         {candidates.length === 0 ? (
           <p className="hint-text">This run has no logged RF, PRI or PW values to make Elements of.</p>
@@ -196,6 +259,59 @@ export function ElementsFromTestModal({
                 ))}
               </tbody>
             </table>
+            {sequences.length > 0 && (
+              <>
+                <p className="hint-text">
+                  Lines logged with several intercepts can also be kept as a sequence — a step per intercept, in the
+                  order logged (RF, a Fixed PRI&apos;s mean, PW).
+                </p>
+                <table className="data-table compact">
+                  <tbody>
+                    {sequences.map((s) => (
+                      <tr key={s.name}>
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={pickedSequences.has(s.name)}
+                            onChange={() => {
+                              const next = new Set(pickedSequences);
+                              if (next.has(s.name)) next.delete(s.name);
+                              else next.add(s.name);
+                              setPickedSequences(next);
+                            }}
+                            aria-label={`Sequence from ${s.name}`}
+                          />
+                        </td>
+                        <td>Sequence</td>
+                        <td>{s.steps.length} steps</td>
+                        <td className="hint-text">{s.name}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
+            <fieldset className="add-value-naming">
+              <legend>Name them</legend>
+              <label className="inline-label">
+                <input type="radio" checked={naming === "numbered"} onChange={() => setNaming("numbered")} />
+                <input
+                  value={labelBase}
+                  onChange={(e) => {
+                    setLabelBase(e.target.value);
+                    setNaming("numbered");
+                  }}
+                  aria-label="Name to number"
+                />
+                <span className="hint-text">
+                  with a number — {labelBase.trim() || "…"} 1, {labelBase.trim() || "…"} 2 …
+                </span>
+              </label>
+              <label className="inline-label">
+                <input type="radio" checked={naming === "lines"} onChange={() => setNaming("lines")} />
+                After the lines they were logged on
+              </label>
+            </fieldset>
             <div className="batch-edit-grid batch-edit-grid-4">
               <label>
                 Variant
@@ -264,8 +380,10 @@ export function ElementsFromTestModal({
             Cancel
           </button>
           {candidates.length > 0 && (
-            <button type="submit" disabled={saving || chosen.length === 0}>
-              {saving ? "Adding…" : `Add ${chosen.length} Element${chosen.length === 1 ? "" : "s"}`}
+            <button type="submit" disabled={saving || (chosen.length === 0 && pickedSequences.size === 0)}>
+              {saving
+                ? "Adding…"
+                : `Add ${chosen.length} Element${chosen.length === 1 ? "" : "s"}${pickedSequences.size ? ` and ${pickedSequences.size} sequence${pickedSequences.size === 1 ? "" : "s"}` : ""}`}
             </button>
           )}
         </div>

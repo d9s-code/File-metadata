@@ -321,6 +321,11 @@ class BatchModeFieldEdit(BaseModel):
     pw_delta: float | None = None
     pri_delta: float | None = None
     frame_time_delta_us: float | None = None
+    # A Fixed PRI's jitter range, set on the selected Fixed Modes (either bound
+    # alone keeps the other); Modes of other PRI types have none and are left
+    # as they are. One jitter across many Modes is common — unlike RF or PRI.
+    jitter_min_us: float | None = Field(default=None, ge=0)
+    jitter_max_us: float | None = Field(default=None, ge=0)
     # "Add/remove a fixed amount" — shifts the named bound by this signed
     # amount for every selected Mode (current_value + shift; negative to
     # subtract), independently of the other bound in the same parameter.
@@ -398,11 +403,21 @@ class ParameterAcrossModes(BaseModel):
 class ParameterAcrossModesCreate(ParameterAcrossModes):
     # The combinations picked (each row's key, from the plan).
     row_keys: list[str] = Field(min_length=1, max_length=2000)
-    name_suffix: str = Field(min_length=1, max_length=100)
+    # How the new Modes are named: each after the Mode it copies plus this…
+    name_suffix: str | None = Field(default=None, max_length=100)
+    # …or this name with a running number ("PRI 1500 1", "PRI 1500 2"),
+    # carrying on from the highest one the Emitter already has.
+    name_base: str | None = Field(default=None, max_length=100)
     # Sources to add to each new Mode's own (its template's) — e.g. an
     # Element's Source, the evidence for the value.
     extra_source_ids: list[UUID] = []
     derived_from_test_record_id: UUID | None = None
+
+    @model_validator(mode="after")
+    def one_naming(self) -> "ParameterAcrossModesCreate":
+        if not (self.name_base or "").strip() and not (self.name_suffix or "").strip():
+            raise ValueError("Give the new Modes a name: a name to number, or a suffix")
+        return self
 
 
 class ParameterPlanRow(BaseModel):

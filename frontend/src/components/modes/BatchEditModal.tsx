@@ -43,6 +43,8 @@ export function BatchEditModal({
   const [pwDelta, setPwDelta] = useState("");
   const [priDelta, setPriDelta] = useState("");
   const [frameTimeDelta, setFrameTimeDelta] = useState("");
+  const [jitterMin, setJitterMin] = useState("");
+  const [jitterMax, setJitterMax] = useState("");
   const [confirmationQuality, setConfirmationQuality] = useState("");
   const [confirmationQuantity, setConfirmationQuantity] = useState("");
 
@@ -89,6 +91,10 @@ export function BatchEditModal({
     if (priD !== undefined) fields.pri_delta = priD;
     const ftD = numOrUndefined(frameTimeDelta);
     if (ftD !== undefined) fields.frame_time_delta_us = ftD;
+    const jMin = numOrUndefined(jitterMin);
+    if (jMin !== undefined) fields.jitter_min_us = jMin;
+    const jMax = numOrUndefined(jitterMax);
+    if (jMax !== undefined) fields.jitter_max_us = jMax;
     const rfMinS = numOrUndefined(rfMinShift);
     if (rfMinS !== undefined) fields.rf_min_shift = rfMinS;
     const rfMaxS = numOrUndefined(rfMaxShift);
@@ -238,6 +244,21 @@ export function BatchEditModal({
             <label>
               PW (±µs)
               <input type="number" step="any" min="0" value={pwDelta} onChange={(e) => setPwDelta(e.target.value)} />
+            </label>
+          </div>
+        </div>
+
+        <div className="batch-edit-section">
+          <span className="batch-edit-section-label">Jitter (Fixed PRI)</span>
+          <p className="hint-text">Set on the selected Fixed Modes; Stagger, CW and X-let Modes have no jitter and are left as they are. One bound alone keeps the other.</p>
+          <div className="batch-edit-grid batch-edit-grid-4">
+            <label>
+              Jitter min (µs)
+              <input type="number" step="any" min="0" value={jitterMin} onChange={(e) => setJitterMin(e.target.value)} />
+            </label>
+            <label>
+              Jitter max (µs)
+              <input type="number" step="any" min="0" value={jitterMax} onChange={(e) => setJitterMax(e.target.value)} />
             </label>
           </div>
         </div>

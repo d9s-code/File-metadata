@@ -127,3 +127,26 @@ def test_needs_editing_and_a_valid_value(editor_client, viewer_client):
     assert bad.status_code == 422
     assert len(editor_client.get(f"/emitters/{eid}/modes").json()) == 5
     assert viewer_client.post(f"/emitters/{eid}/modes/add-parameter/plan", json=body).status_code == 403
+
+
+def test_new_modes_can_be_a_name_with_a_running_number(editor_client):
+    eid, group, source, modes = _setup(editor_client)
+    body = {"parameter": "pri", "pri_type": "fixed", "values": STRAY}
+    rows = editor_client.post(f"/emitters/{eid}/modes/add-parameter/plan", json=body).json()["rows"]
+    # A Mode already numbered under that name: the new ones carry on after it.
+    editor_client.post(
+        f"/ew-groups/{group['id']}/modes",
+        json={"source_id": source["id"], "name": "Test mode 4", "pri_type": "fixed", "line": {**LINE, "rf_min_mhz": 5000, "rf_max_mhz": 5100}},
+    )
+    picked = [r["key"] for r in rows if {"A1", "B1"} & set(r["mode_names"])]
+    resp = editor_client.post(
+        f"/emitters/{eid}/modes/add-parameter", json={**body, "row_keys": picked, "name_base": "Test mode"}
+    )
+    assert resp.status_code == 201, resp.text
+    assert sorted(m["name"] for m in resp.json()["created"]) == ["Test mode 5", "Test mode 6"]
+    batches = editor_client.get(f"/emitters/{eid}/generation-batches").json()
+    assert [b["name_prefix"] for b in batches] == ["Test mode"]
+
+    # Without either a name or a suffix there's nothing to call them.
+    resp = editor_client.post(f"/emitters/{eid}/modes/add-parameter", json={**body, "row_keys": picked})
+    assert resp.status_code == 422

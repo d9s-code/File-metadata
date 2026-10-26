@@ -281,3 +281,32 @@ def test_batch_edit_requires_fields(editor_client):
         json={"mode_ids": [ctx["fixed_mode"]["id"]]},
     )
     assert resp.status_code == 422
+
+
+def test_batch_edit_sets_jitter_on_the_fixed_modes_only(editor_client):
+    ctx = _setup_emitter(editor_client)
+    emitter_id = ctx["emitter"]["id"]
+    every = [ctx["fixed_mode"]["id"], ctx["stagger_mode"]["id"], ctx["cw_mode"]["id"]]
+    resp = editor_client.post(
+        f"/emitters/{emitter_id}/modes/batch-edit",
+        json={"mode_ids": every, "fields": {"jitter_min_us": 0, "jitter_max_us": 2}},
+    )
+    assert resp.status_code == 200, resp.text
+    modes = {m["id"]: m for m in editor_client.get(f"/emitters/{emitter_id}/modes").json()}
+    fixed = modes[ctx["fixed_mode"]["id"]]["line"]
+    assert (fixed["jitter_min_us"], fixed["jitter_max_us"]) == (0, 2)
+    # Stagger and CW have no jitter, and get none.
+    assert modes[ctx["stagger_mode"]["id"]]["line"]["jitter_min_us"] is None
+    assert modes[ctx["cw_mode"]["id"]]["line"]["jitter_max_us"] is None
+
+    # One bound alone keeps the other; a max below the min is refused.
+    resp = editor_client.post(
+        f"/emitters/{emitter_id}/modes/batch-edit", json={"mode_ids": every, "fields": {"jitter_max_us": 4}}
+    )
+    assert resp.status_code == 200, resp.text
+    fixed = {m["id"]: m for m in editor_client.get(f"/emitters/{emitter_id}/modes").json()}[ctx["fixed_mode"]["id"]]["line"]
+    assert (fixed["jitter_min_us"], fixed["jitter_max_us"]) == (0, 4)
+    resp = editor_client.post(
+        f"/emitters/{emitter_id}/modes/batch-edit", json={"mode_ids": every, "fields": {"jitter_min_us": 9}}
+    )
+    assert resp.status_code == 422

@@ -49,6 +49,9 @@ export interface BatchModeFieldEdit {
   pw_delta?: number;
   pri_delta?: number;
   frame_time_delta_us?: number;
+  /** A Fixed PRI's jitter (µs) — set on the selected Fixed Modes only. */
+  jitter_min_us?: number;
+  jitter_max_us?: number;
   rf_min_shift?: number;
   rf_max_shift?: number;
   pw_min_shift?: number;
@@ -140,7 +143,10 @@ export const modesApi = {
     emitterId: string,
     input: ParameterValue & {
       row_keys: string[];
-      name_suffix: string;
+      /** Each new Mode after the one it copies, plus this… */
+      name_suffix?: string;
+      /** …or this name with a running number ("PRI 1500 1", "PRI 1500 2"). */
+      name_base?: string;
       extra_source_ids?: string[];
       derived_from_test_record_id?: string;
     },

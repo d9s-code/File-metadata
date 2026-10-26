@@ -13,7 +13,7 @@ from fastapi import HTTPException, status
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from app.core.enums import AuditAction, AuditEntityType, TestRecordModeLinkType
+from app.core.enums import AuditAction, AuditEntityType, PriType, TestRecordModeLinkType
 from app.dsl.exceptions import DslSyntaxError
 from app.dsl.renderer import render_mode_line
 from app.models.ew_group import EwGroup
@@ -73,6 +73,8 @@ _SHIFT_TARGET_FIELDS = {
     "pri_min_shift": "pri_min_us",
     "pri_max_shift": "pri_max_us",
 }
+# Set on Fixed Modes only — no other PRI type has a jitter.
+_JITTER_KEYS = {"jitter_min_us", "jitter_max_us"}
 
 
 @dataclass
@@ -150,6 +152,8 @@ def plan_batch_edit(
             values = _current_line_values(mode)
             for key, value in field_data.items():
                 if key in _LINE_FIELD_KEYS:
+                    values[key] = value
+                elif key in _JITTER_KEYS and value is not None and mode.pri_type == PriType.fixed:
                     values[key] = value
                 elif key in _SHIFT_TARGET_FIELDS and value is not None:
                     target = _SHIFT_TARGET_FIELDS[key]
