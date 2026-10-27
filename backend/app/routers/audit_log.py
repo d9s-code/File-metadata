@@ -106,15 +106,19 @@ def search_audit_entities(
 
 
 @router.get("/entity-types", response_model=list[AuditGroupCount])
-def list_entity_type_counts(db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))) -> list[AuditGroupCount]:
+def list_entity_type_counts(
+    emitter_id: UUID | None = None, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
+) -> list[AuditGroupCount]:
     """Every entity type that has at least one entry, with its count — the
     top-level "group" list the UI navigates by. Seeded from the full
     AuditEntityType enum (zero-count groups included) so the group list
-    doesn't shift as the log fills in.
+    doesn't shift as the log fills in. `emitter_id` counts only what's under
+    that Emitter (an Emitter's Audit tab filtering by kind).
     """
-    counts = dict(
-        db.query(AuditLog.entity_type, func.count()).group_by(AuditLog.entity_type).all()
-    )
+    query = db.query(AuditLog.entity_type, func.count())
+    if emitter_id:
+        query = query.filter(AuditLog.emitter_id == emitter_id)
+    counts = dict(query.group_by(AuditLog.entity_type).all())
     return [
         AuditGroupCount(entity_type=t.value, count=counts.get(t.value, 0))
         for t in AuditEntityType

@@ -12,10 +12,12 @@ export function useAuditLog(filters: AuditLogFilters) {
   });
 }
 
-export function useAuditEntityTypeCounts() {
+/** Entries per kind — everywhere, or only under one Emitter. */
+export function useAuditEntityTypeCounts(emitterId?: string, enabled = true) {
   return useQuery({
-    queryKey: ["auditLog", "entity-types"] as const,
-    queryFn: () => auditLogApi.entityTypeCounts(),
+    queryKey: ["auditLog", "entity-types", emitterId] as const,
+    queryFn: () => auditLogApi.entityTypeCounts(emitterId),
+    enabled,
   });
 }
 

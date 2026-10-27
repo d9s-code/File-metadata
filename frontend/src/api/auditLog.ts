@@ -34,7 +34,8 @@ function toQueryString(filters: AuditLogFilters): string {
 
 export const auditLogApi = {
   list: (filters: AuditLogFilters = {}) => api.get<AuditLogPage>(`/audit-log${toQueryString(filters)}`),
-  entityTypeCounts: () => api.get<AuditGroupCount[]>("/audit-log/entity-types"),
+  entityTypeCounts: (emitterId?: string) =>
+    api.get<AuditGroupCount[]>(`/audit-log/entity-types${emitterId ? `?emitter_id=${emitterId}` : ""}`),
   actionCounts: (entityType?: string, entityId?: string, emitterId?: string) => {
     const params = new URLSearchParams();
     if (entityType) params.set("entity_type", entityType);

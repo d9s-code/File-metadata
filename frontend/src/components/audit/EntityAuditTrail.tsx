@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { AuditAction } from "../../types/domain";
-import { useAuditActionCounts, useAuditLog } from "../../state/hooks/useAuditLog";
-import { actionLabel } from "./auditFormat";
+import { useAuditActionCounts, useAuditEntityTypeCounts, useAuditLog } from "../../state/hooks/useAuditLog";
+import { actionLabel, entityTypeLabel } from "./auditFormat";
 import { AuditLogList } from "./AuditLogList";
 
 const PAGE_SIZE = 25;
@@ -20,15 +20,18 @@ export function EntityAuditTrail({
   emitterId?: string;
 }) {
   const [action, setAction] = useState<AuditAction | "">("");
+  // Within an Emitter's trail: only one kind of thing (its Modes, say).
+  const [kind, setKind] = useState("");
   const [offset, setOffset] = useState(0);
   const rollup = !!emitterId;
+  const { data: kindCounts } = useAuditEntityTypeCounts(emitterId, rollup);
   const { data: actionCounts } = useAuditActionCounts(
     rollup ? undefined : entityType,
     rollup ? undefined : entityId,
     emitterId,
   );
   const { data, isLoading } = useAuditLog({
-    entity_type: rollup ? undefined : entityType,
+    entity_type: rollup ? kind || undefined : entityType,
     entity_id: rollup ? undefined : entityId,
     emitter_id: emitterId,
     action: action || undefined,
@@ -53,7 +56,26 @@ export function EntityAuditTrail({
         </p>
       )}
       <div className="modes-toolbar-row">
-        <select value={action} onChange={(e) => handleActionChange(e.target.value)}>
+        {rollup && (
+          <select
+            aria-label="What changed"
+            value={kind}
+            onChange={(e) => {
+              setKind(e.target.value);
+              setOffset(0);
+            }}
+          >
+            <option value="">Everything</option>
+            {(kindCounts ?? [])
+              .filter((k) => k.count > 0)
+              .map((k) => (
+                <option key={k.entity_type} value={k.entity_type}>
+                  {entityTypeLabel(k.entity_type)} ({k.count})
+                </option>
+              ))}
+          </select>
+        )}
+        <select aria-label="Action" value={action} onChange={(e) => handleActionChange(e.target.value)}>
           <option value="">All actions</option>
           {(actionCounts ?? [])
             .filter((a) => a.count > 0)
@@ -68,7 +90,7 @@ export function EntityAuditTrail({
         <p className="page-loading">Loading…</p>
       ) : (
         <>
-          <AuditLogList entries={data?.items ?? []} showEntityType={rollup} />
+          <AuditLogList entries={data?.items ?? []} showEntityType={rollup && !kind} />
           {total > shown && (
             <button className="icon-button" onClick={() => setOffset(offset + PAGE_SIZE)}>
               Load more ({shown} of {total})

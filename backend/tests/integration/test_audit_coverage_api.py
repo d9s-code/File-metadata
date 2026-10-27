@@ -65,3 +65,16 @@ def test_settings_changes_read_as_words(admin_client):
     assert "Changed the dwell charts' default bandwidth: 10 → 20 MHz" in summaries
     assert "Changed the AI chat's max context: 32,768 → 65,536 tokens" in summaries
     assert "Changed what lives where in the AI documentation (1 page set)" in summaries
+
+
+def test_an_emitters_trail_counts_and_filters_by_kind(editor_client):
+    emitter = editor_client.post("/emitters", json={"name": "Kinds Emitter"}).json()
+    editor_client.post(f"/emitters/{emitter['id']}/ew-groups", json={"name": "G"})
+    counts = {
+        k["entity_type"]: k["count"]
+        for k in editor_client.get("/audit-log/entity-types", params={"emitter_id": emitter["id"]}).json()
+        if k["count"]
+    }
+    assert counts == {"emitter": 1, "ew_group": 1}
+    only_groups = _summaries(editor_client, emitter_id=emitter["id"], entity_type="ew_group")
+    assert only_groups == ["Created EW Group 'G'"]
