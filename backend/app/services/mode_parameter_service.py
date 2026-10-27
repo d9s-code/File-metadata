@@ -193,7 +193,7 @@ def add(
     """The new Modes, one per picked combination (all or none: one that
     doesn't validate refuses the lot), and the combinations skipped as
     already having the value. `create_mode(db, ew_group, payload, actor_id,
-    batch_id)` makes each."""
+    batch_id, note)` makes each."""
     rows = {r["key"]: r for r in plan(db, emitter_id, parameter, values, pri_type)}
     unknown = [k for k in row_keys if k not in rows]
     if unknown:
@@ -230,12 +230,14 @@ def add(
         except ValidationError as err:
             problems.append(f"{name}: {err.errors()[0]['msg']}")
             continue
-        payloads.append((template.ew_group, payload))
+        payloads.append((template.ew_group, payload, template.name))
     if problems:
         raise ParameterError("; ".join(problems))
 
+    # Each one's Audit Log entry says which Mode it copies and what it adds.
+    added = value_text(parameter, pri_type, values)
     created, batches = [], {}
-    for group, payload in payloads:
+    for group, payload, copied in payloads:
         if group.id not in batches:
             batch = ModeGenerationBatch(
                 ew_group_id=group.id,
@@ -246,5 +248,5 @@ def add(
             db.add(batch)
             db.flush()
             batches[group.id] = batch
-        created.append(create_mode(db, group, payload, actor_id, batches[group.id].id))
+        created.append(create_mode(db, group, payload, actor_id, batches[group.id].id, f"{copied} with {added} added"))
     return created, skipped

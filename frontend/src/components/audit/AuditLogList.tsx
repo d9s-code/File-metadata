@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { formatDateTime } from "../common/dates";
 import type { AuditLogEntry } from "../../types/domain";
-import { actionLabel, auditSummary, entityTypeSingular, formatChanges } from "./auditFormat";
+import { actionLabel, auditSummary, changeDigest, entityTypeSingular, formatChanges, versionMarker } from "./auditFormat";
 import { SortableColumnHeader } from "../common/SortableColumnHeader";
 import { useSortableTable } from "../common/useSortableTable";
 import { compareStrings } from "../common/sortUtils";
@@ -55,10 +55,13 @@ function ChangesToggle({ changes, entityType }: { changes: Record<string, unknow
 export function AuditLogList({
   entries,
   showEntityType = true,
+  versionDividers = false,
 }: {
   entries: AuditLogEntry[];
   /** Hide the Entity column when the list is already scoped to one entity type (e.g. a per-entity tab). */
   showEntityType?: boolean;
+  /** Show the Emitter's version saves, reverts and discards as dividers, not rows. */
+  versionDividers?: boolean;
 }) {
   const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(entries, compareEntries, "auditLog");
 
@@ -96,7 +99,18 @@ export function AuditLogList({
         </tr>
       </thead>
       <tbody>
-        {sorted.map((e) => (
+        {sorted.map((e) => {
+          const marker = versionDividers ? versionMarker(e) : null;
+          if (marker)
+            return (
+              <tr key={e.id} className={`audit-version-row audit-version-${e.action}`}>
+                <td>{formatDateTime(e.created_at)}</td>
+                <td>{e.actor_username ?? <span className="hint-text">system</span>}</td>
+                <td colSpan={showEntityType ? 4 : 3}>{marker}</td>
+              </tr>
+            );
+          const digest = e.action === "update" ? changeDigest(e.changes) : null;
+          return (
           <tr key={e.id}>
             <td>{formatDateTime(e.created_at)}</td>
             <td>{e.actor_username ?? <span className="hint-text">system</span>}</td>
@@ -104,12 +118,16 @@ export function AuditLogList({
               <span className={`audit-action-badge audit-action-${e.action}`}>{actionLabel(e.action)}</span>
             </td>
             {showEntityType && <td>{entityTypeSingular(e.entity_type)}</td>}
-            <td>{auditSummary(e.summary)}</td>
+            <td>
+              {auditSummary(e.summary)}
+              {digest && <div className="audit-digest">{digest}</div>}
+            </td>
             <td>
               <ChangesToggle changes={e.changes} entityType={e.entity_type} />
             </td>
           </tr>
-        ))}
+          );
+        })}
       </tbody>
       </table>
     </>

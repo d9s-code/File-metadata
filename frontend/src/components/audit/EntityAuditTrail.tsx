@@ -35,6 +35,8 @@ export function EntityAuditTrail({
     entity_id: rollup ? undefined : entityId,
     emitter_id: emitterId,
     action: action || undefined,
+    // Narrowed to one kind, its changes still show which version they went into.
+    with_versions: rollup && !!kind ? true : undefined,
     limit: PAGE_SIZE,
     offset,
   });
@@ -90,7 +92,7 @@ export function EntityAuditTrail({
         <p className="page-loading">Loading…</p>
       ) : (
         <>
-          <AuditLogList entries={data?.items ?? []} showEntityType={rollup && !kind} />
+          <AuditLogList entries={data?.items ?? []} showEntityType={rollup && !kind} versionDividers={rollup && !!kind} />
           {total > shown && (
             <button className="icon-button" onClick={() => setOffset(offset + PAGE_SIZE)}>
               Load more ({shown} of {total})

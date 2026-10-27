@@ -16,6 +16,8 @@ export interface AuditLogFilters {
    * regardless of entity_type — combine with entity_type/action to narrow
    * within the rollup rather than passing entity_type/entity_id instead. */
   emitter_id?: string;
+  /** With entity_type/action: keep the Emitter's version saves, reverts and discards too. */
+  with_versions?: boolean;
   q?: string;
   since?: string;
   until?: string;

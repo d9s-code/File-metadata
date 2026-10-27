@@ -2,7 +2,7 @@ from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func
+from sqlalchemy import and_, case, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.enums import AuditAction, AuditEntityType, Role
@@ -36,6 +36,13 @@ _SEARCHABLE_ENTITIES = [
 ]
 
 
+# An Emitter's version saves, reverts and discards: where its changes landed.
+_VERSION_MARKER = and_(
+    AuditLog.entity_type == AuditEntityType.emitter.value,
+    AuditLog.action.in_([AuditAction.commit, AuditAction.revert, AuditAction.discard]),
+)
+
+
 @router.get("", response_model=AuditLogPage)
 def list_audit_log(
     entity_type: str | None = None,
@@ -46,6 +53,7 @@ def list_audit_log(
     q: str | None = None,
     since: datetime | None = None,
     until: datetime | None = None,
+    with_versions: bool = False,
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
@@ -57,13 +65,21 @@ def list_audit_log(
     entry that belongs anywhere under that Emitter (its own entries plus its
     EW Groups/Sources/Modes/elements/generation batches/imports/test
     records) — combine it with `entity_type`/`action` to narrow within that
-    rollup rather than to one exact entity.
+    rollup rather than to one exact entity. `with_versions` keeps the
+    Emitter's saved versions, reverts and discards in a trail narrowed that
+    way, to show where each change landed.
     """
     query = db.query(AuditLog).options(joinedload(AuditLog.actor))
+    narrowed = []
     if entity_type:
-        query = query.filter(AuditLog.entity_type == entity_type)
+        narrowed.append(AuditLog.entity_type == entity_type)
     if action:
-        query = query.filter(AuditLog.action == action)
+        narrowed.append(AuditLog.action == action)
+    if narrowed:
+        kept = and_(*narrowed)
+        if with_versions:
+            kept = or_(kept, _VERSION_MARKER)
+        query = query.filter(kept)
     if entity_id:
         query = query.filter(AuditLog.entity_id == entity_id)
     if actor_id:
@@ -78,7 +94,10 @@ def list_audit_log(
         query = query.filter(AuditLog.created_at <= until)
 
     total = query.count()
-    items = query.order_by(AuditLog.created_at.desc()).offset(offset).limit(limit).all()
+    # A revert's own entry comes before (newest-first: above) the changes
+    # it made, logged in the same moment.
+    marker_first = case((_VERSION_MARKER, 0), else_=1)
+    items = query.order_by(AuditLog.created_at.desc(), marker_first).offset(offset).limit(limit).all()
     return AuditLogPage(items=items, total=total)
 
 

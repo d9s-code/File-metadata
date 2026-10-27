@@ -7249,3 +7249,21 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
   flex-wrap: wrap;
   gap: 0.4rem;
 }
+
+/* An update's changes in one line, under its summary. */
+.audit-digest {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: 0.15rem;
+}
+/* An Emitter's version saves, reverts and discards in a trail narrowed to one kind. */
+.audit-version-row td {
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  border-top: 2px solid color-mix(in srgb, var(--primary) 45%, transparent);
+  font-weight: 600;
+}
+.audit-version-revert td,
+.audit-version-discard td {
+  background: var(--badge-amber-bg);
+  border-top-color: var(--badge-amber-fg);
+}

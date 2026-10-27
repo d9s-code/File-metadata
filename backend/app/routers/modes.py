@@ -107,7 +107,7 @@ def create_mode(
 
 
 def create_mode_record(
-    db: Session, ew_group: EwGroup, payload: ModeCreate, actor_id, generation_batch_id=None
+    db: Session, ew_group: EwGroup, payload: ModeCreate, actor_id, generation_batch_id=None, note: str | None = None
 ) -> Mode:
     """A new Mode in the EW Group from a validated payload — its line, its
     Sources, the test records and Intercept entries it's derived from, and
@@ -143,6 +143,8 @@ def create_mode_record(
         db, mode_id=mode.id, intercept_entry_ids=payload.derived_from_intercept_entry_ids
     )
     summary = f"Created Mode '{mode.name}'"
+    if note:
+        summary += f" — {note}"
     if payload.derived_from_test_record_ids:
         summary += f" (test-derived, {len(payload.derived_from_test_record_ids)} test record(s))"
     record_audit(

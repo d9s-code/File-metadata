@@ -160,3 +160,75 @@ const VALUE_LABELS: Record<string, Record<string, Record<string, string>>> = {
 export function auditSummary(summary: string): string {
   return summary.replace(/^Checked in Emitter /, "Stopped editing Emitter ");
 }
+
+const UNITS: [suffix: string, unit: string][] = [
+  ["_mhz", " MHz"],
+  ["_us", " µs"],
+];
+const PLAIN_NAMES: Record<string, string> = { ew_group: "EW Group", source_ids: "Sources", sources: "Sources" };
+
+/** "jitter_max_us" → ["Jitter max", " µs"]: a field's name as a phrase, and its unit. */
+function phraseAndUnit(field: string): [string, string] {
+  const [suffix, unit] = UNITS.find(([s]) => field.endsWith(s)) ?? ["", ""];
+  const base = suffix ? field.slice(0, -suffix.length) : field;
+  const phrase =
+    PLAIN_NAMES[base] ??
+    base
+      .split("_")
+      .map((w, i) => WORD_LABELS[w.toLowerCase()] ?? (i === 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w))
+      .join(" ");
+  return [phrase, unit];
+}
+
+/** An update's changes in one line — "RF 9400–9500 → 9380–9520 MHz, jitter
+ * max 1 → 3 µs" — so the trail reads without opening Details. A min and max
+ * that both changed read as one range. Null for anything but old → new
+ * changes (a creation's values are in Details). */
+export function changeDigest(changes: Record<string, unknown> | null, most = 4): string | null {
+  if (!changes) return null;
+  const entries = Object.entries(changes).filter(([, v]) => isOldNewShape(v)) as [string, { old: unknown; new: unknown }][];
+  if (entries.length === 0 || entries.length !== Object.keys(changes).length) return null;
+  const byField = new Map(entries);
+  const done = new Set<string>();
+  const parts: string[] = [];
+  const value = (v: unknown) => formatChangeValue(v);
+  for (const [field, change] of entries) {
+    if (done.has(field)) continue;
+    done.add(field);
+    const pair = field.match(/^(.*)_(min|max)(_mhz|_us)?$/);
+    const otherField = pair ? `${pair[1]}_${pair[2] === "min" ? "max" : "min"}${pair[3] ?? ""}` : null;
+    const other = otherField ? byField.get(otherField) : undefined;
+    if (pair && other && otherField) {
+      done.add(otherField);
+      const [min, max] = pair[2] === "min" ? [change, other] : [other, change];
+      const [phrase, unit] = phraseAndUnit(`${pair[1]}${pair[3] ?? ""}`);
+      parts.push(`${phrase} ${value(min.old)}–${value(max.old)} → ${value(min.new)}–${value(max.new)}${unit}`);
+    } else if (field === "notes" || field === "description") {
+      parts.push(`${phraseAndUnit(field)[0]} changed`);
+    } else {
+      const [phrase, unit] = phraseAndUnit(field);
+      parts.push(`${phrase} ${value(change.old)} → ${value(change.new)}${unit}`);
+    }
+  }
+  const shown = parts.slice(0, most).map((p, i) => (i === 0 ? p : lowerFirst(p)));
+  return shown.join(", ") + (parts.length > most ? ` and ${parts.length - most} more` : "");
+}
+
+/** "Jitter max …" → "jitter max …" after a comma; "RF …", "PRI …" stay. */
+function lowerFirst(text: string): string {
+  const first = text.split(" ")[0];
+  return Object.values(WORD_LABELS).includes(first) || first === "EW" ? text : text.charAt(0).toLowerCase() + text.slice(1);
+}
+
+/** An Emitter's version save, revert or discard: where its changes landed. */
+export function versionMarker(entry: { entity_type: string; action: string; summary: string; changes: Record<string, unknown> | null }): string | null {
+  if (entry.entity_type !== "emitter" || !["commit", "revert", "discard"].includes(entry.action)) return null;
+  const n = entry.changes?.version_number;
+  const note = entry.summary.includes(" — ") ? entry.summary.split(" — ").slice(1).join(" — ") : "";
+  if (entry.action === "commit") return typeof n === "number" ? `Saved v${n}${note ? ` — ${note}` : ""}` : entry.summary;
+  if (entry.action === "revert") {
+    const to = entry.changes?.reverted_to;
+    return typeof n === "number" && typeof to === "number" ? `Reverted to v${to} (saved as v${n})` : entry.summary;
+  }
+  return typeof n === "number" ? `Discarded unsaved changes — back to v${n}` : entry.summary;
+}

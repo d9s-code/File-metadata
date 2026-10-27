@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
@@ -68,6 +69,7 @@ from app.services import checkout_service
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.emitter_diff_service import compute_emitter_diff
 from app.services.emitter_revert_service import build_forked_emitter, reconcile_emitter_to_snapshot
+from app.services.reconcile_audit import record_reconcile
 from app.services.emitter_summary_service import attach_emitter_summaries
 from app.services import mode_parameter_service
 from app.services.mode_batch_service import apply_batch_edit, plan_batch_edit
@@ -434,7 +436,16 @@ def discard_emitter_changes(
     if not versions:
         raise HTTPException(status.HTTP_409_CONFLICT, "This Emitter has no committed version to discard back to")
     latest = versions[-1]
+    before = build_emitter_snapshot(emitter)
     reconcile_emitter_to_snapshot(db, emitter, latest.snapshot)
+    record_reconcile(
+        db,
+        actor_id=user.id,
+        emitter_id=emitter.id,
+        before=before,
+        after=build_emitter_snapshot(emitter),
+        why=f"discarding unsaved changes (back to version {latest.version_number})",
+    )
     checkout_service.release_checkout(emitter)
     record_audit(
         db,
@@ -443,6 +454,7 @@ def discard_emitter_changes(
         entity_type=AuditEntityType.emitter.value,
         entity_id=emitter.id,
         summary=f"Discarded uncommitted changes on Emitter '{emitter.name}' (back to version {latest.version_number})",
+        changes={"version_number": latest.version_number},
         emitter_id=emitter.id,
     )
     db.commit()
@@ -841,6 +853,12 @@ def delete_generation_batch(
     db.commit()
 
 
+def _next_version_number(db: Session, emitter_id: UUID) -> int:
+    """The number the version about to be saved gets (for its Audit Log entry)."""
+    latest = db.query(func.max(EmitterVersion.version_number)).filter(EmitterVersion.emitter_id == emitter_id).scalar()
+    return (latest or 0) + 1
+
+
 @router.post(
     "/{emitter_id}/versions",
     response_model=EmitterVersionOut,
@@ -863,6 +881,7 @@ def commit_emitter_version(
         entity_id=emitter.id,
         summary=f"Committed a version of Emitter '{emitter.name}'"
         + (f" — {payload.change_summary}" if payload.change_summary else ""),
+        changes={"version_number": _next_version_number(db, emitter.id)},
         emitter_id=emitter.id,
     )
     return commit_version(
@@ -1014,7 +1033,12 @@ def revert_emitter_version(
     except checkout_service.AlreadyCheckedOutBySomeoneElse as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, f"Checked out by another user (since {emitter.checked_out_at})") from exc
 
+    before = build_emitter_snapshot(emitter)
     reconcile_emitter_to_snapshot(db, emitter, target.snapshot)
+    snapshot = build_emitter_snapshot(emitter)
+    record_reconcile(
+        db, actor_id=user.id, emitter_id=emitter.id, before=before, after=snapshot, why=f"reverting to version {version_number}"
+    )
     change_summary = f"Reverted to version {version_number}"
     record_audit(
         db,
@@ -1023,9 +1047,9 @@ def revert_emitter_version(
         entity_type=AuditEntityType.emitter.value,
         entity_id=emitter.id,
         summary=f"Emitter '{emitter.name}': {change_summary}",
+        changes={"version_number": _next_version_number(db, emitter.id), "reverted_to": version_number},
         emitter_id=emitter.id,
     )
-    snapshot = build_emitter_snapshot(emitter)
     return commit_version(
         db, spec=_VERSION_SPEC, entity_id=emitter.id, snapshot=snapshot, change_summary=change_summary, created_by=user.id
     )

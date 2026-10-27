@@ -615,6 +615,16 @@ export function HelpPage() {
               batches, imports, and test records), including entries for Modes since deleted. An Entity
               column identifies which kind of thing each row is about.
             </p>
+            <p>
+              <strong>What changed</strong> narrows it to one kind — its Modes, say, with how many entries each kind has.
+              Narrowed, the Emitter&apos;s version saves stay in as dividers (&ldquo;Saved v2 — range day 3
+              findings&rdquo;), and reverts and discards as amber ones, so each change sits under the version it went
+              into. Under each change, one line says what changed (&ldquo;RF 9400–9500 → 9380–9520 MHz, jitter max 1 →
+              3 µs&rdquo;); <strong>Details</strong> has every field. A revert or a discard logs each Mode, EW Group,
+              Source and SIM Test Line it brought back, removed or changed back (&ldquo;Brought back Mode
+              &lsquo;Search 2&rsquo; — reverting to version 2&rdquo;), and per Source how many Elements and sequences.
+              A Mode made by adding a value says which Mode it copies and what it adds.
+            </p>
           </div>
 
           <div className="help-subsection" id="emitter-sources">
