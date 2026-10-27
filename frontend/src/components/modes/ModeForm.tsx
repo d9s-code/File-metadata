@@ -386,7 +386,7 @@ export function ModeForm({
             className="button secondary"
             disabled={createMode.isPending}
             onClick={() => void submit(true)}
-            title="Add this one and start the next: same EW Group, Source, PRI type and margins"
+            title="Add this one and start the next: same EW Group, Source, PRI type and deltas"
           >
             Add &amp; next
           </button>

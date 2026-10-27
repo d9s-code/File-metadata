@@ -93,7 +93,7 @@ export function EwGroupForm({ emitterId, initialData, prefill, onClose }: EwGrou
         <input placeholder="Scan max" type="number" step="any" value={scanMax} onChange={(e) => setScanMax(e.target.value)} />
       </label>
       <label className="inline-field">
-        Scan ± margin
+        Scan ± delta
         <input
           placeholder="Scan delta (±, optional)"
           type="number"
@@ -101,7 +101,7 @@ export function EwGroupForm({ emitterId, initialData, prefill, onClose }: EwGrou
           min="0"
           value={scanDelta}
           onChange={(e) => setScanDelta(e.target.value)}
-          title="Symmetric tolerance margin applied to the raw scan range to derive the engineered scan window"
+          title="Symmetric tolerance delta applied to the raw scan range to derive the engineered scan window"
         />
       </label>
       <label className="inline-field">

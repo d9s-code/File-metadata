@@ -24,7 +24,7 @@ def test_the_defaults_out_of_the_box_and_only_an_admin_changes_them(admin_client
     assert resp.json()["mode_defaults"]["frame_time_delta_us"] == 5
     log = admin_client.get("/audit-log", params={"limit": 20}).json()
     summaries = [e["summary"] for e in (log["items"] if isinstance(log, dict) else log)]
-    assert "Changed the Mode defaults: confirmation quality 100% → 80%, frame-time margin 3 µs → 5 µs" in summaries
+    assert "Changed the Mode defaults: confirmation quality 100% → 80%, frame-time delta 3 µs → 5 µs" in summaries
 
 
 def test_new_modes_get_the_defaults_where_not_given(admin_client, editor_client):

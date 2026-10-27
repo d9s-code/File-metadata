@@ -180,7 +180,7 @@ export function EmitterComparePage() {
     <div className="page">
       <PageHeader
         title="Compare Emitters"
-        info="Two Emitters side by side, each as of a saved version: what they cover, their Modes, and every pair of Modes — one from each — that the ambiguity check would flag (with its usual thresholds and margins)."
+        info="Two Emitters side by side, each as of a saved version: what they cover, their Modes, and every pair of Modes — one from each — that the ambiguity check would flag (with its usual thresholds and deltas)."
       />
       <div className="card compare-pickers">
         <Picker side="A" emitters={live} emitterId={a} version={av} onChange={(id, v) => set({ a: id, av: v })} />
@@ -287,7 +287,7 @@ export function EmitterComparePage() {
                 </tbody>
               </table>
               <p className="hint-text">
-                Overlap is the share of the narrower range the other covers, with margins; the bold one set the severity.
+                Overlap is the share of the narrower range the other covers, with deltas; the bold one set the severity.
                 Two Fixed Modes are compared on jitter too; two Staggers on their frame time when both are range-matched,
                 else on their identical steps; CW and X-let have no PRI (—).
               </p>

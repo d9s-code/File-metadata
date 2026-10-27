@@ -220,7 +220,7 @@ export function AddValueToModesDialog({
                   <input value={fields.steps} onChange={set("steps")} placeholder="700, 750, 1200" />
                 </label>
                 <label>
-                  Frame time ± ({unit})
+                  Frame time ± delta ({unit})
                   <input value={fields.margin} onChange={set("margin")} inputMode="decimal" />
                 </label>
               </>
@@ -247,7 +247,7 @@ export function AddValueToModesDialog({
                   </>
                 )}
                 <label>
-                  Margin ± ({unit})
+                  Delta ± ({unit})
                   <input value={fields.margin} onChange={set("margin")} inputMode="decimal" />
                 </label>
               </>

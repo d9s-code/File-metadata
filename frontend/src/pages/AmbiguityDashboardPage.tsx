@@ -256,7 +256,7 @@ export function AmbiguityDashboardPage() {
                     title={`Thresholds ${run.tolerance_config.low_threshold} / ${run.tolerance_config.high_threshold} / ${run.tolerance_config.exact_threshold}%`}
                   >
                     {" "}
-                    · {marginsApplied(run) ? "with margins" : "ranges as typed"}
+                    · {marginsApplied(run) ? "with deltas" : "ranges as typed"}
                   </span>
                 </span>
                 {isStale && (
@@ -267,7 +267,7 @@ export function AmbiguityDashboardPage() {
                 {!rulesCurrent(run) && (
                   <span className="amb-stale">
                     This check used older rules
-                    {marginsApplied(run) ? "" : " (without margins)"} — before PRI type, jitter and frame-time matching counted.
+                    {marginsApplied(run) ? "" : " (without deltas)"} — before PRI type, jitter and frame-time matching counted.
                     Run it again for the current rules.
                   </span>
                 )}

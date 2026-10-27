@@ -11,12 +11,12 @@ type Texts = Record<Key, string>;
 const FIELDS: { key: Key; label: string; unit: string; hint: string; whole?: boolean; min: number; max?: number }[] = [
   { key: "confirmation_quality", label: "Confirmation quality", unit: "%", hint: "0–100", whole: true, min: 0, max: 100 },
   { key: "confirmation_quantity", label: "Confirmation quantity", unit: "", hint: "1 or more", whole: true, min: 1 },
-  { key: "rf_delta", label: "RF margin", unit: "± MHz", hint: "", min: 0 },
-  { key: "pri_delta", label: "PRI margin (Fixed)", unit: "± µs", hint: "", min: 0 },
-  { key: "pw_delta", label: "PW margin", unit: "± µs", hint: "", min: 0 },
+  { key: "rf_delta", label: "RF delta", unit: "± MHz", hint: "", min: 0 },
+  { key: "pri_delta", label: "PRI delta (Fixed)", unit: "± µs", hint: "", min: 0 },
+  { key: "pw_delta", label: "PW delta", unit: "± µs", hint: "", min: 0 },
   {
     key: "frame_time_delta_us",
-    label: "Frame-time margin (Stagger)",
+    label: "Frame-time delta (Stagger)",
     unit: "± µs",
     hint: "on the frame time — the sum of the steps — not on each step",
     min: 0,
@@ -107,14 +107,14 @@ export function AdminDefaultsPage() {
         <p className="hint-text">
           What a new Mode starts with. The Add Mode form and the Intercept planning page fill these in (they can be
           changed there for one Mode); Modes made from Elements, a typed line or the AI chat get the confirmation and,
-          for a Stagger, the frame-time margin. Existing Modes keep theirs.
+          for a Stagger, the frame-time delta. Existing Modes keep theirs.
         </p>
         <fieldset className="defaults-group">
           <legend>Confirmation</legend>
           {FIELDS.slice(0, 2).map(row)}
         </fieldset>
         <fieldset className="defaults-group">
-          <legend>Margins</legend>
+          <legend>Deltas</legend>
           {FIELDS.slice(2).map(row)}
         </fieldset>
         <div className="form-row">

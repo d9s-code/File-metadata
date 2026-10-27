@@ -95,7 +95,7 @@ export function GenerationLog({ emitterId, sourceId }: { emitterId: string; sour
     return (
       <p className="hint-text">
         No Modes generated here yet. Each run of <em>Generate Modes</em> is logged here: the Elements or Sequence steps
-        combined, the margins and range matching used, and the Modes it made.
+        combined, the deltas and range matching used, and the Modes it made.
       </p>
     );
   return (

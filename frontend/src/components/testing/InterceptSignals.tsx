@@ -34,7 +34,7 @@ function Coverage({ sets, modes }: { sets: ObservedValues[]; modes: Mode[] }) {
   if (c.status === "unknown") return <span className="hint-text">Give RF and a PRI type to compare</span>;
   if (c.status === "new") return <span className="status-badge signal-new">New — no Mode covers it</span>;
   return (
-    <span className="hint-text" title="These Modes' ranges (with margins) already cover the values">
+    <span className="hint-text" title="These Modes' ranges (with deltas) already cover the values">
       Covered by {c.modes.map((m) => m.name).join(", ")}
     </span>
   );

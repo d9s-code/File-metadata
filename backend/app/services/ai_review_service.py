@@ -48,7 +48,7 @@ Rules:
 - Write numbers exactly as given, in the units given (MHz, µs). Don't convert units.
 - Overlap percentages are already computed: the share of the narrower of the two ranges that the other covers. \
 Don't recompute them.
-- A margin (±) widens a Mode's range when matching; jitter is PRI variation around the nominal value.
+- A delta (±) widens a Mode's range when matching; jitter is PRI variation around the nominal value.
 - If the data doesn't show something, say so instead of guessing.
 - Be brief and concrete. Plain English, no headings."""
 
@@ -68,7 +68,7 @@ PRI_TYPE_TERMS = {
     "xlet": ["X-let", "xlet"],
 }
 PARAMETER_TERMS = {"rf": ["RF", "frequency"], "pw": ["PW", "pulse width"], "pri": ["PRI", "pulse repetition"], "jitter": ["jitter"]}
-GENERAL_TERMS = ["ambiguity", "ambiguous", "margin", "tolerance", "matching", "overlap", "RF", "PW", "PRI"]
+GENERAL_TERMS = ["ambiguity", "ambiguous", "delta", "margin", "tolerance", "matching", "overlap", "RF", "PW", "PRI"]
 
 
 Recommendation = Literal[
@@ -124,7 +124,7 @@ def _span(lo, hi, unit: str, margin=None) -> str:
         return "not set"
     text = f"{_n(lo) if lo == hi or hi is None else f'{_n(lo)}–{_n(hi)}'} {unit}"
     if margin:
-        text += f" (margin ±{_n(margin)} {unit})"
+        text += f" (delta ±{_n(margin)} {unit})"
     return text
 
 
@@ -152,7 +152,7 @@ def _mode_block(label: str, side: dict, pri_type: str, notes: str | None) -> str
             parts.append(f"  Frame time: {_n(frame)} µs{written}")
         if line.get("pri_range_matching"):
             margin = line.get("frame_time_delta_us")
-            parts.append(f"  Range matching on: matched on its frame time{f' (margin ±{_n(margin)} µs)' if margin else ''}")
+            parts.append(f"  Range matching on: matched on its frame time{f' (delta ±{_n(margin)} µs)' if margin else ''}")
     else:
         parts.append("  PRI: none (no PRI for this type)")
     parts.append(f"  PW: {_span(line.get('pw_min_us'), line.get('pw_max_us'), 'µs', line.get('pw_delta'))}")
@@ -210,9 +210,9 @@ def finding_context(db: Session, finding: AmbiguityFinding) -> str:
             f"exact from {_n(tol.get('exact_threshold'))}% on every parameter).",
             f"Computed overlap: RF {_n(finding.rf_overlap_pct)}%, PW {_n(finding.pw_overlap_pct)}%, {pri}"
             + (
-                " — on each range widened by its margin, as the sensor matches."
+                " — on each range widened by its delta, as the sensor matches."
                 if details.get("margins_applied")
-                else " — on the ranges as typed, margins not included."
+                else " — on the ranges as typed, deltas not included."
             ),
             "",
             _mode_block("Mode A", a, _pri_type(a, finding.pri_comparison_type, True), notes.get(finding.mode_id_a)),

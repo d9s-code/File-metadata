@@ -270,7 +270,7 @@ export function ElementOverview({ emitterId, ewGroups }: { emitterId: string; ew
                     )}
                     <th>Type</th>
                     <th>Values</th>
-                    <th>Margin</th>
+                    <th>Delta</th>
                     <th>Variants</th>
                     <th>Sources</th>
                   </tr>
@@ -458,8 +458,8 @@ function GenerateFromAll({
         {(["rf", "pri", "pw"] as const)
           .filter((t) => of(t).length > 0 && !(isStagger && t === "pri"))
           .map((t) => (
-            <label key={t} title="Blank: each Element's widest margin among its Sources">
-              {t.toUpperCase()} ± margin ({UNIT[t]})
+            <label key={t} title="Blank: each Element's widest delta among its Sources">
+              {t.toUpperCase()} ± delta ({UNIT[t]})
               <input
                 type="number"
                 step="any"

@@ -157,9 +157,9 @@ export function FindingDetail({
         ))}
       </div>
       <p className="hint-text">
-        {marginsApplied ? "Ranges include each Mode's ± margin." : "This check compared the ranges as typed, without margins."}{" "}
+        {marginsApplied ? "Ranges include each Mode's ± delta." : "This check compared the ranges as typed, without deltas."}{" "}
         Overlap is the share of the narrower range the other covers.
-        {finding.details.pri_basis === "frame_time" && " Both use range matching, so PRI is compared on frame time (± frame margin)."}
+        {finding.details.pri_basis === "frame_time" && " Both use range matching, so PRI is compared on frame time (± frame delta)."}
         {finding.details.pri_basis === "steps" && " PRI is the share of stagger steps that are identical."}
         {finding.pri_overlap_pct == null && " CW and X-let have no PRI, so it isn't compared."}
       </p>

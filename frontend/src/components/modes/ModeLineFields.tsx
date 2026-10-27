@@ -190,8 +190,8 @@ export function ModeLineFields({ line }: { line: ModeLineState }) {
         <Field label="max" hint={maxHint}>
           <NumberInput value={v.rfMax} onChange={(x) => line.set("rfMax", x)} aria="RF max (MHz)" placeholder="= min" invalid={line.wrong("rf", "max")} />
         </Field>
-        <Field label="± margin" hint="Widens min and max by this much each way">
-          <NumberInput value={v.rfDelta} onChange={(x) => line.set("rfDelta", x)} aria="RF margin (MHz)" min={0} invalid={line.wrong("rf", "delta")} />
+        <Field label="± delta" hint="Widens min and max by this much each way">
+          <NumberInput value={v.rfDelta} onChange={(x) => line.set("rfDelta", x)} aria="RF delta (MHz)" min={0} invalid={line.wrong("rf", "delta")} />
         </Field>
         <RangeCheck checked={v.rfRange} onChange={(x) => line.set("rfRange", x)} param="RF" />
       </Row>
@@ -233,8 +233,8 @@ export function ModeLineFields({ line }: { line: ModeLineState }) {
             <Field label="max" hint={maxHint}>
               <NumberInput value={v.priMax} onChange={(x) => line.set("priMax", x)} aria="PRI max (µs)" placeholder="= min" invalid={line.wrong("pri", "max")} />
             </Field>
-            <Field label="± margin" hint="Widens min and max by this much each way">
-              <NumberInput value={v.priDelta} onChange={(x) => line.set("priDelta", x)} aria="PRI margin (µs)" min={0} invalid={line.wrong("pri", "delta")} />
+            <Field label="± delta" hint="Widens min and max by this much each way">
+              <NumberInput value={v.priDelta} onChange={(x) => line.set("priDelta", x)} aria="PRI delta (µs)" min={0} invalid={line.wrong("pri", "delta")} />
             </Field>
             <RangeCheck checked={v.priRange} onChange={(x) => line.set("priRange", x)} param="PRI" />
           </>
@@ -251,11 +251,11 @@ export function ModeLineFields({ line }: { line: ModeLineState }) {
               />
             </Field>
             <FrameTimeInput field={line.frameTime} />
-            <Field label="± frame margin" hint="Widens the frame time by this much each way">
+            <Field label="± frame-time delta" hint="Widens the frame time by this much each way">
               <NumberInput
                 value={v.frameTimeDelta}
                 onChange={(x) => line.set("frameTimeDelta", x)}
-                aria="Frame time margin (µs)"
+                aria="Frame time delta (µs)"
                 min={0}
                 invalid={line.wrong("stagger", "delta")}
               />
@@ -285,8 +285,8 @@ export function ModeLineFields({ line }: { line: ModeLineState }) {
         <Field label="max" hint={maxHint}>
           <NumberInput value={v.pwMax} onChange={(x) => line.set("pwMax", x)} aria="PW max (µs)" placeholder="= min" invalid={line.wrong("pw", "max")} />
         </Field>
-        <Field label="± margin" hint="Widens min and max by this much each way">
-          <NumberInput value={v.pwDelta} onChange={(x) => line.set("pwDelta", x)} aria="PW margin (µs)" min={0} invalid={line.wrong("pw", "delta")} />
+        <Field label="± delta" hint="Widens min and max by this much each way">
+          <NumberInput value={v.pwDelta} onChange={(x) => line.set("pwDelta", x)} aria="PW delta (µs)" min={0} invalid={line.wrong("pw", "delta")} />
         </Field>
         <RangeCheck checked={v.pwRange} onChange={(x) => line.set("pwRange", x)} param="PW" />
       </Row>
@@ -308,8 +308,8 @@ export function friendlyServerError(message: string): string {
     [/jitter_max_us/g, "jitter max"],
     [/pri_stagger_values_us/g, "stagger sequence"],
     [/explicit_frame_time_us/g, "frame time"],
-    [/frame_time_delta_us/g, "frame time margin"],
-    [/rf_delta|pw_delta|pri_delta/g, "margin"],
+    [/frame_time_delta_us/g, "frame time delta"],
+    [/rf_delta|pw_delta|pri_delta/g, "delta"],
   ];
   let out = message.replace(/Value error,\s*/g, "");
   for (const [re, label] of names) out = out.replace(re, label);

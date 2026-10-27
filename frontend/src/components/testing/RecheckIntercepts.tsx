@@ -137,10 +137,10 @@ export function RecheckIntercepts({
         <InfoTip label="About this check">
           Each set of parameters logged in this run — on SIM lines, Mode results and signals — matched against the
           Emitter&apos;s Modes as they are now, Modes of the same PRI type only: its RF and PW inside a Mode&apos;s
-          range with its margin; a fixed PRI inside its PRI range, and the jitter logged inside its jitter range; a
+          range with its delta; a fixed PRI inside its PRI range, and the jitter logged inside its jitter range; a
           stagger&apos;s frame time (as logged, or the sum of its steps) inside its frame-time range, and its steps
           the Mode&apos;s steps in the same order — starting at any of them, as a train repeats — each within the
-          Mode&apos;s frame-time margin (at least 0.1% of the step). <strong>Near</strong> is one parameter off (a
+          Mode&apos;s frame-time delta (at least 0.1% of the step). <strong>Near</strong> is one parameter off (a
           stagger&apos;s frame time and steps are both its PRI). Beside it, what the system reported during the test,
           so you can see what the Modes changed since.
         </InfoTip>

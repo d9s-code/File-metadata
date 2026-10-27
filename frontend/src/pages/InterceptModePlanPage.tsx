@@ -495,10 +495,10 @@ export function InterceptModePlanPage() {
               <option value="p98">Middle 98% of reports (leaves out the extreme 1% each side)</option>
             </select>
           </label>
-          {deltaInput("RF ± (MHz)", rfDelta, setRfDelta)}
-          {(types.has("fixed") || types.size === 0) && deltaInput("PRI ± (µs)", priDelta, setPriDelta)}
-          {types.has("stagger") && deltaInput("Frame time ± (µs)", frameDelta, setFrameDelta)}
-          {(types.has("fixed") || types.has("stagger") || types.size === 0) && deltaInput("PW ± (µs)", pwDelta, setPwDelta)}
+          {deltaInput("RF ± delta (MHz)", rfDelta, setRfDelta)}
+          {(types.has("fixed") || types.size === 0) && deltaInput("PRI ± delta (µs)", priDelta, setPriDelta)}
+          {types.has("stagger") && deltaInput("Frame time ± delta (µs)", frameDelta, setFrameDelta)}
+          {(types.has("fixed") || types.has("stagger") || types.size === 0) && deltaInput("PW ± delta (µs)", pwDelta, setPwDelta)}
           {needsCw && (
             <>
               <label>
@@ -513,9 +513,9 @@ export function InterceptModePlanPage() {
           )}
         </div>
         <p className="hint-text">
-          A new Mode takes the entry&apos;s range with these ± margins on top (or its own — &ldquo;± for this
+          A new Mode takes the entry&apos;s range with these ± deltas on top (or its own — &ldquo;± for this
           entry&rdquo; in its row); a stagger&apos;s frame time is one value,
-          so its measured spread goes into its ± too. A widened Mode keeps its own name, margins and everything else.
+          so its measured spread goes into its ± too. A widened Mode keeps its own name, deltas and everything else.
         </p>
       </section>
 

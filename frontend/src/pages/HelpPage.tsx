@@ -273,7 +273,7 @@ export function HelpPage() {
           <strong>Download report (.xlsx)</strong>. It lists Platforms A–Z, each one&apos;s Emitters A–Z, each
           Emitter&apos;s Modes A–Z, then the Emitters picked on their own. A Platform&apos;s Emitters are the versions it
           pins; an Emitter picked on its own is its latest saved version. Values are as the PRS export writes them
-          (margins applied; scan period in ms).
+          (deltas applied; scan period in ms).
         </p>
         <p>
           On an Emitter&apos;s Modes, sorting by a column lists Modes with the same value by name (A–Z, &ldquo;Search
@@ -395,11 +395,11 @@ export function HelpPage() {
               <strong>+ Add Mode</strong> opens the Mode form (the same fields as <strong>Edit</strong>): a
               suggested name (the next free &ldquo;EW Group n&rdquo;), the EW Group and Source, then one row each for
               RF, PRI (with its type) and PW. For a single value, fill in <em>min</em> and leave <em>max</em> blank.
-              Under each row you see what it will match once its ± margin is added (&ldquo;Matches 2,999 – 3,001
+              Under each row you see what it will match once its ± delta is added (&ldquo;Matches 2,999 – 3,001
               MHz&rdquo;), or, for a stagger, its steps and frame time. A mistake is pointed out under its row once
               you move on, in plain words, and the form won&apos;t save until it&apos;s fixed.{" "}
               <strong>Start from</strong> fills everything in from an existing Mode. <strong>Add &amp; next</strong>{" "}
-              saves this one and starts the next with the same EW Group, Source, PRI type and margins, and the next
+              saves this one and starts the next with the same EW Group, Source, PRI type and deltas, and the next
               name. Confirmation, notes and &ldquo;test-derived&rdquo; are folded under{" "}
               <strong>More options</strong>, which says what they&apos;re set to.
             </p>
@@ -408,12 +408,12 @@ export function HelpPage() {
               alike — edits in place immediately, the same way everything else in the app works. The only
               gate is holding the Emitter's <strong>checkout</strong> (see below): with it,{" "}
               <strong>double-click a value in the Modes table</strong> to change just that one in its cell — the name,
-              RF, PRI and PW min/max and ± margins, a fixed PRI&apos;s jitter (&ldquo;0–1&rdquo;), a stagger&apos;s steps
-              (in the PRI cell, &ldquo;800, 850, 900&rdquo;) and its frame-time margin (PRI Δ), and the confirmation
+              RF, PRI and PW min/max and ± deltas, a fixed PRI&apos;s jitter (&ldquo;0–1&rdquo;), a stagger&apos;s steps
+              (in the PRI cell, &ldquo;800, 850, 900&rdquo;) and its frame-time delta (PRI Δ), and the confirmation
               quality and quantity. <strong>Enter</strong> or clicking away saves, <strong>Tab</strong> saves and
               moves to the row&apos;s next value, <strong>Esc</strong> puts it back; a value the Mode form wouldn&apos;t
               take (a max below its min, say) stays open with what&apos;s wrong under it. The box holds the programmed
-              value even while the table shows values with their margin. For everything at once — Sources, PRI type,
+              value even while the table shows values with their delta. For everything at once — Sources, PRI type,
               notes — <strong>Edit</strong> (in a Mode&apos;s <strong>⋯</strong> menu) opens the full form in a dialog
               centred in the window (Save always in view); the cursor starts in the name. <strong>Duplicate</strong>{" "}
               opens the same way. A name can't be blank or one another Mode in the same EW Group already has. <strong>Rename…</strong> in the same menu just renames it — and EW Groups and Sources have <strong>Rename…</strong> in their ⋯ menus too (a name another EW Group or Source of the Emitter has is refused). Every rename is in the Audit Log as &ldquo;Renamed … &lsquo;old&rsquo; to &lsquo;new&rsquo;&rdquo;.
@@ -586,7 +586,7 @@ export function HelpPage() {
                 Mode results and signals — and matches it against the Emitter&apos;s Modes as they are now, the way an
                 Intercept&apos;s entries are matched, and more strictly: a fixed PRI&apos;s logged jitter must be inside
                 the Mode&apos;s jitter range, and a stagger must have the Mode&apos;s frame time and its steps in the
-                same order (starting at any step, each within the frame-time margin, at least 0.1%). Each row is{" "}
+                same order (starting at any step, each within the frame-time delta, at least 0.1%). Each row is{" "}
                 <strong>✓ would match</strong> (which Modes),{" "}
                 <strong>≈ near</strong> (one value off, and which), <strong>✕ no Mode</strong>, or can&apos;t compare
                 (no RF or PRI logged). Beside it is what the system reported in the test; rows where that differs are
@@ -632,18 +632,18 @@ export function HelpPage() {
             <p>
               A Source&apos;s <strong>Generation log</strong> tab lists every run of <em>Generate Modes</em> on it,
               newest first: when and by whom, into which EW Group and with which name prefix and note, the Elements or
-              Sequence steps combined (values, variant, the margin used — &ldquo;this run&rdquo; when it was changed
+              Sequence steps combined (values, variant, the delta used — &ldquo;this run&rdquo; when it was changed
               just for the run), range matching, and the Modes it made (and how many are still there; the entry stays
               after they&apos;re deleted).
             </p>
             <p>
               Below the Sources, <strong>All Sources</strong> is every Element of the Emitter&apos;s Sources in one list:
-              the same values in several Sources are one Element. Each shows its margin, variants and Sources — two by
+              the same values in several Sources are one Element. Each shows its delta, variants and Sources — two by
               name and <strong>+N</strong> for the rest (hover for all, click to list them). Search it (values, Source
               names, labels), give a <strong>from – to</strong> value range, or filter by type, Source, variant, or to
               Elements in more than one Source. While editing, tick Elements and <strong>Generate Modes</strong> from
               them, as on a Source: each Mode gets the Sources its own RF, PRI and PW were found in, the one holding most
-              of them as its main Source. A blank margin uses the widest any of an Element&apos;s Sources gives. Sequence
+              of them as its main Source. A blank delta uses the widest any of an Element&apos;s Sources gives. Sequence
               steps are picked on their own Source. <strong>Clean up…</strong> deletes what an import shouldn&apos;t have
               brought in: search Element names (labels, e.g. &ldquo;scan rate&rdquo;) and/or an exact value (a PRI of 0),
               tick the names it lists, and every Element under them goes from every Source at once.
@@ -652,7 +652,7 @@ export function HelpPage() {
               <strong>Element coverage</strong>, under All Sources, shows which of those Elements the Modes cover:
               <strong> ✓ covered</strong>, <strong>½ partly</strong> (a range running past the Modes, or some of a
               stagger&apos;s steps) or <strong>✕ not covered</strong> — an RF, PRI or PW inside a Mode&apos;s range with
-              its margin, a PRI used as a Stagger Mode&apos;s step, a scan inside an EW Group&apos;s scan range. A
+              its delta, a PRI used as a Stagger Mode&apos;s step, a scan inside an EW Group&apos;s scan range. A
               stagger — a stagger Element, or a Source&apos;s sequence with PRI steps (in step order, a range at its
               middle) — is checked against the Stagger Modes <em>in order</em>: covered by one with the same steps in the
               same order (from any step), a sequence&apos;s RF and PW fitting that Mode too; the same steps in another
@@ -768,11 +768,11 @@ export function HelpPage() {
           </p>
           <p>
             <strong>How it decides.</strong> Only Modes of the <strong>same PRI type</strong> are compared — a different
-            type tells them apart. Each Mode&apos;s RF, PRI and PW ranges are widened by their ± margins — the ranges the
+            type tells them apart. Each Mode&apos;s RF, PRI and PW ranges are widened by their ± deltas — the ranges the
             sensor matches with. Two <strong>Fixed</strong> Modes are compared on PRI and on <strong>jitter</strong>, each
             as a range (a jitter of 0–0 is a steady PRI, so it only overlaps jitter ranges that include 0). A{" "}
             <strong>Stagger</strong> with <strong>range matching</strong> on is compared on its <strong>frame time</strong>{" "}
-            (± frame margin); if only one of two Staggers has range matching on, they&apos;re told apart; without range
+            (± frame delta); if only one of two Staggers has range matching on, they&apos;re told apart; without range
             matching, Staggers overlap on the share of their steps that are identical. CW and X-let have no PRI, so
             they&apos;re compared on RF and PW only. For each parameter, the overlap is how much of the <em>narrower</em>{" "}
             of the two ranges the other covers, so a narrow Mode inside a wide one is 100%. A pair is a finding only if it
@@ -795,7 +795,7 @@ export function HelpPage() {
           <p>
             <strong>Handling a finding.</strong> <strong>Open A / Open B</strong> takes you to either Mode in its Emitter
             to change it. <strong>Merge</strong> is for two Modes that are really the same: pick the one to keep, see what
-            changes — its values become the union of both (jitter too), keeping its own ± margins, never the
+            changes — its values become the union of both (jitter too), keeping its own ± deltas, never the
             other&apos;s; the other is deleted, and its test
             history and intercept links move to the kept Mode — including any new overlap the wider ranges would cause
             with other Modes. It changes the Emitter&apos;s unsaved edits, so the Emitter must be checked out by you (the
@@ -855,7 +855,7 @@ export function HelpPage() {
           </p>
           <p>
             Ask it to <strong>write Modes</strong> and it proposes them under its answer as a preview — where each would
-            go, its values and margins, and why any can&apos;t be added. It never adds anything itself: tick the ones you
+            go, its values and deltas, and why any can&apos;t be added. It never adds anything itself: tick the ones you
             want and press <strong>Add N Modes</strong> (editors, into an Emitter you&apos;re editing). <strong>📎</strong>,
             pasting or dropping attaches images to a question. The bar in the header shows how much of the model&apos;s
             context the chat takes of its maximum (an admin sets it under <strong>⚙</strong> or Admin → Settings);
@@ -899,7 +899,7 @@ export function HelpPage() {
             stagger) and PW, one chart each. <strong>Per Emitter</strong> draws one line per Emitter: its
             Modes&apos; ranges joined only where they overlap, so a PRI of 1–2 µs in one Mode and 200–205 µs in
             another stays two pieces with a gap between. <strong>Per Mode</strong> draws a line for each Mode under
-            its Emitter. Engineered values (with margins) are shown unless unticked, and a log scale helps when
+            its Emitter. Engineered values (with deltas) are shown unless unticked, and a log scale helps when
             values span orders of magnitude. <strong>Horizontal / Vertical bars</strong> turns the charts on their
             side and <strong>Stacked / Side by side</strong> places RF, PRI and PW under or next to each other. Drag a
             chart to pan it, hold Ctrl (⌘ on a Mac) and scroll to zoom, and double-click or <strong>Show all</strong>{" "}
@@ -1293,16 +1293,16 @@ export function HelpPage() {
           <ul>
             <li>
               <strong>Widen</strong> a Mode it partly matches — only the one parameter that&apos;s off grows, just enough
-              to take in the entry&apos;s range (a stagger&apos;s frame time by its ±). The Mode keeps its name, margins
+              to take in the entry&apos;s range (a stagger&apos;s frame time by its ±). The Mode keeps its name, deltas
               and everything else; the Mode that needs the least change is suggested first. Several entries widening
               the same Mode widen it once, to take them all in.
             </li>
             <li>
-              <strong>New Mode</strong> — the entry&apos;s range with the ± margins you set on top. A stagger&apos;s frame
+              <strong>New Mode</strong> — the entry&apos;s range with the ± deltas you set on top. A stagger&apos;s frame
               time is one value, so its measured spread goes into its ±; a Fixed Mode&apos;s jitter range comes from
-              the reports. CW Modes need a PW range, since a CW entry has none. To give one entry different margins,
+              the reports. CW Modes need a PW range, since a CW entry has none. To give one entry different deltas,
               click <strong>± for this entry</strong> under its choice: any field you fill overrides the page&apos;s
-              margin for that entry alone (left empty, it shows and uses the page&apos;s); <strong>Use the
+              delta for that entry alone (left empty, it shows and uses the page&apos;s); <strong>Use the
               page&apos;s</strong> clears them.
             </li>
             <li>
@@ -1379,10 +1379,10 @@ export function HelpPage() {
           reorder statuses, choose which moves are allowed and which ask for a note, and set the default milestones
           every item has before each status. Built-in statuses can be renamed but not deleted; an added one can be
           deleted once nothing is in it. <strong>Defaults</strong>: what a new Mode starts with — confirmation
-          quality and quantity, and the RF, PRI, PW and frame-time margins (frame time ±3 µs to start; it widens a
+          quality and quantity, and the RF, PRI, PW and frame-time deltas (frame time ±3 µs to start; it widens a
           stagger&apos;s frame time, the sum of its steps, not each step). The Add Mode form and the Intercept planning
           page fill them in; Modes made from Elements, a typed line or the AI chat get the confirmation and the
-          frame-time margin. Existing Modes keep theirs.
+          frame-time delta. Existing Modes keep theirs.
         </p>
         <div className="help-subsection" id="admin-backups">
           <h3>Backups</h3>

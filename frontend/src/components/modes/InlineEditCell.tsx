@@ -86,7 +86,7 @@ export function InlineEditCell({
         disabled={updateMode.isPending}
         title={
           programmedHint
-            ? `${INLINE_LABEL[field]}: the programmed value (the table shows it with its margin). Enter saves, Esc cancels.`
+            ? `${INLINE_LABEL[field]}: the programmed value (the table shows it with its delta). Enter saves, Esc cancels.`
             : `${INLINE_LABEL[field]}. Enter saves, Esc cancels.`
         }
         onChange={(e) => {

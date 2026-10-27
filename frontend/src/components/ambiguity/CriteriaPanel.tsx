@@ -83,14 +83,14 @@ export function HowItDecides({ thresholds: t }: { thresholds: ToleranceConfig })
           Only Modes of the <strong>same PRI type</strong> are compared — a different type tells them apart.
         </li>
         <li>
-          Each pair is compared on <strong>RF, PRI and PW</strong>, each range <strong>widened by its ± margin</strong> —
+          Each pair is compared on <strong>RF, PRI and PW</strong>, each range <strong>widened by its ± delta</strong> —
           the ranges the sensor matches with — and on <strong>jitter</strong> when both are Fixed:
           <ul className="criteria-levels">
             <li>
               <strong>Fixed:</strong> PRI and jitter, each as a range (a jitter of 0–0 is a steady PRI).
             </li>
             <li>
-              <strong>Stagger with range matching on:</strong> PRI is the frame time (± frame margin). If only one of the
+              <strong>Stagger with range matching on:</strong> PRI is the frame time (± frame delta). If only one of the
               two has range matching on, they&apos;re told apart.
             </li>
             <li>

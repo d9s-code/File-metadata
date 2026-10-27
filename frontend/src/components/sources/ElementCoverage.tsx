@@ -188,7 +188,7 @@ function CoverageChart({
           {g.parts.length > 1
             ? `Steps ${g.parts.map((p) => num((p.min + p.max) / 2)).join(", ")} ${type.unit}`
             : spanText([g.parts[0].min, g.parts[0].max], type.unit)}{" "}
-          <span className="hint-text">(with its margin)</span>
+          <span className="hint-text">(with its delta)</span>
         </div>
         <div className="hint-text">
           Covers {covers} of the {rows.length} {type.label} Element{rows.length === 1 ? "" : "s"}
@@ -378,7 +378,7 @@ export function ElementCoverage({ emitterId }: { emitterId: string }) {
           )}{" "}
           <InfoTip label="About Element coverage">
             Whether each Element in this Emitter&apos;s Sources is covered by a Mode: its RF, PRI or PW inside a
-            Mode&apos;s range (with the Mode&apos;s margin), a PRI used as a step of a Stagger Mode, a scan inside an
+            Mode&apos;s range (with the Mode&apos;s delta), a PRI used as a step of a Stagger Mode, a scan inside an
             EW Group&apos;s scan range. A stagger — a stagger Element, or a Source&apos;s sequence with PRI steps (in
             step order, a range at its middle) — is checked against the Stagger Modes in order: covered by one with the
             same steps in the same order (from any step), and a sequence&apos;s RF and PW must fit that Mode too. A
@@ -417,7 +417,7 @@ export function ElementCoverage({ emitterId }: { emitterId: string }) {
                 </span>
               ))}
               <span>
-                <span className="viz-swatch coverage-range-swatch" /> A Mode&apos;s range (with its margin)
+                <span className="viz-swatch coverage-range-swatch" /> A Mode&apos;s range (with its delta)
               </span>
               <span>
                 <span className="viz-swatch viz-marks-swatch" /> A Stagger Mode&apos;s steps

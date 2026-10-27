@@ -133,7 +133,7 @@ def test_explaining_a_finding_sends_only_that_pair_and_keeps_the_draft(
     assert sent["response_format"]["type"] == "json_schema"
     context = sent["messages"][1]["content"]
     assert "Mode 1" in context and "Mode 2" in context
-    assert "RF: 2900–3100 MHz (margin ±1 MHz)" in context
+    assert "RF: 2900–3100 MHz (delta ±1 MHz)" in context
     assert "Computed overlap: RF 100%, PW 100%, PRI 100%" in context
 
     # Kept: asking again doesn't ask the model again, unless refreshed.

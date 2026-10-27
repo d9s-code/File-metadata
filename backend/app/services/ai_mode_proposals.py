@@ -49,17 +49,17 @@ class ProposedMode(BaseModel):
     pri_type: Literal["fixed", "stagger", "cw"]
     rf_min_mhz: float
     rf_max_mhz: float | None = Field(None, description="Leave out for a single RF")
-    rf_delta: float = Field(0, description="RF ± margin, MHz")
+    rf_delta: float = Field(0, description="RF ± delta, MHz")
     pw_min_us: float | None = Field(None, description="Not for CW")
     pw_max_us: float | None = None
-    pw_delta: float = Field(0, description="PW ± margin, µs")
+    pw_delta: float = Field(0, description="PW ± delta, µs")
     pri_min_us: float | None = Field(None, description="fixed only")
     pri_max_us: float | None = Field(None, description="fixed only; leave out for a single PRI")
-    pri_delta: float = Field(0, description="fixed only: PRI ± margin, µs")
+    pri_delta: float = Field(0, description="fixed only: PRI ± delta, µs")
     jitter_min_us: float = Field(0, description="fixed only: jitter range, µs")
     jitter_max_us: float = Field(0, description="fixed only")
     stagger_us: list[float] | None = Field(None, description="stagger only: the steps in µs, in order")
-    frame_time_delta_us: float | None = Field(None, description="stagger only: frame time ± margin, µs (leave out for the default)")
+    frame_time_delta_us: float | None = Field(None, description="stagger only: frame time ± delta, µs (leave out for the default)")
     notes: str | None = None
 
 

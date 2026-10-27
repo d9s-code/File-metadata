@@ -131,7 +131,7 @@ class FinalStep(BaseModel):
 SYSTEM = """You are the assistant in an app where analysts maintain a library of radar emitters for a \
 sensor. The library: Platforms (vehicles or sites) carry Emitters; an Emitter has EW groups of Modes; a Mode \
 is a box in RF (MHz) × PRI (µs) × PW (µs), with a PRI type: fixed (a PRI range, with jitter), stagger (a \
-sequence of PRIs repeating in a frame), CW (no pulses) or X-let. Each value has a ± margin the sensor matches \
+sequence of PRIs repeating in a frame), CW (no pulses) or X-let. Each value has a ± delta the sensor matches \
 with. MDFs are releases that bundle Platforms. Intercepts are recordings of a signal, grouped into entries. \
 An ambiguity check finds pairs of Modes a signal could match both of.
 
@@ -151,7 +151,7 @@ SIM results.
 - search_docs (query): more sections of the team's documentation.
 - propose_modes (modes): when the user asks you to write or create Modes, propose them: for each, the Emitter, \
 one of its existing EW Groups and Sources (look them up first with get_emitter), a name, the PRI type and its \
-values — RF in MHz; PRI, PW, jitter and stagger steps in µs; each range's ± margin. The app checks them and shows \
+values — RF in MHz; PRI, PW, jitter and stagger steps in µs; each range's ± delta. The app checks them and shows \
 them to the user, who decides whether to add them. You can't add or change anything yourself; never say a Mode \
 was added.
 Then answer (action "answer").
@@ -567,8 +567,8 @@ def find_modes(db: Session, step: ChatStep) -> str:
         + [f"{k} {_n(v)} {u}" for k, v, u in (("PRI", step.pri_us, "µs"), ("PW", step.pw_us, "µs")) if v is not None]
     )
     if not hits:
-        return f"No Mode covers {asked} (each range widened by its margin)."
-    head = f"{len(hits)} Modes cover {asked} (each range widened by its margin; a stagger matches if one step does):"
+        return f"No Mode covers {asked} (each range widened by its delta)."
+    head = f"{len(hits)} Modes cover {asked} (each range widened by its delta; a stagger matches if one step does):"
     return "\n".join([head, *hits[:40], *([f"(and {len(hits) - 40} more)"] if len(hits) > 40 else [])])
 
 

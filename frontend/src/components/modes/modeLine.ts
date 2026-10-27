@@ -122,8 +122,8 @@ function checkRange(label: string, unit: string, minText: string, maxText: strin
     if (max < min) return { message: `${label} max (${fmt(max)} ${unit}) is below min (${fmt(min)} ${unit})`, box: "max" };
   }
   const delta = num(deltaText);
-  if (!Number.isFinite(delta)) return { message: `The ${label} ± margin isn't a number (0 for none)`, box: "delta" };
-  if (delta < 0) return { message: `The ${label} ± margin can't be negative`, box: "delta" };
+  if (!Number.isFinite(delta)) return { message: `The ${label} ± delta isn't a number (0 for none)`, box: "delta" };
+  if (delta < 0) return { message: `The ${label} ± delta can't be negative`, box: "delta" };
   return null;
 }
 
@@ -148,7 +148,7 @@ export function lineProblems(v: LineValues, explicitFrameTime: number | null): P
     if (bad) out.stagger = { message: `“${bad}” in the sequence isn't a number`, box: "sequence" };
     else if (values.length === 0) out.stagger = { message: "Enter the stagger sequence, e.g. 800, 850, 900", box: "sequence" };
     else if (values.some((x) => x <= 0)) out.stagger = { message: "Every step in the sequence must be above 0 µs", box: "sequence" };
-    else if (!Number.isFinite(delta) || delta < 0) out.stagger = { message: "The frame time ± margin must be 0 or more", box: "delta" };
+    else if (!Number.isFinite(delta) || delta < 0) out.stagger = { message: "The frame time ± delta must be 0 or more", box: "delta" };
     else if (explicitFrameTime != null && explicitFrameTime <= 0) out.stagger = { message: "The frame time must be above 0 µs", box: "frame" };
   }
   return out;

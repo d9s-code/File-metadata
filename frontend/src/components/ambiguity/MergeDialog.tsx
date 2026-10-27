@@ -102,7 +102,7 @@ export function MergeDialog({ finding, runId, onClose }: { finding: AmbiguityFin
                 </tbody>
               </table>
               <p className="hint-text">
-                Values as typed, with each one&apos;s ± margin. The kept Mode&apos;s values widen to cover both; its margins
+                Values as typed, with each one&apos;s ± delta. The kept Mode&apos;s values widen to cover both; its deltas
                 stay its own. Its notes record the merge and keep {plan.removed.name}&apos;s notes.
               </p>
               <ul className="merge-consequences">

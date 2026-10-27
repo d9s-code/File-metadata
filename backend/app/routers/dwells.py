@@ -864,10 +864,10 @@ def get_settings(db: Session = Depends(get_db), _=Depends(require_role(Role.view
 _MODE_DEFAULT_LABELS = {
     "confirmation_quality": ("confirmation quality", "%"),
     "confirmation_quantity": ("confirmation quantity", ""),
-    "frame_time_delta_us": ("frame-time margin", " µs"),
-    "rf_delta": ("RF margin", " MHz"),
-    "pri_delta": ("PRI margin", " µs"),
-    "pw_delta": ("PW margin", " µs"),
+    "frame_time_delta_us": ("frame-time delta", " µs"),
+    "rf_delta": ("RF delta", " MHz"),
+    "pri_delta": ("PRI delta", " µs"),
+    "pw_delta": ("PW delta", " µs"),
 }
 
 
