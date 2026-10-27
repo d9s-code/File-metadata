@@ -79,6 +79,6 @@ def test_a_mode_made_by_adding_a_value_says_which_mode_it_copies(editor_client):
     plan = editor_client.post(f"/emitters/{eid}/modes/add-parameter/plan", json=body).json()
     key = next(r["key"] for r in plan["rows"] if one["id"] in r["mode_ids"])
     resp = editor_client.post(f"/emitters/{eid}/modes/add-parameter", json={**body, "row_keys": [key], "name_base": "PRI 1500"})
-    assert resp.status_code == 200, resp.text
+    assert resp.status_code == 201, resp.text
     summaries = [e["summary"] for e in _trail(editor_client, eid, entity_type="mode")]
     assert any(s.startswith("Created Mode 'PRI 1500 1' — Mode 1 with PRI 1500") and s.endswith(" added") for s in summaries)
