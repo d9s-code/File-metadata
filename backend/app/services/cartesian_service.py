@@ -10,6 +10,7 @@ from app.models.mode import Mode, ModeElement, ModeGenerationBatch, ModeLine
 from app.models.parameter_sequence import ParameterSequence
 from app.models.source import Source
 from app.schemas.mode_element import SequenceStepSelection
+from app.services import app_settings
 from app.services.audit_service import _json_safe, record_audit
 from app.services.mode_sources import set_mode_sources
 
@@ -310,6 +311,9 @@ def run_cartesian_product(
         return name
 
     created: list[Mode] = []
+    defaults = app_settings.mode_defaults(db)
+    # A stagger whose PRI Element carries no margin gets the default frame-time margin.
+    frame_time_default = float(defaults["frame_time_delta_us"])
 
     def _create_mode(pri_type: PriType, line_kwargs: dict, used: list[ModeElement | None]) -> Mode:
         name = _next_name()
@@ -321,6 +325,8 @@ def run_cartesian_product(
             sort_order=base_sort_order + len(created) + 1,
             generation_batch_id=batch.id,
             notes=batch_note,
+            confirmation_quality=int(defaults["confirmation_quality"]),
+            confirmation_quantity=int(defaults["confirmation_quantity"]),
         )
         db.add(mode)
         db.flush()
@@ -367,9 +373,8 @@ def run_cartesian_product(
                     pw_range_matching=pw_range_matching,
                     pri_range_matching=pri_range_matching,
                     pri_stagger_values_us=train["values"],
-                    # A stagger made here carries no PRI tolerance; edit
-                    # the Mode to give its frame time one.
-                    frame_time_delta_us=0.0,
+                    # Steps carry no frame-time margin of their own: the default.
+                    frame_time_delta_us=frame_time_default,
                 )
                 _create_mode(PriType.stagger, line_kwargs, [rf_el, pw_el, *train["used"]])
 
@@ -402,7 +407,7 @@ def run_cartesian_product(
                     pri_delta = pri_delta_overrides.get(pri_el.id, pri_el.delta)
                     if pri_type == PriType.stagger:
                         base_line_kwargs["pri_stagger_values_us"] = pri_el.stagger_values
-                        base_line_kwargs["frame_time_delta_us"] = pri_delta
+                        base_line_kwargs["frame_time_delta_us"] = frame_time_default if pri_delta is None else pri_delta
                     else:
                         base_line_kwargs.update(
                             pri_min_us=pri_el.value_min,
@@ -456,7 +461,8 @@ def run_cartesian_product(
                     _create_mode(PriType.fixed, step_line_kwargs, [rf_el, pw_el])
                 else:
                     if pri_type == PriType.stagger:
-                        base_line_kwargs["frame_time_delta_us"] = pri_delta_overrides.get(pri_el.id, pri_el.delta)
+                        margin = pri_delta_overrides.get(pri_el.id, pri_el.delta)
+                        base_line_kwargs["frame_time_delta_us"] = frame_time_default if margin is None else margin
                     _create_mode(pri_type, base_line_kwargs, [rf_el, pw_el, pri_el])
 
     db.commit()

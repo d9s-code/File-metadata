@@ -3,6 +3,7 @@ import { useEmitterModes, useUpdateMode } from "../../state/hooks/useModes";
 import { ApiRequestError } from "../../api/client";
 import type { Mode, Source } from "../../types/domain";
 import { lineValuesFrom } from "./modeLine";
+import { useModeDefaults } from "../../state/hooks/useDwells";
 import { modeSourceIds } from "./modeFormat";
 import { SourcesPicker } from "./SourcesPicker";
 import { ModeLineFields, friendlyServerError, useModeLine } from "./ModeLineFields";
@@ -31,7 +32,12 @@ export function ModeEditForm({
   const clash =
     name.trim() !== mode.name &&
     (emitterModes ?? []).some((m) => m.id !== mode.id && m.ew_group_id === mode.ew_group_id && m.name === name.trim());
-  const line = useModeLine(lineValuesFrom(mode.pri_type, mode.line), mode.line?.explicit_frame_time_us);
+  const { defaults } = useModeDefaults();
+  // A Fixed Mode switched to Stagger starts with the default frame-time margin.
+  const line = useModeLine(
+    lineValuesFrom(mode.pri_type, mode.line, defaults.frame_time_delta_us),
+    mode.line?.explicit_frame_time_us,
+  );
   const [sourceIds, setSourceIds] = useState<string[]>(modeSourceIds(mode));
   const [options, setOptions] = useState<MoreOptionsValues>({
     quality: String(mode.confirmation_quality),

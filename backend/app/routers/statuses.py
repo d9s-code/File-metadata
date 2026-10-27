@@ -413,8 +413,21 @@ def reorder_milestones(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Milestone not found")
     for m in rows.values():
         _may_change(m, user)
+    old_order = [m.title for m in sorted(rows.values(), key=lambda m: m.position)]
     for i, mid in enumerate(payload.ids):
         rows[mid].position = i
+    new_order = [rows[i].title for i in payload.ids]
+    if new_order != old_order:
+        first = rows[payload.ids[0]]
+        scope = "default " if first.entity_id is None else ""
+        _audit(
+            db,
+            user,
+            f"Reordered {scope}{_NOUN[first.entity_type]} milestones: {', '.join(new_order)}",
+            None,
+            entity_type=AuditEntityType.milestone,
+            changes={"order": {"old": old_order, "new": new_order}},
+        )
     db.commit()
     return [rows[i] for i in payload.ids]
 

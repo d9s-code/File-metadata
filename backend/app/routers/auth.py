@@ -158,7 +158,20 @@ def update_preferences(
 ) -> User:
     """Your own settings — which optional features you see."""
     changes = payload.model_dump(exclude_none=True)
-    user.preferences = {**(user.preferences or {}), **changes}
+    old = user.preferences or {}
+    changed = {k: {"old": old.get(k), "new": v} for k, v in changes.items() if old.get(k) != v}
+    user.preferences = {**old, **changes}
+    if changed:
+        record_audit(
+            db,
+            actor_id=user.id,
+            action=AuditAction.update,
+            entity_type=AuditEntityType.user.value,
+            entity_id=user.id,
+            summary=f"{user.username} changed their settings: "
+            + ", ".join(f"{k.replace('_', ' ')} {'on' if c['new'] else 'off'}" if isinstance(c["new"], bool) else f"{k.replace('_', ' ')} {c['new']}" for k, c in changed.items()),
+            changes=changed,
+        )
     db.commit()
     db.refresh(user)
     return user

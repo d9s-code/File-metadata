@@ -20,12 +20,13 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from app.core import preferences as user_preferences
 from app.core.csrf import verify_csrf
-from app.core.enums import Role
+from app.core.enums import AuditAction, AuditEntityType, Role
 from app.database import get_db
 from app.deps import require_role
 from app.models.ai_chat import AiChat
 from app.routers.modes import create_mode_record
 from app.services import ai_chat_service, ai_mode_proposals, app_settings, llm_client
+from app.services.audit_service import record_audit
 from app.services.mode_test_status_service import attach_mode_extras
 
 router = APIRouter(prefix="/ai/chats", tags=["ai"])
@@ -313,6 +314,23 @@ def apply_proposals(
     except ai_mode_proposals.ApplyProblem as err:
         db.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, str(err)) from err
+    # Each Mode has its own "Created Mode" entry; this says where they came from.
+    by_emitter: dict[str, list] = {}
+    for item in items:
+        if item.get("mode_id") and item["id"] in payload.proposal_ids:
+            by_emitter.setdefault(item["emitter_id"], []).append(item)
+    for emitter_id, added in by_emitter.items():
+        record_audit(
+            db,
+            actor_id=user.id,
+            action=AuditAction.create,
+            entity_type=AuditEntityType.mode.value,
+            entity_id=None,
+            summary=f"Added {len(added)} Mode{'' if len(added) == 1 else 's'} the AI chat proposed: "
+            + ", ".join(i["name"] for i in added),
+            changes={"chat_id": str(chat.id), "modes": [{"id": i["mode_id"], "name": i["name"]} for i in added]},
+            emitter_id=UUID(emitter_id),
+        )
     reply["proposals"] = items
     message["reply"] = reply
     messages[payload.message_index] = message

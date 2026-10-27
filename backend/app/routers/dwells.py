@@ -861,6 +861,28 @@ def get_settings(db: Session = Depends(get_db), _=Depends(require_role(Role.view
     return app_settings.all_settings(db)
 
 
+_MODE_DEFAULT_LABELS = {
+    "confirmation_quality": ("confirmation quality", "%"),
+    "confirmation_quantity": ("confirmation quantity", ""),
+    "frame_time_delta_us": ("frame-time margin", " µs"),
+    "rf_delta": ("RF margin", " MHz"),
+    "pri_delta": ("PRI margin", " µs"),
+    "pw_delta": ("PW margin", " µs"),
+}
+
+
+def _setting_summary(key: str, old, new) -> str:
+    if key != app_settings.MODE_DEFAULTS:
+        return f"Changed setting {key}"
+    old = {**app_settings.MODE_DEFAULT_VALUES, **(old or {})}
+    parts = [
+        f"{label} {old.get(k):g}{unit} → {new[k]:g}{unit}"
+        for k, (label, unit) in _MODE_DEFAULT_LABELS.items()
+        if old.get(k) != new.get(k)
+    ]
+    return "Changed the Mode defaults: " + ", ".join(parts)
+
+
 @router.patch("/settings", response_model=SettingsOut, dependencies=[Depends(verify_csrf)])
 def update_settings(payload: SettingsUpdate, db: Session = Depends(get_db), user=Depends(require_role(Role.admin))) -> dict:
     for key, value in payload.model_dump(exclude_unset=True).items():
@@ -869,6 +891,6 @@ def update_settings(payload: SettingsUpdate, db: Session = Depends(get_db), user
         old = app_settings.get_setting(db, key)
         if old != value:
             app_settings.set_setting(db, key, value, user.id)
-            _audit(db, user, AuditAction.update, AuditEntityType.setting, None, f"Changed setting {key}", {key: {"old": old, "new": value}})
+            _audit(db, user, AuditAction.update, AuditEntityType.setting, None, _setting_summary(key, old, value), {key: {"old": old, "new": value}})
     db.commit()
     return app_settings.all_settings(db)

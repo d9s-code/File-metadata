@@ -29,6 +29,7 @@ from app.schemas.mode import (
     require_manual_deltas,
     validate_pri_type_fields,
 )
+from app.services import app_settings
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.dsl_mode_service import create_mode_from_dsl
 from app.services.frametime_service import FRAME_TIME_DECIMALS, compute_frametime_us
@@ -112,6 +113,7 @@ def create_mode_record(
     Sources, the test records and Intercept entries it's derived from, and
     its Audit Log entry. The caller commits."""
     sources = resolve_sources(db, emitter_id=ew_group.emitter_id, source_ids=payload.all_source_ids())
+    app_settings.fill_confirmation(db, payload)
 
     mode = Mode(
         ew_group_id=ew_group.id,
@@ -174,6 +176,7 @@ def create_mode_from_dsl_text(
     workflow.
     """
     ew_group = _get_ew_group_or_404(db, ew_group_id)
+    app_settings.fill_confirmation(db, payload)
     source = db.get(Source, payload.source_id)
     if source is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Source not found")
@@ -430,6 +433,9 @@ def create_modes_from_intercept(
     (deletable together from the Modes tab). Each Mode is linked to the entry
     it came from, like a single Mode created from an entry."""
     ew_group = _get_ew_group_or_404(db, ew_group_id)
+    app_settings.fill_confirmation(db, payload)
+    if "frame_time_delta_us" not in payload.model_fields_set:
+        payload.frame_time_delta_us = float(app_settings.mode_defaults(db)["frame_time_delta_us"])
     intercept = db.get(Intercept, payload.intercept_id)
     if intercept is None or intercept.emitter_id != ew_group.emitter_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Intercept not found on this Emitter")
@@ -564,6 +570,7 @@ def apply_intercept_mode_plan(
     (any EW Group of the same Emitter) only have ranges grown. Every Mode is
     linked to the entries it was made or widened for."""
     ew_group = _get_ew_group_or_404(db, ew_group_id)
+    app_settings.fill_confirmation(db, payload)
     emitter_id = ew_group.emitter_id
     intercept = db.get(Intercept, payload.intercept_id)
     if intercept is None or intercept.emitter_id != emitter_id:

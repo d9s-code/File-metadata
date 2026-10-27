@@ -20,6 +20,8 @@ If you just want to see it running, start with the [README](../README.md). This 
 
 **Editing entries in the Audit Log.** For an Emitter, **Started editing** and **Stopped editing** are the edit lock being taken and released — neither saves anything. **Saved version** is a saved version; Save version also stops editing, so the two appear together. A **Stopped editing** on its own means the editor stopped without saving (the changes stay live, unsaved), an Admin force-released the lock, or it was released automatically after going untouched. **Discarded changes** means the edits were thrown away. (Older entries recorded as "Checked in" show with today's wording.)
 
+**What else the Audit Log records.** Besides every edit: reordering milestones ("Reordered default Emitter milestones: …"), starting and discarding a test run in progress (its saves as it's filled in aren't logged), running an ambiguity check (scope, version and thresholds), syncing the AI's documentation from Outline, someone changing their own settings, Modes added from what the AI chat proposed (beside each Mode's own "Created Mode" entry), and the admin's settings and Mode defaults. An AI chat's own questions, answers, renames and deletions are each person's own and aren't logged; nothing in them changes data. Filter by **Test Runs in Progress**, **Ambiguity Checks** or **AI Documentation** like any other kind.
+
 **Search (quick-jump).** **⌕ Search** in the menu bar, or Ctrl+K (⌘K on a Mac) from any page, opens a box that finds Emitters (name or designation), Modes, Platforms, MDFs, Sources, Intercepts, Dwell Strategies (name or description) and dwell files as you type — every word has to match, in any order; exact and starts-with matches first; up to 8 of each kind; deleted things left out. ↑↓ and Enter open one: a Mode on its Emitter's Modes tab, a Source on the Groups & Sources tab (`GET /search?q=`).
 
 **Sorts and filters are remembered for the session.** Every table's sort (the column and direction) and the filters on the lists and tables — Emitters (name, ranges, assigned), Platforms, MDFs (name, status, customer), Intercepts, Dwells, the Audit Log, the Dashboard's Emitter table, Ambiguity, Source Groups, an Emitter's Modes (every filter, sort and the margins switch) and All Sources (per Emitter), Mode ladders, an Intercept's reports — are kept in the browser tab's session storage: a reload, or going to another page and back, finds them as they were. They're forgotten when the tab closes, and a new tab starts with none. Ticked rows and open dialogs aren't kept.
@@ -559,7 +561,7 @@ Authentication is local username/password (no external identity provider, matchi
 
 ## 14. Admin Panel
 
-Admin-only (both the nav link and the routes themselves redirect a non-admin away, not just hide the link) — Users, Edit locks, Recently Deleted, Backups, Statuses & milestones and Settings:
+Admin-only (both the nav link and the routes themselves redirect a non-admin away, not just hide the link) — Users, Edit locks, Recently Deleted, Backups, Statuses & milestones, Defaults and Settings:
 
 ### Users
 
@@ -568,6 +570,10 @@ Create a user (username, password, role) directly from the UI — previously onl
 ### Edit locks
 
 Every Emitter someone is holding for editing: who, since when, how long, their **last change** to it, and when it will be **released automatically**. A lock whose holder hasn't changed anything under it for `CHECKOUT_WARN_DAYS` (3) is marked **untouched** — here and in the holder's editing panel — and after `CHECKOUT_RELEASE_DAYS` (14; 0 turns it off) without a change it's released on its own with an Audit Log entry. Nothing is discarded: unsaved changes stay live, just no longer held. **Force release** frees one; tick several (or **Select the untouched ones**) and **Release selected** frees them at once.
+
+### Defaults
+
+What a new Mode starts with (`mode_defaults` in `/settings`): **confirmation quality** (100%) and **quantity** (2), and the **RF**, **PRI** (Fixed) and **PW margins** (0) and the **frame-time margin** (Stagger, **3 µs**). The frame-time margin widens a stagger's frame time — the sum of its steps, or its explicit frame time — never each step. The Add Mode form and the Intercept planning page start with these (they can be changed there for one Mode; a Fixed Mode switched to Stagger in its Edit form gets the default frame-time margin). Modes made without a form get the confirmation and, for a stagger, the frame-time margin: from Elements (a stagger Element with no margin of its own) or a sequence's steps, a typed DSL line, the AI chat (unless it gave one), and the bulk Intercept route. Imports keep what the file says. Existing Modes don't change. A request that gives a value keeps it. Each change is in the Audit Log ("Changed the Mode defaults: frame-time margin 3 µs → 5 µs"); **Back to the built-in defaults** puts the original values back in the form.
 
 ### Recently Deleted
 

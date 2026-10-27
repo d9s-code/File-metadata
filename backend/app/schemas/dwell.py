@@ -227,17 +227,30 @@ class DwellStrategyNoteOut(BaseModel):
 # Settings
 
 
+class ModeDefaults(BaseModel):
+    """What a new Mode gets where it isn't given one (app_settings.MODE_DEFAULTS)."""
+
+    confirmation_quality: int = Field(ge=0, le=100)
+    confirmation_quantity: int = Field(ge=1, le=1_000)
+    frame_time_delta_us: float = Field(ge=0)
+    rf_delta: float = Field(ge=0)
+    pri_delta: float = Field(ge=0)
+    pw_delta: float = Field(ge=0)
+
+
 class SettingsOut(BaseModel):
     dwell_bandwidth_mhz: float
     ai_chat_max_context_tokens: int
     # What each Outline page holds, by its path (see knowledge_service.KINDS).
     outline_page_kinds: dict[str, str]
+    mode_defaults: ModeDefaults
 
 
 class SettingsUpdate(BaseModel):
     dwell_bandwidth_mhz: float | None = Field(default=None, gt=0)
     ai_chat_max_context_tokens: int | None = Field(default=None, ge=4_096, le=2_000_000)
     outline_page_kinds: dict[str, str] | None = None
+    mode_defaults: ModeDefaults | None = None
 
     @field_validator("outline_page_kinds")
     @classmethod

@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.csrf import verify_csrf
-from app.core.enums import Role
+from app.core.enums import AuditAction, AuditEntityType, Role
 from app.database import get_db
 from app.deps import require_role
 from app.models.emitter import Emitter
@@ -16,6 +16,22 @@ from app.models.platform import Platform
 from app.models.test_record import TestRunDraft
 from app.models.user import User
 from app.schemas.test_record import TestRunDraftFull, TestRunDraftOut, TestRunDraftSave
+from app.services.audit_service import record_audit
+
+
+def _draft_audit(db: Session, user, draft: TestRunDraft, action: AuditAction, verb: str) -> None:
+    """Starting or discarding a test run in progress — not each save as it's
+    filled in (that would bury the log); logging it is its own entry."""
+    where = db.get(Emitter, draft.emitter_id) if draft.emitter_id else db.get(Platform, draft.platform_id)
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=action,
+        entity_type=AuditEntityType.test_draft.value,
+        entity_id=draft.id,
+        summary=f"{verb} the test run in progress '{draft.title or 'Untitled'}' on {where.name if where else '?'}",
+        emitter_id=draft.emitter_id,
+    )
 
 router = APIRouter(tags=["test-drafts"])
 
@@ -82,6 +98,8 @@ def create_draft(
         updated_by=user.id,
     )
     db.add(draft)
+    db.flush()
+    _draft_audit(db, user, draft, AuditAction.create, "Started")
     db.commit()
     db.refresh(draft)
     return _out(db, draft, full=True)
@@ -122,8 +140,10 @@ def save_draft(
 
 
 @router.delete("/test-drafts/{draft_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(verify_csrf)])
-def discard_draft(draft_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.editor))):
-    db.delete(_draft(db, draft_id))
+def discard_draft(draft_id: UUID, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))):
+    draft = _draft(db, draft_id)
+    _draft_audit(db, user, draft, AuditAction.delete, "Discarded")
+    db.delete(draft)
     db.commit()
 
 
@@ -171,6 +191,8 @@ def create_platform_draft(
         updated_by=user.id,
     )
     db.add(draft)
+    db.flush()
+    _draft_audit(db, user, draft, AuditAction.create, "Started")
     db.commit()
     db.refresh(draft)
     return _out(db, draft, full=True)

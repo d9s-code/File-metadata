@@ -4,24 +4,21 @@ import { ApiRequestError } from "../../api/client";
 import type { EwGroup, Mode, Source } from "../../types/domain";
 import type { ModeCreateInput } from "../../api/modes";
 import type { ObservedValueOption } from "../testing/testFormat";
-import { BLANK_LINE, lineValuesFrom, nameAfter, nextFreeName } from "./modeLine";
+import { BLANK_LINE, blankLine, lineValuesFrom, nameAfter, nextFreeName } from "./modeLine";
+import { useModeDefaults } from "../../state/hooks/useDwells";
+import type { ModeDefaults } from "../../api/dwells";
 import { modeSourceIds } from "./modeFormat";
 import { SourcesPicker } from "./SourcesPicker";
 import { ModeLineFields, friendlyServerError, useModeLine } from "./ModeLineFields";
-import {
-  DEFAULT_CONFIRMATION_QUALITY,
-  DEFAULT_CONFIRMATION_QUANTITY,
-  ModeMoreOptions,
-  confirmationProblem,
-  type MoreOptionsValues,
-} from "./ModeMoreOptions";
+import { ModeMoreOptions, confirmationProblem, type MoreOptionsValues } from "./ModeMoreOptions";
 
-const DEFAULT_OPTIONS: MoreOptionsValues = {
-  quality: String(DEFAULT_CONFIRMATION_QUALITY),
-  quantity: String(DEFAULT_CONFIRMATION_QUANTITY),
+/** A new Mode's options: the admin's default confirmation. */
+const defaultOptions = (defaults: ModeDefaults): MoreOptionsValues => ({
+  quality: String(defaults.confirmation_quality),
+  quantity: String(defaults.confirmation_quantity),
   notes: "",
   derivedFrom: new Set(),
-};
+});
 
 /** Adding a Mode by hand: name, EW Group and Source, its line (RF, PRI, PW),
  * and the rarely-changed options folded away. Problems show by the field they
@@ -87,15 +84,27 @@ export function ModeForm({
   const [suggestAfter, setSuggestAfter] = useState<string | null>(duplicateFrom?.name ?? null);
   // Added here already, though the Mode list may not have caught up yet.
   const [addedNames, setAddedNames] = useState<string[]>([]);
-  const [options, setOptions] = useState<MoreOptionsValues>(DEFAULT_OPTIONS);
+  const { defaults, loaded: defaultsLoaded } = useModeDefaults();
+  const [options, setOptions] = useState<MoreOptionsValues>(() => defaultOptions(defaults));
   const [startFrom, setStartFrom] = useState("");
   const [preFillFrom, setPreFillFrom] = useState(observedValueOptions?.[0]?.key ?? "");
   const [error, setError] = useState<string | null>(null);
   const [problems, setProblems] = useState<{ name?: string; ewGroup?: string; source?: string }>({});
   const [optionsForced, setOptionsForced] = useState(false);
   const [added, setAdded] = useState<string | null>(null);
-  const line = useModeLine(BLANK_LINE);
+  const line = useModeLine(blankLine(defaults));
   const { load: loadLine, setMany: setLine, loadFrameTime } = line;
+  // The admin's defaults can arrive after the form opens: they go in then,
+  // unless the form started from another Mode.
+  const defaultsApplied = useRef(defaultsLoaded);
+  useEffect(() => {
+    if (defaultsApplied.current || !defaultsLoaded) return;
+    defaultsApplied.current = true;
+    if (duplicateFrom) return;
+    const blank = blankLine(defaults);
+    setLine({ rfDelta: blank.rfDelta, priDelta: blank.priDelta, pwDelta: blank.pwDelta, frameTimeDelta: blank.frameTimeDelta });
+    setOptions((o) => ({ ...o, quality: String(defaults.confirmation_quality), quantity: String(defaults.confirmation_quantity) }));
+  }, [defaultsLoaded, defaults, duplicateFrom, setLine]);
   const formRef = useRef<HTMLFormElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
 

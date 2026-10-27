@@ -19,6 +19,9 @@ export function AdminNav() {
       <NavLink to="/admin/statuses" className={({ isActive }) => (isActive ? "tab active" : "tab")}>
         Statuses &amp; milestones
       </NavLink>
+      <NavLink to="/admin/defaults" className={({ isActive }) => (isActive ? "tab active" : "tab")}>
+        Defaults
+      </NavLink>
       <NavLink to="/admin/settings" className={({ isActive }) => (isActive ? "tab active" : "tab")}>
         Settings
       </NavLink>

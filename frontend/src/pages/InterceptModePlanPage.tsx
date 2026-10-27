@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useEmitter } from "../state/hooks/useEmitters";
@@ -6,6 +6,7 @@ import { useApplyInterceptModePlan, useEmitterModes } from "../state/hooks/useMo
 import { useIntercept, useInterceptEntries } from "../state/hooks/useIntercepts";
 import { useEwGroups } from "../state/hooks/useEwGroups";
 import { useSources } from "../state/hooks/useSources";
+import { useModeDefaults } from "../state/hooks/useDwells";
 import { useEmitterCheckoutState } from "../state/hooks/useEmitterCheckout";
 import { useHasRole } from "../auth/RequireAuth";
 import { ApiRequestError } from "../api/client";
@@ -212,13 +213,26 @@ export function InterceptModePlanPage() {
   const [ewGroupId, setEwGroupId] = useState("");
   const [sourceId, setSourceId] = useState("");
   const [prefix, setPrefix] = useState<string | null>(null);
-  const [quality, setQuality] = useState("100");
-  const [quantity, setQuantity] = useState("2");
+  const { defaults, loaded: defaultsLoaded } = useModeDefaults();
+  const [quality, setQuality] = useState(String(defaults.confirmation_quality));
+  const [quantity, setQuantity] = useState(String(defaults.confirmation_quantity));
   const [basis, setBasis] = useState<RangeBasis>("minmax");
-  const [rfDelta, setRfDelta] = useState("0");
-  const [priDelta, setPriDelta] = useState("0");
-  const [frameDelta, setFrameDelta] = useState("0");
-  const [pwDelta, setPwDelta] = useState("0");
+  const [rfDelta, setRfDelta] = useState(String(defaults.rf_delta));
+  const [priDelta, setPriDelta] = useState(String(defaults.pri_delta));
+  const [frameDelta, setFrameDelta] = useState(String(defaults.frame_time_delta_us));
+  const [pwDelta, setPwDelta] = useState(String(defaults.pw_delta));
+  // The admin's defaults can arrive after the page opens: they go in then.
+  const defaultsApplied = useRef(defaultsLoaded);
+  useEffect(() => {
+    if (defaultsApplied.current || !defaultsLoaded) return;
+    defaultsApplied.current = true;
+    setQuality(String(defaults.confirmation_quality));
+    setQuantity(String(defaults.confirmation_quantity));
+    setRfDelta(String(defaults.rf_delta));
+    setPriDelta(String(defaults.pri_delta));
+    setFrameDelta(String(defaults.frame_time_delta_us));
+    setPwDelta(String(defaults.pw_delta));
+  }, [defaultsLoaded, defaults]);
   const [cwPwMin, setCwPwMin] = useState("");
   const [cwPwMax, setCwPwMax] = useState("");
   const [error, setError] = useState<string | null>(null);

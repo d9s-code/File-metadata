@@ -68,6 +68,10 @@ def test_proposed_modes_are_only_added_when_the_user_adds_them(
     [created] = resp.json()["created"]
     assert created["name"] == "Search 9" and created["line"]["rf_delta"] == 2
     assert _modes(editor_client, emitter_id) == {"Mode 1", "Mode 2", "Search 9"}
+    # Logged as coming from the chat, beside the Mode's own "Created Mode" entry.
+    log = editor_client.get("/audit-log", params={"emitter_id": emitter_id}).json()
+    summaries = [e["summary"] for e in (log["items"] if isinstance(log, dict) else log)]
+    assert "Added 1 Mode the AI chat proposed: Search 9" in summaries and "Created Mode 'Search 9'" in summaries
     kept = resp.json()["chat"]["messages"][1]["reply"]["proposals"][0]
     assert kept["status"] == "added" and kept["mode_id"] == created["id"]
     # Once only.

@@ -140,6 +140,9 @@ def test_only_an_admin_syncs_on_demand(docs, admin_client, editor_client, monkey
     assert resp.status_code == 200, resp.text
     assert resp.json()["sections"] > 0
     assert editor_client.get("/ai/status").json()["documentation"]["sections"] == resp.json()["sections"]
+    log = admin_client.get("/audit-log").json()
+    summaries = [e["summary"] for e in (log["items"] if isinstance(log, dict) else log)]
+    assert any(s.startswith("Synced the AI's documentation from Outline") for s in summaries)
 
     monkeypatch.setattr(settings, "outline_collection", None)
     assert admin_client.post("/ai/documentation/sync").status_code == 409

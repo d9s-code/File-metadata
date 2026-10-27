@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   dwellsApi,
   type AppSettings,
+  type ModeDefaults,
   type DwellFile,
   type DwellFileUpdate,
   type DwellKind,
@@ -125,6 +126,22 @@ export function useCommitDwellVersion(kind: DwellKind, id: string) {
 
 export function useAppSettings() {
   return useQuery({ queryKey: settingsKey, queryFn: dwellsApi.settings });
+}
+
+/** As the backend has them until an admin changes them (app_settings.MODE_DEFAULT_VALUES). */
+export const BUILT_IN_MODE_DEFAULTS: ModeDefaults = {
+  confirmation_quality: 100,
+  confirmation_quantity: 2,
+  frame_time_delta_us: 3,
+  rf_delta: 0,
+  pri_delta: 0,
+  pw_delta: 0,
+};
+
+/** The admin's Mode defaults — the built-in ones until they've loaded. */
+export function useModeDefaults(): { defaults: ModeDefaults; loaded: boolean } {
+  const { data } = useAppSettings();
+  return { defaults: data?.mode_defaults ?? BUILT_IN_MODE_DEFAULTS, loaded: !!data };
 }
 
 export function useUpdateAppSettings() {

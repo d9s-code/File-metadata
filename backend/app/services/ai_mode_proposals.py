@@ -21,7 +21,7 @@ from app.models.ew_group import EwGroup
 from app.models.mode import Mode
 from app.models.source import Source
 from app.schemas.mode import ModeCreate, ModeLineFields
-from app.services import checkout_service
+from app.services import app_settings, checkout_service
 
 # At most this many Modes in one proposal.
 MAX_PROPOSED = 50
@@ -59,7 +59,7 @@ class ProposedMode(BaseModel):
     jitter_min_us: float = Field(0, description="fixed only: jitter range, µs")
     jitter_max_us: float = Field(0, description="fixed only")
     stagger_us: list[float] | None = Field(None, description="stagger only: the steps in µs, in order")
-    frame_time_delta_us: float = Field(0, description="stagger only: frame time ± margin, µs")
+    frame_time_delta_us: float | None = Field(None, description="stagger only: frame time ± margin, µs (leave out for the default)")
     notes: str | None = None
 
 
@@ -113,7 +113,10 @@ def check(db: Session, proposed: list[ProposedMode]) -> list[dict]:
     line, and the problem that stops it being added (None when it can be)."""
     out: list[dict] = []
     names_in_proposal: set[tuple[str, str]] = set()
+    frame_time_default = float(app_settings.mode_defaults(db)["frame_time_delta_us"])
     for p in proposed[:MAX_PROPOSED]:
+        if p.frame_time_delta_us is None:
+            p.frame_time_delta_us = frame_time_default
         item = {
             "id": str(uuid.uuid4()),
             "name": p.name.strip(),

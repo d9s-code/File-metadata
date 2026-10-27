@@ -33,6 +33,7 @@ import { DwellFilePage } from "./pages/DwellFilePage";
 import { DwellStrategyPage } from "./pages/DwellStrategyPage";
 import { DwellVersionHistoryPage } from "./pages/DwellVersionHistoryPage";
 import { AdminSettingsPage } from "./pages/AdminSettingsPage";
+import { AdminDefaultsPage } from "./pages/AdminDefaultsPage";
 import { AdminStatusesPage } from "./pages/AdminStatusesPage";
 import { InterceptsPage } from "./pages/InterceptsPage";
 import { ReportsPage } from "./pages/ReportsPage";
@@ -376,6 +377,16 @@ export default function App() {
                   <RequireAuth>
                     <RequireAdmin>
                       <AdminStatusesPage />
+                    </RequireAdmin>
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/admin/defaults"
+                element={
+                  <RequireAuth>
+                    <RequireAdmin>
+                      <AdminDefaultsPage />
                     </RequireAdmin>
                   </RequireAuth>
                 }

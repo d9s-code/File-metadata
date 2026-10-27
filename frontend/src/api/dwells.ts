@@ -151,12 +151,24 @@ export interface DwellVersionDetail extends VersionSummary {
   snapshot: Record<string, unknown>;
 }
 
+/** What a new Mode starts with where it isn't given one. The frame-time margin
+ * is on a stagger's frame time (the sum of its steps), never on each step. */
+export interface ModeDefaults {
+  confirmation_quality: number;
+  confirmation_quantity: number;
+  frame_time_delta_us: number;
+  rf_delta: number;
+  pri_delta: number;
+  pw_delta: number;
+}
+
 export interface AppSettings {
   dwell_bandwidth_mhz: number;
   /** The most the AI chat gives the model at once, in tokens. */
   ai_chat_max_context_tokens: number;
   /** What each Outline page holds, by its path ("Parent › Page"). */
   outline_page_kinds: Record<string, string>;
+  mode_defaults: ModeDefaults;
 }
 
 /** "strategies" or "files": the two versioned kinds, for the shared version pages. */

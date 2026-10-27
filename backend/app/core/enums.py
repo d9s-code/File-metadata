@@ -175,3 +175,8 @@ class AuditEntityType(str, enum.Enum):
     dwell_strategy = "dwell_strategy"
     dwell_strategy_note = "dwell_strategy_note"
     setting = "setting"
+    # A test run being filled in, before it's logged.
+    test_draft = "test_draft"
+    ambiguity_run = "ambiguity_run"
+    # The copy of the Outline documentation the AI is given.
+    documentation = "documentation"

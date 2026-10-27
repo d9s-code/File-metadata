@@ -1378,7 +1378,11 @@ export function HelpPage() {
           <strong>Statuses &amp; milestones</strong>: for Emitters, Platforms and MDFs, rename, recolour, add and
           reorder statuses, choose which moves are allowed and which ask for a note, and set the default milestones
           every item has before each status. Built-in statuses can be renamed but not deleted; an added one can be
-          deleted once nothing is in it.
+          deleted once nothing is in it. <strong>Defaults</strong>: what a new Mode starts with — confirmation
+          quality and quantity, and the RF, PRI, PW and frame-time margins (frame time ±3 µs to start; it widens a
+          stagger&apos;s frame time, the sum of its steps, not each step). The Add Mode form and the Intercept planning
+          page fill them in; Modes made from Elements, a typed line or the AI chat get the confirmation and the
+          frame-time margin. Existing Modes keep theirs.
         </p>
         <div className="help-subsection" id="admin-backups">
           <h3>Backups</h3>

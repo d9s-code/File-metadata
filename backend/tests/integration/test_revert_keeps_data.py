@@ -331,3 +331,118 @@ def test_a_revert_preview_says_what_it_removes_and_what_it_throws_away(editor_cl
         e for e in editor_client.get(f"/emitters/{eid}/versions/{ctx['v2']}/revert-preview").json()["entries"]
         if e["label"] == "Description"
     ]
+
+
+STAGGER_LINE = {
+    "rf_min_mhz": 9400,
+    "rf_max_mhz": 9600,
+    "pw_min_us": 0.8,
+    "pw_max_us": 0.8,
+    "pri_stagger_values_us": [500, 520, 540],
+    "rf_delta": 4,
+    "pw_delta": 0.1,
+    "frame_time_delta_us": 3,
+    "explicit_frame_time_us": 1600,
+    "rf_range_matching": True,
+    "pw_range_matching": False,
+    "pri_range_matching": False,
+}
+
+
+def test_reverting_brings_back_every_value_that_was_changed(editor_client, admin_client, db_session):
+    """Every versioned value changed in place — the Emitter's, its EW Group's,
+    a Source's, its Elements and sequence, a Mode's line, confirmation and
+    Sources, a SIM line's — comes back exactly as the version had it."""
+    from app.models.emitter import Emitter
+    from app.services.snapshots import build_emitter_snapshot
+
+    client = editor_client
+    ctx = _build(client, admin_client)
+    eid, sid, group = ctx["eid"], ctx["sid"], ctx["group"]
+    base = f"/emitters/{eid}/sources/{sid}"
+    assert client.patch(f"/emitters/{eid}", json={"designation": "D-1", "description": "As built"}).status_code == 200
+    client.patch(f"/emitters/{eid}/ew-groups/{group['id']}", json={"threat_priority": 3, "ageout": 12.5})
+    other = client.post(f"/emitters/{eid}/sources", json={"name": "Report 8", "source_date": "2026-02-01"}).json()
+    stagger = client.post(
+        f"/ew-groups/{group['id']}/modes",
+        json={"source_id": sid, "name": "Stagger 1", "pri_type": "stagger", "line": STAGGER_LINE,
+              "confirmation_quality": 60, "confirmation_quantity": 4},
+    )
+    assert stagger.status_code == 201, stagger.text
+    stagger = stagger.json()
+    derived = ctx["derived"]
+    resp = client.patch(
+        f"/ew-groups/{group['id']}/modes/{derived['id']}",
+        json={"notes": "As built", "source_ids": [sid, other["id"]], "confirmation_quality": 80},
+    )
+    assert resp.status_code == 200, resp.text
+    [line] = client.get(f"/emitters/{eid}/test-lines").json()
+    client.patch(f"/emitters/{eid}/test-lines/{line['id']}", json={"expected_parameters": {"rf_mhz": 3000}})
+    v3 = _commit(client, eid, "v3: values set")
+
+    def snapshot() -> dict:
+        db_session.expire_all()
+        snap = build_emitter_snapshot(db_session.get(Emitter, eid))
+        snap.pop("status")  # where the Emitter stands, not part of a version
+        return snap
+
+    def versioned(number) -> dict:
+        from app.models.emitter_version import EmitterVersion
+
+        snap = dict(db_session.query(EmitterVersion).filter_by(emitter_id=eid, version_number=number).one().snapshot)
+        snap.pop("status")
+        return snap
+
+    before = snapshot()
+    assert before == versioned(v3)
+
+    # Change everything in place.
+    client.patch(f"/emitters/{eid}", json={"name": "Renamed", "designation": "D-2", "description": "Changed"})
+    client.patch(
+        f"/emitters/{eid}/ew-groups/{group['id']}",
+        json={"name": "Search", "scan_min": 1, "scan_max": 9, "scan_delta": 0.1, "threat_priority": 7, "ageout": 30},
+    )
+    client.post(f"/emitters/{eid}/ew-groups", json={"name": "New group"})
+    resp = client.patch(
+        base,
+        json={"name": "Report 7b", "description": "edited", "rf_legacy_term": "Band Y", "pri_legacy_term": "PRF lo",
+              "source_type": "Other", "source_date": "2025-12-31"},
+    )
+    assert resp.status_code == 200, resp.text
+    elements = client.get(f"{base}/elements").json()
+    assert client.delete(f"{base}/elements/{elements[0]['id']}").status_code == 204
+    client.post(f"{base}/elements", json={"element_type": "rf", "value_min": 1, "value_max": 2, "label": "added"})
+    [sequence] = client.get(f"{base}/parameter-sequences").json()
+    client.patch(f"{base}/parameter-sequences/{sequence['id']}", json={"rf_delta": 9, "pri_delta": 5})
+    assert client.delete(f"{base}/parameter-sequences/{sequence['id']}/steps/1").status_code == 204
+    resp = client.patch(
+        f"/ew-groups/{group['id']}/modes/{derived['id']}",
+        json={"name": "Renamed Mode", "notes": "changed", "source_ids": [other["id"]], "confirmation_quality": 20,
+              "confirmation_quantity": 9, "pri_type": "fixed",
+              "line": {**LINE, "rf_min_mhz": 2000, "rf_delta": 7, "pri_delta": 1, "jitter_max_us": 40,
+                       "rf_range_matching": True}},
+    )
+    assert resp.status_code == 200, resp.text
+    resp = client.patch(
+        f"/ew-groups/{group['id']}/modes/{stagger['id']}",
+        json={"pri_type": "stagger",
+              "line": {**STAGGER_LINE, "pri_stagger_values_us": [600, 610], "frame_time_delta_us": 8,
+                       "explicit_frame_time_us": None}},
+    )
+    assert resp.status_code == 200, resp.text
+    generated = [m for m in client.get(f"/emitters/{eid}/modes").json() if m["name"].startswith("Gen")]
+    for m in generated:
+        assert client.delete(f"/ew-groups/{group['id']}/modes/{m['id']}").status_code == 204
+    client.post(f"/ew-groups/{group['id']}/modes", json={"source_id": sid, "name": "Extra", "pri_type": "fixed", "line": LINE})
+    client.patch(
+        f"/emitters/{eid}/test-lines/{line['id']}",
+        json={"label": "SIM 1b", "expected_mode_id": stagger["id"], "expected_parameters": {"rf_mhz": 1},
+              "created_date": "2026-09-09"},
+    )
+    assert client.delete(f"/emitters/{eid}/sources/{other['id']}").status_code in (204, 409)
+    changed = snapshot()
+    for key in ("name", "designation", "description", "ew_groups", "sources", "test_lines"):
+        assert changed[key] != before[key], key
+
+    _revert(client, eid, v3)
+    assert snapshot() == before

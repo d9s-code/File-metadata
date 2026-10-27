@@ -1,3 +1,4 @@
+import type { ModeDefaults } from "../../api/dwells";
 import type { ModeLine, PriType } from "../../types/domain";
 import { frameTimeFromText } from "../common/frameTime";
 
@@ -44,12 +45,28 @@ export const BLANK_LINE: LineValues = {
   pwRange: false,
 };
 
+/** A fresh line with the admin's default margins. */
+export function blankLine(defaults: ModeDefaults): LineValues {
+  return {
+    ...BLANK_LINE,
+    rfDelta: String(defaults.rf_delta),
+    priDelta: String(defaults.pri_delta),
+    pwDelta: String(defaults.pw_delta),
+    frameTimeDelta: String(defaults.frame_time_delta_us),
+  };
+}
+
 const str = (v: number | null | undefined, fallback = "") => (v == null ? fallback : String(v));
 
 /** An existing Mode's line as form values. A max equal to its min shows blank
  * ("same as min"), as it would have been typed. */
-export function lineValuesFrom(priType: PriType, line: ModeLine | null | undefined): LineValues {
-  if (!line) return { ...BLANK_LINE, priType };
+export function lineValuesFrom(
+  priType: PriType,
+  line: ModeLine | null | undefined,
+  /** The frame-time margin for a line without one (a Fixed Mode switched to Stagger). */
+  frameTimeDefault = 0,
+): LineValues {
+  if (!line) return { ...BLANK_LINE, priType, frameTimeDelta: String(frameTimeDefault) };
   const maxOrBlank = (min: number | null | undefined, max: number | null | undefined) =>
     max != null && min != null && Number(max) === Number(min) ? "" : str(max);
   return {
@@ -65,7 +82,7 @@ export function lineValuesFrom(priType: PriType, line: ModeLine | null | undefin
     jitterMin: str(line.jitter_min_us, "0"),
     jitterMax: str(line.jitter_max_us, "1"),
     stagger: line.pri_stagger_values_us?.join(", ") ?? "",
-    frameTimeDelta: str(line.frame_time_delta_us, "0"),
+    frameTimeDelta: str(line.frame_time_delta_us, String(frameTimeDefault)),
     pwMin: str(line.pw_min_us),
     pwMax: maxOrBlank(line.pw_min_us, line.pw_max_us),
     pwDelta: str(line.pw_delta, "0"),

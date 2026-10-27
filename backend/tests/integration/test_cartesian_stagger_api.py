@@ -62,7 +62,8 @@ def test_stagger_from_elements_follows_firing_order_and_uses_range_means(editor_
     assert {m["pri_type"] for m in modes} == {"stagger"}
     for m in modes:
         assert m["line"]["pri_stagger_values_us"] == [950, 800, 950]
-        assert m["line"]["frame_time_delta_us"] == 0
+        # Elements carry no frame-time margin: the default one (3 µs).
+        assert m["line"]["frame_time_delta_us"] == 3
         assert m["line"]["pri_delta"] is None
     assert sorted(m["line"]["rf_min_mhz"] for m in modes) == [2900, 5000]
 

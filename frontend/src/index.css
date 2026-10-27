@@ -7206,3 +7206,31 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
 .report-picker-list { list-style: none; margin: 0; padding: 0; max-height: 60vh; overflow-y: auto; }
 .report-picker-list li { padding: 0.2rem 0; }
 .report-picker-list .checkbox-label { display: flex; align-items: center; gap: 0.5rem; }
+
+/* Admin › Defaults: label, value with its unit, and a hint or problem below. */
+.defaults-group {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin: 0 0 1rem;
+  padding: 0.5rem 1rem 0.75rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.75rem 1.5rem;
+}
+.defaults-group legend {
+  font-weight: 600;
+  padding: 0 0.25rem;
+}
+.defaults-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.defaults-input {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.defaults-input input {
+  width: 8rem;
+}

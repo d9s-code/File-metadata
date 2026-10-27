@@ -4,6 +4,7 @@ from app.core.enums import ElementType, PriType
 from app.dsl.parser import ParsedModeLine, parse_mode_line
 from app.models.mode import DEFAULT_CONFIRMATION_QUALITY, DEFAULT_CONFIRMATION_QUANTITY, Mode, ModeElement, ModeLine
 from app.models.source import Source
+from app.services import app_settings
 
 
 def _find_or_create_element(db: Session, source_id, element_type: ElementType, **fields) -> ModeElement:
@@ -62,6 +63,7 @@ def create_mode_from_dsl(
     confirmation_quantity: int = DEFAULT_CONFIRMATION_QUANTITY,
 ) -> Mode:
     parsed = parse_mode_line(dsl_text)
+    stagger = parsed.pri_type == PriType.stagger
 
     mode = Mode(
         ew_group_id=ew_group_id,
@@ -88,6 +90,8 @@ def create_mode_from_dsl(
             jitter_min_us=parsed.jitter_min_us,
             jitter_max_us=parsed.jitter_max_us,
             pri_stagger_values_us=parsed.pri_stagger_values_us or None,
+            # A DSL line has no frame-time margin: a stagger gets the default.
+            frame_time_delta_us=float(app_settings.mode_defaults(db)["frame_time_delta_us"]) if stagger else None,
             dsl_text=dsl_text,
         )
     )

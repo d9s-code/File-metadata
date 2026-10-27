@@ -34,6 +34,7 @@ from app.services.audit_service import apply_and_diff, record_audit
 router = APIRouter(prefix="/ambiguity", tags=["ambiguity"])
 ai_router = APIRouter(prefix="/ai", tags=["ai"])
 
+_SCOPE_NOUN = {AmbiguityScopeType.emitter: "Emitter", AmbiguityScopeType.platform: "Platform", AmbiguityScopeType.mdf: "MDF"}
 _SCOPE_MODELS = {
     AmbiguityScopeType.emitter: (Emitter, EmitterVersion, "emitter_id", "emitter_version_id"),
     AmbiguityScopeType.platform: (Platform, PlatformVersion, "platform_id", "platform_version_id"),
@@ -82,6 +83,24 @@ def create_ambiguity_run(
         **{version_fk_field: version.id},
     )
     db.add(run)
+    db.flush()
+    model = _SCOPE_MODELS[payload.scope_type][0]
+    scope = db.get(model, payload.scope_id)
+    tol = run.tolerance_config
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.create,
+        entity_type=AuditEntityType.ambiguity_run.value,
+        entity_id=run.id,
+        summary=(
+            f"Ran the ambiguity check of {_SCOPE_NOUN[payload.scope_type]} "
+            f"'{scope.name if scope else '?'}' (version {version.version_number}; thresholds "
+            f"{tol.get('low_threshold')} / {tol.get('high_threshold')} / {tol.get('exact_threshold')} %)"
+        ),
+        changes={"tolerance_config": tol},
+        emitter_id=payload.scope_id if payload.scope_type == AmbiguityScopeType.emitter else None,
+    )
     db.commit()
     db.refresh(run)
 
@@ -238,7 +257,7 @@ def documentation_pages(db: Session = Depends(get_db), _=Depends(require_role(Ro
 
 
 @ai_router.post("/documentation/sync", dependencies=[Depends(verify_csrf)])
-def sync_documentation(_=Depends(require_role(Role.admin))) -> dict:
+def sync_documentation(db: Session = Depends(get_db), user=Depends(require_role(Role.admin))) -> dict:
     """Copy the documentation from Outline now, rather than when it's next
     over OUTLINE_SYNC_MINUTES old."""
     if not knowledge_service.enabled():
@@ -247,9 +266,19 @@ def sync_documentation(_=Depends(require_role(Role.admin))) -> dict:
             "No documentation is set up — set OUTLINE_URL, OUTLINE_API_TOKEN and OUTLINE_ROOT or OUTLINE_COLLECTION",
         )
     try:
-        return knowledge_service.sync()
+        state = knowledge_service.sync()
     except outline_client.OutlineError as err:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(err)) from err
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.update,
+        entity_type=AuditEntityType.documentation.value,
+        entity_id=None,
+        summary=f"Synced the AI's documentation from Outline ({state['label']}): {state['pages']} pages, {state['sections']} sections",
+    )
+    db.commit()
+    return state
 
 
 def _ask(work):

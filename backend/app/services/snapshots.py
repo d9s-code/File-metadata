@@ -106,6 +106,8 @@ def _test_line_dict(tl: TestLine) -> dict:
 
 
 def build_emitter_snapshot(emitter: Emitter) -> dict:
+    # Ties in sort_order are broken by name and id, so the same rows always
+    # give the same snapshot (and export) whatever order the database reads them in.
     return {
         "id": str(emitter.id),
         "name": emitter.name,
@@ -122,9 +124,9 @@ def build_emitter_snapshot(emitter: Emitter) -> dict:
                 "threat_priority": g.threat_priority,
                 "ageout": _num(g.ageout),
                 "sort_order": g.sort_order,
-                "modes": [_mode_dict(m) for m in sorted(g.modes, key=lambda m: m.sort_order)],
+                "modes": [_mode_dict(m) for m in sorted(g.modes, key=lambda m: (m.sort_order, m.name, str(m.id)))],
             }
-            for g in sorted(emitter.ew_groups, key=lambda g: g.sort_order)
+            for g in sorted(emitter.ew_groups, key=lambda g: (g.sort_order, g.name, str(g.id)))
         ],
         "sources": [
             {
@@ -138,12 +140,12 @@ def build_emitter_snapshot(emitter: Emitter) -> dict:
                 "pri_legacy_term": s.pri_legacy_term,
                 "group_id": str(s.group_id) if s.group_id else None,
                 "import_batch_id": str(s.import_batch_id) if s.import_batch_id else None,
-                "elements": [_mode_element_dict(e) for e in sorted(s.elements, key=lambda e: e.sort_order)],
-                "parameter_sequences": [_sequence_dict(q) for q in s.parameter_sequences],
+                "elements": [_mode_element_dict(e) for e in sorted(s.elements, key=lambda e: (e.sort_order, str(e.id)))],
+                "parameter_sequences": [_sequence_dict(q) for q in sorted(s.parameter_sequences, key=lambda q: (q.sort_order, str(q.id)))],
             }
-            for s in sorted(emitter.sources, key=lambda s: s.name)
+            for s in sorted(emitter.sources, key=lambda s: (s.name, str(s.id)))
         ],
-        "test_lines": [_test_line_dict(tl) for tl in sorted(emitter.test_lines, key=lambda tl: tl.sort_order)],
+        "test_lines": [_test_line_dict(tl) for tl in sorted(emitter.test_lines, key=lambda tl: (tl.sort_order, tl.label, str(tl.id)))],
     }
 
 
