@@ -79,6 +79,45 @@ class DwellStrategySummary(BaseModel):
     unsaved: bool
     used_in: list[str]
     updated_at: datetime
+    # How many pinned Emitters (per Platform it covers) are tested, stale,
+    # untested or not covered — None for default dwells or before a save.
+    testing: dict[str, int] | None = None
+
+
+class StrategyTestingRun(BaseModel):
+    test_record_id: UUID
+    title: str
+    test_date: date
+    result: str
+    strategy_version_number: int
+    emitter_version_number: int | None
+    platform_test_id: UUID | None
+
+
+class StrategyTestingEmitter(BaseModel):
+    emitter_id: UUID
+    emitter_name: str
+    designation: str | None
+    pinned_version_number: int
+    covering_dwells: int
+    # tested | stale | untested | not_covered
+    state: str
+    reason: str | None
+    # The run it holds on (tested), or the newest that no longer does (stale).
+    run: StrategyTestingRun | None
+
+
+class StrategyTestingPlatform(BaseModel):
+    platform_id: UUID
+    platform_name: str
+    emitters: list[StrategyTestingEmitter]
+
+
+class StrategyTestingOut(BaseModel):
+    strategy_id: UUID
+    # The saved version it's judged as; None before the first save.
+    version_number: int | None
+    platforms: list[StrategyTestingPlatform]
 
 
 class DwellStrategyOut(BaseModel):

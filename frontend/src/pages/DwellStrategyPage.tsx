@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { BackLink } from "../components/common/BackLink";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { StrategyTesting, testingSummary } from "../components/dwells/StrategyTesting";
 import { EntityHeader } from "../components/common/EntityHeader";
 import { MenuButton } from "../components/common/MenuButton";
 import { Modal } from "../components/common/Modal";
@@ -14,7 +15,7 @@ import { DwellsEditor } from "../components/dwells/DwellsEditor";
 import { num } from "../components/dwells/DwellChart";
 import { useHasRole } from "../auth/RequireAuth";
 import { ApiRequestError } from "../api/client";
-import { dwellsApi, type DwellStrategy, type StrategyTestUse } from "../api/dwells";
+import { dwellsApi, type DwellStrategy, type StrategyTesting as StrategyTestingData, type StrategyTestUse, type TestingState } from "../api/dwells";
 import {
   useAddDwellStrategyNote,
   useAppSettings,
@@ -25,11 +26,12 @@ import {
   useDwellVersions,
   useRefreshDwellLists,
   useUpdateDwellStrategy,
+  useStrategyTesting,
 } from "../state/hooks/useDwells";
 import { usePlatforms } from "../state/hooks/usePlatforms";
 import { PlatformsPicker } from "../components/dwells/PlatformsPicker";
 
-type Tab = "dwells" | "used";
+type Tab = "dwells" | "used" | "testing";
 
 /** One Dwell Strategy: a Platform's dwells, edited, charted and saved as
  * versions that dwell files pin and test runs record. */
@@ -59,11 +61,14 @@ function StrategyView({ strategy }: { strategy: DwellStrategy }) {
   const addNote = useAddDwellStrategyNote(strategy.id);
   const deleteNote = useDeleteDwellStrategyNote(strategy.id);
   const { confirmDelete, dialog } = useConfirmDialog();
-  const [tab, setTab] = useState<Tab>("dwells");
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState<Tab>(params.get("tab") === "testing" ? "testing" : "dwells");
+  const { data: testing } = useStrategyTesting(strategy.is_default ? "" : strategy.id);
   const [editing, setEditing] = useState<"details" | "copy" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const uses = strategy.used_in.length + strategy.tests.length;
+  const openTesting = testing ? (testingSummary(countStates(testing))?.open ?? 0) : 0;
   const outdatedUses = strategy.used_in.filter((u) => u.outdated).length;
 
   async function handleDelete() {
@@ -160,6 +165,11 @@ function StrategyView({ strategy }: { strategy: DwellStrategy }) {
         <button className={tab === "used" ? "tab active" : "tab"} onClick={() => setTab("used")}>
           Used in <span className="tab-count">{uses}</span>
         </button>
+        {!strategy.is_default && (
+          <button className={tab === "testing" ? "tab active" : "tab"} onClick={() => setTab("testing")}>
+            Testing {openTesting > 0 && <span className="tab-count tab-count-warn">{openTesting}</span>}
+          </button>
+        )}
       </div>
 
       {tab === "dwells" && (
@@ -171,6 +181,7 @@ function StrategyView({ strategy }: { strategy: DwellStrategy }) {
         />
       )}
       {tab === "used" && <UsedIn strategy={strategy} />}
+      {tab === "testing" && <StrategyTesting strategyId={strategy.id} isDefault={strategy.is_default} />}
 
       <NotesDrawer count={notes?.length ?? 0} subject={strategy.name} draftKey={`notes-draft:dwell-strategy:${strategy.id}`}>
         <NotesFeed
@@ -390,4 +401,11 @@ function MakeCopy({ strategy, onClose }: { strategy: DwellStrategy; onClose: () 
       </form>
     </Modal>
   );
+}
+
+/** A Strategy's testing as counts per state. */
+function countStates(testing: StrategyTestingData): Record<TestingState, number> {
+  const out: Record<TestingState, number> = { tested: 0, stale: 0, untested: 0, not_covered: 0 };
+  for (const p of testing.platforms) for (const e of p.emitters) out[e.state] += 1;
+  return out;
 }

@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { RunDwellStrategy } from "../components/testing/RunDwellStrategy";
 import { BackLink } from "../components/common/BackLink";
 import { EmitterNotesDrawer } from "../components/common/EntityNotesDrawer";
 import { formatDate } from "../components/common/dates";
@@ -200,14 +201,9 @@ export function TestRunDetailPage() {
           {formatDate(record.test_date)}
           {record.test_time ? ` ${record.test_time.slice(0, 5)}` : ""}
         </Fact>
-        {record.dwell_strategy_id ? (
-          <Fact label="Dwell">
-            <Link to={`/dwells/strategies/${record.dwell_strategy_id}`}>{record.dwell_strategy_name}</Link> v
-            {record.dwell_strategy_version_number}
-          </Fact>
-        ) : (
-          record.dwell && <Fact label="Dwell">{record.dwell}</Fact>
-        )}
+        <Fact label="Dwell">
+          <RunDwellStrategy emitterId={emitterId} record={record} />
+        </Fact>
         {record.received_power_dbfs != null && <Fact label="Received power">{record.received_power_dbfs} dBFS</Fact>}
         {record.simulation_created_date && (
           <Fact label={record.test_type === "intercept" ? "Intercepted" : "Simulation created"}>

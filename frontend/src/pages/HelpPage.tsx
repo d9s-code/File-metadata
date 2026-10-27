@@ -1020,6 +1020,21 @@ export function HelpPage() {
             The same Strategy can be in several files.
           </p>
           <p>
+            <strong>Testing a Strategy</strong> happens through Emitter testing: a simulation run that records the
+            Strategy as its dwell. A Strategy&apos;s <strong>Testing</strong> tab lists, for each Platform it covers,
+            every pinned Emitter: <strong>tested</strong> (a run with this Strategy still holds — the dwells covering it
+            have the same frequencies, dwell and collect times as in the latest saved version, and the Emitter
+            hasn&apos;t moved outside the RF it was tested at or grown a longer PRI / frame time), <strong>stale</strong>{" "}
+            (tested, but that no longer holds — it says why), <strong>untested</strong>, or <strong>not covered</strong>{" "}
+            (no dwell reaches its RF — a gap testing can&apos;t fix). Editing dwells for other bands leaves a test
+            standing. A Platform test counts only for its own Platform; an Emitter&apos;s own run counts on every
+            Platform the Strategy covers. Only simulation runs count, and default dwells aren&apos;t tracked. The Dwells
+            lists and a Platform&apos;s Dwells tab say what&apos;s open (&ldquo;2 untested · 1 stale&rdquo;), and the
+            dashboard lists it under <strong>Dwell testing</strong>. A new run starts on the Strategy covering the
+            Emitter&apos;s Platform when exactly one does; a run logged without one can be given its Strategy (and
+            version) afterwards with <strong>Set Strategy…</strong> on the run&apos;s page.
+          </p>
+          <p>
             On a Strategy&apos;s page you edit its <strong>dwells</strong> in order: each a frequency in MHz (as in the
             file), a dwell time and a collect time in ms (50 by default). <strong>Enter</strong> in a row adds the next
             one and <strong>Add several…</strong> takes a list of frequencies at once. <strong>Save as vN</strong> saves

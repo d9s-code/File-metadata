@@ -331,6 +331,13 @@ class TestRunDraftFull(TestRunDraftOut):
     state: dict
 
 
+class TestDwellStrategyChange(BaseModel):
+    """Which saved Dwell Strategy version a logged run used — set (or cleared)
+    afterwards, e.g. for a run logged before Strategies were picked."""
+
+    dwell_strategy_version_id: UUID | None = None
+
+
 class TestResultChange(BaseModel):
     """Changing a logged run's overall result by hand. Setting it back to
     what it worked out to clears the override."""

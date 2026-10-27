@@ -36,6 +36,11 @@ export function useDwellStrategy(id: string) {
   return useQuery({ queryKey: [...strategiesKey, id], queryFn: () => dwellsApi.strategy(id), enabled: !!id });
 }
 
+/** Whether each Emitter pinned to the Strategy's Platforms is tested with it. */
+export function useStrategyTesting(id: string) {
+  return useQuery({ queryKey: [...strategiesKey, id, "testing"], queryFn: () => dwellsApi.testing(id), enabled: !!id });
+}
+
 export function useUpdateDwellStrategy(id: string) {
   const qc = useQueryClient();
   const refresh = useRefreshDwells();

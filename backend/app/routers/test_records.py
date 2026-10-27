@@ -22,7 +22,7 @@ from app.models.test_record import (
     TestRecordSignal,
     TestRunDraft,
 )
-from app.schemas.test_record import TestRecordCreate, TestRecordOut, TestResultChange
+from app.schemas.test_record import TestDwellStrategyChange, TestRecordCreate, TestRecordOut, TestResultChange
 from app.services.audit_service import record_audit
 from app.services.test_result_service import compute_overall_result
 
@@ -288,6 +288,53 @@ def create_mdf_test_record(
         mdf_version_id=_latest_mdf_version_id(db, mdf_id),
         payload=payload,
         tested_by=user.id,
+    )
+
+
+@emitter_router.patch("/{test_record_id}/dwell-strategy", response_model=TestRecordOut, dependencies=[Depends(verify_csrf)])
+def change_emitter_test_dwell_strategy(
+    emitter_id: UUID,
+    test_record_id: UUID,
+    payload: TestDwellStrategyChange,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+) -> TestRecord:
+    """Record which saved Dwell Strategy version a logged run used (or that it
+    used none) — for runs logged before one was picked. The run's dwell text
+    follows ("Patrol v2")."""
+    record = db.get(TestRecord, test_record_id)
+    if record is None or record.scope_type != TestScopeType.emitter or record.scope_id != emitter_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Test record not found")
+    if record.platform_test_id is not None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "This run is part of a Platform test — its dwell is the Platform test's")
+    version = None
+    if payload.dwell_strategy_version_id is not None:
+        version = db.get(DwellStrategyVersion, payload.dwell_strategy_version_id)
+        if version is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Dwell Strategy version not found")
+    old_label = record.dwell
+    record.dwell_strategy_version_id = version.id if version else None
+    if version is not None:
+        record.dwell = f"{version.snapshot.get('name')} v{version.version_number}"
+        summary = f"Recorded test '{record.title}' as using Dwell Strategy {record.dwell}"
+    else:
+        summary = f"Recorded test '{record.title}' as using no Dwell Strategy"
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.update,
+        entity_type=AuditEntityType.test_record.value,
+        entity_id=record.id,
+        summary=summary,
+        changes={"dwell": {"old": old_label, "new": record.dwell}},
+        emitter_id=emitter_id,
+    )
+    db.commit()
+    return (
+        db.query(TestRecord)
+        .options(_MODES_EAGER_LOAD, _LINES_EAGER_LOAD, selectinload(TestRecord.signals), selectinload(TestRecord.emitter_version))
+        .filter(TestRecord.id == record.id)
+        .one()
     )
 
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useDwellStrategies } from "../state/hooks/useDwells";
 import { BackLink } from "../components/common/BackLink";
 import { useEmitterVersions } from "../state/hooks/useEmitterVersions";
 import { EmitterNotesDrawer } from "../components/common/EntityNotesDrawer";
@@ -226,6 +227,24 @@ export function TestRunNewPage() {
   const logging = useRef(false);
   const latest = useRef<{ json: string; body: { title: string; test_type: LoggableTestType; summary: string; state: RunState } } | null>(null);
 
+
+  // A new run (not a resumed draft or a redo) starts on the Dwell Strategy
+  // covering the Emitter's Platform, when exactly one saved one does — so
+  // the run counts towards that Strategy's testing without a second thought.
+  const { data: allStrategies } = useDwellStrategies();
+  const dwellSuggested = useRef(!!draftParam || !!retestParam);
+  useEffect(() => {
+    if (dwellSuggested.current || !emitter || !allStrategies) return;
+    dwellSuggested.current = true;
+    const pinnedOn = new Set(emitter.platforms.map((p) => p.id));
+    const covering = allStrategies.filter(
+      (st) => !st.is_default && st.latest_version_id && st.platform_ids.some((id) => pinnedOn.has(id)),
+    );
+    if (covering.length !== 1) return;
+    const [only] = covering;
+    setDwellStrategyVersionId(only.latest_version_id ?? "");
+    setDwell(`${only.name} v${only.latest_version_number}`);
+  }, [emitter, allStrategies]);
 
   // Seed the form once the data it depends on has loaded — including a
   // retest's settings when opened via "Redo test".

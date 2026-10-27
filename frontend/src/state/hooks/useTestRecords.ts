@@ -63,6 +63,20 @@ export function useChangeTestResult(emitterId: string) {
   });
 }
 
+/** Set (or clear) the Dwell Strategy version a logged run used. */
+export function useChangeTestDwellStrategy(emitterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, versionId }: { id: string; versionId: string | null }) =>
+      testRecordsApi.changeDwellStrategy(emitterId, id, versionId),
+    onSuccess: () => {
+      invalidateEmitterTestState(qc, emitterId);
+      // The Strategies' testing follows.
+      void qc.invalidateQueries({ queryKey: ["dwell-strategies"] });
+    },
+  });
+}
+
 export function useDeleteEmitterTestRecord(emitterId: string) {
   const qc = useQueryClient();
   return useMutation({

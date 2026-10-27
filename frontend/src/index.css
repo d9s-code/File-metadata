@@ -7267,3 +7267,12 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
   background: var(--badge-amber-bg);
   border-top-color: var(--badge-amber-fg);
 }
+
+/* A Strategy's testing in the lists: open items in amber. */
+.testing-open { color: var(--badge-amber-fg); font-weight: 600; }
+.testing-done { color: var(--muted); }
+.tab-count-warn { background: var(--badge-amber-bg); color: var(--badge-amber-fg); }
+
+/* Setting a logged run's Dwell Strategy afterwards. */
+.run-dwell-edit { margin-left: 0.4rem; }
+.run-dwell-picker { display: inline-flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }

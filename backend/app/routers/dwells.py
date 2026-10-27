@@ -46,10 +46,11 @@ from app.schemas.dwell import (
     SettingsUpdate,
     DwellStrategyNoteCreate,
     DwellStrategyNoteOut,
+    StrategyTestingOut,
     StrategyTestUse,
     StrategyUse,
 )
-from app.services import app_settings
+from app.services import app_settings, dwell_testing_service
 from app.services.audit_service import record_audit
 from app.services.dwell_service import (
     commit_file,
@@ -275,6 +276,9 @@ def list_strategies(
                 unsaved=version is None or version[1] != strategy_snapshot(s),
                 used_in=sorted(used.get(s.id, []), key=str.lower),
                 updated_at=s.updated_at,
+                testing=None
+                if s.is_default or version is None
+                else dwell_testing_service.counts(dwell_testing_service.strategy_testing(db, s)),
             )
         )
     # Default dwells first, then by Platform.
@@ -316,6 +320,13 @@ def create_strategy(
     db.commit()
     db.refresh(strategy)
     return _strategy_out(db, strategy)
+
+
+@router.get("/dwell-strategies/{strategy_id}/testing", response_model=StrategyTestingOut)
+def get_strategy_testing(strategy_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))) -> dict:
+    """For each Platform the Strategy covers, each pinned Emitter: tested,
+    stale, untested or not covered (see dwell_testing_service)."""
+    return dwell_testing_service.strategy_testing(db, _strategy_or_404(db, strategy_id))
 
 
 @router.get("/dwell-strategies/{strategy_id}", response_model=DwellStrategyOut)

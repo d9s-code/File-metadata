@@ -1,4 +1,5 @@
 import { Fragment, useState, type FormEvent } from "react";
+import { TestingCell } from "../components/dwells/StrategyTesting";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { PageHeader } from "../components/common/PageHeader";
 import { FilterBar, shownCount } from "../components/common/FilterBar";
@@ -124,6 +125,7 @@ function StrategyList({ onNew }: { onNew: () => void }) {
             <th className="num">Cycle (ms)</th>
             <th>Version</th>
             <th>In files</th>
+            <th>Testing</th>
             <th>Updated</th>
           </tr>
         </thead>
@@ -131,7 +133,7 @@ function StrategyList({ onNew }: { onNew: () => void }) {
           {[...groups.entries()].map(([key, items]) => (
             <Fragment key={key || "default"}>
               <tr className="dwell-group-row">
-                <th colSpan={7}>
+                <th colSpan={8}>
                   {key ? (
                     items[0].platform_ids.map((id, i) => (
                       <span key={id}>
@@ -169,6 +171,9 @@ function StrategyList({ onNew }: { onNew: () => void }) {
                     {s.used_in.slice(0, SHOWN).join(", ") || <span className="hint-text">—</span>}
                     {s.used_in.length > SHOWN && <span className="hint-text"> +{s.used_in.length - SHOWN}</span>}
                   </td>
+                  <td className="nowrap">
+                    <TestingCell strategyId={s.id} counts={s.testing} />
+                  </td>
                   <td className="nowrap">{formatDate(s.updated_at)}</td>
                 </tr>
               ))}
@@ -176,7 +181,7 @@ function StrategyList({ onNew }: { onNew: () => void }) {
           ))}
           {shown.length === 0 && (
             <tr>
-              <td colSpan={7} className="hint-text">
+              <td colSpan={8} className="hint-text">
                 Nothing matches &quot;{filter}&quot;.
               </td>
             </tr>

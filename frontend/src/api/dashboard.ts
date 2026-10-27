@@ -3,9 +3,9 @@ import type { AuditLogEntry, EmitterStatus, TestResult, TestType } from "../type
 
 export interface NeedsAttentionItem {
   message: string;
-  entity_type: "emitter" | "platform" | "mdf" | "intercept";
+  entity_type: "emitter" | "platform" | "mdf" | "intercept" | "dwell_strategy";
   entity_id: string;
-  category: "stale" | "rework" | "sim" | "mdf" | "intercepts" | "ambiguity" | "locks";
+  category: "stale" | "rework" | "sim" | "mdf" | "intercepts" | "ambiguity" | "locks" | "dwell";
 }
 
 export interface NeedsRedoTestItem {

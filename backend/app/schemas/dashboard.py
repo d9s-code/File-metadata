@@ -7,7 +7,7 @@ from app.schemas.audit_log import AuditLogOut
 
 class NeedsAttentionItem(BaseModel):
     message: str
-    entity_type: Literal["emitter", "platform", "mdf", "intercept"]
+    entity_type: Literal["emitter", "platform", "mdf", "intercept", "dwell_strategy"]
     entity_id: str
     # stale | rework | sim | mdf | intercepts | ambiguity | locks — for grouping on the dashboard.
     category: str

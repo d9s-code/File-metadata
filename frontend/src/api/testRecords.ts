@@ -196,6 +196,9 @@ export const testRecordsApi = {
   listForEmitter: (emitterId: string) => api.get<TestRecord[]>(`/emitters/${emitterId}/test-records`),
   createForEmitter: (emitterId: string, input: TestRecordInput) =>
     api.post<TestRecord>(`/emitters/${emitterId}/test-records`, input),
+  /** Which saved Dwell Strategy version a logged run used (null: none). */
+  changeDwellStrategy: (emitterId: string, id: string, versionId: string | null) =>
+    api.patch<TestRecord>(`/emitters/${emitterId}/test-records/${id}/dwell-strategy`, { dwell_strategy_version_id: versionId }),
   changeResultForEmitter: (emitterId: string, id: string, result: TestResult, note?: string) =>
     api.patch<TestRecord>(`/emitters/${emitterId}/test-records/${id}/result`, { result, note }),
   deleteForEmitter: (emitterId: string, id: string) =>

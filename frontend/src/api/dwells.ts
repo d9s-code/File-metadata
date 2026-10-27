@@ -46,6 +46,39 @@ export interface DwellStrategySummary {
   /** The dwell files it's in, by name. */
   used_in: string[];
   updated_at: string;
+  /** Pinned Emitters (per Platform it covers) in each testing state; null for default dwells or before a save. */
+  testing: Record<TestingState, number> | null;
+}
+
+/** A pinned Emitter's dwell testing against a Strategy. */
+export type TestingState = "tested" | "stale" | "untested" | "not_covered";
+
+export interface StrategyTestingRun {
+  test_record_id: string;
+  title: string;
+  test_date: string;
+  result: string;
+  strategy_version_number: number;
+  emitter_version_number: number | null;
+  platform_test_id: string | null;
+}
+
+export interface StrategyTestingEmitter {
+  emitter_id: string;
+  emitter_name: string;
+  designation: string | null;
+  pinned_version_number: number;
+  covering_dwells: number;
+  state: TestingState;
+  reason: string | null;
+  /** The run it holds on (tested), or the newest that no longer does (stale). */
+  run: StrategyTestingRun | null;
+}
+
+export interface StrategyTesting {
+  strategy_id: string;
+  version_number: number | null;
+  platforms: { platform_id: string; platform_name: string; emitters: StrategyTestingEmitter[] }[];
 }
 
 export interface DwellStrategy {
@@ -184,6 +217,7 @@ export const dwellsApi = {
         : "/dwell-strategies",
     ),
   strategy: (id: string) => api.get<DwellStrategy>(`/dwell-strategies/${id}`),
+  testing: (id: string) => api.get<StrategyTesting>(`/dwell-strategies/${id}/testing`),
   createStrategy: (input: {
     name: string;
     /** None: a default dwell. */

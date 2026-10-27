@@ -19,11 +19,13 @@ const PATHS: Record<NeedsAttentionItem["entity_type"], string> = {
   platform: "/platforms",
   mdf: "/mdfs",
   intercept: "/intercepts",
+  dwell_strategy: "/dwells/strategies",
 };
 
 function attentionLink(item: NeedsAttentionItem): string {
   if (item.category === "ambiguity") return `/ambiguity/${item.entity_type}/${item.entity_id}`;
   const base = `${PATHS[item.entity_type]}/${item.entity_id}`;
+  if (item.category === "dwell") return `${base}?tab=testing`;
   return item.category === "sim" ? `${base}?tab=tests` : base;
 }
 
@@ -84,6 +86,12 @@ export function NeedsAttentionCard({
       title: "Ambiguity",
       hint: "Serious overlaps in the latest ambiguity check that nobody has reviewed yet",
       items: byCategory("ambiguity"),
+    },
+    {
+      key: "dwell",
+      title: "Dwell testing",
+      hint: "Dwell Strategies with pinned Emitters untested, stale or not covered by any dwell",
+      items: byCategory("dwell"),
     },
     { key: "locks", title: "Held for editing", hint: "Held over 8 hours — nobody else can edit them", items: byCategory("locks") },
     { key: "stale", title: "Stalled", hint: "In progress with no commit for over a week", items: byCategory("stale") },

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { TestingCell } from "./StrategyTesting";
 import { Link } from "react-router-dom";
 import { RequireRole } from "../../auth/RequireAuth";
 import { formatDate } from "../common/dates";
@@ -59,6 +60,7 @@ export function PlatformDwells({ platformId, platformName }: { platformId: strin
                 <th className="num">Cycle (ms)</th>
                 <th>Version</th>
                 <th>In files</th>
+                <th>Testing</th>
                 <th>Updated</th>
               </tr>
             </thead>
@@ -94,6 +96,9 @@ export function PlatformDwells({ platformId, platformName }: { platformId: strin
                     )}
                   </td>
                   <td title={s.used_in.join("\n")}>{s.used_in.join(", ") || <span className="hint-text">—</span>}</td>
+                  <td className="nowrap">
+                    <TestingCell strategyId={s.id} counts={s.testing} />
+                  </td>
                   <td className="nowrap">{formatDate(s.updated_at)}</td>
                 </tr>
               ))}

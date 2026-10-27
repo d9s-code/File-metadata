@@ -226,6 +226,29 @@ def long_held_locks(db: Session, exclude_user_id=None) -> list[dict]:
     return out
 
 
+def _dwell_testing(db: Session) -> list[dict]:
+    """Dwell Strategies with pinned Emitters untested, stale or not covered."""
+    from app.models.dwell import DwellStrategy
+    from app.services import dwell_testing_service as dts
+
+    items = []
+    for strategy in db.query(DwellStrategy).order_by(DwellStrategy.name).all():
+        if strategy.is_default:
+            continue
+        n = dts.counts(dts.strategy_testing(db, strategy))
+        parts = [f"{n[k]} {label}" for k, label in (("untested", "untested"), ("stale", "stale"), ("not_covered", "not covered")) if n[k]]
+        if parts:
+            items.append(
+                {
+                    "message": f"Strategy '{strategy.name}': {', '.join(parts)}",
+                    "entity_type": "dwell_strategy",
+                    "entity_id": str(strategy.id),
+                    "category": "dwell",
+                }
+            )
+    return items
+
+
 def _compute_needs_attention(db: Session, sim_rows: list[dict], user: User | None = None) -> list[dict]:
     """Everything worth a look, grouped by category. Edit locks aren't shown to
     viewers (they can't edit anyway), and your own holds are on My work."""
@@ -247,6 +270,7 @@ def _compute_needs_attention(db: Session, sim_rows: list[dict], user: User | Non
     items.extend(_mdf_readiness(db))
     items.extend(_uncovered_intercepts(db))
     items.extend(_ambiguity_findings(db))
+    items.extend(_dwell_testing(db))
     if user is None or has_role(user, Role.editor):
         items.extend(long_held_locks(db, exclude_user_id=user.id if user else None))
     return items
