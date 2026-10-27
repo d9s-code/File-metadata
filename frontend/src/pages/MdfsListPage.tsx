@@ -134,7 +134,10 @@ export function MdfsListPage() {
         <Modal title="Add MDF" onClose={() => setShowAdd(false)}>
           <form onSubmit={handleCreate}>
             <div className="form-row">
-              <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
+              <label className="wide-label">
+                Name
+                <input value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
+              </label>
             </div>
             <div className="form-row">
               <label className="wide-label">

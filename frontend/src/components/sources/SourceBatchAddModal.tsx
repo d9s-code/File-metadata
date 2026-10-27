@@ -227,7 +227,7 @@ export function SourceBatchAddModal({
   }
 
   return (
-    <Modal title="Batch Add to Sources" onClose={onClose} wide>
+    <Modal title="Batch add to Sources" onClose={onClose} wide>
       <form className="batch-edit-form" onSubmit={handleSubmit}>
         <fieldset className="batch-sources">
           <legend>
@@ -441,7 +441,7 @@ export function SourceBatchAddModal({
             </table>
             </div>
             <button type="button" className="icon-button" onClick={addStep}>
-              + Add Step
+              + Add step
             </button>
           </div>
         )}
@@ -453,7 +453,7 @@ export function SourceBatchAddModal({
           <button type="submit" disabled={isSubmitting || targets.length === 0}>
             {mode === "element" && !usesStagger && parsed.values.length > 0
               ? `Add ${parsed.values.length * targets.length} Element${parsed.values.length * targets.length === 1 ? "" : "s"}`
-              : `Batch Add to ${targets.length} Source${targets.length === 1 ? "" : "s"}`}
+              : `Batch add to ${targets.length} Source${targets.length === 1 ? "" : "s"}`}
           </button>
         </div>
 

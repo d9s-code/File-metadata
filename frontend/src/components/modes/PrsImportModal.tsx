@@ -140,7 +140,7 @@ export function PrsImportModal({
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
             <button className="icon-button" onClick={() => fileInputRef.current?.click()} disabled={isImporting}>
-              {file ? file.name : "Select XML File"}
+              {file ? file.name : "Select XML file"}
             </button>
             <button className="button" onClick={() => void handleImport()} disabled={isImporting || !file}>
               {isImporting ? "Importing…" : "Import"}

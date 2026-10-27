@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { BackLink } from "../components/common/BackLink";
 import { formatDate, formatDateTime } from "../components/common/dates";
 import { DateInput } from "../components/common/DateInput";
 import { PageHeader } from "../components/common/PageHeader";
@@ -268,9 +269,9 @@ export function InterceptImportPage() {
 
   return (
     <div className="page">
-      <Link to={chosenEmitter ? `/emitters/${chosenEmitter.id}?tab=intercepts` : "/intercepts"}>
-        ← {chosenEmitter ? `${chosenEmitter.name} Intercepts` : "Intercepts"}
-      </Link>
+      <BackLink to={chosenEmitter ? `/emitters/${chosenEmitter.id}?tab=intercepts` : "/intercepts"}>
+        {chosenEmitter ? `${chosenEmitter.name} · Intercepts` : "Intercepts"}
+      </BackLink>
       <PageHeader
         title="Import Intercept from CSV"
         info="For an EmitterTrackParameters export. The file is read in your browser — nothing is saved until you press Import at the bottom — and your grouping is kept in this browser as you work, so leaving the page loses nothing: you'll be offered to resume it. Times are converted from ns to µs; RF stays in MHz."

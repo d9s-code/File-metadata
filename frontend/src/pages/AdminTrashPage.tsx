@@ -61,7 +61,7 @@ export function AdminTrashPage() {
       <h1>Admin</h1>
       <AdminNav />
       <p className="hint-text">
-        Deleted Emitters, Platforms, and MDFs stay here for 30 days before being purged automatically.
+        Deleted Emitters, Platforms and MDFs stay here for 30 days, then are removed for good automatically.
       </p>
 
       {error && <div className="error-text">{(error as Error).message}</div>}
@@ -74,7 +74,7 @@ export function AdminTrashPage() {
       {isLoading ? (
         <LoadingState label="Loading trash…" />
       ) : (items ?? []).length === 0 ? (
-        <EmptyState icon="✓" title="Nothing in the trash" message="Deleted Emitters, Platforms, and MDFs will show up here." />
+        <EmptyState icon="✓" title="Nothing recently deleted" message="Deleted Emitters, Platforms and MDFs show up here." />
       ) : (
         <table className="data-table">
           <thead>

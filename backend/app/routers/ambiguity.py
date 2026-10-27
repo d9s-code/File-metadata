@@ -34,6 +34,10 @@ from app.services.audit_service import apply_and_diff, record_audit
 router = APIRouter(prefix="/ambiguity", tags=["ambiguity"])
 ai_router = APIRouter(prefix="/ai", tags=["ai"])
 
+def _pct(value) -> str:
+    return f"{value:g}" if isinstance(value, (int, float)) else str(value)
+
+
 _SCOPE_NOUN = {AmbiguityScopeType.emitter: "Emitter", AmbiguityScopeType.platform: "Platform", AmbiguityScopeType.mdf: "MDF"}
 _SCOPE_MODELS = {
     AmbiguityScopeType.emitter: (Emitter, EmitterVersion, "emitter_id", "emitter_version_id"),
@@ -96,7 +100,7 @@ def create_ambiguity_run(
         summary=(
             f"Ran the ambiguity check of {_SCOPE_NOUN[payload.scope_type]} "
             f"'{scope.name if scope else '?'}' (version {version.version_number}; thresholds "
-            f"{tol.get('low_threshold')} / {tol.get('high_threshold')} / {tol.get('exact_threshold')} %)"
+            f"{_pct(tol.get('low_threshold'))} / {_pct(tol.get('high_threshold'))} / {_pct(tol.get('exact_threshold'))} %)"
         ),
         changes={"tolerance_config": tol},
         emitter_id=payload.scope_id if payload.scope_type == AmbiguityScopeType.emitter else None,

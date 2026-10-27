@@ -33,7 +33,7 @@ function DocumentationSetting() {
   const doc = status.data?.documentation;
   return (
     <section className="card">
-      <h3>AI documentation</h3>
+      <h4>AI documentation</h4>
       {!doc ? (
         <p className="hint-text">
           No documentation is set up. To give the AI chat and explanations pages from Outline as background, set{" "}
@@ -102,7 +102,7 @@ function BandwidthSetting({ current }: { current: number }) {
 
   return (
     <form className="card" onSubmit={handleSubmit}>
-      <h3>Dwell charts</h3>
+      <h4>Dwell charts</h4>
       <div className="form-row">
         <label>
           Default bandwidth (MHz)

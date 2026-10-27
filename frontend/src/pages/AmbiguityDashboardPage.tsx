@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { BackLink } from "../components/common/BackLink";
 import { formatDateTime } from "../components/common/dates";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import type {
   AmbiguityFinding,
   AmbiguityRun,
@@ -233,10 +234,7 @@ export function AmbiguityDashboardPage() {
   return (
     <div className="page ambiguity-page">
       <div className="amb-header">
-        <Link to={`${SCOPE_PATH[scopeType]}/${scopeId}`} className="amb-back">
-          ← {scopeName(scopeType)}
-          {name ? `: ${name}` : ""}
-        </Link>
+        <BackLink to={`${SCOPE_PATH[scopeType]}/${scopeId}`}>{name || scopeName(scopeType)}</BackLink>
         <h1>Ambiguity check{name ? ` — ${name}` : ""}</h1>
       </div>
 

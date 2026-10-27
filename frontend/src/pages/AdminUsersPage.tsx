@@ -91,12 +91,12 @@ async function handleCreate(e: FormEvent) {
     <div className="page">
       <div className="page-header-row">
         <h1>Admin</h1>
-        <button onClick={() => setShowAddModal(true)}>+ Create User</button>
+        <button onClick={() => setShowAddModal(true)}>+ Add user</button>
       </div>
       <AdminNav />
 
       {showAddModal && (
-        <Modal title="Create User" onClose={() => setShowAddModal(false)}>
+        <Modal title="Add user" onClose={() => setShowAddModal(false)}>
           <form onSubmit={handleCreate}>
             <div className="form-row">
               <input
@@ -148,7 +148,7 @@ async function handleCreate(e: FormEvent) {
       {isLoading ? (
         <LoadingState label="Loading users…" />
       ) : (users ?? []).length === 0 ? (
-        <EmptyState icon="◇" title="No users yet" message="Create the first user above." />
+        <EmptyState icon="◇" title="No users yet" message="Add the first user with + Add user." />
       ) : (
         <>
           <table className="data-table">
@@ -177,7 +177,7 @@ async function handleCreate(e: FormEvent) {
                   </td>
                   <td>
                     <span className={u.is_active ? "status-badge status-validated" : "status-badge status-deprecated"}>
-                      {u.is_active ? "active" : "deactivated"}
+                      {u.is_active ? "Active" : "Deactivated"}
                     </span>
                   </td>
                   <td>{formatDate(u.created_at)}</td>
@@ -194,7 +194,7 @@ async function handleCreate(e: FormEvent) {
                           setShowResetModal(true);
                         }}
                       >
-                        Reset Password
+                        Reset password
                       </button>
                     </div>
                   </td>
@@ -204,7 +204,7 @@ async function handleCreate(e: FormEvent) {
           </table>
 
           {showResetModal && (
-            <Modal title="Reset Password" onClose={() => setShowResetModal(false)}>
+            <Modal title="Reset password" onClose={() => setShowResetModal(false)}>
               <form onSubmit={handleResetPassword}>
                 <div className="form-row">
                   <label className="wide-label">New Password</label>
@@ -224,7 +224,7 @@ async function handleCreate(e: FormEvent) {
                     Cancel
                   </button>
                   <button type="submit" disabled={updateUser.isPending}>
-                    Reset Password
+                    Reset password
                   </button>
                 </div>
               </form>

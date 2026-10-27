@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { BackLink } from "../components/common/BackLink";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useEmitter } from "../state/hooks/useEmitters";
 import {
@@ -63,7 +64,7 @@ export function EmitterVersionHistoryPage() {
 
   return (
     <div className="page">
-      <Link to={`/emitters/${emitter.id}`}>← Back to {emitter.name}</Link>
+      <BackLink to={`/emitters/${emitter.id}`}>{emitter.name}</BackLink>
       <div className="emitter-title-row">
         <h1>{emitter.name} — Version History</h1>
         <div className="emitter-actions">

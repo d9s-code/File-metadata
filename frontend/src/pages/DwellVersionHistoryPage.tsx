@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { BackLink } from "../components/common/BackLink";
+import { useParams, useSearchParams } from "react-router-dom";
 import { VersionList } from "../components/versioning/VersionList";
 import { VersionPanel } from "../components/versioning/VersionPanel";
 import { SaveVersionButton } from "../components/versioning/SaveVersionButton";
@@ -45,7 +46,7 @@ export function DwellVersionHistoryPage({ kind }: { kind: DwellKind }) {
 
   return (
     <div className="page">
-      <Link to={back}>← Back to {subject.name}</Link>
+      <BackLink to={back}>{subject.name}</BackLink>
       <div className="emitter-title-row">
         <h1>{subject.name} — Version History</h1>
         <div className="emitter-actions">

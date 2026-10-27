@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { BackLink } from "../components/common/BackLink";
 import { formatDateTime } from "../components/common/dates";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -155,7 +156,7 @@ export function InterceptRegroupPage() {
   if (all.data.reports.length === 0) {
     return (
       <div className="page">
-        <Link to={`/intercepts/${interceptId}`}>← {intercept.name}</Link>
+        <BackLink to={`/intercepts/${interceptId}`}>{intercept.name}</BackLink>
         <h1>Regroup reports</h1>
         <p className="hint-text">
           This Intercept has no reports kept — it was typed in by hand, or imported before reports were kept.
@@ -240,7 +241,7 @@ export function InterceptRegroupPage() {
 
   return (
     <div className="page">
-      <Link to={`/intercepts/${interceptId}`}>← {intercept.name}</Link>
+      <BackLink to={`/intercepts/${interceptId}`}>{intercept.name}</BackLink>
       <h1>Regroup reports</h1>
       <p className="hint-text">
         The {stored.reports.length.toLocaleString()} reports kept with {intercept.name}

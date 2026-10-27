@@ -34,7 +34,7 @@ export function PlatformTests({ platformId, pinnedCount }: { platformId: string;
         <RequireRole minimum="editor">
           {pinnedCount > 0 ? (
             <Link className="link-as-button" to={`/platforms/${platformId}/tests/new`}>
-              + New Platform test
+              + Add Platform test
             </Link>
           ) : (
             <span className="hint-text">Pin Emitters to test them together.</span>
@@ -78,7 +78,7 @@ export function PlatformTests({ platformId, pinnedCount }: { platformId: string;
       {isLoading ? (
         <p className="hint-text">Loading…</p>
       ) : !tests?.length ? (
-        <EmptyState icon="☐" title="No Platform tests yet" message="Start one to test every pinned Emitter in one run." />
+        <EmptyState icon="☐" title="No Platform tests yet" message="Add one with + Add Platform test to test every pinned Emitter in one run." />
       ) : (
         <table className="data-table platform-tests-table">
           <thead>

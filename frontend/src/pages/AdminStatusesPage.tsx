@@ -101,14 +101,14 @@ function StatusesSection({ type }: { type: StatusEntityType }) {
   return (
     <section className="card admin-statuses">
       <div className="section-head">
-        <h3>
+        <h4>
           {NOUN[type]} statuses{" "}
           <InfoTip label="About statuses">
             In order, as lists and the dashboard show them. "Can move to" is which buttons an item in that status
             gets. Built-in statuses can be renamed and recoloured but not deleted — the app relies on them (new items
             start in the first built-in one; Operational is what MDF readiness checks look for).
           </InfoTip>
-        </h3>
+        </h4>
         <button type="button" className="button secondary small" onClick={() => setAdding(true)}>
           + Add status
         </button>
@@ -220,7 +220,7 @@ function AddStatus({ type, onClose }: { type: StatusEntityType; onClose: () => v
   }
 
   return (
-    <Modal title={`New ${NOUN[type]} status`} onClose={onClose}>
+    <Modal title={`Add ${NOUN[type]} status`} onClose={onClose}>
       <form onSubmit={submit} className="status-form">
         <label>
           Name
@@ -397,14 +397,14 @@ function MilestonesSection({ type }: { type: StatusEntityType }) {
   return (
     <section className="card admin-milestones">
       <div className="section-head">
-        <h3>
+        <h4>
           Default milestones{" "}
           <InfoTip label="About milestones">
             What every {NOUN[type]} should have done before it reaches a status — ticked off by hand on its page
             (◎ Milestones). Moving to a status with milestones not met asks to confirm first. An {NOUN[type]} can also
             have milestones of its own, added on its page.
           </InfoTip>
-        </h3>
+        </h4>
       </div>
       {groups.length === 0 && <p className="hint-text">None yet — add one below.</p>}
       {groups.map(({ s, items }) => (

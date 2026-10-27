@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { BackLink } from "../components/common/BackLink";
 import { useQueries } from "@tanstack/react-query";
 import { testLinesApi } from "../api/testLines";
 import { testLinesKey } from "../state/hooks/useTestLines";
@@ -337,7 +338,7 @@ export function PlatformTestRunPage() {
   if (loadError)
     return (
       <div className="page">
-        <Link to={back}>← Back to the Platform&apos;s tests</Link>
+        <BackLink to={back}>Tests</BackLink>
         <p className="error-text">{loadError}</p>
       </div>
     );
@@ -415,7 +416,7 @@ export function PlatformTestRunPage() {
   return (
     <div className="page">
       <PlatformNotesDrawer platformId={platformId} name={platform.name} />
-      <Link to={back}>← Back to {platform.name}</Link>
+      <BackLink to={back}>{platform.name} · Tests</BackLink>
       <PageHeader
         title={`${draftId.current ? "Platform test in progress" : "New Platform test"} — ${platform.name}`}
         info="Every Emitter pinned on the Platform, tested in one run: a result and notes for each. Logging it writes a test record for each Emitter in the run — against the version the Platform pins — so each also shows in that Emitter's Test History."

@@ -367,7 +367,7 @@ export function ElementCoverage({ emitterId }: { emitterId: string }) {
   return (
     <div className="card element-coverage">
       <div className="card-header-row">
-        <h3>
+        <h4>
           Element coverage{" "}
           {rows.length > 0 && (
             <span className="hint-text">
@@ -385,7 +385,7 @@ export function ElementCoverage({ emitterId }: { emitterId: string }) {
             sequence without PRI has each step&apos;s RF and PW checked. <strong>Partly</strong> means only some of it
             is; the note says how. Hover a mark to see what covers it; hover a Mode to see what it covers.
           </InfoTip>
-        </h3>
+        </h4>
         <button type="button" className="link-button" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
           {open ? "Hide" : "Show"}
         </button>

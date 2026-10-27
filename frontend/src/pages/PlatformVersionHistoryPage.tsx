@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { BackLink } from "../components/common/BackLink";
+import { useParams, useSearchParams } from "react-router-dom";
 import { usePlatform } from "../state/hooks/usePlatforms";
 import {
   useCommitPlatformVersion,
@@ -35,7 +36,7 @@ export function PlatformVersionHistoryPage() {
 
   return (
     <div className="page">
-      <Link to={`/platforms/${platform.id}`}>← Back to {platform.name}</Link>
+      <BackLink to={`/platforms/${platform.id}`}>{platform.name}</BackLink>
       <div className="emitter-title-row">
         <h1>{platform.name} — Version History</h1>
         <div className="emitter-actions">

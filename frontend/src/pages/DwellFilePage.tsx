@@ -1,4 +1,5 @@
 import { Fragment, useState, type FormEvent } from "react";
+import { BackLink } from "../components/common/BackLink";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { EntityHeader } from "../components/common/EntityHeader";
 import { MenuButton } from "../components/common/MenuButton";
@@ -48,7 +49,7 @@ export function DwellFilePage() {
   if (!file || error)
     return (
       <div className="page">
-        <Link to="/dwells?view=files">← Dwell files</Link>
+        <BackLink to="/dwells?view=files">Dwell files</BackLink>
         <p className="hint-text">This dwell file doesn&apos;t exist (it may have been deleted).</p>
       </div>
     );
@@ -96,7 +97,7 @@ function DwellFileView({ file }: { file: DwellFile }) {
 
   return (
     <div className="page">
-      <Link to="/dwells?view=files">← Dwell files</Link>
+      <BackLink to="/dwells?view=files">Dwell files</BackLink>
       <EntityHeader
         title={file.name}
         actions={

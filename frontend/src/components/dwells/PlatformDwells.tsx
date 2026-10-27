@@ -29,7 +29,7 @@ export function PlatformDwells({ platformId, platformName }: { platformId: strin
         </p>
         <RequireRole minimum="editor">
           <button type="button" className="button secondary small" onClick={() => setMaking(true)}>
-            + New Strategy
+            + Add Strategy
           </button>
         </RequireRole>
       </div>

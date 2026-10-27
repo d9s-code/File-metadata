@@ -402,7 +402,7 @@ function BandwidthField({
       className="dwell-bandwidth"
       title="How wide each dwell is drawn. Blank: the default an admin sets under Admin → Settings."
     >
-      Band width
+      Bandwidth
       <input
         type="number"
         step="any"

@@ -80,7 +80,7 @@ export function MdfTestHistory({ mdfId, highlightTestRecordId }: { mdfId: string
       <RequireRole minimum="editor">
         {!showForm ? (
           <button className="icon-button" onClick={() => setShowForm(true)}>
-            + New Test
+            + Add test run
           </button>
         ) : (
           <form className="card" onSubmit={handleSubmit}>

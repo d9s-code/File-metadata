@@ -2,50 +2,58 @@ import { EMITTER_STATUS_LABEL } from "../common/emitterStatusLabel";
 import { formatDate, formatDateTime } from "../common/dates";
 import type { AuditAction } from "../../types/domain";
 
-const ENTITY_TYPE_LABELS: Record<string, string> = {
-  emitter: "Emitters",
-  ew_group: "EW Groups",
-  source: "Sources",
-  mode_element: "Elements",
-  mode: "Modes",
-  mode_generation_batch: "Generation Batches",
-  platform: "Platforms",
-  platform_link: "Platform Links",
-  mdf: "MDFs",
-  mdf_link: "MDF Links",
-  dwell_strategy: "Dwell Strategies",
-  dwell_file: "Dwell Files",
-  setting: "Settings",
-  test_record: "Test Records",
-  test_line: "Test Lines",
-  prs_import: "PRS Imports",
-  user: "Users",
-  auth: "Auth",
-  backup: "Backups",
-  task: "Tasks",
-  emitter_note: "Emitter Notes",
-  platform_note: "Platform Notes",
-  mdf_note: "MDF Notes",
-  source_note: "Source Notes",
-  dwell_strategy_note: "Dwell Strategy Notes",
-  source_group: "Source Groups",
-  parameter_sequence: "Parameter Sequences",
-  import_batch: "Imports",
-  customer: "Customers",
-  intercept: "Intercepts",
-  intercept_entry: "Intercept Entries",
-  intercept_note: "Intercept Notes",
-  status_definition: "Statuses",
-  milestone: "Milestones",
-  ambiguity_finding: "Ambiguity Findings",
-  ambiguity_run: "Ambiguity Checks",
-  test_draft: "Test Runs in Progress",
-  documentation: "AI Documentation",
-  function_group: "Function Groups",
+/** Each kind of thing the Audit Log records: as a category (plural) and as
+ * one row's (singular), in the app's own words. */
+const ENTITY_TYPES: Record<string, [plural: string, singular: string]> = {
+  emitter: ["Emitters", "Emitter"],
+  ew_group: ["EW Groups", "EW Group"],
+  source: ["Sources", "Source"],
+  mode_element: ["Elements", "Element"],
+  mode: ["Modes", "Mode"],
+  mode_generation_batch: ["Generation batches", "Generation batch"],
+  platform: ["Platforms", "Platform"],
+  platform_link: ["Platform pins", "Platform pin"],
+  mdf: ["MDFs", "MDF"],
+  mdf_link: ["MDF pins", "MDF pin"],
+  dwell_strategy: ["Strategies", "Strategy"],
+  dwell_file: ["Dwell files", "Dwell file"],
+  setting: ["Settings", "Setting"],
+  test_record: ["Test runs", "Test run"],
+  test_line: ["SIM Test Lines", "SIM Test Line"],
+  prs_import: ["PRS imports", "PRS import"],
+  user: ["Users", "User"],
+  auth: ["Sign-ins", "Sign-in"],
+  backup: ["Backups", "Backup"],
+  task: ["Tasks", "Task"],
+  emitter_note: ["Emitter notes", "Emitter note"],
+  platform_note: ["Platform notes", "Platform note"],
+  mdf_note: ["MDF notes", "MDF note"],
+  source_note: ["Source notes", "Source note"],
+  dwell_strategy_note: ["Strategy notes", "Strategy note"],
+  source_group: ["Source Groups", "Source Group"],
+  parameter_sequence: ["Sequences", "Sequence"],
+  import_batch: ["Imports", "Import"],
+  customer: ["Customers", "Customer"],
+  intercept: ["Intercepts", "Intercept"],
+  intercept_entry: ["Intercept entries", "Intercept entry"],
+  intercept_note: ["Intercept notes", "Intercept note"],
+  status_definition: ["Statuses", "Status"],
+  milestone: ["Milestones", "Milestone"],
+  ambiguity_finding: ["Ambiguity findings", "Ambiguity finding"],
+  ambiguity_run: ["Ambiguity checks", "Ambiguity check"],
+  test_draft: ["Test runs in progress", "Test run in progress"],
+  documentation: ["AI documentation", "AI documentation"],
+  function_group: ["Function groups", "Function group"],
 };
 
+/** A category of the log ("Modes"). */
 export function entityTypeLabel(entityType: string): string {
-  return ENTITY_TYPE_LABELS[entityType] ?? entityType;
+  return ENTITY_TYPES[entityType]?.[0] ?? entityType;
+}
+
+/** What one entry is about ("Mode"). */
+export function entityTypeSingular(entityType: string): string {
+  return ENTITY_TYPES[entityType]?.[1] ?? entityType;
 }
 
 const ACTION_LABELS: Record<AuditAction, string> = {

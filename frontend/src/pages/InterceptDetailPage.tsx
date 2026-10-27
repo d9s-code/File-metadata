@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { BackLink } from "../components/common/BackLink";
 import { formatDate } from "../components/common/dates";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useEmitter } from "../state/hooks/useEmitters";
@@ -594,7 +595,7 @@ export function InterceptDetailPage() {
 
   return (
     <div className="page">
-      {emitter && <Link to={`/emitters/${emitter.id}?tab=intercepts`}>← {emitter.name} Intercepts</Link>}
+      {emitter && <BackLink to={`/emitters/${emitter.id}?tab=intercepts`}>{emitter.name} · Intercepts</BackLink>}
       <div className="emitter-title-row">
         <h1>{intercept.name}</h1>
         <RequireRole minimum="editor">

@@ -5,6 +5,7 @@ import type { TaskQuery } from "../api/tasks";
 import { RequireRole } from "../auth/RequireAuth";
 import { LoadingState } from "../components/common/LoadingState";
 import { EmptyState } from "../components/common/EmptyState";
+import { PageHeader } from "../components/common/PageHeader";
 import { TaskForm } from "../components/tasks/TaskForm";
 import { TaskList } from "../components/tasks/TaskList";
 import { useCreateTask, useMyWork, usePeople, useTasks } from "../state/hooks/useTasks";
@@ -39,7 +40,7 @@ export function TasksPage() {
 
   return (
     <div className="page tasks-page">
-      <h1>Tasks</h1>
+      <PageHeader title="Tasks" info="Your to-dos, the ones up for grabs and the ones you've handed out. A task can be about an Emitter, Platform or MDF, and shows on its page too." />
       <RequireRole minimum="editor">
         <div className="card">
           <TaskForm

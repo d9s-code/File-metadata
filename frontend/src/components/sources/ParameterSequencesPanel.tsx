@@ -14,8 +14,8 @@ import { sequenceRangeSummary, stepHas, stepValueText, type StepParam } from "./
 
 const STEP_COLUMNS: { param: StepParam; label: string }[] = [
   { param: "rf", label: "RF (MHz)" },
-  { param: "pri", label: "PRI (us)" },
-  { param: "pw", label: "PW (us)" },
+  { param: "pri", label: "PRI (µs)" },
+  { param: "pw", label: "PW (µs)" },
 ];
 
 /** A sequence with no step touching rf_mhz/pw_us — delta override doesn't

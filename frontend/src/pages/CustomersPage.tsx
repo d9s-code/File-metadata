@@ -46,7 +46,7 @@ export function CustomersPage() {
       {isLoading ? (
         <LoadingState label="Loading customers…" />
       ) : customers && customers.length === 0 ? (
-        <EmptyState icon="◇" title="No Customers yet" message="Add one above, then pick it from an MDF's edit form." />
+        <EmptyState icon="◇" title="No Customers yet" message="Add one with + Add Customer, then pick it in an MDF's details." />
       ) : (
         <table className="data-table">
           <thead>

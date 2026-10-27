@@ -93,7 +93,7 @@ export function JsonImportModal({
               onClick={() => fileInputRef.current?.click()}
               disabled={isImporting}
             >
-              {isImporting ? "Importing..." : "Select JSON File"}
+              {isImporting ? "Importing…" : "Select JSON file"}
             </button>
             {error && <span className="error-text" style={{ fontSize: "0.8rem" }}>{error}</span>}
           </div>

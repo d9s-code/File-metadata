@@ -289,7 +289,7 @@ export function ModesSection({
               title={!canEdit ? "Start editing this Emitter first" : selected.size === 0 ? "Select one or more Modes below first" : undefined}
               onClick={() => setShowBatchEdit(true)}
             >
-              Batch Edit{selected.size > 0 ? ` (${selected.size})` : ""}
+              Batch edit{selected.size > 0 ? ` (${selected.size})` : ""}
             </button>
             {selected.size > 0 && (
               <button

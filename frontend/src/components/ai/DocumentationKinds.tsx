@@ -90,7 +90,7 @@ export function DocumentationKinds() {
 
   return (
     <div className="doc-kinds">
-      <h4>What lives where</h4>
+      <h5>What lives where</h5>
       <p className="hint-text">
         Say what each page holds; its sub-pages follow unless set themselves. The AI is told which each section is:{" "}
         {kinds

@@ -92,8 +92,8 @@ export function SequenceForm({ emitterId, sourceId, canEdit }: { emitterId: stri
             <tr>
               <th className="px-2 py-2 w-16 text-center">Order</th>
               <th className="px-2 py-2">RF (MHz)</th>
-              <th className="px-2 py-2">PRI (us)</th>
-              <th className="px-2 py-2">PW (us)</th>
+              <th className="px-2 py-2">PRI (µs)</th>
+              <th className="px-2 py-2">PW (µs)</th>
               <th className="px-2 py-2">Dwell (pulses)</th>
               <th className="px-2 py-2 w-16 text-center">Action</th>
             </tr>
@@ -157,7 +157,7 @@ export function SequenceForm({ emitterId, sourceId, canEdit }: { emitterId: stri
             onClick={addStep} 
             className="text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-3 py-1 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
           >
-            + Add Step
+            + Add step
           </button>
           {error && <div className="error-text">{error}</div>}
         </div>
@@ -167,7 +167,7 @@ export function SequenceForm({ emitterId, sourceId, canEdit }: { emitterId: stri
           title={canEdit ? undefined : "Start editing this Emitter first"}
           className="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700 disabled:opacity-50"
         >
-          {createSequence.isPending ? "Creating..." : "Create Sequence"}
+          {createSequence.isPending ? "Adding…" : "Add sequence"}
         </button>
       </div>
     </form>

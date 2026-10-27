@@ -787,7 +787,7 @@ export function CartesianProductButton({
         <div className="cartesian-sequences">
           <strong>Sequences</strong>
           {isSeqLoading ? (
-            <p className="hint-text">Loading sequences...</p>
+            <p className="hint-text">Loading sequences…</p>
           ) : sequenceStepRows.length === 0 ? (
             <p className="hint-text">No items available.</p>
           ) : (

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { formatDateTime } from "../common/dates";
 import type { AuditLogEntry } from "../../types/domain";
-import { actionLabel, auditSummary, entityTypeLabel, formatChanges } from "./auditFormat";
+import { actionLabel, auditSummary, entityTypeSingular, formatChanges } from "./auditFormat";
 import { SortableColumnHeader } from "../common/SortableColumnHeader";
 import { useSortableTable } from "../common/useSortableTable";
 import { compareStrings } from "../common/sortUtils";
@@ -17,7 +17,7 @@ function compareEntries(a: AuditLogEntry, b: AuditLogEntry, key: AuditSortKey, d
     case "action":
       return compareStrings(actionLabel(a.action), actionLabel(b.action), dir);
     case "entity":
-      return compareStrings(entityTypeLabel(a.entity_type), entityTypeLabel(b.entity_type), dir);
+      return compareStrings(entityTypeSingular(a.entity_type), entityTypeSingular(b.entity_type), dir);
   }
 }
 
@@ -103,7 +103,7 @@ export function AuditLogList({
             <td>
               <span className={`audit-action-badge audit-action-${e.action}`}>{actionLabel(e.action)}</span>
             </td>
-            {showEntityType && <td>{entityTypeLabel(e.entity_type)}</td>}
+            {showEntityType && <td>{entityTypeSingular(e.entity_type)}</td>}
             <td>{auditSummary(e.summary)}</td>
             <td>
               <ChangesToggle changes={e.changes} entityType={e.entity_type} />

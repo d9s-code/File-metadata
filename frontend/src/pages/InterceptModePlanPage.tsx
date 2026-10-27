@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { BackLink } from "../components/common/BackLink";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useEmitter } from "../state/hooks/useEmitters";
@@ -419,7 +420,7 @@ export function InterceptModePlanPage() {
 
   return (
     <div className="page plan-page">
-      <Link to={`/intercepts/${interceptId}`}>← {intercept.name}</Link>
+      <BackLink to={`/intercepts/${interceptId}`}>{intercept.name}</BackLink>
       <h1>Plan Modes</h1>
       <p className="hint-text">
         For each entry {emitter ? `${emitter.name}'s` : "the"} Modes don&apos;t cover yet, choose what to do: make a{" "}
@@ -446,7 +447,7 @@ export function InterceptModePlanPage() {
       )}
 
       <section className="card plan-settings">
-        <h3>New Modes</h3>
+        <h4>New Modes</h4>
         <div className="form-row">
           <label className="grow">
             EW Group

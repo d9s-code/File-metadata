@@ -126,7 +126,7 @@ export function EwGroupForm({ emitterId, initialData, prefill, onClose }: EwGrou
         />
       </label>
       <button type="submit" disabled={isPending}>
-        {initialData ? "Update EW Group" : "Add EW Group"}
+        {initialData ? "Save" : "Add EW Group"}
       </button>
       {onClose && (
         <button type="button" className="icon-button" onClick={() => onClose()}>

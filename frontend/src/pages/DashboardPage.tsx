@@ -1,4 +1,5 @@
 import { useAuth } from "../auth/AuthContext";
+import { PageHeader } from "../components/common/PageHeader";
 import { useDashboardAttention, useDashboardOverview, useDashboardTestRuns } from "../state/hooks/useDashboard";
 import { LoadingState } from "../components/common/LoadingState";
 import { LifecycleCard } from "../components/dashboard/LifecycleCard";
@@ -32,7 +33,7 @@ export function DashboardPage() {
 
   return (
     <div className="page">
-      <h1>Dashboard</h1>
+      <PageHeader title="Dashboard" />
 
       <div className="dashboard-grid">
         <MyWorkCard />

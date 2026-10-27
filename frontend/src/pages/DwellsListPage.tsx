@@ -35,7 +35,7 @@ export function DwellsListPage() {
         <RequireRole minimum="editor">
           {view === "strategies" ? (
             <button type="button" className="button primary" onClick={() => setMaking("strategy")}>
-              + New Strategy
+              + Add Strategy
             </button>
           ) : (
             <>
@@ -43,7 +43,7 @@ export function DwellsListPage() {
                 Import XML
               </button>
               <button type="button" className="button primary" onClick={() => setMaking("file")}>
-                + New dwell file
+                + Add dwell file
               </button>
             </>
           )}
@@ -78,11 +78,11 @@ function StrategyList({ onNew }: { onNew: () => void }) {
       <EmptyState
         icon="◇"
         title="No Strategies yet"
-        message="Make one for a Platform, or import a dwell file's XML under Dwell files."
+        message="Add one with + Add Strategy, or import a dwell file's XML under Dwell files."
         action={
           <RequireRole minimum="editor">
             <button type="button" className="button primary" onClick={onNew}>
-              + New Strategy
+              + Add Strategy
             </button>
           </RequireRole>
         }
@@ -191,7 +191,7 @@ function FileList() {
   const { data: files, isLoading } = useDwellFiles();
   if (isLoading) return <LoadingState label="Loading dwell files…" />;
   if (!files?.length)
-    return <EmptyState icon="◇" title="No dwell files yet" message="Make one and add Strategies, or import a dwell file's XML." />;
+    return <EmptyState icon="◇" title="No dwell files yet" message="Add one with + Add dwell file, then pin Strategies to it — or import a dwell file's XML." />;
   return (
     <table className="data-table">
       <thead>
@@ -270,7 +270,7 @@ export function NewStrategy({ onClose, platformId: initialPlatform = "" }: { onC
   }
 
   return (
-    <Modal title="New Strategy" onClose={onClose}>
+    <Modal title="Add a Strategy" onClose={onClose}>
       <form className="rename-form" onSubmit={submit}>
         <label>
           Name
@@ -346,7 +346,7 @@ function NewDwellFile({ importing, onClose }: { importing: boolean; onClose: () 
   }
 
   return (
-    <Modal title={importing ? "Import a dwell file" : "New dwell file"} onClose={onClose}>
+    <Modal title={importing ? "Import a dwell file" : "Add a dwell file"} onClose={onClose}>
       <form className="rename-form" onSubmit={handleSubmit}>
         {importing && (
           <label>

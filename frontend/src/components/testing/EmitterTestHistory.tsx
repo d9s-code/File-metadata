@@ -37,7 +37,7 @@ export function EmitterTestHistory({
           </h4>
           <RequireRole minimum="editor">
             <Link className="link-as-button" to={`/emitters/${emitterId}/tests/new`}>
-              + New Test Run
+              + Add test run
             </Link>
           </RequireRole>
         </div>

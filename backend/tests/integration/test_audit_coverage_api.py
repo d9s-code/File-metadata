@@ -44,7 +44,7 @@ def test_running_an_ambiguity_check_is_logged(editor_client, emitter_with_two_ov
     resp = editor_client.post("/ambiguity/runs", json={"scope_type": "emitter", "scope_id": emitter["id"]})
     assert resp.status_code == 201, resp.text
     assert any(
-        s.startswith("Ran the ambiguity check of Emitter 'Ambiguity Emitter' (version 1")
+        s.startswith("Ran the ambiguity check of Emitter 'Ambiguity Emitter' (version 1; thresholds 30 / 70 / 99 %)")
         for s in _summaries(editor_client, emitter_id=emitter["id"])
     )
 
@@ -55,3 +55,13 @@ def test_changing_ones_own_settings_is_logged(viewer_client, admin_client):
     # Nothing changed, nothing logged.
     viewer_client.patch("/auth/me/preferences", json={"ai_chat": False})
     assert sum("viewer_t changed their settings" in s for s in _summaries(admin_client)) == 1
+
+
+def test_settings_changes_read_as_words(admin_client):
+    admin_client.patch("/settings", json={"dwell_bandwidth_mhz": 20})
+    admin_client.patch("/settings", json={"ai_chat_max_context_tokens": 65536})
+    admin_client.patch("/settings", json={"outline_page_kinds": {"Trials": "test_result"}})
+    summaries = _summaries(admin_client)
+    assert "Changed the dwell charts' default bandwidth: 10 → 20 MHz" in summaries
+    assert "Changed the AI chat's max context: 32,768 → 65,536 tokens" in summaries
+    assert "Changed what lives where in the AI documentation (1 page set)" in summaries

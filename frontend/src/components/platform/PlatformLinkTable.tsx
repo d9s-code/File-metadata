@@ -110,7 +110,7 @@ export function PlatformLinkTable({
   const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(links, compareLinks, "platformPinnedEmitters");
 
   if (links.length === 0) {
-    return <EmptyState icon="○" title="No Emitters pinned yet" message="Use + Pin Emitters to add them." />;
+    return <EmptyState icon="○" title="No Emitters pinned yet" message="Pin saved Emitter versions with + Pin Emitters." />;
   }
 
   return (
@@ -121,7 +121,7 @@ export function PlatformLinkTable({
         <tr>
           <SortableColumnHeader label="Designation" columnKey="designation" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
           <SortableColumnHeader label="Emitter" columnKey="emitter" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
-          <th>Pinned Version</th>
+          <th>Pinned version</th>
           <SortableColumnHeader
             label="Added"
             columnKey="added"

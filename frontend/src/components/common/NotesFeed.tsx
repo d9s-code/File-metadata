@@ -141,7 +141,7 @@ export function NotesFeed({
         onClick={() => void handleAdd()}
         disabled={isAdding || !draft.trim()}
       >
-        {isAdding ? "Adding..." : "Add note"}
+        {isAdding ? "Adding…" : "Add note"}
       </button>
     </div>
   );

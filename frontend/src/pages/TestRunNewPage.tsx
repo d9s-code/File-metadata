@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { BackLink } from "../components/common/BackLink";
 import { useEmitterVersions } from "../state/hooks/useEmitterVersions";
 import { EmitterNotesDrawer } from "../components/common/EntityNotesDrawer";
 import { formatDate, formatTime } from "../components/common/dates";
@@ -349,7 +350,7 @@ export function TestRunNewPage() {
   if (loadError)
     return (
       <div className="page">
-        <Link to={`/emitters/${emitterId}?tab=tests`}>← Back to test history</Link>
+        <BackLink to={`/emitters/${emitterId}?tab=tests`}>Test History</BackLink>
         <p className="error-text">{loadError}</p>
       </div>
     );
@@ -491,7 +492,7 @@ export function TestRunNewPage() {
   return (
     <div className="page">
       <EmitterNotesDrawer emitterId={emitterId} name={emitter.name} />
-      <Link to={`/emitters/${emitterId}?tab=tests`}>← Back to {emitter.name} test history</Link>
+      <BackLink to={`/emitters/${emitterId}?tab=tests`}>{emitter.name} · Test History</BackLink>
       <h1>{draftId.current ? "Test run in progress" : "New test run"} — {emitter.name}</h1>
       {canWrite && <SaveLine status={saveStatus} hasDraft={!!draftId.current} onRetry={() => void saveNow()} />}
       {dialog}

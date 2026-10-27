@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { BackLink } from "../components/common/BackLink";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { EntityHeader } from "../components/common/EntityHeader";
 import { MenuButton } from "../components/common/MenuButton";
@@ -39,7 +40,7 @@ export function DwellStrategyPage() {
   if (!strategy || error)
     return (
       <div className="page">
-        <Link to="/dwells">← Dwells</Link>
+        <BackLink to="/dwells">Dwells</BackLink>
         <p className="hint-text">This Strategy doesn&apos;t exist (it may have been deleted).</p>
       </div>
     );
@@ -83,7 +84,7 @@ function StrategyView({ strategy }: { strategy: DwellStrategy }) {
 
   return (
     <div className="page">
-      <Link to="/dwells">← Dwells</Link>
+      <BackLink to="/dwells">Dwells</BackLink>
       <EntityHeader
         title={strategy.name}
         actions={
@@ -204,7 +205,7 @@ function UsedIn({ strategy }: { strategy: DwellStrategy }) {
   return (
     <div className="dwell-used-in">
       <section className="card">
-        <h3>Dwell files</h3>
+        <h4>Dwell files</h4>
         {strategy.used_in.length === 0 ? (
           <p className="hint-text">Not in any dwell file yet — add it from a dwell file&apos;s page.</p>
         ) : (
@@ -236,7 +237,7 @@ function UsedIn({ strategy }: { strategy: DwellStrategy }) {
         )}
       </section>
       <section className="card">
-        <h3>Test runs</h3>
+        <h4>Test runs</h4>
         {strategy.tests.length === 0 ? (
           <p className="hint-text">No test run has recorded it yet — pick it under Dwell when logging a run.</p>
         ) : (

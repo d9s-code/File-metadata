@@ -1,4 +1,5 @@
 import { type ReactNode } from "react";
+import { BackLink } from "../components/common/BackLink";
 import { PlatformNotesDrawer } from "../components/common/EntityNotesDrawer";
 import { formatDate } from "../components/common/dates";
 import { Link, useParams } from "react-router-dom";
@@ -37,7 +38,7 @@ export function PlatformTestDetailPage() {
   const { platformId = "", testId = "" } = useParams<{ platformId: string; testId: string }>();
   const { data: platform } = usePlatform(platformId);
   const { data: test, isLoading, error } = usePlatformTest(testId);
-  const back = <Link to={`/platforms/${platformId}?tab=tests`}>← Back to {platform?.name ?? "the Platform"}&apos;s tests</Link>;
+  const back = <BackLink to={`/platforms/${platformId}?tab=tests`}>{platform?.name ?? "Platform"} · Tests</BackLink>;
   if (isLoading) return <LoadingState label="Loading Platform test…" />;
   if (!test || error)
     return (

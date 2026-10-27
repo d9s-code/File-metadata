@@ -45,7 +45,7 @@ export function CustomerForm({ initialData, onClose }: CustomerFormProps) {
     <form className="card inline-form" onSubmit={handleSubmit}>
       <input placeholder="Customer name" value={name} onChange={(e) => setName(e.target.value)} required />
       <button type="submit" disabled={isPending}>
-        {initialData ? "Update Customer" : "Add Customer"}
+        {initialData ? "Save" : "Add Customer"}
       </button>
       {onClose && (
         <button type="button" className="icon-button" onClick={() => onClose()}>

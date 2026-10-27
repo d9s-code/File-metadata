@@ -279,7 +279,11 @@ export function EmittersListPage() {
 
   return (
     <div className="page">
-      <PageHeader title="Emitters" section={EMITTERS_SECTION}>
+      <PageHeader
+        title="Emitters"
+        info="Every Emitter: its EW Groups, Sources and Modes, its tests and where it's pinned. Tick rows for actions on several at once."
+        section={EMITTERS_SECTION}
+      >
         <RequireRole minimum="editor">
           <button onClick={() => setShowAddModal(true)}>+ Add Emitter</button>
         </RequireRole>
@@ -289,14 +293,16 @@ export function EmittersListPage() {
         <Modal title="Add Emitter" onClose={() => setShowAddModal(false)}>
           <form onSubmit={handleCreate}>
             <div className="form-row">
-              <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
+              <label className="wide-label">
+                Name
+                <input value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
+              </label>
             </div>
             <div className="form-row">
-              <input
-                placeholder="Designation (optional)"
-                value={designation}
-                onChange={(e) => setDesignation(e.target.value)}
-              />
+              <label className="wide-label">
+                Designation (optional)
+                <input value={designation} onChange={(e) => setDesignation(e.target.value)} />
+              </label>
             </div>
             <div className="form-row">
               <label className="wide-label">
@@ -309,7 +315,7 @@ export function EmittersListPage() {
               <button type="button" className="button secondary" onClick={() => setShowAddModal(false)}>
                 Cancel
               </button>
-              <button type="submit" disabled={createEmitter.isPending}>
+              <button type="submit" className="button primary" disabled={createEmitter.isPending}>
                 Add Emitter
               </button>
             </div>
@@ -404,7 +410,7 @@ export function EmittersListPage() {
         <EmptyState
           icon="◇"
           title="No Emitters yet"
-          message="Emitters are the top-level RF profile — add one above to start building EW Groups, Sources, and Modes."
+          message="Add one with + Add Emitter, then build its EW Groups, Sources and Modes."
         />
       ) : sorted.length === 0 ? (
         <EmptyState icon="◇" title="No matches" message="No Emitters match the current search/filters." />

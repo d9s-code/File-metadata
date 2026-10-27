@@ -111,7 +111,7 @@ export function SourceForm({
         </select>
       </label>
       <button type="submit" disabled={isPending}>
-        {initialData ? "Update Source" : "Add Source"}
+        {initialData ? "Save" : "Add Source"}
       </button>
       {onClose && (
         <button type="button" className="icon-button" onClick={() => onClose()}>

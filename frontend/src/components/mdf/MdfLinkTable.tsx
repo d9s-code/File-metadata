@@ -84,7 +84,7 @@ export function MdfLinkTable({
       <thead>
         <tr>
           <SortableColumnHeader label="Platform" columnKey="platform" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
-          <th>Pinned Version</th>
+          <th>Pinned version</th>
           <SortableColumnHeader
             label="Added"
             columnKey="added"

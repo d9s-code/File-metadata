@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { BackLink } from "../components/common/BackLink";
 import { EmitterNotesDrawer } from "../components/common/EntityNotesDrawer";
 import { formatDate } from "../components/common/dates";
 import { ObservedValuesTable } from "../components/testing/ObservedValuesTable";
@@ -101,7 +102,7 @@ export function TestRunDetailPage() {
 
   if (!emitter || isLoading || !records) return <LoadingState label="Loading test run…" />;
   const record = records.find((r) => r.id === testRecordId);
-  const backLink = <Link to={`/emitters/${emitterId}?tab=tests`}>← Back to {emitter.name} test history</Link>;
+  const backLink = <BackLink to={`/emitters/${emitterId}?tab=tests`}>{emitter.name} · Test History</BackLink>;
   if (!record) {
     return (
       <div className="page">

@@ -881,6 +881,8 @@ label {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  /* A button beside a labelled input lines up with the input, not the label. */
+  align-items: flex-end;
 }
 
 .param-row {
@@ -5294,7 +5296,6 @@ a.ai-cite:hover { text-decoration: underline; }
 
 /* Ambiguity check page — list beside the selected finding's detail */
 .ambiguity-page .amb-header { margin-bottom: 0.6rem; }
-.amb-back { font-size: 0.85rem; }
 .ambiguity-page .amb-header h1 { margin: 0.2rem 0 0; }
 .amb-runbar { padding: 0.7rem 0.9rem; }
 .amb-runbar-row { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 0.5rem 1rem; }
@@ -7233,4 +7234,18 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
 }
 .defaults-input input {
   width: 8rem;
+}
+
+/* The way back up, above a page's title (BackLink). */
+.back-link {
+  display: inline-block;
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
+/* A table row's actions, side by side. */
+.action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
 }

@@ -238,7 +238,7 @@ export function UncoveredWindow({
       >
         <div className="source-overlay-header">
           <div className="source-overlay-title">
-            <h3>Not covered by the Modes</h3>
+            <h4>Not covered by the Modes</h4>
             <div className="hint-text">
               Compared with the Emitter&apos;s {plural(modes.length, "Mode", "Modes")} the same way as the Match
               column: RF, PRI (frame time for a stagger) and PW inside a Mode&apos;s engineered range, against Modes

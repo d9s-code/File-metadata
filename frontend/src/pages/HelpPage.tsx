@@ -380,7 +380,7 @@ export function HelpPage() {
               A Mode can come from <strong>more than one Source</strong> — e.g. the same signal in two reports.
               Pick them under <strong>Sources</strong> in the Mode form (<em>+ another Source…</em> adds one, ×
               takes one off); the Sources column lists them all, and the Source filter finds a Mode by any of
-              them. <strong>Batch Edit</strong> can add a Source to many Modes at once, or make one their only
+              them. <strong>Batch edit</strong> can add a Source to many Modes at once, or make one their only
               Source. A Source can be deleted unless it&rsquo;s some Mode&rsquo;s only Source; its other Modes just
               lose it. Merging duplicates from the ambiguity check keeps both Modes&rsquo; Sources.
             </p>
@@ -424,10 +424,10 @@ export function HelpPage() {
               follows the sum of its sequence until you type your own value; <strong>Use sum</strong> goes
               back to the sum. Every Mode also carries a <strong>Confirmation quality</strong> (0–100, default
               100) and <strong>Confirmation quantity</strong> (default 2); both go into the PRS export and
-              can be changed per Mode or with Batch Edit.
+              can be changed per Mode or with Batch edit.
             </p>
             <p>
-              Tick a Mode's checkbox (or several) to reveal a <strong>Batch Edit</strong> button for
+              Tick a Mode's checkbox (or several) to reveal a <strong>Batch edit</strong> button for
               applying the same field, delta, jitter (Fixed Modes only) or range-shift change to all of them at
               once — muted until at least one Mode is selected. <strong>+ Add a value…</strong> adds one RF, PRI or PW value — a
               stray PRI from a test, say — to every combination of the other two among your Modes: tick the
@@ -510,7 +510,7 @@ export function HelpPage() {
                 do before anything is changed. Deleting a line also deletes its results in logged runs.
               </li>
               <li>
-                <strong>+ New Test Run</strong> opens a separate page. Pick the type:{" "}
+                <strong>+ Add test run</strong> opens a separate page. Pick the type:{" "}
                 <strong>simulation</strong> (checked against the SIM Test Lines) or{" "}
                 <strong>intercept</strong> (a real-world intercept, checked against the Emitter&rsquo;s own
                 Modes). Older lab-bench, live-range and field-exercise records stay in the history, but new
@@ -675,7 +675,7 @@ export function HelpPage() {
               blank cell wherever that step didn't set that parameter.
             </p>
             <p>
-              <strong>Batch Add</strong> adds Elements (or a Sequence) to several Sources at once. Tick the Sources
+              <strong>Batch add</strong> adds Elements (or a Sequence) to several Sources at once. Tick the Sources
               in the dialog — the ones selected in the table start ticked; <strong>All</strong> ticks every one. Pick
               the type and variant, then type the <strong>values</strong>: each becomes its own Element, a single value
               (9000) or a range (9100-9200), separated by commas, spaces or new lines — so
@@ -907,7 +907,7 @@ export function HelpPage() {
             overlap, from the latest ambiguity check — hover a mark to see which. <strong>Ambiguity check</strong>{" "}
             runs on the latest saved Platform version.{" "}
             <strong>Tests</strong> holds <strong>Platform tests</strong> — every pinned Emitter tested in one run.{" "}
-            <strong>+ New Platform test</strong> opens a page with the run&apos;s details and a row per pinned Emitter: a{" "}
+            <strong>+ Add Platform test</strong> opens a page with the run&apos;s details and a row per pinned Emitter: a{" "}
             <strong>result</strong> and <strong>notes</strong> (untick <strong>In this run</strong> to leave one out). In a
             Simulation Test each Emitter also has its own <strong>Simulation created</strong> date, filled in from the
             newest of its SIM Test Lines&apos; created dates (change it if that&apos;s wrong; one with no lines needs it
@@ -1020,7 +1020,7 @@ export function HelpPage() {
           <p>
             The <strong>Cycle</strong> badge at the top of the chart says how long one pass through all the dwells
             takes. The chart beside the table draws one cycle as a waterfall — frequency across, time running down — with
-            each dwell a band of the <strong>band width</strong> (set in the chart&apos;s header; the default is an
+            each dwell a band of the <strong>bandwidth</strong> (set in the chart&apos;s header; the default is an
             admin&apos;s, under Admin → Settings). Hover a band or a row to see the stretch it covers, e.g. 3020–3040
             MHz. Behind the dwells are the frequencies the Platform&apos;s pinned Emitters occupy, each in a lane under
             the chart; the legend says how much of each the dwells sit on (<strong>not dwelt on</strong> is flagged) and

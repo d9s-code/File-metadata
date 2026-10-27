@@ -44,13 +44,13 @@ function row(v: ObservedValues): Row {
 }
 
 const COLUMNS: { key: keyof Row; label: string }[] = [
-  { key: "rf", label: "RF MHz" },
-  { key: "pri", label: "PRI µs" },
-  { key: "stagger", label: "Stagger µs" },
-  { key: "frame", label: "Frame µs" },
-  { key: "pw", label: "PW µs" },
-  { key: "jitter", label: "Jitter µs" },
-  { key: "power", label: "Power dBFS" },
+  { key: "rf", label: "RF (MHz)" },
+  { key: "pri", label: "PRI (µs)" },
+  { key: "stagger", label: "Stagger (µs)" },
+  { key: "frame", label: "Frame time (µs)" },
+  { key: "pw", label: "PW (µs)" },
+  { key: "jitter", label: "Jitter (µs)" },
+  { key: "power", label: "Power (dBFS)" },
 ];
 
 /** Intercepted parameters as a small table inside a cell: one row per set,

@@ -393,7 +393,7 @@ export function SourceGroupsPage() {
         <EmptyState
           icon="◇"
           title="No Source Groups yet"
-          message="Create a group to start categorizing Sources across Emitters, or import a document — each import creates its own group automatically."
+          message="Add one with + Add Source Group to sort Sources across Emitters, or import a document — each import makes its own group."
         />
       ) : view === "list" ? (
         <section className="card">

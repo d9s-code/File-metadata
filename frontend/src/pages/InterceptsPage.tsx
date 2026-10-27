@@ -151,7 +151,7 @@ export function InterceptsPage() {
         <EmptyState
           icon="◇"
           title="No Intercepts yet"
-          message="Log a real-world signal intercept against an Emitter — add one above."
+          message="Add one with + Add Intercept, or bring one in with Import CSV."
         />
       ) : sorted.length === 0 ? (
         <EmptyState icon="◇" title="No matches" message="No Intercepts match the current search/filters." />

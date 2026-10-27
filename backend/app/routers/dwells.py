@@ -872,6 +872,12 @@ _MODE_DEFAULT_LABELS = {
 
 
 def _setting_summary(key: str, old, new) -> str:
+    if key == app_settings.DWELL_BANDWIDTH_MHZ:
+        return f"Changed the dwell charts' default bandwidth: {old:g} → {new:g} MHz"
+    if key == app_settings.AI_CHAT_MAX_CONTEXT:
+        return f"Changed the AI chat's max context: {old:,} → {new:,} tokens"
+    if key == app_settings.OUTLINE_PAGE_KINDS:
+        return f"Changed what lives where in the AI documentation ({len(new)} page{'' if len(new) == 1 else 's'} set)"
     if key != app_settings.MODE_DEFAULTS:
         return f"Changed setting {key}"
     old = {**app_settings.MODE_DEFAULT_VALUES, **(old or {})}

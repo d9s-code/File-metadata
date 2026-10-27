@@ -8,7 +8,7 @@ import {
   useAuditEntityTypeCounts,
   useAuditLog,
 } from "../state/hooks/useAuditLog";
-import { actionLabel, entityTypeLabel } from "../components/audit/auditFormat";
+import { actionLabel, entityTypeLabel, entityTypeSingular } from "../components/audit/auditFormat";
 import { AuditLogList } from "../components/audit/AuditLogList";
 import { useSessionState } from "../components/common/useSessionState";
 
@@ -115,7 +115,7 @@ export function AuditLogPage() {
             {selectedEntity ? (
               <span className="audit-entity-chip">
                 Scoped to: <strong>{selectedEntity.name}</strong>{" "}
-                <span className="muted">({entityTypeLabel(selectedEntity.entity_type)})</span>
+                <span className="muted">({entityTypeSingular(selectedEntity.entity_type)})</span>
                 <button type="button" className="link-button" onClick={clearEntity}>
                   ✕
                 </button>
@@ -140,7 +140,7 @@ export function AuditLogPage() {
                       <li key={`${m.entity_type}:${m.entity_id}`}>
                         <button type="button" onMouseDown={() => pickEntity(m)}>
                           <span>{m.name}</span>
-                          <span className="audit-entity-picker-type">{entityTypeLabel(m.entity_type)}</span>
+                          <span className="audit-entity-picker-type">{entityTypeSingular(m.entity_type)}</span>
                         </button>
                       </li>
                     ))}
