@@ -278,7 +278,7 @@ export function EmittersListPage() {
   }
 
   return (
-    <div className="page">
+    <div className={canWrite && selected.size > 0 ? "page emitters-page-bulk" : "page"}>
       <PageHeader
         title="Emitters"
         info="Every Emitter: its EW Groups, Sources and Modes, its tests and where it's pinned. Tick rows for actions on several at once."

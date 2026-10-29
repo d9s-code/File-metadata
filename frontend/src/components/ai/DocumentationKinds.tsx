@@ -28,6 +28,8 @@ export function DocumentationKinds() {
   const saved = useMemo(() => settings.data?.outline_page_kinds ?? {}, [settings.data]);
   const [edits, setEdits] = useState<Record<string, string | null>>({});
   const [filter, setFilter] = useState("");
+  // Pages whose sub-pages are shown; the rest show folded (top level only, to start).
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
   const rules = useMemo(() => {
@@ -45,7 +47,22 @@ export function DocumentationKinds() {
   const { kinds, default: fallback } = pages.data;
   const label = (key: string) => kinds.find((k) => k.key === key)?.label ?? key;
   const words = filter.toLowerCase().split(/\s+/).filter(Boolean);
-  const shown = pages.data.pages.filter((p) => words.every((w) => p.path.toLowerCase().includes(w)));
+  const all = pages.data.pages;
+  const parents = new Set(all.flatMap((p) => p.path.split(SEP).slice(0, -1).map((_, i, parts) => parts.slice(0, i + 1).join(SEP))));
+  const subPages = (path: string) => all.filter((p) => p.path.startsWith(path + SEP)).length;
+  // Searching shows every match; otherwise a page shows when every page above it is expanded.
+  const shown = words.length
+    ? all.filter((p) => words.every((w) => p.path.toLowerCase().includes(w)))
+    : all.filter((p) => {
+        const parts = p.path.split(SEP);
+        return parts.slice(0, -1).every((_, i) => expanded.has(parts.slice(0, i + 1).join(SEP)));
+      });
+  const toggle = (path: string) => {
+    const next = new Set(expanded);
+    if (next.has(path)) next.delete(path);
+    else next.add(path);
+    setExpanded(next);
+  };
 
   async function save() {
     setError(null);
@@ -66,8 +83,24 @@ export function DocumentationKinds() {
     const kind = own ?? inherited;
     return (
       <tr key={p.path} className={kind === "exclude" ? "doc-kind-excluded" : undefined}>
-        <td title={p.path} style={{ paddingLeft: `${0.5 + depth * 1.1}rem` }}>
+        <td title={p.path} className="doc-kinds-page" style={{ paddingLeft: `${0.5 + depth * 1.1}rem` }}>
+          {parents.has(p.path) && !words.length ? (
+            <button
+              type="button"
+              className="link-button doc-kinds-toggle"
+              aria-expanded={expanded.has(p.path)}
+              aria-label={`${expanded.has(p.path) ? "Fold" : "Show"} the pages under ${p.path}`}
+              onClick={() => toggle(p.path)}
+            >
+              {expanded.has(p.path) ? "▾" : "▸"}
+            </button>
+          ) : (
+            <span className="doc-kinds-toggle" />
+          )}
           {p.path.split(SEP).pop()}
+          {parents.has(p.path) && !expanded.has(p.path) && !words.length && (
+            <span className="hint-text"> · {subPages(p.path)} under it</span>
+          )}
         </td>
         <td className="num hint-text">{p.sections}</td>
         <td>
@@ -104,14 +137,22 @@ export function DocumentationKinds() {
         <p className="hint-text">No pages copied yet — Sync now, then set them here.</p>
       ) : (
         <>
-          <input
-            type="search"
-            className="doc-kinds-filter"
-            placeholder="Find a page…"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            aria-label="Find a page"
-          />
+          <div className="doc-kinds-tools">
+            <input
+              type="search"
+              className="doc-kinds-filter"
+              placeholder="Find a page…"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              aria-label="Find a page"
+            />
+            <button type="button" className="button secondary small" onClick={() => setExpanded(new Set(parents))}>
+              Expand all
+            </button>
+            <button type="button" className="button secondary small" onClick={() => setExpanded(new Set())}>
+              Collapse all
+            </button>
+          </div>
           <div className="table-scroll doc-kinds-scroll">
             <table className="data-table compact">
               <thead>

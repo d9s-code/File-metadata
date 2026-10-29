@@ -18,6 +18,8 @@ export interface AuditLogFilters {
   emitter_id?: string;
   /** With entity_type/action: keep the Emitter's version saves, reverts and discards too. */
   with_versions?: boolean;
+  /** Only entries that change this parameter (rf, pri, pw, jitter, frame_time, …). */
+  parameter?: string;
   q?: string;
   since?: string;
   until?: string;
@@ -46,6 +48,7 @@ export const auditLogApi = {
     const qs = params.toString();
     return api.get<AuditActionCount[]>(`/audit-log/actions${qs ? `?${qs}` : ""}`);
   },
+  parameters: () => api.get<{ key: string; label: string }[]>("/audit-log/parameters"),
   searchEntities: (q: string) =>
     api.get<AuditEntitySearchResult[]>(`/audit-log/entities?q=${encodeURIComponent(q)}`),
 };

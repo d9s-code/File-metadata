@@ -1,4 +1,5 @@
 import type { EwGroup, Mode, Source } from "../../types/domain";
+import type { LineValues } from "./modeLine";
 import { Modal } from "../common/Modal";
 import { ModeEditForm } from "./ModeEditForm";
 import { ModeForm } from "./ModeForm";
@@ -11,15 +12,26 @@ export function ModeEditDialog({
   mode,
   sources,
   onClose,
+  lineChange,
+  derivedFromTestRecord,
 }: {
   emitterId: string;
   mode: Mode;
   sources: Source[];
   onClose: () => void;
+  lineChange?: Partial<LineValues>;
+  derivedFromTestRecord?: { id: string; title: string };
 }) {
   return (
     <Modal title={`Edit ${mode.name}`} onClose={onClose} className="form-dialog">
-      <ModeEditForm emitterId={emitterId} mode={mode} sources={sources} onDone={onClose} />
+      <ModeEditForm
+        emitterId={emitterId}
+        mode={mode}
+        sources={sources}
+        onDone={onClose}
+        lineChange={lineChange}
+        derivedFromTestRecord={derivedFromTestRecord}
+      />
     </Modal>
   );
 }

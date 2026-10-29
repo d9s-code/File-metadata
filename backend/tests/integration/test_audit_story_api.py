@@ -82,3 +82,40 @@ def test_a_mode_made_by_adding_a_value_says_which_mode_it_copies(editor_client):
     assert resp.status_code == 201, resp.text
     summaries = [e["summary"] for e in _trail(editor_client, eid, entity_type="mode")]
     assert any(s.startswith("Created Mode 'PRI 1500 1' — Mode 1 with PRI 1500") and s.endswith(" added") for s in summaries)
+
+
+def test_a_trail_narrows_to_one_parameter_with_kind_and_action(editor_client):
+    eid, modes, source, one, two = _build(editor_client)
+    wider = {**FIXED_LINE, "rf_max_mhz": FIXED_LINE["rf_max_mhz"] + 20}
+    editor_client.patch(f"{modes}/{one['id']}", json={"pri_type": "fixed", "line": wider})
+    editor_client.post(f"/emitters/{eid}/modes/batch-edit", json={"mode_ids": [two["id"]], "fields": {"jitter_max_us": 20}})
+    editor_client.patch(f"{modes}/{two['id']}", json={"notes": "checked"})
+
+    def summaries(**params):
+        return [e["summary"] for e in _trail(editor_client, eid, entity_type="mode", **params)]
+
+    assert summaries(action="update", parameter="rf") == ["Updated Mode 'Mode 1'"]
+    assert summaries(action="update", parameter="jitter") == ["Batch-updated Mode 'Mode 2'"]
+    # A creation counts for every parameter its line sets.
+    assert set(summaries(action="create", parameter="rf")) == {"Created Mode 'Mode 1'", "Created Mode 'Mode 2'"}
+    assert summaries(action="update", parameter="notes") == ["Updated Mode 'Mode 2'"]
+    assert editor_client.get("/audit-log", params={"parameter": "nonsense"}).status_code == 422
+    assert [p["key"] for p in editor_client.get("/audit-log/parameters").json()][:5] == ["rf", "pri", "pw", "jitter", "stagger"]
+
+
+def test_an_edit_from_a_test_says_it_is_test_derived(editor_client):
+    eid, modes, source, one, two = _build(editor_client)
+    version = editor_client.get(f"/emitters/{eid}/versions").json()[-1]["id"]
+    run = editor_client.post(
+        f"/emitters/{eid}/test-records",
+        json={"test_type": "simulation", "title": "Range day 5", "test_date": "2026-10-28", "simulation_created_date": "2026-10-01",
+              "received_power_dbfs": -40, "result": "partial", "emitter_version_id": version},
+    ).json()  # fmt: skip
+    wider = {**FIXED_LINE, "rf_min_mhz": FIXED_LINE["rf_min_mhz"] - 30}
+    resp = editor_client.patch(
+        f"{modes}/{one['id']}", json={"pri_type": "fixed", "line": wider, "derived_from_test_record_ids": [run["id"]]}
+    )
+    assert resp.status_code == 200, resp.text
+    entries = _trail(editor_client, eid, entity_type="mode", action="update")
+    assert entries[0]["summary"] == "Updated Mode 'Mode 1' (test-derived: 'Range day 5')"
+    assert entries[0]["changes"]["rf_min_mhz"] == {"old": FIXED_LINE["rf_min_mhz"], "new": FIXED_LINE["rf_min_mhz"] - 30}

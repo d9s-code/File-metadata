@@ -18,6 +18,8 @@ class Sheet:
     header_row: int | None = 0
     # Characters per column, in order; missing ones are left to the default.
     widths: list[float] = field(default_factory=list)
+    # Columns (0-based) shaded to set them apart, e.g. values with a delta applied.
+    shaded: set[int] = field(default_factory=set)
 
 
 def column_letter(index: int) -> str:
@@ -35,8 +37,10 @@ def _clean(text: str) -> str:
     return escape("".join(ch for ch in text if ch in "\t\n\r" or ord(ch) >= 32))
 
 
-def _cell(ref: str, value: Cell, bold: bool) -> str:
-    style = ' s="1"' if bold else ""
+def _cell(ref: str, value: Cell, bold: bool, shaded: bool = False) -> str:
+    # Styles (see _STYLES): 1 bold, 2 shaded, 3 bold and shaded.
+    index = (1 if bold else 0) + (2 if shaded else 0)
+    style = f' s="{index}"' if index else ""
     if value is None or value == "":
         return ""
     if isinstance(value, bool):
@@ -65,7 +69,7 @@ def _sheet_xml(sheet: Sheet) -> str:
     parts.append("<sheetData>")
     for r, row in enumerate(sheet.rows):
         bold = r == sheet.header_row
-        cells = "".join(_cell(f"{column_letter(c)}{r + 1}", v, bold) for c, v in enumerate(row))
+        cells = "".join(_cell(f"{column_letter(c)}{r + 1}", v, bold, c in sheet.shaded) for c, v in enumerate(row))
         parts.append(f'<row r="{r + 1}">{cells}</row>')
     parts.append("</sheetData></worksheet>")
     return "".join(parts)
@@ -76,11 +80,14 @@ _STYLES = (
     '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
     '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font>'
     '<font><b/><sz val="11"/><name val="Calibri"/></font></fonts>'
-    '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>'
+    '<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFFFF2CC"/><bgColor indexed="64"/></patternFill></fill></fills>'
     '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-    '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
-    '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>'
+    '<cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+    '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
+    '<xf numFmtId="0" fontId="0" fillId="2" borderId="0" xfId="0" applyFill="1"/>'
+    '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs>'
     '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
     "</styleSheet>"
 )

@@ -276,6 +276,14 @@ export function HelpPage() {
           (deltas applied; scan period in ms).
         </p>
         <p>
+          <strong>Analysis sheet (.xlsx)</strong>, beside it, is for working from rather than loading: the same Emitters,
+          a line per Mode with its EW Group, Sources, confirmation and notes, and every value twice — as typed, with
+          its delta beside it, and with the delta applied in <strong>shaded columns</strong> (RF, PW, PRI, frame time and
+          scan). Further sheets list each Source (its details, the Modes citing it and its notes), each Source&apos;s
+          Elements (as typed and with their delta) and the Emitters&apos; and Sources&apos; notes; a Key sheet explains
+          the shading.
+        </p>
+        <p>
           On an Emitter&apos;s Modes, sorting by a column lists Modes with the same value by name (A–Z, &ldquo;Search
           2&rdquo; before &ldquo;Search 10&rdquo;), then by EW Group.
         </p>
@@ -588,7 +596,9 @@ export function HelpPage() {
                 the Mode&apos;s jitter range, and a stagger must have the Mode&apos;s frame time and its steps in the
                 same order (starting at any step, each within the frame-time delta, at least 0.1%). Each row is{" "}
                 <strong>✓ would match</strong> (which Modes),{" "}
-                <strong>≈ near</strong> (one value off, and which), <strong>✕ no Mode</strong>, or can&apos;t compare
+                <strong>≈ near</strong> (one value off, and which — with <strong>Edit ‹Mode›…</strong> while you&apos;re
+                editing the Emitter: the Mode opens widened to cover what was logged, and saving records it as derived
+                from this run), <strong>✕ no Mode</strong>, or can&apos;t compare
                 (no RF or PRI logged). Beside it is what the system reported in the test; rows where that differs are
                 marked <strong>Changed</strong> (tick to see only those), and a SIM line says whether its expected Mode
                 matches now. The bar on top shows the split at a glance.

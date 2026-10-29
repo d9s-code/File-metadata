@@ -3,6 +3,7 @@ import type { AuditAction } from "../../types/domain";
 import { useAuditActionCounts, useAuditEntityTypeCounts, useAuditLog } from "../../state/hooks/useAuditLog";
 import { actionLabel, entityTypeLabel } from "./auditFormat";
 import { AuditLogList } from "./AuditLogList";
+import { ParameterSelect } from "./ParameterSelect";
 
 const PAGE_SIZE = 25;
 
@@ -22,6 +23,7 @@ export function EntityAuditTrail({
   const [action, setAction] = useState<AuditAction | "">("");
   // Within an Emitter's trail: only one kind of thing (its Modes, say).
   const [kind, setKind] = useState("");
+  const [parameter, setParameter] = useState("");
   const [offset, setOffset] = useState(0);
   const rollup = !!emitterId;
   const { data: kindCounts } = useAuditEntityTypeCounts(emitterId, rollup);
@@ -35,8 +37,9 @@ export function EntityAuditTrail({
     entity_id: rollup ? undefined : entityId,
     emitter_id: emitterId,
     action: action || undefined,
-    // Narrowed to one kind, its changes still show which version they went into.
-    with_versions: rollup && !!kind ? true : undefined,
+    parameter: parameter || undefined,
+    // Narrowed, its changes still show which version they went into.
+    with_versions: rollup && (!!kind || !!parameter) ? true : undefined,
     limit: PAGE_SIZE,
     offset,
   });
@@ -87,12 +90,19 @@ export function EntityAuditTrail({
               </option>
             ))}
         </select>
+        <ParameterSelect
+          value={parameter}
+          onChange={(value) => {
+            setParameter(value);
+            setOffset(0);
+          }}
+        />
       </div>
       {isLoading ? (
         <p className="page-loading">Loading…</p>
       ) : (
         <>
-          <AuditLogList entries={data?.items ?? []} showEntityType={rollup && !kind} versionDividers={rollup && !!kind} />
+          <AuditLogList entries={data?.items ?? []} showEntityType={rollup && !kind} versionDividers={rollup && (!!kind || !!parameter)} />
           {total > shown && (
             <button className="icon-button" onClick={() => setOffset(offset + PAGE_SIZE)}>
               Load more ({shown} of {total})

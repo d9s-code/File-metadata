@@ -60,6 +60,14 @@ def _link_derived_test_records(db: Session, *, mode_id: UUID, test_record_ids: l
         db.add(TestRecordMode(test_record_id=test_record_id, mode_id=mode_id, link_type=TestRecordModeLinkType.derived))
 
 
+def _derived_note(db: Session, test_record_ids: list[UUID]) -> str:
+    """ " (test-derived: 'Range day 5')" for a change explained by test runs."""
+    if not test_record_ids:
+        return ""
+    titles = [r.title for r in db.query(TestRecord).filter(TestRecord.id.in_(test_record_ids)).order_by(TestRecord.test_date)]
+    return f" (test-derived: {', '.join(repr(t) for t in titles)})" if titles else ""
+
+
 def _link_derived_intercept_entries(db: Session, *, mode_id: UUID, intercept_entry_ids: list[UUID]) -> None:
     if not intercept_entry_ids:
         return
@@ -307,7 +315,8 @@ def update_mode(
             f"Renamed Mode '{old_name}' to '{mode.name}'"
             if mode.name != old_name
             else f"Updated Mode '{mode.name}'"
-        ),
+        )
+        + _derived_note(db, payload.derived_from_test_record_ids),
         changes=changes,
         emitter_id=mode.source.emitter_id,
     )

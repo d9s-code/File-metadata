@@ -1,4 +1,6 @@
 import { useState, type ReactNode } from "react";
+import { useEmitterTestLines } from "../state/hooks/useTestLines";
+import { NearMissEdit } from "../components/testing/NearMissEdit";
 import { RunDwellStrategy } from "../components/testing/RunDwellStrategy";
 import { BackLink } from "../components/common/BackLink";
 import { EmitterNotesDrawer } from "../components/common/EntityNotesDrawer";
@@ -90,6 +92,7 @@ export function TestRunDetailPage() {
   const { data: ewGroups } = useEwGroups(emitterId);
   const { data: sources } = useSources(emitterId);
   const { data: modes } = useEmitterModes(emitterId);
+  const { data: testLines } = useEmitterTestLines(emitterId);
   const del = useDeleteEmitterTestRecord(emitterId);
   const { data: versions } = useEmitterVersions(emitterId);
   const { confirmDelete, dialog } = useConfirmDialog();
@@ -115,6 +118,9 @@ export function TestRunDetailPage() {
 
   const retested = record.retests_test_record_id ? records.find((r) => r.id === record.retests_test_record_id) : null;
   const exercised = record.modes.filter((m) => m.link_type === "exercised");
+  const modesById = new Map((modes ?? []).map((m) => [m.id, m]));
+  // Each SIM line's expected Mode, for a missed line that came close to it.
+  const expectedOf = new Map((testLines ?? []).map((t) => [t.id, t.expected_mode_id ?? ""]));
   const derivedModes = record.modes.filter((m) => m.link_type === "derived");
   const canAddMode = canEdit && (ewGroups?.length ?? 0) > 0 && (sources?.length ?? 0) > 0;
   const hasValues = [...record.lines, ...record.modes, ...(record.signals ?? [])].some((o) => nonEmptySets(o.observed_values).length > 0);
@@ -316,6 +322,7 @@ export function TestRunDetailPage() {
           <h4>Signals not tied to a Mode ({record.signals.length})</h4>
           <InterceptSignalsList
             signals={record.signals}
+            runId={record.id}
             modes={modes ?? []}
             emitterId={emitterId}
             sources={sources ?? []}
@@ -345,6 +352,16 @@ export function TestRunDetailPage() {
                   <td>{l.test_line_label}</td>
                   <td>
                     <span className={`test-result-badge test-result-${l.outcome}`}>{lineOutcomeLabel(l.outcome)}</span>
+                    {l.outcome !== "pass" && (
+                      <NearMissEdit
+                        emitterId={emitterId}
+                        mode={modesById.get(expectedOf.get(l.test_line_id) ?? "")}
+                        sets={l.observed_values}
+                        sources={sources ?? []}
+                        run={{ id: record.id, title: record.title }}
+                        canEdit={canEdit}
+                      />
+                    )}
                   </td>
                   <td>
                     {l.intercepted_as_unknown || l.intercepted_modes.length
@@ -386,7 +403,19 @@ export function TestRunDetailPage() {
                       </span>
                     )}
                   </td>
-                  <td>{m.result && <span className={`test-result-badge test-result-${m.result}`}>{testResultLabel(m.result)}</span>}</td>
+                  <td>
+                    {m.result && <span className={`test-result-badge test-result-${m.result}`}>{testResultLabel(m.result)}</span>}
+                    {m.result !== "pass" && (
+                      <NearMissEdit
+                        emitterId={emitterId}
+                        mode={modesById.get(m.mode_id)}
+                        sets={m.observed_values}
+                        sources={sources ?? []}
+                        run={{ id: record.id, title: record.title }}
+                        canEdit={canEdit}
+                      />
+                    )}
+                  </td>
                   <td>
                     <ObservedValuesTable sets={m.observed_values} />
                   </td>

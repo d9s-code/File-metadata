@@ -29,7 +29,7 @@ export function ReportsPage() {
   const [platformSearch, setPlatformSearch] = useState("");
   const [emitterSearch, setEmitterSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [downloading, setDownloading] = useState(false);
+  const [downloading, setDownloading] = useState<"report" | "analysis" | null>(null);
 
   const livePlatforms = useMemo(
     () => (platforms ?? []).filter((p) => !p.is_deleted).sort((a, b) => naturalCompare(a.name, b.name, "asc")),
@@ -65,16 +65,18 @@ export function ReportsPage() {
     set(list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
   }
 
-  async function download() {
+  async function download(kind: "report" | "analysis") {
     setError(null);
-    setDownloading(true);
+    setDownloading(kind);
+    const picks = { platform_ids: [...pickedPlatforms], emitter_ids: extra.map((e) => e.id) };
+    const day = new Date().toISOString().slice(0, 10);
     try {
-      const blob = await reportsApi.emitters({ platform_ids: [...pickedPlatforms], emitter_ids: extra.map((e) => e.id) });
-      downloadBlob(blob, `Emitter report ${new Date().toISOString().slice(0, 10)}.xlsx`);
+      if (kind === "report") downloadBlob(await reportsApi.emitters(picks), `Emitter report ${day}.xlsx`);
+      else downloadBlob(await reportsApi.analysis(picks), `Analysis sheet ${day}.xlsx`);
     } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : "Couldn't make the report.");
+      setError(err instanceof ApiRequestError ? err.message : "Couldn't make the spreadsheet.");
     } finally {
-      setDownloading(false);
+      setDownloading(null);
     }
   }
 
@@ -89,12 +91,28 @@ export function ReportsPage() {
           <>
             A spreadsheet with a line per Mode: Platforms A–Z, each one&apos;s Emitters A–Z, each Emitter&apos;s Modes A–Z;
             then the Emitters picked on their own. A Platform&apos;s Emitters are the versions it pins; an Emitter picked
-            on its own is its latest saved version.
+            on its own is its latest saved version. The <strong>analysis sheet</strong> is for working from: each
+            Mode with its Sources and notes, and every value as typed and with its delta (shaded columns), plus sheets
+            of the Sources, their Elements and the notes.
           </>
         }
       >
-        <button type="button" onClick={() => void download()} disabled={downloading || inReport.length === 0}>
-          {downloading ? "Making the report…" : "Download report (.xlsx)"}
+        <button
+          type="button"
+          className="button secondary"
+          onClick={() => void download("analysis")}
+          disabled={!!downloading || inReport.length === 0}
+          title="Modes with their Sources and notes; every value as typed and with its delta"
+        >
+          {downloading === "analysis" ? "Making the sheet…" : "Analysis sheet (.xlsx)"}
+        </button>
+        <button
+          type="button"
+          className="button primary"
+          onClick={() => void download("report")}
+          disabled={!!downloading || inReport.length === 0}
+        >
+          {downloading === "report" ? "Making the report…" : "Download report (.xlsx)"}
         </button>
       </PageHeader>
       <p className="report-summary">

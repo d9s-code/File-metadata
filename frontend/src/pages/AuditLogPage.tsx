@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ParameterSelect } from "../components/audit/ParameterSelect";
 import { DateInput } from "../components/common/DateInput";
 import { PageHeader } from "../components/common/PageHeader";
 import type { AuditAction, AuditEntitySearchResult } from "../types/domain";
@@ -17,6 +18,7 @@ const PAGE_SIZE = 50;
 export function AuditLogPage() {
   const [entityType, setEntityType] = useSessionState<string | null>("auditLog.entityType", null);
   const [action, setAction] = useSessionState<AuditAction | "">("auditLog.action", "");
+  const [parameter, setParameter] = useSessionState("auditLog.parameter", "");
   const [search, setSearch] = useSessionState("auditLog.search", "");
   const [selectedEntity, setSelectedEntity] = useState<AuditEntitySearchResult | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -31,6 +33,7 @@ export function AuditLogPage() {
     entity_type: selectedEntity ? selectedEntity.entity_type : (entityType ?? undefined),
     entity_id: selectedEntity?.entity_id,
     action: action || undefined,
+    parameter: parameter || undefined,
     q: selectedEntity ? undefined : search.trim() || undefined,
     since: dateFrom || undefined,
     until: dateTo ? `${dateTo}T23:59:59` : undefined,
@@ -86,7 +89,7 @@ export function AuditLogPage() {
     <div className="page audit-log-page">
       <PageHeader
         title="Audit Log"
-        info="Who changed what, and when, across the whole app. Pick a kind of thing on the left, then an action; search by name (an Emitter, Platform, MDF, EW Group or Source) or over the summaries. Sorting a column reorders only the entries loaded so far."
+        info="Who changed what, and when, across the whole app. Pick a kind of thing on the left, then an action and a parameter — Modes → Updated → RF shows changes to existing Modes' RF; search by name (an Emitter, Platform, MDF, EW Group or Source) or over the summaries. Sorting a column reorders only the entries loaded so far."
       />
 
       <div className="audit-log-layout">
@@ -158,6 +161,13 @@ export function AuditLogPage() {
                   </option>
                 ))}
             </select>
+            <ParameterSelect
+              value={parameter}
+              onChange={(value) => {
+                setParameter(value);
+                setOffset(0);
+              }}
+            />
             <label className="inline-date-filter">
               From
               <DateInput value={dateFrom} onChange={(e) => changeDateFrom(e.target.value)} />

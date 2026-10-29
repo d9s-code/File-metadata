@@ -9,6 +9,12 @@ import { AddValueToModesDialog, type ValueSeed } from "../modes/AddValueToModesD
 import { useHasRole } from "../../auth/RequireAuth";
 import type { ObservedValues, TestRecord } from "../../api/testRecords";
 import type { Mode } from "../../types/domain";
+import { ModeEditDialog } from "../modes/ModeDialogs";
+import type { LineValues } from "../modes/modeLine";
+import { widened } from "./nearMiss";
+import { useEmitter } from "../../state/hooks/useEmitters";
+import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
+import { useSources } from "../../state/hooks/useSources";
 
 type Now = "match" | "near" | "none" | "unknown";
 
@@ -80,7 +86,11 @@ export function RecheckIntercepts({
   const { data: testLines } = useEmitterTestLines(emitterId);
   const [changedOnly, setChangedOnly] = useState(false);
   const [adding, setAdding] = useState<Row | null>(null);
+  const [editing, setEditing] = useState<{ mode: Mode; change: Partial<LineValues> } | null>(null);
   const canWrite = useHasRole("editor");
+  const { data: emitter } = useEmitter(emitterId);
+  const { canEdit: editingEmitter } = useEmitterCheckoutState(emitter);
+  const { data: sources } = useSources(emitterId);
   const expectedOf = new Map((testLines ?? []).map((t) => [t.id, t]));
 
   const rows: Row[] = [];
@@ -178,6 +188,16 @@ export function RecheckIntercepts({
         Only where the match differs from what was reported ({rows.filter(changed).length})
       </label>
 
+      {editing && (
+        <ModeEditDialog
+          emitterId={emitterId}
+          mode={editing.mode}
+          sources={sources ?? []}
+          lineChange={editing.change}
+          derivedFromTestRecord={{ id: record.id, title: record.title }}
+          onClose={() => setEditing(null)}
+        />
+      )}
       {adding && (
         <AddValueToModesDialog
           emitterId={emitterId}
@@ -227,6 +247,24 @@ export function RecheckIntercepts({
                       r.match.near.map((n) => (
                         <div key={n.mode.id} className="hint-text">
                           {n.mode.name}: {n.misses.map(describeMiss).join("; ")}
+                          {canWrite && (
+                            <>
+                              {" · "}
+                              <button
+                                type="button"
+                                className="link-button"
+                                disabled={!editingEmitter}
+                                title={
+                                  editingEmitter
+                                    ? "Opens the Mode widened to cover what was logged; saved as derived from this test"
+                                    : "Start editing this Emitter first"
+                                }
+                                onClick={() => setEditing({ mode: n.mode, change: widened(n.mode, n.misses) })}
+                              >
+                                Edit {n.mode.name}…
+                              </button>
+                            </>
+                          )}
                         </div>
                       ))}
                     {r.now === "none" && <span className="hint-text">Outside every Mode of its PRI type</span>}

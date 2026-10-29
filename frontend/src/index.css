@@ -6059,10 +6059,22 @@ a.ai-cite:hover { text-decoration: underline; }
 
 /* Bulk actions on the Emitters list. */
 .emitter-bulk-bar {
-  position: sticky;
-  top: var(--navbar-height, 0);
-  z-index: 5;
+  /* Floats over the bottom of the window, so ticking a row never moves the table. */
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  /* Clear of the Editing reminder in the bottom-left corner. */
+  width: min(60rem, calc(100vw - 2rem));
+  max-height: 45vh;
+  overflow-y: auto;
+  margin: 0;
+  z-index: 60;
   border-left: 4px solid var(--primary);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+}
+/* Room under the table for the bar while it shows. */
+.emitters-page-bulk {
+  padding-bottom: 9rem;
 }
 .emitter-bulk-row {
   display: flex;
@@ -7276,3 +7288,26 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
 /* Setting a logged run's Dwell Strategy afterwards. */
 .run-dwell-edit { margin-left: 0.4rem; }
 .run-dwell-picker { display: inline-flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+
+/* Batch-style forms in a fitted dialog (Batch edit, Add a value, Elements
+   from a test): the body scrolls, the buttons stay at the bottom. */
+.form-dialog .batch-edit-actions {
+  position: sticky;
+  bottom: -1.25rem;
+  margin-bottom: -1.25rem;
+  padding: 0.75rem 0 1.25rem;
+  background: var(--card-bg);
+  z-index: 1;
+}
+
+/* A table that may be wider (or, with a max-height, taller) than its box
+   scrolls inside it rather than spilling out. */
+.table-scroll {
+  overflow: auto;
+  max-width: 100%;
+}
+.doc-kinds-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin: 0.25rem 0 0.5rem; }
+.doc-kinds-tools .doc-kinds-filter { margin: 0; }
+.doc-kinds-page { overflow-wrap: anywhere; }
+.doc-kinds-toggle { display: inline-block; width: 1.2em; margin-right: 0.15rem; padding: 0; border: 0; background: none; text-decoration: none; color: var(--muted); }
+.doc-kinds-toggle:hover { color: var(--primary); }

@@ -125,22 +125,20 @@ def _emitter_rows(platform: str | None, snapshot: dict) -> list[list]:
     return [_mode_row(platform, snapshot, group, mode) for group, mode in modes]
 
 
-def _by_name(snapshots: list[dict]) -> list[dict]:
-    return sorted(snapshots, key=lambda s: _name_key(s.get("name")))
-
-
-def _latest_snapshot(db: Session, emitter: Emitter) -> dict:
+def _latest(db: Session, emitter: Emitter) -> tuple[dict, int | None]:
     latest = (
         db.query(EmitterVersion)
         .filter(EmitterVersion.emitter_id == emitter.id)
         .order_by(EmitterVersion.version_number.desc())
         .first()
     )
-    return latest.snapshot if latest is not None else build_emitter_snapshot(emitter)
+    return (latest.snapshot, latest.version_number) if latest is not None else (build_emitter_snapshot(emitter), None)
 
 
-def build_report_rows(db: Session, platform_ids: list[UUID], emitter_ids: list[UUID]) -> list[list]:
-    """The header, then a line per Mode, in the report's order."""
+def report_emitters(db: Session, platform_ids: list[UUID], emitter_ids: list[UUID]) -> list[tuple[str | None, dict, int | None]]:
+    """The Emitters reported, in the report's order: each with its Platform
+    (None for one picked on its own), its snapshot and its version number
+    (None when it has never been saved)."""
     platforms = db.query(Platform).filter(Platform.id.in_(platform_ids), Platform.is_deleted.is_(False)).all() if platform_ids else []
     emitters = db.query(Emitter).filter(Emitter.id.in_(emitter_ids), Emitter.is_deleted.is_(False)).all() if emitter_ids else []
     if len(platforms) != len(set(platform_ids)) or len(emitters) != len(set(emitter_ids)):
@@ -148,20 +146,28 @@ def build_report_rows(db: Session, platform_ids: list[UUID], emitter_ids: list[U
     if not platforms and not emitters:
         raise ReportError("Pick at least one Platform or Emitter")
 
-    rows: list[list] = []
+    out: list[tuple[str | None, dict, int | None]] = []
     on_platforms: set[UUID] = set()
     for platform in sorted(platforms, key=lambda p: _name_key(p.name)):
         pinned = [
-            link.emitter_version.snapshot
+            (link.emitter_version.snapshot, link.emitter_version.version_number)
             for link in platform.links
             if link.emitter_version is not None and not (link.emitter and link.emitter.is_deleted)
         ]
         on_platforms.update(link.emitter_id for link in platform.links)
-        for snapshot in _by_name(pinned):
-            rows.extend(_emitter_rows(platform.name, snapshot))
-    loose = [_latest_snapshot(db, e) for e in emitters if e.id not in on_platforms]
-    for snapshot in _by_name(loose):
-        rows.extend(_emitter_rows(None, snapshot))
+        for snapshot, number in sorted(pinned, key=lambda sv: _name_key(sv[0].get("name"))):
+            out.append((platform.name, snapshot, number))
+    loose = [_latest(db, e) for e in emitters if e.id not in on_platforms]
+    for snapshot, number in sorted(loose, key=lambda sv: _name_key(sv[0].get("name"))):
+        out.append((None, snapshot, number))
+    return out
+
+
+def build_report_rows(db: Session, platform_ids: list[UUID], emitter_ids: list[UUID]) -> list[list]:
+    """The header, then a line per Mode, in the report's order."""
+    rows: list[list] = []
+    for platform, snapshot, _number in report_emitters(db, platform_ids, emitter_ids):
+        rows.extend(_emitter_rows(platform, snapshot))
 
     steps = max([STAGGER_COLUMNS, *(len(r) - len(HEADER) for r in rows)])
     return [HEADER + [f"Stagger {i} [µs]" for i in range(1, steps + 1)], *rows]

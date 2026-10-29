@@ -140,7 +140,7 @@ export function BatchEditModal({
   }
 
   return (
-    <Modal title={`Batch edit (${modeIds.length} selected)`} onClose={onClose} wide>
+    <Modal title={`Batch edit (${modeIds.length} selected)`} onClose={onClose} className="form-dialog">
       <form className="batch-edit-form" onSubmit={handleSubmit}>
         <p className="hint-text">
           Applies to all {modeIds.length} selected Modes at once, all-or-nothing — if any one would

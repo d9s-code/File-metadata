@@ -1,8 +1,9 @@
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import and_, case, func, or_
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import Text, and_, case, func, or_
+from sqlalchemy.dialects.postgresql import array as pg_array
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.enums import AuditAction, AuditEntityType, Role
@@ -36,6 +37,33 @@ _SEARCHABLE_ENTITIES = [
 ]
 
 
+# The fields each parameter filter looks for in an entry's changes (or, for
+# a creation, its line): "Modes → Updated → RF" is updates touching any of
+# these.
+PARAMETERS: dict[str, tuple[str, list[str]]] = {
+    "rf": ("RF", ["rf_min_mhz", "rf_max_mhz", "rf_delta", "rf_range_matching"]),
+    "pri": ("PRI", ["pri_min_us", "pri_max_us", "pri_delta", "pri_range_matching", "pri_type"]),
+    "pw": ("PW", ["pw_min_us", "pw_max_us", "pw_delta", "pw_range_matching"]),
+    "jitter": ("Jitter", ["jitter_min_us", "jitter_max_us"]),
+    "stagger": ("Stagger steps", ["pri_stagger_values_us"]),
+    "frame_time": ("Frame time", ["frame_time_delta_us", "explicit_frame_time_us"]),
+    "deltas": ("Deltas (±)", ["rf_delta", "pw_delta", "pri_delta", "frame_time_delta_us", "scan_delta", "delta"]),
+    "range_matching": ("Range matching", ["rf_range_matching", "pw_range_matching", "pri_range_matching"]),
+    "scan": ("Scan", ["scan_min", "scan_max", "scan_delta"]),
+    "confirmation": ("Confirmation", ["confirmation_quality", "confirmation_quantity"]),
+    "sources": ("Sources", ["source_id", "source_ids", "sources", "extra_source_ids", "add_source_id"]),
+    "name": ("Name", ["name", "label"]),
+    "notes": ("Notes", ["notes", "description"]),
+    "status": ("Status", ["status"]),
+}
+
+
+@router.get("/parameters")
+def list_parameters(_=Depends(require_role(Role.viewer))) -> list[dict]:
+    """The parameter filters, in order: key and label."""
+    return [{"key": key, "label": label} for key, (label, _fields) in PARAMETERS.items()]
+
+
 # An Emitter's version saves, reverts and discards: where its changes landed.
 _VERSION_MARKER = and_(
     AuditLog.entity_type == AuditEntityType.emitter.value,
@@ -54,6 +82,7 @@ def list_audit_log(
     since: datetime | None = None,
     until: datetime | None = None,
     with_versions: bool = False,
+    parameter: str | None = None,
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
@@ -75,6 +104,12 @@ def list_audit_log(
         narrowed.append(AuditLog.entity_type == entity_type)
     if action:
         narrowed.append(AuditLog.action == action)
+    if parameter:
+        if parameter not in PARAMETERS:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Unknown parameter {parameter}")
+        fields = PARAMETERS[parameter][1]
+        keys = pg_array(fields, type_=Text)
+        narrowed.append(or_(AuditLog.changes.has_any(keys), AuditLog.changes["line"].has_any(keys)))
     if narrowed:
         kept = and_(*narrowed)
         if with_versions:

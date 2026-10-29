@@ -12,6 +12,11 @@ export function useAuditLog(filters: AuditLogFilters) {
   });
 }
 
+/** The parameters the log can be narrowed to (RF, PRI, PW, jitter, …). */
+export function useAuditParameters() {
+  return useQuery({ queryKey: ["auditLog", "parameters"] as const, queryFn: () => auditLogApi.parameters(), staleTime: Infinity });
+}
+
 /** Entries per kind — everywhere, or only under one Emitter. */
 export function useAuditEntityTypeCounts(emitterId?: string, enabled = true) {
   return useQuery({

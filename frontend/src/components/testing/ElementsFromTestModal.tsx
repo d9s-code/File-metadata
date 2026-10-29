@@ -227,7 +227,7 @@ export function ElementsFromTestModal({
   }
 
   return (
-    <Modal title="Elements and sequences from this test" onClose={onClose} wide>
+    <Modal title="Elements and sequences from this test" onClose={onClose} className="form-dialog">
       <form className="batch-edit-form" onSubmit={handleSubmit}>
         {candidates.length === 0 ? (
           <p className="hint-text">This run has no logged RF, PRI or PW values to make Elements of.</p>
@@ -237,58 +237,62 @@ export function ElementsFromTestModal({
               Each logged value becomes its own Element; the same value logged on several lines is one. Untick what
               you don&apos;t want.
             </p>
-            <table className="data-table compact">
-              <thead>
-                <tr>
-                  <th />
-                  <th>Type</th>
-                  <th>Value</th>
-                  <th>Logged on</th>
-                </tr>
-              </thead>
-              <tbody>
-                {candidates.map((c) => (
-                  <tr key={c.key}>
-                    <td>
-                      <input type="checkbox" checked={picked.has(c.key)} onChange={() => toggle(c.key)} aria-label={`Add ${describe(c)}`} />
-                    </td>
-                    <td>{c.type.toUpperCase()}</td>
-                    <td>{describe(c)}</td>
-                    <td className="hint-text">{c.from.join(", ")}</td>
+            <div className="table-scroll">
+              <table className="data-table compact">
+                <thead>
+                  <tr>
+                    <th />
+                    <th>Type</th>
+                    <th>Value</th>
+                    <th>Logged on</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {candidates.map((c) => (
+                    <tr key={c.key}>
+                      <td>
+                        <input type="checkbox" checked={picked.has(c.key)} onChange={() => toggle(c.key)} aria-label={`Add ${describe(c)}`} />
+                      </td>
+                      <td>{c.type.toUpperCase()}</td>
+                      <td>{describe(c)}</td>
+                      <td className="hint-text">{c.from.join(", ")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
             {sequences.length > 0 && (
               <>
                 <p className="hint-text">
                   Lines logged with several intercepts can also be kept as a sequence — a step per intercept, in the
                   order logged (RF, a Fixed PRI&apos;s mean, PW).
                 </p>
-                <table className="data-table compact">
-                  <tbody>
-                    {sequences.map((s) => (
-                      <tr key={s.name}>
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={pickedSequences.has(s.name)}
-                            onChange={() => {
-                              const next = new Set(pickedSequences);
-                              if (next.has(s.name)) next.delete(s.name);
-                              else next.add(s.name);
-                              setPickedSequences(next);
-                            }}
-                            aria-label={`Sequence from ${s.name}`}
-                          />
-                        </td>
-                        <td>Sequence</td>
-                        <td>{s.steps.length} steps</td>
-                        <td className="hint-text">{s.name}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="table-scroll">
+                  <table className="data-table compact">
+                    <tbody>
+                      {sequences.map((s) => (
+                        <tr key={s.name}>
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={pickedSequences.has(s.name)}
+                              onChange={() => {
+                                const next = new Set(pickedSequences);
+                                if (next.has(s.name)) next.delete(s.name);
+                                else next.add(s.name);
+                                setPickedSequences(next);
+                              }}
+                              aria-label={`Sequence from ${s.name}`}
+                            />
+                          </td>
+                          <td>Sequence</td>
+                          <td>{s.steps.length} steps</td>
+                          <td className="hint-text">{s.name}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </>
             )}
             <fieldset className="add-value-naming">

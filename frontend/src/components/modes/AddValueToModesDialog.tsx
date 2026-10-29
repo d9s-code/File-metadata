@@ -160,7 +160,7 @@ export function AddValueToModesDialog({
 
   const unit = PARAMS.find((p) => p.key === parameter)!.unit;
   return (
-    <Modal title="Add a value to the Modes" onClose={onClose} wide>
+    <Modal title="Add a value to the Modes" onClose={onClose} className="form-dialog">
       {done ? (
         <div className="add-value">
           <p>

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useEmitterModes, useUpdateMode } from "../../state/hooks/useModes";
 import { ApiRequestError } from "../../api/client";
 import type { Mode, Source } from "../../types/domain";
-import { lineValuesFrom } from "./modeLine";
+import { lineValuesFrom, type LineValues } from "./modeLine";
 import { useModeDefaults } from "../../state/hooks/useDwells";
 import { modeSourceIds } from "./modeFormat";
 import { SourcesPicker } from "./SourcesPicker";
@@ -18,11 +18,17 @@ export function ModeEditForm({
   mode,
   sources,
   onDone,
+  lineChange,
+  derivedFromTestRecord,
 }: {
   emitterId: string;
   mode: Mode;
   sources?: Source[];
   onDone: () => void;
+  /** Starts with these line values changed (e.g. widened to cover a near miss). */
+  lineChange?: Partial<LineValues>;
+  /** The edit is always recorded as derived from this test run. */
+  derivedFromTestRecord?: { id: string; title: string };
 }) {
   const updateMode = useUpdateMode(emitterId);
   const { data: emitterModes } = useEmitterModes(emitterId);
@@ -35,7 +41,7 @@ export function ModeEditForm({
   const { defaults } = useModeDefaults();
   // A Fixed Mode switched to Stagger starts with the default frame-time margin.
   const line = useModeLine(
-    lineValuesFrom(mode.pri_type, mode.line, defaults.frame_time_delta_us),
+    { ...lineValuesFrom(mode.pri_type, mode.line, defaults.frame_time_delta_us), ...lineChange },
     mode.line?.explicit_frame_time_us,
   );
   const [sourceIds, setSourceIds] = useState<string[]>(modeSourceIds(mode));
@@ -80,7 +86,9 @@ export function ModeEditForm({
           confirmation_quality: Number(options.quality),
           confirmation_quantity: Number(options.quantity),
           line: line.payload(),
-          derived_from_test_record_ids: [...options.derivedFrom],
+          derived_from_test_record_ids: [
+            ...new Set([...options.derivedFrom, ...(derivedFromTestRecord ? [derivedFromTestRecord.id] : [])]),
+          ],
         },
       });
       onDone();
@@ -95,6 +103,12 @@ export function ModeEditForm({
         <h4>Editing {mode.name}</h4>
         <span className="hint-text">Takes effect as soon as you save.</span>
       </div>
+      {derivedFromTestRecord && (
+        <p className="mode-edit-derived">
+          Saved as derived from the test &ldquo;{derivedFromTestRecord.title}&rdquo;
+          {lineChange && Object.keys(lineChange).length > 0 && " — the value it missed on is widened to cover what was logged"}.
+        </p>
+      )}
 
       <div className="mode-form-grid">
         <label className="mode-form-name">

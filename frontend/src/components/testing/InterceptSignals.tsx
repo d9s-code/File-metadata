@@ -1,7 +1,12 @@
+import { useState } from "react";
 import type { ObservedValues, TestRecordSignal } from "../../api/testRecords";
 import type { Mode, Source } from "../../types/domain";
-import { AddSignalToSource } from "./AddSignalToSource";
 import { AutoGrowTextarea } from "../common/AutoGrowTextarea";
+import { describeMiss } from "../intercepts/interceptMatch";
+import { ModeEditDialog } from "../modes/ModeDialogs";
+import type { LineValues } from "../modes/modeLine";
+import { AddSignalToSource } from "./AddSignalToSource";
+import { widened } from "./nearMiss";
 import { ObservedValuesEditor } from "./ObservedValuesEditor";
 import { ObservedValuesTable } from "./ObservedValuesTable";
 import { signalCoverage } from "./signalCoverage";
@@ -33,6 +38,17 @@ function Coverage({ sets, modes }: { sets: ObservedValues[]; modes: Mode[] }) {
   const c = signalCoverage(sets, modes);
   if (c.status === "unknown") return <span className="hint-text">Give RF and a PRI type to compare</span>;
   if (c.status === "new") return <span className="status-badge signal-new">New — no Mode covers it</span>;
+  if (c.status === "near")
+    return (
+      <>
+        <span className="status-badge status-pending_review">Close — one value off</span>
+        {c.near.map((n) => (
+          <div key={n.mode.id} className="hint-text">
+            {n.mode.name}: {n.misses.map(describeMiss).join("; ")}
+          </div>
+        ))}
+      </>
+    );
   return (
     <span className="hint-text" title="These Modes' ranges (with deltas) already cover the values">
       Covered by {c.modes.map((m) => m.name).join(", ")}
@@ -137,11 +153,14 @@ export function InterceptSignalsList({
   modes,
   emitterId,
   sources,
+  runId,
   runTitle,
   runDate,
   canEdit,
 }: {
   signals: TestRecordSignal[];
+  /** The run — an edit made from a near miss is recorded as derived from it. */
+  runId: string;
   modes: Mode[];
   emitterId: string;
   sources: Source[];
@@ -150,8 +169,19 @@ export function InterceptSignalsList({
   runDate: string;
   canEdit: boolean;
 }) {
+  const [editing, setEditing] = useState<{ mode: Mode; change: Partial<LineValues> } | null>(null);
   return (
     <div className="table-scroll">
+      {editing && (
+        <ModeEditDialog
+          emitterId={emitterId}
+          mode={editing.mode}
+          sources={sources}
+          lineChange={editing.change}
+          derivedFromTestRecord={{ id: runId, title: runTitle }}
+          onClose={() => setEditing(null)}
+        />
+      )}
       <table className="data-table intercept-signals-table">
         <thead>
           <tr>
@@ -164,32 +194,53 @@ export function InterceptSignalsList({
           </tr>
         </thead>
         <tbody>
-          {signals.map((s, i) => (
-            <tr key={i}>
-              <td>{i + 1}</td>
-              <td>
-                <ReportedAs unknown={s.reported_as_unknown} />
-              </td>
-              <td>
-                <ObservedValuesTable sets={s.observed_values} />
-              </td>
-              <td>
-                <Coverage sets={s.observed_values} modes={modes} />
-              </td>
-              <td className="wrap-text">{s.notes ?? "—"}</td>
-              <td>
-                <AddSignalToSource
-                  emitterId={emitterId}
-                  sources={sources}
-                  signal={s}
-                  label={`${runTitle} — signal ${i + 1}`}
-                  canEdit={canEdit}
-                  newSourceName={runTitle}
-                  newSourceDate={runDate}
-                />
-              </td>
-            </tr>
-          ))}
+          {signals.map((s, i) => {
+            const coverage = signalCoverage(s.observed_values, modes);
+            return (
+              <tr key={i}>
+                <td>{i + 1}</td>
+                <td>
+                  <ReportedAs unknown={s.reported_as_unknown} />
+                </td>
+                <td>
+                  <ObservedValuesTable sets={s.observed_values} />
+                </td>
+                <td>
+                  <Coverage sets={s.observed_values} modes={modes} />
+                </td>
+                <td className="wrap-text">{s.notes ?? "—"}</td>
+                <td>
+                  <AddSignalToSource
+                    emitterId={emitterId}
+                    sources={sources}
+                    signal={s}
+                    label={`${runTitle} — signal ${i + 1}`}
+                    canEdit={canEdit}
+                    newSourceName={runTitle}
+                    newSourceDate={runDate}
+                  />
+                  {coverage.status === "near" &&
+                    coverage.near.map((n) => (
+                      <div key={n.mode.id}>
+                        <button
+                          type="button"
+                          className="link-button"
+                          disabled={!canEdit}
+                          title={
+                            canEdit
+                              ? "Opens the Mode widened to cover this signal; saved as derived from this test"
+                              : "Start editing this Emitter first"
+                          }
+                          onClick={() => setEditing({ mode: n.mode, change: widened(n.mode, n.misses) })}
+                        >
+                          Edit {n.mode.name}…
+                        </button>
+                      </div>
+                    ))}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

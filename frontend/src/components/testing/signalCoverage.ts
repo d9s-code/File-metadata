@@ -1,6 +1,6 @@
 import type { ObservedValues } from "../../api/testRecords";
 import type { Mode } from "../../types/domain";
-import { matchEntry, type MatchableEntry } from "../intercepts/interceptMatch";
+import { matchEntry, type MatchableEntry, type ModeMatch } from "../intercepts/interceptMatch";
 import { nonEmptySets } from "./testFormat";
 
 function mid(mean: number | undefined, min: number | undefined, max: number | undefined): number | null {
@@ -43,6 +43,8 @@ export function asEntry(set: ObservedValues): MatchableEntry | null {
 export type SignalCoverage =
   | { status: "covered"; modes: Mode[] }
   | { status: "new" }
+  /** No Mode covers it, but some miss it on just one value. */
+  | { status: "near"; near: ModeMatch[] }
   /** No set has an RF and a PRI type, so it can't be compared. */
   | { status: "unknown" };
 
@@ -54,6 +56,12 @@ export function signalCoverage(sets: ObservedValues[] | null | undefined, modes:
     .filter((e): e is MatchableEntry => e != null);
   if (entries.length === 0) return { status: "unknown" };
   const covering = new Map<string, Mode>();
-  for (const entry of entries) for (const m of matchEntry(entry, modes).matches) covering.set(m.id, m);
-  return covering.size > 0 ? { status: "covered", modes: [...covering.values()] } : { status: "new" };
+  const near = new Map<string, ModeMatch>();
+  for (const entry of entries) {
+    const match = matchEntry(entry, modes);
+    for (const m of match.matches) covering.set(m.id, m);
+    for (const n of match.near) if (!near.has(n.mode.id)) near.set(n.mode.id, n);
+  }
+  if (covering.size > 0) return { status: "covered", modes: [...covering.values()] };
+  return near.size > 0 ? { status: "near", near: [...near.values()] } : { status: "new" };
 }
