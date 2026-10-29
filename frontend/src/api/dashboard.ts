@@ -19,8 +19,9 @@ export interface NeedsRedoTestItem {
 }
 
 /** Latest outcome per SIM Test Line: pass / partial / fail / inconclusive,
- * plus untested for a line no run included yet. */
-export type SimOutcomeCounts = Record<"pass" | "partial" | "fail" | "inconclusive" | "untested", number>;
+ * plus untested for a line no run included yet, and outdated for one whose
+ * latest result named Modes since deleted. */
+export type SimOutcomeCounts = Record<"pass" | "partial" | "fail" | "inconclusive" | "outdated" | "untested", number>;
 
 export interface EmitterSimStatus {
   emitter_id: string;

@@ -1,15 +1,17 @@
 import type { SimOutcomeCounts } from "../../api/dashboard";
 import { lineOutcomeLabel } from "../testing/testFormat";
 
-export const SIM_OUTCOMES = ["pass", "partial", "fail", "inconclusive", "untested"] as const;
+export const SIM_OUTCOMES = ["pass", "partial", "fail", "inconclusive", "outdated", "untested"] as const;
 export type SimOutcome = (typeof SIM_OUTCOMES)[number];
 
 export function simOutcomeLabel(outcome: SimOutcome): string {
-  return outcome === "untested" ? "untested" : lineOutcomeLabel(outcome);
+  if (outcome === "untested") return "untested";
+  if (outcome === "outdated") return "out of date";
+  return lineOutcomeLabel(outcome);
 }
 
 /** One stacked bar of SIM Test Line outcomes (correct, partial,
- * missed, inconclusive, untested). */
+ * missed, inconclusive, out of date, untested). */
 export function SimOutcomeBar({ counts }: { counts: SimOutcomeCounts }) {
   const total = SIM_OUTCOMES.reduce((sum, o) => sum + counts[o], 0);
   const summary = SIM_OUTCOMES.filter((o) => counts[o] > 0)

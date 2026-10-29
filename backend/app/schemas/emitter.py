@@ -55,6 +55,8 @@ class EmitterSummary(BaseModel):
     mode_count: int = 0
     sim_lines: int = 0
     sim_lines_correct: int = 0
+    # Lines whose latest result no longer counts: a Mode it involved was deleted since.
+    sim_lines_outdated: int = 0
 
 
 class EmitterPlatformRef(BaseModel):

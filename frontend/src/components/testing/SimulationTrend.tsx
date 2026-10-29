@@ -53,11 +53,14 @@ export function SimulationTrend({
   emitterId,
   records,
   lineIds,
+  outdated = 0,
 }: {
   emitterId: string;
   records: TestRecord[];
   /** Every SIM Test Line the Emitter has now. */
   lineIds: string[];
+  /** Lines whose latest result was against Modes since deleted. */
+  outdated?: number;
 }) {
   const navigate = useNavigate();
   const { data: versions } = useEmitterVersions(emitterId);
@@ -130,7 +133,15 @@ export function SimulationTrend({
             {latest.counts.pass} of {latest.ran} correct
           </strong>
           {latest.counts.not_run > 0 && ` (${latest.counts.not_run} not in the run)`}
-          {latest.version != null && ` on version ${latest.version}`}. Click a column to open that run.
+          {latest.version != null && ` on version ${latest.version}`}.
+          {outdated > 0 && (
+            <span className="summary-bad">
+              {" "}
+              {outdated} line{outdated === 1 ? "'s" : "s'"} latest result{outdated === 1 ? " is" : "s are"} out of date
+              (tested against Modes since deleted).
+            </span>
+          )}{" "}
+          Click a column to open that run.
         </span>
         <label className="inline-check">
           <input type="checkbox" checked={prefs.notRun} onChange={(e) => setPref({ notRun: e.target.checked })} />

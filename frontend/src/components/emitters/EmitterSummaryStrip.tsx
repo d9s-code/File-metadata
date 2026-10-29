@@ -66,8 +66,11 @@ export function EmitterSummaryStrip({
   const latestNote = notes.reduce<EmitterNote | null>((a, n) => (!a || n.created_at > a.created_at ? n : a), null);
 
   const total = lines?.length ?? 0;
-  const correct = (lines ?? []).filter((l) => l.last_test_result === "pass").length;
-  const wrong = (lines ?? []).filter((l) => l.last_test_result === "fail" || l.last_test_result === "partial").length;
+  // A result against Modes since deleted counts neither way until the SIM test is run again.
+  const current = (lines ?? []).filter((l) => !l.last_result_outdated);
+  const outdated = (lines ?? []).length - current.length;
+  const correct = current.filter((l) => l.last_test_result === "pass").length;
+  const wrong = current.filter((l) => l.last_test_result === "fail" || l.last_test_result === "partial").length;
   const untested = (lines ?? []).filter((l) => l.last_test_result == null).length;
 
   let validation: ReactNode;
@@ -96,6 +99,12 @@ export function EmitterSummaryStrip({
         </strong>{" "}
         correct
         {wrong > 0 && <span className="summary-bad"> · {wrong} missed/partial</span>}
+        {outdated > 0 && (
+          <span className="summary-bad" title="Tested against Modes since deleted — run the SIM test again">
+            {" "}
+            · {outdated} out of date
+          </span>
+        )}
         {untested > 0 && <span className="hint-text"> · {untested} untested</span>}
         {emitter.last_validated_at && <span className="hint-text"> · last run {formatDate(emitter.last_validated_at)}</span>}
       </button>

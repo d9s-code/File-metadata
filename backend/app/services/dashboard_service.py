@@ -31,7 +31,7 @@ from app.schemas.audit_log import AuditLogOut
 from app.services.emitter_validation_service import get_last_validation
 from app.services.intercept_match_service import entry_status, mode_ranges
 from app.services.readiness_service import compute_mdf_readiness_warnings
-from app.services.test_line_status_service import latest_line_outcomes
+from app.services.test_line_status_service import latest_line_outcomes, outdated_line_results
 
 STALE_DRAFT_DAYS = 7
 RECENT_ACTIVITY_LIMIT = 10
@@ -39,7 +39,8 @@ RECENT_TEST_RUNS_LIMIT = 8
 # Held for editing longer than this, an Emitter is worth a word (as on the reminder panel).
 LONG_HELD_HOURS = 8
 # A SIM Test Line's latest outcome, or "untested" when no run included it yet.
-SIM_OUTCOME_KEYS = tuple(r.value for r in TestResult) + ("untested",)
+# "outdated": its latest result named Modes since deleted, so it no longer counts.
+SIM_OUTCOME_KEYS = tuple(r.value for r in TestResult) + ("untested", "outdated")
 
 
 def _compute_status_counts(db: Session) -> tuple[dict[str, int], dict[str, int]]:
@@ -303,10 +304,11 @@ def _compute_emitter_sim_status(db: Session) -> list[dict]:
         .all()
     )
 
+    outdated = outdated_line_results(db, outcomes)
     counts = {e.id: dict.fromkeys(SIM_OUTCOME_KEYS, 0) for e in emitters}
     for line_id, emitter_id in lines:
         latest = outcomes.get(line_id)
-        counts[emitter_id][latest[1].value if latest else "untested"] += 1
+        counts[emitter_id]["outdated" if line_id in outdated else latest[1].value if latest else "untested"] += 1
 
     rows = []
     for e in emitters:
@@ -334,6 +336,16 @@ def _sim_attention_items(sim_rows: list[dict]) -> list[dict]:
         link = {"entity_type": "emitter", "entity_id": row["emitter_id"]}
         name = row["name"]
         wrong = row["line_outcomes"]["fail"] + row["line_outcomes"]["partial"]
+        stale = row["line_outcomes"]["outdated"]
+        if stale:
+            noun = "SIM Test Line's result is" if stale == 1 else "SIM Test Lines' results are"
+            items.append(
+                {
+                    **link,
+                    "category": "sim",
+                    "message": f"Emitter '{name}': {stale} {noun} out of date — tested against Modes since deleted. Run the SIM test again.",
+                }
+            )
         if wrong:
             noun = "SIM Test Line was" if wrong == 1 else "SIM Test Lines were"
             items.append(

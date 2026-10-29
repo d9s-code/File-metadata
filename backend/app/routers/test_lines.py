@@ -9,6 +9,7 @@ from app.core.enums import AuditAction, AuditEntityType, Role
 from app.database import get_db
 from app.deps import require_emitter_checkout, require_role
 from app.models.emitter import Emitter
+from app.models.emitter_version import EmitterVersion
 from app.models.ew_group import EwGroup
 from app.models.mode import Mode
 from app.models.test_line import TestLine
@@ -17,6 +18,8 @@ from app.schemas.test_line import (
     TestLineCreate,
     TestLineImportRequest,
     TestLineOut,
+    TestLineRelinkRequest,
+    TestLineRelinkRow,
     TestLineSyncChange,
     TestLineSyncMissing,
     TestLineSyncOut,
@@ -24,7 +27,7 @@ from app.schemas.test_line import (
     TestLineUpdate,
 )
 from app.services.audit_service import apply_and_diff, record_audit
-from app.services.test_line_status_service import latest_line_outcomes
+from app.services.test_line_status_service import latest_line_outcomes, outdated_line_results
 
 # Test Lines are part of the Emitter's own versioned definition (see
 # snapshots.py::build_emitter_snapshot) — importing, editing or removing one
@@ -35,11 +38,12 @@ router = APIRouter(prefix="/emitters/{emitter_id}/test-lines", tags=["test-lines
 _EAGER_LOAD = joinedload(TestLine.expected_mode)
 
 
-def _to_out(tl: TestLine, status_row: tuple | None = None) -> TestLineOut:
+def _to_out(tl: TestLine, status_row: tuple | None = None, outdated: str | None = None) -> TestLineOut:
     out = TestLineOut.model_validate(tl)
     out.expected_mode_name = tl.expected_mode.name if tl.expected_mode else None
     if status_row is not None:
         out.last_tested_at, out.last_test_result, out.last_test_record_id = status_row
+        out.last_result_outdated = outdated
     return out
 
 
@@ -70,7 +74,8 @@ def list_test_lines(emitter_id: UUID, db: Session = Depends(get_db), _=Depends(r
         .all()
     )
     statuses = latest_line_outcomes(db, [tl.id for tl in lines])
-    return [_to_out(tl, statuses.get(tl.id)) for tl in lines]
+    outdated = outdated_line_results(db, statuses)
+    return [_to_out(tl, statuses.get(tl.id), outdated.get(tl.id)) for tl in lines]
 
 
 @router.post("/import", response_model=list[TestLineOut], status_code=status.HTTP_201_CREATED, dependencies=[Depends(verify_csrf)])
@@ -274,6 +279,84 @@ def sync_test_lines(
     return out
 
 
+def _relink_plan(db: Session, emitter_id: UUID) -> list[TestLineRelinkRow]:
+    """Lines that lost their expected Mode (deleted — e.g. every Mode replaced
+    by an import) but had one in a saved version, matched by that Mode's name
+    to the Emitter's Modes now."""
+    lines = (
+        db.query(TestLine)
+        .filter(TestLine.emitter_id == emitter_id, TestLine.expected_mode_id.is_(None))
+        .order_by(TestLine.sort_order.asc(), TestLine.created_at.asc())
+        .all()
+    )
+    if not lines:
+        return []
+    was: dict[str, str] = {}
+    wanted = {str(tl.id) for tl in lines}
+    for (snapshot,) in (
+        db.query(EmitterVersion.snapshot).filter(EmitterVersion.emitter_id == emitter_id).order_by(EmitterVersion.version_number.desc())
+    ):
+        for tl in snapshot.get("test_lines", []):
+            if tl.get("id") in wanted and tl.get("expected_mode_name"):
+                was.setdefault(tl["id"], tl["expected_mode_name"])
+        if len(was) == len(wanted):
+            break
+    by_name: dict[str, list[Mode]] = {}
+    for mode in db.query(Mode).join(EwGroup, Mode.ew_group_id == EwGroup.id).filter(EwGroup.emitter_id == emitter_id):
+        by_name.setdefault(_label_key(mode.name), []).append(mode)
+    rows = []
+    for tl in lines:
+        name = was.get(str(tl.id))
+        if name is None:
+            continue
+        found = by_name.get(_label_key(name), [])
+        row = TestLineRelinkRow(test_line_id=tl.id, label=tl.label, was_mode_name=name, status="none")
+        if len(found) == 1:
+            row.mode_id, row.mode_name, row.status = found[0].id, found[0].name, "match"
+        elif found:
+            row.status = "several"
+        rows.append(row)
+    return rows
+
+
+@router.get("/relink-plan", response_model=list[TestLineRelinkRow])
+def relink_plan(emitter_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))) -> list[TestLineRelinkRow]:
+    if db.get(Emitter, emitter_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Emitter not found")
+    return _relink_plan(db, emitter_id)
+
+
+@router.post("/relink", response_model=list[TestLineOut], dependencies=[Depends(verify_csrf)])
+def relink(
+    emitter_id: UUID,
+    payload: TestLineRelinkRequest,
+    db: Session = Depends(get_db),
+    user=Depends(require_emitter_checkout()),
+) -> list[TestLineOut]:
+    """Point the chosen lines at the Mode of their old expected Mode's name."""
+    chosen = set(payload.test_line_ids)
+    matches = [r for r in _relink_plan(db, emitter_id) if r.test_line_id in chosen and r.status == "match"]
+    if not matches:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "None of these lines has a Mode of its old expected Mode's name")
+    for r in matches:
+        db.get(TestLine, r.test_line_id).expected_mode_id = r.mode_id
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.update,
+        entity_type=AuditEntityType.test_line.value,
+        entity_id=emitter_id,
+        summary=f"Re-linked {len(matches)} SIM Test Line{'' if len(matches) == 1 else 's'} to the Modes of their old expected Modes' names",
+        changes={"relinked": [{"label": r.label, "mode": r.mode_name, "mode_id": str(r.mode_id)} for r in matches]},
+        emitter_id=emitter_id,
+    )
+    db.commit()
+    lines = db.query(TestLine).options(_EAGER_LOAD).filter(TestLine.id.in_([r.test_line_id for r in matches])).all()
+    statuses = latest_line_outcomes(db, [tl.id for tl in lines])
+    outdated = outdated_line_results(db, statuses)
+    return [_to_out(tl, statuses.get(tl.id), outdated.get(tl.id)) for tl in lines]
+
+
 @router.patch("/{test_line_id}", response_model=TestLineOut, dependencies=[Depends(verify_csrf)])
 def update_test_line(
     emitter_id: UUID,
@@ -301,7 +384,8 @@ def update_test_line(
     )
     db.commit()
     db.refresh(line)
-    return _to_out(line, latest_line_outcomes(db, [line.id]).get(line.id))
+    statuses = latest_line_outcomes(db, [line.id])
+    return _to_out(line, statuses.get(line.id), outdated_line_results(db, statuses).get(line.id))
 
 
 @router.delete("/{test_line_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(verify_csrf)])

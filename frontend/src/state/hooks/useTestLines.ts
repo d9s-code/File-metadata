@@ -59,3 +59,20 @@ export function useDeleteTestLine(emitterId: string) {
     onSuccess: () => qc.invalidateQueries({ queryKey: testLinesKey(emitterId) }),
   });
 }
+
+/** Lines that lost their expected Mode, matched by its old name to the Modes now. */
+export function useTestLineRelinkPlan(emitterId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [...testLinesKey(emitterId), "relink-plan"],
+    queryFn: () => testLinesApi.relinkPlan(emitterId),
+    enabled: !!emitterId && enabled,
+  });
+}
+
+export function useRelinkTestLines(emitterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) => testLinesApi.relink(emitterId, ids),
+    onSuccess: () => qc.invalidateQueries({ queryKey: testLinesKey(emitterId) }),
+  });
+}

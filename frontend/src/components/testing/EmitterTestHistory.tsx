@@ -29,7 +29,9 @@ export function EmitterTestHistory({
 
   return (
     <div>
-      <SimulationTrend emitterId={emitterId} records={records ?? []} lineIds={(testLines ?? []).map((l) => l.id)} />
+      <SimulationTrend emitterId={emitterId} records={records ?? []} lineIds={(testLines ?? []).map((l) => l.id)}
+        outdated={(testLines ?? []).filter((l) => l.last_result_outdated).length}
+      />
       <div className="card">
         <div className="card-header">
           <h4>

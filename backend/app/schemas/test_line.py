@@ -88,5 +88,25 @@ class TestLineOut(BaseModel):
     last_test_result: TestResult | None = None
     last_tested_at: date | None = None
     last_test_record_id: UUID | None = None
+    # Set when that result no longer counts — a Mode it involved was deleted since: why.
+    last_result_outdated: str | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class TestLineRelinkRow(BaseModel):
+    """A line with no expected Mode now that had one in a saved version: the
+    Mode of that name now, if exactly one."""
+
+    test_line_id: UUID
+    label: str
+    # The expected Mode's name in the newest saved version that had one.
+    was_mode_name: str
+    mode_id: UUID | None = None
+    mode_name: str | None = None
+    # "match", "none" (no Mode of that name now) or "several" (more than one).
+    status: str
+
+
+class TestLineRelinkRequest(BaseModel):
+    test_line_ids: list[UUID]

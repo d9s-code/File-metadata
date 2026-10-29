@@ -53,7 +53,7 @@ from app.models.test_record import TestRecord
 from app.models.user import User
 from app.services import ai_mode_proposals, knowledge_service, llm_client, search_service, statuses
 from app.services.pin_hygiene import mdf_readiness
-from app.services.test_line_status_service import latest_line_outcomes
+from app.services.test_line_status_service import latest_line_outcomes, outdated_line_results
 from app.services.ai_review_service import SEVERITY_LABELS, SEVERITY_ORDER, _finding_line, _n, unverified_numbers
 from app.services.dates import day_text
 
@@ -389,7 +389,8 @@ def get_emitter(db: Session, step: ChatStep) -> str:
 def _tests_summary(db: Session, emitter: Emitter) -> str:
     line_ids = db.execute(select(TestLine.id).where(TestLine.emitter_id == emitter.id)).scalars().all()
     outcomes = latest_line_outcomes(db, list(line_ids))
-    correct = sum(1 for _, result, _ in outcomes.values() if result.value == "pass")
+    outdated = outdated_line_results(db, outcomes)
+    correct = sum(1 for line_id, (_, result, _) in outcomes.items() if result.value == "pass" and line_id not in outdated)
     runs = db.scalar(
         select(func.count(TestRecord.id)).where(TestRecord.scope_type == TestScopeType.emitter, TestRecord.scope_id == emitter.id)
     )
@@ -397,6 +398,7 @@ def _tests_summary(db: Session, emitter: Emitter) -> str:
         return f"SIM Test Lines: none. Test runs: {runs}."
     return (
         f"SIM Test Lines: {len(line_ids)}, {correct} correct in their latest run, "
+        f"{len(outdated)} out of date (tested against Modes since deleted), "
         f"{len(line_ids) - len(outcomes)} never tested. Test runs: {runs} (get_tests for more)."
     )
 
@@ -452,10 +454,13 @@ def get_tests(db: Session, step: ChatStep) -> str:
     lines_ = db.execute(select(TestLine).where(TestLine.emitter_id == emitter.id)).scalars().all()
     lines_.sort(key=lambda t: t.label.lower())
     outcomes = latest_line_outcomes(db, [t.id for t in lines_])
+    outdated = outdated_line_results(db, outcomes)
     out = [f"Tests of Emitter {_label(emitter)} [{emitter.id}]", f"SIM Test Lines ({len(lines_)}):"]
     for t in lines_[:80]:
         last = outcomes.get(t.id)
         status = f"{last[1].value} on {day_text(last[0])}" if last else "never tested"
+        if t.id in outdated:
+            status += f" — out of date: {outdated[t.id]}"
         out.append(f"- {t.label}: {status}")
     runs = db.execute(
         select(TestRecord).where(TestRecord.scope_type == TestScopeType.emitter, TestRecord.scope_id == emitter.id)

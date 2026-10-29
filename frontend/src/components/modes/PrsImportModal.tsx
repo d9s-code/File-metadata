@@ -5,7 +5,7 @@ import { prsImportApi, type PrsImportIssue, type PrsImportResult } from "../../a
 import { ApiRequestError } from "../../api/client";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Source } from "../../types/domain";
-import { emitterModesKey } from "../../state/hooks/useModes";
+import { emitterModesKey, invalidateSimResults } from "../../state/hooks/useModes";
 import { ewGroupsKey } from "../../state/hooks/useEwGroups";
 import { sourcesKey } from "../../state/hooks/useSources";
 
@@ -62,6 +62,7 @@ export function PrsImportModal({
       qc.invalidateQueries({ queryKey: emitterModesKey(emitterId) });
       qc.invalidateQueries({ queryKey: ewGroupsKey(emitterId) });
       qc.invalidateQueries({ queryKey: sourcesKey(emitterId) });
+      invalidateSimResults(qc, emitterId);
     } catch (err) {
       if (err instanceof ApiRequestError && Array.isArray(err.detail)) {
         setIssues(err.detail as PrsImportIssue[]);

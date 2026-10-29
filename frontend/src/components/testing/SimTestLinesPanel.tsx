@@ -6,7 +6,9 @@ import type { TestLine, TestLineCreateInput, TestLineSyncResult } from "../../ap
 import {
   useDeleteTestLine,
   useImportTestLines,
+  useRelinkTestLines,
   useSyncTestLines,
+  useTestLineRelinkPlan,
   useUpdateTestLine,
 } from "../../state/hooks/useTestLines";
 import { useEmitterModes } from "../../state/hooks/useModes";
@@ -87,7 +89,14 @@ function readCollapsed(): boolean {
 
 function StatusBadge({ line, emitterId }: { line: TestLine; emitterId: string }) {
   if (!line.last_test_result) return <span className="hint-text">Not tested</span>;
-  const badge = (
+  const badge = line.last_result_outdated ? (
+    <span
+      className="test-result-badge test-result-outdated"
+      title={`Was ${lineOutcomeLabel(line.last_test_result)} — ${line.last_result_outdated}. Run the SIM test again.`}
+    >
+      Out of date
+    </span>
+  ) : (
     <span className={`test-result-badge test-result-${line.last_test_result}`}>
       {lineOutcomeLabel(line.last_test_result)}
     </span>
@@ -129,9 +138,9 @@ export function SimTestLinesPanel({ emitterId, lines }: { emitterId: string; lin
   const { data: emitter } = useEmitter(emitterId);
   const { canEdit } = useEmitterCheckoutState(emitter);
 
-  const statusCounts: Partial<Record<TestResult | "untested", number>> = {};
+  const statusCounts: Partial<Record<TestResult | "untested" | "outdated", number>> = {};
   for (const l of lines) {
-    const key = l.last_test_result ?? "untested";
+    const key = l.last_result_outdated ? "outdated" : (l.last_test_result ?? "untested");
     statusCounts[key] = (statusCounts[key] ?? 0) + 1;
   }
 
@@ -256,6 +265,9 @@ export function SimTestLinesPanel({ emitterId, lines }: { emitterId: string; lin
                 {statusCounts[r]} {lineOutcomeLabel(r)}
               </span>
             ))}
+            {statusCounts.outdated && (
+              <span className="test-result-badge test-result-outdated">{statusCounts.outdated} Out of date</span>
+            )}
             {statusCounts.untested && <span className="hint-text">{statusCounts.untested} Not tested</span>}
           </span>
         )}
@@ -264,6 +276,7 @@ export function SimTestLinesPanel({ emitterId, lines }: { emitterId: string; lin
       {!collapsed && (
         <>
           {!canEdit && <p className="hint-text">Start editing this Emitter to import, edit, or delete SIM Test Lines.</p>}
+          <OutdatedResults emitterId={emitterId} lines={lines} canEdit={canEdit} />
 
           {lines.length === 0 ? (
             <p className="hint-text">No SIM Test Lines imported yet.</p>
@@ -475,6 +488,117 @@ export function SimTestLinesPanel({ emitterId, lines }: { emitterId: string; lin
         </>
       )}
       {dialog}
+    </div>
+  );
+}
+
+/** Results against Modes since deleted (e.g. every Mode replaced by an
+ * import) don't count until the SIM test is run again; lines that lost their
+ * expected Mode can be pointed at the Mode of the same name now. */
+function OutdatedResults({ emitterId, lines, canEdit }: { emitterId: string; lines: TestLine[]; canEdit: boolean }) {
+  const outdated = lines.filter((l) => l.last_result_outdated).length;
+  const lostMode = lines.some((l) => !l.expected_mode_id);
+  const { data: plan } = useTestLineRelinkPlan(emitterId, lostMode);
+  const relink = useRelinkTestLines(emitterId);
+  const [open, setOpen] = useState(false);
+  const [skipped, setSkipped] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
+  const rows = plan ?? [];
+  const matches = rows.filter((r) => r.status === "match");
+  if (outdated === 0 && matches.length === 0) return null;
+  const chosen = matches.filter((r) => !skipped.has(r.test_line_id)).map((r) => r.test_line_id);
+
+  async function apply() {
+    setError(null);
+    try {
+      await relink.mutateAsync(chosen);
+      setOpen(false);
+      setSkipped(new Set());
+    } catch (err) {
+      setError(err instanceof ApiRequestError ? err.message : "Failed to re-link");
+    }
+  }
+
+  return (
+    <div className="sim-outdated-banner">
+      {outdated > 0 && (
+        <p>
+          <strong>
+            {outdated} line{outdated === 1 ? "'s latest result is" : "s' latest results are"} out of date
+          </strong>{" "}
+          — tested against Modes since deleted, so {outdated === 1 ? "it doesn't" : "they don't"} count as correct or
+          missed until the SIM test is run again. <Link to={`/emitters/${emitterId}/tests/new`}>Add a test run</Link>
+        </p>
+      )}
+      {matches.length > 0 && (
+        <RequireRole minimum="editor">
+          <p>
+            {matches.length} line{matches.length === 1 ? "" : "s"} lost {matches.length === 1 ? "its" : "their"} expected
+            Mode, and a Mode of the same name is here now.{" "}
+            <button type="button" className="link-button" disabled={!canEdit} onClick={() => setOpen((o) => !o)}>
+              {open ? "Hide" : "Re-link expected Modes by name…"}
+            </button>
+            {!canEdit && <span className="hint-text"> (start editing first)</span>}
+          </p>
+          {open && (
+            <>
+              <table className="data-table compact">
+                <thead>
+                  <tr>
+                    <th></th>
+                    <th>Line</th>
+                    <th>Expected (deleted)</th>
+                    <th>Mode now</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <tr key={r.test_line_id}>
+                      <td>
+                        {r.status === "match" && (
+                          <input
+                            type="checkbox"
+                            aria-label={`Re-link ${r.label}`}
+                            checked={!skipped.has(r.test_line_id)}
+                            onChange={(e) =>
+                              setSkipped((prev) => {
+                                const next = new Set(prev);
+                                if (e.target.checked) next.delete(r.test_line_id);
+                                else next.add(r.test_line_id);
+                                return next;
+                              })
+                            }
+                          />
+                        )}
+                      </td>
+                      <td>{r.label}</td>
+                      <td>{r.was_mode_name}</td>
+                      <td>
+                        {r.status === "match" ? (
+                          r.mode_name
+                        ) : (
+                          <span className="hint-text">
+                            {r.status === "several" ? "several Modes have this name — set it with Edit" : "no Mode of this name"}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="form-row">
+                <button type="button" disabled={relink.isPending || chosen.length === 0} onClick={() => void apply()}>
+                  Re-link {chosen.length} line{chosen.length === 1 ? "" : "s"}
+                </button>
+              </div>
+              <p className="hint-text">
+                Re-linking sets what each line expects for the next run; the results already logged stay out of date.
+              </p>
+              {error && <div className="error-text">{error}</div>}
+            </>
+          )}
+        </RequireRole>
+      )}
     </div>
   );
 }

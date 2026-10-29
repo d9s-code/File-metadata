@@ -16,6 +16,8 @@ export interface TestLine {
   last_test_result: TestResult | null;
   last_tested_at: string | null;
   last_test_record_id: string | null;
+  /** Set when that result no longer counts — a Mode it involved was deleted since: why. */
+  last_result_outdated: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -59,7 +61,21 @@ export interface TestLineUpdateInput {
   created_date?: string;
 }
 
+/** A line that lost its expected Mode, and the Mode of that name now. */
+export interface TestLineRelinkRow {
+  test_line_id: string;
+  label: string;
+  was_mode_name: string;
+  mode_id: string | null;
+  mode_name: string | null;
+  /** "match", "none" (no Mode of that name now) or "several". */
+  status: "match" | "none" | "several";
+}
+
 export const testLinesApi = {
+  relinkPlan: (emitterId: string) => api.get<TestLineRelinkRow[]>(`/emitters/${emitterId}/test-lines/relink-plan`),
+  relink: (emitterId: string, testLineIds: string[]) =>
+    api.post<TestLine[]>(`/emitters/${emitterId}/test-lines/relink`, { test_line_ids: testLineIds }),
   listForEmitter: (emitterId: string) => api.get<TestLine[]>(`/emitters/${emitterId}/test-lines`),
   import: (emitterId: string, input: TestLineImportInput) =>
     api.post<TestLine[]>(`/emitters/${emitterId}/test-lines/import`, input),

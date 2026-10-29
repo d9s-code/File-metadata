@@ -15,13 +15,17 @@ function wrongCount(r: EmitterSimStatus): number {
 }
 
 function needsLook(r: EmitterSimStatus): boolean {
-  return r.line_count > 0 && (wrongCount(r) > 0 || r.line_outcomes.untested > 0 || r.changed_since_validation);
+  return (
+    r.line_count > 0 &&
+    (wrongCount(r) > 0 || r.line_outcomes.untested > 0 || r.line_outcomes.outdated > 0 || r.changed_since_validation)
+  );
 }
 
 /** Simulation validation: the system-wide picture on top (how every SIM Test
  * Line did in its latest run), then one compact row per Emitter — searchable,
  * filterable and scrolling inside a fixed height. Worst first: missed or
- * partial lines, then untested ones. */
+ * partial lines, then out-of-date ones (tested against Modes since
+ * deleted), then untested ones. */
 export function EmitterSimTable({ rows, counts }: { rows: EmitterSimStatus[]; counts: SimOutcomeCounts }) {
   const withLines = rows.filter((r) => r.line_count > 0);
   const allCorrect = withLines.filter((r) => r.line_outcomes.pass === r.line_count).length;
@@ -37,6 +41,7 @@ export function EmitterSimTable({ rows, counts }: { rows: EmitterSimStatus[]; co
       .sort(
         (a, b) =>
           wrongCount(b) - wrongCount(a) ||
+          b.line_outcomes.outdated - a.line_outcomes.outdated ||
           b.line_outcomes.untested - a.line_outcomes.untested ||
           a.name.localeCompare(b.name, undefined, { numeric: true }),
       );
@@ -113,6 +118,7 @@ export function EmitterSimTable({ rows, counts }: { rows: EmitterSimStatus[]; co
                         <span className="progress-bar-label">
                           {r.line_outcomes.pass} / {r.line_count} correct
                           {wrongCount(r) > 0 && ` · ${wrongCount(r)} missed/partial`}
+                          {r.line_outcomes.outdated > 0 && ` · ${r.line_outcomes.outdated} out of date`}
                           {r.line_outcomes.untested > 0 && ` · ${r.line_outcomes.untested} untested`}
                         </span>
                       </>

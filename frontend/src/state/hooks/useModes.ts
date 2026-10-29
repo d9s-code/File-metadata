@@ -9,6 +9,8 @@ import { dslApi, type ModeFromDslInput } from "../../api/dsl";
 import { emitterVersionsKey } from "./useEmitterVersions";
 import { emitterBatchesKey } from "./useModeBatches";
 import { testRecordsKey } from "./useTestRecords";
+import { testLinesKey } from "./useTestLines";
+import { emittersKey } from "./useEmitters";
 
 export function modesKey(ewGroupId: string) {
   return ["modes", ewGroupId] as const;
@@ -43,6 +45,13 @@ function invalidateModes(qc: ReturnType<typeof useQueryClient>, ewGroupId: strin
   // An Intercept entry lists the Modes created from it, and is matched
   // against the Emitter's Modes.
   qc.invalidateQueries({ queryKey: ["intercept-entries"] });
+  invalidateSimResults(qc, emitterId);
+}
+
+/** A deleted Mode puts the SIM results that named it out of date. */
+export function invalidateSimResults(qc: ReturnType<typeof useQueryClient>, emitterId: string) {
+  qc.invalidateQueries({ queryKey: testLinesKey(emitterId) });
+  qc.invalidateQueries({ queryKey: emittersKey });
 }
 
 export function useCreateMode(ewGroupId: string, emitterId: string) {
@@ -103,6 +112,7 @@ export function useBatchDeleteModes(emitterId: string) {
       qc.invalidateQueries({ queryKey: ["modes"] });
       qc.invalidateQueries({ queryKey: emitterVersionsKey(emitterId) });
       qc.invalidateQueries({ queryKey: ["intercept-entries"] });
+      invalidateSimResults(qc, emitterId);
     },
   });
 }

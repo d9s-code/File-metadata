@@ -1257,6 +1257,9 @@ button.status-badge { border: none; cursor: pointer; font-family: inherit; }
 .test-result-partial { background: var(--badge-amber-bg); color: var(--badge-amber-fg); }
 .test-result-inconclusive { background: var(--badge-neutral-bg); color: var(--badge-neutral-fg); }
 .test-result-derived { background: var(--badge-orange-bg); color: var(--badge-orange-fg); }
+.test-result-outdated { background: var(--badge-amber-bg); color: var(--badge-amber-fg); text-transform: none; }
+.sim-outdated-banner { margin: 0.5rem 0; padding: 0.5rem 0.7rem; border-left: 3px solid var(--status-warning); background: color-mix(in srgb, var(--status-warning) 12%, transparent); font-size: 0.88rem; }
+.sim-outdated-banner p { margin: 0.25rem 0; }
 
 .audit-action-badge {
   display: inline-block;
@@ -1536,6 +1539,7 @@ button.status-badge { border: none; cursor: pointer; font-family: inherit; }
 .sim-fail { background: #ef4444; }
 .sim-inconclusive { background: #9ca3af; }
 .sim-untested { background: var(--hover-bg); }
+.sim-outdated { background: repeating-linear-gradient(45deg, #d97706 0 4px, #fcd34d 4px 8px); }
 .sim-legend {
   list-style: none;
   margin: 0.6rem 0 0.4rem;

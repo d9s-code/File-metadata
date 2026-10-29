@@ -515,11 +515,15 @@ export function EmittersListPage() {
                     className="nowrap"
                     title={
                       e.summary.sim_lines
-                        ? `${e.summary.sim_lines_correct} of ${e.summary.sim_lines} SIM Test Lines correct in their latest run`
+                        ? `${e.summary.sim_lines_correct} of ${e.summary.sim_lines} SIM Test Lines correct in their latest run` +
+                          (e.summary.sim_lines_outdated
+                            ? ` · ${e.summary.sim_lines_outdated} out of date (tested against Modes since deleted)`
+                            : "")
                         : "No SIM Test Lines"
                     }
                   >
                     {e.summary.sim_lines ? `${e.summary.sim_lines_correct} / ${e.summary.sim_lines}` : "—"}
+                    {e.summary.sim_lines_outdated > 0 && <span className="summary-bad"> · {e.summary.sim_lines_outdated} out of date</span>}
                   </td>
                 )}
                 {show("tasks") && (

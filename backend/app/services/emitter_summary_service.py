@@ -12,7 +12,7 @@ from app.models.test_line import TestLine
 from app.models.user import User
 from app.schemas.emitter import EmitterOut, EmitterPlatformRef, EmitterSummary
 from app.services.emitter_validation_service import get_last_validation
-from app.services.test_line_status_service import latest_line_outcomes
+from app.services.test_line_status_service import latest_line_outcomes, outdated_line_results
 
 
 def compute_emitter_summaries(db: Session, emitter_ids: list[UUID]) -> dict[UUID, EmitterSummary]:
@@ -65,12 +65,17 @@ def compute_emitter_summaries(db: Session, emitter_ids: list[UUID]) -> dict[UUID
     # SIM Test Lines, and how many were correct in the latest run that had them.
     line_rows = db.query(TestLine.id, TestLine.emitter_id).filter(TestLine.emitter_id.in_(emitter_ids)).all()
     outcomes = latest_line_outcomes(db, [line_id for line_id, _ in line_rows])
+    outdated = outdated_line_results(db, outcomes)
     sim_lines: dict[UUID, int] = {}
     sim_correct: dict[UUID, int] = {}
+    sim_outdated: dict[UUID, int] = {}
     for line_id, emitter_id in line_rows:
         sim_lines[emitter_id] = sim_lines.get(emitter_id, 0) + 1
         latest = outcomes.get(line_id)
-        if latest and latest[1] == TestResult.pass_:
+        if line_id in outdated:
+            # Tested against Modes since deleted: neither correct nor wrong until run again.
+            sim_outdated[emitter_id] = sim_outdated.get(emitter_id, 0) + 1
+        elif latest and latest[1] == TestResult.pass_:
             sim_correct[emitter_id] = sim_correct.get(emitter_id, 0) + 1
 
     summaries: dict[UUID, EmitterSummary] = {}
@@ -114,6 +119,7 @@ def compute_emitter_summaries(db: Session, emitter_ids: list[UUID]) -> dict[UUID
         summary = summaries.setdefault(emitter_id, EmitterSummary(scan_min=scan_min, scan_max=scan_max))
         summary.sim_lines = sim_lines.get(emitter_id, 0)
         summary.sim_lines_correct = sim_correct.get(emitter_id, 0)
+        summary.sim_lines_outdated = sim_outdated.get(emitter_id, 0)
     return summaries
 
 

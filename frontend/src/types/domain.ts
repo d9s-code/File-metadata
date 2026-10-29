@@ -58,6 +58,8 @@ export interface EmitterSummary {
   /** SIM Test Lines, and how many were correct in the latest run that included them. */
   sim_lines: number;
   sim_lines_correct: number;
+  /** Lines whose latest result no longer counts: a Mode it involved was deleted since. */
+  sim_lines_outdated: number;
 }
 
 export interface EmitterNote {

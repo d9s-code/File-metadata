@@ -518,6 +518,14 @@ export function HelpPage() {
                 do before anything is changed. Deleting a line also deletes its results in logged runs.
               </li>
               <li>
+                <strong>Out of date</strong>: once a Mode a line&apos;s latest result involved is deleted (a Mode it
+                was intercepted as, or the Mode it was expected to be) — say every Mode replaced by a PRS import —
+                that result no longer counts as correct or missed until the SIM test is run again; the summary, the
+                Emitters list and the Dashboard say so. Bringing the Modes back (discard or revert) makes it count
+                again. <strong>Re-link expected Modes by name…</strong> points lines that lost their expected Mode at
+                the Mode of the same name now, ready for the next run.
+              </li>
+              <li>
                 <strong>+ Add test run</strong> opens a separate page. Pick the type:{" "}
                 <strong>simulation</strong> (checked against the SIM Test Lines) or{" "}
                 <strong>intercept</strong> (a real-world intercept, checked against the Emitter&rsquo;s own
