@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { InfoTip } from "../common/PageHeader";
-import { describeMiss, matchEntry, type EntryMatch, type MatchChecks } from "../intercepts/interceptMatch";
+import { describeMiss, matchEntry, TEST_CHECKS, type EntryMatch } from "../intercepts/interceptMatch";
 import { asEntry } from "./signalCoverage";
 import { formatObservedValueSet, nonEmptySets, compareLineLabels } from "./testFormat";
 import { useEmitterTestLines } from "../../state/hooks/useTestLines";
@@ -19,7 +19,6 @@ import { useSources } from "../../state/hooks/useSources";
 type Now = "match" | "near" | "none" | "unknown";
 
 /** Beyond RF, PRI and PW: a fixed PRI's jitter, and a stagger's steps in order. */
-const CHECKS: MatchChecks = { jitter: true, sequence: true };
 
 /** Each outcome's colour (status palette), mark and words — never colour alone. */
 const NOW: Record<Now, { cls: string; icon: string; label: string }> = {
@@ -98,7 +97,7 @@ export function RecheckIntercepts({
     const shown = nonEmptySets(sets);
     shown.forEach((set, i) => {
       const entry = asEntry(set);
-      const match = entry ? matchEntry(entry, modes, CHECKS) : null;
+      const match = entry ? matchEntry(entry, modes, TEST_CHECKS) : null;
       rows.push({
         key: `${key}-${i}`,
         where: shown.length > 1 ? `${where} · set ${i + 1}` : where,

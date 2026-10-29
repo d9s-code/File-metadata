@@ -17,7 +17,16 @@ export type MatchParam = "RF" | "PRI" | "PW";
 export interface MatchChecks {
   jitter?: boolean;
   sequence?: boolean;
+  /** A stagger by the Mode's PRI range matching, as the sensor matches it:
+   * on — its frame time only (± the frame-time delta); off — its steps (the
+   * same number, in order, each within the step tolerance), the frame time
+   * only when no steps were logged. */
+  rangeMatching?: boolean;
 }
+
+/** What a test run's logged values are checked with against the Modes:
+ * jitter, and a stagger by its Mode's PRI range matching. */
+export const TEST_CHECKS: MatchChecks = { jitter: true, sequence: true, rangeMatching: true };
 
 export interface ParamMiss {
   param: MatchParam;
@@ -79,12 +88,47 @@ export function sameSequence(steps: number[], modeSteps: number[], tol: (step: n
   return false;
 }
 
+function frameWindow(line: NonNullable<Mode["line"]>) {
+  return (
+    range(line.engineered_frame_time_min_us, line.engineered_frame_time_max_us) ??
+    (line.frame_time_us != null ? { min: line.frame_time_us, max: line.frame_time_us } : null)
+  );
+}
+
+/** A stagger against a stagger Mode the way the Mode is matched: PRI range
+ * matching on — the frame time alone; off — the steps. */
+function staggerByRangeMatching(entry: MatchableEntry, line: NonNullable<Mode["line"]>): ParamMiss | null {
+  const frameTime = frameWindow(line);
+  const frameMiss = () => {
+    const miss = check("PRI", entry.pri_mean_us, frameTime, "µs");
+    return miss && { ...miss, label: "Frame time" };
+  };
+  if (line.pri_range_matching) return frameMiss();
+  const steps = entry.stagger_values ?? [];
+  const modeSteps = line.pri_stagger_values_us ?? [];
+  // Only a frame time logged (or a Mode with no steps): that's all there is to go on.
+  if (steps.length === 0 || modeSteps.length === 0) return frameMiss();
+  const base: ParamMiss = {
+    param: "PRI",
+    value: entry.pri_mean_us ?? 0,
+    min: frameTime?.min ?? 0,
+    max: frameTime?.max ?? 0,
+    unit: "µs",
+    label: "Steps",
+  };
+  if (steps.length !== modeSteps.length) return { ...base, positions: { entry: steps.length, mode: modeSteps.length } };
+  const tol = (step: number) => stepTolerance(line, step);
+  if (sameSequence(steps, modeSteps, tol)) return null;
+  return { ...base, sequence: { entry: steps, mode: modeSteps, tol: tol(Math.min(...modeSteps)) } };
+}
+
 /** How one entry compares with one Mode: which of RF, PRI and PW fall
  * outside the Mode's engineered range (the range the system recognises —
  * the plain min/max when a Mode has no deltas). Null when they can't be
  * compared at all: a different PRI type, or a Mode with no values yet.
  * Unless `checks` asks for them, jitter isn't compared, and a stagger is
- * compared on its frame time and number of steps only. A CW entry is
+ * compared on its frame time and number of steps only (with
+ * `rangeMatching`, on what its Mode's PRI range matching says instead). A CW entry is
  * compared on RF only — it has no pulses. */
 export function compareEntryToMode(entry: MatchableEntry, mode: Mode, checks: MatchChecks = {}): ParamMiss[] | null {
   const line = mode.line;
@@ -100,7 +144,9 @@ export function compareEntryToMode(entry: MatchableEntry, mode: Mode, checks: Ma
   ];
   if (entry.pri_type === "cw") return misses.filter((m): m is ParamMiss => m != null);
 
-  if (entry.pri_type === "stagger") {
+  if (entry.pri_type === "stagger" && checks.rangeMatching) {
+    misses.push(staggerByRangeMatching(entry, line));
+  } else if (entry.pri_type === "stagger") {
     const frameTime =
       range(line.engineered_frame_time_min_us, line.engineered_frame_time_max_us) ??
       (line.frame_time_us != null ? { min: line.frame_time_us, max: line.frame_time_us } : null);

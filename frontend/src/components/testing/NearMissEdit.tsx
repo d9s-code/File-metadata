@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { ObservedValues } from "../../api/testRecords";
 import type { Mode, Source } from "../../types/domain";
-import { describeMiss, matchEntry } from "../intercepts/interceptMatch";
+import { describeMiss, matchEntry, TEST_CHECKS } from "../intercepts/interceptMatch";
 import { ModeEditDialog } from "../modes/ModeDialogs";
 import { widened } from "./nearMiss";
 import { asEntry } from "./signalCoverage";
@@ -30,7 +30,7 @@ export function NearMissEdit({
   const entries = nonEmptySets(sets)
     .map(asEntry)
     .filter((e) => e != null);
-  const matches = entries.map((e) => matchEntry(e, [mode]));
+  const matches = entries.map((e) => matchEntry(e, [mode], TEST_CHECKS));
   if (matches.length === 0 || matches.some((m) => m.status === "match")) return null;
   const near = matches.flatMap((m) => m.near.filter((n) => n.mode.id === mode.id));
   if (near.length === 0) return null;

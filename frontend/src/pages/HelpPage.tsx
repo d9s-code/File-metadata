@@ -601,7 +601,8 @@ export function HelpPage() {
                 (shown once something was logged), takes every set of parameters logged in the run — on SIM lines,
                 Mode results and signals — and matches it against the Emitter&apos;s Modes as they are now, the way an
                 Intercept&apos;s entries are matched, and more strictly: a fixed PRI&apos;s logged jitter must be inside
-                the Mode&apos;s jitter range, and a stagger must have the Mode&apos;s frame time and its steps in the
+                the Mode&apos;s jitter range, and a stagger is matched by the Mode&apos;s PRI range matching: on — by its
+                frame time alone (± the frame-time delta); off — by its steps, as many as the Mode&apos;s and in the
                 same order (starting at any step, each within the frame-time delta, at least 0.1%). Each row is{" "}
                 <strong>✓ would match</strong> (which Modes),{" "}
                 <strong>≈ near</strong> (one value off, and which — with <strong>Edit ‹Mode›…</strong> while you&apos;re
