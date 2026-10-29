@@ -10,8 +10,10 @@ import { EmptyState } from "../common/EmptyState";
 import { SortableColumnHeader } from "../common/SortableColumnHeader";
 import { useSortableTable } from "../common/useSortableTable";
 import { compareStrings } from "../common/sortUtils";
+import { StatusBadge } from "../status/StatusBadge";
+import { useStatuses } from "../../state/hooks/useStatuses";
 
-type PlatformLinkSortKey = "designation" | "emitter" | "added";
+type PlatformLinkSortKey = "designation" | "emitter" | "status" | "added";
 
 /** The pinned version — for editors, a picker of the Emitter's saved
  * versions (newest first) that repins on change. */
@@ -79,6 +81,36 @@ function OutdatedPin({ platformId, link }: { platformId: string; link: PlatformL
   );
 }
 
+/** Where the Emitter is now: its status (as it is, not as pinned), whether
+ * someone is editing it, and its SIM Test Lines correct in their latest run. */
+function EmitterProgress({ emitter }: { emitter: Emitter | undefined }) {
+  if (!emitter) return <>—</>;
+  const s = emitter.summary;
+  return (
+    <span className="nowrap">
+      <StatusBadge type="emitter" status={emitter.status} title="The Emitter's status now" />
+      {emitter.checked_out_by_username && (
+        <span className="hint-text" title={`Being edited by ${emitter.checked_out_by_username}`}>
+          {" "}
+          ✎ {emitter.checked_out_by_username}
+        </span>
+      )}
+      {s.sim_lines > 0 && (
+        <span
+          className="hint-text"
+          title={
+            `${s.sim_lines_correct} of ${s.sim_lines} SIM Test Lines correct in their latest run` +
+            (s.sim_lines_outdated ? ` · ${s.sim_lines_outdated} out of date` : "")
+          }
+        >
+          {" "}
+          · SIM {s.sim_lines_correct}/{s.sim_lines}
+        </span>
+      )}
+    </span>
+  );
+}
+
 export function PlatformLinkTable({
   platformId,
   links,
@@ -90,6 +122,7 @@ export function PlatformLinkTable({
 }) {
   const unpin = useUnpinEmitter(platformId);
   const { confirmDelete, dialog } = useConfirmDialog();
+  const statuses = useStatuses("emitter");
 
   async function handleUnpin(link: PlatformLink) {
     const name = emittersById[link.emitter_id]?.name ?? "this Emitter";
@@ -103,6 +136,15 @@ export function PlatformLinkTable({
         return compareStrings(emittersById[a.emitter_id]?.name, emittersById[b.emitter_id]?.name, dir);
       case "designation":
         return compareStrings(emittersById[a.emitter_id]?.designation, emittersById[b.emitter_id]?.designation, dir);
+      case "status": {
+        // In the statuses' order as Admins set it up — how far along each Emitter is.
+        const rank = (l: PlatformLink) => {
+          const status = emittersById[l.emitter_id]?.status;
+          const at = statuses.list.findIndex((st) => st.key === status);
+          return at < 0 ? statuses.list.length : at;
+        };
+        return (rank(a) - rank(b)) * (dir === "asc" ? 1 : -1);
+      }
       case "added":
         return compareStrings(a.added_at, b.added_at, dir);
     }
@@ -121,6 +163,7 @@ export function PlatformLinkTable({
         <tr>
           <SortableColumnHeader label="Designation" columnKey="designation" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
           <SortableColumnHeader label="Emitter" columnKey="emitter" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
+          <SortableColumnHeader label="Status" columnKey="status" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
           <th>Pinned version</th>
           <SortableColumnHeader
             label="Added"
@@ -142,6 +185,9 @@ export function PlatformLinkTable({
               <Link to={`/emitters/${link.emitter_id}`}>
                 {emittersById[link.emitter_id]?.name ?? link.emitter_id}
               </Link>
+            </td>
+            <td>
+              <EmitterProgress emitter={emittersById[link.emitter_id]} />
             </td>
             <td>
               <PinnedVersionCell platformId={platformId} link={link} />
