@@ -234,7 +234,16 @@ def update_mode(
     mode = db.get(Mode, mode_id)
     if mode is None or mode.ew_group_id != ew_group_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Mode not found")
+    update_mode_record(db, mode, payload, user.id)
+    db.commit()
+    db.refresh(mode)
+    return mode
 
+
+def update_mode_record(db: Session, mode: Mode, payload: ModeUpdate, actor_id: UUID, origin: str = "") -> None:
+    """Applies an edit to a Mode, checked and audited as the form's — the
+    caller commits. `origin` is added to the audit summary (where the edit
+    came from). Raises HTTPException when the edit isn't valid."""
     data = payload.model_dump(
         exclude_unset=True,
         exclude={"line", "derived_from_test_record_ids", "derived_from_intercept_entry_ids", "source_id", "source_ids"},
@@ -307,7 +316,7 @@ def update_mode(
 
     record_audit(
         db,
-        actor_id=user.id,
+        actor_id=actor_id,
         action=AuditAction.update,
         entity_type=AuditEntityType.mode.value,
         entity_id=mode.id,
@@ -316,13 +325,11 @@ def update_mode(
             if mode.name != old_name
             else f"Updated Mode '{mode.name}'"
         )
-        + _derived_note(db, payload.derived_from_test_record_ids),
+        + _derived_note(db, payload.derived_from_test_record_ids)
+        + origin,
         changes=changes,
         emitter_id=mode.source.emitter_id,
     )
-    db.commit()
-    db.refresh(mode)
-    return mode
 
 
 @router.delete("/{mode_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(verify_csrf)])

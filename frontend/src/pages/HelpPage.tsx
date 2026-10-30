@@ -888,7 +888,10 @@ export function HelpPage() {
           <p>
             Ask it to <strong>write Modes</strong> and it proposes them under its answer as a preview — where each would
             go, its values and deltas, and why any can&apos;t be added. It never adds anything itself: tick the ones you
-            want and press <strong>Add N Modes</strong> (editors, into an Emitter you&apos;re editing). <strong>📎</strong>,
+            want and press <strong>Add N Modes</strong> (editors, into an Emitter you&apos;re editing). Ask it to{" "}
+            <strong>change Modes</strong> and it proposes the edits the same way — each value before → after and why —
+            and changes nothing until you tick them and press <strong>Apply N edits</strong>; an edit is refused if the
+            Mode was changed since it was proposed. <strong>📎</strong>,
             pasting or dropping attaches images to a question. The bar in the header shows how much of the model&apos;s
             context the chat takes of its maximum (an admin sets it under <strong>⚙</strong> or Admin → Settings);
             <strong> Compact</strong> summarises the chat so far to free it, and it compacts on its own when nearly full.

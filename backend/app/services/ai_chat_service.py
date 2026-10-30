@@ -1,6 +1,6 @@
 """A chat with the language model that can look things up — read-only — and
-propose new Modes for the user to add (it never adds them itself: see
-ai_mode_proposals).
+propose new Modes for the user to add, or edits to existing ones for the user
+to apply (it never writes them itself: see ai_mode_proposals, ai_mode_edits).
 
 The model isn't handed the database; it asks for what it needs, one lookup
 at a time, from a fixed set: search by name, lists of Emitters, an Emitter's
@@ -51,7 +51,7 @@ from app.models.customer import Customer
 from app.models.test_line import TestLine
 from app.models.test_record import TestRecord
 from app.models.user import User
-from app.services import ai_mode_proposals, knowledge_service, llm_client, search_service, statuses
+from app.services import ai_mode_edits, ai_mode_proposals, knowledge_service, llm_client, search_service, statuses
 from app.services.pin_hygiene import mdf_readiness
 from app.services.test_line_status_service import latest_line_outcomes, outdated_line_results
 from app.services.ai_review_service import SEVERITY_LABELS, SEVERITY_ORDER, _finding_line, _n, unverified_numbers
@@ -96,6 +96,7 @@ Action = Literal[
     "get_intercept",
     "search_docs",
     "propose_modes",
+    "propose_mode_edits",
 ]
 
 
@@ -119,6 +120,9 @@ class ChatStep(BaseModel):
     pw_us: float | None = Field(None, description="find_modes: its PW in µs, if known")
     modes: list[ai_mode_proposals.ProposedMode] | None = Field(
         None, description="propose_modes: the Modes to propose, every one of them (a new proposal replaces the last)"
+    )
+    edits: list[ai_mode_edits.ProposedModeEdit] | None = Field(
+        None, description="propose_mode_edits: the edits to existing Modes, every one of them (a new proposal replaces the last)"
     )
     answer: str | None = Field(None, description="answer: the reply to the user")
 
@@ -154,6 +158,12 @@ one of its existing EW Groups and Sources (look them up first with get_emitter),
 values — RF in MHz; PRI, PW, jitter and stagger steps in µs; each range's ± delta. The app checks them and shows \
 them to the user, who decides whether to add them. You can't add or change anything yourself; never say a Mode \
 was added.
+- propose_mode_edits (edits): when the user asks you to change existing Modes, propose the edits: for each, the \
+Emitter, the Mode's current name (and its EW Group if two Modes share the name), a few words on why, and only the \
+values that change (look the Mode up first with get_emitter) — a new name, notes, RF/PRI/PW min, max and ± delta, \
+jitter, a stagger's steps (all of them) or its frame time ± delta, range matching. The PRI type can't change: \
+propose a new Mode instead. The app checks them and shows the user each value before → after; the user decides \
+whether to apply them. You can't change anything yourself; never say a Mode was changed.
 Then answer (action "answer").
 
 Rules:
@@ -675,6 +685,9 @@ def _step_label(step: ChatStep) -> str:
     if step.action == "propose_modes":
         n = len(step.modes or [])
         return f"Proposed {n} Mode{'' if n == 1 else 's'} for you to add"
+    if step.action == "propose_mode_edits":
+        n = len(step.edits or [])
+        return f"Proposed edits to {n} Mode{'' if n == 1 else 's'} for you to apply"
     if step.action == "list_emitters":
         bits = [f"status {step.status}" if step.status else "", f"on {step.target}" if step.target else ""]
         return "Emitters " + " ".join(b for b in bits if b) if any(bits) else "All Emitters"
@@ -852,6 +865,7 @@ def chat(
     transcript = [*turns[:-1], {"role": "user", "content": content}]
     given = [system, first]
     proposals: list[dict] = []
+    edit_proposals: list[dict] = []
     last_meta: llm_client.LlmReply | None = None
     steps: list[dict] = []
     totals = {"seconds": 0.0, "prompt_tokens": 0, "completion_tokens": 0}
@@ -888,12 +902,16 @@ def chat(
             # Checked and kept for the user to see; the latest proposal replaces any before it.
             proposals = ai_mode_proposals.check(db, reply.modes or [])
             result = ai_mode_proposals.summary_for_model(proposals) if proposals else "No Modes were given."
+        elif reply.action == "propose_mode_edits":
+            # Likewise: checked, kept for the user to see, the latest replacing any before it.
+            edit_proposals = ai_mode_edits.check(db, reply.edits or [])
+            result = ai_mode_edits.summary_for_model(edit_proposals) if edit_proposals else "No edits were given."
         else:
             result = TOOLS[reply.action](db, reply)
         result = _clip(result)
         given.append(result)
         # A proposal isn't a lookup to run again with the next question.
-        args = None if reply.action == "propose_modes" else _lookup_args(reply)
+        args = None if reply.action in ("propose_modes", "propose_mode_edits") else _lookup_args(reply)
         steps.append({"action": reply.action, "label": _step_label(reply), "args": args})
         transcript += [
             {"role": "assistant", "content": reply.model_dump_json(exclude_none=True)},
@@ -927,4 +945,6 @@ def chat(
         ),
         # Modes proposed for the user to add — never added here.
         "proposals": proposals,
+        # Edits to existing Modes proposed for the user to apply — never applied here.
+        "edit_proposals": edit_proposals,
     }

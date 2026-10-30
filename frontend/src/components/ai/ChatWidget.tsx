@@ -29,6 +29,7 @@ import { Modal } from "../common/Modal";
 import { useHasRole } from "../../auth/RequireAuth";
 import { useAppSettings } from "../../state/hooks/useDwells";
 import { ProposalPreview } from "./ProposalPreview";
+import { EditProposalPreview } from "./EditProposalPreview";
 import { ChatContextSetting } from "./ChatContextSetting";
 import { MAX_IMAGES, imageForChat } from "./chatImages";
 
@@ -654,6 +655,14 @@ export function ChatWidget() {
                           chatId={chatId}
                           messageIndex={i}
                           proposals={m.reply.proposals}
+                          onSaved={(saved: SavedChat) => qc.setQueryData(["aiChat", saved.id], saved)}
+                        />
+                      )}
+                      {chatId && m.reply?.edit_proposals && m.reply.edit_proposals.length > 0 && (
+                        <EditProposalPreview
+                          chatId={chatId}
+                          messageIndex={i}
+                          edits={m.reply.edit_proposals}
                           onSaved={(saved: SavedChat) => qc.setQueryData(["aiChat", saved.id], saved)}
                         />
                       )}

@@ -5602,6 +5602,11 @@ a.ai-cite:hover { text-decoration: underline; }
 .ai-source-kind.analysis { background: var(--badge-neutral-bg); color: var(--badge-neutral-fg); }
 .chat-proposal td .hint-text { font-size: 0.9em; }
 .chat-proposal-problem { margin: 0.3em 0 0; color: var(--error); font-size: 0.85em; }
+.chat-edit-change { overflow-wrap: anywhere; }
+.chat-edit-mode { min-width: 8em; }
+.chat-edit-old { color: var(--muted); text-decoration: line-through; }
+.chat-edit-new { font-weight: 600; }
+.chat-edit-dsl { font-family: var(--font-mono, monospace); font-size: 0.85em; color: var(--muted); overflow-wrap: anywhere; }
 .chat-proposal-actions { display: flex; flex-wrap: wrap; gap: 0.5em; align-items: center; margin-top: 0.45em; }
 @media (max-width: 600px) {
   /* Too narrow for both: the history covers the conversation while it's open. */

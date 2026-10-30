@@ -4,8 +4,9 @@ again, carried on, renamed or deleted. Only the owner sees a chat.
 A question can bring images. A long chat can be compacted: its earlier turns
 are summarised by the model and the summary stands in for them from then on
 (also done on its own when a question wouldn't fit the context otherwise).
-Modes the model proposes are only added when the owner adds them, here —
-the model itself can't write anything."""
+Modes the model proposes are only added when the owner adds them, and edits
+it proposes only applied when the owner applies them, here — the model
+itself can't write anything."""
 
 import base64
 import re
@@ -24,8 +25,8 @@ from app.core.enums import AuditAction, AuditEntityType, Role
 from app.database import get_db
 from app.deps import require_role
 from app.models.ai_chat import AiChat
-from app.routers.modes import create_mode_record
-from app.services import ai_chat_service, ai_mode_proposals, app_settings, llm_client
+from app.routers.modes import create_mode_record, update_mode_record
+from app.services import ai_chat_service, ai_mode_edits, ai_mode_proposals, app_settings, llm_client
 from app.services.audit_service import record_audit
 from app.services.mode_test_status_service import attach_mode_extras
 
@@ -94,6 +95,12 @@ class ProposalApply(BaseModel):
     # The answer the proposal is in (its place in the chat), and which of its Modes to add.
     message_index: int = Field(ge=0)
     proposal_ids: list[str] = Field(min_length=1, max_length=ai_mode_proposals.MAX_PROPOSED)
+
+
+class EditApply(BaseModel):
+    # The answer the edits are in (its place in the chat), and which of them to apply.
+    message_index: int = Field(ge=0)
+    edit_ids: list[str] = Field(min_length=1, max_length=ai_mode_edits.MAX_EDITS)
 
 
 def _max_context(db: Session) -> int:
@@ -202,6 +209,12 @@ def _compact(messages: list[dict]) -> list[dict]:
         + "".join(
             f"\n[Proposed Mode {p['name']} on {p['emitter_name']} › {p['ew_group_name']}: {p['status']}]"
             for p in (m.get("reply") or {}).get("proposals", [])
+        )
+        + "".join(
+            f"\n[Proposed edit to Mode {e['mode_name']} on {e['emitter_name']}: "
+            + "; ".join(f"{c['label']} {c['old']} → {c['new']}" for c in e.get("changes", []))
+            + f": {e['status']}]"
+            for e in (m.get("reply") or {}).get("edit_proposals", [])
         )
         for m in turns
     )
@@ -340,6 +353,37 @@ def apply_proposals(
     for mode in created:
         db.refresh(mode)
     return {"created": attach_mode_extras(db, created), "chat": _out(db, chat)}
+
+
+@router.post("/{chat_id}/edit-proposals/apply", dependencies=[Depends(verify_csrf)])
+def apply_edit_proposals(
+    chat_id: UUID, payload: EditApply, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))
+) -> dict:
+    """Applies the edits to existing Modes the owner picked from one of the
+    chat's answers — the only way an edit the chat proposes gets written. All
+    or none, checked again (and refused if a Mode changed since), into
+    Emitters the owner is editing; each audited as an edit of that Mode."""
+    chat = _own_chat(db, chat_id, user)
+    messages = list(chat.messages or [])
+    if payload.message_index >= len(messages) or messages[payload.message_index].get("role") != "assistant":
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "That answer isn't in this chat")
+    message = dict(messages[payload.message_index])
+    reply = dict(message.get("reply") or {})
+    items = [dict(e) for e in reply.get("edit_proposals") or []]
+    try:
+        edited = ai_mode_edits.apply(db, items, payload.edit_ids, update_mode_record, user)
+    except ai_mode_edits.ApplyProblem as err:
+        db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, str(err)) from err
+    reply["edit_proposals"] = items
+    message["reply"] = reply
+    messages[payload.message_index] = message
+    chat.messages = messages
+    flag_modified(chat, "messages")
+    db.commit()
+    for mode in edited:
+        db.refresh(mode)
+    return {"edited": attach_mode_extras(db, edited), "chat": _out(db, chat)}
 
 
 @router.patch("/{chat_id}", response_model=ChatOut, dependencies=[Depends(verify_csrf)])

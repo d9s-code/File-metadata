@@ -43,6 +43,8 @@ export interface ChatReply {
   context_tokens?: number;
   /** Modes proposed for the user to add — nothing is added until they do. */
   proposals?: ModeProposal[];
+  /** Edits to existing Modes proposed for the user to apply — nothing changes until they do. */
+  edit_proposals?: ModeEditProposal[];
 }
 
 /** A Mode the chat proposed, as checked by the app. */
@@ -64,6 +66,34 @@ export interface ModeProposal {
   problem: string | null;
   status: "proposed" | "added";
   mode_id?: string;
+}
+
+/** One value an edit changes. */
+export interface ModeEditChange {
+  field: string;
+  label: string;
+  unit: string;
+  old: number | number[] | boolean | string | null;
+  new: number | number[] | boolean | string | null;
+}
+
+/** An edit to an existing Mode the chat proposed, as checked by the app. */
+export interface ModeEditProposal {
+  id: string;
+  emitter_id: string | null;
+  emitter_name: string;
+  mode_id: string | null;
+  mode_name: string;
+  ew_group_name: string | null;
+  pri_type: string | null;
+  reason: string | null;
+  changes: ModeEditChange[];
+  /** The Mode line before and as it'd be written. */
+  dsl_before: string | null;
+  dsl: string | null;
+  /** Why it can't be applied; null when it can. */
+  problem: string | null;
+  status: "proposed" | "applied";
 }
 
 /** One message of a saved chat. A "summary" stands in for the turns before
@@ -121,5 +151,11 @@ export const aiApi = {
     api.post<{ created: Mode[]; chat: SavedChat }>(`/ai/chats/${id}/proposals/apply`, {
       message_index: messageIndex,
       proposal_ids: proposalIds,
+    }),
+  /** Apply the picked edits of one answer — the only way they're written. */
+  applyEditProposals: (id: string, messageIndex: number, editIds: string[]) =>
+    api.post<{ edited: Mode[]; chat: SavedChat }>(`/ai/chats/${id}/edit-proposals/apply`, {
+      message_index: messageIndex,
+      edit_ids: editIds,
     }),
 };
