@@ -7114,6 +7114,30 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
 .recheck-changed-badge { margin-left: 0.4rem; }
 .recheck-expected { font-size: 0.82rem; color: var(--error); }
 .recheck-expected.ok { color: var(--success); }
+.recheck-filter-row { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; align-items: center; }
+.recheck-picked > td { background: color-mix(in srgb, var(--status-warning) 18%, transparent); }
+.recheck-table tbody tr { cursor: pointer; }
+.recheck-chart { margin: 0.25rem 0 0.75rem; }
+.recheck-chart .chart-controls-row { margin-bottom: 0.25rem; }
+.recheck-chart-plot { position: relative; width: 100%; }
+.recheck-chart-plot svg { display: block; cursor: crosshair; }
+.recheck-axis-title { font-weight: 600; }
+.recheck-mode-box { fill: color-mix(in srgb, var(--muted) 14%, transparent); stroke: color-mix(in srgb, var(--muted) 55%, transparent); stroke-width: 1; }
+.recheck-mode-box.hot { fill: color-mix(in srgb, var(--muted) 28%, transparent); stroke: var(--muted); stroke-width: 1.5; }
+.recheck-mode-label { font-size: 10px; fill: var(--muted); pointer-events: none; }
+.recheck-mode-swatch { background: color-mix(in srgb, var(--muted) 14%, transparent); border: 1px solid color-mix(in srgb, var(--muted) 55%, transparent); }
+.recheck-mark { stroke: var(--card-bg, #fff); stroke-width: 1; }
+.recheck-mark-match { fill: var(--status-good); }
+.recheck-mark-near { fill: var(--status-warning); }
+.recheck-mark-none { stroke: var(--status-critical); stroke-width: 3; fill: none; }
+.recheck-mark-unknown { fill: var(--status-neutral); }
+.recheck-mark-ring { fill: none; stroke: var(--status-critical); stroke-width: 1.5; stroke-dasharray: 3 2; }
+.recheck-mark-ring.picked { stroke: var(--text, #111); stroke-dasharray: none; stroke-width: 2; }
+.recheck-near-line { stroke: var(--status-warning); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.recheck-chart-tip { position: absolute; z-index: 5; max-width: 300px; padding: 0.4rem 0.55rem; border: 1px solid var(--border); border-radius: 6px; background: var(--card-bg, #fff); box-shadow: 0 4px 14px rgb(0 0 0 / 0.15); font-size: 0.8rem; pointer-events: none; display: grid; gap: 0.35rem; }
+.recheck-chart-legend { font-size: 0.82rem; }
+.recheck-chart-legend svg { vertical-align: middle; }
+.recheck-chart-note { margin: 0.2rem 0 0; font-size: 0.8rem; }
 
 /* Version history: versions saved only for a status change (as every
    status change was, before status stopped being versioned). */

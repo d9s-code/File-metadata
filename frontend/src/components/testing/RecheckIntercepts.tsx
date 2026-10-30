@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { InfoTip } from "../common/PageHeader";
-import { describeMiss, matchEntry, TEST_CHECKS, type EntryMatch } from "../intercepts/interceptMatch";
+import { describeMiss, matchEntry, TEST_CHECKS, type EntryMatch, type MatchableEntry } from "../intercepts/interceptMatch";
 import { asEntry } from "./signalCoverage";
+import { RecheckChart, type RecheckPoint } from "./RecheckChart";
 import { formatObservedValueSet, nonEmptySets, compareLineLabels } from "./testFormat";
 import { useEmitterTestLines } from "../../state/hooks/useTestLines";
 import { AddValueToModesDialog, type ValueSeed } from "../modes/AddValueToModesDialog";
@@ -28,8 +29,12 @@ const NOW: Record<Now, { cls: string; icon: string; label: string }> = {
   unknown: { cls: "status-neutral", icon: "?", label: "Can't compare" },
 };
 
+const CHART_KEY = "recheckChartShown";
+
 interface Row {
   key: string;
+  /** What's matched — null when there's no RF or PRI to go on. */
+  entry: MatchableEntry | null;
   /** Where in the run it was logged. */
   where: string;
   set: ObservedValues;
@@ -84,6 +89,26 @@ export function RecheckIntercepts({
 }) {
   const { data: testLines } = useEmitterTestLines(emitterId);
   const [changedOnly, setChangedOnly] = useState(false);
+  const [showChart, setShowChartState] = useState(() => {
+    try {
+      return localStorage.getItem(CHART_KEY) !== "false";
+    } catch {
+      return true;
+    }
+  });
+  function setShowChart(on: boolean) {
+    setShowChartState(on);
+    try {
+      localStorage.setItem(CHART_KEY, String(on));
+    } catch {
+      // Not remembered — fine.
+    }
+  }
+  // The row picked on the chart: shown in the table and scrolled to.
+  const [picked, setPicked] = useState<string | null>(null);
+  useEffect(() => {
+    if (picked) document.getElementById(`recheck-row-${picked}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [picked]);
   const [adding, setAdding] = useState<Row | null>(null);
   const [editing, setEditing] = useState<{ mode: Mode; change: Partial<LineValues> } | null>(null);
   const canWrite = useHasRole("editor");
@@ -102,6 +127,7 @@ export function RecheckIntercepts({
         key: `${key}-${i}`,
         where: shown.length > 1 ? `${where} · set ${i + 1}` : where,
         set,
+        entry,
         reported,
         reportedIds,
         expected,
@@ -137,7 +163,13 @@ export function RecheckIntercepts({
   const counts = (Object.keys(NOW) as Now[]).map((k) => [k, rows.filter((r) => r.now === k).length] as const);
   const withExpected = rows.filter((r) => r.expected && r.now !== "unknown");
   const expectedNow = withExpected.filter((r) => r.match?.matches.some((m) => m.id === r.expected!.id)).length;
-  const shown = changedOnly ? rows.filter(changed) : rows;
+  // A row picked on the chart stays in view whatever the filter.
+  const shown = changedOnly ? rows.filter((r) => changed(r) || r.key === picked) : rows;
+  const points: RecheckPoint[] = rows.flatMap((r) =>
+    r.entry
+      ? [{ key: r.key, where: r.where, text: formatObservedValueSet(r.set) ?? "", entry: r.entry, match: r.match, now: r.now, changed: changed(r) }]
+      : [],
+  );
 
   return (
     <div className="card recheck-intercepts">
@@ -147,9 +179,10 @@ export function RecheckIntercepts({
           Each set of parameters logged in this run — on SIM lines, Mode results and signals — matched against the
           Emitter&apos;s Modes as they are now, Modes of the same PRI type only: its RF and PW inside a Mode&apos;s
           range with its delta; a fixed PRI inside its PRI range, and the jitter logged inside its jitter range; a
-          stagger&apos;s frame time (as logged, or the sum of its steps) inside its frame-time range, and its steps
-          the Mode&apos;s steps in the same order — starting at any of them, as a train repeats — each within the
-          Mode&apos;s frame-time delta (at least 0.1% of the step). <strong>Near</strong> is one parameter off (a
+          stagger by the Mode&apos;s PRI range matching — on: its frame time (as logged, or the sum of its steps)
+          inside the Mode&apos;s frame time ± its delta; off: its steps, the Mode&apos;s in the same order — starting
+          at any of them, as a train repeats — each within the Mode&apos;s frame-time delta (at least 0.1% of the
+          step). <strong>Near</strong> is one parameter off (a
           stagger&apos;s frame time and steps are both its PRI). Beside it, what the system reported during the test,
           so you can see what the Modes changed since.
         </InfoTip>
@@ -182,10 +215,17 @@ export function RecheckIntercepts({
         )}
       </div>
 
-      <label className="checkbox-label recheck-filter">
-        <input type="checkbox" checked={changedOnly} onChange={(e) => setChangedOnly(e.target.checked)} />
-        Only where the match differs from what was reported ({rows.filter(changed).length})
-      </label>
+      <div className="recheck-filter-row">
+        <label className="checkbox-label recheck-filter">
+          <input type="checkbox" checked={showChart} onChange={(e) => setShowChart(e.target.checked)} />
+          Chart
+        </label>
+        <label className="checkbox-label recheck-filter">
+          <input type="checkbox" checked={changedOnly} onChange={(e) => setChangedOnly(e.target.checked)} />
+          Only where the match differs from what was reported ({rows.filter(changed).length})
+        </label>
+      </div>
+      {showChart && <RecheckChart points={points} modes={modes} picked={picked} onPick={setPicked} />}
 
       {editing && (
         <ModeEditDialog
@@ -223,7 +263,12 @@ export function RecheckIntercepts({
               const matches = r.match?.matches ?? [];
               const expectedHit = r.expected && matches.some((m) => m.id === r.expected!.id);
               return (
-                <tr key={r.key} className={changed(r) ? "recheck-changed" : undefined}>
+                <tr
+                  key={r.key}
+                  id={`recheck-row-${r.key}`}
+                  className={[changed(r) && "recheck-changed", picked === r.key && "recheck-picked"].filter(Boolean).join(" ") || undefined}
+                  onClick={() => setPicked(r.key === picked ? null : r.key)}
+                >
                   <td>{r.where}</td>
                   <td>{formatObservedValueSet(r.set) ?? "—"}</td>
                   <td>{r.reported}</td>

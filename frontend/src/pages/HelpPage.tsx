@@ -610,7 +610,10 @@ export function HelpPage() {
                 from this run), <strong>✕ no Mode</strong>, or can&apos;t compare
                 (no RF or PRI logged). Beside it is what the system reported in the test; rows where that differs are
                 marked <strong>Changed</strong> (tick to see only those), and a SIM line says whether its expected Mode
-                matches now. The bar on top shows the split at a glance.
+                matches now. The bar on top shows the split at a glance. <strong>Chart</strong> puts every logged set on
+                two parameters you pick (RF × PRI to start) over the Modes&apos; ranges: ● would match, ▲ near (dashed to
+                the Mode it&apos;s close to), ✕ no Mode, a dashed ring where it differs from what was reported. Hover a
+                point for why; click it to pick out its row in the table.
               </li>
               <li>
                 <strong>+ From this test → Elements to a Source…</strong> turns the run&apos;s logged values into
