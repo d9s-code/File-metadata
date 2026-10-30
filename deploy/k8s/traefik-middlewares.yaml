@@ -1,0 +1,28 @@
+# What the traefik.http.middlewares.* labels did in docker-compose.yml, for the
+# Traefik that comes with k3s. Used by the API route in ingress.yaml.
+#
+# If applying this fails with 'no matches for kind "Middleware" in version
+# "traefik.io/v1alpha1"', your k3s has an older Traefik: change both
+# apiVersion lines to traefik.containo.us/v1alpha1.
+# (Check with: sudo k3s kubectl api-resources | grep -i middleware)
+
+# The API's routes aren't under /api, so /api is taken off before Traefik
+# passes the request on.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: strip-api
+spec:
+  stripPrefix:
+    prefixes:
+      - /api
+---
+# Turns away oversized requests before they reach the backend (20 MB; the
+# backend's own limit per file is 10 MB).
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: body-limit
+spec:
+  buffering:
+    maxRequestBodyBytes: 20971520

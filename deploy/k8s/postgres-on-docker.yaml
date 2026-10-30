@@ -1,0 +1,46 @@
+# Your Postgres, still running in Docker on this server, under the name
+# "postgres" inside k3s — so DATABASE_URL (secret.yaml) uses host "postgres"
+# and needn't change when Postgres later moves into k3s.
+#
+# k3s pods can't reach a Docker container by its container name (they're on
+# different networks), but they can reach any port Docker publishes on the
+# server. So, on the Docker side:
+#   - the Postgres container must publish its port, e.g. in its compose file:
+#       ports:
+#         - "5432:5432"
+#     (check with: docker ps — the PORTS column shows 0.0.0.0:5432->5432/tcp)
+#   - Postgres must accept connections from k3s's pod network (10.42.0.0/16
+#     unless IT changed it). The official postgres image allows any address
+#     with a password; if yours has its own pg_hba.conf, add:
+#       host  all  all  10.42.0.0/16  scram-sha-256
+#   - a firewall on the server (ufw, firewalld) must allow 10.42.0.0/16 to port 5432.
+#
+# Test from inside k3s, once deployed:
+#   sudo k3s kubectl -n prs exec deploy/backend -- python -c "import socket; socket.create_connection(('postgres', 5432), 5); print('reachable')"
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+spec:
+  # No selector: k3s doesn't run this database, it only names the address below.
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: postgres-on-docker
+  labels:
+    kubernetes.io/service-name: postgres
+addressType: IPv4
+ports:
+  - name: postgres
+    port: 5432 # CHANGE_ME if Docker publishes Postgres on another port (the left number in "5432:5432")
+    protocol: TCP
+endpoints:
+  # CHANGE_ME — this server's own IP address on your network (hostname -I shows
+  # it; the first one, not 127.0.0.1 and not a 172.x Docker address).
+  - addresses:
+      - "192.0.2.10"

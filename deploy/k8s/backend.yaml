@@ -1,0 +1,107 @@
+# The web app's API (FastAPI). One copy only: it upgrades the database when it
+# starts, and two at once would race each other doing that.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels:
+    app: backend
+spec:
+  replicas: 1
+  # The old pod stops before the new one starts — never two upgrading the database.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      securityContext:
+        # The image's own "app" user; fsGroup lets it write to the backups volume.
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        runAsNonRoot: true
+      initContainers:
+        # Before the app starts: upgrade the database (all or nothing — if it
+        # fails, the pod stops here and the database is as it was), then make
+        # the first admin if there's none yet.
+        - name: upgrade-database
+          image: rf-emitter-backend # the tag comes from kustomization.yaml
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - alembic upgrade head && python scripts/create_admin.py "$ADMIN_USERNAME" "$ADMIN_PASSWORD"
+          envFrom:
+            - configMapRef:
+                name: prs-config
+            - secretRef:
+                name: prs-secrets
+      containers:
+        - name: backend
+          image: rf-emitter-backend
+          imagePullPolicy: IfNotPresent
+          # --proxy-headers: the login rate limiter needs the client's address,
+          # which only Traefik's X-Forwarded-For carries. Trusting it from any
+          # source is safe because only Traefik can reach this pod from outside.
+          command:
+            - uvicorn
+            - app.main:app
+            - --host=0.0.0.0
+            - --port=8000
+            - --proxy-headers
+            - --forwarded-allow-ips=*
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: prs-config
+            - secretRef:
+                name: prs-secrets
+          volumeMounts:
+            - name: backups
+              mountPath: /backups
+          # Ready (gets traffic) only while the database answers too.
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # Restarted only if the process itself stops answering — not when the
+          # database is down (restarting wouldn't help then).
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+      volumes:
+        - name: backups
+          persistentVolumeClaim:
+            claimName: prs-backups
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+spec:
+  selector:
+    app: backend
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http

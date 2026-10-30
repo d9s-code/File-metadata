@@ -1,0 +1,43 @@
+# Everything the app needs on k3s, applied in one go with:
+#   sudo k3s kubectl apply -k deploy/k8s
+# (scripts/k3s/deploy.sh does that for you, after importing the images).
+#
+# Before the first deploy, fill in (each marked CHANGE_ME in its file):
+#   secret.yaml   — copy secret.example.yaml to secret.yaml and fill it in
+#   config.yaml   — your hostname in CORS_ORIGINS, the backup schedule, optional AI settings
+#   ingress.yaml  — your hostname (twice), if it isn't prs.app
+#   postgres-on-docker.yaml — this server's IP address (where Docker publishes Postgres)
+# and create the TLS secret for your certificate (see ingress.yaml).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Every object goes in this namespace. If you change it, also change it in
+# namespace.yaml and in the middleware names in ingress.yaml ("prs-…").
+namespace: prs
+
+resources:
+  - namespace.yaml
+  - config.yaml
+  # Not in git: copy secret.example.yaml to secret.yaml and fill it in.
+  - secret.yaml
+  # The database: Postgres running in Docker on this server, reached through
+  # the port Docker publishes. When Postgres moves into k3s, swap this line
+  # for optional/postgres.yaml (never both — each makes the "postgres" name).
+  - postgres-on-docker.yaml
+  - backups-pvc.yaml
+  - backend.yaml
+  - backup.yaml
+  - frontend.yaml
+  - traefik-middlewares.yaml
+  - ingress.yaml
+  # Postgres inside k3s instead of Docker (see the file's comments) — and
+  # remove postgres-on-docker.yaml above:
+  # - optional/postgres.yaml
+
+# Which build runs. scripts/k3s/deploy.sh sets these to the tag of the image
+# tar it imports (the commit it was built from) — no need to edit by hand.
+images:
+  - name: rf-emitter-backend
+    newTag: "not-set-yet"
+  - name: rf-emitter-frontend
+    newTag: "not-set-yet"

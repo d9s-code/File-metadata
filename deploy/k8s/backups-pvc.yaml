@@ -1,0 +1,20 @@
+# Where backups are kept — shared by the backend (Admin → Backups lists and
+# downloads them) and the backup scheduler (writes them).
+#
+# k3s's built-in "local-path" storage keeps it in a folder on the server,
+# under /var/lib/rancher/k3s/storage/. That works on a single-node k3s. If
+# your k3s has several nodes, ask IT for a storage class both pods can mount
+# (NFS, Longhorn …) and put its name below, with ReadWriteMany.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prs-backups
+spec:
+  storageClassName: local-path
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      # CHANGE_ME if needed: room for the backups kept (see BACKUP_RETENTION_* in
+      # config.yaml) — a few times the size of one backup, times how many are kept.
+      storage: 20Gi

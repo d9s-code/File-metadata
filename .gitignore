@@ -28,3 +28,7 @@ frontend/.vite/
 
 # Written by scripts/offline/build-images.sh: which build an image holds.
 backend/app/build_info.json
+
+# k3s deployment: the real secrets, and image files carried to the server.
+deploy/k8s/secret.yaml
+rf-emitter-images*.tar

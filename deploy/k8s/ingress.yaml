@@ -1,0 +1,69 @@
+# How people reach the app: https://<your hostname>/ for the pages and
+# https://<your hostname>/api for the API — as the Traefik labels did in
+# docker-compose.yml, now through the Traefik that comes with k3s.
+#
+# CHANGE_ME — if your hostname isn't prs.app, change it in all four places
+# below (host and tls hosts, in both), and in config.yaml's CORS_ORIGINS. The
+# frontend has https://<hostname>/api built in (scripts/k3s/build-images.sh).
+#
+# The certificate (your AD-issued one, as Traefik used before) goes in a TLS
+# secret named prs-tls, made once on the server from its two files:
+#   sudo k3s kubectl -n prs create secret tls prs-tls --cert=prs.crt --key=prs.key
+# (the .crt with any intermediate certificates after it; replace it the same
+# way when it's renewed, adding --dry-run=client -o yaml | sudo k3s kubectl apply -f -)
+
+# The API, with /api taken off and oversized requests turned away first.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: prs-api
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    # <namespace>-<middleware name>@kubernetescrd — "prs-" is the namespace.
+    traefik.ingress.kubernetes.io/router.middlewares: prs-strip-api@kubernetescrd,prs-body-limit@kubernetescrd
+    traefik.ingress.kubernetes.io/router.priority: "10"
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - prs.app # CHANGE_ME: your hostname
+      secretName: prs-tls
+  rules:
+    - host: prs.app # CHANGE_ME: your hostname
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+---
+# Everything else: the web pages.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: prs-web
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.priority: "1"
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - prs.app # CHANGE_ME: your hostname
+      secretName: prs-tls
+  rules:
+    - host: prs.app # CHANGE_ME: your hostname
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80

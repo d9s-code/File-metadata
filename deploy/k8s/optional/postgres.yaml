@@ -1,0 +1,88 @@
+# OPTIONAL — Postgres inside k3s, for when it moves off Docker. Until then,
+# postgres-on-docker.yaml is used instead (never both: each makes "postgres").
+#
+# To switch:
+#   1. Ship the postgres image with your build: INCLUDE_POSTGRES=true scripts/k3s/build-images.sh
+#      (the tag below must match POSTGRES_IMAGE there, and the major version
+#      your data is from — 15 today).
+#   2. Fill in POSTGRES_USER, POSTGRES_PASSWORD and POSTGRES_DB in secret.yaml
+#      (the same user, password and name as in DATABASE_URL, whose host stays "postgres").
+#   3. In kustomization.yaml: remove postgres-on-docker.yaml, uncomment this file.
+#   4. Take a backup in the app (Admin → Backups → Back up now) while it still
+#      uses the Docker Postgres — it lands in the prs-backups volume.
+#   5. Deploy (scripts/k3s/deploy.sh): this starts an empty database and the
+#      app creates its tables in it. Then restore that backup into it — see
+#      deploy/k8s/README.md → "Restore a backup".
+#   6. Create the scratch database backups are test-restored into (README → Backups):
+#      sudo k3s kubectl -n prs exec statefulset/postgres -- createdb -U <POSTGRES_USER> <POSTGRES_DB>_verify
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  labels:
+    app: postgres
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15 # CHANGE_ME with POSTGRES_IMAGE in scripts/k3s/build-images.sh
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              valueFrom: {secretKeyRef: {name: prs-secrets, key: POSTGRES_USER}}
+            - name: POSTGRES_PASSWORD
+              valueFrom: {secretKeyRef: {name: prs-secrets, key: POSTGRES_PASSWORD}}
+            - name: POSTGRES_DB
+              valueFrom: {secretKeyRef: {name: prs-secrets, key: POSTGRES_DB}}
+            # In a folder of its own inside the volume (Postgres wants an empty folder).
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        storageClassName: local-path
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 20Gi # CHANGE_ME if needed: room for the database
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+spec:
+  selector:
+    app: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres

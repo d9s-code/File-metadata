@@ -127,6 +127,10 @@ on different physical disks, and set `BACKUP_COPY_DIR` to keep a second copy els
 
 ## Offline / air-gapped server deployment
 
+> **On k3s (Kubernetes)?** See [deploy/k8s/README.md](deploy/k8s/README.md): the same app as
+> Kubernetes objects, built on your computer with `scripts/k3s/build-images.sh` and installed or
+> updated on the server with `scripts/k3s/deploy.sh`. The steps below are for Docker Compose.
+
 The app itself makes no outbound network calls at runtime, but building the images does
 (base images from Docker Hub, plus `pip`/`npm`/`apt` packages) — so the images must be built
 on a machine **with** internet access and carried over to the offline server, rather than

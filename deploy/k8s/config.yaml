@@ -1,0 +1,56 @@
+# The app's settings that aren't secret — the same ones the x-backend-env
+# block in docker-compose.yml had. The backend, the backup scheduler and the
+# database upgrade all read them. Secrets (passwords, keys) go in secret.yaml.
+#
+# After changing anything here: sudo k3s kubectl apply -k deploy/k8s, then
+#   sudo k3s kubectl -n prs rollout restart deploy/backend deploy/backup
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prs-config
+data:
+  # CHANGE_ME if your hostname isn't prs.app: the address people open, as a JSON list.
+  CORS_ORIGINS: '["https://prs.app"]'
+  # Traefik serves HTTPS in front of the app, so cookies are secure-only. Keep "true".
+  COOKIE_SECURE: "true"
+  # The first admin account, made on the first start (its password is in secret.yaml).
+  # Nothing happens on later starts if it exists already.
+  ADMIN_USERNAME: admin
+
+  # Where backups are written inside the containers — the prs-backups volume. Keep as is.
+  BACKUP_DIR: /backups
+  # Automatic backups: a weekday (mon … sun) or "daily", and a time (UTC).
+  BACKUP_SCHEDULE_DAY: sun
+  BACKUP_SCHEDULE_TIME: "03:00"
+  # A backup is due a week after the last one at this many changes, half a week at twice as many…
+  BACKUP_CHANGES_PER_WEEK: "50"
+  # How many backups are kept.
+  BACKUP_RETENTION_DAILY: "14"
+  BACKUP_RETENTION_WEEKLY: "8"
+  BACKUP_RETENTION_MONTHLY: "6"
+  # A second copy of every backup, on another machine: also uncomment the
+  # backup-copy volume in backup.yaml.
+  # BACKUP_COPY_DIR: /backups-copy
+
+  # Edit locks nobody uses: flagged after this many days, released after this many (0: never).
+  CHECKOUT_WARN_DAYS: "3"
+  CHECKOUT_RELEASE_DAYS: "14"
+  # How long a login lasts, in minutes.
+  # JWT_EXPIRE_MINUTES: "480"
+
+  # Optional — a language model behind an OpenAI-compatible API (e.g. vLLM),
+  # for the AI chat and explanations. Left out, the AI features don't show.
+  # The address goes up to and including /v1. Inside k3s, a Service name works
+  # (http://vllm.<its-namespace>:8000/v1); outside, the machine's address.
+  # LLM_BASE_URL: http://CHANGE_ME:8000/v1
+  # LLM_MODEL: CHANGE_ME              # only if the server serves several models
+  # LLM_TIMEOUT_SECONDS: "120"
+
+  # Optional — an Outline wiki the model may read as background (its token is in secret.yaml).
+  # OUTLINE_URL: https://outline.CHANGE_ME
+  # Either one page and everything under it (its address) …
+  # OUTLINE_ROOT: https://outline.CHANGE_ME/doc/CHANGE_ME
+  # … or a whole collection:
+  # OUTLINE_COLLECTION: CHANGE_ME
+  # OUTLINE_CONTEXT_TOKENS: "6000"
+  # OUTLINE_SYNC_MINUTES: "60"

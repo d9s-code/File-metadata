@@ -1,0 +1,78 @@
+# Automatic backups, apart from the web app so they happen whether or not it's
+# up: backup → verify (restore into the scratch database) → prune old ones,
+# on the schedule in config.yaml; daily, it also purges expired Recently
+# Deleted items. Exactly one copy may ever run.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backup
+  labels:
+    app: backup
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: backup
+  template:
+    metadata:
+      labels:
+        app: backup
+    spec:
+      securityContext:
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        runAsNonRoot: true
+      initContainers:
+        # Wait until the backend is up — it upgrades the database first.
+        - name: wait-for-backend
+          image: rf-emitter-backend
+          imagePullPolicy: IfNotPresent
+          command:
+            - python
+            - -c
+            - |
+              import time, urllib.request
+              while True:
+                  try:
+                      urllib.request.urlopen("http://backend:8000/health", timeout=5)
+                      break
+                  except Exception:
+                      print("Waiting for the backend (it upgrades the database first)…", flush=True)
+                      time.sleep(5)
+      containers:
+        - name: backup
+          image: rf-emitter-backend
+          imagePullPolicy: IfNotPresent
+          command: ["python", "scripts/backup_scheduler.py"]
+          envFrom:
+            - configMapRef:
+                name: prs-config
+            - secretRef:
+                name: prs-secrets
+          volumeMounts:
+            - name: backups
+              mountPath: /backups
+            # A second copy on another machine — uncomment with the volume below
+            # and BACKUP_COPY_DIR in config.yaml.
+            # - name: backup-copy
+            #   mountPath: /backups-copy
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 1Gi
+      volumes:
+        - name: backups
+          persistentVolumeClaim:
+            claimName: prs-backups
+        # The second copy. A Linux server's NFS export works as is:
+        # - name: backup-copy
+        #   nfs:
+        #     server: CHANGE_ME_OTHER_SERVER   # its address
+        #     path: /srv/rf-backups            # CHANGE_ME: the exported folder
+        # A Windows share (SMB) needs the SMB CSI driver in k3s — ask IT; they'll
+        # give you a PersistentVolumeClaim to name here instead.

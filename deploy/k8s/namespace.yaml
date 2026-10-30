@@ -1,0 +1,5 @@
+# The app's own namespace — everything below lives in it.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: prs
