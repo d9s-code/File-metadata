@@ -608,11 +608,12 @@ export function HelpPage() {
                 <strong>≈ near</strong> (one value off, and which — with <strong>Edit ‹Mode›…</strong> while you&apos;re
                 editing the Emitter: the Mode opens widened to cover what was logged, and saving records it as derived
                 from this run), <strong>✕ no Mode</strong>, or can&apos;t compare
-                (no RF or PRI logged). Beside it is what the system reported in the test; rows where that differs are
-                marked <strong>Changed</strong> (tick to see only those), and a SIM line says whether its expected Mode
+                (no RF or PRI logged). Beside it is what the system reported in the test; rows where it differs (the Modes it
+                would match now aren&apos;t the ones reported) are marked <strong>Changed since test</strong> (tick to see
+                only those), and a SIM line says whether its expected Mode
                 matches now. The bar on top shows the split at a glance. <strong>Chart</strong> puts every logged set on
                 two parameters you pick (RF × PRI to start) over the Modes&apos; ranges: ● would match, ▲ near (dashed to
-                the Mode it&apos;s close to), ✕ no Mode, a dashed ring where it differs from what was reported. Hover a
+                the Mode it&apos;s close to), ✕ no Mode, a dashed ring where it&apos;s changed since test. Hover a
                 point for why; click it to pick out its row in the table. Its view options: <strong>Each parameter</strong>{" "}
                 (RF, PRI and PW each on a strip, to see which one a set misses on), a <strong>logarithmic</strong> scale,
                 the Modes&apos; ranges with their delta or as typed, fitting to the logged values only, and Mode names on

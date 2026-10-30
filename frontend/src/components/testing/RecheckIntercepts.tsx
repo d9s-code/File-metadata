@@ -167,7 +167,7 @@ export function RecheckIntercepts({
   const shown = changedOnly ? rows.filter((r) => changed(r) || r.key === picked) : rows;
   const points: RecheckPoint[] = rows.flatMap((r) =>
     r.entry
-      ? [{ key: r.key, where: r.where, text: formatObservedValueSet(r.set) ?? "", entry: r.entry, match: r.match, now: r.now, changed: changed(r) }]
+      ? [{ key: r.key, where: r.where, text: formatObservedValueSet(r.set) ?? "", entry: r.entry, match: r.match, now: r.now, changed: changed(r), reported: r.reported }]
       : [],
   );
 
@@ -222,7 +222,7 @@ export function RecheckIntercepts({
         </label>
         <label className="checkbox-label recheck-filter">
           <input type="checkbox" checked={changedOnly} onChange={(e) => setChangedOnly(e.target.checked)} />
-          Only where the match differs from what was reported ({rows.filter(changed).length})
+          Only changed since test ({rows.filter(changed).length})
         </label>
       </div>
       {showChart && <RecheckChart points={points} modes={modes} picked={picked} onPick={setPicked} />}
@@ -274,7 +274,12 @@ export function RecheckIntercepts({
                   <td>{r.reported}</td>
                   <td className="recheck-state">
                     <span className={`viz-swatch ${st.cls}`} /> {st.icon} {st.label}
-                    {changed(r) && <span className="status-badge recheck-changed-badge">Changed</span>}
+                    {changed(r) && <span
+                        className="status-badge recheck-changed-badge"
+                        title="The Modes it would match now aren't the ones reported in the test"
+                      >
+                        Changed since test
+                      </span>}
                   </td>
                   <td>
                     {matches.length > 0 && (

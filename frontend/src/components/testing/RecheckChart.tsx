@@ -18,6 +18,8 @@ export interface RecheckPoint {
   now: RecheckNow;
   /** Today's match differs from what was reported in the test. */
   changed: boolean;
+  /** What the system reported for it during the test. */
+  reported: string;
 }
 
 const PARAMS: ChartParam[] = ["rf", "pri", "pw"];
@@ -557,7 +559,7 @@ export function RecheckChart({
                     — {p.match.near[0].mode.name}: {p.match.near[0].misses.map(describeMiss).join("; ")}
                   </>
                 )}
-                {p.changed && <span className="hint-text"> · differs from what was reported</span>}
+                {p.changed && <div className="hint-text">Changed since test — reported then: {p.reported}</div>}
               </div>
             </div>
           ))}
@@ -588,7 +590,7 @@ export function RecheckChart({
           <svg width="20" height="18" aria-hidden>
             <circle cx="10" cy="9" r="8" className="recheck-mark-ring" />
           </svg>{" "}
-          Differs from what was reported
+          Changed since test
         </span>
         <span>
           <span className="viz-swatch recheck-mode-swatch" /> A Mode now ({typed ? "its range as typed" : "its range with the delta"})
