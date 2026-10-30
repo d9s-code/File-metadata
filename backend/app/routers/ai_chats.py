@@ -23,7 +23,7 @@ from app.core import preferences as user_preferences
 from app.core.csrf import verify_csrf
 from app.core.enums import AuditAction, AuditEntityType, Role
 from app.database import get_db
-from app.deps import require_role
+from app.deps import has_role, require_role
 from app.models.ai_chat import AiChat
 from app.routers.modes import create_mode_record, update_mode_record
 from app.services import ai_chat_service, ai_mode_edits, ai_mode_proposals, app_settings, llm_client
@@ -245,7 +245,14 @@ def _answer(db: Session, chat: AiChat, payload: ChatAsk, user) -> None:
         messages.append(question)
         summary, _ = _since_summary(messages)
         reply = ai_chat_service.chat(
-            db, _turns(messages), page, images=payload.images or None, summary=summary, max_context=max_context
+            db,
+            _turns(messages),
+            page,
+            images=payload.images or None,
+            summary=summary,
+            max_context=max_context,
+            # Proposing Modes or edits is for editors and admins.
+            can_write=has_role(user, Role.editor),
         )
         messages.append({"role": "assistant", "content": reply["reply"], "reply": reply})
     except (llm_client.LlmError, ValueError) as err:

@@ -7139,8 +7139,12 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
 .recheck-mark-ring { fill: none; stroke: var(--status-critical); stroke-width: 1.5; stroke-dasharray: 3 2; }
 .recheck-mark-ring.picked { stroke: var(--text, #111); stroke-dasharray: none; stroke-width: 2; }
 .recheck-near-line { stroke: var(--status-warning); stroke-width: 1.5; stroke-dasharray: 4 3; }
-.recheck-chart-tip { position: absolute; z-index: 5; max-width: 300px; padding: 0.4rem 0.55rem; border: 1px solid var(--border); border-radius: 6px; background: var(--card-bg, #fff); box-shadow: 0 4px 14px rgb(0 0 0 / 0.15); font-size: 0.8rem; pointer-events: none; display: grid; gap: 0.35rem; }
+.recheck-chart-tip { position: fixed; z-index: 50; max-width: 300px; padding: 0.4rem 0.55rem; border: 1px solid var(--border); border-radius: 6px; background: var(--card-bg, #fff); box-shadow: 0 4px 14px rgb(0 0 0 / 0.15); font-size: 0.8rem; pointer-events: none; display: grid; gap: 0.35rem; }
 .recheck-chart-legend { font-size: 0.82rem; }
+.recheck-chart-controls { flex-wrap: wrap; gap: 0.35rem 0.9rem; }
+.recheck-chart-counts { margin: 0 0 0.2rem; font-size: 0.8rem; }
+.recheck-strip { display: block; margin-bottom: 0.35rem; }
+.recheck-strip-dot { cursor: pointer; }
 .recheck-chart-legend svg { vertical-align: middle; }
 .recheck-chart-note { margin: 0.2rem 0 0; font-size: 0.8rem; }
 

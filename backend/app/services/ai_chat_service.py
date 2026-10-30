@@ -182,6 +182,26 @@ there is. Analysis is opinion. Documentation outweighs a single test.
 - Answer briefly and plainly. Short paragraphs; a list with "- " where it helps. No headings, no tables."""
 
 
+# What a viewer's chat says instead of the propose actions: writing is for editors and admins.
+_WRITE_START = "- propose_modes (modes):"
+_WRITE_END = 'Then answer (action "answer").'
+VIEWER_NOTE = """- This user can only view the library: proposing new Modes or edits to Modes is for editors and \
+admins. If they ask you to write or change Modes, don't propose any — say that an editor or admin can, and \
+answer what you can (e.g. the values from the library or the test)."""
+NOT_ALLOWED = (
+    "Not done: this user can only view the library — only editors and admins can have Modes proposed or "
+    "edited. Nothing was proposed. Answer without proposing: say an editor or admin can do it."
+)
+
+
+def system_prompt(can_write: bool) -> str:
+    """The instructions, with the propose actions only for someone who may write."""
+    if can_write:
+        return SYSTEM
+    head, rest = SYSTEM.split(_WRITE_START, 1)
+    return head + VIEWER_NOTE + "\n" + _WRITE_END + rest.split(_WRITE_END, 1)[1]
+
+
 def _clip(text: str, limit: int = RESULT_CHARS) -> str:
     return text if len(text) <= limit else text[:limit] + "\n… (cut short)"
 
@@ -814,10 +834,12 @@ def chat(
     images: list[str] | None = None,
     summary: str | None = None,
     max_context: int | None = None,
+    can_write: bool = False,
 ) -> dict:
     """Answer the last user message, looking up what's needed. `images` go
     with the question (data URLs); `summary` stands for the turns compacted
-    away; older turns are left out to stay inside `max_context` tokens."""
+    away; older turns are left out to stay inside `max_context` tokens. Only
+    with `can_write` (an editor or admin) can it propose Modes or edits."""
     turns = [
         {"role": m["role"], "content": str(m["content"])[:HISTORY_CHARS]}
         for m in messages
@@ -837,7 +859,7 @@ def chat(
         sources = knowledge_service.select_sections(db, list(dict.fromkeys(terms)), [], budget=DOCS_WITH_QUESTION)
     memory = remembered(db, messages)
 
-    system = SYSTEM
+    system = system_prompt(can_write)
     where = page_context(db, page)
     if where:
         system += "\n\n" + where
@@ -898,6 +920,9 @@ def chat(
                 result = knowledge_service.background(new) if new else "No more documentation matched."
             else:
                 result = "No documentation is set up."
+        elif reply.action in ("propose_modes", "propose_mode_edits") and not can_write:
+            # A viewer's chat: nothing proposed, whatever the model tried.
+            result = NOT_ALLOWED
         elif reply.action == "propose_modes":
             # Checked and kept for the user to see; the latest proposal replaces any before it.
             proposals = ai_mode_proposals.check(db, reply.modes or [])

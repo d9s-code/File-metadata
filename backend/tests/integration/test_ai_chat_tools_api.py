@@ -78,15 +78,25 @@ def test_proposed_modes_are_only_added_when_the_user_adds_them(
     assert editor_client.post(apply, json={"message_index": 1, "proposal_ids": [ok["id"]]}).status_code == 409
 
 
-def test_a_viewer_cant_add_and_a_chat_is_only_its_owners(
+def test_a_viewer_gets_no_proposals_and_cant_add(
     editor_client, viewer_client, fake_llm, emitter_with_two_overlapping_modes  # noqa: F811
 ):
-    fake_llm.replies = [PROPOSAL, {"action": "answer", "answer": "Proposed."}]
+    # A viewer's chat isn't offered proposing, and is refused if the model proposes anyway.
+    fake_llm.replies = [PROPOSAL, {"action": "answer", "answer": "An editor or admin can add that Mode."}]
     chat = viewer_client.post("/ai/chats", json={"content": "Write one"}).json()
-    ok = chat["messages"][1]["reply"]["proposals"][0]
+    reply = chat["messages"][1]["reply"]
+    assert reply["proposals"] == [] and reply["edit_proposals"] == []
+    system = fake_llm.requests[0]["messages"][0]["content"]
+    assert "propose_modes (" not in system and "only editors and admins" not in system and "is for editors and" in system
+    assert "Not done: this user can only view the library" in fake_llm.requests[1]["messages"][-1]["content"]
+    # Nor can a viewer add from anyone's proposal; a chat is only its owner's.
+    fake_llm.replies = [PROPOSAL, {"action": "answer", "answer": "Proposed."}]
+    editors = editor_client.post("/ai/chats", json={"content": "Write one"}).json()
+    ok = editors["messages"][1]["reply"]["proposals"][0]
+    assert "propose_modes (" in fake_llm.requests[-2]["messages"][0]["content"]
     body = {"message_index": 1, "proposal_ids": [ok["id"]]}
-    assert viewer_client.post(f"/ai/chats/{chat['id']}/proposals/apply", json=body).status_code == 403
-    assert editor_client.post(f"/ai/chats/{chat['id']}/proposals/apply", json=body).status_code == 404
+    assert viewer_client.post(f"/ai/chats/{editors['id']}/proposals/apply", json=body).status_code == 403
+    assert viewer_client.post(f"/ai/chats/{editors['id']}/edit-proposals/apply", json={"message_index": 1, "edit_ids": ["x"]}).status_code == 403
 
 
 def test_adding_needs_the_emitter_checked_out_by_the_user(

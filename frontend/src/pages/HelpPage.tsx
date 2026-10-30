@@ -613,7 +613,10 @@ export function HelpPage() {
                 matches now. The bar on top shows the split at a glance. <strong>Chart</strong> puts every logged set on
                 two parameters you pick (RF × PRI to start) over the Modes&apos; ranges: ● would match, ▲ near (dashed to
                 the Mode it&apos;s close to), ✕ no Mode, a dashed ring where it differs from what was reported. Hover a
-                point for why; click it to pick out its row in the table.
+                point for why; click it to pick out its row in the table. Its view options: <strong>Each parameter</strong>{" "}
+                (RF, PRI and PW each on a strip, to see which one a set misses on), a <strong>logarithmic</strong> scale,
+                the Modes&apos; ranges with their delta or as typed, fitting to the logged values only, and Mode names on
+                or off — remembered in this browser.
               </li>
               <li>
                 <strong>+ From this test → Elements to a Source…</strong> turns the run&apos;s logged values into
@@ -891,7 +894,8 @@ export function HelpPage() {
             want and press <strong>Add N Modes</strong> (editors, into an Emitter you&apos;re editing). Ask it to{" "}
             <strong>change Modes</strong> and it proposes the edits the same way — each value before → after and why —
             and changes nothing until you tick them and press <strong>Apply N edits</strong>; an edit is refused if the
-            Mode was changed since it was proposed. <strong>📎</strong>,
+            Mode was changed since it was proposed. Proposing and applying Modes or edits is for editors and admins
+            only. <strong>📎</strong>,
             pasting or dropping attaches images to a question. The bar in the header shows how much of the model&apos;s
             context the chat takes of its maximum (an admin sets it under <strong>⚙</strong> or Admin → Settings);
             <strong> Compact</strong> summarises the chat so far to free it, and it compacts on its own when nearly full.
