@@ -617,7 +617,9 @@ export function HelpPage() {
                 point for why; click it to pick out its row in the table. Its view options: <strong>Each parameter</strong>{" "}
                 (RF, PRI and PW each on a strip, to see which one a set misses on), a <strong>logarithmic</strong> scale,
                 the Modes&apos; ranges with their delta or as typed, fitting to the logged values only, and Mode names on
-                or off — remembered in this browser.
+                or off — remembered in this browser. Drag to pan; <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + scroll (or pinch) zooms,
+                over an axis that axis only; <kbd>Shift</kbd> + drag zooms to a box; double-click zooms in;{" "}
+                <strong>Reset zoom</strong> goes back. Hover anywhere to list the Modes under the pointer.
               </li>
               <li>
                 <strong>+ From this test → Elements to a Source…</strong> turns the run&apos;s logged values into

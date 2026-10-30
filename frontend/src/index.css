@@ -7124,29 +7124,41 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
 .recheck-table tbody tr { cursor: pointer; }
 .recheck-chart { margin: 0.25rem 0 0.75rem; }
 .recheck-chart .chart-controls-row { margin-bottom: 0.25rem; }
+.recheck-chart-controls { flex-wrap: wrap; gap: 0.35rem 0.9rem; }
+.recheck-chart-counts { margin: 0 0 0.2rem; font-size: 0.8rem; }
+.recheck-chart-legend { font-size: 0.82rem; }
+.recheck-chart-legend svg { vertical-align: middle; }
+.recheck-chart-note { margin: 0.2rem 0 0; font-size: 0.8rem; }
+/* Zoom: the buttons and how to pan and zoom. */
+.recheck-zoom-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.9rem; margin: 0.15rem 0 0.25rem; font-size: 0.8rem; }
+.recheck-zoom-buttons { display: inline-flex; gap: 0.25rem; }
+.recheck-zoom-buttons .icon-button { min-width: 2rem; }
+/* The plot: themed from the chart tokens, so it reads in light and dark. */
 .recheck-chart-plot { position: relative; width: 100%; }
-.recheck-chart-plot svg { display: block; cursor: crosshair; }
-.recheck-axis-title { font-weight: 600; }
-.recheck-mode-box { fill: color-mix(in srgb, var(--muted) 14%, transparent); stroke: color-mix(in srgb, var(--muted) 55%, transparent); stroke-width: 1; }
-.recheck-mode-box.hot { fill: color-mix(in srgb, var(--muted) 28%, transparent); stroke: var(--muted); stroke-width: 1.5; }
-.recheck-mode-label { font-size: 10px; fill: var(--muted); pointer-events: none; }
-.recheck-mode-swatch { background: color-mix(in srgb, var(--muted) 14%, transparent); border: 1px solid color-mix(in srgb, var(--muted) 55%, transparent); }
-.recheck-mark { stroke: var(--card-bg, #fff); stroke-width: 1; }
+.recheck-plot { display: block; cursor: grab; touch-action: none; }
+.recheck-plot.panning { cursor: grabbing; }
+.recheck-strip { margin-bottom: 0.5rem; }
+.recheck-plot-area { fill: color-mix(in srgb, var(--viz-grid) 22%, var(--card-bg)); }
+.recheck-plot-frame { fill: none; stroke: var(--viz-axis); stroke-width: 1; pointer-events: none; }
+.viz-plot svg text.recheck-axis-title { fill: var(--text); font-weight: 600; font-size: 11.5px; }
+.recheck-mode-box { fill: color-mix(in srgb, var(--viz-in) 9%, transparent); stroke: color-mix(in srgb, var(--viz-in) 55%, transparent); stroke-width: 1; }
+.recheck-mode-box.hot { fill: color-mix(in srgb, var(--viz-in) 24%, transparent); stroke: var(--viz-in); stroke-width: 2; }
+/* Names keep a halo of the plot's own colour, so they read over grid lines and other boxes. */
+.recheck-mode-label { font-size: 10.5px; fill: var(--viz-ink-muted); pointer-events: none; paint-order: stroke; stroke: var(--card-bg); stroke-width: 3px; stroke-linejoin: round; }
+.recheck-mode-label.hot { fill: var(--text); font-weight: 600; }
+.recheck-mode-swatch { background: color-mix(in srgb, var(--viz-in) 12%, transparent); border: 1px solid color-mix(in srgb, var(--viz-in) 55%, transparent); }
+.recheck-mark { stroke: var(--card-bg); stroke-width: 1; }
 .recheck-mark-match { fill: var(--status-good); }
 .recheck-mark-near { fill: var(--status-warning); }
 .recheck-mark-none { stroke: var(--status-critical); stroke-width: 3; fill: none; }
 .recheck-mark-unknown { fill: var(--status-neutral); }
 .recheck-mark-ring { fill: none; stroke: var(--status-critical); stroke-width: 1.5; stroke-dasharray: 3 2; }
-.recheck-mark-ring.picked { stroke: var(--text, #111); stroke-dasharray: none; stroke-width: 2; }
+.recheck-mark-ring.picked { stroke: var(--text); stroke-dasharray: none; stroke-width: 2; }
 .recheck-near-line { stroke: var(--status-warning); stroke-width: 1.5; stroke-dasharray: 4 3; }
-.recheck-chart-tip { position: fixed; z-index: 50; max-width: 300px; padding: 0.4rem 0.55rem; border: 1px solid var(--border); border-radius: 6px; background: var(--card-bg, #fff); box-shadow: 0 4px 14px rgb(0 0 0 / 0.15); font-size: 0.8rem; pointer-events: none; display: grid; gap: 0.35rem; }
-.recheck-chart-legend { font-size: 0.82rem; }
-.recheck-chart-controls { flex-wrap: wrap; gap: 0.35rem 0.9rem; }
-.recheck-chart-counts { margin: 0 0 0.2rem; font-size: 0.8rem; }
-.recheck-strip { display: block; margin-bottom: 0.35rem; }
-.recheck-strip-dot { cursor: pointer; }
-.recheck-chart-legend svg { vertical-align: middle; }
-.recheck-chart-note { margin: 0.2rem 0 0; font-size: 0.8rem; }
+.recheck-zoom-box { fill: color-mix(in srgb, var(--viz-in) 12%, transparent); stroke: var(--viz-in); stroke-width: 1; stroke-dasharray: 4 3; pointer-events: none; }
+.recheck-wheel-hint { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; font-size: 0.95rem; font-weight: 600; color: var(--text); background: color-mix(in srgb, var(--card-bg) 70%, transparent); }
+.recheck-chart-tip { position: fixed; z-index: 50; max-width: 320px; padding: 0.4rem 0.55rem; border: 1px solid var(--border); border-radius: 6px; background: var(--card-bg); color: var(--text); box-shadow: 0 4px 14px rgb(0 0 0 / 0.25); font-size: 0.8rem; pointer-events: none; display: grid; gap: 0.35rem; }
+.recheck-tip-mode { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Version history: versions saved only for a status change (as every
    status change was, before status stopped being versioned). */
