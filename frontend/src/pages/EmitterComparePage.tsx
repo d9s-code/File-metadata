@@ -12,6 +12,7 @@ import { CoverageCharts, emitterNode } from "../components/platform/PlatformChar
 import { SeverityBadge } from "../components/ambiguity/SeverityBadge";
 import { SEVERITY_ORDER, SEVERITY_RANK, limitingParam, overlapPct } from "../components/ambiguity/ambiguityText";
 import { LoadingState } from "../components/common/LoadingState";
+import { EmitterDiffViewer, changeCounts } from "../components/versioning/EmitterDiffViewer";
 import type { Emitter } from "../types/domain";
 
 function label(e: { designation: string | null; name?: string; emitter_name?: string }) {
@@ -36,16 +37,21 @@ function Picker({
   emitters,
   emitterId,
   version,
+  otherId,
   onChange,
 }: {
   side: "A" | "B";
   emitters: Emitter[];
   emitterId: string;
   version: string;
+  /** The other side's Emitter: listed first, to compare it with another version of itself. */
+  otherId: string;
   onChange: (emitterId: string, version: string) => void;
 }) {
   const { data: versions } = useEmitterVersions(emitterId);
-  const sorted = [...emitters].sort((x, y) => label(x).localeCompare(label(y)));
+  const sorted = [...emitters].sort(
+    (x, y) => Number(y.id === otherId) - Number(x.id === otherId) || label(x).localeCompare(label(y)),
+  );
   return (
     <div className="compare-picker">
       <span className="compare-side">{side}</span>
@@ -54,6 +60,7 @@ function Picker({
         {sorted.map((e) => (
           <option key={e.id} value={e.id}>
             {label(e)}
+            {e.id === otherId ? " — the same Emitter, another version" : ""}
           </option>
         ))}
       </select>
@@ -77,8 +84,19 @@ function Picker({
   );
 }
 
-function Side({ data, findings, which }: { data: EmitterCoverage; findings: CompareFinding[]; which: "a" | "b" }) {
-  const involved = new Set(findings.map((f) => (which === "a" ? f.mode_id_a : f.mode_id_b)));
+function Side({
+  data,
+  findings,
+  which,
+  changed,
+}: {
+  data: EmitterCoverage;
+  findings: CompareFinding[];
+  which: "a" | "b";
+  /** Comparing versions: the Modes that differ between them. */
+  changed?: Set<string>;
+}) {
+  const involved = changed ?? new Set(findings.map((f) => (which === "a" ? f.mode_id_a : f.mode_id_b)));
   return (
     <div className="card compare-side-card">
       <h4>
@@ -115,7 +133,11 @@ function Side({ data, findings, which }: { data: EmitterCoverage; findings: Comp
         </thead>
         <tbody>
           {data.modes.map((m, i) => (
-            <tr key={m.id ?? i} className={m.id && involved.has(m.id) ? "compare-overlapping" : undefined}>
+            <tr
+              key={m.id ?? i}
+              className={m.id && involved.has(m.id) ? (changed ? "compare-changed" : "compare-overlapping") : undefined}
+              title={m.id && changed?.has(m.id) ? "Added, removed or changed between the two versions" : undefined}
+            >
               <td>{m.name}</td>
               <td>{m.pri_type}</td>
               <td>{span(m.rf?.[0], m.rf?.[1])}</td>
@@ -139,12 +161,17 @@ export function EmitterComparePage() {
   const a = params.get("a") ?? "";
   const b = params.get("b") ?? "";
   const av = params.get("av") ?? "";
-  const bv = params.get("bv") ?? "";
+  const same = !!a && a === b;
+  const { data: ownVersions } = useEmitterVersions(same ? a : "");
+  const latest = Math.max(0, ...(ownVersions ?? []).map((v) => v.version_number));
+  // One Emitter on both sides, no version picked: the latest against the one before.
+  const bv = params.get("bv") ?? (same && !av && latest > 1 ? String(latest - 1) : "");
+  const sameVersion = same && (av || String(latest)) === (bv || String(latest));
   const { data: emitters } = useEmitters();
   const { data, error, isFetching } = useQuery({
     queryKey: ["emitter-compare", a, b, av, bv],
     queryFn: () => compareApi.emitters(a, b, av ? Number(av) : undefined, bv ? Number(bv) : undefined),
-    enabled: !!a && !!b && a !== b,
+    enabled: !!a && !!b && !sameVersion && (!same || !!ownVersions),
     retry: false,
   });
 
@@ -162,7 +189,18 @@ export function EmitterComparePage() {
       ),
     [data],
   );
-  const nodes = useMemo(() => (data ? [emitterNode(data.a, "a:"), emitterNode(data.b, "b:")] : []), [data]);
+  // One Emitter twice: each named by its version, so the charts tell them apart.
+  const nodes = useMemo(() => {
+    if (!data) return [];
+    if (!data.same_emitter) return [emitterNode(data.a, "a:"), emitterNode(data.b, "b:")];
+    // The label carries the version already; the title needn't say it again.
+    const named = (c: EmitterCoverage, prefix: string) => {
+      const node = emitterNode({ ...c, emitter_name: `${c.emitter_name} · v${c.version_number}` }, prefix);
+      return { ...node, title: node.label };
+    };
+    return [named(data.a, "a:"), named(data.b, "b:")];
+  }, [data]);
+  const changedModes = useMemo(() => (data?.same_emitter ? new Set(data.changed_mode_ids ?? []) : undefined), [data]);
   // The charts mark overlaps from findings shaped like an ambiguity check's.
   const chartFindings = useMemo(
     () => findings.map((f, i) => ({ ...f, id: `compare-${i}`, resolution: null }) as unknown as AmbiguityFinding),
@@ -180,10 +218,10 @@ export function EmitterComparePage() {
     <div className="page">
       <PageHeader
         title="Compare Emitters"
-        info="Two Emitters side by side, each as of a saved version: what they cover, their Modes, and every pair of Modes — one from each — that the ambiguity check would flag (with its usual thresholds and deltas)."
+        info="Two Emitters side by side, each as of a saved version: what they cover, their Modes, and every pair of Modes — one from each — that the ambiguity check would flag (with its usual thresholds and deltas). Or one Emitter against another version of itself: what each covers, and what changed between them."
       />
       <div className="card compare-pickers">
-        <Picker side="A" emitters={live} emitterId={a} version={av} onChange={(id, v) => set({ a: id, av: v })} />
+        <Picker side="A" emitters={live} emitterId={a} version={av} otherId={b} onChange={(id, v) => set({ a: id, av: v })} />
         <button
           type="button"
           className="button secondary small"
@@ -193,13 +231,15 @@ export function EmitterComparePage() {
         >
           ⇄ Swap
         </button>
-        <Picker side="B" emitters={live} emitterId={b} version={bv} onChange={(id, v) => set({ b: id, bv: v })} />
+        <Picker side="B" emitters={live} emitterId={b} version={bv} otherId={a} onChange={(id, v) => set({ b: id, bv: v })} />
       </div>
 
       {!a || !b ? (
         <p className="hint-text">Pick two Emitters to compare.</p>
-      ) : a === b ? (
-        <p className="hint-text">Pick two different Emitters.</p>
+      ) : same && ownVersions && latest < 2 ? (
+        <p className="hint-text">This Emitter has only one saved version — save another to compare it with itself.</p>
+      ) : sameVersion ? (
+        <p className="hint-text">Both sides are the same version — pick another version on one side.</p>
       ) : error ? (
         <p className="error-text">{error instanceof ApiRequestError ? error.message : "Couldn't compare them"}</p>
       ) : !data ? (
@@ -207,7 +247,23 @@ export function EmitterComparePage() {
       ) : (
         <>
           <div className="card compare-verdict">
-            {empty.length > 0 ? (
+            {data.same_emitter ? (
+              data.changes?.identical ? (
+                <strong>
+                  v{data.from_version} and v{data.to_version} are the same — nothing changed between them.
+                </strong>
+              ) : (
+                <>
+                  <strong>
+                    From v{data.from_version} to v{data.to_version}: {changeCounts(data.changes?.entries ?? [])}
+                  </strong>{" "}
+                  <span className="hint-text">
+                    · {data.changed_mode_ids?.length ?? 0} Mode{data.changed_mode_ids?.length === 1 ? "" : "s"} added,
+                    removed or changed (highlighted below)
+                  </span>
+                </>
+              )
+            ) : empty.length > 0 ? (
               <strong>
                 {empty.map((e) => `${label(e)} has no Modes in v${e.version_number}`).join("; ")} — nothing to compare
                 yet.
@@ -237,10 +293,19 @@ export function EmitterComparePage() {
             ambiguity={{
               run: null,
               findings: chartFindings,
-              on: findings.length > 0,
+              on: !data.same_emitter && findings.length > 0,
               note: `Where a Mode of one overlaps a Mode of the other (${findings.length} pair${findings.length === 1 ? "" : "s"}) — hover a mark for the Modes.`,
             }}
           />
+
+          {data.same_emitter && data.changes && !data.changes.identical && (
+            <div className="card">
+              <h4>
+                What changed from v{data.from_version} to v{data.to_version}
+              </h4>
+              <EmitterDiffViewer diff={data.changes} />
+            </div>
+          )}
 
           {findings.length > 0 && (
             <div className="card">
@@ -295,8 +360,8 @@ export function EmitterComparePage() {
           )}
 
           <div className="compare-sides">
-            <Side data={data.a} findings={findings} which="a" />
-            <Side data={data.b} findings={findings} which="b" />
+            <Side data={data.a} findings={findings} which="a" changed={changedModes} />
+            <Side data={data.b} findings={findings} which="b" changed={changedModes} />
           </div>
         </>
       )}

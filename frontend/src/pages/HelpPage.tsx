@@ -301,8 +301,10 @@ export function HelpPage() {
           pick A and B and a saved version of each (the latest by default). It shows how many pairs of their Modes the
           ambiguity check would flag, both on the coverage charts with the overlaps hatched, the overlapping pairs worst
           first, and each Emitter&apos;s Modes side by side (if one has no Modes in the version picked, it says there&apos;s
-          nothing to compare yet). The page&apos;s address keeps the choice, so you can share
-          it.
+          nothing to compare yet). Pick the <strong>same Emitter</strong> on both sides — or{" "}
+          <strong>More ▾ → Compare with an earlier version</strong> — to compare it with another saved version of
+          itself: what changed from the older to the newer, both versions on the charts, and the changed Modes marked.
+          The page&apos;s address keeps the choice, so you can share it.
         </p>
 
         <div className="help-subsection" id="emitter-detail">

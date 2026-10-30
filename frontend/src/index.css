@@ -6158,6 +6158,9 @@ a.ai-cite:hover { text-decoration: underline; }
 .data-table tr.compare-overlapping > td:first-child {
   box-shadow: inset 3px 0 0 var(--error);
 }
+/* Comparing versions of one Emitter: a Mode added, removed or changed between them. */
+.data-table tr.compare-changed > td { background: color-mix(in srgb, var(--status-warning) 14%, transparent); }
+.data-table tr.compare-changed > td:first-child { font-weight: 600; }
 
 /* Help as a "?" beside Search in the menu bar. */
 .navbar-help {

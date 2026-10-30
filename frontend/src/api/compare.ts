@@ -1,6 +1,7 @@
 import { api } from "./client";
 import type { AmbiguityFinding } from "./ambiguity";
 import type { EmitterCoverage } from "./platforms";
+import type { EmitterDiffResult } from "../types/versioning";
 
 /** A pair of Modes, one from each Emitter, the ambiguity check would flag. */
 export type CompareFinding = Pick<
@@ -11,7 +12,15 @@ export type CompareFinding = Pick<
 export interface EmitterComparison {
   a: EmitterCoverage;
   b: EmitterCoverage;
+  /** Pairs across two Emitters; none for one Emitter against another version of itself. */
   findings: CompareFinding[];
+  /** One Emitter at two versions: what changed from the older to the newer. */
+  same_emitter: boolean;
+  from_version?: number;
+  to_version?: number;
+  changes?: EmitterDiffResult;
+  /** Modes added, removed or changed between the two versions. */
+  changed_mode_ids?: string[];
 }
 
 export const compareApi = {
