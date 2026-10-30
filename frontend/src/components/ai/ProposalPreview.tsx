@@ -22,9 +22,29 @@ function pri(p: ModeProposal): string {
   if (p.pri_type === "fixed") return `${span(l.pri_min_us, l.pri_max_us)}${margin(l.pri_delta)} µs · jitter ${span(l.jitter_min_us, l.jitter_max_us)}`;
   if (p.pri_type === "stagger") {
     const steps = Array.isArray(l.pri_stagger_values_us) ? l.pri_stagger_values_us.join(", ") : "—";
-    return `stagger ${steps} µs${margin(l.frame_time_delta_us)}`;
+    const frame = typeof l.explicit_frame_time_us === "number" ? ` · frame ${l.explicit_frame_time_us} µs` : "";
+    return `stagger ${steps} µs${margin(l.frame_time_delta_us)}${frame}`;
   }
-  return "CW";
+  return p.pri_type === "xlet" ? "X-let" : "CW";
+}
+
+/** The rest of what it sets, in one line: range matching, confirmation, notes, tests. */
+function extras(p: ModeProposal): string {
+  const l = p.line;
+  const matching = (
+    [
+      ["RF", l.rf_range_matching],
+      ["PRI", l.pri_range_matching],
+      ["PW", l.pw_range_matching],
+    ] as const
+  )
+    .filter(([, on]) => on === true)
+    .map(([k]) => k);
+  const bits = [`range matching ${matching.length ? matching.join(", ") : "none"}`];
+  if (p.confirmation_quality != null) bits.push(`confirmation ${p.confirmation_quality} % × ${p.confirmation_quantity}`);
+  if (p.derived_test_titles?.length) bits.push(`test-derived: ${p.derived_test_titles.join(", ")}`);
+  if (p.notes) bits.push(`notes: ${p.notes}`);
+  return bits.join(" · ");
 }
 
 /** The Modes the chat proposed in one answer — a preview, nothing written.
@@ -114,11 +134,17 @@ export function ProposalPreview({
                     ) : (
                       p.name
                     )}
-                    <div className="hint-text">{p.pri_type.toUpperCase()}</div>
+                    <div className="hint-text">{p.pri_type === "xlet" ? "X-LET" : p.pri_type.toUpperCase()}</div>
+                    <div className="hint-text">{extras(p)}</div>
                   </td>
                   <td>
                     {p.emitter_name} › {p.ew_group_name}
-                    {p.source_name && <div className="hint-text">Source {p.source_name}</div>}
+                    {(p.source_names?.length ? p.source_names : p.source_name ? [p.source_name] : []).length > 0 && (
+                      <div className="hint-text">
+                        {(p.source_names?.length ?? 0) > 1 ? "Sources" : "Source"}{" "}
+                        {(p.source_names?.length ? p.source_names : [p.source_name]).join(", ")}
+                      </div>
+                    )}
                   </td>
                   <td>
                     {span(l.rf_min_mhz, l.rf_max_mhz)}

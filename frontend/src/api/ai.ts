@@ -51,13 +51,19 @@ export interface ChatReply {
 export interface ModeProposal {
   id: string;
   name: string;
-  pri_type: "fixed" | "stagger" | "cw";
+  pri_type: "fixed" | "stagger" | "cw" | "xlet";
   emitter_id: string | null;
   emitter_name: string;
   ew_group_id: string | null;
   ew_group_name: string;
   source_id: string | null;
   source_name: string | null;
+  /** Every Source it comes from, main one first (proposals before this: source_name only). */
+  source_names?: string[];
+  confirmation_quality?: number | null;
+  confirmation_quantity?: number | null;
+  /** Test runs its values come from. */
+  derived_test_titles?: string[];
   notes: string | null;
   line: Record<string, number | number[] | boolean | null>;
   /** The Mode line as it'd be written. */

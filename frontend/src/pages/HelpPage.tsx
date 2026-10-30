@@ -894,8 +894,10 @@ export function HelpPage() {
           <p>
             Ask it to <strong>write Modes</strong> and it proposes them under its answer as a preview — where each would
             go, its values and deltas, and why any can&apos;t be added. It never adds anything itself: tick the ones you
-            want and press <strong>Add N Modes</strong> (editors, into an Emitter you&apos;re editing). Ask it to{" "}
-            <strong>change Modes</strong> and it proposes the edits the same way — each value before → after and why —
+            want and press <strong>Add N Modes</strong> (editors, into an Emitter you&apos;re editing). It can set anything the Mode form can — several Sources, any PRI type, range matching, an explicit frame
+            time, confirmation, test-derived links. Ask it to{" "}
+            <strong>change Modes</strong> — their Sources, EW Group, PRI type, a stagger&apos;s steps or any value — and
+            it proposes the edits the same way — each value before → after and why —
             and changes nothing until you tick them and press <strong>Apply N edits</strong>; an edit is refused if the
             Mode was changed since it was proposed. Proposing and applying Modes or edits is for editors and admins
             only. <strong>📎</strong>,

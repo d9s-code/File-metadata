@@ -153,17 +153,21 @@ SIM results.
 - get_ambiguity (target: an Emitter): its latest ambiguity check.
 - get_intercept (target): an Intercept and its entries.
 - search_docs (query): more sections of the team's documentation.
-- propose_modes (modes): when the user asks you to write or create Modes, propose them: for each, the Emitter, \
-one of its existing EW Groups and Sources (look them up first with get_emitter), a name, the PRI type and its \
-values — RF in MHz; PRI, PW, jitter and stagger steps in µs; each range's ± delta. The app checks them and shows \
-them to the user, who decides whether to add them. You can't add or change anything yourself; never say a Mode \
-was added.
+- propose_modes (modes): when the user asks you to write or create Modes, propose them — anything the Mode form \
+can set: the Emitter, one of its existing EW Groups, its Sources (one or more, main one first; look them up first \
+with get_emitter), a name, the PRI type (fixed, stagger, cw or xlet) and its values — RF in MHz; PRI, PW, jitter and \
+stagger steps in µs; each range's ± delta (left out: the Admin default); range matching per RF/PRI/PW; a stagger's \
+frame time ± delta, or an explicit frame time; confirmation quality (0–100) and quantity; notes; the test runs its \
+values come from (titles from get_tests). Every PRI type has a PW. The app checks them and shows them to the user, \
+who decides whether to add them. You can't add or change anything yourself; never say a Mode was added.
 - propose_mode_edits (edits): when the user asks you to change existing Modes, propose the edits: for each, the \
-Emitter, the Mode's current name (and its EW Group if two Modes share the name), a few words on why, and only the \
-values that change (look the Mode up first with get_emitter) — a new name, notes, RF/PRI/PW min, max and ± delta, \
-jitter, a stagger's steps (all of them) or its frame time ± delta, range matching. The PRI type can't change: \
-propose a new Mode instead. The app checks them and shows the user each value before → after; the user decides \
-whether to apply them. You can't change anything yourself; never say a Mode was changed.
+Emitter, the Mode's current name (and its EW Group if two Modes share the name), a few words on why, and only what \
+changes (look the Mode up first with get_emitter) — anything the Mode form can: a new name, notes, its Sources (all \
+of them anew, or some added or removed), another EW Group, the PRI type (with the new type's values: a fixed PRI \
+range, or stagger steps), RF/PRI/PW min, max and ± delta, jitter, a stagger's whole new sequence of steps, its frame \
+time ± delta or explicit frame time, range matching, confirmation quality and quantity, the test runs the change \
+comes from. The app checks them and shows the user each value before → after; the user decides whether to apply \
+them. You can't change anything yourself; never say a Mode was changed.
 Then answer (action "answer").
 
 Rules:
@@ -229,6 +233,12 @@ def _mode_line(mode: Mode, line: ModeLine | None) -> str:
         if line.pri_range_matching:
             parts.append(f"range matching on frame ±{_n(line.frame_time_delta_us or 0)} µs")
     parts.append(f"PW {_span(line.pw_min_us, line.pw_max_us, line.pw_delta)} µs")
+    if mode.pri_type.value == "stagger" and not line.pri_range_matching:
+        parts.append(f"frame ±{_n(line.frame_time_delta_us or 0)} µs")
+    matching = [k for k, on in (("RF", line.rf_range_matching), ("PRI", line.pri_range_matching), ("PW", line.pw_range_matching)) if on]
+    parts.append("range matching " + (", ".join(matching) if matching else "none"))
+    parts.append(f"Sources {', '.join(mode.source_names) or '—'}")
+    parts.append(f"confirmation {mode.confirmation_quality} % × {mode.confirmation_quantity}")
     text = " · ".join(parts)
     if mode.notes:
         text += f" · notes: {mode.notes.strip()[:120]}"
@@ -506,7 +516,7 @@ def get_tests(db: Session, step: ChatStep) -> str:
             for line in r.lines:
                 counts[line.outcome.value] = counts.get(line.outcome.value, 0) + 1
             bits.append("lines " + ", ".join(f"{n} {k}" for k, n in sorted(counts.items())))
-        out.append(f"- {r.title} — " + " · ".join(bits) + (f" · notes: {r.notes.strip()[:120]}" if r.notes else ""))
+        out.append(f"- {r.title} [{r.id}] — " + " · ".join(bits) + (f" · notes: {r.notes.strip()[:120]}" if r.notes else ""))
     return "\n".join(out)
 
 

@@ -1,6 +1,7 @@
 """The AI chat: the model looks things up (read-only) before answering, and
 each person's settings for the AI features."""
 
+import re
 from tests.integration.test_ai_review_api import fake_llm  # noqa: F401  (fixture)
 from tests.integration.test_ambiguity_api import emitter_with_two_overlapping_modes  # noqa: F401  (fixture)
 
@@ -185,7 +186,9 @@ def test_lists_tests_mdfs_and_bands(editor_client, fake_llm, emitter_with_two_ov
     assert "1 Emitters (status In progress, on Platform Chat Platform)" in results[0]
     assert "Ambiguity Emitter" in results[0] and "2 Modes" in results[0]
     assert "is not a status" in results[1] and "Operational" in results[1]
-    assert "Range day — 01.10.2026" in results[2] and "result fail" in results[2] and "version v1" in results[2]
+    # Each run with its id, so the chat can name it as a Mode's test-derived source.
+    assert re.search(r"Range day \[[0-9a-f-]{36}\] — 01\.10\.2026", results[2])
+    assert "result fail" in results[2] and "version v1" in results[2]
     assert "MDF Chat MDF" in results[3] and "Chat Platform v" in results[3] and "Readiness:" in results[3]
     assert "2 Modes cover RF 3050–3500 MHz" in results[4]
 
