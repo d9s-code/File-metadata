@@ -4,9 +4,9 @@
   /* Chart colours (validated pair: within a Mode / outside every Mode). */
   --viz-in: #2a78d6;
   --viz-out: #eb6834;
-  --viz-grid: #e1e0d9;
-  --viz-axis: #c3c2b7;
-  --viz-ink-muted: #6b6a66;
+  --viz-grid: #e5e8ec;
+  --viz-axis: #b4bbc4;
+  --viz-ink-muted: #5f6772;
   /* Categorical colours for telling Modes apart, in this fixed order. */
   --series-1: #2a78d6;
   --series-2: #eb6834;
@@ -80,9 +80,9 @@
   :root:not([data-theme="light"]) {
     --viz-in: #3987e5;
     --viz-out: #d95926;
-    --viz-grid: #2c2c2a;
-    --viz-axis: #4a4a46;
-    --viz-ink-muted: #a3a29a;
+    --viz-grid: #2c323b;
+    --viz-axis: #4a525e;
+    --viz-ink-muted: #9aa2ad;
     --series-1: #3987e5;
     --series-2: #d95926;
     --series-3: #199e70;
@@ -142,9 +142,9 @@
 :root[data-theme="dark"] {
   --viz-in: #3987e5;
   --viz-out: #d95926;
-  --viz-grid: #2c2c2a;
-  --viz-axis: #4a4a46;
-  --viz-ink-muted: #a3a29a;
+  --viz-grid: #2c323b;
+  --viz-axis: #4a525e;
+  --viz-ink-muted: #9aa2ad;
   --series-1: #3987e5;
   --series-2: #d95926;
   --series-3: #199e70;
@@ -1528,18 +1528,20 @@ button.status-badge { border: none; cursor: pointer; font-family: inherit; }
   height: 0.6rem;
   border-radius: 999px;
   overflow: hidden;
-  background: var(--hover-bg);
-  border: 1px solid var(--border);
+  background: var(--viz-grid);
 }
 .sim-bar-segment {
   height: 100%;
+  box-sizing: border-box;
 }
-.sim-pass { background: #10b981; }
-.sim-partial { background: #f59e0b; }
-.sim-fail { background: #ef4444; }
-.sim-inconclusive { background: #9ca3af; }
-.sim-untested { background: var(--hover-bg); }
-.sim-outdated { background: repeating-linear-gradient(45deg, #d97706 0 4px, #fcd34d 4px 8px); }
+/* A 2px gap of the surface between outcomes. */
+.sim-bar-segment + .sim-bar-segment { border-left: 2px solid var(--card-bg); }
+.sim-pass { background: var(--status-good); }
+.sim-partial { background: var(--status-warning); }
+.sim-fail { background: var(--status-critical); }
+.sim-inconclusive { background: var(--status-neutral); }
+.sim-untested { background: var(--viz-grid); }
+.sim-outdated { background: repeating-linear-gradient(45deg, var(--status-warning) 0 3px, color-mix(in srgb, var(--status-warning) 25%, var(--card-bg)) 3px 6px); }
 .sim-legend {
   list-style: none;
   margin: 0.6rem 0 0.4rem;
@@ -4289,7 +4291,7 @@ body:has(.import-footer) .checkout-reminder-tab {
   --status-good: #0ca30c;
   --status-warning: #fab219;
   --status-critical: #d03b3b;
-  --status-neutral: #898781;
+  --status-neutral: #8b929c;
 }
 .viz-swatch.status-good, .viz-plot .status-good { background: var(--status-good); fill: var(--status-good); stroke: var(--status-good); }
 .viz-swatch.status-warning, .viz-plot .status-warning { background: var(--status-warning); fill: var(--status-warning); stroke: var(--status-warning); }
@@ -4347,7 +4349,7 @@ body:has(.import-footer) .checkout-reminder-tab {
 .combo-grid .combo-corner { color: var(--muted); font-weight: 500; }
 .combo-grid .combo-unit { color: var(--muted); font-weight: 400; }
 .combo-grid td { min-width: 3.5rem; }
-.combo-grid td.combo-empty { color: var(--muted); text-align: center; background: repeating-linear-gradient(45deg, transparent, transparent 4px, var(--hover-bg) 4px, var(--hover-bg) 8px); }
+.combo-grid td.combo-empty { color: var(--viz-grid); text-align: center; }
 .combo-grid .combo-mode { width: 12px; height: 12px; margin: 1px; padding: 0; border: none; cursor: pointer; vertical-align: middle; box-shadow: none; }
 .combo-grid .combo-mode:hover, .combo-grid .combo-mode.marked { outline: 2px solid var(--text); outline-offset: 1px; }
 
@@ -5800,8 +5802,9 @@ a.ai-cite:hover { text-decoration: underline; }
   gap: 0.75rem;
 }
 .platform-chart-band {
-  fill: var(--surface-muted, rgba(127, 127, 127, 0.06));
+  fill: color-mix(in srgb, var(--viz-grid) 40%, transparent);
 }
+.platform-chart .viz-gridline { stroke: var(--viz-grid); stroke-width: 1; }
 .platform-chart-label {
   font-size: 11px;
   fill: var(--text);
@@ -7141,24 +7144,24 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
 .recheck-plot { display: block; cursor: grab; touch-action: none; }
 .recheck-plot.panning { cursor: grabbing; }
 .recheck-strip { margin-bottom: 0.5rem; }
-.recheck-plot-area { fill: color-mix(in srgb, var(--viz-grid) 22%, var(--card-bg)); }
+.recheck-plot-area { fill: var(--card-bg); }
 .recheck-plot-frame { fill: none; stroke: var(--viz-axis); stroke-width: 1; pointer-events: none; }
 .viz-plot svg text.recheck-axis-title { fill: var(--text); font-weight: 600; font-size: 11.5px; }
-.recheck-mode-box { fill: color-mix(in srgb, var(--viz-in) 9%, transparent); stroke: color-mix(in srgb, var(--viz-in) 55%, transparent); stroke-width: 1; }
-.recheck-mode-box.hot { fill: color-mix(in srgb, var(--viz-in) 24%, transparent); stroke: var(--viz-in); stroke-width: 2; }
+.recheck-mode-box { fill: color-mix(in srgb, var(--viz-ink-muted) 8%, transparent); stroke: color-mix(in srgb, var(--viz-ink-muted) 55%, transparent); stroke-width: 1; }
+.recheck-mode-box.hot { fill: color-mix(in srgb, var(--primary) 14%, transparent); stroke: var(--primary); stroke-width: 2; }
 /* Names keep a halo of the plot's own colour, so they read over grid lines and other boxes. */
 .recheck-mode-label { font-size: 10.5px; fill: var(--viz-ink-muted); pointer-events: none; paint-order: stroke; stroke: var(--card-bg); stroke-width: 3px; stroke-linejoin: round; }
 .recheck-mode-label.hot { fill: var(--text); font-weight: 600; }
-.recheck-mode-swatch { background: color-mix(in srgb, var(--viz-in) 12%, transparent); border: 1px solid color-mix(in srgb, var(--viz-in) 55%, transparent); }
-.recheck-mark { stroke: var(--card-bg); stroke-width: 1; }
+.recheck-mode-swatch { background: color-mix(in srgb, var(--viz-ink-muted) 10%, transparent); border: 1px solid color-mix(in srgb, var(--viz-ink-muted) 55%, transparent); }
+.recheck-mark { stroke: var(--card-bg); stroke-width: 2; paint-order: stroke; }
 .recheck-mark-match { fill: var(--status-good); }
 .recheck-mark-near { fill: var(--status-warning); }
 .recheck-mark-none { stroke: var(--status-critical); stroke-width: 3; fill: none; }
 .recheck-mark-unknown { fill: var(--status-neutral); }
-.recheck-mark-ring { fill: none; stroke: var(--status-critical); stroke-width: 1.5; stroke-dasharray: 3 2; }
-.recheck-mark-ring.picked { stroke: var(--text); stroke-dasharray: none; stroke-width: 2; }
-.recheck-near-line { stroke: var(--status-warning); stroke-width: 1.5; stroke-dasharray: 4 3; }
-.recheck-zoom-box { fill: color-mix(in srgb, var(--viz-in) 12%, transparent); stroke: var(--viz-in); stroke-width: 1; stroke-dasharray: 4 3; pointer-events: none; }
+.recheck-mark-ring { fill: none; stroke: var(--text); stroke-width: 1.25; stroke-dasharray: 2 2; }
+.recheck-mark-ring.picked { stroke: var(--primary); stroke-dasharray: none; stroke-width: 2.5; }
+.recheck-near-line { stroke: var(--viz-ink-muted); stroke-width: 1; stroke-dasharray: 4 3; }
+.recheck-zoom-box { fill: color-mix(in srgb, var(--primary) 10%, transparent); stroke: var(--primary); stroke-width: 1; stroke-dasharray: 4 3; pointer-events: none; }
 .recheck-wheel-hint { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; font-size: 0.95rem; font-weight: 600; color: var(--text); background: color-mix(in srgb, var(--card-bg) 70%, transparent); }
 .recheck-chart-tip { position: fixed; z-index: 50; max-width: 320px; padding: 0.4rem 0.55rem; border: 1px solid var(--border); border-radius: 6px; background: var(--card-bg); color: var(--text); box-shadow: 0 4px 14px rgb(0 0 0 / 0.25); font-size: 0.8rem; pointer-events: none; display: grid; gap: 0.35rem; }
 .recheck-tip-mode { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
