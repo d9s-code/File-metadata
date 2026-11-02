@@ -30,6 +30,7 @@ import { LoadingState } from "../components/common/LoadingState";
 import { ModeForm } from "../components/modes/ModeForm";
 import { computeOverallResult } from "../components/testing/modeResultAggregate";
 import { SimLineResultsTable, type SimLineEntry } from "../components/testing/SimLineResultsTable";
+import { SimResultsImport } from "../components/testing/SimResultsImport";
 import { InterceptModeResultsTable, type InterceptModeEntry } from "../components/testing/InterceptModeResultsTable";
 import { InterceptSignalsEditor, loggedSignals, type SignalEntry } from "../components/testing/InterceptSignals";
 import {
@@ -623,12 +624,20 @@ export function TestRunNewPage() {
                 below.
               </p>
             ) : (
-              <SimLineResultsTable
-                lines={testLines}
-                entries={lineEntries}
-                onChange={(id, entry) => setLineEntries((prev) => ({ ...prev, [id]: entry }))}
-                modes={modeNames}
-              />
+              <>
+                <SimResultsImport
+                  lines={testLines}
+                  modes={modeNames}
+                  entries={lineEntries}
+                  onApply={(next) => setLineEntries((prev) => ({ ...prev, ...next }))}
+                />
+                <SimLineResultsTable
+                  lines={testLines}
+                  entries={lineEntries}
+                  onChange={(id, entry) => setLineEntries((prev) => ({ ...prev, [id]: entry }))}
+                  modes={modeNames}
+                />
+              </>
             )
           ) : (
             <InterceptModeResultsTable

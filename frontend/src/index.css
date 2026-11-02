@@ -7378,3 +7378,12 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
 .mdf-change-same { background: var(--badge-neutral-bg); color: var(--badge-neutral-fg); }
 .compare-verdict > p:first-child { margin-top: 0; }
 .mdf-compare-was { color: var(--muted); text-decoration: line-through; font-size: 0.85em; }
+
+/* Filling a SIM run's lines from a pasted results table. */
+.sim-results-import-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.8rem; margin-bottom: 0.5rem; }
+.sim-results-import { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.6rem 0.75rem; margin-bottom: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.sim-results-import p { margin: 0; }
+.sim-results-import textarea { width: 100%; font-family: ui-monospace, monospace; font-size: 0.82rem; }
+.sim-results-preview td { vertical-align: top; }
+.sim-results-notes { white-space: pre-line; }
+.sim-results-warning { color: var(--attention); }
