@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { BackLink } from "../components/common/BackLink";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useMdf } from "../state/hooks/useMdfs";
 import { useCommitMdfVersion, useMdfVersionDiff, useMdfVersions } from "../state/hooks/useMdfVersions";
 import { VersionList } from "../components/versioning/VersionList";
@@ -34,6 +34,9 @@ export function MdfVersionHistoryPage() {
       <div className="emitter-title-row">
         <h1>{mdf.name} — Version History</h1>
         <div className="emitter-actions">
+          <Link className="link-as-button" to={`/mdfs/compare?a=${mdf.id}&b=${mdf.id}`}>
+            Compare versions
+          </Link>
           <SaveVersionButton
             noun="MDF"
             save={(summary) => commitVersion.mutateAsync(summary)}

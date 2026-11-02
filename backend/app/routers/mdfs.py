@@ -19,6 +19,7 @@ from app.models.platform import PlatformVersion
 from app.schemas.emitter_version import CommitVersionRequest, DiffOut, StatusTransitionRequest
 from app.schemas.mdf import MdfCreate, MdfLinkCreate, MdfLinkOut, MdfOut, MdfReadinessOut, MdfUpdate, ReadinessItem
 from app.schemas.mdf_note import MdfNoteCreate, MdfNoteOut
+from app.services.mdf_compare import compare_mdfs
 from app.services.platform_coverage import mdf_coverage
 from app.schemas.mdf_version import MdfStatusTransitionOut, MdfVersionDetailOut, MdfVersionOut
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
@@ -72,6 +73,22 @@ def list_mdfs(
         mdf.platforms_count = platforms_count
         results.append(mdf)
     return results
+
+
+@router.get("/compare")
+def compare_two_mdfs(
+    a: UUID,
+    b: UUID,
+    a_version: int | None = None,
+    b_version: int | None = None,
+    db: Session = Depends(get_db),
+    _=Depends(require_role(Role.viewer)),
+) -> dict:
+    """Two MDFs, or one MDF at two points, each at a saved version or as it is
+    now (no version given): Platforms and Emitters in and out, their versions
+    and statuses as each side stood, and new, removed and changed Modes.
+    Declared before /{mdf_id}."""
+    return compare_mdfs(db, a, b, a_version, b_version)
 
 
 @router.get("/{mdf_id}", response_model=MdfOut)

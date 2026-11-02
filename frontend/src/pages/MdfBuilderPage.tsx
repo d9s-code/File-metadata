@@ -133,6 +133,8 @@ export function MdfBuilderPage() {
               label="More ▾"
               items={[
                 { label: "Version history", to: `/mdfs/${mdf.id}/versions` },
+                { label: "Compare with an earlier version", to: `/mdfs/compare?a=${mdf.id}&b=${mdf.id}` },
+                { label: "Compare with another MDF", to: `/mdfs/compare?a=${mdf.id}` },
                 { label: "Ambiguity check", to: `/ambiguity/mdf/${mdf.id}` },
                 ...(canWrite ? [{ label: "Edit details", onSelect: handleStartEdit }] : []),
               ]}

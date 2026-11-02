@@ -25,6 +25,7 @@ import { PlatformVersionHistoryPage } from "./pages/PlatformVersionHistoryPage";
 import { MdfsListPage } from "./pages/MdfsListPage";
 import { MdfBuilderPage } from "./pages/MdfBuilderPage";
 import { MdfVersionHistoryPage } from "./pages/MdfVersionHistoryPage";
+import { MdfComparePage } from "./pages/MdfComparePage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { SourceGroupsPage } from "./pages/SourceGroupsPage";
 import { CustomersPage } from "./pages/CustomersPage";
@@ -168,6 +169,14 @@ export default function App() {
                 element={
                   <RequireAuth>
                     <MdfsListPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/mdfs/compare"
+                element={
+                  <RequireAuth>
+                    <MdfComparePage />
                   </RequireAuth>
                 }
               />

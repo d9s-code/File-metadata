@@ -119,6 +119,10 @@ export interface Emitter {
   last_validated_at: string | null;
   last_validated_result: TestResult | null;
   last_validated_test_record_id: string | null;
+  /** Its latest test run of any kind, and the SIM created date of its latest simulation run. */
+  last_tested_at: string | null;
+  last_tested_test_record_id: string | null;
+  sim_created_date: string | null;
   /** The Platforms it's pinned on, by name. */
   platforms: { id: string; name: string }[];
 }

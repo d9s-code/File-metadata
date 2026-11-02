@@ -11,7 +11,7 @@ from app.models.platform import Platform, PlatformEmitterLink
 from app.models.test_line import TestLine
 from app.models.user import User
 from app.schemas.emitter import EmitterOut, EmitterPlatformRef, EmitterSummary
-from app.services.emitter_validation_service import get_last_validation
+from app.services.emitter_validation_service import get_last_validation, get_test_dates
 from app.services.test_line_status_service import latest_line_outcomes, outdated_line_results
 
 
@@ -130,6 +130,7 @@ def attach_emitter_summaries(db: Session, emitters: list[Emitter]) -> list[Emitt
     """
     summaries = compute_emitter_summaries(db, [e.id for e in emitters])
     validations = get_last_validation(db, [e.id for e in emitters])
+    test_dates = get_test_dates(db, [e.id for e in emitters])
     holder_ids = {uid for e in emitters for uid in (e.checked_out_by_id, e.assignee_id) if uid is not None}
     usernames = dict(db.query(User.id, User.username).filter(User.id.in_(holder_ids)).all()) if holder_ids else {}
     platforms = _platforms_by_emitter(db, [e.id for e in emitters])
@@ -143,6 +144,8 @@ def attach_emitter_summaries(db: Session, emitters: list[Emitter]) -> list[Emitt
             out.assignee_username = usernames.get(e.assignee_id)
         if e.id in validations:
             out.last_validated_at, out.last_validated_result, out.last_validated_test_record_id = validations[e.id]
+        for field, value in test_dates.get(e.id, {}).items():
+            setattr(out, field, value)
         out.platforms = platforms.get(e.id, [])
         results.append(out)
     return results

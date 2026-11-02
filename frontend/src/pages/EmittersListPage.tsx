@@ -23,6 +23,7 @@ import { useHasRole } from "../auth/RequireAuth";
 import { StatusBadge } from "../components/status/StatusBadge";
 import { useStatuses } from "../state/hooks/useStatuses";
 import { useSessionState } from "../components/common/useSessionState";
+import { formatDate } from "../components/common/dates";
 
 type EmitterSortKey =
   | "name"
@@ -37,6 +38,8 @@ type EmitterSortKey =
   | "scan_min"
   | "scan_max"
   | "sim_correct"
+  | "sim_created"
+  | "last_tested"
   | "assignee"
   | "platforms";
 
@@ -82,6 +85,10 @@ function compareEmitters(
       return compareNullable(a.summary.scan_max, b.summary.scan_max, dir);
     case "sim_correct":
       return compareNullable(simShare(a), simShare(b), dir);
+    case "sim_created":
+      return compareStrings(a.sim_created_date, b.sim_created_date, dir);
+    case "last_tested":
+      return compareStrings(a.last_tested_at, b.last_tested_at, dir);
     case "assignee":
       return compareStrings(a.assignee_username, b.assignee_username, dir);
     case "platforms":
@@ -89,7 +96,19 @@ function compareEmitters(
   }
 }
 
-type ColumnId = "designation" | "status" | "assignee" | "platforms" | "rf" | "pri" | "pw" | "scan" | "sim" | "tasks";
+type ColumnId =
+  | "designation"
+  | "status"
+  | "assignee"
+  | "platforms"
+  | "rf"
+  | "pri"
+  | "pw"
+  | "scan"
+  | "sim"
+  | "sim_created"
+  | "last_tested"
+  | "tasks";
 const COLUMNS: ToggleableColumn<ColumnId>[] = [
   { id: "designation", label: "Designation" },
   { id: "status", label: "Status" },
@@ -100,6 +119,8 @@ const COLUMNS: ToggleableColumn<ColumnId>[] = [
   { id: "pw", label: "PW (µs)" },
   { id: "scan", label: "Scan", defaultHidden: true },
   { id: "sim", label: "SIM correct" },
+  { id: "sim_created", label: "SIM created" },
+  { id: "last_tested", label: "Last tested" },
   { id: "tasks", label: "Tasks" },
 ];
 
@@ -446,6 +467,13 @@ export function EmittersListPage() {
                 </th>
               ))}
               {show("sim") && header("SIM correct", "sim_correct", "number")}
+              {show("sim_created") &&
+                header("SIM created", "sim_created", "date", {
+                  rowSpan: 2,
+                  title: "When the simulation in its latest simulation run was created",
+                })}
+              {show("last_tested") &&
+                header("Last tested", "last_tested", "date", { rowSpan: 2, title: "Its latest test run, of any kind" })}
               {show("tasks") && <th rowSpan={2}>Tasks</th>}
               <th className="row-actions" aria-label="Actions" rowSpan={2}></th>
             </tr>
@@ -524,6 +552,16 @@ export function EmittersListPage() {
                   >
                     {e.summary.sim_lines ? `${e.summary.sim_lines_correct} / ${e.summary.sim_lines}` : "—"}
                     {e.summary.sim_lines_outdated > 0 && <span className="summary-bad"> · {e.summary.sim_lines_outdated} out of date</span>}
+                  </td>
+                )}
+                {show("sim_created") && <td className="nowrap">{formatDate(e.sim_created_date)}</td>}
+                {show("last_tested") && (
+                  <td className="nowrap">
+                    {e.last_tested_at && e.last_tested_test_record_id ? (
+                      <Link to={`/emitters/${e.id}/tests/${e.last_tested_test_record_id}`}>{formatDate(e.last_tested_at)}</Link>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                 )}
                 {show("tasks") && (

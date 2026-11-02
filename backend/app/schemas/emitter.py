@@ -102,6 +102,11 @@ class EmitterOut(BaseModel):
     last_validated_at: date | None = None
     last_validated_result: TestResult | None = None
     last_validated_test_record_id: UUID | None = None
+    # Its newest Test Record of any kind, and the SIM created date of its
+    # newest simulation run that gives one.
+    last_tested_at: date | None = None
+    last_tested_test_record_id: UUID | None = None
+    sim_created_date: date | None = None
     # Populated by attach_emitter_summaries: the Platforms it's pinned on, by name.
     platforms: list[EmitterPlatformRef] = []
 

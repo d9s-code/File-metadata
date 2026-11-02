@@ -391,6 +391,7 @@ def test_emitter_last_validated_reflects_most_recent_line_tested_record(editor_c
     before = editor_client.get(f"/emitters/{emitter_id}").json()
     assert before["last_validated_at"] is None
     assert before["last_validated_result"] is None
+    assert before["last_tested_at"] is None and before["sim_created_date"] is None
 
     editor_client.post(
         f"/emitters/{emitter_id}/test-records",
@@ -408,7 +409,7 @@ def test_emitter_last_validated_reflects_most_recent_line_tested_record(editor_c
             "test_type": "simulation",
             "title": "Second sim",
             "received_power_dbfs": -40, "test_date": "2026-09-15",
-            "simulation_created_date": "2026-08-01",
+            "simulation_created_date": "2026-09-10",
             "line_results": [{"test_line_id": lines[0]["id"], "outcome": "pass"}],
         },
     ).json()
@@ -417,6 +418,9 @@ def test_emitter_last_validated_reflects_most_recent_line_tested_record(editor_c
     assert after["last_validated_at"] == "2026-09-15"
     assert after["last_validated_result"] == "pass"
     assert after["last_validated_test_record_id"] == later_record["id"]
+    # The Emitters list's dates: the SIM created date of the newest simulation run.
+    assert (after["last_tested_at"], after["sim_created_date"]) == ("2026-09-15", "2026-09-10")
+    assert after["last_tested_test_record_id"] == later_record["id"]
 
     # A test with only mode_results (no line_results) never counts toward the
     # simulation-vs-emitter headline — it's a different, Mode-level question.
@@ -431,6 +435,10 @@ def test_emitter_last_validated_reflects_most_recent_line_tested_record(editor_c
     )
     still_after = editor_client.get(f"/emitters/{emitter_id}").json()
     assert still_after["last_validated_at"] == "2026-09-15"
+    # Last tested counts any run; the SIM created date stays with the newest simulation.
+    assert (still_after["last_tested_at"], still_after["sim_created_date"]) == ("2026-09-20", "2026-09-10")
+    listed = {e["id"]: e for e in editor_client.get("/emitters").json()}[emitter_id]
+    assert (listed["last_tested_at"], listed["sim_created_date"]) == ("2026-09-20", "2026-09-10")
 
 
 def test_the_emitter_summary_counts_sim_lines_correct_in_their_latest_run(editor_client, emitter_with_mode):

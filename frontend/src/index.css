@@ -7366,3 +7366,15 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
 .doc-kinds-page { overflow-wrap: anywhere; }
 .doc-kinds-toggle { display: inline-block; width: 1.2em; margin-right: 0.15rem; padding: 0; border: 0; background: none; text-decoration: none; color: var(--muted); }
 .doc-kinds-toggle:hover { color: var(--primary); }
+
+/* Comparing MDFs. */
+.mdf-compare-counts { margin: 0.4rem 0 0.6rem; padding-left: 1.1rem; }
+.mdf-compare-counts li { margin: 0.15rem 0; }
+.mdf-compare-kinds { display: inline-flex; flex-wrap: wrap; gap: 0.3rem 1rem; }
+.mdf-status-move { display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap; }
+.mdf-change-added { background: var(--badge-green-bg); color: var(--badge-green-fg); }
+.mdf-change-changed { background: var(--badge-amber-bg); color: var(--badge-amber-fg); }
+.mdf-change-removed { background: var(--badge-red-bg); color: var(--badge-red-fg); }
+.mdf-change-same { background: var(--badge-neutral-bg); color: var(--badge-neutral-fg); }
+.compare-verdict > p:first-child { margin-top: 0; }
+.mdf-compare-was { color: var(--muted); text-decoration: line-through; font-size: 0.85em; }

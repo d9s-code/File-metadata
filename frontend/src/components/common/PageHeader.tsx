@@ -31,6 +31,7 @@ export const EMITTERS_SECTION: SectionLink[] = [
 ];
 export const MDFS_SECTION: SectionLink[] = [
   { to: "/mdfs", label: "MDFs" },
+  { to: "/mdfs/compare", label: "Compare" },
   { to: "/customers", label: "Customers" },
 ];
 
