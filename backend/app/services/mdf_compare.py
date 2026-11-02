@@ -286,8 +286,9 @@ def compare_mdfs(db: Session, a: UUID, b: UUID, a_version: int | None, b_version
         st_b = p_status_b.get(pid) if new else None
         before = old["emitters"] if old else {}
         after = new["emitters"] if new else {}
-        added = sorted(after[k] for k in set(after) - set(before)) if old and new else []
-        removed = sorted(before[k] for k in set(before) - set(after)) if old and new else []
+        # A Platform new to the MDF brings all its Emitters; one gone takes them all.
+        added = sorted(after[k] for k in set(after) - set(before))
+        removed = sorted(before[k] for k in set(before) - set(after))
         differs = bool(old and new and (old["version"] != new["version"] or st_a != st_b))
         platforms_out.append(
             {

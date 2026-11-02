@@ -7387,3 +7387,6 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
 .sim-results-preview td { vertical-align: top; }
 .sim-results-notes { white-space: pre-line; }
 .sim-results-warning { color: var(--attention); }
+.mdf-compare-names ul { margin: 0.1rem 0 0.3rem; padding-left: 1rem; }
+.mdf-compare-names li { margin: 0; }
+.mdf-compare-toggle { font: inherit; font-weight: 600; color: var(--text); padding: 0; border: none; background: none; box-shadow: none; }

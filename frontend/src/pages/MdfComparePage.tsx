@@ -152,6 +152,8 @@ export function MdfComparePage() {
     retry: false,
   });
   const [showUnchanged, setShowUnchanged] = useState(false);
+  // The Mode-by-Mode list can be long: opened on request.
+  const [showModes, setShowModes] = useState(false);
   const [modeKinds, setModeKinds] = useState<Set<MdfCompareMode["change"]>>(new Set(["added", "changed", "removed"]));
 
   function set(next: Record<string, string>) {
@@ -276,8 +278,26 @@ export function MdfComparePage() {
                             <span className="hint-text">{plural(p.emitter_count, "Emitter")}</span>
                           ) : (
                             <>
-                              {p.emitters_added.length > 0 && <div>Added: {p.emitters_added.join(", ")}</div>}
-                              {p.emitters_removed.length > 0 && <div>Removed: {p.emitters_removed.join(", ")}</div>}
+                              {p.emitters_added.length > 0 && (
+                                <div className="mdf-compare-names">
+                                  <span className="hint-text">Added</span>
+                                  <ul>
+                                    {p.emitters_added.map((n) => (
+                                      <li key={n}>{n}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                              {p.emitters_removed.length > 0 && (
+                                <div className="mdf-compare-names">
+                                  <span className="hint-text">Removed</span>
+                                  <ul>
+                                    {p.emitters_removed.map((n) => (
+                                      <li key={n}>{n}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
                             </>
                           )}
                         </td>
@@ -343,28 +363,42 @@ export function MdfComparePage() {
 
           <div className="card">
             <div className="card-header">
-              <h3>Modes</h3>
-              <div className="mdf-compare-kinds" role="group" aria-label="Which Modes to show">
-                {(["added", "changed", "removed"] as const).map((k) => (
-                  <label key={k} className="inline-check">
-                    <input
-                      type="checkbox"
-                      checked={modeKinds.has(k)}
-                      onChange={() =>
-                        setModeKinds((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(k)) next.delete(k);
-                          else next.add(k);
-                          return next;
-                        })
-                      }
-                    />
-                    {MODE_CHANGE_LABEL[k]} ({c.modes[k]})
-                  </label>
-                ))}
-              </div>
+              <h3>
+                <button
+                  type="button"
+                  className="link-button mdf-compare-toggle"
+                  aria-expanded={showModes}
+                  onClick={() => setShowModes((v) => !v)}
+                >
+                  {showModes ? "▾" : "▸"} Modes
+                </button>{" "}
+                <span className="hint-text">
+                  {c.modes.added} new · {c.modes.changed} changed · {c.modes.removed} removed
+                </span>
+              </h3>
+              {showModes && (
+                <div className="mdf-compare-kinds" role="group" aria-label="Which Modes to show">
+                  {(["added", "changed", "removed"] as const).map((k) => (
+                    <label key={k} className="inline-check">
+                      <input
+                        type="checkbox"
+                        checked={modeKinds.has(k)}
+                        onChange={() =>
+                          setModeKinds((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(k)) next.delete(k);
+                            else next.add(k);
+                            return next;
+                          })
+                        }
+                      />
+                      {MODE_CHANGE_LABEL[k]} ({c.modes[k]})
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
-            {modes.length === 0 ? (
+            {!showModes ? null : modes.length === 0 ? (
               <p className="hint-text">{data.modes.length === 0 ? "No Mode changed." : "None of the kinds ticked."}</p>
             ) : (
               <div className="table-scroll">

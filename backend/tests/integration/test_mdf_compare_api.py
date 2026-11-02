@@ -84,3 +84,14 @@ def test_compare_needs_two_different_sides(editor_client, viewer_client):
     assert missing.status_code == 404
     # Viewers can read a comparison.
     assert viewer_client.get("/mdfs/compare", params={"a": mdf["id"], "b": mdf["id"], "a_version": 1}).status_code == 200
+
+
+def test_a_platform_new_to_the_mdf_lists_its_emitters(editor_client):
+    mdf, _, _ = _setup(editor_client)
+    empty = editor_client.post("/mdfs", json={"name": "Compare Empty MDF"}).json()
+    body = editor_client.get("/mdfs/compare", params={"a": empty["id"], "b": mdf["id"], "b_version": 1}).json()
+    [platform] = body["platforms"]
+    assert (platform["change"], platform["emitters_added"], platform["emitters_removed"]) == ("added", ["Compare Emitter"], [])
+    swapped = editor_client.get("/mdfs/compare", params={"a": mdf["id"], "a_version": 1, "b": empty["id"]}).json()
+    [platform] = swapped["platforms"]
+    assert (platform["change"], platform["emitters_added"], platform["emitters_removed"]) == ("removed", [], ["Compare Emitter"])
