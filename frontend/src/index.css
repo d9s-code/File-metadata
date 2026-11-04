@@ -7396,3 +7396,79 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
 .version-row.checkpoint-row .version-number { font-weight: 500; color: var(--muted); }
 .version-row.checkpoint-row.active .version-number { color: var(--text); }
 .version-tag.checkpoint { background: transparent; border: 1px dashed var(--border); color: var(--muted); }
+
+/* Entity header: one row of small chips — status ▾, assignee ▾, tasks,
+   milestones — each a pill of the same height, and a short action row. */
+.status-row { gap: 0.45rem; flex-wrap: wrap; }
+.meta-chip,
+.status-row .task-count-chip,
+.status-chip,
+.rework-note-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  height: 1.75rem;
+  padding: 0 0.7rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+.meta-chip {
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+  font-weight: 500;
+}
+button.meta-chip { cursor: pointer; }
+button.meta-chip:hover:not(:disabled) { background: var(--hover-bg); }
+.meta-chip.none { color: var(--muted); }
+.status-chip {
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  font-weight: 600;
+  cursor: pointer;
+}
+.status-chip:hover:not(:disabled) { filter: brightness(0.96); }
+:root[data-theme="dark"] .status-chip:hover:not(:disabled) { filter: brightness(1.15); }
+.chip-caret { font-size: 0.7em; opacity: 0.7; }
+.status-menu-item { display: flex; align-items: center; gap: 0.5rem; width: 100%; }
+.status-menu-item .milestone-count { margin-left: auto; }
+.status-dot.status-dot { width: 0.55rem; height: 0.55rem; border-radius: 50%; background: currentColor; flex: none; }
+.rework-note-button { font-weight: 600; }
+
+/* While editing: "✎ Editing · v2.2 | Changes ▾" in one pill. */
+.editing-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 2rem;
+  padding: 0 0.75rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  color: var(--primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+button.editing-chip { cursor: pointer; }
+button.editing-chip:hover { background: color-mix(in srgb, var(--primary) 16%, transparent); }
+.editing-chip-part {
+  padding-left: 0.5rem;
+  border-left: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  font-weight: 500;
+}
+.more-button { min-width: 2.25rem; padding-left: 0.6rem; padding-right: 0.6rem; font-size: 1.05rem; line-height: 1; }
+
+/* The status chip keeps its status colour when hovered or open (over the general button hover). */
+button.status-chip.status-color-grey, button.status-chip.status-color-grey:hover { background: var(--badge-neutral-bg); color: var(--badge-neutral-fg); }
+button.status-chip.status-color-blue, button.status-chip.status-color-blue:hover { background: var(--badge-blue-bg); color: var(--badge-blue-fg); }
+button.status-chip.status-color-green, button.status-chip.status-color-green:hover { background: var(--badge-green-bg); color: var(--badge-green-fg); }
+button.status-chip.status-color-yellow, button.status-chip.status-color-yellow:hover { background: var(--badge-yellow-bg); color: var(--badge-yellow-fg); }
+button.status-chip.status-color-amber, button.status-chip.status-color-amber:hover { background: var(--badge-amber-bg); color: var(--badge-amber-fg); }
+button.status-chip.status-color-orange, button.status-chip.status-color-orange:hover { background: var(--badge-orange-bg); color: var(--badge-orange-fg); }
+button.status-chip.status-color-red, button.status-chip.status-color-red:hover { background: var(--badge-red-bg); color: var(--badge-red-fg); }
+button.status-chip.status-color-purple, button.status-chip.status-color-purple:hover { background: var(--badge-purple-bg); color: var(--badge-purple-fg); }
+button.status-chip, button.meta-chip, button.editing-chip, button.status-chip:hover, button.meta-chip:hover, button.editing-chip:hover { box-shadow: none; }
+button.status-chip[aria-expanded="true"], button.meta-chip[aria-expanded="true"] { outline: 2px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset: 1px; }
+button.meta-chip:hover:not(:disabled) { color: var(--text); }

@@ -26,7 +26,6 @@ import { NotesFeed } from "../components/common/NotesFeed";
 import { NotesDrawer } from "../components/common/NotesDrawer";
 import { TasksButton } from "../components/tasks/TasksButton";
 import { MilestonesButton } from "../components/status/MilestonesButton";
-import { StatusBadge } from "../components/status/StatusBadge";
 
 type Tab = "platforms" | "charts" | "tests" | "audit";
 
@@ -130,7 +129,10 @@ export function MdfBuilderPage() {
               Export PRS{latestVersion ? ` (v${latestVersion.version_number})` : ""}
             </button>
             <MenuButton
-              label="More ▾"
+              label="⋯"
+              className="button secondary more-button"
+              ariaLabel="More actions"
+              title="More actions"
               items={[
                 { label: "Version history", to: `/mdfs/${mdf.id}/versions` },
                 { label: "Compare with an earlier version", to: `/mdfs/compare?a=${mdf.id}&b=${mdf.id}` },
@@ -143,7 +145,6 @@ export function MdfBuilderPage() {
         }
         status={
           <>
-            <StatusBadge type="mdf" status={mdf.status} />
             <MdfStatusTransitionControls mdfId={mdf.id} status={mdf.status} />
             <LatestVersion versions={versions} />
             <TasksButton type="mdf" id={mdf.id} name={mdf.name} />

@@ -1,14 +1,19 @@
 import { useState } from "react";
 import { ApiRequestError } from "../../api/client";
 import { unmetMilestones, type StatusEntityType } from "../../api/statuses";
-import { RequireRole } from "../../auth/RequireAuth";
+import { useHasRole } from "../../auth/RequireAuth";
 import { useConfirmDialog } from "../common/ConfirmDialog";
+import { MenuButton } from "../common/MenuButton";
+import { Modal } from "../common/Modal";
 import { useItemMilestones, useStatuses } from "../../state/hooks/useStatuses";
+import { StatusBadge } from "./StatusBadge";
 
-/** "Move to …" buttons for the moves Admins allow from the current status.
- * A status that asks for a note opens a note box first; one whose
- * milestones aren't all met shows how many are, and asks to confirm the
- * move with the open ones listed. */
+/** The status, as a coloured chip that opens the moves Admins allow from it
+ * ("Testing ▾" → Move to Operational 2/3 …). A status that asks for a note
+ * asks for it first; one whose milestones aren't all met shows how many are,
+ * and asks to confirm the move with the open ones listed. Viewers, and a
+ * status with nowhere to go, get the plain badge. No version is saved for a
+ * move — status is where something stands, not part of its content. */
 export function StatusControls({
   type,
   itemId,
@@ -28,12 +33,12 @@ export function StatusControls({
   beforeMove?: (next: string, label: string, confirm: ReturnType<typeof useConfirmDialog>["confirmDelete"]) => Promise<boolean>;
 }) {
   const statuses = useStatuses(type);
+  const canMove = useHasRole("editor");
   const { data: milestones } = useItemMilestones(type, itemId);
   const [pendingNext, setPendingNext] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<string | null>(null);
   const { confirmDelete: confirm, dialog } = useConfirmDialog();
 
   const current = statuses.byKey[status];
@@ -47,13 +52,11 @@ export function StatusControls({
   async function doMove(next: string, noteText?: string) {
     const label = statuses.label(next);
     setError(null);
-    setDone(null);
     if (beforeMove && !(await beforeMove(next, label, confirm))) return;
     setBusy(true);
     try {
-      let message: string | void;
       try {
-        message = await move(next, noteText, false);
+        await move(next, noteText, false);
       } catch (err) {
         const unmet = err instanceof ApiRequestError ? unmetMilestones(err.detail) : null;
         if (!unmet) throw err;
@@ -62,11 +65,10 @@ export function StatusControls({
           { confirmLabel: `Move to ${label} anyway` },
         );
         if (!ok) return;
-        message = await move(next, noteText, true);
+        await move(next, noteText, true);
       }
       setPendingNext(null);
       setNote("");
-      setDone(message || `Moved to ${label}.`);
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : "Couldn't change the status");
     } finally {
@@ -83,40 +85,53 @@ export function StatusControls({
     }
   }
 
+  if (!canMove || nexts.length === 0) return <StatusBadge type={type} status={status} />;
+
+  const color = statuses.color(status);
   return (
-    <RequireRole minimum="editor">
-      <div className="status-controls">
-        {nexts.map((next) => {
+    <>
+      <MenuButton
+        align="start"
+        className={`status-badge status-color-${color} status-chip`}
+        title={disabledTitle ?? "Change the status"}
+        disabled={busy || !!disabledTitle}
+        ariaLabel={`Status: ${statuses.label(status)} — change it`}
+        label={
+          <>
+            {statuses.label(status)} <span className="chip-caret">▾</span>
+          </>
+        }
+        items={nexts.map((next) => {
           const p = progress(next);
-          return (
-            <button
-              key={next}
-              className="status-transition-button"
-              onClick={() => handleClick(next)}
-              disabled={busy || !!disabledTitle}
-              title={disabledTitle ?? (p ? `${p.met} of ${p.total} milestones for it met` : undefined)}
-            >
-              Move to {statuses.label(next)}
-              {p && (
-                <span className={p.met === p.total ? "milestone-count met" : "milestone-count"}>
-                  {p.met}/{p.total}
-                </span>
-              )}
-            </button>
-          );
+          return {
+            label: (
+              <span className="status-menu-item">
+                <span className={`status-dot status-color-${statuses.color(next)}`} />
+                Move to {statuses.label(next)}
+                {p && (
+                  <span className={p.met === p.total ? "milestone-count met" : "milestone-count"} title="Milestones met">
+                    {p.met}/{p.total}
+                  </span>
+                )}
+              </span>
+            ),
+            title: statuses.byKey[next]?.requires_note ? "Asks for a note" : undefined,
+            onSelect: () => handleClick(next),
+          };
         })}
-        {error && <span className="error-text">{error}</span>}
-        {done && !error && (
-          <span className="hint-text status-done" role="status">
-            {done}
-          </span>
-        )}
-      </div>
+      />
+      {error && <span className="error-text">{error}</span>}
       {pendingNext && (
-        <div className="status-note-form">
+        <Modal
+          title={`Move to ${statuses.label(pendingNext)}`}
+          onClose={() => {
+            setPendingNext(null);
+            setNote("");
+          }}
+        >
           <label>
             {statuses.byKey[pendingNext]?.note_prompt || `Note for ${statuses.label(pendingNext)}`} (required)
-            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} autoFocus />
+            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} autoFocus />
           </label>
           <div className="modal-actions">
             <button
@@ -131,15 +146,16 @@ export function StatusControls({
             </button>
             <button
               type="button"
+              className="button primary"
               disabled={!note.trim() || busy || !!disabledTitle}
               onClick={() => void doMove(pendingNext, note.trim())}
             >
               Move to {statuses.label(pendingNext)}
             </button>
           </div>
-        </div>
+        </Modal>
       )}
       {dialog}
-    </RequireRole>
+    </>
   );
 }

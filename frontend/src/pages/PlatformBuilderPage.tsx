@@ -15,7 +15,6 @@ import { EntityHeader } from "../components/common/EntityHeader";
 import { PlatformDwells } from "../components/dwells/PlatformDwells";
 import { LatestVersion, SaveVersionButton } from "../components/versioning/SaveVersionButton";
 import { TasksButton } from "../components/tasks/TasksButton";
-import { StatusBadge } from "../components/status/StatusBadge";
 import { MilestonesButton } from "../components/status/MilestonesButton";
 import { PlatformStatusControls } from "../components/platform/PlatformStatusControls";
 import { NotesFeed } from "../components/common/NotesFeed";
@@ -103,12 +102,13 @@ export function PlatformBuilderPage() {
               save={(summary) => commitVersion.mutateAsync(summary)}
               pending={commitVersion.isPending}
             />
-            <button className="button secondary" onClick={() => void handleExportXml()} disabled={isExporting}>
-              {isExporting ? "Exporting…" : "Export XML"}
-            </button>
             <MenuButton
-              label="More ▾"
+              label="⋯"
+              className="button secondary more-button"
+              ariaLabel="More actions"
+              title="More actions"
               items={[
+                { label: isExporting ? "Exporting…" : "Export XML", onSelect: () => void handleExportXml(), disabled: isExporting },
                 { label: "Version history", to: `/platforms/${platform.id}/versions` },
                 { label: "Ambiguity check", to: `/ambiguity/platform/${platform.id}` },
                 ...(canWrite ? [{ label: "Edit details", onSelect: handleStartEdit }] : []),
@@ -118,7 +118,6 @@ export function PlatformBuilderPage() {
         }
         status={
           <>
-            <StatusBadge type="platform" status={platform.status} />
             <PlatformStatusControls platformId={platform.id} status={platform.status} />
             <LatestVersion versions={versions} />
             <TasksButton type="platform" id={platform.id} name={platform.name} />

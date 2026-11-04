@@ -141,16 +141,24 @@ export function EditModeControls({
         </button>
       ) : isMine ? (
         <>
-          <span
-            className="checkout-badge checkout-badge-mine"
-            title={latest ? `Last saved as v${latest.ref}${latest.kind === "checkpoint" ? " (a checkpoint)" : ""}` : "Nothing saved yet"}
-          >
-            ✎ Editing{latest?.kind === "checkpoint" ? ` · v${latest.ref}` : ""}
-          </span>
-          {hasCommittedVersion && onToggleChanges && (
-            <button type="button" className="link-button" onClick={onToggleChanges} aria-expanded={showingChanges}>
-              {showingChanges ? "Hide changes" : "Changes"}
+          {hasCommittedVersion && onToggleChanges ? (
+            <button
+              type="button"
+              className="editing-chip"
+              onClick={onToggleChanges}
+              aria-expanded={showingChanges}
+              title={`${latest ? `Last saved as v${latest.ref}${latest.kind === "checkpoint" ? " (a checkpoint)" : ""}. ` : ""}Show or hide your unsaved changes`}
+            >
+              ✎ Editing{latest?.kind === "checkpoint" ? ` · v${latest.ref}` : ""}
+              <span className="editing-chip-part">Changes {showingChanges ? "▴" : "▾"}</span>
             </button>
+          ) : (
+            <span
+              className="editing-chip"
+              title={latest ? `Last saved as v${latest.ref}${latest.kind === "checkpoint" ? " (a checkpoint)" : ""}` : "Nothing saved yet"}
+            >
+              ✎ Editing{latest?.kind === "checkpoint" ? ` · v${latest.ref}` : ""}
+            </span>
           )}
           <button
             className="button danger-outline"

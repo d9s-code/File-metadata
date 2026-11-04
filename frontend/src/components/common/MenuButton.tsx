@@ -23,11 +23,18 @@ export function MenuButton({
   items,
   className = "button secondary",
   ariaLabel,
+  title,
+  align = "end",
+  disabled = false,
 }: {
   label: ReactNode;
   items: MenuItem[];
   className?: string;
   ariaLabel?: string;
+  title?: string;
+  /** Which edge of the button the list lines up with: its right (end) or its left (start). */
+  align?: "start" | "end";
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -49,7 +56,8 @@ export function MenuButton({
         setOpen(false);
         return;
       }
-      const left = Math.max(VIEWPORT_MARGIN, Math.min(button.right - list.width, window.innerWidth - list.width - VIEWPORT_MARGIN));
+      const wanted = align === "start" ? button.left : button.right - list.width;
+      const left = Math.max(VIEWPORT_MARGIN, Math.min(wanted, window.innerWidth - list.width - VIEWPORT_MARGIN));
       const below = button.bottom + 4;
       const top =
         below + list.height > window.innerHeight - VIEWPORT_MARGIN ? Math.max(VIEWPORT_MARGIN, button.top - 4 - list.height) : below;
@@ -62,7 +70,7 @@ export function MenuButton({
       window.removeEventListener("scroll", place, true);
       window.removeEventListener("resize", place);
     };
-  }, [open]);
+  }, [open, align]);
 
   useEffect(() => {
     if (!open) return;
@@ -90,6 +98,8 @@ export function MenuButton({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={ariaLabel}
+        title={title}
+        disabled={disabled}
         onClick={() => setOpen((v) => !v)}
       >
         {label}

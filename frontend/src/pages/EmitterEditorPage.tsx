@@ -25,7 +25,6 @@ import { NotesFeed } from "../components/common/NotesFeed";
 import { NotesDrawer, useNotesDrawerOpen } from "../components/common/NotesDrawer";
 import { AssigneeControl } from "../components/tasks/AssigneeControl";
 import { TasksButton } from "../components/tasks/TasksButton";
-import { StatusBadge } from "../components/status/StatusBadge";
 import { MilestonesButton } from "../components/status/MilestonesButton";
 
 type Tab = "modes" | "setup" | "intercepts" | "tests" | "audit";
@@ -148,12 +147,13 @@ export function EmitterEditorPage() {
               showingChanges={showChanges}
               onToggleChanges={() => setShowChanges((v) => !v)}
             />
-            <button className="button secondary" onClick={handleExportXml}>
-              Export XML
-            </button>
             <MenuButton
-              label="More ▾"
+              label="⋯"
+              className="button secondary more-button"
+              ariaLabel="More actions"
+              title="More actions"
               items={[
+                { label: "Export XML", onSelect: () => void handleExportXml() },
                 { label: "Version history", to: `/emitters/${emitter.id}/versions` },
                 { label: "Compare with another Emitter", to: `/emitters/compare?a=${emitter.id}` },
                 { label: "Compare with an earlier version", to: `/emitters/compare?a=${emitter.id}&b=${emitter.id}` },
@@ -170,13 +170,12 @@ export function EmitterEditorPage() {
         }
         status={
           <>
-            <StatusBadge type="emitter" status={emitter.status} />
+            <StatusTransitionControls emitterId={emitter.id} status={emitter.status} />
             {emitter.status === "deprecated" && emitter.rework_note && (
               <button className="rework-note-button" onClick={() => setShowReworkNote(true)}>
-                ⚠ View rework note
+                ⚠ Rework note
               </button>
             )}
-            <StatusTransitionControls emitterId={emitter.id} status={emitter.status} />
             <AssigneeControl emitter={emitter} />
             <TasksButton type="emitter" id={emitter.id} name={emitter.name} />
             <MilestonesButton type="emitter" id={emitter.id} status={emitter.status} />

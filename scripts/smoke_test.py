@@ -100,7 +100,8 @@ def main() -> int:
 
             step("Export XML downloads a ZIP")
             with page.expect_download() as download_info:
-                page.get_by_role("button", name="Export XML").click()
+                page.get_by_role("button", name="More actions").click()
+                page.get_by_role("menuitem", name="Export XML").click()
             downloaded = zipfile.ZipFile(download_info.value.path())
             assert len(downloaded.namelist()) == 1 and "/" not in downloaded.namelist()[0].removeprefix("emitters/"), downloaded.namelist()
 
@@ -120,7 +121,8 @@ def main() -> int:
             step("an expired session redirects to login and back")
             here = f"/emitters/{emitter['id']}"
             context.clear_cookies(name="access_token")
-            page.get_by_role("button", name="Export XML").click()  # any request now gets a 401
+            page.get_by_role("button", name="More actions").click()
+            page.get_by_role("menuitem", name="Export XML").click()  # any request now gets a 401
             page.wait_for_url(f"**/login?next={quote(here, safe='')}")
             expect(page.get_by_text("Your session expired")).to_be_visible()
             login(page)

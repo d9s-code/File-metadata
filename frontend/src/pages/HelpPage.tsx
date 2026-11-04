@@ -297,12 +297,12 @@ export function HelpPage() {
           <strong>Compare these two</strong> opens them side by side.
         </p>
         <p>
-          <strong>Compare two Emitters</strong> (<strong>More ▾ → Compare with another Emitter</strong> on an Emitter):
+          <strong>Compare two Emitters</strong> (<strong>⋯ → Compare with another Emitter</strong> on an Emitter):
           pick A and B and a saved version of each (the latest by default). It shows how many pairs of their Modes the
           ambiguity check would flag, both on the coverage charts with the overlaps hatched, the overlapping pairs worst
           first, and each Emitter&apos;s Modes side by side (if one has no Modes in the version picked, it says there&apos;s
           nothing to compare yet). Pick the <strong>same Emitter</strong> on both sides — or{" "}
-          <strong>More ▾ → Compare with an earlier version</strong> — to compare it with another saved version of
+          <strong>⋯ → Compare with an earlier version</strong> — to compare it with another saved version of
           itself: what changed from the older to the newer, both versions on the charts, and the changed Modes marked.
           The page&apos;s address keeps the choice, so you can share it.
         </p>
@@ -344,8 +344,9 @@ export function HelpPage() {
             names, colours and allowed moves above are the defaults, for Emitters and Platforms alike.{" "}
             <strong>◎ Milestones</strong> beside ☑ Tasks lists what to get done before each status (e.g. a manual
             dwell test before Partially operational): tick one off by hand, with a note if you like, or add one just
-            for this Emitter. The count shows how many for the next status are met, and each Move to … button shows
-            its own. Moving to a status with milestones not met asks you to confirm, and the version records which
+            for this Emitter. The count shows how many for the next status are met. To change the status, click the coloured
+            status chip under the name: it lists the moves allowed from it, each with its own milestone count, and
+            asks for a note where the status needs one. A status change saves no version. Moving to a status with milestones not met asks you to confirm, and the version records which
             weren&apos;t.
           </p>
 
@@ -936,8 +937,8 @@ export function HelpPage() {
         <div className="help-subsection" id="platform-detail">
           <h3>Platform detail</h3>
           <p>
-            Laid out like an Emitter: <strong>Save version</strong>, <strong>Ambiguity check</strong>,{" "}
-            <strong>Export XML</strong> and <strong>More ▾</strong> (Version history, Edit details) along the top,
+            Laid out like an Emitter: <strong>Save version</strong> and <strong>⋯</strong> (Export XML, Version
+            history, Ambiguity check, Edit details) along the top, the status chip under the name,
             with when it was last saved under the name. <strong>+ Pin Emitters</strong> opens a list of every Emitter
             (designation first, with a search box): tick any number and they&apos;re pinned at their latest saved
             version in one go — ones already pinned, or never saved, are shown but can&apos;t be ticked. Each pin
@@ -1399,7 +1400,7 @@ export function HelpPage() {
       <div className="card" id="tasks">
         <h2>Tasks &amp; assignment</h2>
         <p>
-          <strong>Assigning an Emitter.</strong> On an Emitter&apos;s page, <strong>Assigned to</strong> says who&apos;s
+          <strong>Assigning an Emitter.</strong> On an Emitter&apos;s page, the <strong>👤</strong> chip under the name says who&apos;s
           responsible for it. Any editor can change it without editing the Emitter — it isn&apos;t part of the
           Emitter&apos;s saved versions. Only editors and admins can be given one. The Emitters list has an Assigned to
           column and filter, so &ldquo;Me&rdquo; shows yours.
