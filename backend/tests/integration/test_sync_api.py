@@ -241,3 +241,15 @@ def test_a_different_app_version_is_refused(editor_client, pc):
 
 def test_a_viewer_cannot_take_a_copy(viewer_client):
     assert viewer_client.get("/sync/copy").status_code == 403
+
+
+def test_rows_round_trip_with_str_enums():
+    """An enum that's also a str (TestResult.pass_ is "pass") travels by its name."""
+    from app.database import Base
+    from app.core.enums import TestResult
+    from app.services.sync_service import _dump, load_row
+
+    t = Base.metadata.tables["test_records"]
+    assert _dump(TestResult.pass_) == "pass_"
+    assert load_row(t, {"result": "pass_"})["result"] is TestResult.pass_
+    assert load_row(t, {"result": "pass"})["result"] is TestResult.pass_

@@ -112,10 +112,11 @@ def row_key(t: Table, row: dict) -> str:
 
 
 def _dump(value):
-    if value is None or isinstance(value, (bool, int, float, str)):
-        return value
+    # Before str: some enums are str enums, and the database knows them by name.
     if isinstance(value, enum.Enum):
         return value.name
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
     if isinstance(value, uuid.UUID):
         return str(value)
     if isinstance(value, (datetime, date, time)):
@@ -144,7 +145,10 @@ def _load(coltype, value):
     if isinstance(coltype, UUID):
         return uuid.UUID(value) if isinstance(value, str) else value
     if isinstance(coltype, sqltypes.Enum) and coltype.enum_class is not None:
-        return coltype.enum_class[value] if isinstance(value, str) else value
+        if not isinstance(value, str):
+            return value
+        cls = coltype.enum_class
+        return cls[value] if value in cls.__members__ else cls(value)
     if isinstance(coltype, sqltypes.DateTime):
         return datetime.fromisoformat(value) if isinstance(value, str) else value
     if isinstance(coltype, sqltypes.Date):

@@ -13,6 +13,7 @@ __pycache__/
 # Node / frontend
 frontend/node_modules/
 frontend/dist/
+frontend/dist-standalone/
 frontend/.vite/
 
 # OS
