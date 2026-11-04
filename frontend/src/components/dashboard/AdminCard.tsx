@@ -47,16 +47,7 @@ export function AdminCard() {
             {data.long_held_locks.length === 0 ? (
               <p className="hint-text">None.</p>
             ) : (
-              <>
-                <ul className="admin-card-list">
-                  {data.long_held_locks.slice(0, 5).map((l) => (
-                    <li key={l.entity_id} title={l.message}>
-                      <Link to={`/emitters/${l.entity_id}`}>{l.message.replace(/ — nobody else can edit it\.$/, "")}</Link>
-                    </li>
-                  ))}
-                </ul>
-                <Link to="/admin/checkouts">Release one under Admin → Edit locks</Link>
-              </>
+              <Link to="/admin/checkouts">See who holds them, and release one, under Edit locks →</Link>
             )}
           </section>
         </>

@@ -210,6 +210,8 @@ export function AdminBackupsPage() {
                 <dd>{health.copy_dir ? health.copy_dir : "Not set up"}</dd>
               </div>
             </dl>
+            <details className="backup-howto">
+              <summary className="hint-text">How backups work</summary>
             <p className="hint-text">
               A backup is taken automatically, then restored into a scratch database to
               prove it works. In between, the more that changes the sooner a backup is due: a week after the last one at{" "}
@@ -222,6 +224,7 @@ export function AdminBackupsPage() {
               the Audit Log.
               Restoring one is done from the server&apos;s command line — see <Link to="/help#admin-backups">Help</Link>.
             </p>
+            </details>
           </section>
 
           <section className="card">

@@ -22,6 +22,18 @@ const PATHS: Record<NeedsAttentionItem["entity_type"], string> = {
   dwell_strategy: "/dwells/strategies",
 };
 
+/** "Emitter 'X': 4 SIM Test Lines were missed" → **X** 4 SIM Test Lines were
+ * missed — the name first, without the kind the group already says. */
+function ShortMessage({ message }: { message: string }) {
+  const m = /^(?:Emitter|Platform|MDF|Dwell Strategy|Source) '(.+?)':? (.*)$/s.exec(message);
+  if (!m) return <>{message}</>;
+  return (
+    <>
+      <strong>{m[1]}</strong> {m[2]}
+    </>
+  );
+}
+
 function attentionLink(item: NeedsAttentionItem): string {
   if (item.category === "ambiguity") return `/ambiguity/${item.entity_type}/${item.entity_id}`;
   const base = `${PATHS[item.entity_type]}/${item.entity_id}`;
@@ -45,7 +57,7 @@ function AttentionGroup({ group, open, onToggle }: { group: Group; open: boolean
             {visible.map((item, i) => (
               <li key={i}>
                 <Link to={item.to} title={item.message}>
-                  {item.message}
+                  <ShortMessage message={item.message} />
                 </Link>
               </li>
             ))}
