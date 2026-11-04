@@ -5,6 +5,7 @@ import { ModeMultiSelect, type ModeNameOption } from "./ModeMultiSelect";
 import { ObservedValuesEditor } from "./ObservedValuesEditor";
 import { ObservedValuesTable } from "./ObservedValuesTable";
 import { AutoGrowTextarea } from "../common/AutoGrowTextarea";
+import { MenuButton } from "../common/MenuButton";
 import { lineOutcomeLabel, nonEmptySets, TEST_RESULTS } from "./testFormat";
 import { matchesWords, searchWords } from "../../utils/wordSearch";
 
@@ -39,7 +40,6 @@ export function SimLineResultsTable({
   modes: ModeNameOption[];
 }) {
   const [filter, setFilter] = useState("");
-  const [bulkOutcome, setBulkOutcome] = useState<TestResult>("pass");
   const [paramsOpen, setParamsOpen] = useState<Set<string>>(new Set());
 
   const visible = useMemo(() => {
@@ -69,29 +69,19 @@ export function SimLineResultsTable({
         <span className="hint-text">
           {includedCount} of {lines.length} included
         </span>
-        <button type="button" className="link-button" onClick={() => visible.forEach((l) => patch(l.id, { included: true }))}>
-          Include all shown
-        </button>
-        <button type="button" className="link-button" onClick={() => visible.forEach((l) => patch(l.id, { included: false }))}>
-          Exclude all shown
-        </button>
-        <label className="inline-date-label">
-          Set included to
-          <select value={bulkOutcome} onChange={(e) => setBulkOutcome(e.target.value as TestResult)}>
-            {TEST_RESULTS.map((o) => (
-              <option key={o} value={o}>
-                {lineOutcomeLabel(o)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          type="button"
-          className="icon-button"
-          onClick={() => visible.forEach((l) => entries[l.id]?.included && patch(l.id, { outcome: bulkOutcome }))}
-        >
-          Apply
-        </button>
+        <MenuButton
+          label="Bulk ▾"
+          className="button secondary small"
+          title="Change every SIM line the filter shows at once"
+          items={[
+            { label: "Include all shown", onSelect: () => visible.forEach((l) => patch(l.id, { included: true })) },
+            { label: "Exclude all shown", onSelect: () => visible.forEach((l) => patch(l.id, { included: false })) },
+            ...TEST_RESULTS.map((o) => ({
+              label: `Set included to ${lineOutcomeLabel(o)}`,
+              onSelect: () => visible.forEach((l) => entries[l.id]?.included && patch(l.id, { outcome: o })),
+            })),
+          ]}
+        />
       </div>
 
       <table className="data-table test-results-table" data-resize-key="test-run-sim-lines">

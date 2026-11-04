@@ -1,8 +1,12 @@
+import { useState } from "react";
+
 /** A run's Received Power in dBFS — one value for the whole run, required.
  * Kept as typed; `receivedPowerError` says what's wrong with it, if anything. */
 export function ReceivedPowerInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  // Marked missing only once it's been left empty, not before anything is typed.
+  const [touched, setTouched] = useState(false);
   return (
-    <label className={value.trim() === "" ? "field-missing" : undefined}>
+    <label className={touched && value.trim() === "" ? "field-missing" : undefined}>
       <span>
         Received Power (dBFS) <span className="required-mark" aria-hidden="true">*</span>
       </span>
@@ -12,6 +16,8 @@ export function ReceivedPowerInput({ value, onChange }: { value: string; onChang
         inputMode="decimal"
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={() => setTouched(true)}
+        onInvalid={() => setTouched(true)}
         required
         placeholder="−45"
         title="How strong the signals were received over the run, in dBFS (0 is full scale) — required"

@@ -712,7 +712,7 @@ export function TestRunNewPage() {
           </div>
         )}
 
-        <div className="form-row">
+        <div className="form-row form-sticky-footer">
           <button type="submit" disabled={create.isPending || saveStatus.kind === "conflict" || saveStatus.kind === "gone"}>
             {create.isPending ? "Logging…" : "Log test run"}
           </button>
@@ -722,8 +722,8 @@ export function TestRunNewPage() {
               Discard this run
             </button>
           )}
+          {error && <div className="error-text">{error}</div>}
         </div>
-        {error && <div className="error-text">{error}</div>}
       </form>
 
       {/* Outside the form above: ModeForm renders its own <form>, and nested
