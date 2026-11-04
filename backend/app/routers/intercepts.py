@@ -1040,12 +1040,14 @@ def regroup_intercept(
 
     for gi, group in enumerate(payload.groups):
         values = group.entry.model_dump()
+        if "hypothesis" not in group.entry.model_fields_set:
+            # Not sent: the group keeps the notes of the entries its reports came
+            # from — every one's, the biggest share first, as a merge does.
+            shares = Counter(current[r] for r in group.report_ids if current[r] is not None)
+            notes = [entries_by_id[eid].hypothesis for eid, _n in shares.most_common() if eid in entries_by_id]
+            values["hypothesis"] = " / ".join(dict.fromkeys(n.strip() for n in notes if n and n.strip())) or None
         if gi in kept_by_group:
             entry = entries_by_id[kept_by_group[gi]]
-            # A hypothesis written on the entry stays with the group that keeps it,
-            # unless the regroup sends one.
-            if "hypothesis" not in group.entry.model_fields_set:
-                values.pop("hypothesis")
             for field, value in values.items():
                 setattr(entry, field, value)
         else:

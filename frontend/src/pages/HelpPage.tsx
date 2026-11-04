@@ -1316,9 +1316,9 @@ export function HelpPage() {
             2?&rdquo; — in its <strong>Notes</strong>, first in the table: click, type, Enter (or click away) saves,
             Esc cancels. Sort by them to see the entries with the same notes together. The column is in the grouping
             table too, when importing or regrouping, so you can label the groups straight after clustering; a group
-            you merge, split or Auto group again takes the notes of the group it has most reports from. Notes are
-            saved with the entries, kept when you correct or regroup them, joined when you merge them, and every
-            change is in the Audit Log. (<strong>Details</strong>, further along, says where an imported entry came
+            you merge, split or Auto group again keeps the notes of every group its reports came from (joined with
+            &ldquo; / &rdquo;, the biggest share first). Notes are saved with the entries, kept when you correct or
+            regroup them, joined when you merge them, and every change is in the Audit Log. (<strong>Details</strong>, further along, says where an imported entry came
             from.)
           </p>
           <p>

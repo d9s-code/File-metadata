@@ -19,10 +19,11 @@ export interface ReportGroup {
   hypothesis?: string | null;
 }
 
-/** After a merge, split, Auto group …: each new group without a hypothesis of
- * its own takes the one of the group it has most reports from, so labelling
- * the groups isn't undone by tidying them. A group that has one (even blank,
- * cleared on purpose) keeps it. */
+/** After a merge, split, Auto group …: each new group without notes of its
+ * own takes the notes of the groups its reports came from — all of them,
+ * the biggest share first, joined with " / " (as merging entries does) — so
+ * tidying the groups doesn't undo them. A group that has notes (even blank,
+ * cleared on purpose) keeps them. */
 export function carryHypotheses(prev: ReportGroup[], next: ReportGroup[]): ReportGroup[] {
   const labelled = prev.filter((g) => g.hypothesis);
   if (labelled.length === 0) return next;
@@ -35,15 +36,13 @@ export function carryHypotheses(prev: ReportGroup[], next: ReportGroup[]): Repor
       const from = groupOfLine.get(l);
       if (from) counts.set(from, (counts.get(from) ?? 0) + 1);
     }
-    let best: ReportGroup | null = null;
-    let most = 0;
-    for (const [from, n] of counts) {
-      if (n > most) {
-        best = from;
-        most = n;
-      }
-    }
-    return best ? { ...g, hypothesis: best.hypothesis } : g;
+    if (counts.size === 0) return g;
+    const notes = [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([from]) => (from.hypothesis ?? "").trim())
+      .filter(Boolean);
+    const joined = [...new Set(notes)].join(" / ");
+    return joined ? { ...g, hypothesis: joined } : g;
   });
 }
 

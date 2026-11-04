@@ -1017,9 +1017,11 @@ def test_a_hypothesis_on_each_entry_is_kept_through_edits_regroups_and_merges(ed
         ids_of.setdefault(body["entries"][rep[1]], []).append(rep[0])
     version = body["grouping_version"]
     assert _regroup(editor_client, iid, [(3001, ids_of[a["id"]]), (3010, ids_of[b["id"]] + ids_of[c["id"]])], version).status_code == 200
-    after = {e["id"]: e for e in editor_client.get(f"/intercepts/{iid}/entries").json()}
-    assert after[a["id"]]["hypothesis"] == "Search radar, mode 2?"
-    assert after[b["id"]]["hypothesis"] == "Nav radar"
+    after = {e["rf_mean_mhz"]: e for e in editor_client.get(f"/intercepts/{iid}/entries").json()}
+    assert after[3001]["id"] == a["id"] and after[3001]["hypothesis"] == "Search radar, mode 2?"
+    # B and C became one group: whichever entry it kept, it has both their notes.
+    assert set(after[3010]["hypothesis"].split(" / ")) == {"Nav radar", "Same as B?"}
+    bc = after[3010]["id"]
     # …and sets one when it sends one.
     regroup = editor_client.put(
         f"/intercepts/{iid}/grouping",
@@ -1033,9 +1035,11 @@ def test_a_hypothesis_on_each_entry_is_kept_through_edits_regroups_and_merges(ed
     )
     assert regroup.status_code == 200, regroup.text
     after = {e["id"]: e for e in editor_client.get(f"/intercepts/{iid}/entries").json()}
-    assert after[a["id"]]["hypothesis"] == "Fire control" and after[b["id"]]["hypothesis"] == "Nav radar"
+    assert after[a["id"]]["hypothesis"] == "Fire control"
+    assert set(after[bc]["hypothesis"].split(" / ")) == {"Nav radar", "Same as B?"}
 
-    # Merging keeps every hypothesis, each once.
-    merged = editor_client.post(f"/intercepts/{iid}/entries/merge", json={"entry_ids": [a["id"], b["id"]]})
+    # Merging keeps every entry's notes, each once.
+    merged = editor_client.post(f"/intercepts/{iid}/entries/merge", json={"entry_ids": [a["id"], bc]})
     assert merged.status_code == 200, merged.text
-    assert merged.json()["hypothesis"] == "Fire control / Nav radar"
+    # (In the merged entries' order, which for one import's entries is arbitrary.)
+    assert set(merged.json()["hypothesis"].split(" / ")) == {"Fire control", "Nav radar", "Same as B?"}
