@@ -307,6 +307,8 @@ class Conflict:
     kind: str  # "field" | "server_deleted" | "pc_deleted" | "parent_deleted" | "being_edited"
     fields: list[dict] = field(default_factory=list)  # {name, base, server, pc}
     note: str = ""
+    # "table|key" of a row the PC winning would put back — with what's under it on the PC.
+    restore: str | None = None
 
 
 @dataclass
@@ -365,6 +367,8 @@ class _Rows:
                 self.base[c["table"]][c["key"]] = c["base"]
         for c in payload.get("context", []):
             self.context[c["table"]][c["key"]] = c["local"]
+        # What's under a row the server deleted, as it is on the PC: "table|key" → rows.
+        self.subtrees: dict[str, list[dict]] = payload.get("subtrees") or {}
 
     def load_server(self, name: str, keys) -> None:
         t = Base.metadata.tables[name]
@@ -490,12 +494,24 @@ def plan_sync(conn: Connection, payload: dict, *, user_id: uuid.UUID, resolution
 
         if server is None:
             if base is None:  # new on the PC
-                ops.append(Op(name, key, "insert", dict(local), g.key))
+                ops.append(Op(name, key, "insert", _for_insert(name, local), g.key))
             else:  # changed on the PC, deleted on the server
-                g.conflicts.append(Conflict(name, key, "server_deleted", note="Changed on the PC, deleted on the server"))
+                g.conflicts.append(
+                    Conflict(name, key, "server_deleted", note="Changed on the PC, deleted on the server", restore=f"{name}|{key}")
+                )
                 if pc_wins(g):
-                    ops.append(Op(name, key, "insert", local, g.key))
+                    ops.append(Op(name, key, "insert", _for_insert(name, local), g.key))
+                    _restore_subtree(rows, ops, f"{name}|{key}", g.key, user_ids, user_id)
             continue
+
+        if base is None and not c.get("merged"):
+            # New on the PC but the server has it already: an earlier sync that got
+            # this far and then broke off. What the server has came from the PC —
+            # the base — so only what the PC changed since goes over it, and the
+            # number or name that sync gave it stays.
+            base = dict(server)
+            for n in _assigned_columns(name):
+                local[n] = server.get(n)
 
         # On both sides: field by field.
         take: dict = {}
@@ -524,18 +540,100 @@ def plan_sync(conn: Connection, payload: dict, *, user_id: uuid.UUID, resolution
         if any(n not in SOFT_COLUMNS for n in take):
             ops.append(Op(name, key, "update", take, g.key))
 
-    _check_parents(conn, rows, ops, groups, inserted_keys, deleted_keys, resolutions)
-    _flag_edit_locks(rows, groups, user_id)
-    # Someone is editing it on the server and the server is to win: leave it alone entirely.
-    held = {
-        g.key for g in groups.values()
-        if any(c.kind == "being_edited" for c in g.conflicts) and resolutions.get(g.key) == "server"
-    }
-    ops = [op for op in ops if op.group not in held]
+    _keep_what_is_under_kept_rows(rows, ops, deleted_keys)
+    _check_parents(conn, rows, ops, groups, inserted_keys, deleted_keys, resolutions, user_ids, user_id)
+    _flag_edit_locks(conn, rows, groups, ops, user_id, notes)
 
     unresolved = [g.key for g in groups.values() if g.conflicts and resolutions.get(g.key) not in ("pc", "server")]
     # A group the server wins keeps none of the PC's changes that clash; the rest still go in.
     return Plan(groups=groups, ops=ops, notes=notes, unresolved=unresolved)
+
+
+def _for_insert(name: str, row: dict) -> dict:
+    """A row going in new on the server: not held by anyone there."""
+    out = dict(row)
+    for col in LOCAL_ONLY_COLUMNS.get(name, set()):
+        out[col] = None
+    return out
+
+
+def _assigned_columns(name: str) -> list[str]:
+    """Columns a sync may have set differently on the server than on the PC: a
+    renumbered version's number, a renamed name."""
+    cols = []
+    if name in NUMBERED:
+        cols.append(NUMBERED[name][1])
+    if name == "emitter_checkpoints":
+        cols += ["number", "base_version_number", "promoted_to_version_number"]
+    if name in _NAME_UNIQUE:
+        cols.append("name")
+    return cols
+
+
+def _restore_subtree(rows: _Rows, ops: list[Op], root: str, group: str, user_ids: set[str], user_id) -> None:
+    """Putting a row back from the PC: what's under it on the PC comes back too
+    (a Mode without its line, or an EW Group without its Modes, would be broken)."""
+    have = {(op.table, op.key) for op in ops}
+    for item in rows.subtrees.get(root, []):
+        name, key, row = item["table"], item["key"], dict(item["local"])
+        if name in SKIP_TABLES or (name, key) in have or rows.on_server(name, key) is not None:
+            continue
+        _fix_user_refs(Base.metadata.tables[name], row, user_ids, user_id)
+        ops.append(Op(name, key, "insert", _for_insert(name, row), group))
+        have.add((name, key))
+
+
+def collect_subtrees(conn: Connection, roots: list[str]) -> dict[str, list[dict]]:
+    """The PC's side: for each "table|key", every row under it (children,
+    their children …) as it is on the PC — sent along when the server has
+    deleted the row, so putting it back puts back all of it."""
+    out: dict[str, list[dict]] = {}
+    children: dict[str, list[tuple[Table, str]]] = defaultdict(list)
+    for t in synced_tables():
+        for col, parent in _fk_targets(t):
+            if parent.name != t.name:
+                children[parent.name].append((t, col))
+    for root in roots:
+        name, key = root.split("|", 1)
+        found: list[dict] = []
+        seen: set[tuple[str, str]] = {(name, key)}
+        todo = [(name, key)]
+        while todo and len(found) < 20000:
+            parent_name, parent_key = todo.pop()
+            for child, col in children.get(parent_name, []):
+                value = _load(child.c[col].type, parent_key)
+                for r in conn.execute(select(*_columns(child)).where(child.c[col] == value)).mappings():
+                    d = dump_row(child, r)
+                    k = row_key(child, d)
+                    if (child.name, k) in seen:
+                        continue
+                    seen.add((child.name, k))
+                    found.append({"table": child.name, "key": k, "local": d})
+                    if len(_pk_cols(child)) == 1:
+                        todo.append((child.name, k))
+        out[root] = found
+    return out
+
+
+def _keep_what_is_under_kept_rows(rows: _Rows, ops: list[Op], deleted_keys: set) -> None:
+    """The PC deleted something (an EW Group) and with it what was under it (its
+    Modes); if the server is to keep the thing, it keeps what's under it too."""
+    deleting = {(op.table, op.key) for op in ops if op.action == "delete"}
+    kept = {k for k in deleted_keys if k not in deleting and rows.on_server(*k) is not None}
+    while kept:
+        newly = set()
+        for op in ops:
+            if op.action != "delete" or (op.table, op.key) in newly:
+                continue
+            base = rows.base[op.table].get(op.key) or {}
+            for col, parent in _fk_targets(Base.metadata.tables[op.table]):
+                if (parent.name, base.get(col)) in kept:
+                    newly.add((op.table, op.key))
+                    break
+        if not newly:
+            return
+        ops[:] = [op for op in ops if (op.table, op.key) not in newly]
+        kept = newly
 
 
 def _prefetch_parents(rows: _Rows, changes: list[dict]) -> None:
@@ -644,6 +742,8 @@ def _rename_clashing_names(conn, rows: _Rows, by_table, notes) -> None:
             if local is None:
                 continue
             server = rows.on_server(name, c["key"])
+            if server is not None and c.get("base") is None:
+                continue  # an earlier sync's, already on the server (named as it was then)
             if server is not None and server.get("name") == local.get("name"):
                 continue
             if local.get("name") in taken and (server is None or server.get("name") != local.get("name")):
@@ -662,10 +762,15 @@ def _renumber_versions(conn, rows: _Rows, by_table, notes) -> None:
             continue
         t = Base.metadata.tables[name]
         new = sorted(
-            (c for c in by_table[name] if c.get("base") is None and c.get("local") is not None),
+            (
+                c
+                for c in by_table[name]
+                if c.get("base") is None and c.get("local") is not None and rows.on_server(name, c["key"]) is None
+            ),
             key=lambda c: c["local"][num_col],
         )
         used: dict[str, set[int]] = {}
+        moved: dict[str, dict[int, int]] = defaultdict(dict)  # parent → old number → new
         for c in new:
             parent = c["local"][parent_col]
             if parent not in used:
@@ -678,18 +783,26 @@ def _renumber_versions(conn, rows: _Rows, by_table, notes) -> None:
             if old in used[parent]:
                 fresh = max(used[parent]) + 1
                 c["local"][num_col] = fresh
-                if name == "emitter_versions":
-                    _renumber_checkpoints(rows, parent, old, fresh)
+                moved[parent][old] = fresh
                 label = _owner_label(_parent_owner(name), rows.any(_parent_owner(name), parent))
                 notes.append(f"'{label}': the PC's v{old} is v{fresh} on the server (the server has a v{old} of its own)")
                 old = fresh
             used[parent].add(old)
+        if name == "emitter_versions":
+            # All at once: v2→v3 and v3→v4 mustn't move a checkpoint twice.
+            _renumber_checkpoints(rows, moved)
     # Checkpoint numbers after a version: the same, per (Emitter, version).
     if "emitter_checkpoints" in by_table:
         t = Base.metadata.tables["emitter_checkpoints"]
         used_cp: dict[tuple, set[int]] = {}
         for c in sorted(
-            (c for c in by_table["emitter_checkpoints"] if c.get("base") is None and c.get("local") is not None),
+            (
+                c
+                for c in by_table["emitter_checkpoints"]
+                if c.get("base") is None
+                and c.get("local") is not None
+                and rows.on_server("emitter_checkpoints", c["key"]) is None
+            ),
             key=lambda c: c["local"]["number"],
         ):
             loc = c["local"]
@@ -717,14 +830,14 @@ def _parent_owner(name: str) -> str:
     }[name]
 
 
-def _renumber_checkpoints(rows: _Rows, emitter_id: str, old: int, new: int) -> None:
+def _renumber_checkpoints(rows: _Rows, moved: dict[str, dict[int, int]]) -> None:
     for row in list(rows.local["emitter_checkpoints"].values()):
-        if row.get("emitter_id") != emitter_id:
+        mapping = moved.get(row.get("emitter_id"))
+        if not mapping:
             continue
-        if row.get("base_version_number") == old:
-            row["base_version_number"] = new
-        if row.get("promoted_to_version_number") == old:
-            row["promoted_to_version_number"] = new
+        for col in ("base_version_number", "promoted_to_version_number"):
+            if row.get(col) in mapping:
+                row[col] = mapping[row[col]]
 
 
 def _apply_remap(rows: _Rows, changes: list[dict], remap) -> None:
@@ -740,6 +853,7 @@ def _apply_remap(rows: _Rows, changes: list[dict], remap) -> None:
             for col, value in zip(_pk_cols(t), new_key.split("|")):
                 local[col] = value
             c["key"] = new_key
+            c["merged"] = True
             server = rows.on_server(c["table"], new_key)
             # Its base is the server's row: only what the PC set differently goes over it.
             c["base"] = None
@@ -757,7 +871,7 @@ def _apply_remap(rows: _Rows, changes: list[dict], remap) -> None:
                 local[col] = remap[parent.name][v]
 
 
-def _check_parents(conn, rows: _Rows, ops: list[Op], groups, inserted, deleted, resolutions) -> None:
+def _check_parents(conn, rows: _Rows, ops: list[Op], groups, inserted, deleted, resolutions, user_ids, user_id) -> None:
     """A row the PC added or changed under something the server has deleted:
     a conflict. If the PC wins, the parent is put back from the PC's copy;
     otherwise the row stays out — and so, in turn, does anything under it."""
@@ -783,12 +897,21 @@ def _check_parents(conn, rows: _Rows, ops: list[Op], groups, inserted, deleted, 
                     noted.add((op.table, op.key))
                     label = OWNER_TABLES.get(parent.name, (parent.name.replace("_", " "),))[0]
                     g.conflicts.append(
-                        Conflict(op.table, op.key, "parent_deleted", note=f"Added or changed on the PC under a {label} the server has deleted")
+                        Conflict(
+                            op.table,
+                            op.key,
+                            "parent_deleted",
+                            note=f"Added or changed on the PC under a {label} the server has deleted",
+                            restore=f"{parent.name}|{value}",
+                        )
                     )
                 pc_copy = rows.local[parent.name].get(value) or rows.context[parent.name].get(value)
                 if resolutions.get(g.key) == "pc" and pc_copy is not None:
                     ops[:] = [o for o in ops if not (o.table == parent.name and o.key == value)]
-                    ops.append(Op(parent.name, value, "insert", dict(pc_copy), g.key))
+                    restored = dict(pc_copy)
+                    _fix_user_refs(parent, restored, user_ids, user_id)
+                    ops.append(Op(parent.name, value, "insert", _for_insert(parent.name, restored), g.key))
+                    _restore_subtree(rows, ops, f"{parent.name}|{value}", g.key, user_ids, user_id)
                 else:
                     ops.remove(op)
                 changed = True
@@ -799,16 +922,18 @@ def _check_parents(conn, rows: _Rows, ops: list[Op], groups, inserted, deleted, 
             return
 
 
-def _flag_edit_locks(rows: _Rows, groups: dict[str, Group], user_id: uuid.UUID) -> None:
+def _flag_edit_locks(conn, rows: _Rows, groups: dict[str, Group], ops: list[Op], user_id: uuid.UUID, notes) -> None:
+    """Someone else is editing an Emitter the PC changed: worth knowing — the
+    PC's changes go into what they're editing — but nothing to choose."""
+    touched = {op.group for op in ops}
     for g in groups.values():
-        if not g.key.startswith("emitters:") or not g.changes:
+        if not g.key.startswith("emitters:") or g.key not in touched:
             continue
         server = rows.on_server("emitters", g.key.split(":", 1)[1])
         holder = server and server.get("checked_out_by_id")
         if holder and holder != str(user_id):
-            g.conflicts.append(
-                Conflict("emitters", g.key.split(":", 1)[1], "being_edited", note="Someone is editing it on the server right now")
-            )
+            who = conn.execute(text("SELECT username FROM users WHERE id = :id"), {"id": holder}).scalar() or "someone"
+            notes.append(f"{who} is editing '{g.label}' on the server right now — the PC's changes go into it")
 
 
 # --- Applying -------------------------------------------------------------------
@@ -888,7 +1013,8 @@ def plan_to_json(plan: Plan) -> dict:
                 "label": g.label,
                 "changes": g.changes,
                 "conflicts": [
-                    {"table": c.table, "kind": c.kind, "note": c.note, "fields": c.fields} for c in g.conflicts
+                    {"table": c.table, "kind": c.kind, "note": c.note, "fields": c.fields, "restore": c.restore}
+                    for c in g.conflicts
                 ],
             }
             for g in groups

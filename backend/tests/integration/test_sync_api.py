@@ -4,114 +4,12 @@ The "PC" is the same app running on a database of its own (its own schema
 here): it loads a copy from the server, keeps an untouched copy as the base,
 is edited through the API like the real thing, and sends what changed."""
 
-import os
-from contextlib import contextmanager
+from app.core.security import verify_password
+from tests.integration.sync_support import add_mode as _add_mode
+from tests.integration.sync_support import make_emitter as _emitter
+from tests.integration.sync_support import mode_names as _modes
+from tests.integration.sync_support import sync_apply as _sync
 
-import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
-
-from app.core.security import hash_password, verify_password
-from app.database import Base, get_db
-from app.main import app as fastapi_app
-from app.services.sync_service import compute_changes, load_copy
-from tests.integration.test_modes_api import FIXED_LINE
-
-_URL = os.environ["DATABASE_URL"]
-
-
-def _schema_url(schema: str) -> str:
-    return _URL.replace("search_path%3Dv2_test", f"search_path%3D{schema}")
-
-
-@pytest.fixture(scope="module")
-def _pc_schemas():
-    main = create_engine(_URL)
-    engines = {}
-    for schema in ("v2_sync_pc", "v2_sync_base"):
-        with main.begin() as c:
-            c.execute(text(f"DROP SCHEMA IF EXISTS {schema} CASCADE"))
-            c.execute(text(f"CREATE SCHEMA {schema}"))
-        eng = create_engine(_schema_url(schema))
-        Base.metadata.create_all(eng)
-        engines[schema] = eng
-    yield engines
-    for schema, eng in engines.items():
-        eng.dispose()
-        with main.begin() as c:
-            c.execute(text(f"DROP SCHEMA IF EXISTS {schema} CASCADE"))
-    main.dispose()
-
-
-class PC:
-    def __init__(self, engines):
-        self.engine = engines["v2_sync_pc"]
-        self.base = engines["v2_sync_base"]
-
-    def take_copy(self, server):
-        resp = server.get("/sync/copy")
-        assert resp.status_code == 200, resp.text
-        copy = resp.json()
-        for eng in (self.engine, self.base):
-            with eng.begin() as c:
-                load_copy(c, copy)
-        # As the standalone app does: the copy has no passwords; the PC lets in
-        # whoever signed in to the server from it, with its own hash.
-        with self.engine.begin() as c:
-            c.execute(
-                text("UPDATE users SET password_hash = :h WHERE username = 'admin_t'"),
-                {"h": hash_password("adminpass123")},
-            )
-
-    @contextmanager
-    def client(self, username="admin_t", password="adminpass123"):
-        """The app as it runs on the PC: the same API, on the PC's database."""
-        session = sessionmaker(bind=self.engine, autoflush=False)()
-        before = fastapi_app.dependency_overrides.get(get_db)
-
-        def _pc_db():
-            yield session
-
-        fastapi_app.dependency_overrides[get_db] = _pc_db
-        try:
-            c = TestClient(fastapi_app)
-            r = c.post("/auth/login", json={"username": username, "password": password})
-            assert r.status_code == 200, r.text
-            c.headers.update({"x-csrf-token": c.cookies.get("csrf_token")})
-            yield c
-        finally:
-            fastapi_app.dependency_overrides[get_db] = before
-            session.close()
-
-    def changes(self) -> dict:
-        with self.engine.connect() as local, self.base.connect() as base:
-            return compute_changes(local, base)
-
-
-@pytest.fixture()
-def pc(_pc_schemas, db_session):
-    yield PC(_pc_schemas)
-
-
-def _emitter(client, name="Sync Radar"):
-    e = client.post("/emitters", json={"name": name}).json()
-    g = client.post(f"/emitters/{e['id']}/ew-groups", json={"name": "G"}).json()
-    s = client.post(f"/emitters/{e['id']}/sources", json={"name": "S", "source_date": "2025-01-01"}).json()
-    return e, g, s
-
-
-def _add_mode(client, g, s, name):
-    r = client.post(f"/ew-groups/{g['id']}/modes", json={"source_id": s["id"], "name": name, "pri_type": "fixed", "line": FIXED_LINE})
-    assert r.status_code == 201, r.text
-
-
-def _modes(client, g):
-    return sorted(m["name"] for m in client.get(f"/ew-groups/{g['id']}/modes").json())
-
-
-def _sync(server, payload, resolutions=None):
-    return server.post("/sync/apply", json={"payload": payload, "resolutions": resolutions or {}, "device": "Field laptop"})
 
 
 def test_changes_on_both_sides_merge_without_conflict(admin_client, pc):
@@ -221,7 +119,7 @@ def test_a_mode_added_under_a_group_the_server_deleted(admin_client, pc):
         _add_mode(laptop, g, s, "Orphan")
     assert server.delete(f"/emitters/{e['id']}/ew-groups/{g['id']}").status_code == 204
 
-    payload = pc.changes()
+    payload = pc.payload(server)
     preview = server.post("/sync/preview", json={"payload": payload}).json()
     kinds = {c["kind"] for gr in preview["groups"] for c in gr["conflicts"]}
     assert "parent_deleted" in kinds

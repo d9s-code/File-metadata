@@ -36,7 +36,6 @@ const CONFLICT_TEXT: Record<string, string> = {
   server_deleted: "Changed on this PC, deleted on the server",
   pc_deleted: "Deleted on this PC, changed on the server",
   parent_deleted: "Added on this PC under something the server has deleted",
-  being_edited: "Someone is editing it on the server right now",
 };
 
 function show(value: unknown): string {

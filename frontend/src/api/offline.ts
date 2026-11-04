@@ -23,9 +23,11 @@ export interface LocalChanges {
 
 export interface SyncConflict {
   table: string;
-  kind: "field" | "server_deleted" | "pc_deleted" | "parent_deleted" | "being_edited";
+  kind: "field" | "server_deleted" | "pc_deleted" | "parent_deleted";
   note: string;
   fields: { name: string; base: unknown; server: unknown; pc: unknown }[];
+  /** "table|key" of a row keeping the PC's version would put back. */
+  restore: string | null;
 }
 
 export interface SyncGroup {

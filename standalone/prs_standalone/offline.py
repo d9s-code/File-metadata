@@ -250,6 +250,22 @@ def _fetch_from(server: ServerSession, *, replacing: bool) -> dict:
     return {"rows": sum(counts.values()), "kept_copy": str(kept) if kept else None}
 
 
+def _payload(server: ServerSession) -> dict:
+    """This PC's changes, plus — for anything the server has deleted that the
+    PC changed or added under — all of it as it is here, so that keeping the
+    PC's version puts it back whole. (The server says which: a first preview.)"""
+    payload = _changes()
+    if not payload["changes"]:
+        return payload
+    r = server.post("/sync/preview", {"payload": payload, "device": socket.gethostname()})
+    _raise_for(r, "Comparing with the server")
+    roots = sorted({c["restore"] for g in r.json()["groups"] for c in g["conflicts"] if c.get("restore")})
+    if roots:
+        with live_engine.connect() as conn:
+            payload["subtrees"] = sync_service.collect_subtrees(conn, roots)
+    return payload
+
+
 def _meaningful(changes: list[dict]) -> list[dict]:
     """Changes worth a person's attention: not sign-ins and the like."""
     return [c for c in changes if c["table"] != "audit_log"]
@@ -395,7 +411,7 @@ def fetch_again(force: bool = False, db: Session = Depends(get_db), _=Depends(re
 def preview(body: SyncChoices, _=Depends(require_role(Role.admin))) -> dict:
     server = _session()
     with _lock:
-        payload = _changes()
+        payload = _payload(server)
         r = server.post("/sync/preview", {"payload": payload, "resolutions": body.resolutions, "device": socket.gethostname()})
         _raise_for(r, "Comparing with the server")
         return {**r.json(), "local_changes": len(_meaningful(payload["changes"]))}
@@ -408,7 +424,7 @@ def sync(body: SyncChoices, db: Session = Depends(get_db), _=Depends(require_rol
     server = _session()
     db.close()  # this request's own reads mustn't hold up replacing the tables
     with _lock:
-        payload = _changes()
+        payload = _payload(server)
         if not payload["changes"]:
             result = {"applied": {}, "notes": []}
         else:
