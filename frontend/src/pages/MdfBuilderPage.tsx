@@ -250,7 +250,7 @@ export function MdfBuilderPage() {
 
       <div className="tab-bar">
         <button className={tab === "platforms" ? "tab active" : "tab"} onClick={() => setTab("platforms")}>
-          Pinned Platforms
+          Pinned Platforms {links && <span className="tab-count">{links.length}</span>}
         </button>
         <button className={tab === "charts" ? "tab active" : "tab"} onClick={() => setTab("charts")}>
           Charts

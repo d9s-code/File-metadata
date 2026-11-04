@@ -7494,3 +7494,34 @@ button.meta-chip:hover:not(:disabled) { color: var(--text); }
   right: auto;
   transform: translateX(-50%);
 }
+
+/* Tabs: underlined, not boxed — the page's sections read as one strip, the
+   current one marked by its colour and a bar under it. */
+.tab-bar {
+  gap: 0.15rem;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.tab,
+.tab:hover,
+.tab.active,
+.tab.active:hover {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  margin-bottom: -1px;
+  padding: 0.45rem 0.75rem;
+  box-shadow: none;
+}
+.tab:hover { color: var(--text); border-bottom-color: var(--border); }
+.tab.active,
+.tab.active:hover {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  font-weight: 600;
+}
+.tab.active .tab-count {
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  color: var(--primary);
+}

@@ -175,7 +175,7 @@ export function PlatformBuilderPage() {
 
       <div className="tab-bar">
         <button className={tab === "emitters" ? "tab active" : "tab"} onClick={() => setTab("emitters")}>
-          Pinned Emitters
+          Pinned Emitters {links && <span className="tab-count">{links.length}</span>}
         </button>
         <button className={tab === "charts" ? "tab active" : "tab"} onClick={() => setTab("charts")}>
           Charts

@@ -283,7 +283,7 @@ export function EmitterEditorPage() {
 
       <div className="tab-bar">
         <button className={tab === "modes" ? "tab active" : "tab"} onClick={() => setTab("modes")}>
-          Modes
+          Modes <span className="tab-count">{modeCount}</span>
         </button>
         <button className={tab === "setup" ? "tab active" : "tab"} onClick={() => setTab("setup")}>
           Groups & Sources
