@@ -60,7 +60,7 @@ def test_fork_creates_independent_emitter_with_fresh_ids(editor_client):
     assert forked_versions[0]["version_number"] == 1
     assert forked_versions[0]["change_summary"] == "v1"
     assert forked_versions[1]["version_number"] == 2
-    assert "Forked from" in forked_versions[1]["change_summary"]
+    assert "Copied from" in forked_versions[1]["change_summary"]
 
 
 def test_fork_does_not_require_source_emitter_checkout(editor_client, admin_client):

@@ -444,7 +444,7 @@ def commit_mdf_version(
         action=AuditAction.commit,
         entity_type=AuditEntityType.mdf.value,
         entity_id=mdf.id,
-        summary=f"Committed a version of MDF '{mdf.name}'"
+        summary=f"Saved a version of MDF '{mdf.name}'"
         + (f" — {payload.change_summary}" if payload.change_summary else ""),
     )
     return commit_version(

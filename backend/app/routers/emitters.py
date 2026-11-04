@@ -239,7 +239,7 @@ def delete_emitter(
     if held_by_someone_else and user.role != Role.admin:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
-            "This Emitter is checked out by another user — only they or an Admin can delete it",
+            "Someone else is editing this Emitter — only they or an Admin can delete it",
         )
     if hard:
         if user.role != Role.admin:
@@ -368,7 +368,7 @@ def checkout_emitter(
     try:
         checkout_service.start_checkout(emitter, user.id)
     except checkout_service.AlreadyCheckedOutBySomeoneElse as exc:
-        raise HTTPException(status.HTTP_409_CONFLICT, f"Checked out by another user (since {emitter.checked_out_at})") from exc
+        raise HTTPException(status.HTTP_409_CONFLICT, f"Someone else is editing this Emitter (since {emitter.checked_out_at})") from exc
     record_audit(
         db,
         actor_id=user.id,
@@ -395,9 +395,9 @@ def checkin_emitter(
     """
     emitter = _get_emitter_or_404(db, emitter_id)
     if emitter.checked_out_by_id is None:
-        raise HTTPException(status.HTTP_409_CONFLICT, "This Emitter isn't checked out")
+        raise HTTPException(status.HTTP_409_CONFLICT, "Nobody is editing this Emitter")
     if emitter.checked_out_by_id != user.id and user.role != Role.admin:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the holder or an Admin can release this checkout")
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the person editing it or an Admin can stop someone editing it")
     holder_id = emitter.checked_out_by_id
     forced = holder_id != user.id
     holder = db.get(User, holder_id) if forced else None
@@ -454,7 +454,7 @@ def discard_emitter_changes(
         action=AuditAction.discard,
         entity_type=AuditEntityType.emitter.value,
         entity_id=emitter.id,
-        summary=f"Discarded uncommitted changes on Emitter '{emitter.name}' (back to {what})",
+        summary=f"Discarded unsaved changes on Emitter '{emitter.name}' (back to {what})",
         changes={"version_number": latest.row.version_number} if latest.kind == "version" else {"checkpoint": latest.ref},
         emitter_id=emitter.id,
     )
@@ -880,7 +880,7 @@ def commit_emitter_version(
         action=AuditAction.commit,
         entity_type=AuditEntityType.emitter.value,
         entity_id=emitter.id,
-        summary=f"Committed a version of Emitter '{emitter.name}'"
+        summary=f"Saved a version of Emitter '{emitter.name}'"
         + (f" — {payload.change_summary}" if payload.change_summary else ""),
         changes={"version_number": _next_version_number(db, emitter.id)},
         emitter_id=emitter.id,
@@ -1027,21 +1027,22 @@ def revert_emitter_version(
     if emitter.forked_at_version_number is not None and version_number <= emitter.forked_at_version_number:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
-            "This version predates the fork — its rows belong to the original Emitter, not this one, "
+            "This version is from the original Emitter, before this one was copied from it — its contents belong "
+            "to the original, so this Emitter can't go back to it. Copy that version as a new Emitter instead. "
             "so it can't be reverted to directly. Fork from it again instead if you need its content.",
         )
     try:
         checkout_service.start_checkout(emitter, user.id)
     except checkout_service.AlreadyCheckedOutBySomeoneElse as exc:
-        raise HTTPException(status.HTTP_409_CONFLICT, f"Checked out by another user (since {emitter.checked_out_at})") from exc
+        raise HTTPException(status.HTTP_409_CONFLICT, f"Someone else is editing this Emitter (since {emitter.checked_out_at})") from exc
 
     before = build_emitter_snapshot(emitter)
     reconcile_emitter_to_snapshot(db, emitter, target.snapshot)
     snapshot = build_emitter_snapshot(emitter)
     record_reconcile(
-        db, actor_id=user.id, emitter_id=emitter.id, before=before, after=snapshot, why=f"reverting to version {version_number}"
+        db, actor_id=user.id, emitter_id=emitter.id, before=before, after=snapshot, why=f"going back to version {version_number}"
     )
-    change_summary = f"Reverted to version {version_number}"
+    change_summary = f"Went back to version {version_number}"
     record_audit(
         db,
         actor_id=user.id,
@@ -1115,7 +1116,7 @@ def fork_emitter_version(
         )
     db.flush()
 
-    fork_summary = f"Forked from Emitter '{source_emitter.name}' version {version_number}"
+    fork_summary = f"Copied from Emitter '{source_emitter.name}' version {version_number}"
     record_audit(
         db,
         actor_id=user.id,
@@ -1131,7 +1132,7 @@ def fork_emitter_version(
         action=AuditAction.fork,
         entity_type=AuditEntityType.emitter.value,
         entity_id=source_emitter.id,
-        summary=f"Forked into new Emitter '{new_emitter.name}' from version {version_number}",
+        summary=f"Copied version {version_number} as a new Emitter, '{new_emitter.name}'",
         emitter_id=source_emitter.id,
     )
 

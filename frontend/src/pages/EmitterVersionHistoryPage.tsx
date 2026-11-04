@@ -63,7 +63,7 @@ export function EmitterVersionHistoryPage() {
       setPreviewing(false);
     } catch (err) {
       setPreviewing(false);
-      setError(err instanceof ApiRequestError ? err.message : "Failed to revert to this version");
+      setError(err instanceof ApiRequestError ? err.message : "Couldn't go back to this version");
     }
   }
 
@@ -84,14 +84,14 @@ export function EmitterVersionHistoryPage() {
       </div>
       {emitter.forked_from_emitter_id && (
         <p className="hint-text">
-          Forked from{" "}
+          Copied from{" "}
           <Link to={`/emitters/${emitter.forked_from_emitter_id}/versions`}>
             {forkSource?.name ?? "an earlier Emitter"}
           </Link>
           {forkBoundary != null &&
             (forkBoundary === 1
-              ? " — version 1 is that Emitter's history, before the fork"
-              : ` — versions 1–${forkBoundary} are that Emitter's history, before the fork`)}
+              ? " — version 1 is that Emitter's history, from before the copy"
+              : ` — versions 1–${forkBoundary} are that Emitter's history, from before the copy`)}
           .
         </p>
       )}
@@ -124,7 +124,7 @@ export function EmitterVersionHistoryPage() {
             loading={diffLoading}
             tags={
               isPreFork ? (
-                <span className="version-tag">Before fork</span>
+                <span className="version-tag">From the original</span>
               ) : fromCheckpoint ? (
                 <span className="version-tag">Made from checkpoint v{fromCheckpoint}</span>
               ) : undefined
@@ -132,8 +132,8 @@ export function EmitterVersionHistoryPage() {
             notice={
               isForkPoint && against == null ? (
                 <p className="hint-text">
-                  This version is where the fork happened — every EW Group, Source and Mode got a fresh id here, so
-                  this shows a full replacement rather than the (likely small) actual change.
+                  This version is where the copy was made — every EW Group, Source and Mode became a new one here, so
+                  this shows everything replaced rather than the (likely small) actual change.
                 </p>
               ) : undefined
             }
@@ -144,17 +144,17 @@ export function EmitterVersionHistoryPage() {
                   disabled={revertVersion.isPending || isPreFork || selected === latest}
                   title={
                     isPreFork
-                      ? "This version predates the fork — fork from it again instead of reverting to it"
+                      ? "This version is from the original Emitter — copy it as a new Emitter instead"
                       : selected === latest
                         ? "This is already the latest version"
-                        : "Make the Emitter match this version again (saved as a new version)"
+                        : "Make the Emitter as it was in this version again — saved as a new version, nothing is lost"
                   }
                   onClick={() => setPreviewing(true)}
                 >
-                  Revert to v{selected}…
+                  Go back to v{selected}…
                 </button>
-                <button className="button secondary small" onClick={() => setShowForkModal(true)} title="Start a new Emitter from this version">
-                  Fork v{selected}…
+                <button className="button secondary small" onClick={() => setShowForkModal(true)} title="Make a new, separate Emitter that starts out as this version">
+                  Copy as a new Emitter…
                 </button>
               </RequireRole>
             }

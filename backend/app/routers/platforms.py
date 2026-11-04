@@ -404,7 +404,7 @@ def commit_platform_version(
         action=AuditAction.commit,
         entity_type=AuditEntityType.platform.value,
         entity_id=platform.id,
-        summary=f"Committed a version of Platform '{platform.name}'"
+        summary=f"Saved a version of Platform '{platform.name}'"
         + (f" — {payload.change_summary}" if payload.change_summary else ""),
     )
     return commit_version(

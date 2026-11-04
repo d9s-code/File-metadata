@@ -50,7 +50,7 @@ def require_role(minimum: Role):
 def _not_checked_out_message(emitter: Emitter) -> str:
     if emitter.checked_out_by_id is None:
         return "Start editing this Emitter before making changes"
-    return f"This Emitter is checked out by another user (since {emitter.checked_out_at})"
+    return f"Someone else is editing this Emitter (since {emitter.checked_out_at})"
 
 
 def require_emitter_checkout(emitter_id_param: str = "emitter_id"):

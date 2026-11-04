@@ -41,7 +41,7 @@ def test_revert_reconciles_live_state_and_commits_new_version(editor_client):
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["version_number"] == 3
-    assert "Reverted to version 1" in body["change_summary"]
+    assert "Went back to version 1" in body["change_summary"]
 
     modes = editor_client.get(f"/emitters/{emitter_id}/modes").json()
     assert modes == []

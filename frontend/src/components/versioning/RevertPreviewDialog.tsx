@@ -26,7 +26,7 @@ export function RevertPreviewDialog({
   });
   const count = (kind: string) => data?.entries.filter((e) => e.kind === kind).length ?? 0;
   return (
-    <Modal title={`Revert to v${versionNumber}?`} onClose={onClose} wide>
+    <Modal title={`Go back to v${versionNumber}?`} onClose={onClose} wide>
       <div className="revert-preview">
         {isLoading ? (
           <p className="hint-text">Working out what it changes…</p>
@@ -35,7 +35,8 @@ export function RevertPreviewDialog({
         ) : (
           <>
             <p>
-              The Emitter is set back to v{versionNumber} and saved as a new version — history isn&apos;t rewritten.{" "}
+              The Emitter becomes as it was in v{versionNumber}, saved as a new version — every earlier version stays in
+              the history, so nothing is lost.{" "}
               {data.identical ? (
                 "It's the same as v" + versionNumber + " already: nothing changes."
               ) : (
@@ -46,15 +47,15 @@ export function RevertPreviewDialog({
             </p>
             {data.unsaved_changes > 0 && (
               <p className="error-text">
-                ⚠ {data.unsaved_changes} unsaved change{data.unsaved_changes === 1 ? "" : "s"} since the last saved version{" "}
+                ⚠ {data.unsaved_changes} unsaved change{data.unsaved_changes === 1 ? "" : "s"} since the last save{" "}
                 {data.unsaved_changes === 1 ? "is" : "are"} thrown away.
               </p>
             )}
             {data.results_naming_removed > 0 && (
               <p className="hint-text">
                 {data.results_naming_removed} logged test result{data.results_naming_removed === 1 ? " names" : "s name"} a
-                Mode or SIM line this removes. They&apos;re kept, show it as <em>(deleted)</em>, and link up again if a
-                revert brings it back.
+                Mode or SIM line this removes. They&apos;re kept, show it as <em>(deleted)</em>, and link up again if it
+                comes back later.
               </p>
             )}
             {!data.identical && (
@@ -69,7 +70,7 @@ export function RevertPreviewDialog({
             Cancel
           </button>
           <button type="button" className="button danger-outline" disabled={pending || isLoading || !data} onClick={onRevert}>
-            {pending ? "Reverting…" : `Revert to v${versionNumber}`}
+            {pending ? "Going back…" : `Go back to v${versionNumber}`}
           </button>
         </div>
       </div>

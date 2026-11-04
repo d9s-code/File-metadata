@@ -33,9 +33,9 @@ def test_a_revert_logs_each_mode_it_brings_back_removes_or_changes(editor_client
 
     assert editor_client.post(f"/emitters/{eid}/versions/1/revert").status_code == 200
     entries = {e["summary"]: e for e in _trail(editor_client, eid, entity_type="mode")}
-    assert "Brought back Mode 'Mode 2' — reverting to version 1" in entries
-    assert "Removed Mode 'Mode 3' — reverting to version 1" in entries
-    changed = entries["Changed Mode 'Mode 1' back — reverting to version 1"]
+    assert "Brought back Mode 'Mode 2' — going back to version 1" in entries
+    assert "Removed Mode 'Mode 3' — going back to version 1" in entries
+    changed = entries["Changed Mode 'Mode 1' back — going back to version 1"]
     assert changed["action"] == "update"
     assert changed["changes"] == {"rf_min_mhz": {"old": wider["rf_min_mhz"], "new": FIXED_LINE["rf_min_mhz"]}}
 
@@ -63,8 +63,8 @@ def test_a_narrowed_trail_keeps_the_version_markers(editor_client):
     ]
     # The revert's own entry comes before the changes it made (newest first).
     summaries = [e["summary"] for e in marked]
-    assert summaries.index("Emitter 'Trail Radar': Reverted to version 1") < summaries.index(
-        "Brought back Mode 'Mode 2' — reverting to version 1"
+    assert summaries.index("Emitter 'Trail Radar': Went back to version 1") < summaries.index(
+        "Brought back Mode 'Mode 2' — going back to version 1"
     )
 
 

@@ -62,15 +62,16 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   delete: "Deleted",
   restore: "Restored",
   status_change: "Status change",
-  commit: "Saved version",
+  // A version or a checkpoint.
+  commit: "Saved",
   login: "Logged in",
   login_failed: "Login failed",
   logout: "Logged out",
   checkout: "Started editing",
   checkin: "Stopped editing",
   discard: "Discarded changes",
-  revert: "Reverted",
-  fork: "Forked",
+  revert: "Went back",
+  fork: "Copied as a new Emitter",
   download: "Downloaded",
 };
 
@@ -228,7 +229,7 @@ export function versionMarker(entry: { entity_type: string; action: string; summ
   if (entry.action === "commit") return typeof n === "number" ? `Saved v${n}${note ? ` — ${note}` : ""}` : entry.summary;
   if (entry.action === "revert") {
     const to = entry.changes?.reverted_to;
-    return typeof n === "number" && typeof to === "number" ? `Reverted to v${to} (saved as v${n})` : entry.summary;
+    return typeof n === "number" && typeof to === "number" ? `Went back to v${to} (saved as v${n})` : entry.summary;
   }
   return typeof n === "number" ? `Discarded unsaved changes — back to v${n}` : entry.summary;
 }

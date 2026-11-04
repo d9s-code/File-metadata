@@ -25,17 +25,17 @@ export function ForkVersionModal({
       const forked = await fork.mutateAsync({ versionNumber, newName });
       navigate(`/emitters/${forked.id}`);
     } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : "Failed to fork this version");
+      setError(err instanceof ApiRequestError ? err.message : "Couldn't copy this version");
     }
   }
 
   return (
-    <Modal title={`Fork version ${versionNumber}`} onClose={onClose}>
+    <Modal title={`Copy v${versionNumber} as a new Emitter`} onClose={onClose}>
       <form onSubmit={handleSubmit}>
         <p className="hint-text">
-          Creates a brand-new, fully independent Emitter seeded from this version — editing it never affects the
-          original. Its version history up to this point comes along too (viewable and diffable), with the fork
-          itself recorded as the next entry.
+          Makes a new Emitter that starts out as this version — a separate copy, so editing it never affects the
+          original. Its history up to this version comes along (to look at and compare), with the copy recorded as
+          its next version.
         </p>
         <div className="form-row">
           <input
@@ -51,7 +51,7 @@ export function ForkVersionModal({
             Cancel
           </button>
           <button type="submit" disabled={fork.isPending}>
-            Fork
+            Make the copy
           </button>
         </div>
         {error && <div className="error-text">{error}</div>}
