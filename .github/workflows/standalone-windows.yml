@@ -6,6 +6,10 @@ on:
   workflow_dispatch:
   push:
     tags: ["v*"]
+    paths:
+      - "standalone/**"
+      - "backend/app/services/sync_service.py"
+      - ".github/workflows/standalone-windows.yml"
 
 jobs:
   build:
