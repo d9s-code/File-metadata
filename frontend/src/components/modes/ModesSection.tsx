@@ -16,6 +16,7 @@ import { AddValueToModesDialog } from "./AddValueToModesDialog";
 import { PrsImportModal } from "./PrsImportModal";
 import { compareModes, modeSourceIds, rangeOverlaps, searchableText, type ModeSortKey, type SortDir } from "./modeFormat";
 import type { PriType } from "../../types/domain";
+import { MenuButton } from "../common/MenuButton";
 import { RequireRole } from "../../auth/RequireAuth";
 import { EmptyState } from "../common/EmptyState";
 import { LoadingState } from "../common/LoadingState";
@@ -275,53 +276,37 @@ export function ModesSection({
         </h4>
         <RequireRole minimum="editor">
           <div className="section-actions">
-            <button
-              className="button primary"
-              disabled={!canAddMode}
-              title={!hasSetup ? "Add a Source and an EW Group first" : canEdit ? undefined : "Start editing this Emitter first"}
-              onClick={() => setShowForm(true)}
-            >
-              + Add Mode
-            </button>
-            <button
-              className="button secondary"
-              disabled={!canEdit || selected.size === 0}
-              title={!canEdit ? "Start editing this Emitter first" : selected.size === 0 ? "Select one or more Modes below first" : undefined}
-              onClick={() => setShowBatchEdit(true)}
-            >
-              Batch edit{selected.size > 0 ? ` (${selected.size})` : ""}
-            </button>
-            {selected.size > 0 && (
+            {/* Adding comes first; the rarer ways to add sit in its menu. */}
+            <div className="split-button">
               <button
-                className="button danger-outline"
-                disabled={!canEdit || deleteSelected.isPending}
-                title={!canEdit ? "Start editing this Emitter first" : undefined}
-                onClick={() => void handleDeleteSelected()}
+                className="button primary"
+                disabled={!canAddMode}
+                title={!hasSetup ? "Add a Source and an EW Group first" : canEdit ? undefined : "Start editing this Emitter first"}
+                onClick={() => setShowForm(true)}
               >
-                {deleteSelected.isPending ? "Deleting…" : `Delete (${selected.size})`}
+                + Add Mode
               </button>
-            )}
-            {selected.size > 0 && (
-              <button className="link-button" onClick={() => setSelected(new Set())}>
-                Clear selection
-              </button>
-            )}
-            <button
-              className="button secondary"
-              disabled={!hasSetup}
-              title="Add one RF, PRI or PW value to every applicable combination of the other two among the Modes"
-              onClick={() => setAddingValue(true)}
-            >
-              + Add a value…
-            </button>
-            <button
-              className="button secondary"
-              disabled={!canEdit}
-              title={canEdit ? undefined : "Start editing this Emitter first"}
-              onClick={() => setShowPrsImport(true)}
-            >
-              Import from PRS
-            </button>
+              <MenuButton
+                label="▾"
+                className="button primary split-button-caret"
+                ariaLabel="More ways to add Modes"
+                title="More ways to add Modes"
+                items={[
+                  {
+                    label: "Add a value across Modes…",
+                    onSelect: () => setAddingValue(true),
+                    disabled: !hasSetup,
+                    title: "Add one RF, PRI or PW value to every applicable combination of the other two among the Modes",
+                  },
+                  {
+                    label: "Import from PRS…",
+                    onSelect: () => setShowPrsImport(true),
+                    disabled: !canEdit,
+                    title: canEdit ? undefined : "Start editing this Emitter first",
+                  },
+                ]}
+              />
+            </div>
           </div>
         </RequireRole>
       </div>
@@ -378,19 +363,58 @@ export function ModesSection({
           {batchDeleteError && <span className="error-text">{batchDeleteError}</span>}
         </div>
         <div className="toolbar-view">
-          <label className="inline-field-label" title="Show each parameter's engineered (raw ± delta) value directly, instead of the raw value">
-            <input type="checkbox" checked={showEngineered} onChange={(e) => setShowEngineered(e.target.checked)} />
-            Engineered values
-          </label>
-          <label className="inline-field-label" title="Show all Modes from one Cartesian Product run as a single collapsible row instead of one row each">
-            <input type="checkbox" checked={collapseBatches} onChange={(e) => setCollapseBatches(e.target.checked)} />
-            Collapse batches
-          </label>
+          <MenuButton
+            label={
+              <>
+                View <span className="chip-caret">▾</span>
+              </>
+            }
+            className="button secondary small"
+            title="How the Modes are shown"
+            items={[
+              {
+                label: `${showEngineered ? "✓" : "\u2003"} Engineered values`,
+                onSelect: () => setShowEngineered(!showEngineered),
+                title: "Show each parameter's engineered (raw ± delta) value directly, instead of the raw value",
+              },
+              {
+                label: `${collapseBatches ? "✓" : "\u2003"} Collapse batches`,
+                onSelect: () => setCollapseBatches(!collapseBatches),
+                title: "Show all Modes from one Cartesian Product run as a single collapsible row instead of one row each",
+              },
+            ]}
+          />
           <ModesViewToggle view={view} onChange={setView} />
         </div>
       </div>
 
       <RequireRole minimum="editor">
+        {selected.size > 0 && (
+          <div className="card emitter-bulk-bar modes-selection-bar" role="region" aria-label="Selected Modes">
+            <div className="emitter-bulk-row">
+              <strong>{selected.size} selected</strong>
+              <button
+                className="button secondary"
+                disabled={!canEdit}
+                title={canEdit ? undefined : "Start editing this Emitter first"}
+                onClick={() => setShowBatchEdit(true)}
+              >
+                Batch edit
+              </button>
+              <button
+                className="button danger-outline"
+                disabled={!canEdit || deleteSelected.isPending}
+                title={canEdit ? undefined : "Start editing this Emitter first"}
+                onClick={() => void handleDeleteSelected()}
+              >
+                {deleteSelected.isPending ? "Deleting…" : `Delete (${selected.size})`}
+              </button>
+              <button type="button" className="link-button" onClick={() => setSelected(new Set())}>
+                Clear selection
+              </button>
+            </div>
+          </div>
+        )}
         {showForm && canAddMode && (
           <ModeForm
             emitterId={emitterId}

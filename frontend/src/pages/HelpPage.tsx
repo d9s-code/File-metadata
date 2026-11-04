@@ -440,16 +440,19 @@ export function HelpPage() {
               can be changed per Mode or with Batch edit.
             </p>
             <p>
-              Tick a Mode's checkbox (or several) to reveal a <strong>Batch edit</strong> button for
-              applying the same field, delta, jitter (Fixed Modes only) or range-shift change to all of them at
-              once — muted until at least one Mode is selected. <strong>+ Add a value…</strong> adds one RF, PRI or PW value — a
+              Tick a Mode's checkbox (or several) and a bar appears at the bottom of the window with{" "}
+              <strong>Batch edit</strong>, for applying the same field, delta, jitter (Fixed Modes only) or
+              range-shift change to all of them at once. The <strong>▾</strong> beside <strong>+ Add Mode</strong>{" "}
+              holds the rarer ways to add Modes: <strong>Add a value across Modes…</strong> adds one RF, PRI or PW value — a
               stray PRI from a test, say — to every combination of the other two among your Modes: tick the
               combinations it applies to and it makes one new Mode for each, a copy with only that value changed, as
               one batch — named with a name of your own and a running number (&ldquo;Range day 1&rdquo;, the default
               from a test) or after the Mode each copies plus a suffix. It&apos;s also offered, already filled in, from a test run&apos;s logged intercepts that no Mode
-              matches and from Element coverage&apos;s uncovered Elements. <strong>Delete (N)</strong> beside it deletes every ticked Mode at once,
+              matches and from Element coverage&apos;s uncovered Elements. <strong>Import from PRS…</strong> is there too.{" "}
+              <strong>Delete (N)</strong> in the selection bar deletes every ticked Mode at once,
               after asking (all or none; each is kept in the Audit Log, logged test results keep their names, and
-              Discard brings them back until you save). A <strong>Collapse generation batches</strong> toggle folds every
+              Discard brings them back until you save). <strong>View ▾</strong> switches between engineered and raw
+              values and has <strong>Collapse batches</strong>, which folds every
               Mode a single Cartesian Product run created into one expandable summary row, so a run that
               produced 20+ Modes doesn't clutter the table.
             </p>
