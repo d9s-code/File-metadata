@@ -1312,6 +1312,15 @@ export function HelpPage() {
             heading and page through large files.
           </p>
           <p>
+            <strong>Hypotheses.</strong> Label each entry with what you think it is — &ldquo;Search radar, mode
+            2?&rdquo; — in the <strong>Hypothesis</strong> column, first in the table: click, type, Enter (or click
+            away) saves, Esc cancels. Sort by it to see the entries with the same hypothesis together. The column is
+            in the grouping table too, when importing or regrouping, so you can label the groups straight after
+            clustering; a group you merge, split or Auto group again takes the hypothesis of the group it has most
+            reports from. Hypotheses are saved with the entries, kept when you correct or regroup them, joined when
+            you merge them, and every change is in the Audit Log.
+          </p>
+          <p>
             <strong>Regroup reports</strong> reopens the grouping tools — Auto group, merge, split, split at a
             value, the charts and Over time marking — on the kept reports, starting from the entries as they are
             (reports in no entry start out excluded). Nothing changes until you save, and you&apos;re shown what

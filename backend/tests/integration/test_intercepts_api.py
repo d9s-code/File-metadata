@@ -977,3 +977,65 @@ def test_intercept_mode_plan_widens_a_stagger_on_frame_time(editor_client, emitt
     assert resp.status_code == 201, resp.text
     line = resp.json()["widened"][0]["line"]
     assert (line["engineered_frame_time_min_us"], line["engineered_frame_time_max_us"]) == (3320, 3340)
+
+
+def test_a_hypothesis_on_each_entry_is_kept_through_edits_regroups_and_merges(editor_client, viewer_client, emitter_ctx):
+    """What the analyst thinks each group of reports is: written at import or
+    later, saved on its own, and not lost when the entry is corrected or regrouped."""
+    eid = emitter_ctx["emitter"]["id"]
+    entries, rows = [], []
+    for i, (n, hyp) in enumerate([(3, "Search radar, mode 2?"), (2, None), (2, "Same as B?")]):
+        entries.append({**FIXED_ENTRY, "rf_mean_mhz": 3000 + 10 * i, "report_count": n, "hypothesis": hyp})
+        rows += [_report(len(rows) + 1, i, rf=3000 + 10 * i) for _ in range(n)]
+    resp = editor_client.post(
+        "/intercepts/import", json={"intercept": {"emitter_id": eid, "name": "Hyp"}, "entries": entries, "reports": {"rows": rows}}
+    )
+    assert resp.status_code == 201, resp.text
+    iid = resp.json()["id"]
+    a, b, c = sorted(editor_client.get(f"/intercepts/{iid}/entries").json(), key=lambda e: e["rf_mean_mhz"])
+    assert (a["hypothesis"], b["hypothesis"], c["hypothesis"]) == ("Search radar, mode 2?", None, "Same as B?")
+
+    # Labelled on its own, audited; blank clears it.
+    url = f"/intercepts/{iid}/entries/{b['id']}/hypothesis"
+    r = editor_client.put(url, json={"hypothesis": "  Nav radar  "})
+    assert r.status_code == 200 and r.json()["hypothesis"] == "Nav radar"
+    log = editor_client.get("/audit-log", params={"entity_type": "intercept_entry"}).json()["items"]
+    assert any("Hypothesis on an entry of Intercept 'Hyp': 'Nav radar'" in x["summary"] for x in log)
+    assert editor_client.put(url, json={"hypothesis": ""}).json()["hypothesis"] is None
+    editor_client.put(url, json={"hypothesis": "Nav radar"})
+    assert viewer_client.put(url, json={"hypothesis": "x"}).status_code == 403
+    assert editor_client.put(url, json={"hypothesis": "x" * 2001}).status_code == 422
+
+    # Correcting an entry's values keeps it.
+    fixed = editor_client.put(f"/intercepts/{iid}/entries/{a['id']}", json={**FIXED_ENTRY, "rf_mean_mhz": 3001})
+    assert fixed.status_code == 200 and fixed.json()["hypothesis"] == "Search radar, mode 2?"
+
+    # A regroup keeps each group's hypothesis on the entry it keeps…
+    body = editor_client.get(f"/intercepts/{iid}/reports/all").json()
+    ids_of = {}
+    for rep in body["reports"]:
+        ids_of.setdefault(body["entries"][rep[1]], []).append(rep[0])
+    version = body["grouping_version"]
+    assert _regroup(editor_client, iid, [(3001, ids_of[a["id"]]), (3010, ids_of[b["id"]] + ids_of[c["id"]])], version).status_code == 200
+    after = {e["id"]: e for e in editor_client.get(f"/intercepts/{iid}/entries").json()}
+    assert after[a["id"]]["hypothesis"] == "Search radar, mode 2?"
+    assert after[b["id"]]["hypothesis"] == "Nav radar"
+    # …and sets one when it sends one.
+    regroup = editor_client.put(
+        f"/intercepts/{iid}/grouping",
+        json={
+            "expected_version": version + 1,
+            "groups": [
+                {"entry": {**FIXED_ENTRY, "rf_mean_mhz": 3001, "hypothesis": "Fire control"}, "report_ids": ids_of[a["id"]]},
+                {"entry": {**FIXED_ENTRY, "rf_mean_mhz": 3010}, "report_ids": ids_of[b["id"]] + ids_of[c["id"]]},
+            ],
+        },
+    )
+    assert regroup.status_code == 200, regroup.text
+    after = {e["id"]: e for e in editor_client.get(f"/intercepts/{iid}/entries").json()}
+    assert after[a["id"]]["hypothesis"] == "Fire control" and after[b["id"]]["hypothesis"] == "Nav radar"
+
+    # Merging keeps every hypothesis, each once.
+    merged = editor_client.post(f"/intercepts/{iid}/entries/merge", json={"entry_ids": [a["id"], b["id"]]})
+    assert merged.status_code == 200, merged.text
+    assert merged.json()["hypothesis"] == "Fire control / Nav radar"

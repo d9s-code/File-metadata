@@ -24,6 +24,9 @@ class InterceptEntryFields(BaseModel):
     jitter_mean_us: float | None = None
     stagger_values: list[float] | None = None
     notes: str | None = None
+    # What the analyst thinks this group is. Kept as it is when a request
+    # leaves it out (a correction, a regroup) — see KEPT_UNLESS_SENT.
+    hypothesis: str | None = Field(default=None, max_length=2000)
     # What an imported entry was built from; left out for entries typed in by
     # hand, and kept as it is when an entry is corrected (see PROVENANCE_FIELDS).
     first_seen_at: datetime | None = None
@@ -48,6 +51,14 @@ class InterceptEntryFields(BaseModel):
 # Where an imported entry came from. A correction made by hand (PUT) sends
 # the measured values again but not these, and they're kept.
 PROVENANCE_FIELDS = ("first_seen_at", "last_seen_at", "report_count", "tracks", "source_file")
+# An entry's fields a correction or a regroup keeps when it doesn't send them.
+KEPT_UNLESS_SENT = (*PROVENANCE_FIELDS, "hypothesis")
+
+
+class EntryHypothesis(BaseModel):
+    """What the analyst thinks one entry (a group of reports) is; blank clears it."""
+
+    hypothesis: str | None = Field(default=None, max_length=2000)
 
 
 def validate_intercept_entry_pri_type(pri_type: PriType, fields: InterceptEntryFields) -> None:

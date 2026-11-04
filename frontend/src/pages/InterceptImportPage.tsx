@@ -224,7 +224,7 @@ export function InterceptImportPage() {
       return;
     const entries = included.map((g) => {
       const groupReports = g.lines.map((l) => byLine.get(l)!);
-      return toEntryInput(summarize(groupReports), groupReports, fileName);
+      return toEntryInput(summarize(groupReports), groupReports, fileName, g.hypothesis ?? null);
     });
     // Every report goes too — those left out as well — so the Intercept can
     // show them and be regrouped later.

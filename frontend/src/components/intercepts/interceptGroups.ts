@@ -15,6 +15,36 @@ export interface ReportGroup {
   /** Set aside by Auto group as a stray: held out of the import, like an
    * excluded row, until the user merges it, keeps it or excludes it. */
   stray?: boolean;
+  /** What the analyst thinks this group is — saved with its entry. */
+  hypothesis?: string | null;
+}
+
+/** After a merge, split, Auto group …: each new group without a hypothesis of
+ * its own takes the one of the group it has most reports from, so labelling
+ * the groups isn't undone by tidying them. A group that has one (even blank,
+ * cleared on purpose) keeps it. */
+export function carryHypotheses(prev: ReportGroup[], next: ReportGroup[]): ReportGroup[] {
+  const labelled = prev.filter((g) => g.hypothesis);
+  if (labelled.length === 0) return next;
+  const groupOfLine = new Map<number, ReportGroup>();
+  for (const g of labelled) for (const l of g.lines) groupOfLine.set(l, g);
+  return next.map((g) => {
+    if (g.hypothesis !== undefined) return g;
+    const counts = new Map<ReportGroup, number>();
+    for (const l of g.lines) {
+      const from = groupOfLine.get(l);
+      if (from) counts.set(from, (counts.get(from) ?? 0) + 1);
+    }
+    let best: ReportGroup | null = null;
+    let most = 0;
+    for (const [from, n] of counts) {
+      if (n > most) {
+        best = from;
+        most = n;
+      }
+    }
+    return best ? { ...g, hypothesis: best.hypothesis } : g;
+  });
 }
 
 /** Auto group's settings. */
@@ -355,7 +385,12 @@ function listLines(lines: number[]): string {
  * max as the measured range when there's more than one report. Lines and the
  * file are each report's own (fileLine/sourceFile) where it has them — an
  * Intercept being regrouped can hold several files — else `fileName`. */
-export function toEntryInput(s: GroupSummary, groupReports: CsvReport[], fileName: string): InterceptEntryInput {
+export function toEntryInput(
+  s: GroupSummary,
+  groupReports: CsvReport[],
+  fileName: string,
+  hypothesis?: string | null,
+): InterceptEntryInput {
   const lines = groupReports.map((r) => r.fileLine ?? r.line).sort((a, b) => a - b);
   const files = [...new Set(groupReports.map((r) => r.sourceFile ?? fileName))].filter(Boolean);
   const range = (m: Measured | null) => (s.count > 1 && m ? { min: m.min, max: m.max } : { min: null, max: null });
@@ -394,6 +429,8 @@ export function toEntryInput(s: GroupSummary, groupReports: CsvReport[], fileNam
     report_count: s.count,
     tracks: s.tracks.length > 0 ? s.tracks.slice(0, 1000).map((t) => t.slice(0, 50)) : null,
     source_file: files.length === 1 ? files[0]!.slice(0, 255) : null,
+    // Left out when not known, so a regroup keeps what the entry has.
+    ...(hypothesis !== undefined ? { hypothesis: hypothesis?.trim() || null } : {}),
   };
 }
 

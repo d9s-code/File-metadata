@@ -26,7 +26,8 @@ from app.models.mode import Mode
 from app.models.source import Source
 from app.services import checkout_service
 from app.schemas.intercept import (
-    PROVENANCE_FIELDS,
+    KEPT_UNLESS_SENT,
+    EntryHypothesis,
     EntryIds,
     REPORT_ROW_FIELDS,
     InterceptCreate,
@@ -90,6 +91,7 @@ ENTRY_SNAPSHOT_FIELDS = [
     "jitter_mean_us",
     "stagger_values",
     "notes",
+    "hypothesis",
     "report_count",
     "source_file",
 ]
@@ -623,7 +625,7 @@ def replace_intercept_entry(
     # Where an imported entry came from isn't part of correcting its values:
     # kept unless the request sets it.
     values = payload.model_dump()
-    for field in PROVENANCE_FIELDS:
+    for field in KEPT_UNLESS_SENT:
         if field not in payload.model_fields_set:
             values.pop(field)
     changes = apply_and_diff(entry, values)
@@ -639,6 +641,44 @@ def replace_intercept_entry(
     )
     db.commit()
     db.refresh(entry)
+    return _attach_derived_mode_ids(db, [entry])[0]
+
+
+@router.put(
+    "/{intercept_id}/entries/{entry_id}/hypothesis", response_model=InterceptEntryOut, dependencies=[Depends(verify_csrf)]
+)
+def set_entry_hypothesis(
+    intercept_id: UUID,
+    entry_id: UUID,
+    payload: EntryHypothesis,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+) -> InterceptEntryOut:
+    """What the analyst thinks one entry is — "Search radar, mode 2?" — saved on
+    its own, so labelling the groups doesn't mean editing their values."""
+    intercept = _get_writable_intercept(db, intercept_id)
+    entry = db.get(InterceptEntry, entry_id)
+    if entry is None or entry.intercept_id != intercept_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Entry not found")
+    text_value = (payload.hypothesis or "").strip() or None
+    if text_value != entry.hypothesis:
+        old = entry.hypothesis
+        entry.hypothesis = text_value
+        record_audit(
+            db,
+            actor_id=user.id,
+            action=AuditAction.update,
+            entity_type=AuditEntityType.intercept_entry.value,
+            entity_id=entry.id,
+            summary=(
+                f"Hypothesis on an entry of Intercept '{intercept.name}': "
+                + (f"'{text_value}'" if text_value else "cleared")
+            ),
+            changes={"hypothesis": {"old": old, "new": text_value}},
+            emitter_id=intercept.emitter_id,
+        )
+        db.commit()
+        db.refresh(entry)
     return _attach_derived_mode_ids(db, [entry])[0]
 
 
@@ -800,6 +840,9 @@ def merge_intercept_entries(
     keep.source_file = files.pop() if len(files) == 1 else None
     notes = list(dict.fromkeys(n.strip() for n in (e.notes for e in entries) if n and n.strip()))
     keep.notes = "\n".join([f"Merged from {len(entries)} entries."] + notes)
+    # Every hypothesis the merged entries had, each once.
+    hypotheses = list(dict.fromkeys(h.strip() for h in (e.hypothesis for e in entries) if h and h.strip()))
+    keep.hypothesis = " / ".join(hypotheses) or None
 
     # The others' reports, and their links to Modes created from them, move to the kept entry.
     db.execute(
@@ -997,6 +1040,10 @@ def regroup_intercept(
         values = group.entry.model_dump()
         if gi in kept_by_group:
             entry = entries_by_id[kept_by_group[gi]]
+            # A hypothesis written on the entry stays with the group that keeps it,
+            # unless the regroup sends one.
+            if "hypothesis" not in group.entry.model_fields_set:
+                values.pop("hypothesis")
             for field, value in values.items():
                 setattr(entry, field, value)
         else:

@@ -7580,3 +7580,25 @@ button.meta-chip:hover:not(:disabled) { color: var(--text); }
 .sync-choice label { display: inline-flex; align-items: center; gap: 0.35rem; font-weight: 500; }
 .sync-fields { margin-top: 0.4rem; }
 .sync-fields td.sync-kept { font-weight: 600; background: color-mix(in srgb, var(--primary) 10%, transparent); }
+
+/* An intercept entry's hypothesis: what the analyst thinks the group is. */
+.entry-hypothesis { min-width: 10rem; max-width: 18rem; }
+.hypothesis-button {
+  background: none;
+  border: 1px dashed transparent;
+  color: var(--text);
+  padding: 0.15rem 0.35rem;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-shadow: none;
+  border-radius: 4px;
+}
+.hypothesis-button:hover:not(:disabled) { background: var(--hover-bg); border-color: var(--border); color: var(--text); }
+.hypothesis-button.empty { color: var(--muted); font-weight: 400; }
+.hypothesis-text { font-weight: 600; }
+.hypothesis-edit input { width: 100%; min-width: 12rem; }

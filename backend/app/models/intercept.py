@@ -119,6 +119,9 @@ class InterceptEntry(UUIDPkMixin, Base):
 
     # Per-entry note, separate from the container's InterceptNote feed.
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # What the analyst thinks this group of reports is ("Search radar, mode 2?")
+    # — written by people, unlike an import's notes on where it came from.
+    hypothesis: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # What an imported entry was built from — null on entries typed in by
     # hand. Times are mission times as written in the file, stored as UTC.

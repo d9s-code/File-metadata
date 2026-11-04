@@ -153,6 +153,15 @@ function useEntriesChanged(interceptId: string) {
   };
 }
 
+export function useSetEntryHypothesis(interceptId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ entryId, hypothesis }: { entryId: string; hypothesis: string | null }) =>
+      interceptsApi.setEntryHypothesis(interceptId, entryId, hypothesis),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["intercept-entries"] }),
+  });
+}
+
 export function useDeleteInterceptEntries(interceptId: string) {
   const changed = useEntriesChanged(interceptId);
   return useMutation({

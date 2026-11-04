@@ -14,7 +14,9 @@ import {
   useInterceptEntries,
   useIntercept,
   useMergeInterceptEntries,
+  useSetEntryHypothesis,
 } from "../state/hooks/useIntercepts";
+import { HypothesisCell } from "../components/intercepts/HypothesisCell";
 import {
   useCreateInterceptNote,
   useDeleteInterceptNote,
@@ -152,7 +154,7 @@ function Heard({ entry }: { entry: InterceptEntry }) {
 }
 
 const STATUS_ORDER: Record<EntryMatchStatus, number> = { match: 0, near: 1, none: 2 };
-type SortKey = "type" | "rf" | "pri" | "pw" | "reports" | "heard" | "match" | "created";
+type SortKey = "hypothesis" | "type" | "rf" | "pri" | "pw" | "reports" | "heard" | "match" | "created";
 type Row = { entry: InterceptEntry; match: EntryMatch | null };
 
 function EntryRow({
@@ -166,6 +168,7 @@ function EntryRow({
   onToggle,
   onEdit,
   onDelete,
+  onSetHypothesis,
   columns,
   hasReports,
   multiFile,
@@ -182,6 +185,7 @@ function EntryRow({
   onToggle: () => void;
   onEdit: (entry: InterceptEntry) => void;
   onDelete: (entry: InterceptEntry) => void;
+  onSetHypothesis: (entry: InterceptEntry, hypothesis: string | null) => Promise<unknown>;
   columns: number;
   /** The Intercept keeps its reports, so this entry's can be listed. */
   hasReports: boolean;
@@ -205,6 +209,9 @@ function EntryRow({
             <input type="checkbox" aria-label="Select entry" checked={selected} onChange={onToggle} />
           </td>
         )}
+        <td className="entry-hypothesis">
+          <HypothesisCell value={entry.hypothesis} canEdit={canWrite} onSave={(h) => onSetHypothesis(entry, h)} />
+        </td>
         <td>
           {PRI_TYPE_LABEL[entry.pri_type] ?? entry.pri_type}
           {entry.pri_type === "stagger" && entry.stagger_values && (
@@ -371,6 +378,7 @@ export function InterceptDetailPage() {
   const deleteEntry = useDeleteInterceptEntry(interceptId ?? "");
   const deleteEntries = useDeleteInterceptEntries(interceptId ?? "");
   const mergeEntries = useMergeInterceptEntries(interceptId ?? "");
+  const setHypothesis = useSetEntryHypothesis(interceptId ?? "");
   const deleteIntercept = useDeleteIntercept();
   const turnIntoSource = useTurnInterceptIntoSource(interceptId ?? "", intercept?.emitter_id ?? "");
   const checkout = useCheckoutEmitter(intercept?.emitter_id ?? "");
@@ -433,6 +441,13 @@ export function InterceptDetailPage() {
     const ea = a.entry;
     const eb = b.entry;
     switch (key) {
+      case "hypothesis":
+        // Unlabelled entries last either way; the same label together, by RF.
+        if (!ea.hypothesis !== !eb.hypothesis) return ea.hypothesis ? -1 : 1;
+        return (
+          compareNullable(ea.hypothesis?.toLowerCase(), eb.hypothesis?.toLowerCase(), dir) ||
+          compareNullable(ea.rf_mean_mhz, eb.rf_mean_mhz, "asc")
+        );
       case "type":
         return compareNullable(ea.pri_type, eb.pri_type, dir) || compareNullable(ea.rf_mean_mhz, eb.rf_mean_mhz, "asc");
       case "rf":
@@ -474,7 +489,7 @@ export function InterceptDetailPage() {
   const mergeBlocked = cannotMerge(selectedEntries);
   const allPageSelected = pageRows.length > 0 && pageRows.every(({ entry }) => selected.has(entry.id));
   const filteredByChart = Object.values(ranges).some(Boolean);
-  const columns = canWrite ? 13 : 12;
+  const columns = canWrite ? 14 : 13;
   const legacyImport = !hasReports && (entries ?? []).some((e) => e.report_count != null);
   const multiFile = new Set((entries ?? []).map((e) => e.source_file).filter(Boolean)).size > 1;
   const entryById = new Map((entries ?? []).map((e) => [e.id, e]));
@@ -961,6 +976,7 @@ export function InterceptDetailPage() {
                       />
                     </th>
                   )}
+                  {header("Hypothesis", "hypothesis")}
                   {header("PRI type", "type")}
                   {header("RF (MHz)", "rf", "number")}
                   {header("PRI (µs)", "pri", "number")}
@@ -990,6 +1006,7 @@ export function InterceptDetailPage() {
                     onToggle={() => toggle(entry.id)}
                     onEdit={(e) => setEntryForm({ entry: e })}
                     onDelete={(e) => void handleDeleteEntry(e)}
+                    onSetHypothesis={(e, hypothesis) => setHypothesis.mutateAsync({ entryId: e.id, hypothesis })}
                     columns={columns}
                     hasReports={hasReports}
                     multiFile={multiFile}

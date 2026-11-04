@@ -7,6 +7,7 @@ import {
   AUTO_GROUP_STEPS,
   autoGroup,
   cannotMerge,
+  carryHypotheses,
   groupReports,
   mergeGroups,
   oneGroupPerReport,
@@ -27,6 +28,7 @@ import { EntryMatchCell } from "./EntryMatchCell";
 import { useConfirmDialog } from "../common/ConfirmDialog";
 import { ImportCharts, type Range, type RangeParam } from "./charts/ImportCharts";
 import { UncoveredWindow } from "./UncoveredWindow";
+import { HypothesisCell } from "./HypothesisCell";
 import type { Mode } from "../../types/domain";
 
 const PAGE_SIZE = 100;
@@ -369,7 +371,7 @@ export function ImportGroupsPanel({
     setPage(0);
   }
   function apply(next: ReportGroup[], note: string) {
-    onChange(next);
+    onChange(carryHypotheses(groups, next));
     setSelected(new Set());
     setSplitting(null);
     setMessage(note);
@@ -568,7 +570,7 @@ export function ImportGroupsPanel({
             onGroupLines={(lines) => {
               const result = groupReports(groups, lines, byLine);
               const n = result.made.length;
-              onChange(result.groups);
+              onChange(carryHypotheses(groups, result.groups));
               setSplitting(null);
               // The new rows are selected — so they stay lit on the charts — and brought into view in the table.
               setSelected(new Set(result.made.map((g) => g.id)));
@@ -897,6 +899,7 @@ export function ImportGroupsPanel({
                 />
               </th>
               <th>Reports</th>
+              <th>Hypothesis</th>
               <th>PRI type</th>
               <th>RF (MHz)</th>
               <th>PRI (µs)</th>
@@ -967,6 +970,15 @@ export function ImportGroupsPanel({
                             : `${markedPerRow.get(group.id)!.toLocaleString()} marked`}
                         </div>
                       )}
+                    </td>
+                    <td className="entry-hypothesis">
+                      <HypothesisCell
+                        value={group.hypothesis}
+                        canEdit
+                        onSave={(h) =>
+                          onChange(groups.map((g) => (g.id === group.id ? { ...g, hypothesis: h ?? "" } : g)))
+                        }
+                      />
                     </td>
                     <td>
                       {TYPE_LABEL[s.priType]}

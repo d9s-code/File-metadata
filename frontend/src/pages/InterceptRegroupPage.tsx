@@ -111,14 +111,26 @@ export function InterceptRegroupPage() {
 
   // Start from the grouping as it is — once, when the reports arrive.
   useEffect(() => {
-    if (!stored || !all.data) return;
-    setGroups(stored.groups);
+    if (!stored || !all.data || !entries) return;
+    // Each group starts with its entry's hypothesis.
+    const hypothesisOf = new Map(entries.map((e) => [e.id, e.hypothesis ?? null]));
+    const data = all.data;
+    setGroups(
+      stored.groups.map((g) => {
+        if (g.excluded) return g;
+        const entryIndex = data.reports[g.lines[0] - 1]?.[1] as number | null | undefined;
+        const entryId = entryIndex == null ? null : data.entries[entryIndex];
+        return entryId ? { ...g, hypothesis: hypothesisOf.get(entryId) ?? null } : g;
+      }),
+    );
     setDirty(false);
     const version = all.data.grouping_version;
     void loadRegroupDraft(interceptId).then((draft) => {
       if (draft && draft.groupingVersion === version) setDraftOffer(draft);
     });
-  }, [stored, all.data, interceptId]);
+    // Only when the reports (or the Intercept) change — not as entries refetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stored, all.data, interceptId, !!entries]);
 
   const lineOfId = useMemo(() => new Map((stored?.ids ?? []).map((id, i) => [id, i + 1])), [stored]);
 
@@ -129,7 +141,11 @@ export function InterceptRegroupPage() {
     const handle = window.setTimeout(() => {
       void saveRegroupDraft(interceptId, {
         groupingVersion: version,
-        groups: groups.map((g) => ({ reportIds: g.lines.map((l) => stored.ids[l - 1]), excluded: g.excluded })),
+        groups: groups.map((g) => ({
+          reportIds: g.lines.map((l) => stored.ids[l - 1]),
+          excluded: g.excluded,
+          hypothesis: g.hypothesis,
+        })),
         savedAt: Date.now(),
       });
     }, 800);
@@ -183,7 +199,7 @@ export function InterceptRegroupPage() {
     const next: ReportGroup[] = [];
     for (const g of draft.groups) {
       const lines = g.reportIds.map((id) => lineOfId.get(id)).filter((l): l is number => l != null).sort((a, b) => a - b);
-      if (lines.length) next.push({ id: lines[0], lines, excluded: g.excluded });
+      if (lines.length) next.push({ id: lines[0], lines, excluded: g.excluded, hypothesis: g.hypothesis });
     }
     setDraftOffer(null);
     change(next);
@@ -196,7 +212,7 @@ export function InterceptRegroupPage() {
     const payload: RegroupGroup[] = included.map((g) => {
       const groupReports = g.lines.map((l) => byLine.get(l)!);
       return {
-        entry: toEntryInput(summarize(groupReports), groupReports, ""),
+        entry: toEntryInput(summarize(groupReports), groupReports, "", g.hypothesis),
         report_ids: g.lines.map((l) => stored.ids[l - 1]),
       };
     });

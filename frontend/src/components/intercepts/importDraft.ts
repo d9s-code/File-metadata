@@ -65,7 +65,7 @@ export const clearImportDraft = () => run("readwrite", (s) => s.delete(KEY));
 export interface RegroupDraft {
   groupingVersion: number;
   /** Groups as lists of report ids — stable, unlike the page's line numbers. */
-  groups: { reportIds: string[]; excluded: boolean }[];
+  groups: { reportIds: string[]; excluded: boolean; hypothesis?: string | null }[];
   savedAt: number;
 }
 

@@ -248,6 +248,8 @@ export interface InterceptEntryFields {
   /** Stagger only (ordered). */
   stagger_values?: number[] | null;
   notes?: string | null;
+  /** What the analyst thinks this group of reports is ("Search radar, mode 2?"). */
+  hypothesis?: string | null;
   /** What an imported entry was built from — absent on entries typed in by
    * hand. Times are mission times as written in the file (UTC). */
   first_seen_at?: string | null;

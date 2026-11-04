@@ -153,6 +153,8 @@ export const interceptsApi = {
   listEmitterEntries: (emitterId: string) =>
     api.get<InterceptEntry[]>(`/intercepts/entries?emitter_id=${encodeURIComponent(emitterId)}`),
   /** Replaces an entry in place (same id, so a Mode created from it stays linked). */
+  setEntryHypothesis: (interceptId: string, entryId: string, hypothesis: string | null) =>
+    api.put<InterceptEntry>(`/intercepts/${interceptId}/entries/${entryId}/hypothesis`, { hypothesis }),
   replaceEntry: (interceptId: string, entryId: string, input: InterceptEntryInput) =>
     api.put<InterceptEntry>(`/intercepts/${interceptId}/entries/${entryId}`, input),
   createEntry: (interceptId: string, input: InterceptEntryInput) =>
