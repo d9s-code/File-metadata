@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { BuildLabel } from "./BuildLabel";
+import { STANDALONE } from "../../api/offline";
 
 export function AdminNav() {
   return (
@@ -25,6 +26,11 @@ export function AdminNav() {
       <NavLink to="/admin/settings" className={({ isActive }) => (isActive ? "tab active" : "tab")}>
         Settings
       </NavLink>
+      {STANDALONE && (
+        <NavLink to="/admin/sync" className={({ isActive }) => (isActive ? "tab active" : "tab")}>
+          Sync
+        </NavLink>
+      )}
       <BuildLabel />
     </div>
   );

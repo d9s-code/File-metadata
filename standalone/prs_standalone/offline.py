@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from app.core.csrf import verify_csrf
 from app.core.enums import Role
+from app.core.security import hash_password
 from app.database import Base, engine as live_engine, get_db
 from app.deps import require_role
 from app.models.audit_log import AuditLog
@@ -60,6 +61,34 @@ def _save_state(**values) -> None:
     os.replace(tmp, path)
 
 
+def _logins() -> dict[str, str]:
+    """username → this PC's own password hash, for each person who has signed in
+    to the server from this PC. Only they can sign in here offline."""
+    path = _data_dir() / "logins.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+
+def _remember_login(server: "ServerSession") -> None:
+    logins = {**_logins(), server.username: server.local_hash}
+    path = _data_dir() / "logins.json"
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(logins, indent=2), encoding="utf-8")
+    os.replace(tmp, path)
+    _apply_logins()
+
+
+def _apply_logins() -> None:
+    """The copy from the server has no passwords; put back this PC's own."""
+    logins = _logins()
+    if not logins:
+        return
+    with live_engine.begin() as conn:
+        for username, password_hash in logins.items():
+            conn.execute(
+                text("UPDATE users SET password_hash = :h WHERE username = :u"), {"h": password_hash, "u": username}
+            )
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -79,6 +108,9 @@ class ServerSession:
         if r.status_code in (401, 403):
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "The server didn't accept that username and password")
         _raise_for(r, "Signing in to the server")
+        # The server has just accepted this password: the PC's own hash of it lets
+        # this person in offline. The password itself isn't kept.
+        self.local_hash = hash_password(password)
         # Sent back by hand: a cookie jar won't return a Secure cookie over plain
         # http (a server on the local network without TLS), nor match "localhost".
         cookies = dict(r.cookies.items())
@@ -188,7 +220,7 @@ def _keep_local_copy(reason: str) -> Path:
     folder = _data_dir() / "before-replace"
     folder.mkdir(parents=True, exist_ok=True)
     with live_engine.connect() as conn:
-        copy = sync_service.export_copy(conn)
+        copy = sync_service.export_copy(conn, with_passwords=True)
     path = folder / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{reason}.json.gz"
     path.write_bytes(gzip.compress(json.dumps(copy).encode()))
     # The newest ten are plenty.
@@ -213,6 +245,7 @@ def _fetch_from(server: ServerSession, *, replacing: bool) -> dict:
     copy = r.json()
     kept = _keep_local_copy("before-fetch") if replacing else None
     counts = _load(copy)
+    _remember_login(server)
     _save_state(server_url=server.url, fetched_at=_now(), fetched_by=server.username)
     return {"rows": sum(counts.values()), "kept_copy": str(kept) if kept else None}
 
@@ -270,11 +303,42 @@ def set_up_from_server(
         return _fetch_from(_server, replacing=False)
 
 
+class PersonLogin(BaseModel):
+    username: str = Field(min_length=1, max_length=100)
+    password: str = Field(min_length=1, max_length=200)
+
+
+@router.post("/login-via-server")
+def login_via_server(
+    body: PersonLogin, db: Session = Depends(get_db), content_type: str | None = Header(default=None)
+) -> dict:
+    """Someone signing in on this PC for the first time: their password is checked
+    with the server, and if the server takes it, this PC remembers them (its own
+    hash) so they can sign in here from then on, offline too. Before anyone has
+    signed in there's no CSRF token; a JSON body is what another page can't send."""
+    if not (content_type or "").startswith("application/json"):
+        raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "Send the details as JSON")
+    url = _state().get("server_url")
+    if not url:
+        raise HTTPException(status.HTTP_409_CONFLICT, "This PC hasn't been set up from a server yet")
+    known = db.scalar(select(func.count()).select_from(User).where(User.username == body.username)) > 0
+    db.close()
+    server = ServerSession(url, body.username, body.password)
+    if not known:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "The server knows you, but this PC's copy is older than your account — an Admin can fetch a fresh copy under Admin → Sync",
+        )
+    _remember_login(server)
+    return {"remembered": body.username}
+
+
 @router.post("/connect", dependencies=[Depends(verify_csrf)])
-def connect(body: ServerLogin, _=Depends(require_role(Role.editor))) -> dict:
+def connect(body: ServerLogin, _=Depends(require_role(Role.admin))) -> dict:
     """Sign in to the server (kept while the app runs) — for fetching and syncing."""
     global _server
     _server = ServerSession(body.server_url, body.username, body.password)
+    _remember_login(_server)
     _save_state(server_url=_server.url)
     info = _server.get("/sync/info")
     _raise_for(info, "Asking the server its version")
@@ -313,7 +377,7 @@ def local_changes(db: Session = Depends(get_db), _=Depends(require_role(Role.vie
 
 
 @router.post("/fetch", dependencies=[Depends(verify_csrf)])
-def fetch_again(force: bool = False, db: Session = Depends(get_db), _=Depends(require_role(Role.editor))) -> dict:
+def fetch_again(force: bool = False, db: Session = Depends(get_db), _=Depends(require_role(Role.admin))) -> dict:
     """Replace what's on this PC with a fresh copy from the server. Refused while
     there are changes here not synced yet, unless forced (they're kept in a file)."""
     server = _session()
@@ -328,7 +392,7 @@ def fetch_again(force: bool = False, db: Session = Depends(get_db), _=Depends(re
 
 
 @router.post("/preview", dependencies=[Depends(verify_csrf)])
-def preview(body: SyncChoices, _=Depends(require_role(Role.editor))) -> dict:
+def preview(body: SyncChoices, _=Depends(require_role(Role.admin))) -> dict:
     server = _session()
     with _lock:
         payload = _changes()
@@ -338,7 +402,7 @@ def preview(body: SyncChoices, _=Depends(require_role(Role.editor))) -> dict:
 
 
 @router.post("/sync", dependencies=[Depends(verify_csrf)])
-def sync(body: SyncChoices, db: Session = Depends(get_db), _=Depends(require_role(Role.editor))) -> dict:
+def sync(body: SyncChoices, db: Session = Depends(get_db), _=Depends(require_role(Role.admin))) -> dict:
     """Send this PC's changes to the server, then fetch a fresh copy — the PC
     then has exactly what the server has, everyone's changes included."""
     server = _session()

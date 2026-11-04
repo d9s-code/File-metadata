@@ -9,10 +9,16 @@ where the server can't be reached, and syncing back when it can.
   `%LOCALAPPDATA%\PRS` at the first start (listening on 127.0.0.1 only, with a
   generated password), migrates it, serves the backend under `/api` and the
   frontend on `http://127.0.0.1:8765`, and opens the browser.
-* **Fetching:** the server's `GET /sync/copy` (Editors and up) is the whole
+* **Fetching:** the server's `GET /sync/copy` (Admins only) is the whole
   database as gzipped JSON — not `pg_dump`, so the PC's PostgreSQL needn't
   match the server's. The PC loads it into its database and into
   `prs_baseline`, an untouched copy.
+* **Passwords:** the copy has none — every account gets one locked hash of a
+  random secret. The PC lets in only people whose password the server has
+  accepted through it (setting up, Admin → Sync, or a first sign-in on the PC,
+  which the PC checks with the server: `/api/offline/login-via-server`), with
+  a bcrypt hash it makes itself, kept in `logins.json` in its data folder and
+  put back after every fetch. The password itself isn't stored.
 * **Syncing:** the PC works out every row inserted, updated or deleted since
   (against `prs_baseline`) and sends them with their base values; the server
   compares field by field (`backend/app/services/sync_service.py`): changed

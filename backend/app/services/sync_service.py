@@ -34,6 +34,7 @@ import base64
 import enum
 import hashlib
 import json
+import secrets
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -253,14 +254,26 @@ def compute_changes(local: Connection, base: Connection) -> dict:
 NOT_COPIED = {"knowledge_sections", "knowledge_sync", "ai_chats"}
 
 
-def export_copy(conn: Connection) -> dict:
+def export_copy(conn: Connection, *, with_passwords: bool = False) -> dict:
     """The whole database as JSON-safe rows — what the standalone app loads.
-    User accounts come along (people sign in on the PC as on the server)."""
+
+    User accounts come along (who did what, who a task is for), but not their
+    passwords: each gets a locked hash of a random secret, which no password
+    matches. The PC lets in only people who have signed in to the server from
+    it, with a hash it makes itself. (`with_passwords` is for the PC's own
+    copy of itself, kept in a file before it's replaced.)"""
+    from app.core.security import hash_password
+
+    locked = None if with_passwords else hash_password(secrets.token_hex(32))
     tables = {}
     for t in Base.metadata.sorted_tables:
         if t.name in NOT_COPIED:
             continue
-        tables[t.name] = [dump_row(t, r) for r in conn.execute(select(*_columns(t))).mappings()]
+        rows = [dump_row(t, r) for r in conn.execute(select(*_columns(t))).mappings()]
+        if t.name == "users" and locked:
+            for row in rows:
+                row["password_hash"] = locked
+        tables[t.name] = rows
     return {"schema": schema_version(conn), "tables": tables}
 
 

@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
+from app.core.security import hash_password, verify_password
 from app.database import Base, get_db
 from app.main import app as fastapi_app
 from app.services.sync_service import compute_changes, load_copy
@@ -55,9 +56,16 @@ class PC:
         for eng in (self.engine, self.base):
             with eng.begin() as c:
                 load_copy(c, copy)
+        # As the standalone app does: the copy has no passwords; the PC lets in
+        # whoever signed in to the server from it, with its own hash.
+        with self.engine.begin() as c:
+            c.execute(
+                text("UPDATE users SET password_hash = :h WHERE username = 'admin_t'"),
+                {"h": hash_password("adminpass123")},
+            )
 
     @contextmanager
-    def client(self, username="editor_t", password="editorpass123"):
+    def client(self, username="admin_t", password="adminpass123"):
         """The app as it runs on the PC: the same API, on the PC's database."""
         session = sessionmaker(bind=self.engine, autoflush=False)()
         before = fastapi_app.dependency_overrides.get(get_db)
@@ -106,8 +114,8 @@ def _sync(server, payload, resolutions=None):
     return server.post("/sync/apply", json={"payload": payload, "resolutions": resolutions or {}, "device": "Field laptop"})
 
 
-def test_changes_on_both_sides_merge_without_conflict(editor_client, pc):
-    server = editor_client
+def test_changes_on_both_sides_merge_without_conflict(admin_client, pc):
+    server = admin_client
     e, g, s = _emitter(server)
     _add_mode(server, g, s, "A")
     pc.take_copy(server)
@@ -130,8 +138,8 @@ def test_changes_on_both_sides_merge_without_conflict(editor_client, pc):
     assert any("Synced changes made offline on Field laptop" in x["summary"] for x in log)
 
 
-def test_the_same_field_changed_on_both_sides_is_a_conflict_to_settle(editor_client, pc):
-    server = editor_client
+def test_the_same_field_changed_on_both_sides_is_a_conflict_to_settle(admin_client, pc):
+    server = admin_client
     e, g, s = _emitter(server)
     pc.take_copy(server)
     with pc.client() as laptop:
@@ -153,8 +161,8 @@ def test_the_same_field_changed_on_both_sides_is_a_conflict_to_settle(editor_cli
     assert server.get(f"/emitters/{e['id']}").json()["description"] == "PC's words"
 
 
-def test_server_wins_keeps_its_value_but_takes_the_rest(editor_client, pc):
-    server = editor_client
+def test_server_wins_keeps_its_value_but_takes_the_rest(admin_client, pc):
+    server = admin_client
     e, g, s = _emitter(server)
     pc.take_copy(server)
     with pc.client() as laptop:
@@ -168,8 +176,8 @@ def test_server_wins_keeps_its_value_but_takes_the_rest(editor_client, pc):
     assert _modes(server, g) == ["Offline mode"]
 
 
-def test_a_version_number_both_sides_used_is_renumbered(editor_client, pc):
-    server = editor_client
+def test_a_version_number_both_sides_used_is_renumbered(admin_client, pc):
+    server = admin_client
     e, g, s = _emitter(server)
     _add_mode(server, g, s, "A")
     assert server.post(f"/emitters/{e['id']}/versions", json={"change_summary": "v1"}).status_code == 201
@@ -192,8 +200,8 @@ def test_a_version_number_both_sides_used_is_renumbered(editor_client, pc):
     assert _modes(server, g) == ["A", "PC mode", "Server mode"]
 
 
-def test_a_name_both_sides_gave_a_new_emitter_is_kept_apart(editor_client, pc):
-    server = editor_client
+def test_a_name_both_sides_gave_a_new_emitter_is_kept_apart(admin_client, pc):
+    server = admin_client
     pc.take_copy(server)
     with pc.client() as laptop:
         _emitter(laptop, "Harbour Radar")
@@ -205,8 +213,8 @@ def test_a_name_both_sides_gave_a_new_emitter_is_kept_apart(editor_client, pc):
     assert names == ["Harbour Radar", "Harbour Radar (from PC)"]
 
 
-def test_a_mode_added_under_a_group_the_server_deleted(editor_client, pc):
-    server = editor_client
+def test_a_mode_added_under_a_group_the_server_deleted(admin_client, pc):
+    server = admin_client
     e, g, s = _emitter(server)
     pc.take_copy(server)
     with pc.client() as laptop:
@@ -230,17 +238,19 @@ def test_a_mode_added_under_a_group_the_server_deleted(editor_client, pc):
     assert _modes(server, g) == ["Orphan"]
 
 
-def test_a_different_app_version_is_refused(editor_client, pc):
-    pc.take_copy(editor_client)
+def test_a_different_app_version_is_refused(admin_client, pc):
+    pc.take_copy(admin_client)
     payload = pc.changes()
     payload["schema"] = "some-other-version"
-    r = editor_client.post("/sync/preview", json={"payload": payload})
+    r = admin_client.post("/sync/preview", json={"payload": payload})
     assert r.status_code == 409
     assert "different version" in r.json()["detail"]
 
 
-def test_a_viewer_cannot_take_a_copy(viewer_client):
+def test_only_an_admin_can_take_a_copy_or_sync(viewer_client, editor_client):
     assert viewer_client.get("/sync/copy").status_code == 403
+    assert editor_client.get("/sync/copy").status_code == 403
+    assert editor_client.post("/sync/preview", json={"payload": {"changes": []}}).status_code == 403
 
 
 def test_rows_round_trip_with_str_enums():
@@ -253,3 +263,14 @@ def test_rows_round_trip_with_str_enums():
     assert _dump(TestResult.pass_) == "pass_"
     assert load_row(t, {"result": "pass_"})["result"] is TestResult.pass_
     assert load_row(t, {"result": "pass"})["result"] is TestResult.pass_
+
+
+def test_the_copy_carries_no_passwords(editor_client, admin_client):
+    """Whoever takes a copy mustn't get everyone's password hashes."""
+    copy = admin_client.get("/sync/copy").json()
+    users = copy["tables"]["users"]
+    assert {u["username"] for u in users} >= {"editor_t", "admin_t"}
+    hashes = {u["password_hash"] for u in users}
+    assert len(hashes) == 1  # one locked hash for everyone, of a random secret
+    locked = hashes.pop()
+    assert not verify_password("editorpass123", locked) and not verify_password("adminpass123", locked)

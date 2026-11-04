@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { useBackupHealth } from "../../state/hooks/useBackups";
+import { STANDALONE } from "../../api/offline";
 
 const DISMISSED_KEY = "backup-warning-dismissed";
 
@@ -21,11 +22,12 @@ export function BackupWarning() {
   const { user } = useAuth();
   const { pathname } = useLocation();
   const isAdmin = user?.role === "admin";
-  const { data: health } = useBackupHealth(isAdmin);
+  // The offline app keeps no scheduled backups: syncing to the server is its safety net.
+  const { data: health } = useBackupHealth(isAdmin && !STANDALONE);
   const [dismissed, setDismissed] = useState(readDismissed);
 
   const shownHere = pathname === "/dashboard" || (pathname.startsWith("/admin/") && pathname !== "/admin/backups");
-  if (!isAdmin || !shownHere || !health || health.ok) return null;
+  if (STANDALONE || !isAdmin || !shownHere || !health || health.ok) return null;
   const key = health.problems.join("|");
   if (dismissed === key) return null;
 

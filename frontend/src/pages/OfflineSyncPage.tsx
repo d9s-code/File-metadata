@@ -5,6 +5,7 @@ import { offlineApi, type Resolutions, type SyncGroup, type SyncPreview, type Sy
 import { useAuth } from "../auth/AuthContext";
 import { useHasRole } from "../auth/RequireAuth";
 import { useConfirmDialog } from "../components/common/ConfirmDialog";
+import { AdminNav } from "../components/common/AdminNav";
 import { PageHeader } from "../components/common/PageHeader";
 import { formatDateTime } from "../components/common/dates";
 
@@ -57,7 +58,7 @@ function count(summary: Partial<Record<string, number>>): string {
  * signing in to the server, checking for conflicts, and syncing. */
 export function OfflineSyncPage() {
   const { user } = useAuth();
-  const canSync = useHasRole("editor");
+  const canSync = useHasRole("admin");
   const queryClient = useQueryClient();
   const { confirmDelete, dialog } = useConfirmDialog();
   const { data: status, refetch: refetchStatus } = useQuery({ queryKey: ["offline", "status"], queryFn: offlineApi.status });
@@ -144,9 +145,10 @@ export function OfflineSyncPage() {
   return (
     <div className="page">
       <PageHeader
-        title="Sync with the server"
-        info="This is the offline version of the app, on this PC. Work here as usual; when you're connected to the server again, sync: your changes go to the server and the server's come here. Where the same thing was changed differently on both sides, you choose which to keep."
+        title="Admin"
+        info="Sync: this is the offline version of the app, on this PC. Work here as usual; when you're connected to the server again, sync: your changes go to the server and the server's come here. Where the same thing was changed differently on both sides, you choose which to keep."
       />
+      <AdminNav />
       {error && <div className="card error-text">{error}</div>}
       {result && (
         <div className="card success-text">
@@ -216,7 +218,7 @@ export function OfflineSyncPage() {
               <button type="submit" disabled={!!busy || !canSync}>
                 {busy === "Signing in" ? "Signing in…" : "Sign in to the server"}
               </button>
-              {!canSync && <p className="hint-text">Syncing needs an Editor or Admin.</p>}
+              {!canSync && <p className="hint-text">Syncing needs an Admin.</p>}
             </form>
           )}
         </section>

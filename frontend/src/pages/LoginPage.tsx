@@ -32,7 +32,25 @@ export function LoginPage() {
     setError(null);
     setSubmitting(true);
     try {
-      await login(username, password);
+      try {
+        await login(username, password);
+      } catch (err) {
+        // The offline app knows only people who have signed in to the server from
+        // this PC: check with the server, which remembers them here, and try again.
+        if (!(STANDALONE && offline?.server_url && err instanceof ApiRequestError && err.status === 401)) throw err;
+        try {
+          await offlineApi.loginViaServer({ username, password });
+        } catch (serverErr) {
+          if (serverErr instanceof ApiRequestError && serverErr.status === 502) {
+            throw new ApiRequestError(
+              401,
+              "This PC doesn't know that username and password yet, and can't reach the server to check them. Sign in once while connected to the server.",
+            );
+          }
+          throw serverErr;
+        }
+        await login(username, password);
+      }
       navigate(redirectTo, { replace: true });
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : "Login failed");
@@ -59,7 +77,12 @@ export function LoginPage() {
     <div className="centered-page">
       <form className="card login-card" onSubmit={handleSubmit}>
         <h1>RF Emitter Profile Manager</h1>
-        {STANDALONE && <div className="hint-text">Offline version, on this PC — sign in as you do on the server.</div>}
+        {STANDALONE && (
+          <div className="hint-text">
+            Offline version, on this PC — sign in as you do on the server. The first time on this PC, be connected to
+            the server: it checks your password once, then you can sign in here offline.
+          </div>
+        )}
         {fetchedRows != null && (
           <div className="success-text">Fetched {fetchedRows.toLocaleString()} rows from the server.</div>
         )}

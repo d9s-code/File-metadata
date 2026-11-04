@@ -14,9 +14,14 @@ stop the app. Nothing is installed and no admin rights are needed.
 
 The first time
 --------------
-While you're connected to the server: the app asks for the server's address
-(e.g. https://prs.app) and your username and password there, and fetches a copy
-of everything. Then sign in as you do on the server.
+While you're connected to the server, an Admin sets the PC up: the app asks
+for the server's address (e.g. https://prs.app) and an Admin's username and
+password there, and fetches a copy of everything.
+
+Then sign in as you do on the server. The copy has no passwords in it: the
+first time someone signs in on this PC, it checks their password with the
+server (so be connected then), and remembers them — after that they can sign
+in here offline too. Only people who have done that can sign in on this PC.
 
 Working offline
 ---------------
@@ -26,7 +31,7 @@ page. Others can't see what you do until you sync.
 
 Syncing
 -------
-Back on the server's network, open "Sync" in the top bar:
+Back on the server's network, an Admin opens Admin → Sync:
   1. Sign in to the server.
   2. "Check against the server" shows what syncing would do. If something was
      changed both here and on the server since you fetched the copy, you see

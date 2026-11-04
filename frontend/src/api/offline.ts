@@ -62,6 +62,8 @@ export type Resolutions = Record<string, "server" | "pc">;
 export const offlineApi = {
   status: () => api.get<OfflineStatus>("/offline/status"),
   setup: (login: ServerLogin) => api.post<{ rows: number }>("/offline/setup", login),
+  loginViaServer: (login: { username: string; password: string }) =>
+    api.post<{ remembered: string }>("/offline/login-via-server", login),
   connect: (login: ServerLogin) => api.post<{ connected_as: string }>("/offline/connect", login),
   disconnect: () => api.post<{ connected_as: null }>("/offline/disconnect"),
   changes: () => api.get<LocalChanges>("/offline/changes"),

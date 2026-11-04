@@ -80,11 +80,11 @@ export default function App() {
               <Route path="/login" element={<LoginPage />} />
               {STANDALONE && (
                 <Route
-                  path="/sync"
+                  path="/admin/sync"
                   element={
-                    <RequireAuth>
+                    <RequireAdmin>
                       <OfflineSyncPage />
-                    </RequireAuth>
+                    </RequireAdmin>
                   }
                 />
               )}

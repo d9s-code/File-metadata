@@ -31,14 +31,14 @@ export function SetUpFromServer({ onDone }: { onDone: (rows: number) => void }) 
       <p className="hint-text">
         This is the offline version of the app, and there&apos;s nothing on this PC yet. Fetch a copy of everything
         from the server while you&apos;re connected to it — you can then work here without a connection, and sync your
-        changes back when you&apos;re connected again.
+        changes back when you&apos;re connected again. Setting up and syncing need an Admin.
       </p>
       <label>
         Server address
         <input value={serverUrl} onChange={(e) => setServerUrl(e.target.value)} placeholder="https://prs.app" required autoFocus />
       </label>
       <label>
-        Your username on the server
+        Your username on the server (an Admin)
         <input value={username} onChange={(e) => setUsername(e.target.value)} required />
       </label>
       <label>

@@ -36,8 +36,9 @@ def sync_info(db: Session = Depends(get_db), _=Depends(require_role(Role.viewer)
 
 
 @router.get("/copy")
-def take_copy(db: Session = Depends(get_db), user=Depends(require_role(Role.editor))) -> Response:
-    """The whole database, as gzipped JSON, for the standalone app to work on offline."""
+def take_copy(db: Session = Depends(get_db), user=Depends(require_role(Role.admin))) -> Response:
+    """The whole database, as gzipped JSON, for the standalone app to work on
+    offline — Admins only, like syncing (passwords aren't in it)."""
     # One consistent snapshot of every table, on a connection of its own.
     with db.get_bind().connect().execution_options(isolation_level="REPEATABLE READ") as conn:
         copy = sync_service.export_copy(conn)
@@ -65,7 +66,7 @@ def _plan(db: Session, req: SyncRequest, user) -> sync_service.Plan:
 
 
 @router.post("/preview", dependencies=[Depends(verify_csrf)])
-def preview_sync(req: SyncRequest, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))) -> dict:
+def preview_sync(req: SyncRequest, db: Session = Depends(get_db), user=Depends(require_role(Role.admin))) -> dict:
     """What syncing would do, and the conflicts to settle — nothing is changed."""
     plan = _plan(db, req, user)
     db.rollback()
@@ -73,7 +74,7 @@ def preview_sync(req: SyncRequest, db: Session = Depends(get_db), user=Depends(r
 
 
 @router.post("/apply", dependencies=[Depends(verify_csrf)])
-def apply_sync(req: SyncRequest, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))) -> dict:
+def apply_sync(req: SyncRequest, db: Session = Depends(get_db), user=Depends(require_role(Role.admin))) -> dict:
     """Writes the PC's changes in, all or nothing. Refused (409, with the new
     preview) if a conflict hasn't been settled — including one that appeared
     on the server since the preview."""
