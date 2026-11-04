@@ -30,6 +30,7 @@ const ENTITY_TYPES: Record<string, [plural: string, singular: string]> = {
   mdf_note: ["MDF notes", "MDF note"],
   source_note: ["Source notes", "Source note"],
   dwell_strategy_note: ["Strategy notes", "Strategy note"],
+  sync: ["Offline syncs", "Offline sync"],
   source_group: ["Source Groups", "Source Group"],
   parameter_sequence: ["Sequences", "Sequence"],
   import_batch: ["Imports", "Import"],

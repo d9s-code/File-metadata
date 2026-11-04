@@ -31,6 +31,7 @@ from app.routers import (
     source_groups,
     sources,
     statuses,
+    sync,
     tasks,
     test_drafts,
     test_lines,
@@ -61,6 +62,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(sync.router)
 app.include_router(tasks.people_router)
 app.include_router(tasks.router)
 app.include_router(users.router)
