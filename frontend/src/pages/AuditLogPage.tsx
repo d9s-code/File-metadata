@@ -18,6 +18,9 @@ const PAGE_SIZE = 50;
 export function AuditLogPage() {
   const [entityType, setEntityType] = useSessionState<string | null>("auditLog.entityType", null);
   const [action, setAction] = useSessionState<AuditAction | "">("auditLog.action", "");
+  // Sign-ins and edit starts/ends crowd out the changes: hidden unless asked
+  // for, or unless one of those actions is picked.
+  const [showQuiet, setShowQuiet] = useSessionState<boolean>("auditLog.showQuiet", false);
   const [parameter, setParameter] = useSessionState("auditLog.parameter", "");
   const [search, setSearch] = useSessionState("auditLog.search", "");
   const [selectedEntity, setSelectedEntity] = useState<AuditEntitySearchResult | null>(null);
@@ -34,6 +37,7 @@ export function AuditLogPage() {
     entity_id: selectedEntity?.entity_id,
     action: action || undefined,
     parameter: parameter || undefined,
+    hide_quiet: !showQuiet && !action && entityType !== "auth" ? true : undefined,
     q: selectedEntity ? undefined : search.trim() || undefined,
     since: dateFrom || undefined,
     until: dateTo ? `${dateTo}T23:59:59` : undefined,
@@ -180,6 +184,19 @@ export function AuditLogPage() {
               <button type="button" className="link-button" onClick={clearDates}>
                 Clear dates
               </button>
+            )}
+            {!action && entityType !== "auth" && (
+              <label className="inline-label hint-text">
+                <input
+                  type="checkbox"
+                  checked={showQuiet}
+                  onChange={(e) => {
+                    setShowQuiet(e.target.checked);
+                    setOffset(0);
+                  }}
+                />
+                Sign-ins &amp; edit locks too
+              </label>
             )}
           </div>
 

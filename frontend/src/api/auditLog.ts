@@ -20,6 +20,8 @@ export interface AuditLogFilters {
   with_versions?: boolean;
   /** Only entries that change this parameter (rf, pri, pw, jitter, frame_time, …). */
   parameter?: string;
+  /** Leave out sign-ins and starting or ending an edit. */
+  hide_quiet?: boolean;
   q?: string;
   since?: string;
   until?: string;

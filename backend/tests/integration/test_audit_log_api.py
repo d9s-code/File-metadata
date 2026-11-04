@@ -110,3 +110,16 @@ def test_free_text_search_over_summary(editor_client):
     editor_client.post("/emitters", json={"name": "SearchableUniqueName123"})
     resp = editor_client.get("/audit-log", params={"q": "SearchableUniqueName123"})
     assert resp.json()["total"] == 1
+
+
+def test_hide_quiet_leaves_out_sign_ins_and_edit_locks(editor_client):
+    emitter = editor_client.post("/emitters", json={"name": "Quiet Filter Emitter"}).json()
+    editor_client.post(f"/emitters/{emitter['id']}/checkout")
+
+    everything = editor_client.get("/audit-log", params={"limit": 200}).json()["items"]
+    assert {"login", "checkout"} <= {e["action"] for e in everything}
+
+    quiet = editor_client.get("/audit-log", params={"limit": 200, "hide_quiet": True}).json()["items"]
+    actions = {e["action"] for e in quiet}
+    assert not actions & {"login", "logout", "login_failed", "checkout", "checkin"}
+    assert any(e["entity_id"] == emitter["id"] and e["action"] == "create" for e in quiet)

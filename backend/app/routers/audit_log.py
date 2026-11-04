@@ -10,6 +10,7 @@ from app.core.enums import AuditAction, AuditEntityType, Role
 from app.database import get_db
 from app.deps import require_role
 from app.models.audit_log import AuditLog
+from app.services.dashboard_service import QUIET_ACTIONS
 from app.models.emitter import Emitter
 from app.models.ew_group import EwGroup
 from app.models.mdf import Mdf
@@ -83,6 +84,7 @@ def list_audit_log(
     until: datetime | None = None,
     with_versions: bool = False,
     parameter: str | None = None,
+    hide_quiet: bool = False,
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
@@ -96,7 +98,8 @@ def list_audit_log(
     records) — combine it with `entity_type`/`action` to narrow within that
     rollup rather than to one exact entity. `with_versions` keeps the
     Emitter's saved versions, reverts and discards in a trail narrowed that
-    way, to show where each change landed.
+    way, to show where each change landed. `hide_quiet` leaves out sign-ins
+    and starting or ending an edit — comings and goings, not changes.
     """
     query = db.query(AuditLog).options(joinedload(AuditLog.actor))
     narrowed = []
@@ -121,6 +124,8 @@ def list_audit_log(
         query = query.filter(AuditLog.actor_id == actor_id)
     if emitter_id:
         query = query.filter(AuditLog.emitter_id == emitter_id)
+    if hide_quiet:
+        query = query.filter(AuditLog.action.notin_(QUIET_ACTIONS))
     if q:
         query = query.filter(AuditLog.summary.ilike(f"%{q}%"))
     if since:
