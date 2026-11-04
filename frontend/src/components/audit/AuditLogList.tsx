@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { formatDateTime } from "../common/dates";
 import type { AuditLogEntry } from "../../types/domain";
-import { actionLabel, auditSummary, changeDigest, entityTypeSingular, formatChanges, versionMarker } from "./auditFormat";
+import { actionLabel, auditSummary, entryActionLabel, changeDigest, entityTypeSingular, formatChanges, versionMarker } from "./auditFormat";
 import { SortableColumnHeader } from "../common/SortableColumnHeader";
 import { useSortableTable } from "../common/useSortableTable";
 import { compareStrings } from "../common/sortUtils";
@@ -115,7 +115,7 @@ export function AuditLogList({
             <td>{formatDateTime(e.created_at)}</td>
             <td>{e.actor_username ?? <span className="hint-text">system</span>}</td>
             <td>
-              <span className={`audit-action-badge audit-action-${e.action}`}>{actionLabel(e.action)}</span>
+              <span className={`audit-action-badge audit-action-${e.action}`}>{entryActionLabel(e)}</span>
             </td>
             {showEntityType && <td>{entityTypeSingular(e.entity_type)}</td>}
             <td>

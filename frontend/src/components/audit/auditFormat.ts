@@ -78,6 +78,14 @@ export function actionLabel(action: AuditAction): string {
   return ACTION_LABELS[action] ?? action;
 }
 
+/** An entry's action as shown: a checkpoint save, or going back to one, says so. */
+export function entryActionLabel(entry: { action: AuditAction; changes: Record<string, unknown> | null }): string {
+  const checkpoint = typeof entry.changes?.checkpoint === "string";
+  if (checkpoint && entry.action === "commit") return "Saved checkpoint";
+  if (checkpoint && entry.action === "revert") return "Back to checkpoint";
+  return actionLabel(entry.action);
+}
+
 // Domain abbreviations rendered with their conventional casing in humanized
 // field labels, checked word-by-word against the underscore-split field name.
 const WORD_LABELS: Record<string, string> = {
@@ -224,7 +232,10 @@ function lowerFirst(text: string): string {
 export function versionMarker(entry: { entity_type: string; action: string; summary: string; changes: Record<string, unknown> | null }): string | null {
   if (entry.entity_type !== "emitter" || !["commit", "revert", "discard"].includes(entry.action)) return null;
   const n = entry.changes?.version_number;
+  const cp = entry.changes?.checkpoint;
   const note = entry.summary.includes(" — ") ? entry.summary.split(" — ").slice(1).join(" — ") : "";
+  if (typeof cp === "string" && entry.action === "commit") return `Saved checkpoint v${cp}${note ? ` — ${note}` : ""}`;
+  if (typeof cp === "string" && entry.action === "discard") return `Discarded unsaved changes — back to v${cp}`;
   if (entry.action === "commit") return typeof n === "number" ? `Saved v${n}${note ? ` — ${note}` : ""}` : entry.summary;
   if (entry.action === "revert") {
     const to = entry.changes?.reverted_to;

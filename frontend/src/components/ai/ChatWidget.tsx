@@ -477,11 +477,7 @@ export function ChatWidget() {
   const title = chatId ? (chat.data?.title ?? "…") : "New chat";
 
   if (!open) {
-    return (
-      <button type="button" className="chat-launcher" onClick={() => setOpen(true)} title="Ask the AI">
-        ✦ Ask AI
-      </button>
-    );
+    return <ChatLauncher onOpen={() => setOpen(true)} />;
   }
 
   const style = {
@@ -776,5 +772,28 @@ export function ChatWidget() {
       </div>
       {dialog}
     </section>
+  );
+}
+
+/** The corner button: "✦ Ask AI" at the top of a page, just "✦" once scrolled,
+ * so it covers less of the table underneath. */
+function ChatLauncher({ onOpen }: { onOpen: () => void }) {
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setCompact(window.scrollY > 120);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+  return (
+    <button
+      type="button"
+      className={compact ? "chat-launcher compact" : "chat-launcher"}
+      onClick={onOpen}
+      title="Ask the AI"
+      aria-label="Ask the AI"
+    >
+      {compact ? "✦" : "✦ Ask AI"}
+    </button>
   );
 }

@@ -7472,3 +7472,6 @@ button.status-chip.status-color-purple, button.status-chip.status-color-purple:h
 button.status-chip, button.meta-chip, button.editing-chip, button.status-chip:hover, button.meta-chip:hover, button.editing-chip:hover { box-shadow: none; }
 button.status-chip[aria-expanded="true"], button.meta-chip[aria-expanded="true"] { outline: 2px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset: 1px; }
 button.meta-chip:hover:not(:disabled) { color: var(--text); }
+
+/* Once the page is scrolled, the AI button shrinks to its ✦ so it covers less. */
+.chat-launcher.compact { width: 2.6rem; height: 2.6rem; padding: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 1.1rem; }

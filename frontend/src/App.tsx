@@ -411,6 +411,7 @@ export default function App() {
                 }
               />
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/admin" element={<Navigate to="/admin/users" replace />} />
               <Route
                 path="*"
                 element={
