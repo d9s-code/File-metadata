@@ -654,8 +654,10 @@ def set_entry_hypothesis(
     db: Session = Depends(get_db),
     user=Depends(require_role(Role.editor)),
 ) -> InterceptEntryOut:
-    """What the analyst thinks one entry is — "Search radar, mode 2?" — saved on
-    its own, so labelling the groups doesn't mean editing their values."""
+    """The analyst's notes on one entry — what they think it is, "Search radar,
+    mode 2?" — saved on their own, so labelling the groups doesn't mean editing
+    their values. (Shown as "Notes"; stored as `hypothesis`, apart from the
+    entry's `notes`, which on an import say where it came from.)"""
     intercept = _get_writable_intercept(db, intercept_id)
     entry = db.get(InterceptEntry, entry_id)
     if entry is None or entry.intercept_id != intercept_id:
@@ -671,7 +673,7 @@ def set_entry_hypothesis(
             entity_type=AuditEntityType.intercept_entry.value,
             entity_id=entry.id,
             summary=(
-                f"Hypothesis on an entry of Intercept '{intercept.name}': "
+                f"Notes on an entry of Intercept '{intercept.name}': "
                 + (f"'{text_value}'" if text_value else "cleared")
             ),
             changes={"hypothesis": {"old": old, "new": text_value}},

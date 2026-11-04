@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { ApiRequestError } from "../../api/client";
 
-/** What the analyst thinks a group of reports is — shown in its table row,
- * and written in place: click, type, Enter (or click away) saves, Esc puts it back. */
+/** The analyst's notes on a group of reports (what they think it is) — shown
+ * in its table row, and written in place: click, type, Enter (or click away)
+ * saves, Esc puts it back. (Stored as the entry's `hypothesis`.) */
 export function HypothesisCell({
   value,
   canEdit,
@@ -53,7 +54,7 @@ export function HypothesisCell({
           maxLength={2000}
           disabled={saving}
           placeholder="What do you think this is?"
-          aria-label="Hypothesis"
+          aria-label="Notes"
           onChange={(e) => setDraft(e.target.value)}
           onBlur={() => void save()}
           onKeyDown={(e) => {
@@ -78,10 +79,10 @@ export function HypothesisCell({
     <button
       type="button"
       className={value ? "hypothesis-button" : "hypothesis-button empty"}
-      title={value ? `${value} — click to change` : "Add a hypothesis: what you think this group is"}
+      title={value ? `${value} — click to change` : "Add notes: what you think this group is"}
       onClick={() => setEditing(true)}
     >
-      {value || "+ Hypothesis"}
+      {value || "+ Notes"}
     </button>
   );
 }

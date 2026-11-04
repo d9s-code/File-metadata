@@ -899,7 +899,7 @@ export function ImportGroupsPanel({
                 />
               </th>
               <th>Reports</th>
-              <th>Hypothesis</th>
+              <th>Notes</th>
               <th>PRI type</th>
               <th>RF (MHz)</th>
               <th>PRI (µs)</th>

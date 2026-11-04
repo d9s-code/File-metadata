@@ -1000,7 +1000,7 @@ def test_a_hypothesis_on_each_entry_is_kept_through_edits_regroups_and_merges(ed
     r = editor_client.put(url, json={"hypothesis": "  Nav radar  "})
     assert r.status_code == 200 and r.json()["hypothesis"] == "Nav radar"
     log = editor_client.get("/audit-log", params={"entity_type": "intercept_entry"}).json()["items"]
-    assert any("Hypothesis on an entry of Intercept 'Hyp': 'Nav radar'" in x["summary"] for x in log)
+    assert any("Notes on an entry of Intercept 'Hyp': 'Nav radar'" in x["summary"] for x in log)
     assert editor_client.put(url, json={"hypothesis": ""}).json()["hypothesis"] is None
     editor_client.put(url, json={"hypothesis": "Nav radar"})
     assert viewer_client.put(url, json={"hypothesis": "x"}).status_code == 403

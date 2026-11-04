@@ -1312,13 +1312,14 @@ export function HelpPage() {
             heading and page through large files.
           </p>
           <p>
-            <strong>Hypotheses.</strong> Label each entry with what you think it is — &ldquo;Search radar, mode
-            2?&rdquo; — in the <strong>Hypothesis</strong> column, first in the table: click, type, Enter (or click
-            away) saves, Esc cancels. Sort by it to see the entries with the same hypothesis together. The column is
-            in the grouping table too, when importing or regrouping, so you can label the groups straight after
-            clustering; a group you merge, split or Auto group again takes the hypothesis of the group it has most
-            reports from. Hypotheses are saved with the entries, kept when you correct or regroup them, joined when
-            you merge them, and every change is in the Audit Log.
+            <strong>Notes on each entry.</strong> Write what you think an entry is — &ldquo;Search radar, mode
+            2?&rdquo; — in its <strong>Notes</strong>, first in the table: click, type, Enter (or click away) saves,
+            Esc cancels. Sort by them to see the entries with the same notes together. The column is in the grouping
+            table too, when importing or regrouping, so you can label the groups straight after clustering; a group
+            you merge, split or Auto group again takes the notes of the group it has most reports from. Notes are
+            saved with the entries, kept when you correct or regroup them, joined when you merge them, and every
+            change is in the Audit Log. (<strong>Details</strong>, further along, says where an imported entry came
+            from.)
           </p>
           <p>
             <strong>Regroup reports</strong> reopens the grouping tools — Auto group, merge, split, split at a
@@ -1333,7 +1334,7 @@ export function HelpPage() {
           </p>
           <p>
             The entries table sorts by any of its columns (RF by default), shows one line per entry — the full
-            note, stagger list and which parameter a partial match is off on are in the tooltips — and filters by match result. Tick
+            details, notes, stagger list and which parameter a partial match is off on are in the tooltips — and filters by match result. Tick
             entries (or box them on the charts) to <strong>Merge into one</strong> or <strong>Delete</strong>{" "}
             them together. Merging keeps the first-created entry, so its Mode links stay, and the others&apos;
             links move to it: means are weighted by each entry&apos;s report count, the measured range becomes

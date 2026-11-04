@@ -257,7 +257,7 @@ export function EntryFormModal({
         )}
 
         <label>
-          Notes
+          Details
           <textarea
             className="edit-input"
             rows={2}

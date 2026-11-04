@@ -976,7 +976,7 @@ export function InterceptDetailPage() {
                       />
                     </th>
                   )}
-                  {header("Hypothesis", "hypothesis")}
+                  {header("Notes", "hypothesis")}
                   {header("PRI type", "type")}
                   {header("RF (MHz)", "rf", "number")}
                   {header("PRI (µs)", "pri", "number")}
@@ -987,7 +987,9 @@ export function InterceptDetailPage() {
                   <th>Tracks</th>
                   {header("Match", "match")}
                   <th>Modes created</th>
-                  <th>Notes</th>
+                  <th title="Where an imported entry came from (its file lines, what it was identified as), or what was typed with it">
+                    Details
+                  </th>
                   <th className="sticky-end" aria-label="Actions" />
                 </tr>
               </thead>
