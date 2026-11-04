@@ -361,30 +361,46 @@ export function SourcesTable({
         <h4>Sources</h4>
         <RequireRole minimum="editor">
           <div className="section-actions">
-            <button
-              className="button secondary small"
-              disabled={!canEdit || showForm || !!editingSource}
-              title={editTitle}
-              onClick={() => setShowForm(true)}
-            >
-              + Add Source
-            </button>
-            <button
-              className="button secondary small"
-              disabled={!canEdit}
-              title={canEdit ? "Import Sources, Elements and sequences from a JSON file" : editTitle}
-              onClick={() => setShowJsonImport(true)}
-            >
-              Import JSON
-            </button>
-            <button
-              className="button secondary small"
-              disabled={!canEdit || sources.length === 0}
-              title={canEdit ? "Add Elements (or a sequence) to several Sources at once" : editTitle}
-              onClick={() => setShowBatchAdd(true)}
-            >
-              Batch add{selected.size > 0 ? ` to ${selected.size} Source${selected.size === 1 ? "" : "s"}` : ""}
-            </button>
+            {selected.size > 0 && (
+              <button
+                className="button secondary small"
+                disabled={!canEdit}
+                title={canEdit ? "Add Elements (or a sequence) to the ticked Sources" : editTitle}
+                onClick={() => setShowBatchAdd(true)}
+              >
+                Batch add to {selected.size} Source{selected.size === 1 ? "" : "s"}
+              </button>
+            )}
+            <div className="split-button">
+              <button
+                className="button secondary small"
+                disabled={!canEdit || showForm || !!editingSource}
+                title={editTitle}
+                onClick={() => setShowForm(true)}
+              >
+                + Add Source
+              </button>
+              <MenuButton
+                label="▾"
+                className="button secondary small split-button-caret"
+                ariaLabel="More ways to add Sources"
+                title="More ways to add Sources"
+                items={[
+                  {
+                    label: "Import JSON…",
+                    onSelect: () => setShowJsonImport(true),
+                    disabled: !canEdit,
+                    title: canEdit ? "Import Sources, Elements and sequences from a JSON file" : editTitle,
+                  },
+                  {
+                    label: "Batch add…",
+                    onSelect: () => setShowBatchAdd(true),
+                    disabled: !canEdit || sources.length === 0,
+                    title: canEdit ? "Add Elements (or a sequence) to several Sources at once" : editTitle,
+                  },
+                ]}
+              />
+            </div>
             {selected.size > 0 && (
               <button className="link-button" onClick={() => setSelected(new Set())}>
                 Clear selection

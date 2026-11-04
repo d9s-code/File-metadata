@@ -56,6 +56,7 @@ export function MdfBuilderPage() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
+  const [pinningPlatform, setPinningPlatform] = useState(false);
   const [editDescription, setEditDescription] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [editReleaseDate, setEditReleaseDate] = useState("");
@@ -266,31 +267,42 @@ export function MdfBuilderPage() {
       {tab === "platforms" && (
         <div>
           <MdfReadinessPanel mdfId={mdf.id} />
-          {outdatedPins > 0 && (
-            <RequireRole minimum="editor">
-              <p className="repin-all-row">
-                <span className="hint-text">
-                  {outdatedPins} pinned Platform{outdatedPins === 1 ? " has" : "s have"} a newer saved version.
-                </span>{" "}
-                <button
-                  type="button"
-                  className="button secondary small"
-                  disabled={repinAll.isPending}
-                  onClick={() => void repinAll.mutateAsync()}
-                >
-                  {repinAll.isPending ? "Repinning…" : "Repin all to their latest version"}
-                </button>
-              </p>
-            </RequireRole>
+          <section className="card">
+            <div className="card-header">
+              <h4>
+                Pinned Platforms <span className="hint-text">{links?.length ?? 0}</span>
+              </h4>
+              <RequireRole minimum="editor">
+                <div className="section-actions">
+                  {outdatedPins > 0 && (
+                    <>
+                      <span className="hint-text">
+                        {outdatedPins} pinned Platform{outdatedPins === 1 ? " has" : "s have"} a newer saved version.
+                      </span>
+                      <button
+                        type="button"
+                        className="button secondary small"
+                        disabled={repinAll.isPending}
+                        onClick={() => void repinAll.mutateAsync()}
+                      >
+                        {repinAll.isPending ? "Repinning…" : "Repin all to their latest version"}
+                      </button>
+                    </>
+                  )}
+                  <button type="button" className="button primary small" onClick={() => setPinningPlatform(true)}>
+                    + Pin Platform
+                  </button>
+                </div>
+              </RequireRole>
+            </div>
+            <MdfLinkTable mdfId={mdf.id} links={links ?? []} platformsById={platformsById} />
+          </section>
+          {pinningPlatform && (
+            <Modal title="Pin a Platform" onClose={() => setPinningPlatform(false)}>
+              <p className="hint-text">Pinning needs a saved version of the Platform (and of each Emitter it pins).</p>
+              <PlatformVersionPicker mdfId={mdf.id} onDone={() => setPinningPlatform(false)} />
+            </Modal>
           )}
-          <MdfLinkTable mdfId={mdf.id} links={links ?? []} platformsById={platformsById} />
-          <RequireRole minimum="editor">
-            <h4>Pin a Platform Version</h4>
-            <p className="hint-text">
-              Pinning needs a saved version of the Platform (and of each Emitter it pins).
-            </p>
-            <PlatformVersionPicker mdfId={mdf.id} />
-          </RequireRole>
         </div>
       )}
 

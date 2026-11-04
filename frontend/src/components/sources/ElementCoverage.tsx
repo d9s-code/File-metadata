@@ -369,6 +369,7 @@ export function ElementCoverage({ emitterId }: { emitterId: string }) {
       <div className="card-header-row">
         <h4>
           Element coverage{" "}
+          {!isLoading && all.length === 0 && <span className="hint-text">— nothing to check until the Sources have Elements</span>}
           {rows.length > 0 && (
             <span className="hint-text">
               {count("covered")} of {rows.length} Elements covered
@@ -386,16 +387,16 @@ export function ElementCoverage({ emitterId }: { emitterId: string }) {
             is; the note says how. Hover a mark to see what covers it; hover a Mode to see what it covers.
           </InfoTip>
         </h4>
-        <button type="button" className="link-button" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-          {open ? "Hide" : "Show"}
-        </button>
+        {(isLoading || all.length > 0) && (
+          <button type="button" className="link-button" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+            {open ? "Hide" : "Show"}
+          </button>
+        )}
       </div>
       {open &&
         (isLoading ? (
           <p className="hint-text">Loading…</p>
-        ) : all.length === 0 ? (
-          <p className="hint-text">No Elements in this Emitter&apos;s Sources yet.</p>
-        ) : (
+        ) : all.length === 0 ? null : (
           <>
             <div className="coverage-include" role="group" aria-label="Parameters included">
               <span className="hint-text">Include</span>

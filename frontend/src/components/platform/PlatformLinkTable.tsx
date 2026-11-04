@@ -90,9 +90,13 @@ function EmitterProgress({ emitter }: { emitter: Emitter | undefined }) {
     <span className="nowrap">
       <StatusBadge type="emitter" status={emitter.status} title="The Emitter's status now" />
       {emitter.checked_out_by_username && (
-        <span className="hint-text" title={`Being edited by ${emitter.checked_out_by_username}`}>
+        <span
+          className="hint-text"
+          title={`Being edited by ${emitter.checked_out_by_username}`}
+          aria-label={`Being edited by ${emitter.checked_out_by_username}`}
+        >
           {" "}
-          ✎ {emitter.checked_out_by_username}
+          ✎
         </span>
       )}
       {s.sim_lines > 0 && (

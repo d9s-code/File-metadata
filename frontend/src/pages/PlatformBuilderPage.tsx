@@ -192,8 +192,12 @@ export function PlatformBuilderPage() {
       </div>
 
       {tab === "emitters" && (
-        <div>
-          <div className="pinned-emitters-head">
+        <section className="card">
+          <div className="card-header">
+            <h4>
+              Pinned Emitters <span className="hint-text">{links?.length ?? 0}</span>
+            </h4>
+            <div className="section-actions">
             {outdatedPins > 0 && (
               <span className="hint-text">
                 {outdatedPins} pinned Emitter{outdatedPins === 1 ? " has" : "s have"} a newer saved version.
@@ -214,10 +218,11 @@ export function PlatformBuilderPage() {
                 + Pin Emitters
               </button>
             </RequireRole>
+            </div>
           </div>
           <PlatformLinkTable platformId={platform.id} links={links ?? []} emittersById={emittersById} />
           {pinning && <PinEmittersDialog platformId={platform.id} onClose={() => setPinning(false)} />}
-        </div>
+        </section>
       )}
 
       {tab === "charts" && <PlatformCharts platformId={platform.id} />}

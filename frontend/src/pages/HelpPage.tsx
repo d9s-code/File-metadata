@@ -1026,7 +1026,7 @@ export function HelpPage() {
           </p>
           <p>
             The <strong>Readiness</strong> checklist at the top of Pinned Platforms says what&apos;s left before the
-            MDF goes out, problems first: Platforms pinned, the pins saved as a version, Platform pins and the Emitter
+            MDF goes out — folded to one line when all is ready, otherwise listing only what isn&apos;t: Platforms pinned, the pins saved as a version, Platform pins and the Emitter
             pins inside them up to date, every Emitter Operational and passing its latest Simulation Test, no open
             High or Exact finding in the latest ambiguity check, and a passing MDF test on file. Pinned Platforms with a
             newer saved version are flagged <strong>Outdated</strong>, with <strong>Repin to vN</strong> beside each and{" "}

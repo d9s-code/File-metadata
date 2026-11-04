@@ -46,16 +46,21 @@ function Check({ item, mdfId }: { item: ReadinessItem; mdfId: string }) {
  * High/Exact ambiguity, a passing MDF test. Problems first. */
 export function MdfReadinessPanel({ mdfId }: { mdfId: string }) {
   const { data, isLoading } = useMdfReadinessChecklist(mdfId);
-  const [open, setOpen] = useState(true);
+  // Folded to its summary line when everything's ready; open on what isn't.
+  const [openChoice, setOpenChoice] = useState<boolean | null>(null);
+  const [showReady, setShowReady] = useState(false);
   if (isLoading || !data) return null;
   const count = (s: ReadinessItem["status"]) => data.filter((i) => i.status === s).length;
   const order = { fail: 0, warn: 1, ok: 2 };
   const sorted = [...data].sort((a, b) => order[a.status] - order[b.status]);
   const fails = count("fail");
   const warns = count("warn");
+  const open = openChoice ?? fails + warns > 0;
+  const ready = sorted.filter((i) => i.status === "ok");
+  const listed = fails + warns === 0 || showReady ? sorted : sorted.filter((i) => i.status !== "ok");
   return (
     <section className={`card readiness-panel ${fails ? "has-fail" : warns ? "has-warn" : "all-ok"}`}>
-      <button type="button" className="link-button section-toggle" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+      <button type="button" className="link-button section-toggle" onClick={() => setOpenChoice(!open)} aria-expanded={open}>
         {open ? "▾" : "▸"} <h4>Readiness</h4>{" "}
         <span className="hint-text">
           {count("ok")} of {data.length} ready
@@ -64,11 +69,18 @@ export function MdfReadinessPanel({ mdfId }: { mdfId: string }) {
         </span>
       </button>
       {open && (
-        <ul className="readiness-list">
-          {sorted.map((item) => (
-            <Check key={item.key} item={item} mdfId={mdfId} />
-          ))}
-        </ul>
+        <>
+          <ul className="readiness-list">
+            {listed.map((item) => (
+              <Check key={item.key} item={item} mdfId={mdfId} />
+            ))}
+          </ul>
+          {fails + warns > 0 && ready.length > 0 && (
+            <button type="button" className="link-button" onClick={() => setShowReady((v) => !v)}>
+              {showReady ? "Hide the ready ones" : `Show the ${ready.length} ready`}
+            </button>
+          )}
+        </>
       )}
     </section>
   );

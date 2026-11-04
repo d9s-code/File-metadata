@@ -126,6 +126,8 @@ export function ElementOverview({ emitterId, ewGroups }: { emitterId: string; ew
   const filtered = !!(variant || sourceId || search || from || to || sharedOnly);
   const selectable = (r: ElementOverviewRow) => canEdit && r.element_type !== "scan";
   const chosen = (rows ?? []).filter((r) => picked.has(rowId(r)));
+  // Nothing to list or filter: the card is just its title line.
+  const empty = rows?.length === 0;
 
   function toggle(id: string) {
     const next = new Set(picked);
@@ -138,7 +140,10 @@ export function ElementOverview({ emitterId, ewGroups }: { emitterId: string; ew
     <div className="card element-overview">
       <div className="card-header-row">
         <h4>
-          All Sources <span className="hint-text">{rows ? `${rows.length} distinct Elements from ${sources.length} Sources` : ""}</span>{" "}
+          All Sources{" "}
+          <span className="hint-text">
+            {!rows ? "" : rows.length === 0 ? "— no Elements in any Source yet" : `${rows.length} distinct Elements from ${sources.length} Sources`}
+          </span>{" "}
           <InfoTip label="About All Sources">
             Every Element of this Emitter&apos;s Sources in one list. The same values in several Sources are one Element,
             listing each Source. Tick Elements to generate Modes from them: each Mode gets the Sources its Elements were
@@ -156,9 +161,11 @@ export function ElementOverview({ emitterId, ewGroups }: { emitterId: string; ew
               Clean up…
             </button>
           )}
-          <button type="button" className="link-button" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-            {open ? "Hide" : "Show"}
-          </button>
+          {empty ? null : (
+            <button type="button" className="link-button" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+              {open ? "Hide" : "Show"}
+            </button>
+          )}
         </span>
       </div>
       {cleaning && rows && (
@@ -173,7 +180,7 @@ export function ElementOverview({ emitterId, ewGroups }: { emitterId: string; ew
           }}
         />
       )}
-      {open && (
+      {open && !empty && (
         <>
           <div className="element-overview-filters">
             <div className="theme-toggle" role="group" aria-label="Element type">

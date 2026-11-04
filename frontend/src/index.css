@@ -7546,3 +7546,9 @@ button.meta-chip:hover:not(:disabled) { color: var(--text); }
 .test-run-header .form-row > label select { width: 100%; }
 .test-run-header .test-notes-field { margin-top: 0.75rem; }
 .test-run-header .form-row > label.wide-label input { width: 100%; }
+.split-button > .button.secondary.split-button-caret { border-left: 1px solid var(--border); margin-left: -1px; }
+/* An empty card's one line: its note in plain case, no space left for a body. */
+.element-overview h4 .hint-text,
+.element-coverage h4 .hint-text { text-transform: none; letter-spacing: normal; font-weight: 400; }
+.element-overview > .card-header-row:last-child,
+.element-coverage > .card-header-row:last-child { margin-bottom: 0; }

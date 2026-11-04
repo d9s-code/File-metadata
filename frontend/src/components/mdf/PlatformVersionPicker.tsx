@@ -4,7 +4,7 @@ import { usePlatformVersions } from "../../state/hooks/usePlatformVersions";
 import { usePinPlatform } from "../../state/hooks/useMdfs";
 import { ApiRequestError } from "../../api/client";
 
-export function PlatformVersionPicker({ mdfId }: { mdfId: string }) {
+export function PlatformVersionPicker({ mdfId, onDone }: { mdfId: string; onDone?: () => void }) {
   const { data: platforms } = usePlatforms();
   const [platformId, setPlatformId] = useState("");
   const { data: versions } = usePlatformVersions(platformId);
@@ -24,13 +24,14 @@ export function PlatformVersionPicker({ mdfId }: { mdfId: string }) {
       await pinPlatform.mutateAsync({ platformId, platformVersionId: selectedVersion.id });
       setPlatformId("");
       setVersionNumber("");
+      onDone?.();
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : "Failed to pin platform");
     }
   }
 
   return (
-    <div className="card inline-form">
+    <div className={onDone ? "inline-form" : "card inline-form"}>
       <select
         value={platformId}
         onChange={(e) => {
