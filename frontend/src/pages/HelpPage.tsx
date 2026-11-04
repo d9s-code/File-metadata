@@ -947,8 +947,8 @@ export function HelpPage() {
             with when it was last saved under the name. <strong>+ Pin Emitters</strong> opens a list of every Emitter
             (designation first, with a search box): tick any number and they&apos;re pinned at their latest saved
             version in one go — ones already pinned, or never saved, are shown but can&apos;t be ticked. Each pin
-            references one saved Emitter version; change it with the version picker in its row (<strong>view</strong>{" "}
-            opens it), and <strong>Unpin</strong> asks first. A pin whose Emitter
+            references one saved Emitter version; change it with the version picker in its row; the row&apos;s <strong>⋯</strong> opens that version, and its{" "}
+            <strong>Unpin…</strong> asks first. A pin whose Emitter
             has been saved again since is flagged <strong>Outdated — vN saved</strong>, with <strong>Repin to vN</strong>{" "}
             beside it; the header counts outdated pins, and <strong>Repin all to their latest version</strong> moves
             them all at once. A Platform has no
@@ -1483,7 +1483,8 @@ export function HelpPage() {
             when the next one runs, and whether a second copy is kept. When something is wrong (a backup due for the
             changes made, a failed verification, the scheduler not running) it says what, and admins see a warning at the top of
             every page until it&apos;s fixed. <strong>Back up now</strong> takes one straight away — worth doing before
-            a big change. <strong>Verify</strong> checks any backup again. <strong>Database</strong> downloads a backup to
+            a big change. <strong>Verify</strong> (in a backup&apos;s <strong>⋯</strong>, with <strong>Compare with now</strong>) checks it
+            again. <strong>Download ▾ → Database</strong> downloads a backup to
             your own computer, as a copy off the server — it holds the whole database, user accounts&apos; password
             hashes included, so keep it somewhere safe; each download is recorded in the Audit Log. The server can
             also save a second copy of every backup to another machine by itself (the README explains how).

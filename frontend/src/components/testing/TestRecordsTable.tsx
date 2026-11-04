@@ -177,20 +177,16 @@ export function TestRecordsTable({
                 </td>
                 <td className="row-actions nowrap">
                   <RequireRole minimum="editor">
-                    {onRedo && (r.result === "fail" || r.result === "partial") && (
-                      <button
-                        className="button secondary small"
-                        onClick={() => onRedo(r)}
-                        title="Start a new run pre-filled as a retest of this one"
-                      >
-                        Redo test
-                      </button>
-                    )}
                     <MenuButton
                       label="⋯"
                       className="row-menu-button"
                       ariaLabel={`Actions for ${r.title}`}
-                      items={[{ label: "Delete…", danger: true, onSelect: () => void handleDelete(r) }]}
+                      items={[
+                        ...(onRedo && (r.result === "fail" || r.result === "partial")
+                          ? [{ label: "Redo test", onSelect: () => onRedo(r), title: "Start a new run pre-filled as a retest of this one" }]
+                          : []),
+                        { label: "Delete…", danger: true, onSelect: () => void handleDelete(r) },
+                      ]}
                     />
                   </RequireRole>
                 </td>

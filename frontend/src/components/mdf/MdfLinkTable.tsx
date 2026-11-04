@@ -6,6 +6,7 @@ import { usePinPlatform, useUnpinPlatform } from "../../state/hooks/useMdfs";
 import { usePlatformVersions } from "../../state/hooks/usePlatformVersions";
 import { RequireRole } from "../../auth/RequireAuth";
 import { EmptyState } from "../common/EmptyState";
+import { MenuButton } from "../common/MenuButton";
 import { SortableColumnHeader } from "../common/SortableColumnHeader";
 import { useSortableTable } from "../common/useSortableTable";
 import { compareStrings } from "../common/sortUtils";
@@ -112,9 +113,12 @@ export function MdfLinkTable({
             <td>{formatDateTime(link.added_at)}</td>
             <td>
               <RequireRole minimum="editor">
-                <button className="link-button" onClick={() => void unpin.mutateAsync(link.platform_id)}>
-                  Unpin
-                </button>
+                <MenuButton
+                  label="⋯"
+                  className="row-menu-button"
+                  ariaLabel={`Actions for ${platformsById[link.platform_id]?.name ?? "this Platform"}`}
+                  items={[{ label: "Unpin", danger: true, onSelect: () => void unpin.mutateAsync(link.platform_id) }]}
+                />
               </RequireRole>
             </td>
           </tr>

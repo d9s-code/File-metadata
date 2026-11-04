@@ -6,6 +6,9 @@ export interface MenuItem {
   label: ReactNode;
   /** A route to go to, or… */
   to?: string;
+  /** …a file to download (its name in `download`), or… */
+  href?: string;
+  download?: string;
   /** …an action to run. */
   onSelect?: () => void;
   disabled?: boolean;
@@ -113,7 +116,19 @@ export function MenuButton({
             style={pos ?? { top: 0, left: 0, visibility: "hidden" }}
           >
             {items.map((item, i) =>
-              item.to && !item.disabled ? (
+              item.href && !item.disabled ? (
+                <a
+                  key={i}
+                  role="menuitem"
+                  className="menu-button-item"
+                  href={item.href}
+                  download={item.download}
+                  title={item.title}
+                  onClick={() => setOpen(false)}
+                >
+                  {item.label}
+                </a>
+              ) : item.to && !item.disabled ? (
                 <Link key={i} role="menuitem" className="menu-button-item" to={item.to} title={item.title} onClick={() => setOpen(false)}>
                   {item.label}
                 </Link>

@@ -5,6 +5,7 @@ import { ApiRequestError } from "../api/client";
 import { LoadingState } from "../components/common/LoadingState";
 import { EmptyState } from "../components/common/EmptyState";
 import { Modal } from "../components/common/Modal";
+import { MenuButton } from "../components/common/MenuButton";
 import { AdminNav } from "../components/common/AdminNav";
 import { SortableColumnHeader } from "../components/common/SortableColumnHeader";
 import { useSortableTable } from "../components/common/useSortableTable";
@@ -183,20 +184,21 @@ async function handleCreate(e: FormEvent) {
                   <td>{formatDate(u.created_at)}</td>
                   <td>{u.last_login_at ? formatDateTime(u.last_login_at) : "never"}</td>
                   <td>
-                    <div className="action-buttons">
-                      <button className="link-button" onClick={() => handleToggleActive(u)}>
-                        {u.is_active ? "Deactivate" : "Activate"}
-                      </button>
-                      <button
-                        className="link-button reset-password-btn"
-                        onClick={() => {
-                          setResetTargetUserId(u.id);
-                          setShowResetModal(true);
-                        }}
-                      >
-                        Reset password
-                      </button>
-                    </div>
+                    <MenuButton
+                      label="⋯"
+                      className="row-menu-button"
+                      ariaLabel={`Actions for ${u.username}`}
+                      items={[
+                        {
+                          label: "Reset password…",
+                          onSelect: () => {
+                            setResetTargetUserId(u.id);
+                            setShowResetModal(true);
+                          },
+                        },
+                        { label: u.is_active ? "Deactivate" : "Activate", danger: u.is_active, onSelect: () => handleToggleActive(u) },
+                      ]}
+                    />
                   </td>
                 </tr>
               ))}

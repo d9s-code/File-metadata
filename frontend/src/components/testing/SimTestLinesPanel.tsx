@@ -17,6 +17,7 @@ import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 import { ApiRequestError } from "../../api/client";
 import { RequireRole } from "../../auth/RequireAuth";
 import { useConfirmDialog } from "../common/ConfirmDialog";
+import { MenuButton } from "../common/MenuButton";
 import type { TestResult } from "../../types/domain";
 import { lineOutcomeLabel, TEST_RESULTS } from "./testFormat";
 
@@ -356,16 +357,15 @@ export function SimTestLinesPanel({ emitterId, lines }: { emitterId: string; lin
                       <td>{l.import_batch_label ?? "—"}</td>
                       <td>
                         <RequireRole minimum="editor">
-                          <button className="link-button" disabled={!canEdit} onClick={() => startEdit(l)}>
-                            Edit
-                          </button>{" "}
-                          <button
-                            className="link-button link-button-danger"
-                            disabled={!canEdit}
-                            onClick={() => void handleDelete(l.id, l.label)}
-                          >
-                            Delete
-                          </button>
+                          <MenuButton
+                            label="⋯"
+                            className="row-menu-button"
+                            ariaLabel={`Actions for ${l.label}`}
+                            items={[
+                              { label: "Edit", onSelect: () => startEdit(l), disabled: !canEdit, title: canEdit ? undefined : "Start editing this Emitter first" },
+                              { label: "Delete…", onSelect: () => void handleDelete(l.id, l.label), disabled: !canEdit, danger: true },
+                            ]}
+                          />
                         </RequireRole>
                       </td>
                     </tr>

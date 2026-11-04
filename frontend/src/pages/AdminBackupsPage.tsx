@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { AdminNav } from "../components/common/AdminNav";
+import { MenuButton } from "../components/common/MenuButton";
 import { LoadingState } from "../components/common/LoadingState";
 import { EmptyState } from "../components/common/EmptyState";
 import { backupWhen as when, relativeTime as relative } from "../components/common/backupFormat";
@@ -216,7 +217,7 @@ export function AdminBackupsPage() {
               warning shows. Old backups are thinned out to the newest 14, then one a week for 8 weeks and one a month for 6
               months. Each backup also carries a <strong>PRS export</strong> of the whole repository — every MDF as a
               ready-to-use PRS package, every Platform, Emitter, dwell file and Dwell Strategy as XML — for when there&apos;s no time to restore the
-              database. <strong>Database</strong> and <strong>PRS (XML)</strong> download either to your own computer;
+              database. A backup&apos;s <strong>Download ▾</strong> saves either to your own computer;
               the database file holds everything, user accounts included, so store it somewhere safe. Downloads show in
               the Audit Log.
               Restoring one is done from the server&apos;s command line — see <Link to="/help#admin-backups">Help</Link>.
@@ -281,52 +282,58 @@ export function AdminBackupsPage() {
                         </td>
                         {health.copy_dir && <td>{b.copied_to ? "✓" : <span className="error-text">Missing</span>}</td>}
                         <td className="backup-actions">
-                          <button
-                            type="button"
+                          <MenuButton
+                            label="Download ▾"
                             className="button secondary small"
-                            disabled={verify.isPending}
-                            title="Restore it into the scratch database and check it's complete"
-                            onClick={() => verify.mutate(b.file)}
-                          >
-                            {verify.isPending && verify.variables === b.file ? "Verifying…" : "Verify"}
-                          </button>
-                          <a
-                            className="backup-download"
-                            href={backupsApi.downloadUrl(b.file)}
-                            download={b.file}
-                            title={b.sha256 ? `The database file · SHA-256 ${b.sha256}` : "The database file"}
-                          >
-                            Database
-                          </a>
-                          {b.prs_export && "file" in b.prs_export ? (
-                            <a
-                              className="backup-download"
-                              href={backupsApi.downloadUrl(b.file, "prs")}
-                              download={b.prs_export.file}
-                              title={`The whole repository as PRS XML: ${b.prs_export.emitters} Emitters, ${b.prs_export.platforms} Platforms, ${b.prs_export.mdfs} MDFs${
-                                b.prs_export.dwell_files !== undefined
-                                  ? `, ${b.prs_export.dwell_files} dwell files, ${b.prs_export.dwell_strategies} Dwell Strategies`
-                                  : ""
-                              }`}
-                            >
-                              PRS (XML)
-                            </a>
-                          ) : (
-                            b.prs_export && (
-                              <span className="backup-download error-text" title={b.prs_export.error}>
-                                PRS failed
-                              </span>
-                            )
-                          )}
-                          <button
-                            type="button"
-                            className="link-button"
-                            disabled={!b.has_overview}
-                            title={b.has_overview ? "What changed since this backup" : "Made before backups kept an overview — verify it once to fill one in"}
-                            onClick={() => compareWithCurrent(b.file)}
-                          >
-                            Compare with now
-                          </button>
+                            ariaLabel={`Download ${b.file}`}
+                            items={[
+                              {
+                                label: "Database",
+                                href: backupsApi.downloadUrl(b.file),
+                                download: b.file,
+                                title: b.sha256 ? `The database file · SHA-256 ${b.sha256}` : "The database file",
+                              },
+                              b.prs_export && "file" in b.prs_export
+                                ? {
+                                    label: "PRS (XML)",
+                                    href: backupsApi.downloadUrl(b.file, "prs"),
+                                    download: b.prs_export.file,
+                                    title: `The whole repository as PRS XML: ${b.prs_export.emitters} Emitters, ${b.prs_export.platforms} Platforms, ${b.prs_export.mdfs} MDFs${
+                                      b.prs_export.dwell_files !== undefined
+                                        ? `, ${b.prs_export.dwell_files} dwell files, ${b.prs_export.dwell_strategies} Dwell Strategies`
+                                        : ""
+                                    }`,
+                                  }
+                                : {
+                                    label: b.prs_export ? "PRS (XML) — failed" : "PRS (XML) — not made",
+                                    disabled: true,
+                                    title: b.prs_export && "error" in b.prs_export ? b.prs_export.error : undefined,
+                                  },
+                            ]}
+                          />
+                          <MenuButton
+                            label="⋯"
+                            className="row-menu-button"
+                            ariaLabel={`Actions for ${b.file}`}
+                            disabled={verify.isPending && verify.variables === b.file}
+                            items={[
+                              {
+                                label: "Verify",
+                                onSelect: () => verify.mutate(b.file),
+                                disabled: verify.isPending,
+                                title: "Restore it into the scratch database and check it's complete",
+                              },
+                              {
+                                label: "Compare with now",
+                                onSelect: () => compareWithCurrent(b.file),
+                                disabled: !b.has_overview,
+                                title: b.has_overview
+                                  ? "What changed since this backup"
+                                  : "Made before backups kept an overview — verify it once to fill one in",
+                              },
+                            ]}
+                          />
+                          {verify.isPending && verify.variables === b.file && <span className="hint-text"> Verifying…</span>}
                         </td>
                       </tr>
                     ))}

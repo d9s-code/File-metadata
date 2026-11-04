@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { MenuButton } from "../common/MenuButton";
 import { formatDateTime } from "../common/dates";
 import { isOutdatedPin, type PlatformLink } from "../../api/platforms";
 import type { Emitter } from "../../types/domain";
@@ -24,7 +25,7 @@ function PinnedVersionCell({ platformId, link }: { platformId: string; link: Pla
   const number = link.pinned_version_number;
   const view = number != null && (
     <Link to={`/emitters/${link.emitter_id}/versions?version=${number}`} title="See this version">
-      {canEdit ? "view" : `v${number}`}
+      v{number}
     </Link>
   );
   if (!canEdit || !versions) return <>{view || "—"}</>;
@@ -44,8 +45,7 @@ function PinnedVersionCell({ platformId, link }: { platformId: string; link: Pla
             {v.change_summary ? ` — ${v.change_summary.slice(0, 40)}` : ""}
           </option>
         ))}
-      </select>{" "}
-      {view}
+      </select>
     </span>
   );
 }
@@ -196,9 +196,17 @@ export function PlatformLinkTable({
             <td>{formatDateTime(link.added_at)}</td>
             <td>
               <RequireRole minimum="editor">
-                <button className="link-button" onClick={() => void handleUnpin(link)}>
-                  Unpin
-                </button>
+                <MenuButton
+                  label="⋯"
+                  className="row-menu-button"
+                  ariaLabel={`Actions for ${emittersById[link.emitter_id]?.name ?? "this Emitter"}`}
+                  items={[
+                    ...(link.pinned_version_number != null
+                      ? [{ label: `See v${link.pinned_version_number}`, to: `/emitters/${link.emitter_id}/versions?version=${link.pinned_version_number}` }]
+                      : []),
+                    { label: "Unpin…", danger: true, onSelect: () => void handleUnpin(link) },
+                  ]}
+                />
               </RequireRole>
             </td>
           </tr>
