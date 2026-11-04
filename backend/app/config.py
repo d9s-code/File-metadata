@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 480
 
     backup_dir: str = "/var/backups/rf-emitter-db"
+    # Where an uploading recording's parts are put together before it's read
+    # (deleted once it is). Default: the system's temporary folder.
+    upload_dir: str | None = None
     backup_retention_daily: int = 14
     backup_retention_weekly: int = 8
     backup_retention_monthly: int = 6

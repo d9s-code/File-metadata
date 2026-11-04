@@ -309,6 +309,13 @@ export interface Intercept {
   /** The Source made from it with "Turn into Source", if any. */
   source_id: string | null;
   source_name: string | null;
+  /** The Intercept's own Notes — one long free text, apart from the comment feed. */
+  analysis_notes: string | null;
+  /** The whole recording it was snipped from, if any (null once that recording is deleted). */
+  recording_id: string | null;
+  recording_name: string | null;
+  /** The filters it was snipped with (see RecordingFilters). */
+  snip: Record<string, unknown> | null;
 }
 
 /** One report kept from an imported file. */

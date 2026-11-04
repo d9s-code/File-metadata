@@ -9,6 +9,8 @@ export interface ImportDraft {
   fileName: string;
   /** The file's text — parsed again on resume, so line numbers match the groups. */
   text: string;
+  /** Or, for a snip of a whole recording, which and how — fetched again on resume. */
+  recording?: { id: string; snip: Record<string, unknown> };
   groups: ReportGroup[];
   destination: {
     emitterId: string;

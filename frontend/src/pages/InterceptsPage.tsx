@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { formatDate } from "../components/common/dates";
 import { MenuButton } from "../components/common/MenuButton";
 import { FilterBar, shownCount } from "../components/common/FilterBar";
@@ -17,6 +17,10 @@ import { SortableColumnHeader } from "../components/common/SortableColumnHeader"
 import { useSortableTable } from "../components/common/useSortableTable";
 import { compareNullable, compareStrings } from "../components/common/sortUtils";
 import type { Intercept } from "../types/domain";
+import { useRecordings } from "../state/hooks/useRecordings";
+import { RecordingUploadButton, formatBytes } from "../components/recordings/RecordingUpload";
+import { formatUtc } from "../components/recordings/recordingFilters";
+import type { Recording } from "../api/recordings";
 import { useSessionState } from "../components/common/useSessionState";
 
 type InterceptSortKey = "name" | "emitter" | "intercepted_on" | "collected_by" | "entry_count" | "created_at";
@@ -33,6 +37,8 @@ export function InterceptsPage() {
 
   const [nameFilter, setNameFilter] = useSessionState("intercepts.nameFilter", "");
   const [emitterFilter, setEmitterFilter] = useSessionState("intercepts.emitterFilter", "");
+  const [byRecording, setByRecording] = useSessionState("intercepts.byRecording", true);
+  const { data: recordings } = useRecordings();
 
   const emitterNameById = Object.fromEntries((emitters ?? []).map((e) => [e.id, e.name]));
 
@@ -95,6 +101,70 @@ export function InterceptsPage() {
     }
   }
 
+  function row(i: Intercept) {
+    return (
+      <tr key={i.id}>
+        <td>
+          <Link to={`/intercepts/${i.id}`}>{i.name}</Link>
+        </td>
+        <td>
+          {emitterNameById[i.emitter_id] ? (
+            <Link to={`/emitters/${i.emitter_id}`}>{emitterNameById[i.emitter_id]}</Link>
+          ) : (
+            "—"
+          )}
+        </td>
+        <td>{formatDay(i.intercepted_on) ?? <span className="hint-text">—</span>}</td>
+        <td>{i.collected_by ?? <span className="hint-text">—</span>}</td>
+        <td>{i.entry_count}</td>
+        <td>{formatDate(i.created_at)}</td>
+        <td className="row-actions">
+          <RequireRole minimum="editor">
+            <MenuButton
+              label="⋯"
+              className="row-menu-button"
+              ariaLabel={`Actions for ${i.name}`}
+              items={[{ label: "Delete…", danger: true, onSelect: () => void handleDelete(i) }]}
+            />
+          </RequireRole>
+        </td>
+      </tr>
+    );
+  }
+
+  /** The rows, or — By recording — each recording with the Intercepts snipped from it, then the rest. */
+  function groupedRows() {
+    if (!byRecording) return sorted.map(row);
+    const under = new Map<string, Intercept[]>();
+    const rest: Intercept[] = [];
+    for (const i of sorted) {
+      if (i.recording_id) under.set(i.recording_id, [...(under.get(i.recording_id) ?? []), i]);
+      else rest.push(i);
+    }
+    const filtering = !!(nameFilter.trim() || emitterFilter);
+    // Recordings without a matching Intercept still show while nothing is filtered — they're where snipping starts.
+    const shownRecordings = (recordings ?? []).filter((r) => under.has(r.id) || !filtering);
+    return (
+      <>
+        {shownRecordings.map((r) => (
+          <Fragment key={r.id}>
+            <RecordingRow recording={r} shown={under.get(r.id)?.length ?? 0} />
+            {(under.get(r.id) ?? []).map(row)}
+          </Fragment>
+        ))}
+        {shownRecordings.length > 0 && rest.length > 0 && (
+          <tr className="recording-group-row">
+            <td colSpan={7}>
+              <strong>Not from a recording</strong>
+              <span className="hint-text">imported from a file or added by hand</span>
+            </td>
+          </tr>
+        )}
+        {rest.map(row)}
+      </>
+    );
+  }
+
   return (
     <div className="page">
       <PageHeader
@@ -103,6 +173,7 @@ export function InterceptsPage() {
       >
         <RequireRole minimum="editor">
           <span className="section-actions">
+            <RecordingUploadButton />
             <Link className="button secondary" to="/intercepts/import">
               Import CSV
             </Link>
@@ -135,6 +206,10 @@ export function InterceptsPage() {
           value={nameFilter}
           onChange={(e) => setNameFilter(e.target.value)}
         />
+        <label className="checkbox-label" title="Intercepts snipped from a whole recording listed under it">
+          <input type="checkbox" checked={byRecording} onChange={(e) => setByRecording(e.target.checked)} />
+          By recording
+        </label>
         <select value={emitterFilter} onChange={(e) => setEmitterFilter(e.target.value)} aria-label="Emitter">
           <option value="">All Emitters</option>
           {(emitters ?? []).map((em) => (
@@ -147,13 +222,13 @@ export function InterceptsPage() {
 
       {isLoading ? (
         <LoadingState label="Loading intercepts…" />
-      ) : (intercepts ?? []).length === 0 ? (
+      ) : (intercepts ?? []).length === 0 && !(byRecording && (recordings ?? []).length > 0) ? (
         <EmptyState
           icon="◇"
           title="No Intercepts yet"
-          message="Add one with + Add Intercept, or bring one in with Import CSV."
+          message="Add one with + Add Intercept, bring one in with Import CSV, or upload a whole recording to snip from."
         />
-      ) : sorted.length === 0 ? (
+      ) : sorted.length === 0 && !(byRecording && (recordings ?? []).length > 0) ? (
         <EmptyState icon="◇" title="No matches" message="No Intercepts match the current search/filters." />
       ) : (
         <table className="data-table">
@@ -169,39 +244,42 @@ export function InterceptsPage() {
             </tr>
           </thead>
           <tbody>
-            {sorted.map((i) => (
-              <tr key={i.id}>
-                <td>
-                  <Link to={`/intercepts/${i.id}`}>{i.name}</Link>
-                </td>
-                <td>
-                  {emitterNameById[i.emitter_id] ? (
-                    <Link to={`/emitters/${i.emitter_id}`}>{emitterNameById[i.emitter_id]}</Link>
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td>{formatDay(i.intercepted_on) ?? <span className="hint-text">—</span>}</td>
-                <td>{i.collected_by ?? <span className="hint-text">—</span>}</td>
-                <td>{i.entry_count}</td>
-                <td>{formatDate(i.created_at)}</td>
-                <td className="row-actions">
-                  <RequireRole minimum="editor">
-                    <MenuButton
-                      label="⋯"
-                      className="row-menu-button"
-                      ariaLabel={`Actions for ${i.name}`}
-                      items={[{ label: "Delete…", danger: true, onSelect: () => void handleDelete(i) }]}
-                    />
-                  </RequireRole>
-                </td>
-              </tr>
-            ))}
+            {groupedRows()}
           </tbody>
         </table>
       )}
       {deleteError && <div className="error-text">{deleteError}</div>}
       {dialog}
     </div>
+  );
+}
+
+const STATUS_TEXT: Record<Recording["status"], string> = {
+  uploading: "upload not finished",
+  processing: "being read…",
+  ready: "",
+  failed: "couldn't be read",
+};
+
+/** A recording's heading row in the Intercepts list. */
+function RecordingRow({ recording: r, shown }: { recording: Recording; shown: number }) {
+  return (
+    <tr className="recording-group-row">
+      <td colSpan={7}>
+        <Link to={`/recordings/${r.id}`}>
+          <strong>{r.name}</strong>
+        </Link>
+        <span className="hint-text">
+          {[
+            formatBytes(r.size_bytes),
+            r.status === "ready" ? `${r.report_count.toLocaleString()} reports` : STATUS_TEXT[r.status],
+            r.first_time && r.last_time ? `${formatUtc(r.first_time)} – ${formatUtc(r.last_time, false)}` : null,
+            shown ? `${shown} Intercept${shown === 1 ? "" : "s"}` : "no Intercepts yet — open it to snip",
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </span>
+      </td>
+    </tr>
   );
 }

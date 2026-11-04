@@ -33,9 +33,11 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const headers = new Headers(providedHeaders);
 
   const isFormData = body instanceof FormData;
+  // A Blob (a slice of a file being uploaded in parts) goes as it is.
+  const isRaw = isFormData || body instanceof Blob;
 
   if (!isFormData) {
-    headers.set("Content-Type", "application/json");
+    headers.set("Content-Type", body instanceof Blob ? "application/octet-stream" : "application/json");
   }
 
   if (method !== "GET" && method !== "HEAD") {
@@ -46,7 +48,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const resp = await fetch(`${API_BASE_URL}${path}`, {
     ...fetchOptions,
     method,
-    body: isFormData ? body : (body !== undefined ? JSON.stringify(body) : undefined),
+    body: isRaw ? body : (body !== undefined ? JSON.stringify(body) : undefined),
     headers,
     credentials: "include",
   });

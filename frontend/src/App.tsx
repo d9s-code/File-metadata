@@ -39,6 +39,7 @@ import { AdminSettingsPage } from "./pages/AdminSettingsPage";
 import { AdminDefaultsPage } from "./pages/AdminDefaultsPage";
 import { AdminStatusesPage } from "./pages/AdminStatusesPage";
 import { InterceptsPage } from "./pages/InterceptsPage";
+import { RecordingPage } from "./pages/RecordingPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { InterceptDetailPage } from "./pages/InterceptDetailPage";
 import { InterceptModePlanPage } from "./pages/InterceptModePlanPage";
@@ -277,6 +278,14 @@ export default function App() {
                 element={
                   <RequireAuth>
                     <InterceptsPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/recordings/:recordingId"
+                element={
+                  <RequireAuth>
+                    <RecordingPage />
                   </RequireAuth>
                 }
               />

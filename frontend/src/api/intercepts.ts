@@ -7,6 +7,9 @@ export interface InterceptInput {
   description?: string | null;
   intercepted_on?: string | null;
   collected_by?: string | null;
+  /** Snipped from a whole recording: which, and with what filters. */
+  recording_id?: string | null;
+  snip?: Record<string, unknown> | null;
 }
 
 export interface InterceptUpdateInput {
@@ -14,6 +17,7 @@ export interface InterceptUpdateInput {
   description?: string | null;
   intercepted_on?: string | null;
   collected_by?: string | null;
+  analysis_notes?: string | null;
 }
 
 export interface InterceptEntryInput extends InterceptEntryFields {

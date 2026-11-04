@@ -22,6 +22,8 @@ import {
 import { useHasRole } from "../auth/RequireAuth";
 import { ApiRequestError } from "../api/client";
 import { MAX_IMPORT_ENTRIES, MAX_IMPORT_REPORTS } from "../api/intercepts";
+import { recordingsApi } from "../api/recordings";
+import { describeSnip, readFilters, snipToReports } from "../components/recordings/recordingFilters";
 import { CsvFormatError, missionDay, parseInterceptCsv, type ParsedCsv } from "../components/intercepts/interceptCsv";
 import {
   oneGroupPerReport,
@@ -67,6 +69,8 @@ export function InterceptImportPage() {
   const [collectedBy, setCollectedBy] = useState("");
   const [description, setDescription] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
+  // Snipped from a whole recording (the Recording page's "Group"): which, and how.
+  const [recording, setRecording] = useState<{ id: string; snip: Record<string, unknown> } | null>(null);
 
   const { data: modes } = useEmitterModes(emitterId);
   const { data: emitterIntercepts } = useIntercepts(emitterId ? { emitterId } : undefined);
@@ -83,23 +87,25 @@ export function InterceptImportPage() {
   }, []);
 
   // Earlier imports of this file — a second import would duplicate every entry.
-  const { data: earlierImports } = useSourceFileImports(parsed ? fileName : "");
+  // (Snips of one recording are meant to be many.)
+  const { data: earlierImports } = useSourceFileImports(parsed && !recording ? fileName : "");
 
   // Keep the work as a draft a moment after each change, so leaving the page
   // by any route (back button, a link, a refresh) loses nothing.
   useEffect(() => {
-    if (!parsed || parsed.reports.length === 0 || !fileText) return;
+    if (!parsed || parsed.reports.length === 0 || (!fileText && !recording)) return;
     const handle = window.setTimeout(() => {
       void saveImportDraft({
         fileName,
-        text: fileText,
+        text: recording ? "" : fileText,
+        ...(recording ? { recording } : {}),
         groups,
         destination: { emitterId, target, interceptId, name, recordedOn, collectedBy, description },
         savedAt: Date.now(),
       });
     }, 800);
     return () => window.clearTimeout(handle);
-  }, [parsed, fileText, fileName, groups, emitterId, target, interceptId, name, recordedOn, collectedBy, description]);
+  }, [parsed, fileText, fileName, recording, groups, emitterId, target, interceptId, name, recordedOn, collectedBy, description]);
 
   // Closing or reloading the tab asks first; the draft covers everything else.
   useEffect(() => {
@@ -133,6 +139,7 @@ export function InterceptImportPage() {
     setParsed(null);
     setReading(true);
     setFileName(file.name);
+    setRecording(null);
     try {
       const text = await file.text();
       // Let "Reading…" paint before a large file blocks the page for a moment.
@@ -142,32 +149,78 @@ export function InterceptImportPage() {
         setFileError("No reports could be read from this file — see the skipped lines below.");
       }
       setFileText(text);
-      setParsed(result);
-      setGroups(oneGroupPerReport(result.reports));
-      const stem = file.name.replace(/\.csv$/i, "").replace(/_EmitterTrackParameters$/i, "");
-      setName((n) => n || stem);
-      const days = result.reports.map((r) => missionDay(r.missionTime)).filter((d): d is string => !!d).sort();
-      setRecordedOn((d) => d || days[0] || "");
-      // What the system identified the reports as is an Emitter's
-      // designation — pick that Emitter when exactly one matches, and say so.
-      if (!emitterId && emitters) {
-        const identified = new Set(result.reports.map((r) => r.designation?.toLowerCase()).filter(Boolean));
-        const matching = emitters.filter((em) => em.designation && identified.has(em.designation.trim().toLowerCase()));
-        if (matching.length === 1) {
-          setEmitterId(matching[0].id);
-          setEmitterPick(
-            `Picked because its designation, ${matching[0].designation}, is what the system identified these reports as.`,
-          );
-        } else if (matching.length > 1) {
-          setEmitterPick(
-            `${matching.length} Emitters have a designation the system identified in this file — choose one.`,
-          );
-        }
-      }
+      afterRead(result, file.name.replace(/\.csv$/i, "").replace(/_EmitterTrackParameters$/i, ""));
     } catch (err) {
       setFileError(err instanceof CsvFormatError ? err.message : `Couldn't read the file: ${(err as Error).message}`);
     } finally {
       setReading(false);
+    }
+  }
+
+  /** The reports of a snip of a whole recording, fetched from the server. */
+  async function readSnip(recordingId: string, snip: Record<string, unknown>) {
+    const got = await recordingsApi.reports(recordingId, readFilters(snip));
+    setFileText("");
+    setFileName(got.recording);
+    setRecording({ id: recordingId, snip });
+    return { parsed: { reports: snipToReports(got), skipped: [] } as ParsedCsv, name: got.recording };
+  }
+
+  async function loadSnip(recordingId: string, snip: Record<string, unknown>) {
+    setDraftOffer(null);
+    setFileError(null);
+    setParsed(null);
+    setReading(true);
+    try {
+      const { parsed: result, name: recordingName } = await readSnip(recordingId, snip);
+      if (result.reports.length === 0) setFileError("This snip holds no reports — go back and widen it.");
+      const stem = recordingName.replace(/\.csv$/i, "").replace(/_EmitterTrackParameters$/i, "");
+      afterRead(result, `${stem} · ${describeSnip(snip)}`.slice(0, 150));
+    } catch (err) {
+      setFileError(err instanceof ApiRequestError ? err.message : `Couldn't fetch the snip: ${(err as Error).message}`);
+    } finally {
+      setReading(false);
+    }
+  }
+
+  // Opened from a recording's "Group": fetch that snip.
+  const snipParam = params.get("recording");
+  const snipQuery = params.get("snip");
+  useEffect(() => {
+    if (!snipParam) return;
+    let snip: Record<string, unknown> = {};
+    try {
+      snip = JSON.parse(snipQuery ?? "{}");
+    } catch {
+      // A mangled address: the whole recording, which the server refuses if too big.
+    }
+    void loadSnip(snipParam, readFilters(snip) as Record<string, unknown>);
+    // Once per recording/snip in the address.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snipParam, snipQuery]);
+
+  /** A file read (or a snip fetched): one group per report to start, and the destination's defaults. */
+  function afterRead(result: ParsedCsv, stem: string) {
+    setParsed(result);
+    setGroups(oneGroupPerReport(result.reports));
+    setName((n) => n || stem);
+    const days = result.reports.map((r) => missionDay(r.missionTime)).filter((d): d is string => !!d).sort();
+    setRecordedOn((d) => d || days[0] || "");
+    // What the system identified the reports as is an Emitter's
+    // designation — pick that Emitter when exactly one matches, and say so.
+    if (!emitterId && emitters) {
+      const identified = new Set(result.reports.map((r) => r.designation?.toLowerCase()).filter(Boolean));
+      const matching = emitters.filter((em) => em.designation && identified.has(em.designation.trim().toLowerCase()));
+      if (matching.length === 1) {
+        setEmitterId(matching[0].id);
+        setEmitterPick(
+          `Picked because its designation, ${matching[0].designation}, is what the system identified these reports as.`,
+        );
+      } else if (matching.length > 1) {
+        setEmitterPick(
+          `${matching.length} Emitters have a designation the system identified in this file — choose one.`,
+        );
+      }
     }
   }
 
@@ -178,8 +231,13 @@ export function InterceptImportPage() {
     setFileName(draft.fileName);
     await new Promise((r) => setTimeout(r, 0));
     try {
-      const result = parseInterceptCsv(draft.text);
-      setFileText(draft.text);
+      const result = draft.recording
+        ? (await readSnip(draft.recording.id, draft.recording.snip)).parsed
+        : parseInterceptCsv(draft.text);
+      if (!draft.recording) {
+        setFileText(draft.text);
+        setRecording(null);
+      }
       setParsed(result);
       setGroups(draft.groups);
       const d = draft.destination;
@@ -235,6 +293,7 @@ export function InterceptImportPage() {
           ? await importEntries.mutateAsync({
               target: "new",
               intercept: {
+                ...(recording ? { recording_id: recording.id, snip: recording.snip } : {}),
                 emitter_id: emitterId,
                 name: name.trim(),
                 intercepted_on: recordedOn || null,
@@ -273,7 +332,7 @@ export function InterceptImportPage() {
         {chosenEmitter ? `${chosenEmitter.name} · Intercepts` : "Intercepts"}
       </BackLink>
       <PageHeader
-        title="Import Intercept from CSV"
+        title={snipParam ? "Group a snip into an Intercept" : "Import Intercept from CSV"}
         info="For an EmitterTrackParameters export. The file is read in your browser — nothing is saved until you press Import at the bottom — and your grouping is kept in this browser as you work, so leaving the page loses nothing: you'll be offered to resume it. Times are converted from ns to µs; RF stays in MHz."
       />
 
@@ -302,8 +361,16 @@ export function InterceptImportPage() {
             </span>
           </div>
         )}
-        <input type="file" accept=".csv,text/csv" onChange={(e) => void handleFile(e)} />
-        {reading && <p className="hint-text">Reading {fileName}…</p>}
+        {recording ? (
+          <p className="import-snip-source">
+            A snip of the recording{" "}
+            <Link to={`/recordings/${recording.id}?snip=${encodeURIComponent(JSON.stringify(recording.snip))}`}>{fileName}</Link>
+            <span className="hint-text"> · {describeSnip(recording.snip)}</span>
+          </p>
+        ) : (
+          <input type="file" accept=".csv,text/csv" onChange={(e) => void handleFile(e)} />
+        )}
+        {reading && <p className="hint-text">{snipParam && !parsed ? "Fetching the snip…" : `Reading ${fileName}…`}</p>}
         {fileError && <div className="error-text">{fileError}</div>}
         {parsed && (
           <div className="import-file-summary">

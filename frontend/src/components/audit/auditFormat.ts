@@ -38,6 +38,7 @@ const ENTITY_TYPES: Record<string, [plural: string, singular: string]> = {
   intercept: ["Intercepts", "Intercept"],
   intercept_entry: ["Intercept entries", "Intercept entry"],
   intercept_note: ["Intercept notes", "Intercept note"],
+  recording: ["Recordings", "Recording"],
   status_definition: ["Statuses", "Status"],
   milestone: ["Milestones", "Milestone"],
   ambiguity_finding: ["Ambiguity findings", "Ambiguity finding"],

@@ -50,7 +50,12 @@ from app.database import Base
 import app.models  # noqa: F401  (registers every table)
 
 #: Never synced: the server's own state, or nothing a person made.
-SKIP_TABLES = {"users", "app_settings", "knowledge_sections", "knowledge_sync", "ai_chats"}
+#: Recordings belong to the server: the offline app gets the list of them (not
+#: their reports — a million rows per file) and snips them only when back
+#: online, so nothing it does to one is sent back.
+SKIP_TABLES = {
+    "users", "app_settings", "knowledge_sections", "knowledge_sync", "ai_chats", "recordings", "recording_reports",
+}
 #: Columns that never travel from the PC: who holds the edit lock is the server's business.
 LOCAL_ONLY_COLUMNS = {"emitters": {"checked_out_by_id", "checked_out_at"}}
 #: Columns that change along with any other change: never a conflict on their own.
@@ -251,7 +256,7 @@ def compute_changes(local: Connection, base: Connection) -> dict:
 # --- The copy the PC takes away -------------------------------------------------
 
 #: Left out of the copy: other people's AI chats and the Outline cache.
-NOT_COPIED = {"knowledge_sections", "knowledge_sync", "ai_chats"}
+NOT_COPIED = {"knowledge_sections", "knowledge_sync", "ai_chats", "recording_reports"}
 
 
 def export_copy(conn: Connection, *, with_passwords: bool = False) -> dict:

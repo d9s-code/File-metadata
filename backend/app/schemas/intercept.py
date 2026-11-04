@@ -150,6 +150,9 @@ class InterceptCreate(BaseModel):
     description: str | None = None
     intercepted_on: date | None = None
     collected_by: str | None = Field(default=None, max_length=200)
+    # Snipped from a recording: which one, and the snip (its time window and filters).
+    recording_id: UUID | None = None
+    snip: dict | None = None
 
 
 class InterceptUpdate(BaseModel):
@@ -157,6 +160,8 @@ class InterceptUpdate(BaseModel):
     description: str | None = None
     intercepted_on: date | None = None
     collected_by: str | None = Field(default=None, max_length=200)
+    # The analyst's notes on the whole Intercept (the page's "Notes").
+    analysis_notes: str | None = Field(default=None, max_length=200_000)
 
 
 # One import's worth of entries — a CSV is grouped into entries before it's
@@ -364,3 +369,7 @@ class InterceptOut(BaseModel):
     # The Source made from it with "Turn into Source", if any.
     source_id: UUID | None = None
     source_name: str | None = None
+    analysis_notes: str | None = None
+    recording_id: UUID | None = None
+    recording_name: str | None = None
+    snip: dict | None = None

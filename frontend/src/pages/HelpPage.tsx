@@ -55,6 +55,7 @@ const TOC: TocNode[] = [
     title: "Intercepts",
     children: [
       { id: "intercept-import", title: "Importing from CSV" },
+      { id: "recordings", title: "Whole recordings" },
       { id: "intercept-detail", title: "Intercept detail" },
     ],
   },
@@ -169,7 +170,8 @@ export function HelpPage() {
         <p>
           <strong>Analyst notes:</strong> on an Emitter, Platform, MDF or Intercept — and on their test pages (a new
           run, a run&apos;s report, a Platform test) — the <strong>Notes</strong> tab on the right edge of the window
-          opens its notes in a panel that stays put while you scroll and work on the page.
+          opens its notes in a panel that stays put while you scroll and work on the page. On an Intercept the tab
+          is called <strong>Comments</strong>, since the Intercept has a Notes card of its own.
           It stays open (or closed) as you move between pages. A note you&apos;ve written but not added yet is kept in
           this browser — closing the panel, leaving the page or a stray click doesn&apos;t lose it, and the tab shows
           ✎ until you add it. The same goes for notes on Sources and Tasks.
@@ -1284,6 +1286,49 @@ export function HelpPage() {
           </p>
         </div>
 
+        <div className="help-subsection" id="recordings">
+          <h3>Whole recordings</h3>
+          <p>
+            For a long track export (a 100 MB file, a million reports) that holds more than one thing.{" "}
+            <strong>Upload recording</strong> on the Intercepts page sends the whole file to the server, in 8 MB
+            parts with a progress bar (keep the page open until it&apos;s sent). The server then reads it the
+            same way the CSV import does, about half a minute per million reports. You can leave the page while
+            it does. Lines it can&apos;t read are counted, with a sample of why. If the same file was uploaded
+            before, you&apos;re taken to that recording instead.
+          </p>
+          <p>
+            A recording&apos;s page shows the reports over time: how many in each moment, then{" "}
+            <strong>RF</strong>, <strong>PRI</strong> (a stagger&apos;s frame time) and <strong>PW</strong> against
+            time. Each chart is shaded by how many reports fall in each small cell, darker (brighter in the dark
+            theme) where there are more, so a dense emitter and a few stray reports both show. Cut it down to a{" "}
+            <strong>snip</strong>:
+          </p>
+          <ul>
+            <li>Drag a box on the RF, PRI or PW chart to snip to that stretch of time and that range of the value.</li>
+            <li>Drag across the count chart to snip to that stretch of time only.</li>
+            <li>
+              Type the limits instead: from and to (UTC, as in the file), RF, PRI and PW ranges, track numbers, and
+              what the system identified the reports as. Then press Apply.
+            </li>
+            <li>Tick the PRI types, or click an &ldquo;Identified as&rdquo; chip.</li>
+          </ul>
+          <p>
+            Each cut narrows the snip, and the charts zoom to it. <strong>Undo</strong> steps back and{" "}
+            <strong>Whole recording</strong> starts over. The snip is kept in the page&apos;s address, so a link or
+            a reload brings it back. <strong>Group these reports →</strong> (Editors; at most 100,000 reports at
+            a time) opens the snip in the import page. There you group it and save it as a new Intercept under the
+            Emitter you choose, just as with a file. One recording can give many Intercepts.
+          </p>
+          <p>
+            An Intercept made this way says which recording and snip it came from. The recording&apos;s page lists
+            its Intercepts, each with <strong>Show this snip</strong>. On the Intercepts page,{" "}
+            <strong>By recording</strong> lists each recording with the Intercepts from it, then the rest.
+            Deleting a recording keeps its Intercepts, with their own reports, but no longer linked to it. The
+            offline app gets the list of recordings but not their reports, so snip them when you&apos;re back on
+            the server.
+          </p>
+        </div>
+
         <div className="help-subsection" id="intercept-detail">
           <h3>Intercept detail</h3>
           <p>
@@ -1310,6 +1355,13 @@ export function HelpPage() {
             reports it was built from, or switch the card to <strong>Reports</strong> to list every report — or
             just those in no entry (left out at import, or their entry was deleted). Both tables sort by clicking a
             heading and page through large files.
+          </p>
+          <p>
+            <strong>Notes.</strong> The <strong>Notes</strong> card at the top is one long text about the
+            Intercept as a whole: what you think it is, what fits and what doesn&apos;t, what to check next.{" "}
+            <strong>+ Add notes</strong> or <strong>Edit</strong> opens it, and <strong>Save</strong> (or
+            Ctrl+S) keeps it. Changes not saved yet stay in this browser until you save or discard them. Dated,
+            one-off remarks go under <strong>Comments</strong>, the tab on the right edge.
           </p>
           <p>
             <strong>Notes on each entry.</strong> Write what you think an entry is — &ldquo;Search radar, mode

@@ -32,6 +32,8 @@ import { NotesDrawer } from "../components/common/NotesDrawer";
 import { useConfirmDialog } from "../components/common/ConfirmDialog";
 import { ModeForm } from "../components/modes/ModeForm";
 import { InterceptFormModal } from "../components/intercepts/InterceptFormModal";
+import { InterceptNotesCard } from "../components/intercepts/InterceptNotesCard";
+import { describeSnip } from "../components/recordings/recordingFilters";
 import { EntryFormModal } from "../components/intercepts/EntryFormModal";
 import { EntryMatchCell, MatchCounts } from "../components/intercepts/EntryMatchCell";
 import { formatDay, modeLink } from "../components/intercepts/interceptFormat";
@@ -641,6 +643,17 @@ export function InterceptDetailPage() {
         )}
       </p>
       {intercept.description && <p className="muted">{intercept.description}</p>}
+      {(intercept.recording_id || intercept.snip) && (
+        <p className="intercept-recording">
+          <strong>Snipped from</strong>{" "}
+          {intercept.recording_id ? (
+            <Link to={`/recordings/${intercept.recording_id}`}>{intercept.recording_name}</Link>
+          ) : (
+            <span className="hint-text">a recording since deleted</span>
+          )}
+          {intercept.snip && <span className="hint-text"> · {describeSnip(intercept.snip)}</span>}
+        </p>
+      )}
       <div className="intercept-source">
         {intercept.source_id ? (
           <>
@@ -688,13 +701,21 @@ export function InterceptDetailPage() {
       </div>
       {error && <div className="error-text">{error}</div>}
 
-      <NotesDrawer count={notes?.length ?? 0} subject={intercept.name} draftKey={`notes-draft:intercept:${intercept.id}`}>
+      <InterceptNotesCard key={intercept.id} interceptId={intercept.id} notes={intercept.analysis_notes} canEdit={canWrite} />
+
+      <NotesDrawer
+        count={notes?.length ?? 0}
+        subject={intercept.name}
+        draftKey={`notes-draft:intercept:${intercept.id}`}
+        label="Comments"
+        title="Comments"
+      >
         <NotesFeed
           key={intercept.id}
           draftKey={`notes-draft:intercept:${intercept.id}`}
           notes={notes}
           isLoading={notesLoading}
-          placeholder="Your own thoughts/observations about this Intercept as a whole."
+          placeholder="A dated remark about this Intercept — longer thinking goes in its Notes."
           onAdd={(body) => createNote.mutateAsync(body)}
           isAdding={createNote.isPending}
           onDelete={(noteId) => deleteNote.mutateAsync(noteId)}

@@ -40,9 +40,14 @@ export function NotesDrawer({
   count,
   subject,
   draftKey,
+  label = "Notes",
+  title = "Analyst notes",
   children,
 }: {
   count: number;
+  /** The closed tab's label, and the open panel's title — "Comments" where the page has Notes of its own. */
+  label?: string;
+  title?: string;
   /** Where the panel's unsent note is kept (NotesFeed's draftKey), to flag it on the closed tab. */
   draftKey?: string;
   /** What the notes are about, for the panel's title (e.g. the Emitter's name). */
@@ -58,10 +63,10 @@ export function NotesDrawer({
         type="button"
         className="notes-drawer-tab"
         onClick={() => setOpen(true)}
-        title={hasDraft ? "Open the analyst notes — you have a note not added yet" : "Open the analyst notes"}
-        aria-label={`Analyst notes (${count})${hasDraft ? ", unsent draft" : ""}`}
+        title={`Open the ${title.toLowerCase()}${hasDraft ? " — you have one not added yet" : ""}`}
+        aria-label={`${title} (${count})${hasDraft ? ", unsent draft" : ""}`}
       >
-        <span className="notes-drawer-tab-label">Notes</span>
+        <span className="notes-drawer-tab-label">{label}</span>
         <span className="notes-drawer-tab-count">{count}</span>
         {hasDraft && (
           <span className="notes-drawer-tab-draft" title="You have a note written but not added yet">
@@ -74,7 +79,7 @@ export function NotesDrawer({
   return (
     <aside
       className="notes-drawer"
-      aria-label="Analyst notes"
+      aria-label={title}
       onKeyDown={(e) => {
         if (e.key === "Escape") setOpen(false);
       }}
@@ -82,11 +87,11 @@ export function NotesDrawer({
       <div className="notes-drawer-header">
         <div>
           <h4>
-            Analyst notes <span className="section-count">{count}</span>
+            {title} <span className="section-count">{count}</span>
           </h4>
           <span className="hint-text notes-drawer-subject">{subject}</span>
         </div>
-        <button type="button" className="link-button" onClick={() => setOpen(false)} aria-label="Close the analyst notes">
+        <button type="button" className="link-button" onClick={() => setOpen(false)} aria-label={`Close the ${title.toLowerCase()}`}>
           ✕
         </button>
       </div>

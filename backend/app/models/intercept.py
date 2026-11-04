@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import ARRAY, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.enums import PriType
@@ -32,6 +32,16 @@ class Intercept(UUIDPkMixin, TimestampMixin, Base):
     # regroup, a merge, a delete) — a regroup saved against an older version
     # is refused rather than silently undoing someone else's.
     grouping_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    # The analyst's notes on the whole Intercept — one text, written over time
+    # (the page's "Notes"); the comment feed is `notes` below.
+    analysis_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The recording it was snipped from, if any, and the snip: the time window
+    # and filters, as the recording page set them.
+    recording_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("recordings.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    snip: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    recording: Mapped["Recording | None"] = relationship()  # noqa: F821
 
     emitter: Mapped["Emitter"] = relationship(back_populates="intercepts")  # noqa: F821
     # The Source made from it with "Turn into Source", if any.
@@ -47,6 +57,10 @@ class Intercept(UUIDPkMixin, TimestampMixin, Base):
     reports: Mapped[list["InterceptReport"]] = relationship(
         back_populates="intercept", cascade="all, delete-orphan", passive_deletes=True
     )
+
+    @property
+    def recording_name(self) -> str | None:
+        return self.recording.name if self.recording is not None else None
 
     @property
     def source_id(self):

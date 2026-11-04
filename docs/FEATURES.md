@@ -12,7 +12,7 @@ If you just want to see it running, start with the [README](../README.md). This 
 
 **Every page is laid out the same way.** The title row first (the title, its **?**, and the page's main buttons on the right), at the same height on every page; then the section's tabs (Emitters · Source Groups · Report, MDFs · Customers, Strategies · Dwell files, the Admin pages), all one size; then the filters, with the count of what's shown at the right; then the content.
 
-**Analyst notes** on Emitters, Platforms, MDFs and Intercepts open from a **Notes** tab fixed to the right edge of the window, in a panel that stays put while the page scrolls and doesn't block it; open or closed is remembered across pages. A note written but not yet added is kept in the browser per Emitter/Platform/MDF/Intercept (and per Source and Task) until it's added — closing the panel, leaving the page or the browser, or a stray click doesn't lose it, and the closed tab shows ✎ while one is waiting. Nothing is added to the log until **Add note** is pressed, since notes are append-only.
+**Analyst notes** on Emitters, Platforms, MDFs and Intercepts open from a **Notes** tab (called **Comments** on an Intercept, which has a Notes card of its own) fixed to the right edge of the window, in a panel that stays put while the page scrolls and doesn't block it; open or closed is remembered across pages. A note written but not yet added is kept in the browser per Emitter/Platform/MDF/Intercept (and per Source and Task) until it's added — closing the panel, leaving the page or the browser, or a stray click doesn't lose it, and the closed tab shows ✎ while one is waiting. Nothing is added to the log until **Add note** is pressed, since notes are append-only.
 
 **Dates** are shown day.month.year (07.10.2026) with a 24-hour clock (14:05), everywhere. Date fields take dd.mm.yyyy (also 7.10.26, 7/10/2026, 07102026 or 2026-10-07) with a calendar button; time fields take hh:mm. The server still stores and exchanges ISO dates.
 
@@ -227,6 +227,20 @@ A Mode can come from **more than one Source** — the same signal in two reports
 - **Deleting a Source** is refused only while it's some Mode's *only* Source (the message names them); Modes that have another just lose it.
 - **Rejected Sources**: a Mode is left out of exports and ambiguity checks only when *every* Source it comes from is rejected — one approved Source keeps it in.
 - **Merging duplicates** from an ambiguity check keeps both Modes' Sources on the kept Mode.
+
+### An Intercept's own Notes
+
+An Intercept has a **Notes** card at the top of its page: one long free text about the Intercept as a whole (what it's thought to be, what to check next), apart from the dated comment feed, which on an Intercept is now called **Comments**. Editors open it with **+ Add notes** / **Edit**, and **Save** or Ctrl+S keeps it. Unsaved changes stay in the browser (per Intercept) until saved or discarded. Every save is audited like any other change to the Intercept (`analysis_notes` on `PATCH /intercepts/{id}`).
+
+### Whole recordings
+
+A whole track export (often 100 MB, about a million reports) can be kept on the server and snipped many times, each snip grouped into its own Intercept.
+
+- **Upload.** **Upload recording** on the Intercepts page (Editors) sends the file in 8 MB parts, which keeps each request under the proxy's limit. A failed part is retried. The server then reads it in the background with the same rules as the CSV import (ns → µs, X-let and unknown PRI classes skipped). It reads about half a million rows a minute, with a running count shown, and keeps a count and a sample of the lines it couldn't read. A file that isn't a track export fails with the reason, and nothing is kept. A file uploaded before (same SHA-256) leads to the earlier recording. If the server stops while reading, the recording turns "failed" with nothing kept, and it says to upload again. A recording can't be deleted while it's being read. Uploads and deletes are in the Audit Log (`POST /recordings`, `PUT /recordings/{id}/chunks/{n}`, `POST /recordings/{id}/complete`).
+- **Overview.** The recording's page draws the reports over time: a count per moment, and RF, PRI (frame time for a stagger) and PW against time as density. That is 480 time steps × 140 value steps, shaded by a log of the count. These are worked out on the server in two passes over the reports (`GET /recordings/{id}/overview`), so a million reports draw in a few seconds and a snip in under one.
+- **Snip.** Drag a box on a chart (a time window and a value range), drag across the count chart (time only), or type limits: from/to in UTC, RF/PRI/PW ranges, PRI types, track numbers, and "identified as" (designation or Mode name, any part). Each cut narrows and zooms. Undo steps back, and the snip is kept in the address. **Group these reports →** opens the snip on the import page (at most 100,000 reports, `GET /recordings/{id}/reports`), where it's grouped and saved like a file. The new Intercept keeps `recording_id` and the `snip`.
+- **Listing.** An Intercept from a recording shows "Snipped from …" with the snip. The recording's page lists its Intercepts with **Show this snip**, and the Intercepts list groups them **By recording**. Deleting a recording keeps its Intercepts and their reports, unlinked.
+- **Offline.** The standalone app's copy has the recordings but not their reports, and nothing it does to a recording is synced back. Snip when back on the server.
 
 ### Notes on intercept entries
 
