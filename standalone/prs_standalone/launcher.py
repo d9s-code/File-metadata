@@ -133,6 +133,9 @@ def _stop_on_console_close(pg: LocalPostgres) -> None:
 
 
 def main() -> None:
+    # Each line as it's printed, also when the output isn't a console (a log file).
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(line_buffering=True)
     data_dir = default_data_dir()
     data_dir.mkdir(parents=True, exist_ok=True)
     if port := _already_running(data_dir):

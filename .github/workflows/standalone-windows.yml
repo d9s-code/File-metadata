@@ -1,0 +1,36 @@
+name: Standalone (Windows)
+
+# Builds the offline app for Windows (PRS.exe + PostgreSQL, zipped), checks it
+# starts, and attaches the zip to the run. See standalone/README.md.
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build
+        shell: pwsh
+        run: ./standalone/build_windows.ps1
+      - name: Check PRS.exe starts
+        shell: pwsh
+        run: ./standalone/smoke_windows.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PRS-offline-windows
+          path: build/standalone/PRS-offline-*.zip
+          if-no-files-found: error

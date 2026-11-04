@@ -656,3 +656,19 @@ A task has a title, optional details and due date, and can be about one Emitter,
 
 Editors can create, edit, reassign and tick off any task; whoever a task is for can always tick it off, even a viewer. A task can be deleted by whoever made it, whoever it's for, or an admin. Tasks are visible to everyone — they're how the team splits the work. Every change is recorded in the Audit Log.
 
+
+## 16. Offline (standalone) app
+
+For working where the server can't be reached: the whole app on one Windows PC — `PRS.exe` with its own PostgreSQL, unzipped anywhere, no installation, no admin rights, no Docker (`standalone/`, built by `standalone/build_windows.ps1` or the **Standalone (Windows)** GitHub workflow). It opens in the browser at `http://127.0.0.1:8765`; only that PC can reach it.
+
+**The first start** asks for the server's address and a username and password there, and fetches a copy of everything (`GET /sync/copy`, Editors and up; recorded in the Audit Log). People then sign in on the PC as they do on the server. Everything works offline — editing Emitters, versions and checkpoints, Platforms, MDFs, dwells, tests, intercepts — except the AI features and backups.
+
+**Sync** (in the top bar of the offline app): sign in to the server, **Check against the server**, then **Sync**. The PC sends every row it added, changed or deleted since the copy was fetched, with the row as it was then; the server compares each field three ways (when fetched / server now / PC):
+
+- changed only on the PC → goes in; only on the server → stays;
+- changed on both to different values → a conflict, shown with all three values and grouped by the Emitter, Platform, MDF, Dwell Strategy, dwell file, intercept … it belongs to; a person chooses per group to keep the server's or the PC's (`POST /sync/preview`, `POST /sync/apply` with `resolutions`). Something added on the PC under something the server deleted, deleted on the PC but changed on the server, or an Emitter someone is editing on the server right now, is a conflict too.
+- History adds together: versions, checkpoints, tests, notes and Audit Log entries from both sides are all kept. A version number both sides used is renumbered after the server's (the PC's v4 becomes v5, its checkpoints with it); a name both sides gave a new Emitter (Platform, MDF …) gets " (from PC)"; a pin both sides made is one pin.
+
+Everything goes in in one transaction, recorded in the Audit Log as an **Offline sync** (with the counts, the renumberings and the choices made). The PC then fetches the server's copy, so it has everyone's changes; what was on it before is kept in a file in its data folder (`%LOCALAPPDATA%\PRS\before-replace`). **Fetch a fresh copy** replaces the PC's data with the server's, asking first if it has changes not yet synced.
+
+Not synced: user accounts (the server's are kept), the app's settings, AI chats, and who holds an Emitter's edit lock. The PC's app and the server must be the same version (database version) to fetch or sync.

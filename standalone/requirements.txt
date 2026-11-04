@@ -1,0 +1,6 @@
+# The standalone (offline) app: the backend's, plus what it uses to talk to the
+# server, and what freezes it into PRS.exe.
+-r ../backend/requirements.txt
+httpx==0.28.1
+truststore==0.10.4
+pyinstaller==6.22.3
