@@ -8,6 +8,7 @@ import { ChangePasswordModal } from "./ChangePasswordModal";
 import { SettingsModal } from "./SettingsModal";
 import { useMyWork } from "../../state/hooks/useTasks";
 import { QuickJump } from "./QuickJump";
+import { STANDALONE } from "../../api/offline";
 
 /** The top menu: the things the team works on. Pages that belong under an
  * item (Source Groups under Emitters, Customers under MDFs) are tabs on its
@@ -19,6 +20,8 @@ const LINKS: { to: string; label: string; also?: string[] }[] = [
   { to: "/mdfs", label: "MDFs", also: ["/customers", "/ambiguity/mdf"] },
   { to: "/dwells", label: "Dwells" },
   { to: "/intercepts", label: "Intercepts" },
+  // The offline app's way back to the server.
+  ...(STANDALONE ? [{ to: "/sync", label: "Sync" }] : []),
 ];
 
 function isUnder(pathname: string, prefix: string) {

@@ -7566,3 +7566,17 @@ button.meta-chip:hover:not(:disabled) { color: var(--text); }
 }
 .icon-button:hover:not(:disabled) { border-color: var(--primary); }
 .button.small, .icon-button { line-height: 1.25; }
+
+/* The offline app's Sync page. */
+.offline-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+.offline-grid > .card { margin: 0; }
+.offline-facts { display: grid; grid-template-columns: max-content 1fr; gap: 0.3rem 1rem; margin: 0; }
+.offline-facts dt { color: var(--muted); }
+.offline-facts dd { margin: 0; }
+.offline-connect { display: grid; gap: 0.6rem; max-width: 26rem; }
+.offline-entries { max-height: 18rem; overflow-y: auto; margin: 0.5rem 0 0; padding-left: 1.2rem; }
+.sync-conflict { margin: 0.75rem 0; border-left: 4px solid var(--badge-amber-fg, #b45309); }
+.sync-choice { display: flex; gap: 1rem; flex-wrap: wrap; }
+.sync-choice label { display: inline-flex; align-items: center; gap: 0.35rem; font-weight: 500; }
+.sync-fields { margin-top: 0.4rem; }
+.sync-fields td.sync-kept { font-weight: 600; background: color-mix(in srgb, var(--primary) 10%, transparent); }

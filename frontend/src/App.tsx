@@ -2,6 +2,8 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { MutationCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "./auth/AuthContext";
 import { RequireAuth, RequireAdmin } from "./auth/RequireAuth";
+import { STANDALONE } from "./api/offline";
+import { OfflineSyncPage } from "./pages/OfflineSyncPage";
 import { ThemeProvider } from "./theme/ThemeContext";
 import { NavBar } from "./components/common/NavBar";
 import { ChatWidget } from "./components/ai/ChatWidget";
@@ -76,6 +78,16 @@ export default function App() {
             <CheckoutReminder />
             <Routes>
               <Route path="/login" element={<LoginPage />} />
+              {STANDALONE && (
+                <Route
+                  path="/sync"
+                  element={
+                    <RequireAuth>
+                      <OfflineSyncPage />
+                    </RequireAuth>
+                  }
+                />
+              )}
               <Route
                 path="/emitters"
                 element={
