@@ -7,6 +7,7 @@ import { usePeople } from "../../state/hooks/useTasks";
 import { usePlatforms } from "../../state/hooks/usePlatforms";
 import { useAuth } from "../../auth/AuthContext";
 import { useStatuses } from "../../state/hooks/useStatuses";
+import { exportEmittersXml } from "./exportXml";
 
 type Action = "assign" | "status" | "pin" | "release";
 
@@ -29,6 +30,19 @@ export function EmitterBulkBar({ selected, onClear }: { selected: string[]; onCl
   const [platformId, setPlatformId] = useState("");
   const [result, setResult] = useState<EmitterBulkResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+
+  async function exportXml() {
+    setError(null);
+    setExporting(true);
+    try {
+      await exportEmittersXml(selected);
+    } catch (err) {
+      setError(err instanceof ApiRequestError ? err.message : "Couldn't export the XML archive");
+    } finally {
+      setExporting(false);
+    }
+  }
   const run = useMutation({
     mutationFn: (input: EmitterBulkInput) => emittersApi.bulk(input),
     onSuccess: (r) => {
@@ -122,6 +136,15 @@ export function EmitterBulkBar({ selected, onClear }: { selected: string[]; onCl
         )}
         <button type="button" disabled={!ready || run.isPending} onClick={() => void apply()}>
           {run.isPending ? "Working…" : "Apply"}
+        </button>
+        <button
+          type="button"
+          className="button secondary"
+          disabled={exporting || selected.length === 0}
+          title="The ticked Emitters in one XML archive"
+          onClick={() => void exportXml()}
+        >
+          {exporting ? "Exporting…" : `Export XML (${selected.length})`}
         </button>
         {selected.length === 2 && (
           <Link className="link-as-button" to={`/emitters/compare?a=${selected[0]}&b=${selected[1]}`}>

@@ -5,7 +5,6 @@ import { useEmitterCheckoutState } from "../state/hooks/useEmitterCheckout";
 import { useEwGroups } from "../state/hooks/useEwGroups";
 import { useSources } from "../state/hooks/useSources";
 import { useCreateEmitterNote, useDeleteEmitterNote, useEmitterNotes } from "../state/hooks/useEmitterNotes";
-import { emittersApi } from "../api/emitters";
 import { EwGroupsTable } from "../components/ewGroups/EwGroupsTable";
 import { ElementOverview } from "../components/sources/ElementOverview";
 import { ElementCoverage } from "../components/sources/ElementCoverage";
@@ -17,6 +16,7 @@ import { EditModeControls, LiveDiffPanel } from "../components/versioning/EditMo
 import { EmitterSummaryStrip } from "../components/emitters/EmitterSummaryStrip";
 import { EntityHeader } from "../components/common/EntityHeader";
 import { MenuButton } from "../components/common/MenuButton";
+import { exportEmitterXml } from "../components/emitters/exportXml";
 import { EmitterTestHistory } from "../components/testing/EmitterTestHistory";
 import { EntityAuditTrail } from "../components/audit/EntityAuditTrail";
 import { LoadingState } from "../components/common/LoadingState";
@@ -107,15 +107,7 @@ export function EmitterEditorPage() {
   const handleExportXml = async () => {
     setExportError(null);
     try {
-      const blob = await emittersApi.exportXml(emitter.id, { responseType: "blob" });
-      const url = window.URL.createObjectURL(blob as Blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${emitter.name}_xml_export.zip`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      a.remove();
+      await exportEmitterXml(emitter);
     } catch (err) {
       setExportError(err instanceof Error ? `Couldn't export the XML archive: ${err.message}` : "Couldn't export the XML archive.");
     }

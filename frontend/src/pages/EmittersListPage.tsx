@@ -24,6 +24,7 @@ import { StatusBadge } from "../components/status/StatusBadge";
 import { useStatuses } from "../state/hooks/useStatuses";
 import { useSessionState } from "../components/common/useSessionState";
 import { formatDate } from "../components/common/dates";
+import { exportEmitterXml } from "../components/emitters/exportXml";
 
 type EmitterSortKey =
   | "name"
@@ -575,6 +576,13 @@ export function EmittersListPage() {
                     className="row-menu-button"
                     ariaLabel={`Actions for ${e.name}`}
                     items={[
+                      {
+                        label: "Export XML",
+                        onSelect: () =>
+                          void exportEmitterXml(e).catch((err) =>
+                            setDeleteError(err instanceof Error ? `Couldn't export ${e.name}: ${err.message}` : `Couldn't export ${e.name}`),
+                          ),
+                      },
                       { label: "Compare with another Emitter", to: `/emitters/compare?a=${e.id}` },
                       ...(canWrite ? [{ label: "Delete…", danger: true, onSelect: () => void handleDelete(e) }] : []),
                     ]}

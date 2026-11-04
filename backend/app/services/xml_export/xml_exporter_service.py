@@ -65,6 +65,25 @@ class XMLExporterService:
         zip_buffer.seek(0)
         return zip_buffer
 
+    def export_emitters_to_zip(self, emitters: list[Emitter]) -> io.BytesIO:
+        """Several Emitters in one archive, laid out as a single one is
+        (emitters/<name>.xml). Two with the same file name get " (2)" … added."""
+        zip_buffer = io.BytesIO()
+        xml_decl = b'<?xml version="1.0" encoding="utf-8"?>\n'
+        used: set[str] = set()
+        with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
+            for emitter in emitters:
+                base = sanitize_filename(emitter.name)
+                name, n = base, 1
+                while name.lower() in used:
+                    n += 1
+                    name = f"{base} ({n})"
+                used.add(name.lower())
+                emitter_xml = self._generate_emitter_xml(emitter)
+                zip_file.writestr(f"emitters/{name}.xml", xml_decl + etree.tostring(emitter_xml, encoding="utf-8", xml_declaration=False, pretty_print=True, method="xml"))
+        zip_buffer.seek(0)
+        return zip_buffer
+
     def _generate_emitter_xml(self, emitter: Emitter) -> etree.Element:
         root = etree.Element("Emitter", Name=self._sanitize(emitter.name))
         

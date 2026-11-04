@@ -294,7 +294,9 @@ export function HelpPage() {
           <strong>Pin latest saved version into</strong> a Platform, or <strong>Release edit locks</strong> (your own;
           an Admin can release anyone&apos;s). Each Emitter goes through the same rules as doing it on its own page;
           any that can&apos;t are listed with the reason, and the rest are done. With exactly two ticked,{" "}
-          <strong>Compare these two</strong> opens them side by side.
+          <strong>Compare these two</strong> opens them side by side, and <strong>Export XML (N)</strong> downloads the
+          ticked Emitters in one XML archive. Each row&apos;s <strong>⋯</strong> also has <strong>Export XML</strong> for
+          that Emitter.
         </p>
         <p>
           <strong>Compare two Emitters</strong> (<strong>⋯ → Compare with another Emitter</strong> on an Emitter):

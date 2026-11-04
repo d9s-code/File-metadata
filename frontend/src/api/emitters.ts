@@ -41,6 +41,9 @@ export const emittersApi = {
   checkin: (id: string) => api.delete<Emitter>(`/emitters/${id}/checkout`),
   discard: (id: string) => api.post<Emitter>(`/emitters/${id}/discard`),
   exportXml: (id: string, options?: any) => api.post<Blob>(`/emitters/${id}/export/xml`, undefined, options),
+  /** Several Emitters in one XML archive. */
+  exportXmlMany: (ids: string[]) =>
+    api.post<Blob>("/emitters/export/xml", { emitter_ids: ids }, { responseType: "blob" }),
   // sourceDate (YYYY-MM-DD), if given, overrides the "Date last updated" the
   // importer would otherwise parse from the JSON file's own per-set
   // date_last_updated field — see transformer.py.

@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
@@ -115,6 +116,32 @@ def compare_two_emitters(
     given): what each covers, and every pair of their Modes the ambiguity
     check would flag. Declared before /{emitter_id}."""
     return compare_emitters(db, a, b, a_version, b_version)
+
+
+class EmitterExportRequest(BaseModel):
+    emitter_ids: list[UUID] = Field(min_length=1, max_length=1000)
+
+
+@router.post("/export/xml")
+def export_emitters_xml(
+    payload: EmitterExportRequest,
+    db: Session = Depends(get_db),
+    _=Depends(require_role(Role.viewer)),
+) -> Response:
+    """Several Emitters in one XML archive (emitters/<name>.xml each), as
+    picked in the Emitters list. Declared before /{emitter_id}."""
+    ids = list(dict.fromkeys(payload.emitter_ids))
+    found = db.query(Emitter).filter(Emitter.id.in_(ids), Emitter.is_deleted.is_(False)).all()
+    if len(found) != len(ids):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"{len(ids) - len(found)} of the Emitters weren't found")
+    order = {eid: i for i, eid in enumerate(ids)}
+    found.sort(key=lambda e: order[e.id])
+    zip_buffer = XMLExporterService(db).export_emitters_to_zip(found)
+    return Response(
+        content=zip_buffer.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": attachment_disposition(f"emitters_xml_export_{len(found)}.zip")},
+    )
 
 
 @router.get("/checkouts", response_model=list[EmitterCheckoutOut])
