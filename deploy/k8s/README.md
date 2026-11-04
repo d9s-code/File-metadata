@@ -120,14 +120,19 @@ sudo k3s kubectl -n prs exec deploy/backup -- python scripts/backup_db.py --no-p
 
 ## Restore a backup
 
-This overwrites the database. Stop the app first, then restore. It asks you to
-type the database's name to confirm.
+This overwrites the database. Stop the app first, then restore. `--confirm-db` must
+be the database name at the end of `DATABASE_URL` in `secret.yaml`, as a guard against
+restoring into the wrong one.
 ```
 sudo k3s kubectl -n prs scale deploy/backend --replicas=0
 sudo k3s kubectl -n prs exec deploy/backup -- ls /backups
-sudo k3s kubectl -n prs exec -it deploy/backup -- python scripts/restore_db.py /backups/<file>.dump
+sudo k3s kubectl -n prs exec deploy/backup -- python scripts/restore_db.py /backups/<file>.dump --confirm-db <database name>
 sudo k3s kubectl -n prs scale deploy/backend --replicas=1
 ```
+Before touching anything it checks the file (its checksum, and that it reads in
+full), that it isn't from a newer version of the app, and that nothing is busy
+on the database. It backs up the current data first, then replaces it in one
+transaction: if anything goes wrong, the database is left exactly as it was.
 
 ## Moving Postgres into k3s later
 

@@ -26,6 +26,8 @@ x-backend-env: &backend-env
   # Automatic backups: a weekday (or "daily") and a time, UTC.
   BACKUP_SCHEDULE_DAY: sun
   BACKUP_SCHEDULE_TIME: "03:00"
+  # A run that couldn't take a backup (database down, disk full) is tried again this many minutes later.
+  BACKUP_RETRY_MINUTES: "60"
   # Between them, a backup is due a week after the last one at this many
   # changes, half a week at twice as many, and so on — admins are warned then.
   BACKUP_CHANGES_PER_WEEK: "50"

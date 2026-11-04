@@ -22,6 +22,8 @@ data:
   # Automatic backups: a weekday (mon … sun) or "daily", and a time (UTC).
   BACKUP_SCHEDULE_DAY: sun
   BACKUP_SCHEDULE_TIME: "03:00"
+  # A run that couldn't take a backup (database down, disk full) is tried again this many minutes later.
+  BACKUP_RETRY_MINUTES: "60"
   # A backup is due a week after the last one at this many changes, half a week at twice as many…
   BACKUP_CHANGES_PER_WEEK: "50"
   # How many backups are kept.

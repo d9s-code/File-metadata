@@ -18,7 +18,7 @@ from pathlib import Path
 sys.path.insert(0, ".")
 
 from app.config import settings  # noqa: E402
-from app.services.backup_service import BackupError, prune_backups, take_backup, verify_backup  # noqa: E402
+from app.services.backup_service import BackupError, prune_all, prune_backups, take_backup, verify_backup  # noqa: E402
 
 
 def main() -> None:
@@ -34,13 +34,18 @@ def main() -> None:
         if not args.prune_only:
             manifest = take_backup(kind="manual", created_by="command line", directory=directory)
             print(f"Backup written: {directory / manifest['file']} ({manifest['size_bytes']:,} bytes)")
+            if manifest.get("copy_error"):
+                print(f"WARNING: it couldn't be copied to {settings.backup_copy_dir}: {manifest['copy_error']}", file=sys.stderr)
+            if manifest.get("overview_error"):
+                print(f"Note: no overview of its contents ({manifest['overview_error']})")
             if args.verify:
                 result = verify_backup(manifest["file"], directory)["verification"]
                 print(f"Verification {'passed' if result['ok'] else 'FAILED'}: {result['message']}")
                 if not result["ok"]:
                     raise SystemExit(2)
         if not args.no_prune:
-            for path in prune_backups(directory):
+            removed = prune_all() if directory == Path(settings.backup_dir) else prune_backups(directory)
+            for path in removed:
                 print(f"Pruned: {path}")
     except BackupError as err:
         print(f"Backup failed: {err}", file=sys.stderr)

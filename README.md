@@ -187,7 +187,16 @@ whether or not the app is up. Every `BACKUP_SCHEDULE_DAY` (a weekday, or `daily`
 
 Every day at that time it also purges Recently Deleted items past `TRASH_RETENTION_DAYS`
 (default 30). If the latest backup is over a week old when it starts (the server was off),
-it takes one straight away.
+it takes one straight away. A run that can't take a backup at all — the database down, the
+disk full — is tried again every `BACKUP_RETRY_MINUTES` (default 60) until one is taken,
+rather than a week later.
+
+A backup is all or nothing: one that can't be finished (say the disk fills up halfway)
+leaves no half-written files behind, and the reason is shown on Admin → Backups. Each is
+read back once written. Pruning never removes the newest backup or the newest one that
+passed verification, so a run of failed backups can't push out the last good one; the copy
+in `BACKUP_COPY_DIR` is checked against the original and pruned the same way. Admin →
+Backups also warns when the backup disk is too full for the next backup.
 
 **Between automatic backups, the warning scales with the changes.** The dashboard's Backup
 card shows how long since the last backup and how many changes have been made since (every
@@ -255,10 +264,15 @@ matching the server is the clean setup, and the Backups page says so if they dif
 # a backup now (also on Admin → Backups)
 docker compose exec backup python scripts/backup_db.py --verify
 
-# restore — overwrites the live database, so it asks for its name. It takes a
-# "before-restore" backup first, so restoring the wrong file can be undone.
-# It empties the database, restores the file, then upgrades it to the current
-# schema (alembic upgrade head), so older backups restore too.
+# restore — overwrites the live database, so it asks for its name. Before
+# touching anything it checks the file (its checksum, and that it reads in full),
+# that it isn't from a newer version of the app, and that nothing is busy on the
+# database. It takes a "before-restore" backup (skipped when the database is
+# empty, as on a new server), so restoring the wrong file can be undone; then
+# replaces the data in one transaction — all of it, or, if anything fails,
+# none (the database is left as it was). It checks the row counts against the
+# backup's record, then upgrades it to the current schema (alembic upgrade
+# head), so older backups restore too.
 # Stop the web app while it runs. `run --no-deps` starts a one-off container
 # that doesn't wait for the backend, so this works even when the backend
 # can't start (e.g. a database left half-restored).

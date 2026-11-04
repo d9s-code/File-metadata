@@ -445,3 +445,158 @@ def test_a_failed_prs_export_keeps_the_database_backup(admin_client, backup_dir,
     item = admin_client.post("/admin/backups").json()
     assert (backup_dir / item["file"]).exists()
     assert item["prs_export"] == {"error": "serializer exploded"}
+
+
+# --- Robustness: what was found by testing backups and restores end to end -----------
+
+
+def _restore_module():
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[2] / "scripts" / "restore_db.py"
+    spec = importlib.util.spec_from_file_location("restore_db", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_an_empty_database_has_an_empty_overview(db_session):
+    # A new server about to be restored into: its safety backup used to crash here.
+    conn = db_session.connection()
+    conn.execute(text("CREATE SCHEMA IF NOT EXISTS empty_for_test"))
+    conn.execute(text("SET LOCAL search_path TO empty_for_test"))
+    assert backup_service.compute_overview(conn) == {kind: [] for kind in backup_service.OVERVIEW_KINDS}
+    db_session.rollback()
+
+
+def test_a_backup_that_cant_be_finished_leaves_nothing_behind(admin_client, backup_dir, monkeypatch):
+    def full_disk(*_args, **_kwargs):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(backup_service, "write_manifest", full_disk)
+    with pytest.raises(backup_service.BackupError, match="No space left on device"):
+        backup_service.take_backup()
+    # No dump without its record, and no half-written files.
+    assert [p.name for p in backup_dir.iterdir() if p.name != ".backup.lock"] == []
+
+
+def test_an_unreachable_database_is_said_in_plain_words(backup_dir, monkeypatch):
+    def down(*_args, **_kwargs):
+        raise OperationalError("SELECT 1", None, Exception("connection refused"))
+
+    monkeypatch.setattr(backup_service, "_write_backup", down)
+    with pytest.raises(backup_service.BackupError, match="Couldn't reach the database: connection refused"):
+        backup_service.take_backup()
+
+
+def test_an_unusable_backup_folder_is_said_in_plain_words(monkeypatch, tmp_path):
+    blocked = tmp_path / "a-file"
+    blocked.write_text("not a folder")
+    with pytest.raises(backup_service.BackupError, match="Can't use the backup folder"):
+        backup_service.take_backup(directory=blocked / "backups")
+
+
+def test_leftovers_from_a_cut_off_backup_are_cleared(admin_client, backup_dir):
+    backup_dir.mkdir(parents=True)
+    for name in ("emitterdb_20260101_000000.dump.part", "emitterdb_20260101_000000_prs.zip.part"):
+        (backup_dir / name).write_bytes(b"half")
+    backup_service.take_backup()
+    assert not list(backup_dir.glob("*.part"))
+
+
+def test_prune_never_drops_the_newest_or_the_last_good_backup(tmp_path):
+    names = [f"emitterdb_202601{d:02d}_030000.dump" for d in range(1, 6)]
+    for name in names:
+        (tmp_path / name).write_bytes(b"x")
+    # Only the oldest passed verification; the newer ones failed.
+    backup_service.write_manifest(tmp_path / names[0], {"verification": {"ok": True}})
+    for name in names[1:]:
+        backup_service.write_manifest(tmp_path / name, {"verification": {"ok": False}})
+    backup_service.prune_backups(tmp_path, keep_daily=0, keep_weekly=0, keep_monthly=0)
+    assert sorted(p.name for p in tmp_path.glob("*.dump")) == [names[0], names[-1]]
+
+
+def test_the_copy_is_checked_and_a_failed_copy_is_reported(admin_client, backup_dir, tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "backup_copy_dir", str(tmp_path / "copy"))
+    manifest = backup_service.take_backup()
+    assert manifest["copied_to"] and manifest["copy_error"] is None
+    copy = tmp_path / "copy" / manifest["file"]
+    assert copy.read_bytes() == (backup_dir / manifest["file"]).read_bytes()
+    assert not list((tmp_path / "copy").glob("*.part"))
+
+    blocked = tmp_path / "blocked"
+    blocked.write_text("not a folder")
+    monkeypatch.setattr(settings, "backup_copy_dir", str(blocked))
+    manifest = backup_service.take_backup()
+    assert manifest["copied_to"] is None and manifest["copy_error"]
+    problems = backup_service.backup_health()["problems"]
+    assert any(p.startswith(f"The latest backup wasn't copied to {blocked}") for p in problems)
+
+
+def test_health_warns_when_the_backup_disk_is_nearly_full(admin_client, backup_dir, monkeypatch):
+    import collections
+
+    backup_service.take_backup()
+    usage = collections.namedtuple("usage", "total used free")
+    monkeypatch.setattr(backup_service.shutil, "disk_usage", lambda _p: usage(10**9, 10**9 - 1000, 1000))
+    health = backup_service.backup_health()
+    assert health["disk"]["low"] is True
+    assert any(p.startswith("The backup disk is nearly full") for p in health["problems"])
+
+
+def test_restore_checks_the_file_before_touching_anything(admin_client, backup_dir):
+    restore_db = _restore_module()
+    manifest = backup_service.take_backup()
+    dump = backup_dir / manifest["file"]
+
+    # A changed file is refused, unless asked to go ahead.
+    changed = dict(manifest, sha256="0" * 64)
+    with pytest.raises(restore_db.RestoreError, match="checksum doesn't match"):
+        restore_db.check_checksum(dump, changed, ignore=False)
+    restore_db.check_checksum(dump, changed, ignore=True)
+
+    # A backup from a newer version of the app is refused.
+    with pytest.raises(restore_db.RestoreError, match="newer version of the app"):
+        restore_db.check_app_version({"alembic_version": "not_a_revision_here"})
+
+    # A cut-off file is refused when it's read, before the database is touched.
+    cut = backup_dir / "cut.dump"
+    cut.write_bytes(dump.read_bytes()[: dump.stat().st_size // 2])
+    with pytest.raises(restore_db.RestoreError, match="can't be read in full"):
+        restore_db.write_restore_script(cut, backup_dir / "restore.sql")
+
+
+@pytest.mark.skipif(not _verify_db_available(), reason="needs the scratch verification database")
+def test_restore_is_all_or_nothing(admin_client, backup_dir):
+    restore_db = _restore_module()
+    _emitter_with_mode(admin_client, "Restore Round Trip Radar")
+    manifest = backup_service.take_backup()
+    dump = backup_dir / manifest["file"]
+    url = backup_service.verify_database_url()
+    schema = manifest["schema"]
+    engine = create_engine(url, connect_args={"options": f"-c search_path={schema}"})
+    try:
+        # Into an empty database (a new server), then again over the restored data.
+        for _ in range(2):
+            restore_db.restore(dump, url, safety_backup=False, ignore_connections=True, upgrade=False)
+            with engine.connect() as conn:
+                assert backup_service.table_counts(conn) == manifest["counts"]
+                names = conn.execute(text("SELECT name FROM emitters")).scalars().all()
+            assert "Restore Round Trip Radar" in names
+
+        # A file that fails part-way through the restore leaves the data as it was.
+        broken = backup_dir / "broken.dump"
+        broken.write_bytes(dump.read_bytes())
+        sql = backup_dir / "broken.sql"
+        restore_db.write_restore_script(dump, sql, schema)
+        sql.write_text(sql.read_text() + "\nSELECT no_such_function();\n")
+        with pytest.raises(restore_db.RestoreError, match="the database is unchanged"):
+            restore_db.run_restore_script(sql, url)
+        with engine.connect() as conn:
+            assert backup_service.table_counts(conn) == manifest["counts"]
+    finally:
+        with engine.begin() as conn:
+            conn.execute(text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))
+            conn.execute(text(f'CREATE SCHEMA "{schema}"'))
+        engine.dispose()

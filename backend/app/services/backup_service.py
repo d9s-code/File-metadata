@@ -27,6 +27,7 @@ import os
 import re
 import shutil
 import subprocess
+import time
 import zipfile
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -221,8 +222,12 @@ def list_backups(directory: Path | None = None) -> list[BackupFile]:
 def backup_lock(directory: Path):
     """One backup or verification at a time per directory — the scheduler and a
     "Back up now" click can't trip over each other."""
-    directory.mkdir(parents=True, exist_ok=True)
-    with open(directory / ".backup.lock", "w") as lock:
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+        lock = open(directory / ".backup.lock", "w")
+    except OSError as err:
+        raise BackupError(f"Can't use the backup folder {directory}: {err.strerror or err}") from err
+    with lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
@@ -231,6 +236,28 @@ def backup_lock(directory: Path):
             yield
         finally:
             fcntl.flock(lock, fcntl.LOCK_UN)
+
+
+def _clear_leftovers(directory: Path) -> list[Path]:
+    """Half-written files from a backup that was cut off (killed, power lost). Called
+    with the lock held, so no backup is writing them now."""
+    removed = []
+    for path in directory.glob("emitterdb_*.part"):
+        path.unlink(missing_ok=True)
+        removed.append(path)
+    return removed
+
+
+def _readable(dump: Path) -> str | None:
+    """Whether pg_restore can read the dump's table of contents back: None, or why not."""
+    try:
+        result = subprocess.run(["pg_restore", "--list", str(dump)], stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    except OSError:
+        return None  # no pg_restore here: verification will say so
+    if result.returncode == 0:
+        return None
+    detail = result.stderr.decode(errors="replace").strip().splitlines()
+    return detail[-1] if detail else f"exit code {result.returncode}"
 
 
 # --- What a backup holds --------------------------------------------------------
@@ -261,6 +288,9 @@ def compute_overview(conn: Connection) -> dict:
         return [dict(r) for r in conn.execute(text(sql)).mappings().all()]
 
     has = _columns(conn)
+    if not {"emitters", "platforms", "mdfs"} <= set(has):
+        # An empty database — say a new server about to be restored into — holds none of them.
+        return {kind: [] for kind in OVERVIEW_KINDS}
 
     emitters = rows(
         """
@@ -391,101 +421,160 @@ def counts_summary(overview: dict | None) -> dict | None:
 
 def take_backup(*, kind: str = "manual", created_by: str | None = None, directory: Path | None = None) -> dict:
     """Dumps the database and writes its manifest; returns the manifest. `kind` is
-    "scheduled", "manual" or "before-restore"."""
-    from app.database import engine
-
+    "scheduled", "manual" or "before-restore". All or nothing: if any part can't be
+    written (disk full, database gone), what was written is removed and a
+    BackupError says why — a backup without its manifest can't be checked."""
     directory = directory or backup_dir()
     with backup_lock(directory):
-        when = datetime.now(timezone.utc)
-        dump = directory / f"emitterdb_{when.strftime('%Y%m%d_%H%M%S')}.dump"
-        if dump.exists():
-            raise BackupError("A backup was taken this very second — try again")
-        part = dump.with_suffix(".dump.part")
-
-        # One exported snapshot for both the dump and the overview, so they can't disagree.
-        with engine.connect() as raw:
-            conn = raw.execution_options(isolation_level="REPEATABLE READ")
-            with conn.begin():
-                snapshot = conn.execute(text("SELECT pg_export_snapshot()")).scalar_one()
-                snapshot_at = conn.execute(text("SELECT now()")).scalar_one()
-                schema = conn.execute(text("SELECT current_schema()")).scalar_one()
-                args, env = _client_args("pg_dump", settings.database_url)
-                args += ["-Fc", f"--snapshot={snapshot}"]
-                if schema != "public":
-                    args += ["-n", schema]
-                args.append(db_name(settings.database_url))
-                with open(part, "wb") as out:
-                    result = subprocess.run(args, stdout=out, stderr=subprocess.PIPE, env=env)
-                if result.returncode != 0:
-                    part.unlink(missing_ok=True)
-                    detail = result.stderr.decode(errors="replace").strip().splitlines()
-                    raise BackupError(f"pg_dump failed: {detail[-1] if detail else f'exit code {result.returncode}'}")
-                overview = compute_overview(conn)
-                counts = table_counts(conn)
-                # The PRS export from the same snapshot, so it matches the dump. If it
-                # can't be made, the database backup still stands — the record says why.
-                try:
-                    # A savepoint: if it fails (say, on a database not yet upgraded), the
-                    # snapshot's transaction carries on.
-                    with conn.begin_nested(), Session(bind=conn) as session:
-                        prs_bytes, prs_summary = build_repository_prs_zip(session, when)
-                    prs_error = None
-                except Exception as err:  # noqa: BLE001 — any failure here mustn't lose the dump
-                    prs_bytes, prs_summary, prs_error = None, None, str(err) or err.__class__.__name__
-                try:
-                    alembic = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
-                except Exception:  # no alembic table (a schema built straight from the models)
-                    alembic = None
-        part.replace(dump)
-        prs_record: dict
-        if prs_bytes is not None:
-            prs = prs_path(dump)
-            prs_part = prs.with_suffix(".zip.part")
-            prs_part.write_bytes(prs_bytes)
-            prs_part.replace(prs)
-            prs_record = {"file": prs.name, "size_bytes": prs.stat().st_size, "sha256": _sha256(prs), **prs_summary}
+        _clear_leftovers(directory)
+        # Names are to the second: one taken this very second (a click as the
+        # scheduler ran) means waiting for the next.
+        for _ in range(3):
+            when = datetime.now(timezone.utc)
+            dump = directory / f"emitterdb_{when.strftime('%Y%m%d_%H%M%S')}.dump"
+            if not dump.exists():
+                break
+            time.sleep(1.0 - when.microsecond / 1e6)
         else:
-            prs_record = {"error": prs_error}
+            raise BackupError("A backup was taken this very second — try again")
+        written: list[Path] = []
+        try:
+            return _write_backup(dump, when, kind, created_by, written)
+        except BackupError:
+            _remove(written)
+            raise
+        except OperationalError as err:
+            _remove(written)
+            reason = str(err.orig).strip().splitlines()[0] if getattr(err, "orig", None) else str(err)
+            raise BackupError(f"Couldn't reach the database: {reason}") from err
+        except OSError as err:
+            _remove(written)
+            raise BackupError(f"Couldn't write the backup to {directory}: {err.strerror or err}") from err
 
-        manifest = {
-            "file": dump.name,
-            "created_at": when.isoformat(),
-            # The moment the data in it is from — changes after this aren't in it.
-            "snapshot_at": snapshot_at.isoformat(),
-            "kind": kind,
-            "created_by": created_by,
-            "size_bytes": dump.stat().st_size,
-            "sha256": _sha256(dump),
-            "database": db_name(settings.database_url),
-            "schema": schema,
-            "alembic_version": alembic,
-            "counts": counts,
-            "overview": overview,
-            "overview_source": "backup",
-            "prs_export": prs_record,
-            "verification": None,
-            "copied_to": None,
-        }
+
+def _remove(paths: list[Path]) -> None:
+    for path in paths:
+        path.unlink(missing_ok=True)
+
+
+def _write_backup(dump: Path, when: datetime, kind: str, created_by: str | None, written: list[Path]) -> dict:
+    from app.database import engine
+
+    part = dump.with_suffix(".dump.part")
+    written.append(part)
+    # One exported snapshot for both the dump and the overview, so they can't disagree.
+    with engine.connect() as raw:
+        conn = raw.execution_options(isolation_level="REPEATABLE READ")
+        with conn.begin():
+            snapshot = conn.execute(text("SELECT pg_export_snapshot()")).scalar_one()
+            snapshot_at = conn.execute(text("SELECT now()")).scalar_one()
+            schema = conn.execute(text("SELECT current_schema()")).scalar_one()
+            args, env = _client_args("pg_dump", settings.database_url)
+            args += ["-Fc", f"--snapshot={snapshot}"]
+            if schema != "public":
+                args += ["-n", schema]
+            args.append(db_name(settings.database_url))
+            with open(part, "wb") as out:
+                try:
+                    result = subprocess.run(args, stdout=out, stderr=subprocess.PIPE, env=env)
+                except FileNotFoundError as err:
+                    raise BackupError("pg_dump isn't installed where this runs") from err
+            if result.returncode != 0:
+                detail = result.stderr.decode(errors="replace").strip().splitlines()
+                raise BackupError(f"pg_dump failed: {detail[-1] if detail else f'exit code {result.returncode}'}")
+            # The overview is a convenience: a database it can't read (say, one not yet
+            # upgraded) is still backed up, with the reason recorded.
+            try:
+                with conn.begin_nested():
+                    overview, overview_error = compute_overview(conn), None
+            except Exception as err:  # noqa: BLE001
+                overview, overview_error = None, str(err).strip().splitlines()[0] if str(err) else err.__class__.__name__
+            counts = table_counts(conn)
+            # The PRS export from the same snapshot, so it matches the dump. If it
+            # can't be made, the database backup still stands — the record says why.
+            try:
+                # A savepoint: if it fails (say, on a database not yet upgraded), the
+                # snapshot's transaction carries on.
+                with conn.begin_nested(), Session(bind=conn) as session:
+                    prs_bytes, prs_summary = build_repository_prs_zip(session, when)
+                prs_error = None
+            except Exception as err:  # noqa: BLE001 — any failure here mustn't lose the dump
+                prs_bytes, prs_summary, prs_error = None, None, str(err) or err.__class__.__name__
+            try:
+                with conn.begin_nested():
+                    alembic = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
+            except Exception:  # no alembic table (a schema built straight from the models)
+                alembic = None
+    unreadable = _readable(part)
+    if unreadable:
+        raise BackupError(f"The backup file can't be read back: {unreadable}")
+    written.append(dump)
+    part.replace(dump)
+    prs_record: dict
+    if prs_bytes is not None:
+        prs = prs_path(dump)
+        prs_part = prs.with_suffix(".zip.part")
+        written += [prs_part, prs]
+        prs_part.write_bytes(prs_bytes)
+        prs_part.replace(prs)
+        prs_record = {"file": prs.name, "size_bytes": prs.stat().st_size, "sha256": _sha256(prs), **prs_summary}
+    else:
+        prs_record = {"error": prs_error}
+
+    manifest = {
+        "file": dump.name,
+        "created_at": when.isoformat(),
+        # The moment the data in it is from — changes after this aren't in it.
+        "snapshot_at": snapshot_at.isoformat(),
+        "kind": kind,
+        "created_by": created_by,
+        "size_bytes": dump.stat().st_size,
+        "sha256": _sha256(dump),
+        "database": db_name(settings.database_url),
+        "schema": schema,
+        "alembic_version": alembic,
+        "counts": counts,
+        "overview": overview,
+        "overview_source": "backup" if overview is not None else None,
+        "overview_error": overview_error,
+        "prs_export": prs_record,
+        "verification": None,
+        "copied_to": None,
+        "copy_error": None,
+    }
+    written += [_manifest_path(dump).with_suffix(".json.part"), _manifest_path(dump)]
+    write_manifest(dump, manifest)
+    if settings.backup_copy_dir:
+        # The backup stands either way; a copy that failed is recorded, and health says so.
+        manifest["copied_to"], manifest["copy_error"] = _copy_out(dump, Path(settings.backup_copy_dir))
         write_manifest(dump, manifest)
-        if settings.backup_copy_dir:
-            manifest["copied_to"] = _copy_out(dump, Path(settings.backup_copy_dir))
-            write_manifest(dump, manifest)
-        return manifest
+    return manifest
 
 
-def _copy_out(dump: Path, target: Path) -> str | None:
+def _copy_out(dump: Path, target: Path) -> tuple[str | None, str | None]:
     """A second copy, somewhere other than the backup directory (another disk, a
-    share). Returns where it went, or None if it couldn't be written — the backup
-    itself still stands."""
+    share), checked against the original's checksum. Returns where it went, or
+    why it couldn't be written."""
+    files = [dump, prs_path(dump), _manifest_path(dump)]
     try:
         target.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(dump, target / dump.name)
-        if prs_path(dump).exists():
-            shutil.copy2(prs_path(dump), target / prs_path(dump).name)
-        shutil.copy2(_manifest_path(dump), target / _manifest_path(dump).name)
-        return str(target / dump.name)
-    except OSError:
-        return None
+        for source in files:
+            if not source.exists():
+                continue
+            part = target / f"{source.name}.part"
+            shutil.copy2(source, part)
+            part.replace(target / source.name)
+        if _sha256(target / dump.name) != _sha256(dump):
+            (target / dump.name).unlink(missing_ok=True)
+            return None, "the copy didn't match the original (its checksum differs)"
+        return str(target / dump.name), None
+    except OSError as err:
+        for source in files:
+            try:
+                (target / f"{source.name}.part").unlink(missing_ok=True)
+            except OSError:
+                pass  # the copy folder itself is the problem; the backup stands regardless
+        return None, err.strerror or str(err)
 
 
 def prune_backups(
@@ -496,13 +585,30 @@ def prune_backups(
 ) -> list[Path]:
     """Keep the newest `keep_daily` backups outright, then thin older ones to roughly
     one a week for `keep_weekly` weeks and one a month for `keep_monthly` months;
-    delete the rest (dump and manifest). Returns the dumps removed."""
+    delete the rest (dump and manifest). Whatever the settings, the newest backup
+    and the newest one that passed verification are always kept — so a run of
+    failed backups can't push out the last good one. Returns the dumps removed;
+    none while a backup or verification holds the folder (it's tried next time)."""
     directory = directory or backup_dir()
     keep_daily = settings.backup_retention_daily if keep_daily is None else keep_daily
     keep_weekly = settings.backup_retention_weekly if keep_weekly is None else keep_weekly
     keep_monthly = settings.backup_retention_monthly if keep_monthly is None else keep_monthly
+    if not directory.exists():
+        return []
+    try:
+        with backup_lock(directory):
+            _clear_leftovers(directory)
+            return _prune(directory, keep_daily, keep_weekly, keep_monthly)
+    except BackupError:
+        return []
+
+
+def _prune(directory: Path, keep_daily: int, keep_weekly: int, keep_monthly: int) -> list[Path]:
     backups = list_backups(directory)
-    keep = {b.path for b in backups[:keep_daily]}
+    keep = {b.path for b in backups[: max(1, keep_daily)]}
+    good = next((b for b in backups if ((b.manifest or {}).get("verification") or {}).get("ok")), None)
+    if good is not None:
+        keep.add(good.path)
     rest = []
     weeks: set[tuple[int, int]] = set()
     for b in backups[keep_daily:]:
@@ -524,6 +630,14 @@ def prune_backups(
             prs_path(b.path).unlink(missing_ok=True)
             _manifest_path(b.path).unlink(missing_ok=True)
             removed.append(b.path)
+    return removed
+
+
+def prune_all() -> list[Path]:
+    """The retention policy on the backup folder and, if there is one, the copy folder."""
+    removed = prune_backups()
+    if settings.backup_copy_dir:
+        removed += prune_backups(Path(settings.backup_copy_dir))
     return removed
 
 
@@ -617,8 +731,12 @@ def verify_backup(name: str, directory: Path | None = None) -> dict:
                 conn.execute(text(f'SET search_path TO "{schema}"'))
                 counts = table_counts(conn)
                 if manifest.get("overview") is None:
-                    manifest["overview"] = compute_overview(conn)
-                    manifest["overview_source"] = "verification"
+                    try:
+                        manifest["overview"] = compute_overview(conn)
+                        manifest["overview_source"] = "verification"
+                    except Exception:  # noqa: BLE001 — the restore is what's being checked
+                        conn.rollback()
+                        conn.execute(text(f'SET search_path TO "{schema}"'))
             expected = manifest.get("counts")
             if expected is None:
                 manifest["counts"] = counts
@@ -881,6 +999,30 @@ def backup_freshness(directory: Path | None = None, now: datetime | None = None)
     return out
 
 
+def _size_text(n: int) -> str:
+    for unit in ("bytes", "KB", "MB", "GB"):
+        if n < 1024 or unit == "GB":
+            return f"{n:,.0f} {unit}" if unit == "bytes" else f"{n:,.1f} {unit}"
+        n /= 1024
+    return f"{n:,.1f} GB"
+
+
+def disk_space(directory: Path, latest: BackupFile | None) -> dict | None:
+    """Free space where backups go, against what the next one needs (the latest's
+    dump and PRS export, twice over for growth): low when it won't comfortably fit."""
+    try:
+        free = shutil.disk_usage(directory).free
+    except OSError:
+        return None
+    size = 0
+    if latest is not None:
+        size = latest.path.stat().st_size
+        if prs_path(latest.path).exists():
+            size += prs_path(latest.path).stat().st_size
+    needed = 2 * size
+    return {"free_bytes": free, "needed_bytes": needed, "low": size > 0 and free < needed}
+
+
 def backup_health(directory: Path | None = None, now: datetime | None = None) -> dict:
     """Whether backups are in order, and if not, what an admin should know."""
     directory = directory or backup_dir()
@@ -902,6 +1044,19 @@ def backup_health(directory: Path | None = None, now: datetime | None = None) ->
         problems.append(f"The last verification failed: {last_check.get('message')}")
     elif backups and not last_check:
         problems.append("No backup has been verified yet")
+    if latest is not None and latest.manifest is None:
+        problems.append(f"The latest backup, {latest.path.name}, has no record of what it holds — verify it to check it")
+    if latest is not None and settings.backup_copy_dir and latest.manifest and not latest.manifest.get("copied_to"):
+        why = latest.manifest.get("copy_error")
+        problems.append(
+            f"The latest backup wasn't copied to {settings.backup_copy_dir}" + (f" ({why})" if why else "")
+        )
+    space = disk_space(directory, latest)
+    if space and space["low"]:
+        problems.append(
+            f"The backup disk is nearly full: {_size_text(space['free_bytes'])} free, and a backup takes about"
+            f" {_size_text(space['needed_bytes'])}"
+        )
     scheduler = scheduler_status(directory)
     if scheduler is None:
         problems.append("The backup scheduler hasn't reported in — is its container running?")
@@ -920,6 +1075,7 @@ def backup_health(directory: Path | None = None, now: datetime | None = None) ->
         "last_verification": last_check,
         "scheduler": scheduler,
         "copy_dir": settings.backup_copy_dir,
+        "disk": space,
         "schedule": schedule_label(),
         "freshness": freshness,
     }
