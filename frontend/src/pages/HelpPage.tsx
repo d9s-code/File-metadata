@@ -321,7 +321,7 @@ export function HelpPage() {
             Changing the status doesn&apos;t need <strong>Start editing</strong> — any Editor can, even while someone
             else is editing. The status is where the Emitter stands, not part of its content, so changing it
             doesn&apos;t save a version (the Audit Log keeps every move, and the next version you save records the
-            status it had); anything being edited stays as it is, and discarding or going back to a version leaves the status
+            status it had); anything being edited stays as it is, and discarding or reverting leaves the status
             alone. Versions saved only for a status change, before this, are folded away in the version history
             (<strong>Show them</strong> brings them back).{" "}
             Status moves <strong>In progress</strong> → <strong>Testing</strong> →{" "}
@@ -523,7 +523,7 @@ export function HelpPage() {
                 <strong>Out of date</strong>: once a Mode a line&apos;s latest result involved is deleted (a Mode it
                 was intercepted as, or the Mode it was expected to be) — say every Mode replaced by a PRS import —
                 that result no longer counts as correct or missed until the SIM test is run again; the summary, the
-                Emitters list and the Dashboard say so. Bringing the Modes back (Discard, or going back to a version) makes it count
+                Emitters list and the Dashboard say so. Bringing the Modes back (discard or revert) makes it count
                 again. <strong>Re-link expected Modes by name…</strong> points lines that lost their expected Mode at
                 the Mode of the same name now, ready for the next run.
               </li>
@@ -648,11 +648,11 @@ export function HelpPage() {
             <p>
               <strong>What changed</strong> narrows it to one kind — its Modes, say, with how many entries each kind has.
               Narrowed, the Emitter&apos;s version saves stay in as dividers (&ldquo;Saved v2 — range day 3
-              findings&rdquo;), and going back to a version and discards as amber ones, so each change sits under the version it went
+              findings&rdquo;), and reverts and discards as amber ones, so each change sits under the version it went
               into. Under each change, one line says what changed (&ldquo;RF 9400–9500 → 9380–9520 MHz, jitter max 1 →
-              3 µs&rdquo;); <strong>Details</strong> has every field. Going back to a version, or a discard, logs each Mode, EW Group,
+              3 µs&rdquo;); <strong>Details</strong> has every field. A revert or a discard logs each Mode, EW Group,
               Source and SIM Test Line it brought back, removed or changed back (&ldquo;Brought back Mode
-              &lsquo;Search 2&rsquo; — going back to version 2&rdquo;), and per Source how many Elements and sequences.
+              &lsquo;Search 2&rsquo; — reverting to version 2&rdquo;), and per Source how many Elements and sequences.
               A Mode made by adding a value says which Mode it copies and what it adds.
             </p>
           </div>
@@ -759,7 +759,7 @@ export function HelpPage() {
         </div>
 
         <div className="help-subsection" id="emitter-versions">
-          <h3>Editing, Save checkpoint, Save version, Discard, Go back & Copy</h3>
+          <h3>Editing, Save checkpoint, Save version, Discard, Revert & Fork</h3>
           <p>
             Editing an Emitter (or any of its EW Groups/Sources/Modes/Elements) requires holding its{" "}
             <strong>checkout</strong> first — press <strong>Start editing</strong> in the Emitter's header.
@@ -791,20 +791,19 @@ export function HelpPage() {
             selected version shows what changed since the one before, item by item: each Mode, EW Group, Source
             or Test Line with its changed fields as before → after, and anything added or removed with a line
             saying what it was (an added Mode&apos;s type, RF, PRI and PW, say). Pick another version under{" "}
-            <strong>Changes since</strong> to compare any two. Its actions — Go back to it, Copy as a new Emitter — sit
-            beside it.
+            <strong>Changes since</strong> to compare any two. Its actions — Revert, Fork — sit beside it.
           </p>
           <p>
-            <strong>Go back to vN…</strong> first shows what it would do — each Mode, Source, EW Group and SIM
+            <strong>Revert to vN…</strong> first shows what it would do — each Mode, Source, EW Group and SIM
             line it removes, brings back or changes, any unsaved changes it would throw away, and how many logged test
-            results name what it removes — then, if you go ahead, makes the Emitter as it was in that version and
-            saves that as a new version. Nothing in the history is changed or deleted: the versions in between stay,
-            so you can always go forward again the same way. Logged test results are kept whatever going back
-            removes: a Mode or SIM Test Line that&apos;s gone shows as <em>(deleted)</em> on the run, and going back
-            to a version that has it links its results again. Nothing else is lost either: a Source&apos;s notes,
-            sequences and generation log, and an Intercept&apos;s link to the Mode made from it, all come back with
-            it. <strong>Copy as a new Emitter…</strong> instead makes a new, separate Emitter that starts out as
-            that version, to try things on freely without touching the original.
+            results name what it removes — then, if you go ahead, resets live data to match that saved version
+            and immediately commits a new version documenting the revert — like <code>git revert</code>,
+            history is never rewritten or deleted. Logged test results are kept whatever a revert removes: a Mode or
+            SIM Test Line that&apos;s gone shows as <em>(deleted)</em> on the run, and reverting back to a version
+            that has it links its results again. Nothing else is lost either: a Source&apos;s notes, sequences and
+            generation log, and an Intercept&apos;s link to the Mode made from it, all come back with it. <strong>Fork this version</strong> instead spins that
+            version off into a brand-new, fully independent Emitter you can experiment on freely without
+            touching the original.
           </p>
         </div>
 

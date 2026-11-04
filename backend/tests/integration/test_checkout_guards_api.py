@@ -24,7 +24,7 @@ def held_emitter(editor_client):
 def test_other_editor_cannot_delete_a_held_emitter(other_editor, held_emitter):
     resp = other_editor.delete(f"/emitters/{held_emitter['id']}")
     assert resp.status_code == 409
-    assert "Someone else is editing this Emitter" in resp.json()["detail"]
+    assert "checked out by another user" in resp.json()["detail"]
 
 
 def test_admin_can_delete_a_held_emitter(admin_client, held_emitter):

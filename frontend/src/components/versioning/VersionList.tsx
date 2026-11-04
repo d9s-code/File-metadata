@@ -106,8 +106,8 @@ export function VersionList({
               <span className="version-number">v{v.version_number}</span>
               {v.version_number === latest && <span className="version-tag latest">Latest</span>}
               {forkBoundary != null && v.version_number <= forkBoundary && (
-                <span className="version-tag" title="From the Emitter this one was copied from — to look at and compare only">
-                  From the original
+                <span className="version-tag" title="Copied in from the source Emitter at fork time — view and compare only">
+                  Before fork
                 </span>
               )}
             </span>

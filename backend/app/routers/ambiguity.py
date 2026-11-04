@@ -61,7 +61,7 @@ def _resolve_version(db: Session, payload: AmbiguityRunCreate):
     if version is None:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
-            f"No saved version of this {payload.scope_type.value} yet — save one first",
+            f"No committed version found for this {payload.scope_type.value} — commit one first",
         )
     return version
 

@@ -160,7 +160,7 @@ def go_back_to_checkpoint(
     emitter = _emitter(db, emitter_id)
     save = _save(db, emitter_id, ref)
     if save.kind != "checkpoint":
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "That's a version — use “Go back to” on it in the history instead")
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "That's a version — revert to it from its history instead")
     before = build_emitter_snapshot(emitter)
     reconcile_emitter_to_snapshot(db, emitter, save.snapshot)
     record_reconcile(
