@@ -759,7 +759,7 @@ export function HelpPage() {
         </div>
 
         <div className="help-subsection" id="emitter-versions">
-          <h3>Editing, Save version, Discard, Revert & Fork</h3>
+          <h3>Editing, Save checkpoint, Save version, Discard, Revert & Fork</h3>
           <p>
             Editing an Emitter (or any of its EW Groups/Sources/Modes/Elements) requires holding its{" "}
             <strong>checkout</strong> first — press <strong>Start editing</strong> in the Emitter's header.
@@ -775,9 +775,18 @@ export function HelpPage() {
             to save (an Admin can change both numbers).
           </p>
           <p>
-            <strong>Save version</strong> takes an immutable snapshot of the Emitter's current state, with a
-            short message describing what changed, and ends your editing session. <strong>Discard</strong>{" "}
-            throws away everything since the last saved version. <strong>Version History</strong> lists the
+            <strong>Save checkpoint</strong> saves your work so far and keeps you editing — like a git commit:
+            numbered after the version it follows (v3.1, v3.2…), with an optional note, and kept in Version History.
+            A checkpoint isn&apos;t a version: Platforms, exports and tests keep using the latest version until you
+            save one. <strong>Save version</strong> takes an immutable snapshot of the Emitter&apos;s current state as
+            the next version (v4) — the one Platforms can pin, exports use and tests count against — with a short
+            message describing what changed (it starts with the notes of the checkpoints it takes in), and ends your
+            editing session. <strong>Discard</strong> throws away everything since the last save, checkpoint or
+            version. In Version History, checkpoints sit under the version they follow; a selected one shows what
+            changed since an earlier save, <strong>Go back to it…</strong> (while editing — the Emitter becomes as it
+            was then, unsaved until you save) and <strong>Make it vN…</strong>, which saves a checkpoint since the
+            latest version as the next version, exactly as it was, without touching what you&apos;re editing now.{" "}
+            <strong>Version History</strong> lists the
             versions newest first — each with its summary, who saved it and when — and opens on the newest. The
             selected version shows what changed since the one before, item by item: each Mode, EW Group, Source
             or Test Line with its changed fields as before → after, and anything added or removed with a line

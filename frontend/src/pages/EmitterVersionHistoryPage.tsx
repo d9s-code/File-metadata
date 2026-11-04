@@ -3,10 +3,13 @@ import { BackLink } from "../components/common/BackLink";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useEmitter } from "../state/hooks/useEmitters";
 import {
+  useEmitterHistory,
   useEmitterVersionDiff,
   useEmitterVersions,
   useRevertEmitterVersion,
 } from "../state/hooks/useEmitterVersions";
+import { useEmitterCheckoutState } from "../state/hooks/useEmitterCheckout";
+import { CheckpointPanel } from "../components/versioning/CheckpointPanel";
 import { VersionList } from "../components/versioning/VersionList";
 import { VersionPanel } from "../components/versioning/VersionPanel";
 import { ForkVersionModal } from "../components/versioning/ForkVersionModal";
@@ -21,6 +24,9 @@ export function EmitterVersionHistoryPage() {
   const { data: emitter } = useEmitter(emitterId);
   const { data: forkSource } = useEmitter(emitter?.forked_from_emitter_id ?? undefined);
   const { data: versions } = useEmitterVersions(emitterId ?? "");
+  const { data: history } = useEmitterHistory(emitterId ?? "");
+  const checkpoints = (history ?? []).filter((s) => s.kind === "checkpoint");
+  const [selectedCheckpoint, setSelectedCheckpoint] = useState<string | null>(null);
   const revertVersion = useRevertEmitterVersion(emitterId ?? "");
   const [searchParams] = useSearchParams();
   const initialVersion = Number(searchParams.get("version"));
@@ -39,6 +45,7 @@ export function EmitterVersionHistoryPage() {
 
   function select(versionNumber: number) {
     setSelected(versionNumber);
+    setSelectedCheckpoint(null);
     setAgainst(null);
   }
 
@@ -59,6 +66,10 @@ export function EmitterVersionHistoryPage() {
       setError(err instanceof ApiRequestError ? err.message : "Failed to revert to this version");
     }
   }
+
+  const { isMine } = useEmitterCheckoutState(emitter);
+  const checkpoint = checkpoints.find((c) => c.ref === selectedCheckpoint) ?? null;
+  const fromCheckpoint = (history ?? []).find((s) => s.kind === "version" && Number(s.ref) === selected)?.from_checkpoint;
 
   if (!emitter) return <LoadingState label="Loading version history…" />;
 
@@ -90,9 +101,20 @@ export function EmitterVersionHistoryPage() {
       <div className="version-history-layout">
         <div className="card">
           <h4>Versions</h4>
-          <VersionList versions={versions ?? []} selected={selected} onSelect={select} forkBoundary={forkBoundary} />
+          <VersionList
+            versions={versions ?? []}
+            selected={checkpoint ? null : selected}
+            onSelect={select}
+            forkBoundary={forkBoundary}
+            checkpoints={checkpoints}
+            selectedCheckpoint={selectedCheckpoint}
+            onSelectCheckpoint={setSelectedCheckpoint}
+          />
         </div>
-        {selected != null && (
+        {checkpoint && emitterId && (
+          <CheckpointPanel emitterId={emitterId} checkpoint={checkpoint} history={history ?? []} editing={isMine} />
+        )}
+        {!checkpoint && selected != null && (
           <VersionPanel
             versions={versions ?? []}
             selected={selected}
@@ -100,7 +122,13 @@ export function EmitterVersionHistoryPage() {
             onAgainst={setAgainst}
             diff={diff}
             loading={diffLoading}
-            tags={isPreFork ? <span className="version-tag">Before fork</span> : undefined}
+            tags={
+              isPreFork ? (
+                <span className="version-tag">Before fork</span>
+              ) : fromCheckpoint ? (
+                <span className="version-tag">Made from checkpoint v{fromCheckpoint}</span>
+              ) : undefined
+            }
             notice={
               isForkPoint && against == null ? (
                 <p className="hint-text">

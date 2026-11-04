@@ -65,7 +65,7 @@ from app.schemas.emitter_version import (
     StatusTransitionRequest,
 )
 from app.routers.tasks import active_user
-from app.services import checkout_service
+from app.services import checkout_service, checkpoint_service
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.emitter_diff_service import compute_emitter_diff
 from app.services.emitter_revert_service import build_forked_emitter, reconcile_emitter_to_snapshot
@@ -432,10 +432,11 @@ def discard_emitter_changes(
     is committed, since nothing here is worth keeping a record of.
     """
     emitter = _get_emitter_or_404(db, emitter_id)
-    versions = list_versions(db, spec=_VERSION_SPEC, entity_id=emitter_id)
-    if not versions:
-        raise HTTPException(status.HTTP_409_CONFLICT, "This Emitter has no committed version to discard back to")
-    latest = versions[-1]
+    # Back to the latest save: a checkpoint since the latest version, else that version.
+    latest = checkpoint_service.latest_save(db, emitter_id)
+    if latest is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "This Emitter has nothing saved to discard back to")
+    what = f"checkpoint v{latest.ref}" if latest.kind == "checkpoint" else f"version {latest.ref}"
     before = build_emitter_snapshot(emitter)
     reconcile_emitter_to_snapshot(db, emitter, latest.snapshot)
     record_reconcile(
@@ -444,7 +445,7 @@ def discard_emitter_changes(
         emitter_id=emitter.id,
         before=before,
         after=build_emitter_snapshot(emitter),
-        why=f"discarding unsaved changes (back to version {latest.version_number})",
+        why=f"discarding unsaved changes (back to {what})",
     )
     checkout_service.release_checkout(emitter)
     record_audit(
@@ -453,8 +454,8 @@ def discard_emitter_changes(
         action=AuditAction.discard,
         entity_type=AuditEntityType.emitter.value,
         entity_id=emitter.id,
-        summary=f"Discarded uncommitted changes on Emitter '{emitter.name}' (back to version {latest.version_number})",
-        changes={"version_number": latest.version_number},
+        summary=f"Discarded uncommitted changes on Emitter '{emitter.name}' (back to {what})",
+        changes={"version_number": latest.row.version_number} if latest.kind == "version" else {"checkpoint": latest.ref},
         emitter_id=emitter.id,
     )
     db.commit()
@@ -948,8 +949,9 @@ def diff_emitter_live_state(
     first Commit would capture.
     """
     emitter = _get_emitter_or_404(db, emitter_id)
-    versions = list_versions(db, spec=_VERSION_SPEC, entity_id=emitter_id)
-    baseline = versions[-1].snapshot if versions else {}
+    # Since the latest save: a checkpoint since the latest version, else that version.
+    latest = checkpoint_service.latest_save(db, emitter_id)
+    baseline = latest.snapshot if latest else {}
     # Status isn't part of what a save captures or a discard throws away.
     live_snapshot = {**build_emitter_snapshot(emitter), "status": baseline.get("status")}
     return EmitterDiffOut(**compute_emitter_diff(baseline, live_snapshot, statuses.labels(db, "emitter")))
@@ -992,10 +994,10 @@ def preview_revert(
             TestRecordLine.test_line_id.in_(gone_lines), TestRecordLine.test_record_id.in_(records)
         ).count()
 
-    versions = list_versions(db, spec=_VERSION_SPEC, entity_id=emitter_id)
+    saved = checkpoint_service.latest_save(db, emitter_id)
     unsaved = 0
-    if versions:
-        latest = versions[-1].snapshot
+    if saved:
+        latest = saved.snapshot
         unsaved = len(
             compute_emitter_diff(latest, {**build_emitter_snapshot(emitter), "status": latest.get("status")})["entries"]
         )

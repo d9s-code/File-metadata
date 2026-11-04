@@ -248,6 +248,19 @@ Emitters, Platforms, and MDFs are all **versioned** the same way:
 
 Nothing is ever silently lost: the live draft can keep changing, but a committed version is a permanent, inspectable snapshot you can always come back to.
 
+### Checkpoints: saves between an Emitter's versions
+
+Like git commits before a release, an Emitter has two kinds of save. **Save checkpoint** (while editing, beside Save version) saves the work so far and keeps the edit lock: it's numbered after the version it follows — **v3.1**, **v3.2** … (**v0.1** before the first version) — with an optional note, and listed in Version History under that version. A checkpoint is never a version: Platforms pin, exports use, tests count against and the ambiguity check reads only versions, so they keep using v3 until a version is saved. Saving one when nothing has changed since the last save is refused.
+
+**Save version** still makes the next version (v4) and ends editing; its dialog shows everything since the last *version*, says how many checkpoints it takes in, and starts its summary with their notes. Unsaved changes (the header's **Changes**, the save dialogs) and **Discard** count from the latest save of either kind, so Discard goes back to v3.2, not v3. While editing, the header reads **Editing · v3.2** after a checkpoint.
+
+A selected checkpoint in Version History shows what changed since the save before it (or any earlier one), and:
+
+- **Go back to it…** (while editing) makes the Emitter as it was then — unsaved, like any edit, so Discard undoes it.
+- **Make it v4…** saves a checkpoint since the latest version as the next version, exactly as it was (with the status it has now), without touching what's being edited. The checkpoint is tagged *→ v4* and the version *Made from checkpoint v3.2*. An older checkpoint (from before the latest version) can't become a version.
+
+Checkpoints are in the Audit Log ("Saved checkpoint v3.1 …", "Made checkpoint v3.2 … into v4", "went back to checkpoint v3.1") and in backups (`GET /emitters/{id}/history`, `GET /emitters/{id}/history/diff?from=3&to=3.1|live`, `POST /emitters/{id}/checkpoints`, `…/checkpoints/{ref}/restore`, `…/checkpoints/{ref}/promote`). Platforms and MDFs keep saving versions only.
+
 ### Status
 
 Emitters, Platforms and MDFs carry a **status** that moves only along the allowed moves — you can't jump straight from In progress to Operational, for example. Admins set the statuses up under **Admin → Statuses & milestones** (see below); out of the box:

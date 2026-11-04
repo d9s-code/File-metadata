@@ -77,3 +77,54 @@ export function useEmitterLiveDiff(emitterId: string) {
     enabled: !!emitterId,
   });
 }
+
+/** Every version and checkpoint, oldest first. */
+export function useEmitterHistory(emitterId: string) {
+  return useQuery({
+    queryKey: [...emitterVersionsKey(emitterId), "history"],
+    queryFn: () => emitterVersionsApi.history(emitterId),
+    enabled: !!emitterId,
+  });
+}
+
+export function useEmitterHistoryDiff(emitterId: string, from: string | null, to: string) {
+  return useQuery({
+    queryKey: [...emitterVersionsKey(emitterId), "history-diff", from, to],
+    queryFn: () => emitterVersionsApi.historyDiff(emitterId, from ?? "", to),
+    enabled: !!emitterId && !!from,
+  });
+}
+
+export function useSaveCheckpoint(emitterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (changeSummary?: string) => emitterVersionsApi.saveCheckpoint(emitterId, changeSummary),
+    onSuccess: () => invalidateEmitter(qc, emitterId),
+  });
+}
+
+export function useRestoreCheckpoint(emitterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ref: string) => emitterVersionsApi.restoreCheckpoint(emitterId, ref),
+    // Rewrites every part of the Emitter, under many query keys — refetch them all, as Discard does.
+    onSuccess: () => qc.invalidateQueries(),
+  });
+}
+
+export function usePromoteCheckpoint(emitterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ref, changeSummary }: { ref: string; changeSummary: string }) =>
+      emitterVersionsApi.promoteCheckpoint(emitterId, ref, changeSummary),
+    onSuccess: () => invalidateEmitter(qc, emitterId),
+  });
+}
+
+/** The newest save, and the checkpoints since the latest version (newest last). */
+export function latestSaves(history: { kind: string; ref: string; change_summary: string | null }[] | undefined) {
+  const saves = history ?? [];
+  const lastVersion = [...saves].reverse().find((s) => s.kind === "version");
+  const since = lastVersion ? saves.slice(saves.indexOf(lastVersion) + 1) : saves;
+  return { latest: saves[saves.length - 1] ?? null, lastVersion: lastVersion ?? null, checkpointsSince: since };
+}

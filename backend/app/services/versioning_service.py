@@ -29,6 +29,7 @@ def commit_version(
     snapshot: dict,
     change_summary: str | None,
     created_by: UUID | None,
+    commit: bool = True,
 ) -> Any:
     fk = {spec.entity_fk_field: entity_id}
     last_version_number = (
@@ -42,6 +43,10 @@ def commit_version(
         **fk,
     )
     db.add(version)
+    if not commit:
+        # The caller has more to do in the same transaction.
+        db.flush()
+        return version
     db.commit()
     db.refresh(version)
     return version

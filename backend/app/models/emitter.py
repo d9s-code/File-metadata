@@ -80,6 +80,12 @@ class Emitter(UUIDPkMixin, TimestampMixin, Base):
     versions: Mapped[list["EmitterVersion"]] = relationship(  # noqa: F821
         back_populates="emitter", cascade="all, delete-orphan", order_by="EmitterVersion.version_number"
     )
+    # Saves made while editing, between versions (see EmitterCheckpoint).
+    checkpoints: Mapped[list["EmitterCheckpoint"]] = relationship(  # noqa: F821
+        back_populates="emitter",
+        cascade="all, delete-orphan",
+        order_by="[EmitterCheckpoint.base_version_number, EmitterCheckpoint.number]",
+    )
     # Free-form analyst commentary — separate from `description` (what this
     # Emitter *is*) and `rework_note` (a specific required-fix flag): an
     # append-only log of an analyst's own running notes/observations, newest

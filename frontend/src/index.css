@@ -7390,3 +7390,9 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
 .mdf-compare-names ul { margin: 0.1rem 0 0.3rem; padding-left: 1rem; }
 .mdf-compare-names li { margin: 0; }
 .mdf-compare-toggle { font: inherit; font-weight: 600; color: var(--text); padding: 0; border: none; background: none; box-shadow: none; }
+
+/* Checkpoints: saves made while editing, between versions — listed under the version they follow. */
+.version-row.checkpoint-row { margin-left: 1.1rem; width: calc(100% - 1.1rem); border-left: 2px dashed var(--border); padding-top: 0.3rem; padding-bottom: 0.3rem; }
+.version-row.checkpoint-row .version-number { font-weight: 500; color: var(--muted); }
+.version-row.checkpoint-row.active .version-number { color: var(--text); }
+.version-tag.checkpoint { background: transparent; border: 1px dashed var(--border); color: var(--muted); }

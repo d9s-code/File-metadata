@@ -19,7 +19,7 @@ from app.models.dwell import (  # noqa: F401
 )
 from app.models.emitter import Emitter  # noqa: F401
 from app.models.emitter_note import EmitterNote  # noqa: F401
-from app.models.emitter_version import EmitterVersion  # noqa: F401
+from app.models.emitter_version import EmitterCheckpoint, EmitterVersion  # noqa: F401
 from app.models.ew_group import EwGroup  # noqa: F401
 from app.models.import_batch import ImportBatch  # noqa: F401
 from app.models.intercept import (  # noqa: F401

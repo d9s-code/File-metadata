@@ -38,3 +38,44 @@ class EmitterVersion(UUIDPkMixin, Base):
     @property
     def created_by_username(self) -> str | None:
         return self.creator.username if self.creator else None
+
+
+class EmitterCheckpoint(UUIDPkMixin, Base):
+    """A save made while editing, between versions — like a git commit before
+    a release. Numbered after the version it follows: v3.1, v3.2 … (v0.1 before
+    the first version). Kept apart from EmitterVersion on purpose: a checkpoint
+    is never pinned, exported or tested against; only versions are. One can be
+    made into the next version, or gone back to while editing.
+    """
+
+    __tablename__ = "emitter_checkpoints"
+    __table_args__ = (UniqueConstraint("emitter_id", "base_version_number", "number", name="uq_emitter_checkpoint"),)
+
+    emitter_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("emitters.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    # The version it follows (0 before the first), and its number after it.
+    base_version_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    number: Mapped[int] = mapped_column(Integer, nullable=False)
+    snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    change_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    # Set when it was made into a version: that version's number.
+    promoted_to_version_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    emitter: Mapped["Emitter"] = relationship(back_populates="checkpoints")  # noqa: F821
+    creator: Mapped["User | None"] = relationship(lazy="joined", viewonly=True)  # noqa: F821
+
+    @property
+    def ref(self) -> str:
+        """"3.1" — as written after a "v"."""
+        return f"{self.base_version_number}.{self.number}"
+
+    @property
+    def created_by_username(self) -> str | None:
+        return self.creator.username if self.creator else None

@@ -17,6 +17,7 @@ from app.routers import (
     dashboard,
     dsl,
     dwells,
+    emitter_checkpoints,
     emitters,
     ew_groups,
     imports,
@@ -65,6 +66,7 @@ app.include_router(tasks.router)
 app.include_router(users.router)
 app.include_router(platforms.router)
 app.include_router(emitters.router)
+app.include_router(emitter_checkpoints.router)
 app.include_router(ew_groups.router)
 app.include_router(sources.router)
 app.include_router(source_groups.router)

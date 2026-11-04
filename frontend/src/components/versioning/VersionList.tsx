@@ -1,3 +1,4 @@
+import type { EmitterSave } from "../../api/emitterVersions";
 import type { VersionSummary } from "../../types/versioning";
 import { formatDateTime } from "../common/dates";
 import { useSessionState } from "../common/useSessionState";
@@ -21,18 +22,53 @@ export function VersionList({
   selected,
   onSelect,
   forkBoundary = null,
+  checkpoints = [],
+  selectedCheckpoint = null,
+  onSelectCheckpoint,
 }: {
   versions: VersionSummary[];
   selected: number | null;
   onSelect: (versionNumber: number) => void;
+  /** An Emitter's checkpoints — saves between versions — listed where they fall. */
+  checkpoints?: EmitterSave[];
+  selectedCheckpoint?: string | null;
+  onSelectCheckpoint?: (ref: string) => void;
   /** version_number at or below which entries were copied in from the
    * source Emitter at fork time (see Emitter.forked_at_version_number) —
    * shown with a tag since they can be viewed/diffed but not reverted to. */
   forkBoundary?: number | null;
 }) {
   const [showStatusOnly, setShowStatusOnly] = useSessionState("versions.showStatusOnly", false);
-  if (versions.length === 0) return <p className="hint-text">No saved versions yet.</p>;
-  const latest = Math.max(...versions.map((v) => v.version_number));
+  if (versions.length === 0 && checkpoints.length === 0) return <p className="hint-text">No saved versions yet.</p>;
+  // Newest first, under the version each follows: v2, v1.2, v1.1, v1 …
+  const after = (base: number) =>
+    checkpoints.filter((c) => Number(c.ref.split(".")[0]) === base).sort((a, b) => Number(b.ref.split(".")[1]) - Number(a.ref.split(".")[1]));
+  const checkpointRow = (c: EmitterSave) => (
+    <li key={`cp-${c.ref}`}>
+      <button
+        type="button"
+        className={["version-row", "checkpoint-row", c.ref === selectedCheckpoint ? "active" : ""].filter(Boolean).join(" ")}
+        aria-current={c.ref === selectedCheckpoint ? "true" : undefined}
+        onClick={() => onSelectCheckpoint?.(c.ref)}
+      >
+        <span className="version-row-top">
+          <span className="version-number">v{c.ref}</span>
+          <span className="version-tag checkpoint" title="A save made while editing — not a version: nothing pins or tests it">
+            Checkpoint
+          </span>
+          {c.promoted_to_version_number != null && (
+            <span className="version-tag">→ v{c.promoted_to_version_number}</span>
+          )}
+        </span>
+        <span className={c.change_summary ? "version-row-summary" : "version-row-summary none"}>{c.change_summary || "No note"}</span>
+        <span className="version-row-meta">
+          {c.created_by_username ? `${c.created_by_username} · ` : ""}
+          {versionDate(c.created_at)}
+        </span>
+      </button>
+    </li>
+  );
+  const latest = versions.length ? Math.max(...versions.map((v) => v.version_number)) : 0;
   const statusOnly = versions.filter(isStatusOnly).length;
   const shown = [...versions]
     .reverse()
@@ -51,7 +87,8 @@ export function VersionList({
       </p>
     )}
     <ul className="version-list">
-      {shown.map((v) => (
+      {shown.map((v) => [
+        ...after(v.version_number).map(checkpointRow),
         <li key={v.id}>
           <button
             type="button"
@@ -82,8 +119,9 @@ export function VersionList({
               {versionDate(v.created_at)}
             </span>
           </button>
-        </li>
-      ))}
+        </li>,
+      ])}
+      {after(0).map(checkpointRow)}
     </ul>
     </>
   );
