@@ -78,6 +78,17 @@ export async function uploadRecording(
   signal?: AbortSignal,
 ): Promise<Recording> {
   const rec = await recordingsApi.start({ name: file.name, size_bytes: file.size });
+  try {
+    await sendParts(rec, file, onProgress, signal);
+  } catch (err) {
+    // Cancelled or failed part-way: nothing half-sent is left behind.
+    await recordingsApi.delete(rec.id).catch(() => undefined);
+    throw err;
+  }
+  return recordingsApi.complete(rec.id);
+}
+
+async function sendParts(rec: Recording, file: File, onProgress: (sentBytes: number) => void, signal?: AbortSignal) {
   const size = rec.chunk_bytes;
   const parts = Math.ceil(file.size / size);
   for (let i = 0; i < parts; i++) {
@@ -94,5 +105,4 @@ export async function uploadRecording(
     }
     onProgress(Math.min(file.size, (i + 1) * size));
   }
-  return recordingsApi.complete(rec.id);
 }
