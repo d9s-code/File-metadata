@@ -178,6 +178,7 @@ class AuditEntityType(str, enum.Enum):
     sync = "sync"
     # A whole recording (CSV file) uploaded to snip intercepts from.
     recording = "recording"
+    attachment = "attachment"
     setting = "setting"
     # A test run being filled in, before it's logged.
     test_draft = "test_draft"

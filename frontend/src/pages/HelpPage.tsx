@@ -177,6 +177,24 @@ export function HelpPage() {
           ✎ until you add it. The same goes for notes on Sources and Tasks.
         </p>
         <p>
+          <strong>Files:</strong> an Emitter, Platform or MDF has a <strong>Files</strong> tab for anything
+          that belongs with it: spreadsheets, documents, PDFs, photos, screenshots. Any kind of file can be
+          added, up to 18 MB each. Editors add them in three ways: with <strong>+ Add files</strong> (several
+          at once), by dropping them on the tab, or by pasting (Ctrl+V, a screenshot or a file copied in
+          Explorer). Adding files doesn&apos;t need the Emitter checked out, since files aren&apos;t part of a
+          version. Click a file to use it:
+        </p>
+        <ul>
+          <li>A picture (PNG, JPEG, WebP or GIF) shows as a preview and opens full size. ← and → go to the other pictures, and Esc closes it.</li>
+          <li>A PDF opens in a new tab.</li>
+          <li>Anything else (an Excel sheet, say) is downloaded.</li>
+        </ul>
+        <p>
+          Each file&apos;s <strong>⋯</strong> menu downloads it and, for Editors, adds a description, moves it
+          earlier or later, or deletes it. Every change is in the Audit Log, and files go into backups and the
+          offline copy like everything else.
+        </p>
+        <p>
           <strong>Dates</strong> are written day.month.year (07.10.2026) with a 24-hour clock. Date fields take the
           same — 7.10.2026, 07.10.26, 7/10/2026 or 07102026 all work — or pick from the calendar button; times are
           hh:mm.

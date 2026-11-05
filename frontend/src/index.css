@@ -7636,3 +7636,47 @@ button.meta-chip:hover:not(:disabled) { color: var(--text); }
 .intercept-recording { margin: 0 0 0.5rem; font-size: 0.9rem; }
 .recording-group-row td { background: var(--hover-bg); font-size: 0.9rem; }
 .recording-group-row .hint-text { margin-left: 0.5rem; }
+
+/* Files kept with an Emitter, Platform or MDF. */
+.files-panel { position: relative; }
+.files-panel.dragging { outline: 2px dashed var(--primary); outline-offset: -6px; background: var(--hover-bg); }
+.files-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; margin-bottom: 0.7rem; }
+.files-head h3 { margin: 0; }
+.files-add { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.8rem; }
+.files-problems { display: grid; gap: 0.2rem; margin-bottom: 0.6rem; }
+.files-problems .link-button { justify-self: start; }
+.files-empty { margin: 0.4rem 0 0.2rem; }
+.files-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0.9rem; }
+.file-card { display: grid; gap: 0.35rem; min-width: 0; }
+.file-tile { display: flex; align-items: center; justify-content: center; width: 100%; aspect-ratio: 4 / 3; padding: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--hover-bg); cursor: pointer; box-shadow: none; }
+.file-tile.image { cursor: zoom-in; }
+.file-tile img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 0.15s ease; }
+.file-tile:hover img, .file-tile:focus-visible img { transform: scale(1.03); }
+.file-tile:hover:not(.image) { border-color: var(--primary); }
+.file-tile:hover, .file-tile:focus, .file-tile:active { background: var(--hover-bg); color: inherit; }
+.file-tile:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+/* A file's kind as a label: white on a mid-tone that reads in both themes. */
+.file-badge { padding: 0.35rem 0.7rem; border-radius: 6px; color: #fff; font-weight: 700; font-size: 1rem; letter-spacing: 0.04em; background: #5f6772; }
+.file-badge.file-sheet { background: #1d7a46; }
+.file-badge.file-doc { background: #2a5fbf; }
+.file-badge.file-pdf { background: #b8322a; }
+.file-badge.file-slides { background: #b85f12; }
+.file-info { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.3rem; min-width: 0; }
+.file-text { display: grid; min-width: 0; }
+.file-name, .file-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-name { font-size: 0.88rem; }
+.file-sub { font-size: 0.8rem; }
+.file-description-form { display: flex; gap: 0.3rem; }
+.file-description-form input { flex: 1; min-width: 0; }
+.picture-viewer { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 1.5rem; background: rgba(8, 10, 14, 0.88); }
+.picture-viewer figure { margin: 0; display: grid; gap: 0.6rem; max-width: min(1400px, 100%); max-height: 100%; }
+.picture-viewer-frame { position: relative; display: flex; align-items: center; justify-content: center; min-height: 0; }
+.picture-viewer-frame img { display: block; max-width: 100%; max-height: calc(100vh - 8rem); width: auto; height: auto; object-fit: contain; background-size: contain; background-repeat: no-repeat; background-position: center; border-radius: 4px; }
+.picture-viewer-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 2.6rem; height: 2.6rem; border-radius: 50%; border: 0; background: rgba(0, 0, 0, 0.55); color: #fff; font-size: 1.8rem; line-height: 1; cursor: pointer; box-shadow: none; }
+.picture-viewer-nav:hover { background: rgba(0, 0, 0, 0.8); }
+.picture-viewer-nav.prev { left: 0.5rem; }
+.picture-viewer-nav.next { right: 0.5rem; }
+.picture-viewer figcaption { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 0.4rem 1.2rem; color: #e8eaee; font-size: 0.9rem; }
+.picture-viewer-meta { color: #aab1bc; font-size: 0.82rem; margin-top: 0.15rem; }
+.picture-viewer-actions { display: flex; gap: 1rem; align-items: center; }
+.picture-viewer-actions a, .picture-viewer-actions .link-button { color: #cfe0ff; }

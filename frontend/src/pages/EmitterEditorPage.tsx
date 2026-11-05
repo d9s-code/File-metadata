@@ -2,6 +2,9 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useEmitter, useUpdateEmitter } from "../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../state/hooks/useEmitterCheckout";
+import { useHasRole } from "../auth/RequireAuth";
+import { useAttachments } from "../state/hooks/useAttachments";
+import { FilesPanel } from "../components/files/FilesPanel";
 import { useEwGroups } from "../state/hooks/useEwGroups";
 import { useSources } from "../state/hooks/useSources";
 import { useCreateEmitterNote, useDeleteEmitterNote, useEmitterNotes } from "../state/hooks/useEmitterNotes";
@@ -27,8 +30,8 @@ import { AssigneeControl } from "../components/tasks/AssigneeControl";
 import { TasksButton } from "../components/tasks/TasksButton";
 import { MilestonesButton } from "../components/status/MilestonesButton";
 
-type Tab = "modes" | "setup" | "intercepts" | "tests" | "audit";
-const TABS: readonly Tab[] = ["modes", "setup", "intercepts", "tests", "audit"];
+type Tab = "modes" | "setup" | "intercepts" | "tests" | "files" | "audit";
+const TABS: readonly Tab[] = ["modes", "setup", "intercepts", "tests", "files", "audit"];
 
 /** The tab a link asks for with ?tab=…, if it names one. */
 function linkedTab(params: URLSearchParams): Tab | null {
@@ -51,6 +54,8 @@ export function EmitterEditorPage() {
   }, [searchParams]);
   const { data: emitter, isLoading } = useEmitter(emitterId);
   const { canEdit, isMine } = useEmitterCheckoutState(emitter);
+  const isEditor = useHasRole("editor");
+  const { data: files } = useAttachments("emitter", emitterId ?? "");
   const { data: ewGroups, isLoading: ewGroupsLoading } = useEwGroups(emitterId ?? "");
   const { data: sources, isLoading: sourcesLoading } = useSources(emitterId ?? "");
   const { mutate: updateEmitter, isPending: isUpdating } = useUpdateEmitter();
@@ -294,6 +299,9 @@ export function EmitterEditorPage() {
         <button className={tab === "tests" ? "tab active" : "tab"} onClick={() => setTab("tests")}>
           Test History
         </button>
+        <button className={tab === "files" ? "tab active" : "tab"} onClick={() => setTab("files")}>
+          Files <span className="tab-count">{files?.length ?? 0}</span>
+        </button>
         <button className={tab === "audit" ? "tab active" : "tab"} onClick={() => setTab("audit")}>
           Audit
         </button>
@@ -331,6 +339,16 @@ export function EmitterEditorPage() {
       <div hidden={tab !== "tests"}>
         <EmitterTestHistory emitterId={emitter.id} highlightTestRecordId={highlightTestRecordId} />
       </div>
+      {/* Only while shown: pasting a file anywhere on the page adds it. */}
+      {tab === "files" && (
+        <FilesPanel
+          owner="emitter"
+          ownerId={emitter.id}
+          ownerName={emitter.name}
+          canEdit={isEditor && !emitter.deleted_at}
+          readOnlyReason={emitter.deleted_at ? "In the Trash — restore it to change its files." : undefined}
+        />
+      )}
       <div hidden={tab !== "audit"}>
         <EntityAuditTrail entityType="emitter" entityId={emitter.id} emitterId={emitter.id} />
       </div>

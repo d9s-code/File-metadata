@@ -12,3 +12,4 @@ python-multipart==0.0.32
 lark==1.2.2
 deepdiff==8.6.2
 lxml==6.1.3
+pillow==13.0.0

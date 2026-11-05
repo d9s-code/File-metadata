@@ -20,6 +20,8 @@ import { ApiRequestError } from "../api/client";
 import { MdfTestHistory } from "../components/testing/MdfTestHistory";
 import { EntityAuditTrail } from "../components/audit/EntityAuditTrail";
 import { RequireRole, useHasRole } from "../auth/RequireAuth";
+import { useAttachments } from "../state/hooks/useAttachments";
+import { FilesPanel } from "../components/files/FilesPanel";
 import { LoadingState } from "../components/common/LoadingState";
 import { Modal } from "../components/common/Modal";
 import { NotesFeed } from "../components/common/NotesFeed";
@@ -27,7 +29,7 @@ import { NotesDrawer } from "../components/common/NotesDrawer";
 import { TasksButton } from "../components/tasks/TasksButton";
 import { MilestonesButton } from "../components/status/MilestonesButton";
 
-type Tab = "platforms" | "charts" | "tests" | "audit";
+type Tab = "platforms" | "charts" | "tests" | "files" | "audit";
 
 export function MdfBuilderPage() {
   const { mdfId } = useParams<{ mdfId: string }>();
@@ -47,6 +49,7 @@ export function MdfBuilderPage() {
   const { data: versions } = useMdfVersions(mdfId ?? "");
   const commitVersion = useCommitMdfVersion(mdfId ?? "");
   const canWrite = useHasRole("editor");
+  const { data: files } = useAttachments("mdf", mdfId ?? "");
   const [exportError, setExportError] = useState<string | null>(null);
   const { data: customers } = useCustomers();
   const { mutate: updateMdf, isPending: isUpdating } = useUpdateMdf();
@@ -259,6 +262,9 @@ export function MdfBuilderPage() {
         <button className={tab === "tests" ? "tab active" : "tab"} onClick={() => setTab("tests")}>
           Test History
         </button>
+        <button className={tab === "files" ? "tab active" : "tab"} onClick={() => setTab("files")}>
+          Files <span className="tab-count">{files?.length ?? 0}</span>
+        </button>
         <button className={tab === "audit" ? "tab active" : "tab"} onClick={() => setTab("audit")}>
           Audit
         </button>
@@ -308,6 +314,15 @@ export function MdfBuilderPage() {
 
       {tab === "charts" && <MdfCharts mdfId={mdf.id} />}
       {tab === "tests" && <MdfTestHistory mdfId={mdf.id} highlightTestRecordId={highlightTestRecordId} />}
+      {tab === "files" && (
+        <FilesPanel
+          owner="mdf"
+          ownerId={mdf.id}
+          ownerName={mdf.name}
+          canEdit={canWrite && !mdf.deleted_at}
+          readOnlyReason={mdf.deleted_at ? "In the Trash — restore it to change its files." : undefined}
+        />
+      )}
       {tab === "audit" && <EntityAuditTrail entityType="mdf" entityId={mdf.id} />}
     </div>
   );

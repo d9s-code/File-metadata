@@ -22,9 +22,11 @@ import { NotesDrawer } from "../components/common/NotesDrawer";
 import { PlatformCharts } from "../components/platform/PlatformCharts";
 import { PlatformTests } from "../components/platform/PlatformTests";
 import { useCreatePlatformNote, useDeletePlatformNote, usePlatformNotes } from "../state/hooks/usePlatformNotes";
+import { useAttachments } from "../state/hooks/useAttachments";
+import { FilesPanel } from "../components/files/FilesPanel";
 
-type Tab = "emitters" | "charts" | "dwells" | "tests" | "audit";
-const TABS: Tab[] = ["emitters", "charts", "dwells", "tests", "audit"];
+type Tab = "emitters" | "charts" | "dwells" | "tests" | "files" | "audit";
+const TABS: Tab[] = ["emitters", "charts", "dwells", "tests", "files", "audit"];
 
 export function PlatformBuilderPage() {
   const { platformId } = useParams<{ platformId: string }>();
@@ -50,6 +52,7 @@ export function PlatformBuilderPage() {
   const { data: notes, isLoading: notesLoading } = usePlatformNotes(platformId ?? "");
   const { mutateAsync: createNote, isPending: isAddingNote } = useCreatePlatformNote(platformId ?? "");
   const { mutateAsync: deleteNote } = useDeletePlatformNote(platformId ?? "");
+  const { data: files } = useAttachments("platform", platformId ?? "");
 
   if (isLoading || !platform) return <LoadingState label="Loading platform…" />;
 
@@ -186,6 +189,9 @@ export function PlatformBuilderPage() {
         <button className={tab === "tests" ? "tab active" : "tab"} onClick={() => setTab("tests")}>
           Tests
         </button>
+        <button className={tab === "files" ? "tab active" : "tab"} onClick={() => setTab("files")}>
+          Files <span className="tab-count">{files?.length ?? 0}</span>
+        </button>
         <button className={tab === "audit" ? "tab active" : "tab"} onClick={() => setTab("audit")}>
           Audit
         </button>
@@ -245,6 +251,15 @@ export function PlatformBuilderPage() {
         />
       </NotesDrawer>
 
+      {tab === "files" && (
+        <FilesPanel
+          owner="platform"
+          ownerId={platform.id}
+          ownerName={platform.name}
+          canEdit={canWrite && !platform.deleted_at}
+          readOnlyReason={platform.deleted_at ? "In the Trash — restore it to change its files." : undefined}
+        />
+      )}
       {tab === "audit" && <EntityAuditTrail entityType="platform" entityId={platform.id} />}
     </div>
   );
