@@ -1,7 +1,9 @@
+import { Fragment, useState } from "react";
 import { Link } from "react-router-dom";
 import { formatDateTime } from "../common/dates";
 import { isOutdatedMdfPin, type MdfLink } from "../../api/mdfs";
-import type { Platform } from "../../api/platforms";
+import type { Platform, PlatformCoverage } from "../../api/platforms";
+import { StatusBadge } from "../status/StatusBadge";
 import { usePinPlatform, useUnpinPlatform } from "../../state/hooks/useMdfs";
 import { usePlatformVersions } from "../../state/hooks/usePlatformVersions";
 import { RequireRole } from "../../auth/RequireAuth";
@@ -55,19 +57,76 @@ function OutdatedPin({ mdfId, link }: { mdfId: string; link: MdfLink }) {
   );
 }
 
+/** The Emitters a pinned Platform version pins, at their versions. */
+function PinnedEmitters({ coverage, pinsFrozen }: { coverage: PlatformCoverage | undefined; pinsFrozen: boolean }) {
+  if (!coverage) return <p className="hint-text">Loading its Emitters…</p>;
+  if (coverage.emitters.length === 0) return <p className="hint-text">This Platform version pins no Emitter.</p>;
+  return (
+    <table className="data-table pinned-emitters">
+      <thead>
+        <tr>
+          <th>Emitter</th>
+          <th>Designation</th>
+          <th>Pinned version</th>
+          <th className="num">Modes</th>
+          <th>Status now</th>
+        </tr>
+      </thead>
+      <tbody>
+        {coverage.emitters.map((e) => (
+          <tr key={`${e.emitter_id}-${e.version_number}`}>
+            <td>
+              <Link to={`/emitters/${e.emitter_id}`}>{e.emitter_name}</Link>
+            </td>
+            <td>{e.designation ?? <span className="hint-text">—</span>}</td>
+            <td className="nowrap">
+              <Link to={`/emitters/${e.emitter_id}/versions?version=${e.version_number}`}>v{e.version_number}</Link>
+              {!pinsFrozen && e.latest_version_number != null && e.latest_version_number > e.version_number && (
+                <>
+                  {" "}
+                  <span
+                    className="status-badge status-pending_review"
+                    title="The Emitter has a newer saved version — repin it on the Platform, save the Platform, then repin the Platform here"
+                  >
+                    v{e.latest_version_number} saved
+                  </span>
+                </>
+              )}
+            </td>
+            <td className="num">{e.modes.length}</td>
+            <td>{e.status ? <StatusBadge type="emitter" status={e.status} /> : <span className="hint-text">—</span>}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 export function MdfLinkTable({
   mdfId,
   links,
   platformsById,
   pinsFrozen = false,
+  coverage,
 }: {
   mdfId: string;
   links: MdfLink[];
   platformsById: Record<string, Platform>;
   /** Released (or later): pins stay as released, so none is flagged outdated. */
   pinsFrozen?: boolean;
+  /** What each pinned Platform version pins — shown when its row is opened. */
+  coverage?: PlatformCoverage[];
 }) {
   const unpin = useUnpinPlatform(mdfId);
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  const toggle = (id: string) =>
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const allOpen = links.length > 0 && links.every((l) => open.has(l.id));
 
   function compareLinks(a: MdfLink, b: MdfLink, key: MdfLinkSortKey, dir: "asc" | "desc"): number {
     switch (key) {
@@ -84,11 +143,23 @@ export function MdfLinkTable({
   }
 
   return (
-    <table className="data-table">
+    <table className="data-table mdf-link-table">
       <thead>
         <tr>
+          <th className="expand-col">
+            <button
+              type="button"
+              className="link-button"
+              aria-label={allOpen ? "Close every row" : "Open every row"}
+              title={allOpen ? "Close every row" : "Show every Platform's Emitters"}
+              onClick={() => setOpen(allOpen ? new Set() : new Set(links.map((l) => l.id)))}
+            >
+              {allOpen ? "▾" : "▸"}
+            </button>
+          </th>
           <SortableColumnHeader label="Platform" columnKey="platform" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
           <th>Pinned version</th>
+          <th className="num">Emitters</th>
           <SortableColumnHeader
             label="Added"
             columnKey="added"
@@ -102,8 +173,27 @@ export function MdfLinkTable({
         </tr>
       </thead>
       <tbody>
-        {sorted.map((link) => (
-          <tr key={link.id}>
+        {sorted.map((link) => {
+          const cov = coverage?.find(
+            (c) =>
+              c.platform_id === link.platform_id &&
+              (link.pinned_version_number == null || c.version_number === link.pinned_version_number),
+          );
+          const isOpen = open.has(link.id);
+          return (
+          <Fragment key={link.id}>
+          <tr className={isOpen ? "row-open" : undefined}>
+            <td className="expand-col">
+              <button
+                type="button"
+                className="link-button"
+                aria-expanded={isOpen}
+                aria-label={`${isOpen ? "Hide" : "Show"} the Emitters ${platformsById[link.platform_id]?.name ?? "this Platform"} pins`}
+                onClick={() => toggle(link.id)}
+              >
+                {isOpen ? "▾" : "▸"}
+              </button>
+            </td>
             <td>
               <Link to={`/platforms/${link.platform_id}`}>
                 {platformsById[link.platform_id]?.name ?? link.platform_id}
@@ -113,6 +203,7 @@ export function MdfLinkTable({
               <PinnedVersionCell platformId={link.platform_id} versionId={link.platform_version_id} />
               {!pinsFrozen && <OutdatedPin mdfId={mdfId} link={link} />}
             </td>
+            <td className="num">{cov ? cov.emitters.length : "—"}</td>
             <td>{formatDateTime(link.added_at)}</td>
             <td>
               <RequireRole minimum="editor">
@@ -125,7 +216,17 @@ export function MdfLinkTable({
               </RequireRole>
             </td>
           </tr>
-        ))}
+          {isOpen && (
+            <tr className="row-detail">
+              <td />
+              <td colSpan={5}>
+                <PinnedEmitters coverage={cov} pinsFrozen={pinsFrozen} />
+              </td>
+            </tr>
+          )}
+          </Fragment>
+          );
+        })}
       </tbody>
     </table>
   );

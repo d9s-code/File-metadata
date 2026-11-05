@@ -829,7 +829,9 @@ export function HelpPage() {
             that has it links its results again. Nothing else is lost either: a Source&apos;s notes, sequences and
             generation log, and an Intercept&apos;s link to the Mode made from it, all come back with it. <strong>Fork this version</strong> instead spins that
             version off into a brand-new, fully independent Emitter you can experiment on freely without
-            touching the original.
+            touching the original. <strong>Duplicate…</strong> (in an Emitter&apos;s ⋯ menu, and on each row of the
+            Emitters list) does the same with the Emitter as it stands now, unsaved changes included: a new Draft
+            Emitter, checked out to you, saved as its v1. Test history, files and comments stay with the original.
           </p>
         </div>
 
@@ -1045,12 +1047,15 @@ export function HelpPage() {
             an append-only, timestamped log, separate from the single editable "Notes" field in the edit form.
           </p>
           <p>
-            The <strong>Readiness</strong> checklist at the top of Pinned Platforms says what&apos;s left before the
-            MDF goes out — folded to one line when all is ready, otherwise listing only what isn&apos;t: Platforms pinned, the pins saved as a version, Platform pins and the Emitter
+            The <strong>Readiness</strong> tab (first on the MDF page, its badge counting what isn&apos;t ready) says
+            what&apos;s left before the MDF goes out, listing only what isn&apos;t ready, each with a link to the tab where
+            it&apos;s dealt with: Platforms pinned, the pins saved as a version, Platform pins and the Emitter
             pins inside them up to date, every Emitter Operational and passing its latest Simulation Test, no open
             High or Exact finding in the latest ambiguity check, and a passing MDF test on file. Pinned Platforms with a
             newer saved version are flagged <strong>Outdated</strong>, with <strong>Repin to vN</strong> beside each and{" "}
-            <strong>Repin all to their latest version</strong> above the table.
+            <strong>Repin all to their latest version</strong> above the table. Open a pinned Platform&apos;s row (▸)
+            to see the Emitters that version pins: their pinned version (flagged when a newer one is saved), Modes and
+            status now.
           </p>
           <p>
             <strong>Pins not saved.</strong> Pinning or repinning on an MDF or a Platform is kept straight away,
@@ -1099,7 +1104,8 @@ export function HelpPage() {
           <p>
             <strong>Dwells</strong> lists the dwell files the MDF pins, each at a saved version:
             the version and when it was saved, its timeout and setup time, and its Strategies at that version, with
-            their versions, Platforms, number of dwells, cycle time and bandwidth. Below them are the MDF&apos;s Platforms
+            their versions, Platforms, number of dwells, cycle time and bandwidth — open a Strategy&apos;s row for its
+            dwells over one cycle, the same chart as on the dwell file&apos;s page. Below them are the MDF&apos;s Platforms
             no Strategy in the file covers and the other MDFs using the file. <strong>+ Pin dwell file</strong> picks a
             file and a version (the latest by default). A newer saved version is flagged with{" "}
             <strong>Repin to vN</strong>, except from Released onwards. The <strong>⋯</strong> menu opens the file,

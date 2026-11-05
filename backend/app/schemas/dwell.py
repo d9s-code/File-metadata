@@ -333,11 +333,14 @@ class MdfDwellStrategy(BaseModel):
     version_number: int | None
     latest_version_number: int | None
     outdated: bool
+    platform_ids: list[UUID] = []
     platform_names: list[str]
     is_default: bool
     dwell_count: int
     cycle_ms: float
     bandwidth_mhz: float | None = None
+    # The pinned version's dwells, for its chart.
+    dwells: list[dict] = []
 
 
 class MdfDwellOut(BaseModel):

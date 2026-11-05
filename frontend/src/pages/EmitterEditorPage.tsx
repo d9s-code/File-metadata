@@ -29,6 +29,7 @@ import { NotesDrawer, useNotesDrawerOpen } from "../components/common/NotesDrawe
 import { AssigneeControl } from "../components/tasks/AssigneeControl";
 import { TasksButton } from "../components/tasks/TasksButton";
 import { MilestonesButton } from "../components/status/MilestonesButton";
+import { DuplicateEmitterModal } from "../components/emitters/DuplicateEmitterModal";
 
 type Tab = "modes" | "setup" | "intercepts" | "tests" | "files" | "audit";
 const TABS: readonly Tab[] = ["modes", "setup", "intercepts", "tests", "files", "audit"];
@@ -76,6 +77,7 @@ export function EmitterEditorPage() {
   // force a tab switch again afterward, so it doesn't yank the user away mid-interaction the
   // moment they finish adding the first EW Group/Source.
   const [showReworkNote, setShowReworkNote] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
   const [notesOpen, setNotesOpen] = useNotesDrawerOpen();
   const [showChanges, setShowChanges] = useState(false);
   const autoOpenDecided = useRef(false);
@@ -155,6 +157,7 @@ export function EmitterEditorPage() {
                 { label: "Compare with another Emitter", to: `/emitters/compare?a=${emitter.id}` },
                 { label: "Compare with an earlier version", to: `/emitters/compare?a=${emitter.id}&b=${emitter.id}` },
                 { label: "Ambiguity check", to: `/ambiguity/emitter/${emitter.id}` },
+                ...(isEditor ? [{ label: "Duplicate…", onSelect: () => setDuplicating(true) }] : []),
                 {
                   label: "Edit details",
                   onSelect: handleStartEdit,
@@ -235,6 +238,9 @@ export function EmitterEditorPage() {
         </Modal>
       )}
 
+      {duplicating && (
+        <DuplicateEmitterModal emitterId={emitter.id} emitterName={emitter.name} onClose={() => setDuplicating(false)} />
+      )}
       {showReworkNote && (
         <Modal title="Needs rework" onClose={() => setShowReworkNote(false)}>
           <p>{emitter.rework_note}</p>

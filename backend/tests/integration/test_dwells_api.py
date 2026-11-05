@@ -181,6 +181,8 @@ def test_an_mdf_pins_a_saved_dwell_file_version(editor_client):
     assert [s["dwell_count"] for s in pinned[0]["strategies"]] == [len(link["dwells"]) for link in body["links"]]
     assert pinned[0]["strategies"][0]["cycle_ms"] == sum(d["dwell_time_ms"] for d in body["links"][0]["dwells"])
     assert pinned[0]["strategies"][0]["platform_names"] == ["Dwell Platform"]
+    assert pinned[0]["strategies"][0]["platform_ids"] == [platform["id"]]
+    assert pinned[0]["strategies"][0]["dwells"] == body["links"][0]["dwells"]
     assert [(m["name"], m["pinned_version_number"]) for m in body["mdfs"]] == [("Dwell MDF", 2)]
     assert body["links"][0]["platforms_not_in_mdf"] == []
 

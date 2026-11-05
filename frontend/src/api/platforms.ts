@@ -118,6 +118,9 @@ export interface EmitterCoverage {
   designation: string | null;
   version_number: number;
   modes: CoverageMode[];
+  /** On an MDF's coverage: the Emitter's status now and its latest saved version. */
+  status?: string | null;
+  latest_version_number?: number | null;
 }
 
 export const platformCoverageApi = {

@@ -61,6 +61,17 @@ export function useForkEmitterVersion(emitterId: string) {
   });
 }
 
+export function useDuplicateEmitter(emitterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (newName: string) => emitterVersionsApi.duplicate(emitterId, newName),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["emitters"] });
+      qc.invalidateQueries({ queryKey: ["auditLog"] });
+    },
+  });
+}
+
 export function useEmitterLiveDiff(emitterId: string) {
   return useQuery({
     queryKey: [...emitterVersionsKey(emitterId), "diff", "live"],

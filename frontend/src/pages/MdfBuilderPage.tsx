@@ -7,7 +7,7 @@ import { usePlatforms } from "../state/hooks/usePlatforms";
 import { useCustomers } from "../state/hooks/useCustomers";
 import { useCreateMdfNote, useDeleteMdfNote, useMdfNotes } from "../state/hooks/useMdfNotes";
 import { MdfLinkTable } from "../components/mdf/MdfLinkTable";
-import { MdfReadinessPanel } from "../components/mdf/MdfReadinessPanel";
+import { MdfReadinessPanel, useReadinessCounts } from "../components/mdf/MdfReadinessPanel";
 import { isOutdatedMdfPin } from "../api/mdfs";
 import { MdfCharts } from "../components/platform/PlatformCharts";
 import { PlatformVersionPicker } from "../components/mdf/PlatformVersionPicker";
@@ -37,8 +37,18 @@ import { NotesDrawer } from "../components/common/NotesDrawer";
 import { TasksButton } from "../components/tasks/TasksButton";
 import { MilestonesButton } from "../components/status/MilestonesButton";
 
-type Tab = "platforms" | "emitters" | "dwells" | "plan" | "timeline" | "charts" | "tests" | "files" | "audit";
-const TABS: readonly Tab[] = ["platforms", "emitters", "dwells", "plan", "timeline", "charts", "tests", "files", "audit"];
+type Tab = "readiness" | "platforms" | "emitters" | "dwells" | "plan" | "timeline" | "charts" | "tests" | "files" | "audit";
+const TABS: readonly Tab[] = ["readiness", "platforms", "emitters", "dwells", "plan", "timeline", "charts", "tests", "files", "audit"];
+/** Where each readiness check is dealt with. */
+const READINESS_TAB: Record<string, Tab> = {
+  pinned: "platforms",
+  platform_pins: "platforms",
+  emitter_pins: "platforms",
+  dwells: "dwells",
+  operational: "emitters",
+  simulation: "emitters",
+  mdf_test: "tests",
+};
 const linkedTab = (t: string | null): Tab | null => (TABS.includes(t as Tab) ? (t as Tab) : null);
 
 export function MdfBuilderPage() {
@@ -55,6 +65,7 @@ export function MdfBuilderPage() {
   const { data: mdf, isLoading } = useMdf(mdfId);
   const { data: links } = useMdfLinks(mdfId ?? "");
   const { data: dwellPins } = useMdfDwells(mdfId ?? "");
+  const readiness = useReadinessCounts(mdfId ?? "");
   const repinAll = useRepinMdfLatest(mdfId ?? "");
   const mdfStatuses = useStatuses("mdf");
   // Released (or later): its pins stay as they went out, so a newer Platform version isn't flagged.
@@ -292,6 +303,17 @@ export function MdfBuilderPage() {
       )}
 
       <div className="tab-bar">
+        <button className={tab === "readiness" ? "tab active" : "tab"} onClick={() => setTab("readiness")}>
+          Readiness
+          {readiness.loaded && (
+            <span
+              className={`tab-count${readiness.fails ? " tab-count-fail" : readiness.warns ? " tab-count-warn" : " tab-count-ok"}`}
+              title={`${readiness.fails} problem(s), ${readiness.warns} warning(s)`}
+            >
+              {readiness.fails + readiness.warns || "✓"}
+            </span>
+          )}
+        </button>
         <button className={tab === "platforms" ? "tab active" : "tab"} onClick={() => setTab("platforms")}>
           Pinned Platforms {links && <span className="tab-count">{links.length}</span>}
         </button>
@@ -326,7 +348,6 @@ export function MdfBuilderPage() {
 
       {tab === "platforms" && (
         <div>
-          <MdfReadinessPanel mdfId={mdf.id} />
           <section className="card">
             <div className="card-header">
               <h4>
@@ -355,7 +376,13 @@ export function MdfBuilderPage() {
                 </div>
               </RequireRole>
             </div>
-            <MdfLinkTable mdfId={mdf.id} links={links ?? []} platformsById={platformsById} pinsFrozen={pinsFrozen} />
+            <MdfLinkTable
+              mdfId={mdf.id}
+              links={links ?? []}
+              platformsById={platformsById}
+              pinsFrozen={pinsFrozen}
+              coverage={coverage}
+            />
           </section>
           {pinningPlatform && (
             <Modal title="Pin a Platform" onClose={() => setPinningPlatform(false)}>
@@ -366,6 +393,7 @@ export function MdfBuilderPage() {
         </div>
       )}
 
+      {tab === "readiness" && <MdfReadinessPanel mdfId={mdf.id} onGo={(key) => setTab(READINESS_TAB[key] ?? "platforms")} />}
       {tab === "emitters" && <MdfEmittersTable mdfId={mdf.id} mdfName={mdf.name} />}
       {tab === "dwells" && <MdfDwellsPanel mdfId={mdf.id} pinsFrozen={pinsFrozen} canEdit={canWrite && !mdf.deleted_at} />}
       {tab === "plan" && <MdfPlanPanel mdf={mdf} versions={versions ?? []} canEdit={canWrite && !mdf.deleted_at} />}

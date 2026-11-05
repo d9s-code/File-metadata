@@ -1,17 +1,39 @@
 import { Fragment, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { ApiRequestError } from "../../api/client";
-import { dwellsApi, type MdfDwell } from "../../api/dwells";
+import { dwellsApi, type MdfDwell, type MdfDwellStrategy } from "../../api/dwells";
 import { RequireRole } from "../../auth/RequireAuth";
 import { saveBlob, xmlName } from "../../pages/DwellFilePage";
-import { useDwellFiles, useDwellVersions, useMdfDwellMutations, useMdfDwells } from "../../state/hooks/useDwells";
+import {
+  useAppSettings,
+  useDwellFiles,
+  useDwellVersions,
+  useMdfDwellMutations,
+  useMdfDwells,
+} from "../../state/hooks/useDwells";
+import { DwellChart, num } from "../dwells/DwellChart";
+import { overlayTitle, usePlatformsEmitterOverlay } from "../dwells/platformOverlay";
 import { formatDate, formatDateTime } from "../common/dates";
 import { EmptyState } from "../common/EmptyState";
 import { LoadingState } from "../common/LoadingState";
 import { MenuButton } from "../common/MenuButton";
 import { Modal } from "../common/Modal";
-import { num } from "../dwells/DwellChart";
 import { StatusBadge } from "../status/StatusBadge";
+
+/** A Strategy's dwells over one cycle, with its Platforms' Emitters behind them — as on the dwell file's page. */
+function StrategyChart({ s, bandwidthMhz }: { s: MdfDwellStrategy; bandwidthMhz: number }) {
+  const overlay = usePlatformsEmitterOverlay(s.platform_ids);
+  return (
+    <DwellChart
+      dwells={s.dwells}
+      bandwidthMhz={s.bandwidth_mhz ?? bandwidthMhz}
+      title={`${s.name}${s.version_number != null ? ` · v${s.version_number}` : ""}`}
+      overlay={overlay}
+      overlayTitle={overlayTitle(s.platform_names)}
+      emptyText={`v${s.version_number ?? "?"} has no dwells.`}
+    />
+  );
+}
 
 const fileUrl = (id: string) => `/dwells/files/${id}`;
 const versionUrl = (id: string, n: number) => `/dwells/files/${id}/versions?version=${n}`;
@@ -132,6 +154,8 @@ function DwellFileCard({
   onError: (message: string | null) => void;
 }) {
   const { pin, unpin } = useMdfDwellMutations(mdfId);
+  const { data: settings } = useAppSettings();
+  const [open, setOpen] = useState<number | null>(null);
   const cycle = d.strategies.length ? Math.max(...d.strategies.map((s) => s.cycle_ms)) : 0;
 
   async function run(action: () => Promise<unknown>) {
@@ -248,9 +272,10 @@ function DwellFileCard({
       {d.strategies.length === 0 ? (
         <p className="hint-text">No Strategy in v{d.pinned_version_number} — its XML would be empty.</p>
       ) : (
-        <table className="data-table">
+        <table className="data-table mdf-dwell-strategies">
           <thead>
             <tr>
+              <th className="expand-col" aria-label="Chart" />
               <th>Strategy</th>
               <th>Version</th>
               <th>Platforms</th>
@@ -263,7 +288,25 @@ function DwellFileCard({
           </thead>
           <tbody>
             {d.strategies.map((s, i) => (
-              <tr key={`${s.strategy_id ?? "gone"}-${i}`}>
+              <Fragment key={`${s.strategy_id ?? "gone"}-${i}`}>
+              <tr
+                className={open === i ? "dwell-link-row open row-open" : "dwell-link-row"}
+                onClick={(e) => {
+                  if ((e.target as HTMLElement).closest("a")) return;
+                  setOpen(open === i ? null : i);
+                }}
+                title="Show its dwells over one cycle"
+              >
+                <td className="expand-col">
+                  <button
+                    type="button"
+                    className="link-button"
+                    aria-expanded={open === i}
+                    aria-label={`${open === i ? "Hide" : "Show"} the chart of ${s.name}`}
+                  >
+                    {open === i ? "▾" : "▸"}
+                  </button>
+                </td>
                 <td>{s.strategy_id ? <Link to={`/dwells/strategies/${s.strategy_id}`}>{s.name}</Link> : s.name}</td>
                 <td className="nowrap">
                   {s.version_number != null ? `v${s.version_number}` : "—"}
@@ -282,6 +325,14 @@ function DwellFileCard({
                 <td className="num">{s.cycle_ms ? num(s.cycle_ms) : "—"}</td>
                 <td className="num">{s.bandwidth_mhz != null ? num(s.bandwidth_mhz) : "—"}</td>
               </tr>
+              {open === i && (
+                <tr className="dwell-link-detail">
+                  <td colSpan={7}>
+                    <StrategyChart s={s} bandwidthMhz={settings?.dwell_bandwidth_mhz ?? 10} />
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             ))}
           </tbody>
         </table>

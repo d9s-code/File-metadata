@@ -199,6 +199,7 @@ def test_mdf_coverage_groups_emitters_under_their_pinned_platform_version(editor
     [em] = plat["emitters"]
     assert (em["designation"], em["emitter_name"], em["version_number"]) == ("MC-1", "MDF Cov Emitter", 1)
     assert [m["name"] for m in em["modes"]] == ["S1"] and em["modes"][0]["rf"] == [2899.0, 3101.0]
+    assert (em["status"], em["latest_version_number"]) == (emitter["status"], 1)
 
 
 def test_list_summarises_each_platforms_emitters_versions_and_mdfs(editor_client):

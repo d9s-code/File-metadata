@@ -104,3 +104,30 @@ def test_fork_duplicate_name_is_409(editor_client):
         f"/emitters/{ctx['emitter']['id']}/versions/1/fork", json={"new_name": ctx["emitter"]["name"]}
     )
     assert resp.status_code == 409
+
+
+def test_duplicate_copies_the_emitter_as_it_stands_now(editor_client, viewer_client):
+    ctx = _setup_source_emitter(editor_client)
+    emitter_id = ctx["emitter"]["id"]
+    # A Mode added after v1, not saved: the copy has it too.
+    editor_client.post(
+        f"/ew-groups/{ctx['ew_group']['id']}/modes",
+        json={"source_id": ctx["source"]["id"], "name": "Mode G", "pri_type": "fixed", "line": FIXED_LINE},
+    )
+    url = f"/emitters/{emitter_id}/duplicate"
+    assert viewer_client.post(url, json={"new_name": "Nope"}).status_code == 403
+    assert editor_client.post(url, json={"new_name": "Fork Source Emitter"}).status_code == 409
+    resp = editor_client.post(url, json={"new_name": "  Copied Emitter "})
+    assert resp.status_code == 201, resp.text
+    copy = resp.json()
+    assert (copy["name"], copy["status"], copy["forked_from_emitter_id"]) == ("Copied Emitter", "draft", emitter_id)
+    assert copy["forked_at_version_number"] is None and copy["checked_out_by_id"] is not None
+    modes = editor_client.get(f"/emitters/{copy['id']}/modes").json()
+    assert sorted(m["name"] for m in modes) == ["Mode F", "Mode G"]
+    assert not {m["id"] for m in modes} & {ctx["mode"]["id"]}
+    versions = editor_client.get(f"/emitters/{copy['id']}/versions").json()
+    assert [v["version_number"] for v in versions] == [1]
+    assert "Duplicated from Emitter 'Fork Source Emitter' (as last saved in v1" in versions[0]["change_summary"]
+    # The original is untouched.
+    assert len(editor_client.get(f"/emitters/{emitter_id}/modes").json()) == 2
+    assert len(editor_client.get(f"/emitters/{emitter_id}/versions").json()) == 1

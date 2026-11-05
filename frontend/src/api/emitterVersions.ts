@@ -54,6 +54,9 @@ export const emitterVersionsApi = {
     api.post<Emitter>(`/emitters/${emitterId}/checkpoints/${ref}/restore`),
   promoteCheckpoint: (emitterId: string, ref: string, changeSummary: string) =>
     api.post<EmitterSave>(`/emitters/${emitterId}/checkpoints/${ref}/promote`, { change_summary: changeSummary }),
+  /** A new Emitter copied from this one as it stands now (unsaved changes included). */
+  duplicate: (emitterId: string, newName: string) =>
+    api.post<Emitter>(`/emitters/${emitterId}/duplicate`, { new_name: newName }),
   fork: (emitterId: string, versionNumber: number, newName: string) =>
     api.post<Emitter>(`/emitters/${emitterId}/versions/${versionNumber}/fork`, { new_name: newName }),
 };

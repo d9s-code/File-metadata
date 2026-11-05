@@ -197,12 +197,15 @@ export interface MdfDwellStrategy {
   version_number: number | null;
   latest_version_number: number | null;
   outdated: boolean;
+  platform_ids: string[];
   platform_names: string[];
   is_default: boolean;
   dwell_count: number;
   /** The sum of its dwell times, ms. */
   cycle_ms: number;
   bandwidth_mhz: number | null;
+  /** The pinned version's dwells, for its chart. */
+  dwells: Dwell[];
 }
 
 /** A dwell file an MDF pins, at the version it pins. */

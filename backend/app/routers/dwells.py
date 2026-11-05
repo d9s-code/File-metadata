@@ -946,9 +946,11 @@ def _mdf_dwell_out(db: Session, mdf: Mdf, link: MdfDwellLink, frozen: bool, mdf_
                 version_number=st.get("strategy_version_number"),
                 latest_version_number=newest.version_number if newest else None,
                 outdated=bool(not frozen and newest and newest.version_number > (st.get("strategy_version_number") or 0)),
+                platform_ids=ids,
                 platform_names=ss.get("platform_names") or [],
                 is_default=not ids,
                 dwell_count=len(dwells),
+                dwells=dwells,
                 cycle_ms=sum(float(d.get("dwell_time_ms") or 0) for d in dwells),
                 bandwidth_mhz=ss.get("bandwidth_mhz"),
             )

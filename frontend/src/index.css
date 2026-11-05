@@ -7772,3 +7772,12 @@ button.meta-chip:hover:not(:disabled) { color: var(--text); }
 .mdf-dwell-facts dt { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
 .mdf-dwell-facts dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
 .mdf-dwell-others { margin: 0.6rem 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
+.tab .tab-count.tab-count-fail { background: var(--badge-red-bg); color: var(--badge-red-fg); }
+.tab .tab-count.tab-count-warn { background: var(--badge-amber-bg); color: var(--badge-amber-fg); }
+.tab .tab-count.tab-count-ok { background: var(--badge-green-bg); color: var(--badge-green-fg); }
+
+/* Expandable rows: the toggle column and the opened detail row. */
+.data-table .expand-col { width: 1.8rem; padding-right: 0; text-align: center; }
+.data-table tr.row-open > td { border-bottom-color: transparent; }
+.data-table tr.row-detail > td { background: var(--hover-bg); padding-top: 0.25rem; padding-bottom: 0.75rem; }
+.data-table tr.row-detail .data-table { margin: 0; background: var(--card-bg); }

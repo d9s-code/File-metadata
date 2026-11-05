@@ -1175,6 +1175,70 @@ def fork_emitter_version(
     return attach_emitter_summaries(db, [new_emitter])[0]
 
 
+@router.post(
+    "/{emitter_id}/duplicate",
+    response_model=EmitterOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(verify_csrf)],
+)
+def duplicate_emitter(
+    emitter_id: UUID,
+    payload: ForkRequest,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+) -> EmitterOut:
+    """A new Emitter that is a copy of this one as it stands now — changes
+    not yet saved as a version included. It starts at Draft, checked out to
+    the requester, with its own history from v1 (the copy). Its test history,
+    files and comments stay with the original. To copy a saved version (with
+    the history up to it), fork that version instead."""
+    source = _get_emitter_or_404(db, emitter_id)
+    name = payload.new_name.strip()
+    if not name:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Give the copy a name")
+    if _active_name_taken(db, name):
+        raise HTTPException(status.HTTP_409_CONFLICT, "Emitter name already exists")
+    latest = list_versions(db, spec=_VERSION_SPEC, entity_id=source.id)
+    latest = latest[-1] if latest else None
+
+    new_emitter = build_forked_emitter(db, source_snapshot=build_emitter_snapshot(source), new_name=name, created_by=user.id)
+    new_emitter.forked_from_emitter_id = source.id
+    new_emitter.forked_from_version_id = latest.id if latest else None
+    checkout_service.start_checkout(new_emitter, user.id)
+    db.flush()
+
+    as_of = f"as last saved in v{latest.version_number}" if latest else "never saved"
+    summary = f"Duplicated from Emitter '{source.name}' ({as_of}, with any changes since)"
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.fork,
+        entity_type=AuditEntityType.emitter.value,
+        entity_id=new_emitter.id,
+        summary=f"Created Emitter '{new_emitter.name}' — {summary}",
+        emitter_id=new_emitter.id,
+    )
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.fork,
+        entity_type=AuditEntityType.emitter.value,
+        entity_id=source.id,
+        summary=f"Duplicated as new Emitter '{new_emitter.name}'",
+        emitter_id=source.id,
+    )
+    commit_version(
+        db,
+        spec=_VERSION_SPEC,
+        entity_id=new_emitter.id,
+        snapshot=build_emitter_snapshot(new_emitter),
+        change_summary=summary,
+        created_by=user.id,
+    )
+    db.refresh(new_emitter)
+    return attach_emitter_summaries(db, [new_emitter])[0]
+
+
 @router.post("/{emitter_id}/export/xml")
 def export_emitter_xml(
     emitter_id: UUID,

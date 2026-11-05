@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useState, type FormEvent } from "react";
 import { EMITTERS_SECTION, InfoTip, PageHeader } from "../components/common/PageHeader";
 import { MenuButton } from "../components/common/MenuButton";
+import { DuplicateEmitterModal } from "../components/emitters/DuplicateEmitterModal";
 import { FilterBar, shownCount } from "../components/common/FilterBar";
 import { useColumnVisibility, useColumnVisibilityMenu, type ToggleableColumn } from "../components/common/ColumnVisibilityMenu";
 import { Link, useNavigate } from "react-router-dom";
@@ -171,6 +172,7 @@ export function EmittersListPage() {
   const { user } = useAuth();
   const { data: people } = usePeople();
   const canWrite = useHasRole("editor");
+  const [duplicating, setDuplicating] = useState<{ id: string; name: string } | null>(null);
   // Emitters ticked for a bulk action.
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const toggle = (id: string) =>
@@ -584,6 +586,7 @@ export function EmittersListPage() {
                           ),
                       },
                       { label: "Compare with another Emitter", to: `/emitters/compare?a=${e.id}` },
+                      ...(canWrite ? [{ label: "Duplicate…", onSelect: () => setDuplicating(e) }] : []),
                       ...(canWrite ? [{ label: "Delete…", danger: true, onSelect: () => void handleDelete(e) }] : []),
                     ]}
                   />
@@ -597,6 +600,9 @@ export function EmittersListPage() {
       )}
       {columnMenu.menu}
       {dialog}
+      {duplicating && (
+        <DuplicateEmitterModal emitterId={duplicating.id} emitterName={duplicating.name} onClose={() => setDuplicating(null)} />
+      )}
     </div>
   );
 }

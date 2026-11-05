@@ -133,4 +133,27 @@ def mdf_coverage(db: Session, mdf_id: UUID) -> list[dict]:
             }
         )
     out.sort(key=lambda p: p["platform_name"].lower())
+    _add_emitter_state(db, [e for p in out for e in p["emitters"]])
     return out
+
+
+def _add_emitter_state(db: Session, emitters: list[dict]) -> None:
+    """Each pinned Emitter's status now and its latest saved version — so a
+    pin behind it can be flagged."""
+    from sqlalchemy import func
+
+    ids = {UUID(str(e["emitter_id"])) for e in emitters if e.get("emitter_id")}
+    if not ids:
+        return
+    status = dict(db.query(Emitter.id, Emitter.status).filter(Emitter.id.in_(ids)).all())
+    latest = dict(
+        db.query(EmitterVersion.emitter_id, func.max(EmitterVersion.version_number))
+        .filter(EmitterVersion.emitter_id.in_(ids))
+        .group_by(EmitterVersion.emitter_id)
+        .all()
+    )
+    for e in emitters:
+        eid = UUID(str(e["emitter_id"])) if e.get("emitter_id") else None
+        st = status.get(eid)
+        e["status"] = getattr(st, "value", st)
+        e["latest_version_number"] = latest.get(eid)
