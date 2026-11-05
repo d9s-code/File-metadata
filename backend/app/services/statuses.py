@@ -96,6 +96,14 @@ def by_key(db: Session, entity_type: str) -> dict[str, StatusDefinition]:
     return {d.key: d for d in definitions(db, entity_type)}
 
 
+def at_or_after(db: Session, entity_type: str, key: str | None, ref: str) -> bool:
+    """Whether status `key` is `ref` or comes after it in the type's order."""
+    order = [d.key for d in definitions(db, entity_type)]
+    if key is None or key not in order or ref not in order:
+        return False
+    return order.index(key) >= order.index(ref)
+
+
 def labels(db: Session, entity_type: str) -> dict[str, str]:
     return {d.key: d.label for d in definitions(db, entity_type)}
 

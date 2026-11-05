@@ -31,6 +31,8 @@ class Mdf(UUIDPkMixin, TimestampMixin, Base):
     # is a frontend-only behavior on the create/edit form so it stays a real,
     # overridable choice rather than a server-side default.
     release_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # When it's meant to be ready — a target, apart from the release date.
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     customer_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("customers.id", ondelete="SET NULL"), nullable=True, index=True
     )
@@ -93,10 +95,17 @@ class MdfVersion(UUIDPkMixin, Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    # Written for the version as it goes out — apart from its snapshot, so
+    # it can be written (and corrected) after the version is saved.
+    release_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    release_notes_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    release_notes_updated_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
 
     mdf: Mapped["Mdf"] = relationship(back_populates="versions")
     # Who saved it — joined so a version list shows names without a query per row.
-    creator: Mapped["User | None"] = relationship(lazy="joined", viewonly=True)  # noqa: F821
+    creator: Mapped["User | None"] = relationship(foreign_keys=[created_by], lazy="joined", viewonly=True)  # noqa: F821
 
     @property
     def created_by_username(self) -> str | None:

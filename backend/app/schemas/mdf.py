@@ -10,6 +10,7 @@ class MdfCreate(BaseModel):
     description: str | None = None
     notes: str | None = None
     release_date: date | None = None
+    due_date: date | None = None
     customer_id: UUID | None = None
 
 
@@ -18,6 +19,7 @@ class MdfUpdate(BaseModel):
     description: str | None = None
     notes: str | None = None
     release_date: date | None = None
+    due_date: date | None = None
     customer_id: UUID | None = None
 
 
@@ -29,6 +31,7 @@ class MdfOut(BaseModel):
     description: str | None = None
     notes: str | None = None
     release_date: date | None = None
+    due_date: date | None = None
     customer_id: UUID | None = None
     status: str
     is_deleted: bool
@@ -36,6 +39,9 @@ class MdfOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     platforms_count: int = 0
+    # Its goals, and how many are reached.
+    goals_total: int = 0
+    goals_done: int = 0
 
 
 class MdfLinkCreate(BaseModel):

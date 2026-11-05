@@ -19,10 +19,11 @@ import { useConfirmDialog } from "../components/common/ConfirmDialog";
 import type { Customer } from "../api/customers";
 import type { Mdf } from "../api/mdfs";
 import { useStatuses } from "../state/hooks/useStatuses";
+import { dueText } from "../components/mdf/MdfPlanPanel";
 import { StatusBadge } from "../components/status/StatusBadge";
 import { useSessionState } from "../components/common/useSessionState";
 
-type MdfSortKey = "name" | "platforms" | "release_date" | "status" | "customer";
+type MdfSortKey = "name" | "platforms" | "release_date" | "due_date" | "goals" | "status" | "customer";
 
 function todayDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -43,6 +44,15 @@ function compareMdfs(
       return compareNullable(a.platforms_count, b.platforms_count, dir);
     case "release_date":
       return compareNullable(a.release_date, b.release_date, dir);
+    case "due_date":
+      return compareNullable(a.due_date, b.due_date, dir);
+    case "goals":
+      // By the share reached; MDFs without goals last.
+      return compareNullable(
+        a.goals_total ? a.goals_done / a.goals_total : null,
+        b.goals_total ? b.goals_done / b.goals_total : null,
+        dir,
+      );
     case "status":
       return compareStrings(statusLabel(a.status), statusLabel(b.status), dir);
     case "customer":
@@ -74,6 +84,7 @@ export function MdfsListPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [releaseDate, setReleaseDate] = useState(todayDate());
+  const [dueDate, setDueDate] = useState("");
   const [customerId, setCustomerId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
@@ -96,11 +107,13 @@ export function MdfsListPage() {
         name,
         description: description || undefined,
         release_date: releaseDate || undefined,
+        due_date: dueDate || null,
         customer_id: customerId || undefined,
       });
       setName("");
       setDescription("");
       setReleaseDate(todayDate());
+      setDueDate("");
       setCustomerId("");
       setShowAdd(false);
       navigate(`/mdfs/${mdf.id}`);
@@ -149,6 +162,10 @@ export function MdfsListPage() {
               <label className="wide-label">
                 Release date
                 <DateInput value={releaseDate} onChange={(e) => setReleaseDate(e.target.value)} />
+              </label>
+              <label>
+                Due date
+                <DateInput value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
               </label>
               <label className="wide-label">
                 Customer
@@ -248,6 +265,24 @@ export function MdfsListPage() {
                 onClear={onClear}
               />
               <SortableColumnHeader
+                label="Due"
+                columnKey="due_date"
+                columnType="date"
+                activeKey={sortKey}
+                activeDir={sortDir}
+                onSort={onSort}
+                onClear={onClear}
+              />
+              <SortableColumnHeader
+                label="Goals"
+                columnKey="goals"
+                columnType="number"
+                activeKey={sortKey}
+                activeDir={sortDir}
+                onSort={onSort}
+                onClear={onClear}
+              />
+              <SortableColumnHeader
                 label="Status"
                 columnKey="status"
                 activeKey={sortKey}
@@ -274,6 +309,32 @@ export function MdfsListPage() {
                 </td>
                 <td>{m.platforms_count}</td>
                 <td>{formatDate(m.release_date)}</td>
+                <td>
+                  {m.due_date ? (
+                    <span className="cell-nowrap">
+                      {formatDate(m.due_date)}
+                      {!mdfStatuses.atOrAfter(m.status, "released") && dueText(m.due_date).overdue && (
+                        <span className="status-badge mdf-due overdue" title={dueText(m.due_date).text}>
+                          overdue
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="hint-text">—</span>
+                  )}
+                </td>
+                <td>
+                  {m.goals_total ? (
+                    <span className="cell-nowrap" title={`${m.goals_done} of ${m.goals_total} goals reached`}>
+                      <span className="mdf-goals-bar" aria-hidden>
+                        <span style={{ width: `${(100 * m.goals_done) / m.goals_total}%` }} />
+                      </span>{" "}
+                      {m.goals_done}/{m.goals_total}
+                    </span>
+                  ) : (
+                    <span className="hint-text">—</span>
+                  )}
+                </td>
                 <td>
                   <StatusBadge type="mdf" status={m.status} />
                 </td>

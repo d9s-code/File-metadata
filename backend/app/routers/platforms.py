@@ -622,6 +622,17 @@ def delete_platform_note(
     db.commit()
 
 
+@router.get("/{platform_id}/unsaved")
+def platform_unsaved_changes(
+    platform_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
+) -> dict:
+    """The Emitter pins changed since the latest saved version — stored, but
+    not in any version until one is saved (so not in an MDF that pins it)."""
+    from app.services.pinned_changes import platform_unsaved
+
+    return platform_unsaved(db, _get_platform_or_404(db, platform_id))
+
+
 @router.get("/{platform_id}/coverage")
 def get_platform_coverage(
     platform_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))

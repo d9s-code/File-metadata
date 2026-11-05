@@ -47,6 +47,8 @@ export interface StatusLookup {
   byKey: Record<string, StatusDefinition>;
   label: (key: string | null | undefined) => string;
   color: (key: string | null | undefined) => string;
+  /** Whether `key` is `ref` or comes after it in the type's order. */
+  atOrAfter: (key: string | null | undefined, ref: string) => boolean;
 }
 
 /** One type's statuses in order, and their names and colours by key. */
@@ -61,6 +63,13 @@ export function useStatuses(entityType: StatusEntityType): StatusLookup {
       label: (key) =>
         !key ? "—" : (byKey[key]?.label ?? FALLBACK[entityType][key] ?? key.replace(/_/g, " ")),
       color: (key) => (key && byKey[key]?.color) || "grey",
+      atOrAfter: (key, ref) => {
+        // Before the list has loaded, the built-in order.
+        const order = list.length ? list.map((s) => s.key) : Object.keys(FALLBACK[entityType]);
+        const i = key ? order.indexOf(key) : -1;
+        const j = order.indexOf(ref);
+        return i >= 0 && j >= 0 && i >= j;
+      },
     };
   }, [data, entityType]);
 }

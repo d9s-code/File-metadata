@@ -59,10 +59,13 @@ export function MdfLinkTable({
   mdfId,
   links,
   platformsById,
+  pinsFrozen = false,
 }: {
   mdfId: string;
   links: MdfLink[];
   platformsById: Record<string, Platform>;
+  /** Released (or later): pins stay as released, so none is flagged outdated. */
+  pinsFrozen?: boolean;
 }) {
   const unpin = useUnpinPlatform(mdfId);
 
@@ -108,7 +111,7 @@ export function MdfLinkTable({
             </td>
             <td>
               <PinnedVersionCell platformId={link.platform_id} versionId={link.platform_version_id} />
-              <OutdatedPin mdfId={mdfId} link={link} />
+              {!pinsFrozen && <OutdatedPin mdfId={mdfId} link={link} />}
             </td>
             <td>{formatDateTime(link.added_at)}</td>
             <td>

@@ -1,7 +1,12 @@
 import { api } from "./client";
 import type { DiffResult, VersionSummary } from "../types/versioning";
 
-export type MdfVersionSummary = VersionSummary & { mdf_id: string };
+export type MdfVersionSummary = VersionSummary & {
+  mdf_id: string;
+  /** Written for the version as it goes out, apart from its snapshot. */
+  release_notes?: string | null;
+  release_notes_updated_at?: string | null;
+};
 
 export const mdfVersionsApi = {
   list: (mdfId: string) => api.get<MdfVersionSummary[]>(`/mdfs/${mdfId}/versions`),

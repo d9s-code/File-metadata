@@ -44,8 +44,24 @@ def _get_mdf_or_404(db: Session, mdf_id: UUID) -> Mdf:
     return mdf
 
 
+def _goal_counts(db: Session, mdf_ids: list[UUID]) -> dict[UUID, tuple[int, int]]:
+    """{MDF id: (goals, goals reached)}."""
+    from app.models.mdf_plan import MdfGoal
+
+    if not mdf_ids:
+        return {}
+    rows = (
+        db.query(MdfGoal.mdf_id, func.count(MdfGoal.id), func.count(MdfGoal.done_at))
+        .filter(MdfGoal.mdf_id.in_(mdf_ids))
+        .group_by(MdfGoal.mdf_id)
+        .all()
+    )
+    return {mdf_id: (total, done) for mdf_id, total, done in rows}
+
+
 def _attach_platforms_count(db: Session, mdf: Mdf) -> Mdf:
     mdf.platforms_count = db.query(func.count(MdfPlatformLink.id)).filter(MdfPlatformLink.mdf_id == mdf.id).scalar() or 0
+    mdf.goals_total, mdf.goals_done = _goal_counts(db, [mdf.id]).get(mdf.id, (0, 0))
     return mdf
 
 
@@ -69,8 +85,11 @@ def list_mdfs(
     if not include_deleted:
         query = query.filter(Mdf.is_deleted.is_(False))
     results = []
-    for mdf, platforms_count in query.all():
+    rows = query.all()
+    goals = _goal_counts(db, [mdf.id for mdf, _n in rows])
+    for mdf, platforms_count in rows:
         mdf.platforms_count = platforms_count
+        mdf.goals_total, mdf.goals_done = goals.get(mdf.id, (0, 0))
         results.append(mdf)
     return results
 
@@ -108,6 +127,7 @@ def create_mdf(
         description=payload.description,
         notes=payload.notes,
         release_date=payload.release_date,
+        due_date=payload.due_date,
         customer_id=payload.customer_id,
         created_by=user.id,
     )
@@ -172,7 +192,7 @@ def delete_mdf(
             entity_type=AuditEntityType.mdf.value,
             entity_id=mdf.id,
             summary=f"Hard-deleted MDF '{mdf.name}'",
-            changes=snapshot(mdf, ["name", "description", "notes", "release_date", "customer_id", "status"]),
+            changes=snapshot(mdf, ["name", "description", "notes", "release_date", "due_date", "customer_id", "status"]),
         )
         db.delete(mdf)
     else:
@@ -185,7 +205,7 @@ def delete_mdf(
             entity_type=AuditEntityType.mdf.value,
             entity_id=mdf.id,
             summary=f"Deleted MDF '{mdf.name}'",
-            changes=snapshot(mdf, ["name", "description", "notes", "release_date", "customer_id", "status"]),
+            changes=snapshot(mdf, ["name", "description", "notes", "release_date", "due_date", "customer_id", "status"]),
         )
     db.commit()
 
@@ -593,6 +613,15 @@ def export_mdf_version_prs(
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.get("/{mdf_id}/unsaved")
+def mdf_unsaved_changes(mdf_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))) -> dict:
+    """The Platform pins and dwell files changed since the latest saved
+    version — not in what's exported until a version is saved."""
+    from app.services.pinned_changes import mdf_unsaved
+
+    return mdf_unsaved(db, _get_mdf_or_404(db, mdf_id))
 
 
 @router.get("/{mdf_id}/coverage")

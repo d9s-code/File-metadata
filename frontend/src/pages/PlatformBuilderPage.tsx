@@ -14,6 +14,7 @@ import { MenuButton } from "../components/common/MenuButton";
 import { EntityHeader } from "../components/common/EntityHeader";
 import { PlatformDwells } from "../components/dwells/PlatformDwells";
 import { LatestVersion, SaveVersionButton } from "../components/versioning/SaveVersionButton";
+import { UnsavedPinsFlag } from "../components/versioning/UnsavedPinsFlag";
 import { TasksButton } from "../components/tasks/TasksButton";
 import { MilestonesButton } from "../components/status/MilestonesButton";
 import { PlatformStatusControls } from "../components/platform/PlatformStatusControls";
@@ -123,6 +124,11 @@ export function PlatformBuilderPage() {
           <>
             <PlatformStatusControls platformId={platform.id} status={platform.status} />
             <LatestVersion versions={versions} />
+            <UnsavedPinsFlag
+              kind="platform"
+              id={platform.id}
+              signature={`${(links ?? []).map((l) => `${l.emitter_id}:${l.emitter_version_id}`).sort().join(",")}|${versions?.length ?? 0}`}
+            />
             <TasksButton type="platform" id={platform.id} name={platform.name} />
             <MilestonesButton type="platform" id={platform.id} status={platform.status} />
             {outdatedPins > 0 && (

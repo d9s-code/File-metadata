@@ -7685,3 +7685,65 @@ button.meta-chip:hover:not(:disabled) { color: var(--text); }
 .mdf-emitters-warning { margin: 0 0 0.6rem; padding: 0.4rem 0.7rem; border-left: 3px solid var(--status-warning); background: color-mix(in srgb, var(--status-warning) 12%, transparent); font-size: 0.9rem; }
 .mdf-emitters-table td { vertical-align: top; }
 .mdf-emitter-flag { display: inline-block; margin-left: 0.3rem; padding: 0 0.35rem; border-radius: 4px; background: var(--badge-amber-bg); color: var(--badge-amber-fg); font-size: 0.8rem; }
+
+/* An MDF's plan, timeline and unsaved pins. */
+.unsaved-pins { position: relative; display: inline-block; }
+.unsaved-pins-badge { cursor: pointer; background: var(--badge-amber-bg); color: var(--badge-amber-fg); border: 0; }
+.unsaved-pins-pop { position: absolute; z-index: 60; top: calc(100% + 6px); left: 0; width: min(440px, 90vw); padding: 0.6rem 0.8rem; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg); box-shadow: var(--shadow-md, 0 8px 24px rgba(0, 0, 0, 0.18)); }
+.unsaved-pins-pop p { margin: 0 0 0.4rem; }
+.unsaved-pins-pop ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem; font-size: 0.88rem; }
+.unsaved-pins-pop li { display: flex; gap: 0.4rem; }
+.unsaved-pin-mark, .mdf-change-mark { width: 1rem; flex: none; text-align: center; font-weight: 700; color: var(--muted); }
+.unsaved-pin-added .unsaved-pin-mark, .mdf-change.added .mdf-change-mark { color: var(--success, #1d7a46); }
+.unsaved-pin-removed .unsaved-pin-mark, .mdf-change.removed .mdf-change-mark { color: var(--error); }
+.mdf-due { background: var(--hover-bg); color: var(--text); }
+.mdf-due.soon { background: var(--badge-amber-bg); color: var(--badge-amber-fg); }
+.mdf-due.overdue { background: var(--badge-red-bg); color: var(--error); }
+.mdf-goals-chip { display: inline-flex; align-items: center; gap: 0.35rem; background: var(--hover-bg); color: var(--text); }
+.mdf-goals-bar { display: inline-block; width: 42px; height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; vertical-align: middle; }
+.mdf-goals-bar > span { display: block; height: 100%; background: var(--viz-in); }
+.mdf-plan { display: grid; gap: 0.2rem; }
+.mdf-due-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 0.6rem; margin: 0; }
+.mdf-goals-progress { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; margin: 0 0 0.6rem; }
+.mdf-goals-progress > span { display: block; height: 100%; background: var(--viz-in); transition: width 0.2s ease; }
+.mdf-goals { list-style: none; margin: 0 0 0.6rem; padding: 0; display: grid; gap: 0.15rem; }
+.mdf-goal { display: flex; align-items: flex-start; gap: 0.55rem; padding: 0.35rem 0.2rem; border-bottom: 1px solid var(--border); }
+.mdf-goal input[type="checkbox"] { margin-top: 0.2rem; }
+.mdf-goal-body { flex: 1; min-width: 0; display: grid; gap: 0.2rem; }
+.mdf-goal.done .mdf-goal-text { color: var(--muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--muted) 60%, transparent); }
+.mdf-goal-add input { flex: 1; min-width: 220px; }
+.mdf-release-list, .mdf-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.7rem; }
+.mdf-release-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.6rem; }
+.mdf-release-body, .mdf-log-body, .mdf-event-text, .mdf-event-release > div, .mdf-summary-notes > div, .mdf-summary-log > div { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.45; }
+.mdf-release-body { margin-top: 0.25rem; }
+.mdf-release-text { width: 100%; margin: 0.3rem 0; font-family: inherit; line-height: 1.45; }
+.mdf-log-add { display: grid; gap: 0.4rem; margin-bottom: 0.8rem; }
+.mdf-log-add textarea { width: 100%; font-family: inherit; }
+.mdf-log-add .button { justify-self: start; }
+.mdf-log-kinds { justify-self: start; }
+.mdf-log-entry { padding: 0.5rem 0.7rem; border-left: 3px solid var(--border); background: var(--hover-bg); border-radius: 0 6px 6px 0; }
+.mdf-log-entry.release { border-left-color: var(--viz-in); }
+.mdf-log-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.6rem; margin-bottom: 0.2rem; }
+.mdf-log-kind.release, .mdf-event-kind.version { background: color-mix(in srgb, var(--viz-in) 16%, transparent); color: var(--text); }
+.mdf-log-kind.progress { background: var(--hover-bg); color: var(--text); border: 1px solid var(--border); }
+.mdf-timeline-filters { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.8rem; }
+.mdf-timeline { list-style: none; margin: 0; padding: 0 0 0 0.4rem; border-left: 2px solid var(--border); }
+.mdf-event { position: relative; display: flex; gap: 0.6rem; padding: 0 0 0.9rem 0.8rem; }
+.mdf-event-dot { position: absolute; left: -0.42rem; top: 0.35rem; width: 0.7rem; height: 0.7rem; border-radius: 50%; background: var(--card-bg); border: 2px solid var(--muted); }
+.mdf-event.version .mdf-event-dot, .mdf-event.log.release .mdf-event-dot { border-color: var(--viz-in); background: var(--viz-in); }
+.mdf-event.status .mdf-event-dot { border-color: var(--viz-in); }
+.mdf-event.goal .mdf-event-dot { border-color: var(--success, #1d7a46); }
+.mdf-event-body { display: grid; gap: 0.25rem; min-width: 0; flex: 1; }
+.mdf-event-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.6rem; }
+.mdf-event-kind { background: var(--hover-bg); color: var(--text); font-size: 0.72rem; }
+.mdf-event-release { padding: 0.35rem 0.6rem; border-left: 3px solid var(--viz-in); background: var(--hover-bg); border-radius: 0 6px 6px 0; }
+.mdf-event .link-button { justify-self: start; }
+.mdf-changes { list-style: none; margin: 0.2rem 0 0; padding: 0; display: grid; gap: 0.2rem; font-size: 0.88rem; }
+.mdf-change { display: flex; gap: 0.4rem; }
+.mdf-summary-range { margin-bottom: 0.6rem; }
+.mdf-summary-range label { display: grid; gap: 0.2rem; font-size: 0.85rem; color: var(--muted); }
+.mdf-summary-body h5 { margin: 1rem 0 0.35rem; font-size: 0.95rem; }
+.mdf-summary-notes, .mdf-summary-log { margin-bottom: 0.5rem; }
+.mdf-summary-goals { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.2rem; }
+.mdf-summary-goals li.done { color: var(--muted); }
+.mdf-summary-contents { margin: 0; padding-left: 1.1rem; }

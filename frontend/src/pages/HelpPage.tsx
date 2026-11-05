@@ -1053,6 +1053,38 @@ export function HelpPage() {
             <strong>Repin all to their latest version</strong> above the table.
           </p>
           <p>
+            <strong>Pins not saved.</strong> Pinning or repinning on an MDF or a Platform is kept straight away,
+            but only <strong>Save version</strong> puts it in a version, which is what gets exported and what an
+            MDF pins. Until you save, the header says <strong>● Pins not saved</strong>. Click it to see what
+            changed. From <strong>Released</strong> onwards, an MDF&apos;s pins aren&apos;t flagged as outdated
+            any more, since they stay as they went out.
+          </p>
+          <p>
+            <strong>Plan</strong> holds the MDF&apos;s due date, its goals and its log:
+          </p>
+          <ul>
+            <li>
+              <strong>Goals</strong> are its own checklist. Tick one when it&apos;s reached, with a note if
+              you like; it can be reopened, reworded, moved or removed. Progress shows in the header and on
+              the MDFs list.
+            </li>
+            <li>
+              <strong>Release notes</strong> are written per saved version, and can be written after the save.
+            </li>
+            <li>
+              The <strong>Progress log</strong> takes dated entries, marked Progress or Release. They
+              can&apos;t be edited, and only the author or an Admin can delete one.
+            </li>
+          </ul>
+          <p>
+            <strong>Timeline</strong> lists everything that happened to the MDF, newest first. Each saved
+            version shows what changed since the one before, down to the Emitters inside a repinned Platform.
+            Status moves, goals, the log, pins and due-date changes are there too, and you can filter by
+            kind. <strong>Summarize…</strong> compares two versions, by default everything since the last
+            release, and <strong>Download release notes (.docx)</strong> turns that summary into a Word
+            document.
+          </p>
+          <p>
             <strong>Emitters</strong> lists every Emitter on the MDF, through the Platform versions it pins (as
             the export takes them). It shows each Emitter&apos;s pinned version, the Platforms that pin it, its
             Modes and PRI types, its overall RF, PRI and PW ranges (tick <strong>With deltas (±)</strong> for the

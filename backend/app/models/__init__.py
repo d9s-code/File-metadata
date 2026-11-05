@@ -24,6 +24,7 @@ from app.models.ew_group import EwGroup  # noqa: F401
 from app.models.import_batch import ImportBatch  # noqa: F401
 from app.models.recording import Recording, RecordingReport  # noqa: F401
 from app.models.attachment import Attachment  # noqa: F401
+from app.models.mdf_plan import MdfGoal, MdfLogEntry  # noqa: F401
 from app.models.intercept import (  # noqa: F401
     Intercept,
     InterceptEntry,

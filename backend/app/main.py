@@ -32,6 +32,7 @@ from app.routers import (
     sources,
     statuses,
     attachments,
+    mdf_plan,
     recordings,
     sync,
     tasks,
@@ -67,6 +68,7 @@ app.include_router(auth.router)
 app.include_router(sync.router)
 app.include_router(recordings.router)
 app.include_router(attachments.router)
+app.include_router(mdf_plan.router)
 app.include_router(tasks.people_router)
 app.include_router(tasks.router)
 app.include_router(users.router)

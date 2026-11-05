@@ -7,6 +7,8 @@ export interface Mdf {
   description: string | null;
   notes: string | null;
   release_date: string | null;
+  /** When it's meant to be ready (YYYY-MM-DD) — a target, apart from the release date. */
+  due_date: string | null;
   customer_id: string | null;
   status: MdfStatus;
   is_deleted: boolean;
@@ -14,6 +16,9 @@ export interface Mdf {
   created_at: string;
   updated_at: string;
   platforms_count: number;
+  /** Its goals, and how many are reached. */
+  goals_total: number;
+  goals_done: number;
 }
 
 export interface MdfLink {
@@ -51,6 +56,7 @@ export interface MdfCreateInput {
   description?: string;
   notes?: string;
   release_date?: string | null;
+  due_date?: string | null;
   customer_id?: string | null;
 }
 

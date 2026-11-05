@@ -24,6 +24,10 @@ import { useAttachments } from "../state/hooks/useAttachments";
 import { FilesPanel } from "../components/files/FilesPanel";
 import { MdfEmittersTable, useMdfCoverage } from "../components/mdf/MdfEmittersTable";
 import { downloadMdfReport } from "../components/mdf/mdfReport";
+import { UnsavedPinsFlag } from "../components/versioning/UnsavedPinsFlag";
+import { MdfPlanChips, MdfPlanPanel } from "../components/mdf/MdfPlanPanel";
+import { MdfTimeline } from "../components/mdf/MdfTimeline";
+import { useStatuses } from "../state/hooks/useStatuses";
 import { LoadingState } from "../components/common/LoadingState";
 import { Modal } from "../components/common/Modal";
 import { NotesFeed } from "../components/common/NotesFeed";
@@ -31,8 +35,8 @@ import { NotesDrawer } from "../components/common/NotesDrawer";
 import { TasksButton } from "../components/tasks/TasksButton";
 import { MilestonesButton } from "../components/status/MilestonesButton";
 
-type Tab = "platforms" | "emitters" | "charts" | "tests" | "files" | "audit";
-const TABS: readonly Tab[] = ["platforms", "emitters", "charts", "tests", "files", "audit"];
+type Tab = "platforms" | "emitters" | "plan" | "timeline" | "charts" | "tests" | "files" | "audit";
+const TABS: readonly Tab[] = ["platforms", "emitters", "plan", "timeline", "charts", "tests", "files", "audit"];
 const linkedTab = (t: string | null): Tab | null => (TABS.includes(t as Tab) ? (t as Tab) : null);
 
 export function MdfBuilderPage() {
@@ -49,7 +53,10 @@ export function MdfBuilderPage() {
   const { data: mdf, isLoading } = useMdf(mdfId);
   const { data: links } = useMdfLinks(mdfId ?? "");
   const repinAll = useRepinMdfLatest(mdfId ?? "");
-  const outdatedPins = (links ?? []).filter(isOutdatedMdfPin).length;
+  const mdfStatuses = useStatuses("mdf");
+  // Released (or later): its pins stay as they went out, so a newer Platform version isn't flagged.
+  const pinsFrozen = !!mdf && mdfStatuses.atOrAfter(mdf.status, "released");
+  const outdatedPins = pinsFrozen ? 0 : (links ?? []).filter(isOutdatedMdfPin).length;
   const { data: platforms } = usePlatforms();
   const { data: versions } = useMdfVersions(mdfId ?? "");
   const commitVersion = useCommitMdfVersion(mdfId ?? "");
@@ -70,6 +77,7 @@ export function MdfBuilderPage() {
   const [editDescription, setEditDescription] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [editReleaseDate, setEditReleaseDate] = useState("");
+  const [editDueDate, setEditDueDate] = useState("");
   const [editCustomerId, setEditCustomerId] = useState("");
 
   if (isLoading || !mdf) return <LoadingState label="Loading MDF…" />;
@@ -82,6 +90,7 @@ export function MdfBuilderPage() {
     setEditDescription(mdf.description ?? "");
     setEditNotes(mdf.notes ?? "");
     setEditReleaseDate(mdf.release_date ?? "");
+    setEditDueDate(mdf.due_date ?? "");
     setEditCustomerId(mdf.customer_id ?? "");
     setIsEditing(true);
   };
@@ -106,6 +115,7 @@ export function MdfBuilderPage() {
           description: editDescription || undefined,
           notes: editNotes || undefined,
           release_date: editReleaseDate || null,
+          due_date: editDueDate || null,
           customer_id: editCustomerId || null,
         },
       },
@@ -167,6 +177,12 @@ export function MdfBuilderPage() {
           <>
             <MdfStatusTransitionControls mdfId={mdf.id} status={mdf.status} />
             <LatestVersion versions={versions} />
+            <MdfPlanChips mdf={mdf} done={pinsFrozen} />
+            <UnsavedPinsFlag
+              kind="mdf"
+              id={mdf.id}
+              signature={`${(links ?? []).map((l) => `${l.platform_id}:${l.platform_version_id}`).sort().join(",")}|${versions?.length ?? 0}`}
+            />
             <TasksButton type="mdf" id={mdf.id} name={mdf.name} />
             <MilestonesButton type="mdf" id={mdf.id} status={mdf.status} />
             {outdatedPins > 0 && (
@@ -242,6 +258,10 @@ export function MdfBuilderPage() {
               />
             </label>
             <label>
+              Due date
+              <DateInput value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} className="edit-input" />
+            </label>
+            <label>
               Customer
               <select
                 value={editCustomerId}
@@ -274,6 +294,12 @@ export function MdfBuilderPage() {
         </button>
         <button className={tab === "emitters" ? "tab active" : "tab"} onClick={() => setTab("emitters")}>
           Emitters <span className="tab-count">{emitterCount}</span>
+        </button>
+        <button className={tab === "plan" ? "tab active" : "tab"} onClick={() => setTab("plan")}>
+          Plan{mdf.goals_total > 0 && <span className="tab-count">{mdf.goals_done}/{mdf.goals_total}</span>}
+        </button>
+        <button className={tab === "timeline" ? "tab active" : "tab"} onClick={() => setTab("timeline")}>
+          Timeline
         </button>
         <button className={tab === "charts" ? "tab active" : "tab"} onClick={() => setTab("charts")}>
           Charts
@@ -320,7 +346,7 @@ export function MdfBuilderPage() {
                 </div>
               </RequireRole>
             </div>
-            <MdfLinkTable mdfId={mdf.id} links={links ?? []} platformsById={platformsById} />
+            <MdfLinkTable mdfId={mdf.id} links={links ?? []} platformsById={platformsById} pinsFrozen={pinsFrozen} />
           </section>
           {pinningPlatform && (
             <Modal title="Pin a Platform" onClose={() => setPinningPlatform(false)}>
@@ -332,6 +358,8 @@ export function MdfBuilderPage() {
       )}
 
       {tab === "emitters" && <MdfEmittersTable mdfId={mdf.id} mdfName={mdf.name} />}
+      {tab === "plan" && <MdfPlanPanel mdf={mdf} versions={versions ?? []} canEdit={canWrite && !mdf.deleted_at} />}
+      {tab === "timeline" && <MdfTimeline mdfId={mdf.id} versions={versions ?? []} />}
       {tab === "charts" && <MdfCharts mdfId={mdf.id} />}
       {tab === "tests" && <MdfTestHistory mdfId={mdf.id} highlightTestRecordId={highlightTestRecordId} />}
       {tab === "files" && (

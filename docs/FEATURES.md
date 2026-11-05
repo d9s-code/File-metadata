@@ -343,6 +343,33 @@ A **Readiness** checklist heads the Pinned Platforms tab (`GET /mdfs/{id}/readin
 
 The MDF page's **Charts** tab works like a Platform's (layout, zoom and the ambiguity marks included), one level up: **Per Platform** — a line per pinned Platform version covering everything its Emitters do (joined only where ranges overlap); **Per Emitter** — a line per Emitter under a heading for its Platform; **Per Mode** — a line per Mode under its Emitter. Bars are coloured by Platform, or by Emitter once Emitters are shown. It reads each pinned Platform version and the Emitter versions recorded in it (`GET /mdfs/{id}/coverage`).
 
+**Pins not saved.** Pinning or repinning on a Platform (or an MDF) is stored straight away, but only **Save version** makes it part of a version, which is what an MDF pins and what gets exported. Until then, the header shows **● Pins not saved · N changes since vN**. Clicking it lists what changed: pins added, removed, or moved to another version, and, on an MDF, dwell files. It disappears once a version is saved (`GET /platforms/{id}/unsaved`, `GET /mdfs/{id}/unsaved`).
+
+**Released MDFs aren't nagged.** From **Released** onwards in the MDF status order (Deprecated, and any status an Admin places after Released), an MDF's pins stay as they went out. So a newer Platform or Emitter version is no longer flagged on it:
+- no "outdated pin" badge in the header;
+- no **Outdated — vN saved** or Repin beside its Platforms;
+- the Readiness checks "Platform pins up to date" and "Emitter pins up to date" say *Not checked — the MDF is Released*.
+
+Earlier statuses (Draft, Pending review, Approved) are flagged as before.
+
+**Due date and goals.** An MDF can have a **due date**, set when it's created, under ⋯ → Edit details, or on its **Plan** tab. It shows in the header, as "Due 20.11.2026 · in 15 days" (amber within a week, red when overdue, plain once released), and as a sortable **Due** column on the MDFs list with an *overdue* flag. Goals are the MDF's own checklist of what has to be true before it's ready, apart from the status milestones:
+- **Adding.** Editors add goals on the Plan tab.
+- **Reaching.** Ticking a goal asks for an optional note on how it was reached, and records who and when.
+- **Changing.** A goal can be reopened (with a reason), reworded, moved up or down, or removed.
+- **Progress.** It shows as "1/3 goals" with a bar in the header, on the Plan tab's name, and in a sortable **Goals** column on the MDFs list.
+- **Audit.** Every goal change is logged on the MDF (`/mdfs/{id}/goals`).
+
+**Progress log and release notes.** The Plan tab also has:
+- **Progress log.** Dated entries marked **Progress** (where it stands, what's blocking) or **Release** (how it went out). They are added and never edited. The author or an Admin can delete one (`/mdfs/{id}/log`).
+- **Release notes.** One text per saved version, written or corrected at any time after the version is saved, since they're kept apart from its snapshot (`PUT /mdfs/{id}/versions/{n}/release-notes`).
+
+**Timeline and summary.** The **Timeline** tab lists everything that happened to the MDF, newest first, and can be filtered by kind (Versions, Status, Goals, Log, Pins, Due date, Details). It shows:
+- each saved version, with its summary, its release notes and what changed since the one before. That covers Platforms pinned, unpinned or repinned, and for a repinned Platform the Emitters that changed version inside it;
+- status moves, goal events and log entries;
+- pin changes, due-date moves and other edits.
+
+**Summarize…** compares two saved versions. By default it covers everything since the last release (the version that was latest when the MDF last moved to Released) up to the latest. It shows the release notes, what changed, the goals (marking those reached in that stretch), status moves, the log entries and the contents of the later version. **Download release notes (.docx)** gives the same summary as a Word document to send on (`GET /mdfs/{id}/timeline`, `GET /mdfs/{id}/summary`, `GET /mdfs/{id}/summary.docx`).
+
 The MDF page's **Emitters** tab lists every Emitter on the MDF in one sortable table. It works through the Platform versions the MDF pins, exactly as the export takes them. Each row shows:
 
 - the Emitter (a link) and its designation;

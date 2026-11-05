@@ -105,13 +105,39 @@ def mdf_readiness(db: Session, mdf: Mdf) -> list[dict]:
                 )
             )
 
+    from app.services.pinned_changes import pins_frozen
+
+    if pins_frozen(db, mdf.status):
+        # Released (or later): its pins stay as they went out, so newer versions aren't a warning.
+        kept = f"Not checked — the MDF is {statuses.label(db, 'mdf', mdf.status)}, so its pins stay as released."
+        checks.append(_item("platform_pins", "Platform pins up to date", "ok", kept))
+        checks.append(_item("emitter_pins", "Emitter pins up to date", "ok", kept))
+    else:
+        checks.extend(_pin_freshness(db, links, emitter_pins))
+
+    if not emitters:
+        none = "No Emitters in the pinned Platform versions."
+        checks.append(_item("operational", "Emitters Operational", "warn", none))
+        checks.append(_item("simulation", "Latest Simulation Tests passed", "warn", none))
+    else:
+        checks.extend(_emitter_checks(db, emitters))
+
+    checks.append(_dwell_check(db, mdf, latest_mdf))
+    _ambiguity_and_mdf_test(db, mdf, latest_mdf, checks)
+    return checks
+
+
+def _pin_freshness(db: Session, links: list, emitter_pins: list[tuple[str, dict]]) -> list[dict]:
+    """Whether the pinned Platform versions, and the Emitter versions inside
+    them, are each at their latest saved version."""
+    items: list[dict] = []
     latest_p = latest_platform_versions(db, [link.platform_id for link in links])
     outdated_p = [
         f"{link.platform.name}: v{link.platform_version.version_number} pinned, v{latest_p[link.platform_id][0]} saved"
         for link in links
         if link.platform_id in latest_p and latest_p[link.platform_id][0] > link.platform_version.version_number
     ]
-    checks.append(
+    items.append(
         _item(
             "platform_pins",
             "Platform pins up to date",
@@ -129,7 +155,7 @@ def mdf_readiness(db: Session, mdf: Mdf) -> list[dict]:
             outdated_e.append(
                 f"{platform_name} → {pl['emitter_name']}: v{pl['emitter_version_number']} pinned, v{latest[0]} saved"
             )
-    checks.append(
+    items.append(
         _item(
             "emitter_pins",
             "Emitter pins up to date",
@@ -140,17 +166,7 @@ def mdf_readiness(db: Session, mdf: Mdf) -> list[dict]:
             outdated_e,
         )
     )
-
-    if not emitters:
-        none = "No Emitters in the pinned Platform versions."
-        checks.append(_item("operational", "Emitters Operational", "warn", none))
-        checks.append(_item("simulation", "Latest Simulation Tests passed", "warn", none))
-    else:
-        checks.extend(_emitter_checks(db, emitters))
-
-    checks.append(_dwell_check(db, mdf, latest_mdf))
-    _ambiguity_and_mdf_test(db, mdf, latest_mdf, checks)
-    return checks
+    return items
 
 
 def _dwell_check(db: Session, mdf: Mdf, latest_mdf) -> dict:

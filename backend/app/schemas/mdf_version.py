@@ -14,6 +14,8 @@ class MdfVersionOut(BaseModel):
     created_by: UUID | None = None
     created_at: datetime
     created_by_username: str | None = None
+    release_notes: str | None = None
+    release_notes_updated_at: datetime | None = None
 
 
 class MdfVersionDetailOut(MdfVersionOut):
