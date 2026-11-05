@@ -7769,3 +7769,17 @@ button.meta-chip:hover:not(:disabled) { color: var(--text); }
 .data-table tr.row-open > td { border-bottom-color: transparent; }
 .data-table tr.row-detail > td { background: var(--hover-bg); padding-top: 0.25rem; padding-bottom: 0.75rem; }
 .data-table tr.row-detail .data-table { margin: 0; background: var(--card-bg); }
+/* "On 2 Platforms · 1 behind" in an Emitter's header — a chip, not a filled button. */
+button.emitter-pins-chip {
+  cursor: pointer;
+  background: var(--card-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+button.emitter-pins-chip.behind {
+  background: var(--badge-amber-bg);
+  color: var(--badge-amber-fg);
+  border-color: var(--badge-amber-fg);
+}
+button.emitter-pins-chip:hover { filter: brightness(0.97); }
+.emitter-pins-chip .pins-behind { font-weight: 600; }

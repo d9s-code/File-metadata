@@ -14,6 +14,7 @@ class PlatformVersionOut(BaseModel):
     version_label: str
     major: int
     minor: int
+    emitter_count: int = 0
     change_summary: str | None = None
     created_by: UUID | None = None
     created_at: datetime

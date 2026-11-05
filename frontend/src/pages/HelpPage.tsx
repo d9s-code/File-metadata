@@ -1058,6 +1058,13 @@ export function HelpPage() {
             status now.
           </p>
           <p>
+            <strong>From Emitter to MDF.</strong> Save the Emitter, pin it on a Platform and save the Platform, then
+            pin that Platform version on an MDF (<strong>+ Pin Platform</strong> offers its latest saved version) and
+            save the MDF. When the Emitter changes and is saved again, its header says{" "}
+            <strong>On N Platforms · 1 behind</strong> — open it to go to the Platform and repin. A Platform or
+            MDF&apos;s <strong>Audit</strong> tab lists its pins and repins as well as its saves.
+          </p>
+          <p>
             <strong>Minor Platform versions.</strong> Repinning an Emitter that&apos;s in a Platform&apos;s saved
             version (Repin to vN, Pin another version, Repin all) saves the Platform&apos;s next minor version by
             itself — v3 → v3.1 → v3.2 — with just those pins moved, so an MDF can pin it straight away. Adding or

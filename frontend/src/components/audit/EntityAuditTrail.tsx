@@ -27,13 +27,12 @@ export function EntityAuditTrail({
   const [offset, setOffset] = useState(0);
   const rollup = !!emitterId;
   const { data: kindCounts } = useAuditEntityTypeCounts(emitterId, rollup);
-  const { data: actionCounts } = useAuditActionCounts(
-    rollup ? undefined : entityType,
-    rollup ? undefined : entityId,
-    emitterId,
-  );
+  // A Platform's or an MDF's trail is everything filed under its id — its own
+  // entries and its pins (filed as platform_link / mdf_link). Ids are unique.
+  void entityType;
+  const { data: actionCounts } = useAuditActionCounts(undefined, rollup ? undefined : entityId, emitterId);
   const { data, isLoading } = useAuditLog({
-    entity_type: rollup ? kind || undefined : entityType,
+    entity_type: rollup ? kind || undefined : undefined,
     entity_id: rollup ? undefined : entityId,
     emitter_id: emitterId,
     action: action || undefined,
@@ -90,13 +89,16 @@ export function EntityAuditTrail({
               </option>
             ))}
         </select>
-        <ParameterSelect
-          value={parameter}
-          onChange={(value) => {
-            setParameter(value);
-            setOffset(0);
-          }}
-        />
+        {rollup && (
+          // Mode parameters: only an Emitter's trail has them.
+          <ParameterSelect
+            value={parameter}
+            onChange={(value) => {
+              setParameter(value);
+              setOffset(0);
+            }}
+          />
+        )}
       </div>
       {isLoading ? (
         <p className="page-loading">Loading…</p>

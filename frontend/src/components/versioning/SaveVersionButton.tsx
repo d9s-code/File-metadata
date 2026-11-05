@@ -9,6 +9,14 @@ import { RequireRole } from "../../auth/RequireAuth";
  * Emitter's: it saves the current state as a new, permanent version with a
  * summary of what changed. (Platforms and MDFs have no editing session to
  * end, so that's all it does.) */
+/** What a saved version is for, by what's being saved. */
+const WHAT_IT_IS_FOR: Record<string, string> = {
+  MDF: "it's what gets exported",
+  Platform: "it's what an MDF pins and what gets exported",
+  "dwell file": "it's what an MDF pins and writes into its export",
+  Strategy: "it's what a dwell file pins",
+};
+
 export function SaveVersionButton({
   noun,
   save,
@@ -44,7 +52,7 @@ export function SaveVersionButton({
         <Modal title="Save version" onClose={() => setOpen(false)} wide>
           <p className="hint-text">
             Saving creates a new, permanent version of this {noun} — it shows up in Version History with your summary
-            below, and can be pinned and exported.
+            below, and {WHAT_IT_IS_FOR[noun] ?? "can be pinned and exported"}.
           </p>
           <label>
             What changed? (optional)

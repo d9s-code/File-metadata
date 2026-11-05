@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.enums import TestResult
 from app.models.emitter import Emitter
+from app.models.emitter_version import EmitterVersion
 from app.models.ew_group import EwGroup
 from app.models.mode import Mode, ModeLine
 from app.models.platform import Platform, PlatformEmitterLink
@@ -156,14 +157,15 @@ def _platforms_by_emitter(db: Session, emitter_ids: list[UUID]) -> dict[UUID, li
     if not emitter_ids:
         return {}
     rows = (
-        db.query(PlatformEmitterLink.emitter_id, Platform.id, Platform.name)
+        db.query(PlatformEmitterLink.emitter_id, Platform.id, Platform.name, EmitterVersion.version_number)
         .join(Platform, Platform.id == PlatformEmitterLink.platform_id)
+        .outerjoin(EmitterVersion, EmitterVersion.id == PlatformEmitterLink.emitter_version_id)
         .filter(PlatformEmitterLink.emitter_id.in_(emitter_ids), Platform.is_deleted.is_(False))
         .distinct()
         .order_by(Platform.name)
         .all()
     )
     out: dict[UUID, list[EmitterPlatformRef]] = {}
-    for emitter_id, platform_id, name in rows:
-        out.setdefault(emitter_id, []).append(EmitterPlatformRef(id=platform_id, name=name))
+    for emitter_id, platform_id, name, number in rows:
+        out.setdefault(emitter_id, []).append(EmitterPlatformRef(id=platform_id, name=name, pinned_version_number=number))
     return out

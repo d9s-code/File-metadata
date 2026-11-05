@@ -1,7 +1,7 @@
 import { api } from "./client";
 import type { DiffResult, VersionSummary } from "../types/versioning";
 
-export type PlatformVersionSummary = VersionSummary & { platform_id: string };
+export type PlatformVersionSummary = VersionSummary & { platform_id: string; emitter_count?: number };
 
 export const platformVersionsApi = {
   list: (platformId: string) => api.get<PlatformVersionSummary[]>(`/platforms/${platformId}/versions`),

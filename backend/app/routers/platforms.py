@@ -86,17 +86,8 @@ def create_platform(
     platform = Platform(name=payload.name, description=payload.description, created_by=user.id)
     db.add(platform)
     db.flush()
-
-    # Automatically commit the initial version
-    snapshot = build_platform_snapshot(platform)
-    commit_version(
-        db,
-        spec=_VERSION_SPEC,
-        entity_id=platform.id,
-        snapshot=snapshot,
-        change_summary="Initial platform creation",
-        created_by=user.id,
-    )
+    # No version yet — like an Emitter or an MDF, its first is saved once it
+    # pins something (an empty v1 was only ever pinned by mistake).
 
     record_audit(
         db,
@@ -408,23 +399,27 @@ def commit_platform_version(
 ) -> PlatformVersion:
     platform = _get_platform_or_404(db, platform_id)
     snapshot = build_platform_snapshot(platform)
-    record_audit(
-        db,
-        actor_id=user.id,
-        action=AuditAction.commit,
-        entity_type=AuditEntityType.platform.value,
-        entity_id=platform.id,
-        summary=f"Committed a version of Platform '{platform.name}'"
-        + (f" — {payload.change_summary}" if payload.change_summary else ""),
-    )
-    return commit_version(
+    version = commit_version(
         db,
         spec=_VERSION_SPEC,
         entity_id=platform.id,
         snapshot=snapshot,
         change_summary=payload.change_summary,
         created_by=user.id,
+        commit=False,
     )
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.commit,
+        entity_type=AuditEntityType.platform.value,
+        entity_id=platform.id,
+        summary=f"Saved Platform '{platform.name}' v{version.version_label}"
+        + (f" — {payload.change_summary}" if payload.change_summary else ""),
+    )
+    db.commit()
+    db.refresh(version)
+    return version
 
 
 @router.post("/{platform_id}/status", response_model=PlatformOut, dependencies=[Depends(verify_csrf)])

@@ -124,7 +124,7 @@ export interface Emitter {
   last_tested_test_record_id: string | null;
   sim_created_date: string | null;
   /** The Platforms it's pinned on, by name. */
-  platforms: { id: string; name: string }[];
+  platforms: { id: string; name: string; pinned_version_number?: number | null }[];
 }
 
 export interface EwGroup {

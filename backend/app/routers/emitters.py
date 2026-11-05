@@ -907,7 +907,7 @@ def commit_emitter_version(
         action=AuditAction.commit,
         entity_type=AuditEntityType.emitter.value,
         entity_id=emitter.id,
-        summary=f"Committed a version of Emitter '{emitter.name}'"
+        summary=f"Saved Emitter '{emitter.name}' v{_next_version_number(db, emitter.id)}"
         + (f" — {payload.change_summary}" if payload.change_summary else ""),
         changes={"version_number": _next_version_number(db, emitter.id)},
         emitter_id=emitter.id,

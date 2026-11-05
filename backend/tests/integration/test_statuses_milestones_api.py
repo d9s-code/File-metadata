@@ -169,7 +169,7 @@ def test_platform_status_and_milestones(admin_client):
     admin_client.post(f"/platforms/{platform['id']}/versions", json={"change_summary": "v1"})
     admin_client.post(f"/platforms/{platform['id']}/status", json={"new_status": "draft"})
     versions = admin_client.get(f"/platforms/{platform['id']}/versions").json()
-    assert [v["change_summary"] for v in versions] == ["Initial platform creation", "v1"]
+    assert [v["change_summary"] for v in versions] == ["v1"]
     assert _last_status_summary(admin_client, "platform", platform["id"]) == "Status: Testing → In progress"
 
 

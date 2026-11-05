@@ -8,10 +8,20 @@ function formatValue(value: unknown): string {
   return String(value);
 }
 
-/** "Mode 'Search 1'" → ["Mode", "Search 1"]; "Emitter" → ["Emitter", null]. */
-function splitScope(scope: string): [string, string | null] {
-  const m = scope.match(/^(.*?) '(.*)'$/);
-  return m ? [m[1], m[2]] : [scope, null];
+/** "Mode 'Search 1'" → ["Mode", "Search 1", null]; "Emitter" → ["Emitter", null, null];
+ * "Platform 'Ship' → Emitter 'Radar'" → ["Emitter", "Radar", "in Platform Ship"]. */
+function splitScope(scope: string): [string, string | null, string | null] {
+  const parts = scope.split(" → ");
+  const one = (s: string): [string, string | null] => {
+    const m = s.match(/^(.*?) '(.*)'$/);
+    return m ? [m[1], m[2]] : [s, null];
+  };
+  const [kind, name] = one(parts[parts.length - 1]);
+  const within = parts
+    .slice(0, -1)
+    .map((p) => one(p).filter(Boolean).join(" "))
+    .join(" › ");
+  return [kind, name, within ? `in ${within}` : null];
 }
 
 function groupByScope(entries: EmitterDiffEntry[]): [string, EmitterDiffEntry[]][] {
@@ -50,7 +60,7 @@ export function EmitterDiffViewer({ diff }: { diff: EmitterDiffResult }) {
   return (
     <div className="change-list">
       {groupByScope(diff.entries).map(([scope, entries]) => {
-        const [kind, name] = splitScope(scope);
+        const [kind, name, within] = splitScope(scope);
         const whole = entries.find((e) => e.kind !== "changed");
         const fields = entries.filter((e) => e.kind === "changed");
         return (
@@ -58,6 +68,7 @@ export function EmitterDiffViewer({ diff }: { diff: EmitterDiffResult }) {
             <div className="change-group-head">
               <span className="change-item-kind">{kind}</span>
               {name && <strong className="change-item-name">{name}</strong>}
+              {within && <span className="hint-text change-item-within">{within}</span>}
               {whole && <span className={`change-badge ${whole.kind}`}>{whole.label}</span>}
             </div>
             {whole && formatValue(whole.kind === "added" ? whole.new_value : whole.old_value) !== "—" && (

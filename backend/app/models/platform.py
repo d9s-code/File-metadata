@@ -105,5 +105,10 @@ class PlatformVersion(UUIDPkMixin, Base):
         return self.creator.username if self.creator else None
 
     @property
+    def emitter_count(self) -> int:
+        """How many Emitters the version pins."""
+        return len((self.snapshot or {}).get("links") or [])
+
+    @property
     def version_label(self) -> str:
         return platform_version_label(self.major or self.version_number, self.minor)

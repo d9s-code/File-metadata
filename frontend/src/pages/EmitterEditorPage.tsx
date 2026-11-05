@@ -30,6 +30,9 @@ import { AssigneeControl } from "../components/tasks/AssigneeControl";
 import { TasksButton } from "../components/tasks/TasksButton";
 import { MilestonesButton } from "../components/status/MilestonesButton";
 import { DuplicateEmitterModal } from "../components/emitters/DuplicateEmitterModal";
+import { EmitterPinsChip } from "../components/emitters/EmitterPinsChip";
+import { LatestVersion } from "../components/versioning/SaveVersionButton";
+import { useEmitterVersions } from "../state/hooks/useEmitterVersions";
 
 type Tab = "modes" | "setup" | "intercepts" | "tests" | "files" | "audit";
 const TABS: readonly Tab[] = ["modes", "setup", "intercepts", "tests", "files", "audit"];
@@ -78,6 +81,7 @@ export function EmitterEditorPage() {
   // moment they finish adding the first EW Group/Source.
   const [showReworkNote, setShowReworkNote] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
+  const { data: versions } = useEmitterVersions(emitterId ?? "");
   const [notesOpen, setNotesOpen] = useNotesDrawerOpen();
   const [showChanges, setShowChanges] = useState(false);
   const autoOpenDecided = useRef(false);
@@ -171,6 +175,11 @@ export function EmitterEditorPage() {
         status={
           <>
             <StatusTransitionControls emitterId={emitter.id} status={emitter.status} />
+            <LatestVersion versions={versions} />
+            <EmitterPinsChip
+              platforms={emitter.platforms ?? []}
+              latestVersion={versions?.length ? versions[versions.length - 1].version_number : null}
+            />
             {emitter.status === "deprecated" && emitter.rework_note && (
               <button className="rework-note-button" onClick={() => setShowReworkNote(true)}>
                 ⚠ Rework note

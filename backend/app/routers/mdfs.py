@@ -29,7 +29,7 @@ from app.services.platform_minor import version_labels
 from app.services.pin_hygiene import latest_platform_versions, mdf_readiness
 from app.services.readiness_service import compute_mdf_readiness_warnings
 from app.services.snapshots import build_mdf_snapshot
-from app.services.pinned_diff_service import compute_pinned_diff, dwell_file_entries
+from app.services.pinned_changes import mdf_change_summary
 from app.services.versioning_service import VersionSpec, commit_version, diff_versions, get_version, list_versions
 from app.xml_export.serializer import serialize_mdf_snapshot_to_xml
 
@@ -453,18 +453,27 @@ def commit_mdf_version(
     # Its dwell files go in at the versions it pins (saving a dwell file, and
     # repinning it, is done on the file — it may be shared with other MDFs).
     snapshot = build_mdf_snapshot(mdf)
+    version = commit_version(
+        db,
+        spec=_VERSION_SPEC,
+        entity_id=mdf.id,
+        snapshot=snapshot,
+        change_summary=payload.change_summary,
+        created_by=user.id,
+        commit=False,
+    )
     record_audit(
         db,
         actor_id=user.id,
         action=AuditAction.commit,
         entity_type=AuditEntityType.mdf.value,
         entity_id=mdf.id,
-        summary=f"Committed a version of MDF '{mdf.name}'"
+        summary=f"Saved MDF '{mdf.name}' v{version.version_number}"
         + (f" — {payload.change_summary}" if payload.change_summary else ""),
     )
-    return commit_version(
-        db, spec=_VERSION_SPEC, entity_id=mdf.id, snapshot=snapshot, change_summary=payload.change_summary, created_by=user.id
-    )
+    db.commit()
+    db.refresh(version)
+    return version
 
 
 @router.get("/{mdf_id}/versions", response_model=list[MdfVersionOut])
@@ -502,9 +511,9 @@ def diff_mdf_version(
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     old = get_version(db, spec=_VERSION_SPEC, entity_id=mdf_id, version_number=from_version)
     new = get_version(db, spec=_VERSION_SPEC, entity_id=mdf_id, version_number=version_number)
-    entries = compute_pinned_diff(
-        old.snapshot, new.snapshot, own="MDF", child="platform", status_labels=statuses.labels(db, "mdf")
-    ) + dwell_file_entries(old.snapshot, new.snapshot)
+    # Platforms pinned, unpinned or repinned — and, inside a repinned one, the
+    # Emitters that moved — and its dwell files.
+    entries = mdf_change_summary(db, old.snapshot, new.snapshot)
     return DiffOut(**result, entries=entries)
 
 

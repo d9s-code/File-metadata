@@ -64,6 +64,8 @@ class EmitterPlatformRef(BaseModel):
 
     id: UUID
     name: str
+    # The version of the Emitter that Platform pins.
+    pinned_version_number: int | None = None
 
 
 class EmitterOut(BaseModel):
