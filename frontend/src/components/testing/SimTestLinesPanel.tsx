@@ -256,7 +256,7 @@ export function SimTestLinesPanel({ emitterId, lines }: { emitterId: string; lin
     <div className="card sim-test-lines-panel">
       <div className="sim-test-lines-header">
         <button type="button" className="link-button section-toggle" onClick={toggleCollapsed} aria-expanded={!collapsed}>
-          {collapsed ? "▸" : "▾"} <h4>SIM Test Lines</h4>{" "}
+          {collapsed ? "▸" : "▾"} <h2 className="as-h4">SIM Test Lines</h2>{" "}
           <span className="hint-text section-count">{lines.length}</span>
         </button>
         {lines.length > 0 && (

@@ -27,9 +27,9 @@ export function MyWorkCard() {
     <div className="card dashboard-full my-work">
       <div className="my-work-grid">
         <section>
-          <h4>
+          <h2 className="as-h4">
             <Link to="/tasks">My tasks</Link> <span className="section-count">{work.tasks.length}</span>
-          </h4>
+          </h2>
           {work.tasks.length === 0 ? (
             <p className="hint-text">Nothing on your list.</p>
           ) : (
@@ -48,9 +48,9 @@ export function MyWorkCard() {
         </section>
 
         <section>
-          <h4>
+          <h2 className="as-h4">
             <Link to="/emitters">Assigned to me</Link> <span className="section-count">{work.emitters.length}</span>
-          </h4>
+          </h2>
           {work.emitters.length === 0 ? (
             <p className="hint-text">No Emitters are assigned to you. Assign one from its page.</p>
           ) : (
@@ -79,9 +79,9 @@ export function MyWorkCard() {
         </section>
 
         <section>
-          <h4>
+          <h2 className="as-h4">
             Editing now <span className="section-count">{editing.length}</span>
-          </h4>
+          </h2>
           {editing.length === 0 ? (
             <p className="hint-text">You aren&apos;t editing any Emitters.</p>
           ) : (

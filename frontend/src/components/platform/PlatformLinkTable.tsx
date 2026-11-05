@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { Icon } from "../common/Icon";
 import { MenuButton } from "../common/MenuButton";
 import { formatDateTime } from "../common/dates";
 import { isOutdatedPin, type PlatformLink } from "../../api/platforms";
@@ -96,7 +97,7 @@ function EmitterProgress({ emitter }: { emitter: Emitter | undefined }) {
           aria-label={`Being edited by ${emitter.checked_out_by_username}`}
         >
           {" "}
-          ✎
+          <Icon name="edit" />
         </span>
       )}
       {s.sim_lines > 0 && (

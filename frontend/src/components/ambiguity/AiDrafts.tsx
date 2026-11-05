@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from "react";
+import { Icon } from "../common/Icon";
 import { formatDateTime } from "../common/dates";
 import type { AiSource, AiStamp, AmbiguityFinding, AmbiguityRun } from "../../api/ambiguity";
 import { ApiRequestError } from "../../api/client";
@@ -88,7 +89,7 @@ function SourcesList({ stamp }: { stamp: AiStamp }) {
       )}
       {(stamp.unknown_citations ?? []).length > 0 && (
         <p className="ai-draft-warning" role="note">
-          ⚠ Cites <strong>{stamp.unknown_citations!.join(", ")}</strong>, which it wasn&apos;t given — treat what it
+          <Icon name="alert" /> Cites <strong>{stamp.unknown_citations!.join(", ")}</strong>, which it wasn&apos;t given — treat what it
           says there as unsupported.
         </p>
       )}
@@ -148,7 +149,7 @@ function DraftFrame({
       </div>
       {stamp.unverified_numbers.length > 0 && (
         <p className="ai-draft-warning" role="note">
-          ⚠ Not in the data it was given — check before relying on:{" "}
+          <Icon name="alert" /> Not in the data it was given — check before relying on:{" "}
           <strong>{stamp.unverified_numbers.join(", ")}</strong>
         </p>
       )}
@@ -245,7 +246,7 @@ export function AiRunSummary({
 
   return (
     <div className="card">
-      <h4>AI overview</h4>
+      <h2 className="as-h4">AI overview</h2>
       <DocumentationLine />
       {!ai ? (
         <div className="ai-ask">

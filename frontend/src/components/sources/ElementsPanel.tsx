@@ -287,9 +287,9 @@ export function ElementsPanel({
                       backgroundColor: hoveredGroups.has(type) ? (document.documentElement.getAttribute('data-theme') === 'dark' ? 'rgba(110, 168, 254, 0.25)' : 'rgba(110, 168, 254, 0.2)') : 'transparent'
                     }}
                   >
-                    <h5 className={`uppercase text-sm font-semibold pointer-events-none ${hoveredGroups.has(type) ? 'text-blue-700 dark:text-blue-300' : 'text-gray-500'}`}>
+                    <h3 className={`as-h5 uppercase text-sm font-semibold pointer-events-none ${hoveredGroups.has(type) ? 'text-blue-700 dark:text-blue-300' : 'text-gray-500'}`}>
                       {type.toUpperCase()} elements
-                    </h5>
+                    </h3>
                     <svg 
                       className={`transition-transform duration-200 pointer-events-none ${isCollapsed ? "-rotate-90" : ""}`} 
                       style={{ width: '12px', height: '12px' }}

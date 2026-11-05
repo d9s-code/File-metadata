@@ -77,7 +77,7 @@ export function InterceptSignalsEditor({
   return (
     <div className="intercept-signals">
       <div className="intercept-signals-head">
-        <h4>Signals not tied to a Mode ({signals.length})</h4>
+        <h2 className="as-h4">Signals not tied to a Mode ({signals.length})</h2>
         <button type="button" className="secondary" onClick={() => onChange([...signals, blankSignal()])}>
           + Add signal
         </button>

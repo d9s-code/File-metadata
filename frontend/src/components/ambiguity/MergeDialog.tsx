@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Icon } from "../common/Icon";
 import { Link } from "react-router-dom";
 import type { AmbiguityFinding, MergeSpans } from "../../api/ambiguity";
 import { ApiRequestError } from "../../api/client";
@@ -160,7 +161,7 @@ export function MergeDialog({ finding, runId, onClose }: { finding: AmbiguityFin
                       disabled={checkout.isPending}
                       onClick={() => checkout.mutate(undefined, { onSuccess: () => void preview.refetch() })}
                     >
-                      ✎ Start editing {plan.emitter.name}
+                      <Icon name="edit" /> Start editing {plan.emitter.name}
                     </button>
                   </>
                 )}

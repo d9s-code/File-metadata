@@ -173,7 +173,7 @@ export function RecheckIntercepts({
 
   return (
     <div className="card recheck-intercepts">
-      <h4>
+      <h2 className="as-h4">
         Logged intercepts against the Modes now{" "}
         <InfoTip label="About this check">
           Each set of parameters logged in this run — on SIM lines, Mode results and signals — matched against the
@@ -186,7 +186,7 @@ export function RecheckIntercepts({
           stagger&apos;s frame time and steps are both its PRI). Beside it, what the system reported during the test,
           so you can see what the Modes changed since.
         </InfoTip>
-      </h4>
+      </h2>
       <p className="hint-text">
         {versionTested != null ? `v${versionTested} was tested; ` : ""}these are the Emitter&apos;s current Modes
         {modes.length === 0 ? " — it has none, so nothing would match." : "."}

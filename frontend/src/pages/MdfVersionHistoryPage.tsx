@@ -47,7 +47,7 @@ export function MdfVersionHistoryPage() {
 
       <div className="version-history-layout">
         <div className="card">
-          <h4>Versions</h4>
+          <h2 className="as-h4">Versions</h2>
           <VersionList
             versions={versions ?? []}
             selected={selected}

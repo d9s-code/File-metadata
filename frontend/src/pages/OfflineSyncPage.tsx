@@ -165,7 +165,7 @@ export function OfflineSyncPage() {
 
       <div className="offline-grid">
         <section className="card">
-          <h4>This PC</h4>
+          <h2 className="as-h4">This PC</h2>
           <dl className="offline-facts">
             <dt>Copy fetched</dt>
             <dd>
@@ -182,7 +182,7 @@ export function OfflineSyncPage() {
         </section>
 
         <section className="card">
-          <h4>Server</h4>
+          <h2 className="as-h4">Server</h2>
           {connected ? (
             <>
               <p>
@@ -225,9 +225,9 @@ export function OfflineSyncPage() {
 
       <section className="card">
         <div className="card-header">
-          <h4>
+          <h2 className="as-h4">
             Changes on this PC <span className="hint-text">{changes ? changes.total : ""}</span>
-          </h4>
+          </h2>
           {connected && canSync && (
             <div className="section-actions">
               <button className="button secondary small" disabled={!!busy} onClick={() => void check()}>
@@ -265,7 +265,7 @@ export function OfflineSyncPage() {
 
       {preview && (
         <section className="card">
-          <h4>Syncing would</h4>
+          <h2 className="as-h4">Syncing would</h2>
           <p>
             Put {count(preview.summary)} on the server
             {conflicted.length > 0 &&
@@ -315,9 +315,9 @@ function ConflictGroup({
   return (
     <div className="card sync-conflict">
       <div className="card-header">
-        <h4>
+        <h2 className="as-h4">
           <span className="hint-text">{group.kind}</span> {group.label}
-        </h4>
+        </h2>
         <div className="sync-choice" role="radiogroup" aria-label={`Which to keep for ${group.label}`}>
           <label>
             <input type="radio" checked={choice === "server"} onChange={() => onChoose("server")} /> Keep the server&apos;s

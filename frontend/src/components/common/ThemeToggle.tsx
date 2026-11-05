@@ -1,9 +1,10 @@
 import { useTheme, type Theme } from "../../theme/ThemeContext";
+import { Icon, type IconName } from "./Icon";
 
-const OPTIONS: { value: Theme; label: string; title: string }[] = [
-  { value: "light", label: "☀︎", title: "Light" },
-  { value: "system", label: "◐", title: "Match system" },
-  { value: "dark", label: "☾", title: "Dark" },
+const OPTIONS: { value: Theme; icon: IconName; title: string }[] = [
+  { value: "light", icon: "sun", title: "Light" },
+  { value: "system", icon: "system", title: "Match system" },
+  { value: "dark", icon: "moon", title: "Dark" },
 ];
 
 export function ThemeToggle() {
@@ -21,7 +22,7 @@ export function ThemeToggle() {
           className={theme === opt.value ? "active" : ""}
           onClick={() => setTheme(opt.value)}
         >
-          {opt.label}
+          <Icon name={opt.icon} />
         </button>
       ))}
     </div>

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Icon } from "../common/Icon";
 import type { ToleranceConfig } from "../../api/ambiguity";
 import { useAuth } from "../../auth/AuthContext";
 import { SeverityBadge } from "./SeverityBadge";
@@ -67,7 +68,12 @@ export function RunControls({
           onClick={() => setEditing(true)}
           title={`Severity: low under ${t.low_threshold}%, high from ${t.high_threshold}%, exact from ${t.exact_threshold}%${editable ? " — click to change" : ""}`}
         >
-          Thresholds {t.low_threshold} / {t.high_threshold} / {t.exact_threshold} %{editable ? " ✎" : ""}
+          Thresholds {t.low_threshold} / {t.high_threshold} / {t.exact_threshold} %{editable && (
+            <>
+              {" "}
+              <Icon name="edit" />
+            </>
+          )}
         </button>
       )}
     </div>

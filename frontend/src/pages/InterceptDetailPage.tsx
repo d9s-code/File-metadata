@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { Icon } from "../components/common/Icon";
 import { BackLink } from "../components/common/BackLink";
 import { formatDate } from "../components/common/dates";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -695,7 +696,7 @@ export function InterceptDetailPage() {
                   onClick={() => checkout.mutate()}
                   title="Turning it into a Source adds it to the Emitter, which has to be checked out"
                 >
-                  ✎ Start editing {emitter.name} to turn it into a Source
+                  <Icon name="edit" /> Start editing {emitter.name} to turn it into a Source
                 </button>
               )}
             </>
@@ -794,9 +795,9 @@ export function InterceptDetailPage() {
               </button>
             </div>
           ) : (
-            <h4>
+            <h2 className="as-h4">
               Entries <span className="section-count">{entries?.length ?? 0}</span>
-            </h4>
+            </h2>
           )}
           <span className="section-actions">
             {canWrite && hasReports && (

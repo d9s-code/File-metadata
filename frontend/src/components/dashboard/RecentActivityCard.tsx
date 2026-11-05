@@ -18,9 +18,9 @@ export function RecentActivityCard({ wide }: { wide: boolean }) {
   return (
     <div className={wide ? "card dashboard-wide" : "card"}>
       <div className="dashboard-card-header">
-        <h4>
+        <h2 className="as-h4">
           <Link to="/audit-log">Recent Activity</Link>
-        </h4>
+        </h2>
         <label className="inline-label hint-text">
           <input type="checkbox" checked={everything} onChange={(e) => setEverything(e.target.checked)} />
           Sign-ins &amp; edit locks too

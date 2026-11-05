@@ -96,9 +96,9 @@ export function EmitterPairs({
 
   return (
     <div className="emitter-pairs">
-      <h4 title="Each Emitter that could be taken for another, with the Emitters it overlaps — worst first. Overlaps inside one Emitter are its own check's.">
+      <h2 className="as-h4" title="Each Emitter that could be taken for another, with the Emitters it overlaps — worst first. Overlaps inside one Emitter are its own check's.">
         Ambiguous Emitters <span className="hint-text">{emitters.length}</span>
-      </h4>
+      </h2>
       <table className="data-table">
         <thead>
           <tr>
@@ -137,9 +137,9 @@ export function EmitterPairs({
         </tbody>
       </table>
 
-      <h4 title="Every pair of Emitters with Modes that overlap — click one for the Mode pairs behind it">
+      <h2 className="as-h4" title="Every pair of Emitters with Modes that overlap — click one for the Mode pairs behind it">
         Emitter pairs <span className="hint-text">{pairs.length}</span>
-      </h4>
+      </h2>
       <table className="data-table modes-involved">
         <thead>
           <tr>

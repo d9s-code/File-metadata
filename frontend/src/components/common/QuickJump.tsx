@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Icon } from "./Icon";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { searchApi, type SearchHit, type SearchKind } from "../../api/search";
@@ -57,7 +58,7 @@ export function QuickJump() {
         onClick={() => setOpen(true)}
         title="Find an Emitter, Mode, Platform, MDF, Source or Intercept"
       >
-        <span aria-hidden>⌕</span> Search <kbd>{IS_MAC ? "⌘K" : "Ctrl K"}</kbd>
+        <Icon name="search" /> Search <kbd>{IS_MAC ? "⌘K" : "Ctrl K"}</kbd>
       </button>
       {open && <QuickJumpBox onClose={() => setOpen(false)} />}
     </>

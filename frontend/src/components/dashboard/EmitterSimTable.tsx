@@ -50,7 +50,7 @@ export function EmitterSimTable({ rows, counts }: { rows: EmitterSimStatus[]; co
   return (
     <div className="card dashboard-wide">
       <div className="dashboard-card-header">
-        <h4>Simulation validation</h4>
+        <h2 className="as-h4">Simulation validation</h2>
         <div className="dashboard-card-tools">
           <input
             type="search"

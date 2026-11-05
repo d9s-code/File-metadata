@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Icon } from "../common/Icon";
 import { Modal } from "../common/Modal";
 import { emitterVersionsApi } from "../../api/emitterVersions";
 import { EmitterDiffViewer } from "./EmitterDiffViewer";
@@ -46,7 +47,7 @@ export function RevertPreviewDialog({
             </p>
             {data.unsaved_changes > 0 && (
               <p className="error-text">
-                ⚠ {data.unsaved_changes} unsaved change{data.unsaved_changes === 1 ? "" : "s"} since the last saved version{" "}
+                <Icon name="alert" /> {data.unsaved_changes} unsaved change{data.unsaved_changes === 1 ? "" : "s"} since the last saved version{" "}
                 {data.unsaved_changes === 1 ? "is" : "are"} thrown away.
               </p>
             )}

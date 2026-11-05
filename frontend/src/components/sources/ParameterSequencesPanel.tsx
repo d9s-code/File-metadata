@@ -189,10 +189,10 @@ export function ParameterSequencesPanel({ emitterId, sourceId }: { emitterId: st
       {sequences.map((seq) => (
         <div key={seq.id} className="element-group">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h5 style={{ margin: 0 }}>
+            <h3 className="as-h5" style={{ margin: 0 }}>
               {seq.label || "Sequence"}
               {seq.variant && <span className="hint-text"> [{seq.variant.replace("_", " ")}]</span>}
-            </h5>
+            </h3>
             <button
               className="link-button link-button-danger"
               onClick={() => void handleDeleteSequence(seq.id, seq.label || "unnamed")}

@@ -337,7 +337,7 @@ export function InterceptImportPage() {
       />
 
       <section className="card">
-        <h4>1. File</h4>
+        <h2 className="as-h4">1. File</h2>
         {draftOffer && !parsed && (
           <div className="import-draft">
             <span>
@@ -434,7 +434,7 @@ export function InterceptImportPage() {
       {parsed && parsed.reports.length > 0 && (
         <>
           <section className="card">
-            <h4>2. Save to</h4>
+            <h2 className="as-h4">2. Save to</h2>
             <div className="edit-fields">
               <label>
                 Emitter

@@ -271,7 +271,7 @@ export function MdfPlanPanel({
       )}
       <section className="card">
         <div className="card-header">
-          <h4>Due date</h4>
+          <h2 className="as-h4">Due date</h2>
         </div>
         {editingDue ? (
           <form
@@ -319,9 +319,9 @@ export function MdfPlanPanel({
 
       <section className="card">
         <div className="card-header">
-          <h4>
+          <h2 className="as-h4">
             Goals <span className="hint-text">{list.length ? `${doneCount} of ${list.length} reached` : ""}</span>
-          </h4>
+          </h2>
         </div>
         {list.length > 0 && (
           <div className="mdf-goals-progress" aria-hidden>
@@ -380,7 +380,7 @@ export function MdfPlanPanel({
       {summarizing && <SummaryPanel mdfId={mdf.id} versions={versions} onClose={() => setSummarizing(false)} />}
       <section className="card">
         <div className="card-header">
-          <h4>Release notes</h4>
+          <h2 className="as-h4">Release notes</h2>
           <span className="section-actions">
             <span className="hint-text">Per saved version — they go into the release notes document.</span>
             <button
@@ -412,9 +412,9 @@ export function MdfPlanPanel({
 
       <section className="card">
         <div className="card-header">
-          <h4>
+          <h2 className="as-h4">
             Progress log <span className="hint-text">{log?.length ?? 0}</span>
-          </h4>
+          </h2>
           <span className="hint-text">Dated entries on how it's going and how it went out — kept as written.</span>
         </div>
         {canEdit && (

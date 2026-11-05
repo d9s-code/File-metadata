@@ -208,9 +208,9 @@ export function PlatformBuilderPage() {
       {tab === "emitters" && (
         <section className="card">
           <div className="card-header">
-            <h4>
+            <h2 className="as-h4">
               Pinned Emitters <span className="hint-text">{links?.length ?? 0}</span>
-            </h4>
+            </h2>
             <div className="section-actions">
             {outdatedPins > 0 && (
               <span className="hint-text">

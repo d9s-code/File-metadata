@@ -23,9 +23,9 @@ export function EmitterIntercepts({ emitterId }: { emitterId: string }) {
   return (
     <section className="card">
       <div className="card-header">
-        <h4>
+        <h2 className="as-h4">
           Intercepts <span className="section-count">{intercepts?.length ?? 0}</span>
-        </h4>
+        </h2>
         <RequireRole minimum="editor">
           <span className="section-actions">
             <Link className="button secondary small" to={`/intercepts/import?emitter=${emitterId}`}>

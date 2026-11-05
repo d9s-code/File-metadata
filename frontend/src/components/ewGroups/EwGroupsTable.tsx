@@ -57,7 +57,7 @@ export function EwGroupsTable({ emitterId, ewGroups }: { emitterId: string; ewGr
   return (
     <section className="card">
       <div className="card-header">
-        <h4>EW Groups</h4>
+        <h2 className="as-h4">EW Groups</h2>
         <RequireRole minimum="editor">
           <button
             className="button secondary small"

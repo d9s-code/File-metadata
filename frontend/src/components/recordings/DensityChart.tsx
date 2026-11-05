@@ -140,7 +140,7 @@ export function DensityChart({
   return (
     <div className="viz-card viz-card-wide recording-chart">
       <div className="viz-card-header">
-        <h4>{values ? `${title} over time` : "Reports over time"}</h4>
+        <h2 className="as-h4">{values ? `${title} over time` : "Reports over time"}</h2>
         <span className="hint-text">{readout ?? (values ? "Drag a box to snip to it" : "Drag across to snip to that time")}</span>
       </div>
       <div

@@ -694,7 +694,7 @@ export function CartesianProductButton({
 
   return (
     <div className="card cartesian-panel">
-      <h5>Cartesian Product</h5>
+      <h3 className="as-h5">Cartesian Product</h3>
       <p className="hint-text">
         Choose RF, PRI, and PW elements to combine — every combination becomes a new Mode.
         {!canEdit && " Start editing this Emitter to use it."}

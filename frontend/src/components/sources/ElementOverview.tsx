@@ -139,7 +139,7 @@ export function ElementOverview({ emitterId, ewGroups }: { emitterId: string; ew
   return (
     <div className="card element-overview">
       <div className="card-header-row">
-        <h4>
+        <h2 className="as-h4">
           All Sources{" "}
           <span className="hint-text">
             {!rows ? "" : rows.length === 0 ? "— no Elements in any Source yet" : `${rows.length} distinct Elements from ${sources.length} Sources`}
@@ -149,7 +149,7 @@ export function ElementOverview({ emitterId, ewGroups }: { emitterId: string; ew
             listing each Source. Tick Elements to generate Modes from them: each Mode gets the Sources its Elements were
             found in.
           </InfoTip>
-        </h4>
+        </h2>
         <span className="card-header-actions">
           {canEdit && (rows?.length ?? 0) > 0 && (
             <button

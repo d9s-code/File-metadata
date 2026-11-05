@@ -20,7 +20,7 @@
   --active-bg: #eef2f7;
   --border: #d7dbe0;
   --text: #1a1d21;
-  --muted: #6b7280;
+  --muted: #5f6672; /* ≥4.5:1 on the page, cards and grey badges */
   --primary: #2b5aa0;
   --primary-hover: #1f4278;
   /* Text on a --primary background. */
@@ -210,7 +210,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1, h2, h3, :is(h4, .as-h4), :is(h5, .as-h5), h6 {
   margin: 0 0 0.5rem 0;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -218,8 +218,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 h1 { font-size: 1.6rem; margin-bottom: 0.35rem; }
 h3 { font-size: 1.1rem; }
-h4 { font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); }
-h5 { font-size: 0.85rem; color: var(--muted); }
+:is(h4, .as-h4) { font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); }
+:is(h5, .as-h5) { font-size: 0.85rem; color: var(--muted); }
 
 a {
   color: var(--primary);
@@ -572,7 +572,7 @@ button.start-editing-button:hover:not(:disabled),
   justify-content: space-between;
   margin-bottom: 0.75rem;
 }
-.modal-header h4 {
+.modal-header :is(h4, .as-h4) {
   margin: 0;
 }
 .edit-fields {
@@ -820,7 +820,7 @@ label {
   border-radius: var(--radius-sm);
   padding: 0.6rem 0.75rem;
 }
-.staged-modes-section h5 {
+.staged-modes-section :is(h5, .as-h5) {
   margin: 0;
 }
 
@@ -1077,7 +1077,7 @@ label {
   margin-top: 0;
 }
 .help-content h3,
-.help-content h4 {
+.help-content :is(h4, .as-h4) {
   margin-bottom: 0.35rem;
 }
 .help-subsection {
@@ -1451,11 +1451,11 @@ button.status-badge { border: none; cursor: pointer; font-family: inherit; }
     grid-template-columns: minmax(0, 1fr);
   }
 }
-.lifecycle-card h4 a {
+.lifecycle-card :is(h4, .as-h4) a {
   color: inherit;
   text-decoration: none;
 }
-.lifecycle-card h4 a:hover {
+.lifecycle-card :is(h4, .as-h4) a:hover {
   text-decoration: underline;
 }
 .lifecycle-second {
@@ -1497,7 +1497,7 @@ button.status-badge { border: none; cursor: pointer; font-family: inherit; }
   flex-wrap: wrap;
   margin-bottom: 0.5rem;
 }
-.dashboard-card-header h4 {
+.dashboard-card-header :is(h4, .as-h4) {
   margin: 0;
 }
 .dashboard-card-tools {
@@ -1597,7 +1597,7 @@ button.status-badge { border: none; cursor: pointer; font-family: inherit; }
   gap: 0.75rem;
   margin-bottom: 0.5rem;
 }
-.card-header-row h4 {
+.card-header-row :is(h4, .as-h4) {
   margin-bottom: 0;
 }
 .status-summary-row {
@@ -1994,7 +1994,7 @@ code {
   justify-content: space-between;
   margin-bottom: 0.75rem;
 }
-.modes-section-header h4 {
+.modes-section-header :is(h4, .as-h4) {
   margin: 0;
 }
 
@@ -2104,7 +2104,7 @@ span.test-derived-badge {
 .element-group {
   margin-bottom: 0.75rem;
 }
-.element-group h5 {
+.element-group :is(h5, .as-h5) {
   margin: 0 0 0.35rem 0;
 }
 .element-list {
@@ -2686,7 +2686,7 @@ a.link-as-button.accent-button:hover {
   gap: 1rem;
   margin-bottom: 0.5rem;
 }
-.section-header-row h5 {
+.section-header-row :is(h5, .as-h5) {
   margin: 0;
 }
 
@@ -2718,8 +2718,8 @@ a.link-as-button.accent-button:hover {
   color: var(--text);
   text-decoration: none;
 }
-.section-toggle h4,
-.section-toggle h5 {
+.section-toggle :is(h4, .as-h4),
+.section-toggle :is(h5, .as-h5) {
   margin: 0;
 }
 
@@ -3273,7 +3273,7 @@ a.button {
   flex-wrap: wrap;
   margin-bottom: 0.6rem;
 }
-.card-header h4 {
+.card-header :is(h4, .as-h4) {
   margin: 0;
 }
 .empty-state-compact {
@@ -4475,13 +4475,13 @@ label.map-axis select { font-size: 0.8rem; padding: 0.1rem 0.3rem; }
   gap: 1rem;
   flex-wrap: wrap;
 }
-.backup-status-head h4 {
+.backup-status-head :is(h4, .as-h4) {
   margin: 0;
 }
-.backup-status.ok .backup-status-head h4 {
+.backup-status.ok .backup-status-head :is(h4, .as-h4) {
   color: var(--badge-green-fg);
 }
-.backup-status.problem .backup-status-head h4 {
+.backup-status.problem .backup-status-head :is(h4, .as-h4) {
   color: var(--badge-amber-fg);
 }
 .backup-problems {
@@ -4545,11 +4545,11 @@ label.map-axis select { font-size: 0.8rem; padding: 0.1rem 0.3rem; }
   flex-direction: column;
   gap: 1.1rem;
 }
-.backup-diff-section h5 {
+.backup-diff-section :is(h5, .as-h5) {
   margin: 0 0 0.5rem;
   font-size: 0.95rem;
 }
-.backup-diff-section h5 .hint-text {
+.backup-diff-section :is(h5, .as-h5) .hint-text {
   font-weight: 400;
   margin-left: 0.4rem;
 }
@@ -4868,10 +4868,10 @@ label.map-axis select { font-size: 0.8rem; padding: 0.1rem 0.3rem; }
     grid-template-columns: minmax(0, 1fr);
   }
 }
-.my-work h4 {
+.my-work :is(h4, .as-h4) {
   margin: 0 0 0.25rem;
 }
-.my-work h4 a {
+.my-work :is(h4, .as-h4) a {
   color: inherit;
   text-decoration: none;
 }
@@ -4926,7 +4926,7 @@ label.map-axis select { font-size: 0.8rem; padding: 0.1rem 0.3rem; }
   gap: 0.75rem;
   flex-wrap: wrap;
 }
-.mode-form-head h4 {
+.mode-form-head :is(h4, .as-h4) {
   margin: 0;
 }
 .mode-form-grid {
@@ -5083,7 +5083,7 @@ label.map-axis select { font-size: 0.8rem; padding: 0.1rem 0.3rem; }
 }
 
 /* Dashboard: Needs Attention, one line per item */
-.attention-card .dashboard-card-header h4 .section-count {
+.attention-card .dashboard-card-header :is(h4, .as-h4) .section-count {
   margin-left: 0.3rem;
 }
 .attention-group + .attention-group {
@@ -5181,7 +5181,7 @@ label.map-axis select { font-size: 0.8rem; padding: 0.1rem 0.3rem; }
 .admin-card section + section {
   margin-top: 0.6rem;
 }
-.admin-card h5 {
+.admin-card :is(h5, .as-h5) {
   margin: 0 0 0.25rem;
   font-size: 0.86rem;
 }
@@ -5596,7 +5596,7 @@ a.ai-cite:hover { text-decoration: underline; }
 .chat-proposal-bad td { color: var(--muted); }
 /* Admin → Settings: what each Outline page holds. */
 .doc-kinds { margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 0.75rem; }
-.doc-kinds h4 { margin: 0 0 0.25rem; }
+.doc-kinds :is(h4, .as-h4) { margin: 0 0 0.25rem; }
 .doc-kinds-filter { width: min(20rem, 100%); margin: 0.25rem 0 0.5rem; }
 .doc-kinds-scroll { max-height: 26rem; }
 .doc-kind-excluded td:first-child { color: var(--muted); text-decoration: line-through; }
@@ -5636,7 +5636,7 @@ a.ai-cite:hover { text-decoration: underline; }
 
 /* Test runs in progress, on Test History. */
 .test-drafts { margin: 0 0 0.75rem; padding: 0.5rem 0.75rem; border: 1px dashed var(--border); border-radius: var(--radius-md); }
-.test-drafts h5 { margin: 0 0 0.35rem; }
+.test-drafts :is(h5, .as-h5) { margin: 0 0 0.35rem; }
 .test-drafts ul { list-style: none; margin: 0; padding: 0; }
 .test-drafts li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; padding: 0.3rem 0; }
 .test-drafts li + li { border-top: 1px solid var(--border); }
@@ -5699,7 +5699,7 @@ a.ai-cite:hover { text-decoration: underline; }
   align-items: center;
   gap: 0.75rem;
 }
-.intercept-signals-head h4 {
+.intercept-signals-head :is(h4, .as-h4) {
   margin: 0;
 }
 .intercept-signals-table td {
@@ -6024,7 +6024,7 @@ a.ai-cite:hover { text-decoration: underline; }
 .readiness-panel.has-fail {
   border-left-color: var(--error);
 }
-.readiness-panel .section-toggle h4 {
+.readiness-panel .section-toggle :is(h4, .as-h4) {
   display: inline;
   margin: 0;
 }
@@ -6114,7 +6114,7 @@ a.ai-cite:hover { text-decoration: underline; }
 .platform-test-trend {
   margin: 0.5rem 0 1rem;
 }
-.platform-test-trend h5 {
+.platform-test-trend :is(h5, .as-h5) {
   margin: 0 0 0.4rem;
 }
 .platform-test-trend .trend-col {
@@ -6155,7 +6155,7 @@ a.ai-cite:hover { text-decoration: underline; }
 @media (max-width: 900px) {
   .compare-sides { grid-template-columns: minmax(0, 1fr); }
 }
-.compare-side-card h4 {
+.compare-side-card :is(h4, .as-h4) {
   margin-top: 0;
 }
 .data-table tr.compare-overlapping > td:first-child {
@@ -6297,7 +6297,7 @@ a.ai-cite:hover { text-decoration: underline; }
   padding: 0.75rem 1rem 0.5rem;
   border-bottom: 1px solid var(--border);
 }
-.notes-drawer-header h4 {
+.notes-drawer-header :is(h4, .as-h4) {
   margin: 0;
 }
 .notes-drawer-subject {
@@ -6437,7 +6437,7 @@ input[aria-invalid="true"] {
   background: var(--card-bg);
   border-radius: 0 var(--radius-md, 6px) var(--radius-md, 6px) 0;
 }
-.run-notes h4 {
+.run-notes :is(h4, .as-h4) {
   margin: 0 0 0.25rem;
 }
 .run-notes p {
@@ -6459,7 +6459,7 @@ input[aria-invalid="true"] {
   background: none;
 }
 /* The dialog's title already names it. */
-.form-dialog .mode-form-head h4 {
+.form-dialog .mode-form-head :is(h4, .as-h4) {
   display: none;
 }
 .form-dialog .mode-form-actions {
@@ -6781,7 +6781,7 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
 .admin-milestones .milestone-group {
   margin: 0.75rem 0;
 }
-.milestone-group h5 {
+.milestone-group :is(h5, .as-h5) {
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -7548,8 +7548,8 @@ button.meta-chip:hover:not(:disabled) { color: var(--text); }
 .test-run-header .form-row > label.wide-label input { width: 100%; }
 .split-button > .button.secondary.split-button-caret { border-left: 1px solid var(--border); margin-left: -1px; }
 /* An empty card's one line: its note in plain case, no space left for a body. */
-.element-overview h4 .hint-text,
-.element-coverage h4 .hint-text { text-transform: none; letter-spacing: normal; font-weight: 400; }
+.element-overview :is(h4, .as-h4) .hint-text,
+.element-coverage :is(h4, .as-h4) .hint-text { text-transform: none; letter-spacing: normal; font-weight: 400; }
 .element-overview > .card-header-row:last-child,
 .element-coverage > .card-header-row:last-child { margin-bottom: 0; }
 .backup-howto { margin-top: 0.6rem; }
@@ -7631,7 +7631,7 @@ button.meta-chip:hover:not(:disabled) { color: var(--text); }
 .recording-chip.active { border-color: var(--primary); background: var(--hover-bg); }
 .recording-chip:disabled { cursor: default; opacity: 0.7; }
 .recording-charts { display: grid; gap: 0.6rem; margin-bottom: 1rem; }
-.recording-chart .viz-card-header h4 { margin: 0; }
+.recording-chart .viz-card-header :is(h4, .as-h4) { margin: 0; }
 .import-snip-source { margin: 0.2rem 0 0.4rem; }
 .intercept-recording { margin: 0 0 0.5rem; font-size: 0.9rem; }
 .recording-group-row td { background: var(--hover-bg); font-size: 0.9rem; }
@@ -7730,7 +7730,7 @@ button.meta-chip:hover:not(:disabled) { color: var(--text); }
 .mdf-change { display: flex; gap: 0.4rem; }
 .mdf-summary-range { margin-bottom: 0.6rem; }
 .mdf-summary-range label { display: grid; gap: 0.2rem; font-size: 0.85rem; color: var(--muted); }
-.mdf-summary-body h5 { margin: 1rem 0 0.35rem; font-size: 0.95rem; }
+.mdf-summary-body :is(h5, .as-h5) { margin: 1rem 0 0.35rem; font-size: 0.95rem; }
 .mdf-summary-notes, .mdf-summary-log { margin-bottom: 0.5rem; }
 .mdf-summary-goals { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.2rem; }
 .mdf-summary-goals li.done { color: var(--muted); }
@@ -7748,7 +7748,7 @@ button.meta-chip:hover:not(:disabled) { color: var(--text); }
 }
 .mdf-dwells-tab { display: flex; flex-direction: column; gap: 1rem; }
 .mdf-dwells-tab > .card { margin: 0; }
-.mdf-dwell-file .card-header h4 { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
+.mdf-dwell-file .card-header :is(h4, .as-h4) { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
 .mdf-dwell-file .section-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .mdf-dwell-facts {
   display: flex;
@@ -7783,3 +7783,63 @@ button.emitter-pins-chip.behind {
 }
 button.emitter-pins-chip:hover { filter: brightness(0.97); }
 .emitter-pins-chip .pins-behind { font-weight: 600; }
+
+/* Icons: inline SVG at the text's size and colour (see Icon.tsx). */
+.icon { display: inline-block; width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; }
+
+/* --- Accessibility floor (UI/UX audit) -------------------------------------
+ * Readable text is at least 12px (the root is 14px, so 0.86rem), and every
+ * control has a hit area of at least 24×24px (WCAG 2.2 target size).
+ * Kept here, last, so it wins over the older per-component sizes. */
+.hint-text,
+.tab,
+.data-table th,
+.status-badge,
+.task-count-chip,
+.button.small,
+.quick-jump-button,
+.link-button,
+.section-count,
+.progress-bar-label,
+.version-row-meta,
+.jitter-subline { font-size: max(0.86rem, 12px); }
+.data-table th .hint-text, .status-badge .hint-text { font-size: inherit; }
+
+.row-menu-button,
+.task-count-chip,
+.button.small,
+.quick-jump-button,
+.theme-toggle button,
+.sortable-th-trigger { min-height: 24px; }
+.row-menu-button { min-width: 28px; }
+.theme-toggle button { min-width: 28px; }
+.info-tip { width: 24px; height: 24px; cursor: pointer; }
+input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; cursor: pointer; }
+
+/* On a phone, a card's table scrolls inside the card, not the whole page. */
+@media (max-width: 760px) {
+  .card:has(> table), .card:has(> .data-table) { overflow-x: auto; }
+}
+.role-badge { font-size: max(0.79rem, 11px); }
+/* (second pass) The badges and chips the first one missed, and controls
+ * outside running text — a link-button inside a sentence is exempt. */
+.test-result-badge,
+.audit-action-badge,
+.backup-level,
+.editing-chip,
+.meta-chip,
+.as-h5 { font-size: max(0.86rem, 12px); }
+.link-button:not(p *):not(li *),
+.attention-group-head,
+.emitter-pins-chip,
+.data-table select,
+.split-button-caret { min-height: 24px; }
+.split-button-caret, .expand-col .link-button { min-width: 24px; }
+.summary-link { display: inline-flex; align-items: center; min-height: 24px; }
+/* (third pass) Labels whose older rules are more specific. The keyboard
+ * hint in the search button stays a little smaller, as a hint. */
+:root :is(.task-count-chip, .summary-label, .notes-drawer-tab-label, .theme-toggle button, .view-toggle button, .segmented button, .version-tag, .inline-label, .change-item-kind) {
+  font-size: max(0.86rem, 12px);
+}
+:root .theme-toggle button .icon { font-size: 1rem; }
+:root .quick-jump-button kbd { font-size: 11px; }

@@ -116,9 +116,9 @@ export function NeedsAttentionCard({
   return (
     <div className={wide ? "card dashboard-wide attention-card" : "card attention-card"}>
       <div className="dashboard-card-header">
-        <h4>
+        <h2 className="as-h4">
           Needs Attention {total > 0 && <span className="section-count">{total}</span>}
-        </h4>
+        </h2>
         {groups.length > 1 && (
           <button
             type="button"

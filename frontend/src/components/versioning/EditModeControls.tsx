@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Icon } from "../common/Icon";
 import { formatDateTime } from "../common/dates";
 import type { Emitter } from "../../types/domain";
 import { useAuth } from "../../auth/AuthContext";
@@ -137,7 +138,7 @@ export function EditModeControls({
     <RequireRole minimum="editor">
       {!isCheckedOut ? (
         <button className="button start-editing-button" disabled={checkout.isPending} onClick={() => void handleCheckout()}>
-          ✎ Start editing
+          <Icon name="edit" /> Start editing
         </button>
       ) : isMine ? (
         <>
@@ -149,7 +150,7 @@ export function EditModeControls({
               aria-expanded={showingChanges}
               title={`${latest ? `Last saved as v${latest.ref}${latest.kind === "checkpoint" ? " (a checkpoint)" : ""}. ` : ""}Show or hide your unsaved changes`}
             >
-              ✎ Editing{latest?.kind === "checkpoint" ? ` · v${latest.ref}` : ""}
+              <Icon name="edit" /> Editing{latest?.kind === "checkpoint" ? ` · v${latest.ref}` : ""}
               <span className="editing-chip-part">Changes {showingChanges ? "▴" : "▾"}</span>
             </button>
           ) : (
@@ -157,7 +158,7 @@ export function EditModeControls({
               className="editing-chip"
               title={latest ? `Last saved as v${latest.ref}${latest.kind === "checkpoint" ? " (a checkpoint)" : ""}` : "Nothing saved yet"}
             >
-              ✎ Editing{latest?.kind === "checkpoint" ? ` · v${latest.ref}` : ""}
+              <Icon name="edit" /> Editing{latest?.kind === "checkpoint" ? ` · v${latest.ref}` : ""}
             </span>
           )}
           <button

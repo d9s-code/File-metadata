@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { Icon } from "../common/Icon";
 import { formatDate } from "../common/dates";
 import { MenuButton } from "../common/MenuButton";
 import { Link } from "react-router-dom";
@@ -147,7 +148,12 @@ export function TestRecordsTable({
                     title={r.computed_result ? `Set by hand (worked out: ${testResultLabel(r.computed_result)}) — ${r.result_note ?? ""}` : undefined}
                   >
                     {testResultLabel(r.result)}
-                    {r.computed_result ? " ✎" : ""}
+                    {r.computed_result && (
+                      <>
+                        {" "}
+                        <Icon name="edit" />
+                      </>
+                    )}
                   </span>
                 </td>
                 <td>

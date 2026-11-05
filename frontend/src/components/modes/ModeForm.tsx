@@ -275,7 +275,7 @@ export function ModeForm({
   return (
     <form className="card mode-form" onSubmit={handleSubmit} noValidate ref={formRef}>
       <div className="mode-form-head">
-        <h4>{duplicateFrom ? `Copy of ${duplicateFrom.name}` : onStage ? "Stage a new Mode" : "New Mode"}</h4>
+        <h2 className="as-h4">{duplicateFrom ? `Copy of ${duplicateFrom.name}` : onStage ? "Stage a new Mode" : "New Mode"}</h2>
         {!duplicateFrom && startFromOptions.length > 0 && (
           <label className="inline-label" title="Fill everything in from an existing Mode, then change what differs">
             Start from

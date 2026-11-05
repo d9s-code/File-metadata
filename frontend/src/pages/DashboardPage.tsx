@@ -15,7 +15,7 @@ import { AdminCard } from "../components/dashboard/AdminCard";
 function Loading({ title, className = "card" }: { title: string; className?: string }) {
   return (
     <div className={className}>
-      <h4>{title}</h4>
+      <h2 className="as-h4">{title}</h2>
       <LoadingState label={`Loading ${title.toLowerCase()}…`} />
     </div>
   );

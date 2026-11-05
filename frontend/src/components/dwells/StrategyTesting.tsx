@@ -71,10 +71,10 @@ export function StrategyTesting({ strategyId, isDefault }: { strategyId: string;
       </p>
       {data.platforms.map((p) => (
         <div key={p.platform_id} className="card">
-          <h4>
+          <h2 className="as-h4">
             <Link to={`/platforms/${p.platform_id}`}>{p.platform_name}</Link>{" "}
             <span className="section-count">{p.emitters.length}</span>
-          </h4>
+          </h2>
           {p.emitters.length === 0 ? (
             <p className="hint-text">No Emitters pinned.</p>
           ) : (

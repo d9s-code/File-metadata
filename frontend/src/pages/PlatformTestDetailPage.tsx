@@ -86,13 +86,13 @@ export function PlatformTestDetailPage() {
       </dl>
       {test.notes && (
         <div className="run-notes">
-          <h4>Session notes</h4>
+          <h2 className="as-h4">Session notes</h2>
           <p className="pre-wrap">{test.notes}</p>
         </div>
       )}
 
       <div className="card">
-        <h4>Emitters ({test.emitters.length})</h4>
+        <h2 className="as-h4">Emitters ({test.emitters.length})</h2>
         <table className="data-table">
           <thead>
             <tr>

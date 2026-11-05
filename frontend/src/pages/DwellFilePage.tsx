@@ -177,9 +177,9 @@ function DwellFileView({ file }: { file: DwellFile }) {
 
       <section className="card">
         <div className="card-header">
-          <h4>
+          <h2 className="as-h4">
             Strategies <span className="hint-text">{file.links.length}</span>
-          </h4>
+          </h2>
           {canEdit && (
             <div className="section-actions">
               {outdated > 0 && (
@@ -590,9 +590,9 @@ function FileMdfs({ file }: { file: DwellFile }) {
   return (
     <section className="card">
       <div className="card-header">
-        <h4>
+        <h2 className="as-h4">
           Used by MDFs <span className="hint-text">{file.mdfs.length}</span>
-        </h4>
+        </h2>
       </div>
       {file.mdfs.length === 0 ? (
         <p className="hint-text">No MDF pins this file yet — pin it from an MDF&apos;s Dwells tab.</p>

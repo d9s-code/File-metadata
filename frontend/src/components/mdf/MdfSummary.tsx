@@ -39,7 +39,7 @@ export function SummaryPanel({ mdfId, versions, onClose }: { mdfId: string; vers
   return (
     <section className="card mdf-summary">
       <div className="card-header">
-        <h4>Summary</h4>
+        <h2 className="as-h4">Summary</h2>
         <button type="button" className="link-button" onClick={onClose} aria-label="Close the summary">
           ✕
         </button>
@@ -97,7 +97,7 @@ export function SummaryPanel({ mdfId, versions, onClose }: { mdfId: string; vers
               : `Everything up to v${s.to_version} (${formatDateTime(s.to_at)})`}
             {!picked && s.from_version && s.from_version === s.last_release_version && " — since the last release"}
           </p>
-          <h5>Release notes</h5>
+          <h3 className="as-h5">Release notes</h3>
           {s.versions.filter((v) => v.release_notes).length === 0 ? (
             <p className="hint-text">None written for these versions — write them on the Plan tab.</p>
           ) : (
@@ -111,9 +111,9 @@ export function SummaryPanel({ mdfId, versions, onClose }: { mdfId: string; vers
                 </div>
               ))
           )}
-          <h5>What changed</h5>
+          <h3 className="as-h5">What changed</h3>
           <Changes changes={s.changes} />
-          <h5>Goals</h5>
+          <h3 className="as-h5">Goals</h3>
           {s.goals.length === 0 ? (
             <p className="hint-text">No goals set.</p>
           ) : (
@@ -135,7 +135,7 @@ export function SummaryPanel({ mdfId, versions, onClose }: { mdfId: string; vers
           )}
           {s.status_moves.length > 0 && (
             <>
-              <h5>Status</h5>
+              <h3 className="as-h5">Status</h3>
               <ul>
                 {s.status_moves.map((m, i) => (
                   <li key={i}>
@@ -148,7 +148,7 @@ export function SummaryPanel({ mdfId, versions, onClose }: { mdfId: string; vers
           )}
           {s.log.length > 0 && (
             <>
-              <h5>Progress log</h5>
+              <h3 className="as-h5">Progress log</h3>
               {s.log.map((e, i) => (
                 <div key={i} className={`mdf-summary-log ${e.kind}`}>
                   <span className="hint-text">
@@ -160,7 +160,7 @@ export function SummaryPanel({ mdfId, versions, onClose }: { mdfId: string; vers
               ))}
             </>
           )}
-          <h5>Contents of v{s.to_version}</h5>
+          <h3 className="as-h5">Contents of v{s.to_version}</h3>
           <ul className="mdf-summary-contents">
             {s.contents.map((p) => (
               <li key={p.platform}>

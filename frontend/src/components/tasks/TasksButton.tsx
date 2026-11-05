@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Icon } from "../common/Icon";
 import { Link } from "react-router-dom";
 import { ApiRequestError } from "../../api/client";
 import type { TaskEntityType } from "../../api/tasks";
@@ -10,7 +11,7 @@ import { TaskList } from "./TaskList";
 
 /** "Tasks · 2" on an Emitter, Platform or MDF page: its tasks, and adding one.
  * In a list, give `openCount` (counted once for every row) and its tasks are
- * only fetched when opened; `compact` shows just "☑ 2". */
+ * only fetched when opened; `compact` shows just the icon and "2". */
 export function TasksButton({
   type,
   id,
@@ -40,7 +41,15 @@ export function TasksButton({
         onClick={() => setOpen(true)}
         title={`${count} open task${count === 1 ? "" : "s"} — open to add one, or tick them off`}
       >
-        {compact ? `☑ ${count}` : <>☑ Tasks{count > 0 && ` · ${count}`}</>}
+        {compact ? (
+          <>
+            <Icon name="tasks" /> {count}
+          </>
+        ) : (
+          <>
+            <Icon name="tasks" /> Tasks{count > 0 && ` · ${count}`}
+          </>
+        )}
       </button>
       {open && (
         <Modal title={`Tasks — ${name}`} onClose={() => setOpen(false)} wide>

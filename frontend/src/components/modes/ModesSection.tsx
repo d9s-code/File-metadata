@@ -268,12 +268,12 @@ export function ModesSection({
   return (
     <section className="card">
       <div className="modes-section-header">
-        <h4>
+        <h2 className="as-h4">
           Modes{" "}
           <span className="hint-text section-count">
             {modes ? (sorted.length === modes.length ? modes.length : `${sorted.length} of ${modes.length} shown`) : ""}
           </span>
-        </h4>
+        </h2>
         <RequireRole minimum="editor">
           <div className="section-actions">
             {/* Adding comes first; the rarer ways to add sit in its menu. */}
@@ -320,7 +320,7 @@ export function ModesSection({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <select value={ewGroupFilter} onChange={(e) => setEwGroupFilter(e.target.value)}>
+          <select aria-label="EW Group" value={ewGroupFilter} onChange={(e) => setEwGroupFilter(e.target.value)}>
             <option value="">All EW Groups</option>
             {ewGroups.map((g) => (
               <option key={g.id} value={g.id}>
@@ -328,7 +328,7 @@ export function ModesSection({
               </option>
             ))}
           </select>
-          <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)}>
+          <select aria-label="Source" value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)}>
             <option value="">All Sources</option>
             {sources.map((s) => (
               <option key={s.id} value={s.id}>
@@ -336,7 +336,7 @@ export function ModesSection({
               </option>
             ))}
           </select>
-          <select value={batchFilter} onChange={(e) => setBatchFilter(e.target.value)}>
+          <select aria-label="Generation batch" value={batchFilter} onChange={(e) => setBatchFilter(e.target.value)}>
             <option value="">All Batches</option>
             {(batches ?? []).map((b) => (
               <option key={b.id} value={b.id}>
@@ -440,7 +440,7 @@ export function ModesSection({
           </label>
           <label>
             PRI Type
-            <select value={priTypeFilter} onChange={(e) => setPriTypeFilter(e.target.value as PriType | "")}>
+            <select aria-label="PRI type" value={priTypeFilter} onChange={(e) => setPriTypeFilter(e.target.value as PriType | "")}>
               <option value="">All</option>
               <option value="fixed">Fixed</option>
               <option value="stagger">Stagger</option>

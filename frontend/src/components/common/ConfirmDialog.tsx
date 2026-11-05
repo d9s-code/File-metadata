@@ -1,4 +1,5 @@
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useDialogFocus } from "./useDialogFocus";
 
 interface ConfirmState {
   message: string;
@@ -35,12 +36,38 @@ export function useConfirmDialog(): {
     setState(null);
   }
 
-  const dialog = state ? (
+  const dialog = state ? <ConfirmBox state={state} respond={respond} /> : null;
+
+  return { confirmDelete, dialog };
+}
+
+/** The confirm dialog itself: Cancel has focus (the safe choice), Escape
+ * cancels, Tab stays inside, and focus goes back where it was. */
+function ConfirmBox({ state, respond }: { state: ConfirmState; respond: (result: boolean) => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useDialogFocus(ref, ".confirm-cancel");
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") respond(false);
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [respond]);
+  return (
     <div className="modal-overlay" onClick={() => respond(false)}>
-      <div className="modal-dialog" role="alertdialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
-        <p className="confirm-message">{state.message}</p>
+      <div
+        ref={ref}
+        className="modal-dialog"
+        role="alertdialog"
+        aria-modal="true"
+        aria-describedby="confirm-message"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="confirm-message" id="confirm-message">
+          {state.message}
+        </p>
         <div className="modal-actions">
-          <button type="button" className="button secondary" onClick={() => respond(false)}>
+          <button type="button" className="button secondary confirm-cancel" onClick={() => respond(false)}>
             Cancel
           </button>
           {state.confirmLabel ? (
@@ -59,7 +86,5 @@ export function useConfirmDialog(): {
         </div>
       </div>
     </div>
-  ) : null;
-
-  return { confirmDelete, dialog };
+  );
 }

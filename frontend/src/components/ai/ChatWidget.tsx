@@ -8,6 +8,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
+import { Icon } from "../common/Icon";
 import { Link, useLocation } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -131,12 +132,12 @@ function AnswerDetails({ reply }: { reply: ChatReply }) {
     <div className="chat-details">
       {reply.unverified_numbers.length > 0 && (
         <p className="ai-draft-warning" role="note">
-          ⚠ Not in anything it looked up — check: <strong>{reply.unverified_numbers.join(", ")}</strong>
+          <Icon name="alert" /> Not in anything it looked up — check: <strong>{reply.unverified_numbers.join(", ")}</strong>
         </p>
       )}
       {reply.unknown_citations.length > 0 && (
         <p className="ai-draft-warning" role="note">
-          ⚠ Cites {reply.unknown_citations.join(", ")}, which it wasn&apos;t given.
+          <Icon name="alert" /> Cites {reply.unknown_citations.join(", ")}, which it wasn&apos;t given.
         </p>
       )}
       {(reply.steps.length > 0 || cited.length > 0) && (
@@ -304,7 +305,7 @@ function HistoryItem({
             setEditing(true);
           }}
         >
-          ✎
+          <Icon name="edit" />
         </button>
         <button type="button" className="icon-button" aria-label={`Delete ${chat.title}`} title="Delete" onClick={onDelete}>
           🗑

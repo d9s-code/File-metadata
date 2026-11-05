@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Icon } from "../components/common/Icon";
 import { Link } from "react-router-dom";
 import { AdminNav } from "../components/common/AdminNav";
 import { MenuButton } from "../components/common/MenuButton";
@@ -72,9 +73,9 @@ function DiffSection({ label, path, changes }: { label: string; path: string; ch
   const shown = showAll ? items : items.slice(0, SHOWN);
   return (
     <section className="backup-diff-section">
-      <h5>
+      <h3 className="as-h5">
         {label} <span className="hint-text">{kindCounts(changes)}{changes.unchanged > 0 && ` · ${changes.unchanged} unchanged`}</span>
-      </h5>
+      </h3>
       {items.length > 0 && (
         <div className="change-list">
           {shown.map((item) => (
@@ -157,7 +158,7 @@ export function AdminBackupsPage() {
         <>
           <section className={health.ok ? "card backup-status ok" : "card backup-status problem"}>
             <div className="backup-status-head">
-              <h4>{health.ok ? "✓ Backups are in order" : "⚠ Backups need attention"}</h4>
+              <h2 className="as-h4">{health.ok ? "✓ Backups are in order" : <><Icon name="alert" /> Backups need attention</>}</h2>
               <button type="button" disabled={backUpNow.isPending} onClick={() => backUpNow.mutate()}>
                 {backUpNow.isPending ? "Backing up…" : "Back up now"}
               </button>
@@ -229,9 +230,9 @@ export function AdminBackupsPage() {
 
           <section className="card">
             <div className="card-header">
-              <h4>
+              <h2 className="as-h4">
                 Backups <span className="section-count">{backups.length}</span>
-              </h4>
+              </h2>
             </div>
             {backups.length === 0 ? (
               <EmptyState compact title="No backups yet" message="Take one with Back up now, or wait for the automatic one." />
@@ -348,7 +349,7 @@ export function AdminBackupsPage() {
 
           <section className="card" ref={compareRef}>
             <div className="card-header">
-              <h4>Compare</h4>
+              <h2 className="as-h4">Compare</h2>
             </div>
             <p className="hint-text">
               What changed between two backups, or between a backup and the current data — Emitters, Platforms, MDFs and
@@ -400,9 +401,9 @@ export function AdminBackupsPage() {
                         <DiffSection key={k.key} label={k.label} path={k.path} changes={changes} />
                       ) : (
                         <section key={k.key} className="backup-diff-section">
-                          <h5>
+                          <h3 className="as-h5">
                             {k.label} <span className="hint-text">not listed in a backup this old</span>
-                          </h5>
+                          </h3>
                         </section>
                       );
                     })}

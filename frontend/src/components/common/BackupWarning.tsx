@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Icon } from "./Icon";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { useBackupHealth } from "../../state/hooks/useBackups";
@@ -44,7 +45,7 @@ export function BackupWarning() {
   return (
     <div className="backup-warning" role="status">
       <span>
-        <strong>⚠ Backups need attention:</strong> {first}
+        <strong><Icon name="alert" /> Backups need attention:</strong> {first}
         {rest.length > 0 && ` (and ${rest.length} more)`}
       </span>
       <Link to="/admin/backups">Open Backups</Link>

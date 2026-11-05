@@ -117,7 +117,7 @@ export function SimulationTrend({
   return (
     <div className="card">
       <div className="card-header">
-        <h4>Simulation trend</h4>
+        <h2 className="as-h4">Simulation trend</h2>
         <span className="viz-legend">
           {segments.map((o) => (
             <span key={o.key}>

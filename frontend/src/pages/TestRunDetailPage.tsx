@@ -261,7 +261,7 @@ export function TestRunDetailPage() {
       <RunSummary record={record} exercised={exercised} />
       {record.notes && (
         <div className="run-notes">
-          <h4>Session notes</h4>
+          <h2 className="as-h4">Session notes</h2>
           <p className="pre-wrap">{record.notes}</p>
         </div>
       )}
@@ -322,7 +322,7 @@ export function TestRunDetailPage() {
         <>
       {record.signals?.length > 0 && (
         <div className="card">
-          <h4>Signals not tied to a Mode ({record.signals.length})</h4>
+          <h2 className="as-h4">Signals not tied to a Mode ({record.signals.length})</h2>
           <InterceptSignalsList
             signals={record.signals}
             runId={record.id}
@@ -338,7 +338,7 @@ export function TestRunDetailPage() {
 
       {record.lines.length > 0 && (
         <div className="card">
-          <h4>SIM Test Line results ({record.lines.length})</h4>
+          <h2 className="as-h4">SIM Test Line results ({record.lines.length})</h2>
           <table className="data-table">
             <thead>
               <tr>
@@ -384,7 +384,7 @@ export function TestRunDetailPage() {
 
       {exercised.length > 0 && (
         <div className="card">
-          <h4>Mode results ({exercised.length})</h4>
+          <h2 className="as-h4">Mode results ({exercised.length})</h2>
           <table className="data-table">
             <thead>
               <tr>
@@ -432,9 +432,9 @@ export function TestRunDetailPage() {
 
       {derivedModes.length > 0 && (
         <div className="card">
-          <h4>
+          <h2 className="as-h4">
             Modes derived from this run <span className="hint-text">{derivedModes.length}</span>
-          </h4>
+          </h2>
           <DerivedModesTable emitterId={emitterId} derived={derivedModes} modes={modes ?? []} ewGroups={ewGroups ?? []} />
         </div>
       )}

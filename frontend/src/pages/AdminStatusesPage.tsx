@@ -101,14 +101,14 @@ function StatusesSection({ type }: { type: StatusEntityType }) {
   return (
     <section className="card admin-statuses">
       <div className="section-head">
-        <h4>
+        <h2 className="as-h4">
           {NOUN[type]} statuses{" "}
           <InfoTip label="About statuses">
             In order, as lists and the dashboard show them. "Can move to" is which buttons an item in that status
             gets. Built-in statuses can be renamed and recoloured but not deleted — the app relies on them (new items
             start in the first built-in one; Operational is what MDF readiness checks look for).
           </InfoTip>
-        </h4>
+        </h2>
         <button type="button" className="button secondary small" onClick={() => setAdding(true)}>
           + Add status
         </button>
@@ -397,21 +397,21 @@ function MilestonesSection({ type }: { type: StatusEntityType }) {
   return (
     <section className="card admin-milestones">
       <div className="section-head">
-        <h4>
+        <h2 className="as-h4">
           Default milestones{" "}
           <InfoTip label="About milestones">
             What every {NOUN[type]} should have done before it reaches a status — ticked off by hand on its page
             (◎ Milestones). Moving to a status with milestones not met asks to confirm first. An {NOUN[type]} can also
             have milestones of its own, added on its page.
           </InfoTip>
-        </h4>
+        </h2>
       </div>
       {groups.length === 0 && <p className="hint-text">None yet — add one below.</p>}
       {groups.map(({ s, items }) => (
         <div key={s.key} className="milestone-group">
-          <h5>
+          <h3 className="as-h5">
             Before <StatusBadge type={type} status={s.key} />
-          </h5>
+          </h3>
           <ul className="milestone-list">
             {items.map((m, i) => (
               <li key={m.id} className="milestone">

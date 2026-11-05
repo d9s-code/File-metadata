@@ -350,9 +350,9 @@ export function MdfBuilderPage() {
         <div>
           <section className="card">
             <div className="card-header">
-              <h4>
+              <h2 className="as-h4">
                 Pinned Platforms <span className="hint-text">{links?.length ?? 0}</span>
-              </h4>
+              </h2>
               <RequireRole minimum="editor">
                 <div className="section-actions">
                   {outdatedPins > 0 && (

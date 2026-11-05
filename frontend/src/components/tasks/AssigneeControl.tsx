@@ -1,11 +1,12 @@
 import { ApiRequestError } from "../../api/client";
+import { Icon } from "../common/Icon";
 import { useHasRole } from "../../auth/RequireAuth";
 import { useAuth } from "../../auth/AuthContext";
 import { useAssignEmitter, usePeople } from "../../state/hooks/useTasks";
 import type { Emitter } from "../../types/domain";
 import { MenuButton } from "../common/MenuButton";
 
-/** Who's responsible for an Emitter, as a chip ("👤 Nobody ▾") that opens the
+/** Who's responsible for an Emitter, as a chip (a person icon, "Nobody ▾") that opens the
  * editors to pick from. Not part of its saved versions, so it can be changed
  * without editing the Emitter. */
 export function AssigneeControl({ emitter }: { emitter: Emitter }) {
@@ -20,7 +21,7 @@ export function AssigneeControl({ emitter }: { emitter: Emitter }) {
   if (!canAssign) {
     return (
       <span className={chipClass} title="Who's responsible for this Emitter">
-        <span aria-hidden>👤</span> {name}
+        <Icon name="user" /> {name}
       </span>
     );
   }
@@ -38,7 +39,7 @@ export function AssigneeControl({ emitter }: { emitter: Emitter }) {
         disabled={assign.isPending}
         label={
           <>
-            <span aria-hidden>👤</span> {name} <span className="chip-caret">▾</span>
+            <Icon name="user" /> {name} <span className="chip-caret">▾</span>
           </>
         }
         items={[

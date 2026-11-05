@@ -30,7 +30,7 @@ export function PlatformTests({ platformId, pinnedCount }: { platformId: string;
   return (
     <section className="card">
       <div className="page-header-row">
-        <h4>Platform tests</h4>
+        <h2 className="as-h4">Platform tests</h2>
         <RequireRole minimum="editor">
           {pinnedCount > 0 ? (
             <Link className="link-as-button" to={`/platforms/${platformId}/tests/new`}>
@@ -48,7 +48,7 @@ export function PlatformTests({ platformId, pinnedCount }: { platformId: string;
 
       {!!drafts?.length && (
         <div className="test-drafts">
-          <h5>In progress</h5>
+          <h3 className="as-h5">In progress</h3>
           <ul>
             {drafts.map((d) => (
               <li key={d.id}>
@@ -149,9 +149,9 @@ function PlatformTestTrend({ platformId, tests }: { platformId: string; tests: P
   const rows = [...emitters.entries()].sort((a, b) => a[1].localeCompare(b[1]));
   return (
     <div className="platform-test-trend">
-      <h5>
+      <h3 className="as-h5">
         Trend <span className="hint-text">— each Emitter&apos;s result in the latest {runs.length} Platform tests, oldest first</span>
-      </h5>
+      </h3>
       <div className="matrix-scroll">
         <table className="data-table">
           <thead>

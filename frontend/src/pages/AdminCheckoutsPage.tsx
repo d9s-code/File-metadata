@@ -75,7 +75,7 @@ export function AdminCheckoutsPage() {
       <AdminNav />
       <section className="card">
         <div className="card-header">
-          <h4>
+          <h2 className="as-h4">
             Edit locks <span className="section-count">{checkouts?.length ?? 0}</span>{" "}
             <InfoTip label="About edit locks">
               Emitters being edited right now. While one is held, nobody else can edit it. Force release ends the hold
@@ -83,7 +83,7 @@ export function AdminCheckoutsPage() {
               marked; a lock its holder hasn&apos;t changed anything under for days is marked <strong>untouched</strong>{" "}
               and released on its own after the number of days the server is set to (CHECKOUT_RELEASE_DAYS).
             </InfoTip>
-          </h4>
+          </h2>
         </div>
         {checkouts && checkouts.length > 0 && (
           <div className="form-row">

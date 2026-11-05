@@ -616,7 +616,7 @@ export function TestRunNewPage() {
         </div>
 
         <div className="card">
-          <h4>{isSimulation ? "SIM Test Line results" : "Intercepted Modes"}</h4>
+          <h2 className="as-h4">{isSimulation ? "SIM Test Line results" : "Intercepted Modes"}</h2>
           {isSimulation ? (
             testLines.length === 0 ? (
               <p className="hint-text">
@@ -730,7 +730,7 @@ export function TestRunNewPage() {
           forms are invalid HTML. */}
       {canAddModes && (
         <div className="card staged-modes-section">
-          <h5>New Modes found during this run (optional)</h5>
+          <h3 className="as-h5">New Modes found during this run (optional)</h3>
           {stagingKeys.map((k) => (
             <ModeForm
               key={k}

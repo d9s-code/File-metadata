@@ -173,12 +173,12 @@ function DwellFileCard({
     <section className="card mdf-dwell-file">
       {dialog}
       <div className="card-header">
-        <h4>
+        <h2 className="as-h4">
           <Link to={fileUrl(d.dwell_file_id)}>{d.name}</Link>{" "}
           <Link className="hint-text" to={versionUrl(d.dwell_file_id, d.pinned_version_number)} title="The version this MDF pins">
             v{d.pinned_version_number} pinned
           </Link>
-        </h4>
+        </h2>
         <span className="section-actions">
           {d.outdated && d.latest_version_id && (
             <>
@@ -383,9 +383,9 @@ export function MdfDwellsPanel({ mdfId, pinsFrozen, canEdit }: { mdfId: string; 
     <div className="mdf-dwells-tab">
       <section className="card">
         <div className="card-header">
-          <h4>
+          <h2 className="as-h4">
             Dwell files <span className="hint-text">{dwells.length}</span>
-          </h4>
+          </h2>
           {canEdit && (
             <div className="section-actions">
               {outdated > 0 && (

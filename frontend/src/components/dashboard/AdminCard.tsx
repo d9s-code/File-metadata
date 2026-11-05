@@ -14,20 +14,20 @@ export function AdminCard() {
   const { data, isLoading } = useDashboardAdmin(true);
   return (
     <div className="card admin-card">
-      <h4>
+      <h2 className="as-h4">
         <Link to="/admin/users">Admin</Link>
-      </h4>
+      </h2>
       {isLoading || !data ? (
         <LoadingState label="Loading…" />
       ) : (
         <>
           <section>
-            <h5>
+            <h3 className="as-h5">
               Failed sign-ins, last 24 hours{" "}
               <span className={data.failed_logins_24h > 0 ? "section-count warn" : "section-count"}>
                 {data.failed_logins_24h}
               </span>
-            </h5>
+            </h3>
             {data.recent_failed_logins.length === 0 ? (
               <p className="hint-text">None.</p>
             ) : (
@@ -41,9 +41,9 @@ export function AdminCard() {
             )}
           </section>
           <section>
-            <h5>
+            <h3 className="as-h5">
               Held for editing over 8 hours <span className="section-count">{data.long_held_locks.length}</span>
-            </h5>
+            </h3>
             {data.long_held_locks.length === 0 ? (
               <p className="hint-text">None.</p>
             ) : (

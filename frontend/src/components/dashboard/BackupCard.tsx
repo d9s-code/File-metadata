@@ -51,7 +51,7 @@ export function BackupCard() {
   return (
     <div className={`card backup-card level-${f.level}`}>
       <div className="dashboard-card-header">
-        <h4>Backup</h4>
+        <h2 className="as-h4">Backup</h2>
         <span className={`backup-level level-${f.level}`}>{LEVEL_LABEL[f.level]}</span>
       </div>
 

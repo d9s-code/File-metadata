@@ -150,9 +150,9 @@ function SourceDetailTabs({
       {tab === "log" && <GenerationLog emitterId={emitterId} sourceId={source.id} />}
       {tab === "notes" && (
         <>
-          <h5 className="mt-0">Analyst notes</h5>
+          <h3 className="as-h5 mt-0">Analyst notes</h3>
           <SourceNotesEditor emitterId={emitterId} source={source} />
-          <h5 className="mt-4">Coverage — Modes built from this Source</h5>
+          <h3 className="as-h5 mt-4">Coverage — Modes built from this Source</h3>
           <SourceCoverage emitterId={emitterId} sourceId={source.id} />
         </>
       )}
@@ -358,7 +358,7 @@ export function SourcesTable({
   return (
     <section className="card">
       <div className="card-header">
-        <h4>Sources</h4>
+        <h2 className="as-h4">Sources</h2>
         <RequireRole minimum="editor">
           <div className="section-actions">
             {selected.size > 0 && (

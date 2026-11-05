@@ -35,7 +35,7 @@ export function ChatContextSetting({ current, compact = false }: { current: numb
   if (compact) return form;
   return (
     <section className="card">
-      <h4>AI chat context</h4>
+      <h2 className="as-h4">AI chat context</h2>
       <p className="hint-text">
         The most the chat gives the model at once — set it to the model&apos;s context window (vLLM&apos;s
         max_model_len) or less. Older turns are left out to stay inside it, and a chat about to fill it is compacted

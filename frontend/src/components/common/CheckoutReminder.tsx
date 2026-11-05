@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Icon } from "./Icon";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { heldFor, LONG_HELD_MS, releasesIn, useCheckouts } from "../../state/hooks/useEmitterCheckout";
@@ -53,7 +54,7 @@ export function CheckoutReminder() {
         onClick={() => setCollapsed(false)}
         title="Show the Emitters you're editing"
       >
-        ✎ {label}
+        <Icon name="edit" /> {label}
         {longHeld > 0 && " · held long"}
       </button>
     );
@@ -62,7 +63,9 @@ export function CheckoutReminder() {
   return (
     <aside className={longHeld ? "checkout-reminder long-held" : "checkout-reminder"} aria-label="Emitters you're editing">
       <div className="checkout-reminder-header">
-        <strong>✎ {label}</strong>
+        <strong>
+          <Icon name="edit" /> {label}
+        </strong>
         <button type="button" className="link-button" onClick={() => setCollapsed(true)} aria-label="Fold away">
           –
         </button>

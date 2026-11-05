@@ -99,10 +99,10 @@ function Side({
   const involved = changed ?? new Set(findings.map((f) => (which === "a" ? f.mode_id_a : f.mode_id_b)));
   return (
     <div className="card compare-side-card">
-      <h4>
+      <h2 className="as-h4">
         <Link to={`/emitters/${data.emitter_id}`}>{label(data)}</Link>{" "}
         <span className="hint-text">v{data.version_number}</span>
-      </h4>
+      </h2>
       <dl className="run-facts">
         <div className="run-fact">
           <dt>Modes</dt>
@@ -300,16 +300,16 @@ export function EmitterComparePage() {
 
           {data.same_emitter && data.changes && !data.changes.identical && (
             <div className="card">
-              <h4>
+              <h2 className="as-h4">
                 What changed from v{data.from_version} to v{data.to_version}
-              </h4>
+              </h2>
               <EmitterDiffViewer diff={data.changes} />
             </div>
           )}
 
           {findings.length > 0 && (
             <div className="card">
-              <h4>Overlapping Mode pairs ({findings.length})</h4>
+              <h2 className="as-h4">Overlapping Mode pairs ({findings.length})</h2>
               <table className="data-table">
                 <thead>
                   <tr>

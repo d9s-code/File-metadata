@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { Icon } from "../common/Icon";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { mdfCoverageApi, type CoverageMode, type PlatformCoverage } from "../../api/platforms";
@@ -201,9 +202,9 @@ export function MdfEmittersTable({ mdfId, mdfName }: { mdfId: string; mdfName: s
   return (
     <section className="card mdf-emitters">
       <div className="card-header">
-        <h4>
+        <h2 className="as-h4">
           Emitters on this MDF <span className="hint-text">{distinct}</span>
-        </h4>
+        </h2>
         <span className="section-actions">
           <span className="hint-text">As pinned by its Platform versions — what the MDF exports.</span>
           <button
@@ -220,7 +221,7 @@ export function MdfEmittersTable({ mdfId, mdfName }: { mdfId: string; mdfName: s
       {reportError && <div className="error-text">{reportError}</div>}
       {mismatched > 0 && (
         <p className="mdf-emitters-warning">
-          ⚠ {mismatched} Emitter{mismatched === 1 ? " is" : "s are"} pinned at different versions by different Platforms.{" "}
+          <Icon name="alert" /> {mismatched} Emitter{mismatched === 1 ? " is" : "s are"} pinned at different versions by different Platforms.{" "}
           <button type="button" className="link-button" onClick={() => setOnlyMismatched((v) => !v)}>
             {onlyMismatched ? "Show all" : "Show only those"}
           </button>
@@ -281,7 +282,7 @@ export function MdfEmittersTable({ mdfId, mdfName }: { mdfId: string; mdfName: s
                           className="mdf-emitter-flag"
                           title={`Other Platforms pin it at ${r.otherVersions.map((v) => `v${v}`).join(", ")}`}
                         >
-                          ⚠ also {r.otherVersions.map((v) => `v${v}`).join(", ")}
+                          <Icon name="alert" /> also {r.otherVersions.map((v) => `v${v}`).join(", ")}
                         </span>
                       )}
                     </td>

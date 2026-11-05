@@ -79,7 +79,7 @@ export function EwGroupForm({ emitterId, initialData, prefill, onClose }: EwGrou
 
   return (
     <form className="card inline-form" onSubmit={handleSubmit}>
-      {initialData && <h4 className="inline-form-title">Editing EW Group &ldquo;{initialData.name}&rdquo;</h4>}
+      {initialData && <h2 className="as-h4 inline-form-title">Editing EW Group &ldquo;{initialData.name}&rdquo;</h2>}
       <label className="inline-field">
         Name
         <input placeholder="EW Group name" value={name} onChange={(e) => setName(e.target.value)} required />

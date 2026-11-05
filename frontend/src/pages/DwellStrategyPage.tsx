@@ -219,7 +219,7 @@ function UsedIn({ strategy }: { strategy: DwellStrategy }) {
   return (
     <div className="dwell-used-in">
       <section className="card">
-        <h4>Dwell files</h4>
+        <h2 className="as-h4">Dwell files</h2>
         {strategy.used_in.length === 0 ? (
           <p className="hint-text">Not in any dwell file yet — add it from a dwell file&apos;s page.</p>
         ) : (
@@ -251,7 +251,7 @@ function UsedIn({ strategy }: { strategy: DwellStrategy }) {
         )}
       </section>
       <section className="card">
-        <h4>Test runs</h4>
+        <h2 className="as-h4">Test runs</h2>
         {strategy.tests.length === 0 ? (
           <p className="hint-text">No test run has recorded it yet — pick it under Dwell when logging a run.</p>
         ) : (

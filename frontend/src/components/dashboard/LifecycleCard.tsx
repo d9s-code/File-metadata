@@ -14,13 +14,13 @@ export function LifecycleCard({
   const mdf = useStatuses("mdf");
   return (
     <div className="card lifecycle-card">
-      <h4>
+      <h2 className="as-h4">
         <Link to="/emitters">Emitters</Link>
-      </h4>
+      </h2>
       <StatusTiles counts={emitterCounts} labelFor={emitter.label} colorFor={emitter.color} />
-      <h4 className="lifecycle-second">
+      <h2 className="as-h4 lifecycle-second">
         <Link to="/mdfs">MDFs</Link>
-      </h4>
+      </h2>
       <StatusTiles counts={mdfCounts} labelFor={mdf.label} colorFor={mdf.color} />
     </div>
   );

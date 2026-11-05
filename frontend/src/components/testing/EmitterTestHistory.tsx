@@ -34,9 +34,9 @@ export function EmitterTestHistory({
       />
       <div className="card">
         <div className="card-header">
-          <h4>
+          <h2 className="as-h4">
             Test runs <span className="hint-text section-count">{records?.length ?? ""}</span>
-          </h4>
+          </h2>
           <RequireRole minimum="editor">
             <Link className="link-as-button" to={`/emitters/${emitterId}/tests/new`}>
               + Add test run
@@ -73,7 +73,7 @@ function DraftsInProgress({ emitterId }: { emitterId: string }) {
 
   return (
     <div className="test-drafts">
-      <h5>In progress</h5>
+      <h3 className="as-h5">In progress</h3>
       <ul>
         {drafts.map((d) => (
           <li key={d.id}>

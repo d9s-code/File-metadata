@@ -39,7 +39,7 @@ export function DslEditor({
 
   return (
     <form className="card dsl-editor" onSubmit={handleSubmit}>
-      <h5>Write a mode line directly</h5>
+      <h3 className="as-h5">Write a mode line directly</h3>
       <p className="hint-text">
         e.g. <code>RF 2900-3100 PRI FIXED 800-1200 JITTER 5-15 PW 0.5-1.2</code> — elements are derived
         automatically and added to this Source's element pool.

@@ -373,7 +373,7 @@ export function HelpPage() {
           </p>
 
           <div className="help-subsection" id="emitter-modes-tab">
-            <h4>Modes tab</h4>
+            <h2 className="as-h4">Modes tab</h2>
             <p>
               See the Emitter's Modes as a sortable <strong>Table</strong>, as <strong>Cards</strong>, or as{" "}
               <strong>Charts</strong>. Filter by EW Group, Source, or Batch, and search by name. Each Mode row shows:
@@ -479,7 +479,7 @@ export function HelpPage() {
           </div>
 
           <div className="help-subsection" id="emitter-modes-charts">
-            <h4>Modes charts</h4>
+            <h2 className="as-h4">Modes charts</h2>
             <p>
               <strong>Charts</strong> draws the Modes the filters leave as <strong>range ladders</strong>, using the
               engineered ranges the system recognises: each Mode gets a row with its RF, PRI (a stagger&apos;s frame
@@ -517,7 +517,7 @@ export function HelpPage() {
             </p>
           </div>
           <div className="help-subsection" id="emitter-testing-tab">
-            <h4>Test History tab</h4>
+            <h2 className="as-h4">Test History tab</h2>
             <p>
               Two parts: the <strong>SIM Test Lines</strong> this Emitter is checked against, and the list of
               logged <strong>test runs</strong>. Between them, <strong>Simulation trend</strong> shows each simulation
@@ -664,7 +664,7 @@ export function HelpPage() {
           </div>
 
           <div className="help-subsection" id="emitter-audit-tab">
-            <h4>Audit tab</h4>
+            <h2 className="as-h4">Audit tab</h2>
             <p>
               A scoped view of the global Audit Log — but rolled up, not limited to the Emitter's own
               entries: everything under it too (its EW Groups, Sources, Modes, Elements, generation
@@ -684,7 +684,7 @@ export function HelpPage() {
           </div>
 
           <div className="help-subsection" id="emitter-sources">
-            <h4>EW Groups & Sources tab</h4>
+            <h2 className="as-h4">EW Groups & Sources tab</h2>
             <p>
               <strong>EW Groups</strong> are the operational buckets (scan range + threat priority) Modes
               are organized under. While an Emitter has none and its Sources have scan Elements, a{" "}
@@ -773,7 +773,7 @@ export function HelpPage() {
           </div>
 
           <div className="help-subsection" id="emitter-intercepts-tab">
-            <h4>Intercepts tab</h4>
+            <h2 className="as-h4">Intercepts tab</h2>
             <p>
               This Emitter's logged real-world signal intercepts — see <strong>Intercepts</strong> below for
               what an Intercept is and how it's built. Each row shows when it was recorded, who collected it,

@@ -447,7 +447,7 @@ export function InterceptModePlanPage() {
       )}
 
       <section className="card plan-settings">
-        <h4>New Modes</h4>
+        <h2 className="as-h4">New Modes</h2>
         <div className="form-row">
           <label className="grow">
             EW Group

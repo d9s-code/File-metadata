@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { Icon } from "../common/Icon";
 import { ApiRequestError } from "../../api/client";
 import type { ItemMilestone, StatusEntityType } from "../../api/statuses";
 import { RequireRole, useHasRole } from "../../auth/RequireAuth";
@@ -9,7 +10,7 @@ import { StatusBadge } from "./StatusBadge";
 
 const NOUN: Record<StatusEntityType, string> = { emitter: "Emitter", platform: "Platform", mdf: "MDF" };
 
-/** "◎ Milestones · 1/3" on an Emitter, Platform or MDF page — how many of the
+/** "Milestones · 1/3" on an Emitter, Platform or MDF page — how many of the
  * milestones for the statuses it can move to next are met. Opens the list:
  * every milestone by status, ticked off by hand with a note, and this
  * item's own ones added beside the defaults Admins set. */
@@ -33,7 +34,7 @@ export function MilestonesButton({ type, id, status }: { type: StatusEntityType;
             : "What needs doing before each status"
         }
       >
-        ◎ Milestones{upcoming.length > 0 && ` · ${met}/${upcoming.length}`}
+        <Icon name="target" /> Milestones{upcoming.length > 0 && ` · ${met}/${upcoming.length}`}
       </button>
       {open && (
         <Modal title={`Milestones — this ${NOUN[type]}`} onClose={() => setOpen(false)} wide>
@@ -84,12 +85,12 @@ function MilestonesPanel({
         const done = items.filter((m) => m.done).length;
         return (
           <section key={s.key} className={nextKeys.has(s.key) ? "milestone-group next" : "milestone-group"}>
-            <h5>
+            <h3 className="as-h5">
               Before <StatusBadge type={type} status={s.key} />
               <span className="hint-text">
                 {done}/{items.length} met{nextKeys.has(s.key) ? " · next" : s.key === status ? " · current" : ""}
               </span>
-            </h5>
+            </h3>
             <ul className="milestone-list">
               {items.map((m) => (
                 <MilestoneRow

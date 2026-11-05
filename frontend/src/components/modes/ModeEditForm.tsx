@@ -100,7 +100,7 @@ export function ModeEditForm({
   return (
     <form className="card mode-form mode-edit-form" onSubmit={handleSubmit} noValidate ref={formRef}>
       <div className="mode-form-head">
-        <h4>Editing {mode.name}</h4>
+        <h2 className="as-h4">Editing {mode.name}</h2>
         <span className="hint-text">Takes effect as soon as you save.</span>
       </div>
       {derivedFromTestRecord && (

@@ -103,7 +103,7 @@ export function ModeMoreOptions({
           {showDerived &&
             (showPicker ? (
               <div>
-                <h5>Explained by test result(s)</h5>
+                <h3 className="as-h5">Explained by test result(s)</h3>
                 <DerivedFromPicker
                   emitterId={emitterId}
                   selected={values.derivedFrom}

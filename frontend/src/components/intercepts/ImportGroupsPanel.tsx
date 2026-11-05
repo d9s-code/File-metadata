@@ -442,7 +442,7 @@ export function ImportGroupsPanel({
   return (
     <section className="card">
       <div className="card-header">
-        <h4>
+        <h2 className="as-h4">
           {heading}{" "}
           <InfoTip label="How grouping works">
             Each row becomes one entry: the mean of its reports, with their lowest and highest values as the measured
@@ -450,7 +450,7 @@ export function ImportGroupsPanel({
             and <strong>Merge</strong> them, <strong>split</strong> them at a value, or use <strong>Auto group</strong>{" "}
             with your own gaps. Filters compare each row&apos;s mean and only narrow what&apos;s listed and selected.
           </InfoTip>
-        </h4>
+        </h2>
         <button type="button" className="button secondary small" onClick={() => void resetAll()}>
           Start over
         </button>

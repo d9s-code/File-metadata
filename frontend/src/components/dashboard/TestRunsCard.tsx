@@ -26,8 +26,8 @@ function lineSummary(counts: Record<TestResult, number> | null): string {
 export function TestRunsCard({ runs, needsRedo }: { runs: RecentTestRun[]; needsRedo: NeedsRedoTestItem[] }) {
   return (
     <div className="card">
-      <h4>Test Runs</h4>
-      <h5>Latest</h5>
+      <h2 className="as-h4">Test Runs</h2>
+      <h3 className="as-h5">Latest</h3>
       {runs.length === 0 ? (
         <EmptyState icon="—" title="No runs yet" message="Logged Simulation and Intercept Tests show up here." />
       ) : (
@@ -60,7 +60,7 @@ export function TestRunsCard({ runs, needsRedo }: { runs: RecentTestRun[]; needs
           </table>
         </div>
       )}
-      <h5 className="dashboard-subheading">Needs a redo</h5>
+      <h3 className="as-h5 dashboard-subheading">Needs a redo</h3>
       <NeedsRedoList items={needsRedo} />
     </div>
   );

@@ -78,14 +78,14 @@ export function MdfReadinessPanel({ mdfId, onGo }: { mdfId: string; onGo?: Readi
   return (
     <section className={`card readiness-panel ${fails ? "has-fail" : warns ? "has-warn" : "all-ok"}`}>
       <div className="card-header">
-        <h4>
+        <h2 className="as-h4">
           Readiness{" "}
           <span className="hint-text">
             {count("ok")} of {data.length} ready
             {fails ? ` · ${fails} problem${fails === 1 ? "" : "s"}` : ""}
             {warns ? ` · ${warns} warning${warns === 1 ? "" : "s"}` : ""}
           </span>
-        </h4>
+        </h2>
       </div>
       <p className="hint-text">
         Whether the MDF is ready to go out: its pins saved and current, every Emitter Operational and passing its latest

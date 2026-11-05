@@ -103,7 +103,7 @@ export function AdminDefaultsPage() {
       <h1>Admin</h1>
       <AdminNav />
       <form className="card" onSubmit={handleSubmit}>
-        <h4>Mode defaults</h4>
+        <h2 className="as-h4">Mode defaults</h2>
         <p className="hint-text">
           What a new Mode starts with. The Add Mode form and the Intercept planning page fill these in (they can be
           changed there for one Mode); Modes made from Elements, a typed line or the AI chat get the confirmation and,

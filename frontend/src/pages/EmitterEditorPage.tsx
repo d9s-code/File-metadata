@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from "react";
+import { Icon } from "../components/common/Icon";
 import { BackLink } from "../components/common/BackLink";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useEmitter, useUpdateEmitter } from "../state/hooks/useEmitters";
@@ -184,7 +185,7 @@ export function EmitterEditorPage() {
             />
             {emitter.status === "deprecated" && emitter.rework_note && (
               <button className="rework-note-button" onClick={() => setShowReworkNote(true)}>
-                ⚠ Rework note
+                <Icon name="alert" /> Rework note
               </button>
             )}
             <AssigneeControl emitter={emitter} />
@@ -298,7 +299,7 @@ export function EmitterEditorPage() {
 
       {isMine && showChanges && (
         <div className="card">
-          <h4>Changes since the last saved version</h4>
+          <h2 className="as-h4">Changes since the last saved version</h2>
           <LiveDiffPanel emitterId={emitter.id} />
         </div>
       )}

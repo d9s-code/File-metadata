@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { Icon } from "./Icon";
 import { readDraft } from "./NotesFeed";
 
 const OPEN_KEY = "notes-drawer-open";
@@ -70,7 +71,7 @@ export function NotesDrawer({
         <span className="notes-drawer-tab-count">{count}</span>
         {hasDraft && (
           <span className="notes-drawer-tab-draft" title="You have a note written but not added yet">
-            ✎
+            <Icon name="edit" />
           </span>
         )}
       </button>
@@ -86,9 +87,9 @@ export function NotesDrawer({
     >
       <div className="notes-drawer-header">
         <div>
-          <h4>
+          <h2 className="as-h4">
             {title} <span className="section-count">{count}</span>
-          </h4>
+          </h2>
           <span className="hint-text notes-drawer-subject">{subject}</span>
         </div>
         <button type="button" className="link-button" onClick={() => setOpen(false)} aria-label={`Close the ${title.toLowerCase()}`}>
