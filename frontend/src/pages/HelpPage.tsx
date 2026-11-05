@@ -1053,6 +1053,14 @@ export function HelpPage() {
             <strong>Repin all to their latest version</strong> above the table.
           </p>
           <p>
+            <strong>Emitters</strong> lists every Emitter on the MDF, through the Platform versions it pins (as
+            the export takes them). It shows each Emitter&apos;s pinned version, the Platforms that pin it, its
+            Modes and PRI types, its overall RF, PRI and PW ranges (tick <strong>With deltas (±)</strong> for the
+            engineered ones) and its status now. Click a column heading to sort, and type to filter by Emitter,
+            designation or Platform. An Emitter that two Platforms pin at different versions gets a row per
+            version, marked &ldquo;also vN&rdquo;, and a warning above the table counts them.
+          </p>
+          <p>
             <strong>Charts</strong> works like a Platform&apos;s, one level up: <strong>Per Platform</strong> draws
             a line per pinned Platform — everything its Emitters cover, gaps kept as gaps; <strong>Per
             Emitter</strong> a line per Emitter under its Platform; <strong>Per Mode</strong> a line per Mode

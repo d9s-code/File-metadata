@@ -341,6 +341,17 @@ A **Readiness** checklist heads the Pinned Platforms tab (`GET /mdfs/{id}/readin
 
 The MDF page's **Charts** tab works like a Platform's (layout, zoom and the ambiguity marks included), one level up: **Per Platform** — a line per pinned Platform version covering everything its Emitters do (joined only where ranges overlap); **Per Emitter** — a line per Emitter under a heading for its Platform; **Per Mode** — a line per Mode under its Emitter. Bars are coloured by Platform, or by Emitter once Emitters are shown. It reads each pinned Platform version and the Emitter versions recorded in it (`GET /mdfs/{id}/coverage`).
 
+The MDF page's **Emitters** tab lists every Emitter on the MDF in one sortable table. It works through the Platform versions the MDF pins, exactly as the export takes them. Each row shows:
+
+- the Emitter (a link) and its designation;
+- the pinned version;
+- the Platforms that pin it;
+- how many Modes it has and of which PRI types;
+- the overall RF, PRI/frame time and PW ranges across its Modes (raw, or with deltas (±) when that's ticked);
+- its status now.
+
+Every column sorts, and a search box filters on the Emitter, its designation or a Platform. If two Platforms pin the same Emitter at different versions, it gets a row per version, each flagged "also vN", and a warning above the table counts them with **Show only those**. The tab's count is the number of distinct Emitters, and `?tab=emitters` links straight to it (as the other tabs' names do).
+
 ### Compare MDFs
 
 **MDFs → Compare**, or on an MDF **⋯ → Compare with an earlier version** (its latest saved version against the one before; with one saved version, that version against now) or **Compare with another MDF** — also **Compare versions** in its Version history. Each side is an MDF at a saved version, or **Now — its current pins**; **Default (vN)** names the version used when none is picked (two MDFs: each one's latest saved version), and **⇄ Swap** flips the sides. What changed from A to B:

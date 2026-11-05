@@ -22,6 +22,7 @@ import { EntityAuditTrail } from "../components/audit/EntityAuditTrail";
 import { RequireRole, useHasRole } from "../auth/RequireAuth";
 import { useAttachments } from "../state/hooks/useAttachments";
 import { FilesPanel } from "../components/files/FilesPanel";
+import { MdfEmittersTable, useMdfCoverage } from "../components/mdf/MdfEmittersTable";
 import { LoadingState } from "../components/common/LoadingState";
 import { Modal } from "../components/common/Modal";
 import { NotesFeed } from "../components/common/NotesFeed";
@@ -29,16 +30,19 @@ import { NotesDrawer } from "../components/common/NotesDrawer";
 import { TasksButton } from "../components/tasks/TasksButton";
 import { MilestonesButton } from "../components/status/MilestonesButton";
 
-type Tab = "platforms" | "charts" | "tests" | "files" | "audit";
+type Tab = "platforms" | "emitters" | "charts" | "tests" | "files" | "audit";
+const TABS: readonly Tab[] = ["platforms", "emitters", "charts", "tests", "files", "audit"];
+const linkedTab = (t: string | null): Tab | null => (TABS.includes(t as Tab) ? (t as Tab) : null);
 
 export function MdfBuilderPage() {
   const { mdfId } = useParams<{ mdfId: string }>();
   const [searchParams] = useSearchParams();
-  const [tab, setTab] = useState<Tab>(searchParams.get("tab") === "tests" ? "tests" : "platforms");
+  const [tab, setTab] = useState<Tab>(linkedTab(searchParams.get("tab")) ?? "platforms");
   const highlightTestRecordId = searchParams.get("testRecord") ?? undefined;
 
   useEffect(() => {
-    if (searchParams.get("tab") === "tests") setTab("tests");
+    const linked = linkedTab(searchParams.get("tab"));
+    if (linked) setTab(linked);
   }, [searchParams]);
 
   const { data: mdf, isLoading } = useMdf(mdfId);
@@ -50,6 +54,8 @@ export function MdfBuilderPage() {
   const commitVersion = useCommitMdfVersion(mdfId ?? "");
   const canWrite = useHasRole("editor");
   const { data: files } = useAttachments("mdf", mdfId ?? "");
+  const { data: coverage } = useMdfCoverage(mdfId ?? "");
+  const emitterCount = new Set((coverage ?? []).flatMap((p) => p.emitters.map((e) => e.emitter_id))).size;
   const [exportError, setExportError] = useState<string | null>(null);
   const { data: customers } = useCustomers();
   const { mutate: updateMdf, isPending: isUpdating } = useUpdateMdf();
@@ -256,6 +262,9 @@ export function MdfBuilderPage() {
         <button className={tab === "platforms" ? "tab active" : "tab"} onClick={() => setTab("platforms")}>
           Pinned Platforms {links && <span className="tab-count">{links.length}</span>}
         </button>
+        <button className={tab === "emitters" ? "tab active" : "tab"} onClick={() => setTab("emitters")}>
+          Emitters <span className="tab-count">{emitterCount}</span>
+        </button>
         <button className={tab === "charts" ? "tab active" : "tab"} onClick={() => setTab("charts")}>
           Charts
         </button>
@@ -312,6 +321,7 @@ export function MdfBuilderPage() {
         </div>
       )}
 
+      {tab === "emitters" && <MdfEmittersTable mdfId={mdf.id} />}
       {tab === "charts" && <MdfCharts mdfId={mdf.id} />}
       {tab === "tests" && <MdfTestHistory mdfId={mdf.id} highlightTestRecordId={highlightTestRecordId} />}
       {tab === "files" && (

@@ -7680,3 +7680,8 @@ button.meta-chip:hover:not(:disabled) { color: var(--text); }
 .picture-viewer-meta { color: #aab1bc; font-size: 0.82rem; margin-top: 0.15rem; }
 .picture-viewer-actions { display: flex; gap: 1rem; align-items: center; }
 .picture-viewer-actions a, .picture-viewer-actions .link-button { color: #cfe0ff; }
+
+/* Every Emitter on an MDF. */
+.mdf-emitters-warning { margin: 0 0 0.6rem; padding: 0.4rem 0.7rem; border-left: 3px solid var(--status-warning); background: color-mix(in srgb, var(--status-warning) 12%, transparent); font-size: 0.9rem; }
+.mdf-emitters-table td { vertical-align: top; }
+.mdf-emitter-flag { display: inline-block; margin-left: 0.3rem; padding: 0 0.35rem; border-radius: 4px; background: var(--badge-amber-bg); color: var(--badge-amber-fg); font-size: 0.8rem; }
