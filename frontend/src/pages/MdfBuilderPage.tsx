@@ -37,8 +37,8 @@ import { NotesDrawer } from "../components/common/NotesDrawer";
 import { TasksButton } from "../components/tasks/TasksButton";
 import { MilestonesButton } from "../components/status/MilestonesButton";
 
-type Tab = "readiness" | "platforms" | "emitters" | "dwells" | "plan" | "timeline" | "charts" | "tests" | "files" | "audit";
-const TABS: readonly Tab[] = ["readiness", "platforms", "emitters", "dwells", "plan", "timeline", "charts", "tests", "files", "audit"];
+type Tab = "platforms" | "emitters" | "dwells" | "plan" | "timeline" | "charts" | "tests" | "readiness" | "files" | "audit";
+const TABS: readonly Tab[] = ["platforms", "emitters", "dwells", "plan", "timeline", "charts", "tests", "readiness", "files", "audit"];
 /** Where each readiness check is dealt with. */
 const READINESS_TAB: Record<string, Tab> = {
   pinned: "platforms",
@@ -303,17 +303,6 @@ export function MdfBuilderPage() {
       )}
 
       <div className="tab-bar">
-        <button className={tab === "readiness" ? "tab active" : "tab"} onClick={() => setTab("readiness")}>
-          Readiness
-          {readiness.loaded && (
-            <span
-              className={`tab-count${readiness.fails ? " tab-count-fail" : readiness.warns ? " tab-count-warn" : " tab-count-ok"}`}
-              title={`${readiness.fails} problem(s), ${readiness.warns} warning(s)`}
-            >
-              {readiness.fails + readiness.warns || "✓"}
-            </span>
-          )}
-        </button>
         <button className={tab === "platforms" ? "tab active" : "tab"} onClick={() => setTab("platforms")}>
           Pinned Platforms {links && <span className="tab-count">{links.length}</span>}
         </button>
@@ -337,6 +326,17 @@ export function MdfBuilderPage() {
         </button>
         <button className={tab === "tests" ? "tab active" : "tab"} onClick={() => setTab("tests")}>
           Test History
+        </button>
+        <button className={tab === "readiness" ? "tab active" : "tab"} onClick={() => setTab("readiness")}>
+          Readiness
+          {readiness.loaded && (
+            <span
+              className={`tab-count${readiness.fails ? " tab-count-fail" : readiness.warns ? " tab-count-warn" : " tab-count-ok"}`}
+              title={`${readiness.fails} problem(s), ${readiness.warns} warning(s)`}
+            >
+              {readiness.fails + readiness.warns || "✓"}
+            </span>
+          )}
         </button>
         <button className={tab === "files" ? "tab active" : "tab"} onClick={() => setTab("files")}>
           Files <span className="tab-count">{files?.length ?? 0}</span>

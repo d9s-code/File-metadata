@@ -1047,7 +1047,7 @@ export function HelpPage() {
             an append-only, timestamped log, separate from the single editable "Notes" field in the edit form.
           </p>
           <p>
-            The <strong>Readiness</strong> tab (first on the MDF page, its badge counting what isn&apos;t ready) says
+            The <strong>Readiness</strong> tab (after Test History, its badge counting what isn&apos;t ready) says
             what&apos;s left before the MDF goes out, listing only what isn&apos;t ready, each with a link to the tab where
             it&apos;s dealt with: Platforms pinned, the pins saved as a version, Platform pins and the Emitter
             pins inside them up to date, every Emitter Operational and passing its latest Simulation Test, no open
