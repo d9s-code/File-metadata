@@ -119,7 +119,8 @@ export function useDwellVersionDiff(kind: DwellKind, id: string, n: number, agai
   return useQuery({
     queryKey: [...key, id, "versions", n, "diff", against ?? "previous"],
     queryFn: () => dwellsApi.diff(kind, id, n, against),
-    enabled: !!id && n > 0,
+    // v1 has nothing before it to compare with.
+    enabled: !!id && n > 0 && (n > 1 || against != null),
   });
 }
 

@@ -139,7 +139,7 @@ export function MdfsListPage() {
         info="An MDF pins saved Platform versions for delivery to a customer."
       >
         <RequireRole minimum="editor">
-          <button onClick={() => setShowAdd(true)}>+ Add MDF</button>
+          <button className="button primary" onClick={() => setShowAdd(true)}>+ Add MDF</button>
         </RequireRole>
       </PageHeader>
 

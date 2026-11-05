@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from "react";
+import { BackLink } from "../components/common/BackLink";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useEmitter, useUpdateEmitter } from "../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../state/hooks/useEmitterCheckout";
@@ -138,6 +139,7 @@ export function EmitterEditorPage() {
 
   return (
     <div className="page">
+      <BackLink to="/emitters">Emitters</BackLink>
       <EntityHeader
         title={emitter.name}
         subtitle={emitter.designation}

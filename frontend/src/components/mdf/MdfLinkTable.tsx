@@ -6,23 +6,49 @@ import type { Platform, PlatformCoverage } from "../../api/platforms";
 import { StatusBadge } from "../status/StatusBadge";
 import { usePinPlatform, useUnpinPlatform } from "../../state/hooks/useMdfs";
 import { usePlatformVersions } from "../../state/hooks/usePlatformVersions";
-import { RequireRole } from "../../auth/RequireAuth";
+import { RequireRole, useHasRole } from "../../auth/RequireAuth";
 import { EmptyState } from "../common/EmptyState";
 import { MenuButton } from "../common/MenuButton";
+import { useConfirmDialog } from "../common/ConfirmDialog";
 import { SortableColumnHeader } from "../common/SortableColumnHeader";
 import { useSortableTable } from "../common/useSortableTable";
 import { compareStrings } from "../common/sortUtils";
 
 type MdfLinkSortKey = "platform" | "added";
 
-function PinnedVersionCell({ platformId, versionId }: { platformId: string; versionId: string }) {
+/** The pinned version — for editors, a picker of the Platform's saved
+ * versions (newest first) that repins on change, as on a Platform's pins. */
+function PinnedVersionCell({ mdfId, platformId, versionId }: { mdfId: string; platformId: string; versionId: string }) {
+  const canEdit = useHasRole("editor");
   const { data: versions } = usePlatformVersions(platformId);
+  const pin = usePinPlatform(mdfId);
   const version = versions?.find((v) => v.id === versionId);
   if (!version) return <span title={versionId}>{versionId.slice(0, 8)}…</span>;
+  if (!canEdit) {
+    return (
+      <Link to={`/platforms/${platformId}/versions?version=${version.version_number}`} title="See this version">
+        v{version.version_label ?? version.version_number}
+      </Link>
+    );
+  }
+  const newestFirst = [...(versions ?? [])].sort((a, b) => b.version_number - a.version_number);
   return (
-    <Link to={`/platforms/${platformId}/versions?version=${version.version_number}`}>
-      v{version.version_label ?? version.version_number}
-    </Link>
+    <span className="pinned-version">
+      <select
+        value={versionId}
+        disabled={pin.isPending}
+        aria-label="Pinned version"
+        onChange={(e) => void pin.mutateAsync({ platformId, platformVersionId: e.target.value })}
+      >
+        {newestFirst.map((v, i) => (
+          <option key={v.id} value={v.id}>
+            v{v.version_label ?? v.version_number}
+            {i === 0 ? " (latest)" : ""}
+            {v.change_summary ? ` — ${v.change_summary.slice(0, 40)}` : ""}
+          </option>
+        ))}
+      </select>
+    </span>
   );
 }
 
@@ -118,6 +144,18 @@ export function MdfLinkTable({
   coverage?: PlatformCoverage[];
 }) {
   const unpin = useUnpinPlatform(mdfId);
+  const { confirmDelete, dialog } = useConfirmDialog();
+
+  async function handleUnpin(link: MdfLink) {
+    const name = platformsById[link.platform_id]?.name ?? "this Platform";
+    if (
+      await confirmDelete(
+        `Unpin ${name} from this MDF? Its saved versions keep it; the next saved version won't have it.`,
+        { confirmLabel: "Unpin", danger: true },
+      )
+    )
+      await unpin.mutateAsync(link.platform_id);
+  }
   const [open, setOpen] = useState<Set<string>>(new Set());
   const toggle = (id: string) =>
     setOpen((prev) => {
@@ -143,6 +181,8 @@ export function MdfLinkTable({
   }
 
   return (
+    <>
+    {dialog}
     <table className="data-table mdf-link-table">
       <thead>
         <tr>
@@ -200,7 +240,7 @@ export function MdfLinkTable({
               </Link>
             </td>
             <td>
-              <PinnedVersionCell platformId={link.platform_id} versionId={link.platform_version_id} />
+              <PinnedVersionCell mdfId={mdfId} platformId={link.platform_id} versionId={link.platform_version_id} />
               {!pinsFrozen && <OutdatedPin mdfId={mdfId} link={link} />}
             </td>
             <td className="num">{cov ? cov.emitters.length : "—"}</td>
@@ -211,7 +251,7 @@ export function MdfLinkTable({
                   label="⋯"
                   className="row-menu-button"
                   ariaLabel={`Actions for ${platformsById[link.platform_id]?.name ?? "this Platform"}`}
-                  items={[{ label: "Unpin", danger: true, onSelect: () => void unpin.mutateAsync(link.platform_id) }]}
+                  items={[{ label: "Unpin…", danger: true, onSelect: () => void handleUnpin(link) }]}
                 />
               </RequireRole>
             </td>
@@ -229,5 +269,6 @@ export function MdfLinkTable({
         })}
       </tbody>
     </table>
+    </>
   );
 }

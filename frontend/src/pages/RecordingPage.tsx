@@ -200,7 +200,10 @@ export function RecordingPage() {
       >
         <RequireRole minimum="editor">
           <MenuButton
-            label="More ▾"
+            label="⋯"
+            className="button secondary more-button"
+            ariaLabel="More actions"
+            title="More actions"
             items={[
               { label: "Rename", onSelect: () => setRenaming(true) },
               {

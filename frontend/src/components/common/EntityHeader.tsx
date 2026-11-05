@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 
-/** The top of an Emitter, Platform or MDF page — the same everywhere: the
- * name with its actions on the right (the main action first, then exports,
- * then "More ▾"), a status row under it, then whatever the page adds (a
+/** The top of an Emitter, Platform, MDF or dwell page — the same everywhere: a
+ * back link above, the name with its actions on the right (exports and other
+ * secondary actions, then the main one, then "⋯"), a status row under it, then whatever the page adds (a
  * description, a summary strip). `editing` gives it the blue edge Emitters
  * show while you hold the checkout. */
 export function EntityHeader({

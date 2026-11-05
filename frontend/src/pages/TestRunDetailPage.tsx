@@ -176,7 +176,10 @@ export function TestRunDetailPage() {
             />
           )}
           <MenuButton
-            label="More ▾"
+            label="⋯"
+            className="button secondary more-button"
+            ariaLabel="More actions"
+            title="More actions"
             items={[
               { label: "Change the result…", onSelect: () => setChangingResult(true) },
               { label: "Delete this run…", danger: true, onSelect: () => void handleDelete() },

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BackLink } from "../components/common/BackLink";
 import { useParams, useSearchParams } from "react-router-dom";
 import { usePlatform, usePlatformLinks, useRepinPlatformLatest, useUpdatePlatform } from "../state/hooks/usePlatforms";
 import { useCommitPlatformVersion, usePlatformVersions } from "../state/hooks/usePlatformVersions";
@@ -97,6 +98,7 @@ export function PlatformBuilderPage() {
 
   return (
     <div className="page">
+      <BackLink to="/platforms">Platforms</BackLink>
       <EntityHeader
         title={platform.name}
         actions={

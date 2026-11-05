@@ -621,7 +621,10 @@ export function InterceptDetailPage() {
               + Add entry
             </button>
             <MenuButton
-              label="More ▾"
+              label="⋯"
+              className="button secondary more-button"
+              ariaLabel="More actions"
+              title="More actions"
               items={[
                 { label: "Edit details", onSelect: () => setShowEditDetails(true) },
                 { label: "Import entries from CSV", to: `/intercepts/import?intercept=${intercept.id}` },

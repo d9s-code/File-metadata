@@ -607,7 +607,7 @@ export function HelpPage() {
                 The run&rsquo;s overall result is <strong>worked out</strong> from the included rows (worst one wins),
                 or set by hand when nothing is included. To make a different call, pick it under{" "}
                 <strong>Override</strong> and say why (required). A logged run&rsquo;s result can also be changed on its
-                page under <strong>More ▾ → Change the result…</strong> (Editors) — picking the worked-out one again removes the
+                page under <strong>⋯ → Change the result…</strong> (Editors) — picking the worked-out one again removes the
                 override. An overridden result shows ✎, with the worked-out result and the reason beside it, and each
                 change is in the audit log.
               </li>
@@ -622,7 +622,7 @@ export function HelpPage() {
               <li>
                 Each run has its own page with the full per-line and per-Mode detail. Its actions sit top right:{" "}
                 <strong>+ From this test ▾</strong>, <strong>Redo test</strong> on a failed or partial run (a new run
-                pre-filled as a retest of it), and <strong>More ▾</strong> to change the result or delete the run.
+                pre-filled as a retest of it), and <strong>⋯</strong> to change the result or delete the run.
               </li>
               <li>
                 <strong>Against the Modes now</strong>, a tab beside <strong>Results</strong> on the run&apos;s page
@@ -1185,7 +1185,7 @@ export function HelpPage() {
             file), a dwell time and a collect time in ms (50 by default). <strong>Enter</strong> in a row adds the next
             one and <strong>Add several…</strong> takes a list of frequencies at once. <strong>Save as vN</strong> saves
             them as a new version straight away; until then they&apos;re kept in your browser, so leaving the page
-            doesn&apos;t lose them. Name, Platforms, description and manual collect time are under More ▾ → Details…, and
+            doesn&apos;t lose them. Name, Platforms, description and manual collect time are under ⋯ → Details…, and
             the Notes panel keeps running notes.
           </p>
           <p>
@@ -1203,7 +1203,7 @@ export function HelpPage() {
             A dwell file pins a saved version of each Strategy, flags newer versions (<strong>Repin all</strong>) and the
             Platforms of the MDFs using it with no Strategy yet; its row opens to the pinned version&apos;s chart.{" "}
             <strong>Used by MDFs</strong> lists the MDFs using it and the version each pins. Timeout, setup time and
-            notes are under More ▾ → Details…. Version history shows what each version changed. When logging a
+            notes are under ⋯ → Details…. Version history shows what each version changed. When logging a
             test run, <strong>Dwell → Strategy…</strong> records the Strategy (its latest version) the run used; a
             Strategy&apos;s <strong>Used in</strong> tab lists its files and test runs.
           </p>
@@ -1427,7 +1427,7 @@ export function HelpPage() {
           <h3>Intercept detail</h3>
           <p>
             <strong>+ Add entry</strong> adds a reading; each entry's <strong>⋯</strong> menu edits or
-            deletes it, and <strong>More ▾</strong> edits the Intercept's name, date and description.
+            deletes it, and <strong>⋯</strong> beside it edits the Intercept's name, date and description.
             Editing an entry keeps its link to any Mode created from it. <strong>Delete Intercept</strong>{" "}
             (under More, or from the list) removes it along with all
             its entries and notes — any Mode already created from one of its entries is unaffected, it just

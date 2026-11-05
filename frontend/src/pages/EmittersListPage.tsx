@@ -309,7 +309,7 @@ export function EmittersListPage() {
         section={EMITTERS_SECTION}
       >
         <RequireRole minimum="editor">
-          <button onClick={() => setShowAddModal(true)}>+ Add Emitter</button>
+          <button className="button primary" onClick={() => setShowAddModal(true)}>+ Add Emitter</button>
         </RequireRole>
       </PageHeader>
 

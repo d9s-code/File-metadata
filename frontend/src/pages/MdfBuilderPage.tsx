@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { BackLink } from "../components/common/BackLink";
 import { DateInput } from "../components/common/DateInput";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useMdf, useMdfLinks, useRepinMdfLatest, useUpdateMdf } from "../state/hooks/useMdfs";
@@ -140,15 +141,11 @@ export function MdfBuilderPage() {
 
   return (
     <div className="page">
+      <BackLink to="/mdfs">MDFs</BackLink>
       <EntityHeader
         title={mdf.name}
         actions={
           <>
-            <SaveVersionButton
-              noun="MDF"
-              save={(summary) => commitVersion.mutateAsync(summary)}
-              pending={commitVersion.isPending}
-            />
             <button
               type="button"
               className="button secondary"
@@ -164,6 +161,11 @@ export function MdfBuilderPage() {
             >
               Export PRS{latestVersion ? ` (v${latestVersion.version_number})` : ""}
             </button>
+            <SaveVersionButton
+              noun="MDF"
+              save={(summary) => commitVersion.mutateAsync(summary)}
+              pending={commitVersion.isPending}
+            />
             <MenuButton
               label="⋯"
               className="button secondary more-button"

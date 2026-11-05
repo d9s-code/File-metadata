@@ -3,7 +3,10 @@ import { TestingCell } from "../components/dwells/StrategyTesting";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { PageHeader } from "../components/common/PageHeader";
 import { FilterBar, shownCount } from "../components/common/FilterBar";
-import { RequireRole } from "../auth/RequireAuth";
+import { RequireRole, useHasRole } from "../auth/RequireAuth";
+import { MenuButton } from "../components/common/MenuButton";
+import { useConfirmDialog } from "../components/common/ConfirmDialog";
+import { saveBlob, xmlName } from "./DwellFilePage";
 import { LoadingState } from "../components/common/LoadingState";
 import { EmptyState } from "../components/common/EmptyState";
 import { Modal } from "../components/common/Modal";
@@ -70,9 +73,48 @@ export function DwellsListPage() {
   );
 }
 
+/** A row's ⋯ menu on the dwell lists, as on the Emitter, Platform and MDF lists:
+ * its version history, the XML (files), and Delete… after asking. */
+function useDwellRowActions() {
+  const canWrite = useHasRole("editor");
+  const refresh = useRefreshDwellLists();
+  const { confirmDelete, dialog } = useConfirmDialog();
+  const [error, setError] = useState<string | null>(null);
+  async function remove(what: string, name: string, del: () => Promise<unknown>) {
+    if (!(await confirmDelete(`Delete the ${what} "${name}"?`))) return;
+    setError(null);
+    try {
+      await del();
+      refresh();
+    } catch (err) {
+      setError(err instanceof ApiRequestError ? err.message : `Couldn't delete ${name}.`);
+    }
+  }
+  async function download(id: string, name: string) {
+    setError(null);
+    try {
+      saveBlob(await dwellsApi.xml(id), xmlName(name));
+    } catch (err) {
+      setError(err instanceof ApiRequestError ? err.message : `Couldn't download ${name}.`);
+    }
+  }
+  const banner = (
+    <>
+      {dialog}
+      {error && (
+        <p className="error-text" role="alert">
+          {error}
+        </p>
+      )}
+    </>
+  );
+  return { canWrite, remove, download, banner };
+}
+
 function StrategyList({ onNew }: { onNew: () => void }) {
   const { data: strategies, isLoading } = useDwellStrategies();
   const [filter, setFilter] = useSessionState("dwells.filter", "");
+  const actions = useDwellRowActions();
   if (isLoading) return <LoadingState label="Loading Strategies…" />;
   if (!strategies?.length)
     return (
@@ -107,6 +149,7 @@ function StrategyList({ onNew }: { onNew: () => void }) {
 
   return (
     <>
+      {actions.banner}
       <FilterBar active={!!filter} onReset={() => setFilter("")} count={shownCount(shown.length, strategies.length, "Strategy", "Strategies")}>
         <input
           type="search"
@@ -127,13 +170,14 @@ function StrategyList({ onNew }: { onNew: () => void }) {
             <th>In files</th>
             <th>Testing</th>
             <th>Updated</th>
+            <th aria-label="Actions" />
           </tr>
         </thead>
         <tbody>
           {[...groups.entries()].map(([key, items]) => (
             <Fragment key={key || "default"}>
               <tr className="dwell-group-row">
-                <th colSpan={8}>
+                <th colSpan={9}>
                   {key ? (
                     items[0].platform_ids.map((id, i) => (
                       <span key={id}>
@@ -175,13 +219,32 @@ function StrategyList({ onNew }: { onNew: () => void }) {
                     <TestingCell strategyId={s.id} counts={s.testing} />
                   </td>
                   <td className="nowrap">{formatDate(s.updated_at)}</td>
+                  <td className="row-actions">
+                    <MenuButton
+                      label="⋯"
+                      className="row-menu-button"
+                      ariaLabel={`Actions for ${s.name}`}
+                      items={[
+                        { label: "Version history", to: `/dwells/strategies/${s.id}/versions` },
+                        ...(actions.canWrite
+                          ? [
+                              {
+                                label: "Delete…",
+                                danger: true,
+                                onSelect: () => void actions.remove("Strategy", s.name, () => dwellsApi.deleteStrategy(s.id)),
+                              },
+                            ]
+                          : []),
+                      ]}
+                    />
+                  </td>
                 </tr>
               ))}
             </Fragment>
           ))}
           {shown.length === 0 && (
             <tr>
-              <td colSpan={8} className="hint-text">
+              <td colSpan={9} className="hint-text">
                 Nothing matches &quot;{filter}&quot;.
               </td>
             </tr>
@@ -194,10 +257,13 @@ function StrategyList({ onNew }: { onNew: () => void }) {
 
 function FileList() {
   const { data: files, isLoading } = useDwellFiles();
+  const actions = useDwellRowActions();
   if (isLoading) return <LoadingState label="Loading dwell files…" />;
   if (!files?.length)
     return <EmptyState icon="◇" title="No dwell files yet" message="Add one with + Add dwell file, then pin Strategies to it — or import a dwell file's XML." />;
   return (
+    <>
+    {actions.banner}
     <table className="data-table">
       <thead>
         <tr>
@@ -206,6 +272,7 @@ function FileList() {
           <th>Platforms</th>
           <th>Version</th>
           <th>Updated</th>
+          <th aria-label="Actions" />
         </tr>
       </thead>
       <tbody>
@@ -253,10 +320,33 @@ function FileList() {
               )}
             </td>
             <td className="nowrap">{formatDate(f.updated_at)}</td>
+            <td className="row-actions">
+              <MenuButton
+                label="⋯"
+                className="row-menu-button"
+                ariaLabel={`Actions for ${f.name}`}
+                items={[
+                  { label: "Download XML", onSelect: () => void actions.download(f.id, f.name) },
+                  { label: "Version history", to: `/dwells/files/${f.id}/versions` },
+                  ...(actions.canWrite
+                    ? [
+                        {
+                          label: "Delete…",
+                          danger: true,
+                          disabled: f.mdfs.length > 0,
+                          title: f.mdfs.length > 0 ? "Pinned into an MDF — unpin it there first" : undefined,
+                          onSelect: () => void actions.remove("dwell file", f.name, () => dwellsApi.deleteFile(f.id)),
+                        },
+                      ]
+                    : []),
+                ]}
+              />
+            </td>
           </tr>
         ))}
       </tbody>
     </table>
+    </>
   );
 }
 

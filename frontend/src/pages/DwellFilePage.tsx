@@ -6,7 +6,7 @@ import { MenuButton } from "../components/common/MenuButton";
 import { Modal } from "../components/common/Modal";
 import { LoadingState } from "../components/common/LoadingState";
 import { useConfirmDialog } from "../components/common/ConfirmDialog";
-import { RequireRole, useHasRole } from "../auth/RequireAuth";
+import { useHasRole } from "../auth/RequireAuth";
 import { LatestVersion, SaveVersionButton } from "../components/versioning/SaveVersionButton";
 import { DwellChart, num } from "../components/dwells/DwellChart";
 import { overlayTitle, usePlatformsEmitterOverlay } from "../components/dwells/platformOverlay";
@@ -107,7 +107,6 @@ function DwellFileView({ file }: { file: DwellFile }) {
         title={file.name}
         actions={
           <>
-            <SaveVersionButton noun="dwell file" save={(summary) => commit.mutateAsync(summary)} pending={commit.isPending} />
             <button
               type="button"
               className="button secondary"
@@ -116,8 +115,12 @@ function DwellFileView({ file }: { file: DwellFile }) {
             >
               Download XML
             </button>
+            <SaveVersionButton noun="dwell file" save={(summary) => commit.mutateAsync(summary)} pending={commit.isPending} />
             <MenuButton
-              label="More ▾"
+              label="⋯"
+              className="button secondary more-button"
+              ariaLabel="More actions"
+              title="More actions"
               items={[
                 { label: "Details…", onSelect: () => setEditing(true) },
                 { label: "Version history", to: `/dwells/files/${file.id}/versions` },
@@ -172,9 +175,34 @@ function DwellFileView({ file }: { file: DwellFile }) {
         </p>
       )}
 
-      <h2 className="dwell-section-title">
-        Strategies <span className="tab-count">{file.links.length}</span>
-      </h2>
+      <section className="card">
+        <div className="card-header">
+          <h4>
+            Strategies <span className="hint-text">{file.links.length}</span>
+          </h4>
+          {canEdit && (
+            <div className="section-actions">
+              {outdated > 0 && (
+                <>
+                  <span className="hint-text">
+                    {outdated} Strateg{outdated === 1 ? "y has" : "ies have"} a newer saved version.
+                  </span>
+                  <button
+                    type="button"
+                    className="button secondary small"
+                    disabled={repinAll.isPending}
+                    onClick={() => void run(() => repinAll.mutateAsync(undefined))}
+                  >
+                    {repinAll.isPending ? "Repinning…" : "Repin all to their latest version"}
+                  </button>
+                </>
+              )}
+              <button type="button" className="button primary small" onClick={() => setAdding("")}>
+                + Add Strategy
+              </button>
+            </div>
+          )}
+        </div>
       {missing.length > 0 && (
             <div className="dwell-callout">
               <strong>
@@ -195,29 +223,8 @@ function DwellFileView({ file }: { file: DwellFile }) {
               ))}
             </div>
           )}
-          {outdated > 0 && (
-            <RequireRole minimum="editor">
-              <p className="repin-all-row">
-                <span className="hint-text">
-                  {outdated} Strateg{outdated === 1 ? "y has" : "ies have"} a newer saved version.
-                </span>{" "}
-                <button
-                  type="button"
-                  className="button secondary small"
-                  disabled={repinAll.isPending}
-                  onClick={() => void run(() => repinAll.mutateAsync(undefined))}
-                >
-                  {repinAll.isPending ? "Repinning…" : "Repin all to their latest version"}
-                </button>
-              </p>
-            </RequireRole>
-          )}
           <PinnedStrategies file={file} canEdit={canEdit} onError={setError} />
-          {canEdit && (
-            <button type="button" className="button secondary" onClick={() => setAdding("")}>
-              + Add a Strategy
-            </button>
-          )}
+      </section>
       <FileMdfs file={file} />
       {editing && <FileDetails file={file} canEdit={canEdit} onClose={() => setEditing(false)} />}
       {adding != null && (
@@ -581,10 +588,12 @@ function AddStrategy({
 /** The MDFs using the file, each with the version it pins. */
 function FileMdfs({ file }: { file: DwellFile }) {
   return (
-    <>
-      <h2 className="dwell-section-title">
-        Used by MDFs <span className="tab-count">{file.mdfs.length}</span>
-      </h2>
+    <section className="card">
+      <div className="card-header">
+        <h4>
+          Used by MDFs <span className="hint-text">{file.mdfs.length}</span>
+        </h4>
+      </div>
       {file.mdfs.length === 0 ? (
         <p className="hint-text">No MDF pins this file yet — pin it from an MDF&apos;s Dwells tab.</p>
       ) : (
@@ -619,7 +628,7 @@ function FileMdfs({ file }: { file: DwellFile }) {
           </tbody>
         </table>
       )}
-    </>
+    </section>
   );
 }
 

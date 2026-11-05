@@ -102,7 +102,10 @@ function StrategyView({ strategy }: { strategy: DwellStrategy }) {
               />
             )}
             <MenuButton
-              label="More ▾"
+              label="⋯"
+              className="button secondary more-button"
+              ariaLabel="More actions"
+              title="More actions"
               items={[
                 { label: "Details…", onSelect: () => setEditing("details") },
                 { label: "Version history", to: `/dwells/strategies/${strategy.id}/versions` },

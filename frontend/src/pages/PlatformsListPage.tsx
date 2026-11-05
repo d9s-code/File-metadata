@@ -142,7 +142,7 @@ export function PlatformsListPage() {
     <div className="page">
       <PageHeader title="Platforms" info="Platforms group Emitters — this is what gets pinned into an MDF.">
         <RequireRole minimum="editor">
-          <button onClick={() => setShowAdd(true)}>+ Add Platform</button>
+          <button className="button primary" onClick={() => setShowAdd(true)}>+ Add Platform</button>
         </RequireRole>
       </PageHeader>
 

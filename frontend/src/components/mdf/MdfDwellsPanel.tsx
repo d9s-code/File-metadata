@@ -17,6 +17,7 @@ import { formatDate, formatDateTime } from "../common/dates";
 import { EmptyState } from "../common/EmptyState";
 import { LoadingState } from "../common/LoadingState";
 import { MenuButton } from "../common/MenuButton";
+import { useConfirmDialog } from "../common/ConfirmDialog";
 import { Modal } from "../common/Modal";
 import { StatusBadge } from "../status/StatusBadge";
 
@@ -154,6 +155,7 @@ function DwellFileCard({
   onError: (message: string | null) => void;
 }) {
   const { pin, unpin } = useMdfDwellMutations(mdfId);
+  const { confirmDelete, dialog } = useConfirmDialog();
   const { data: settings } = useAppSettings();
   const [open, setOpen] = useState<number | null>(null);
   const cycle = d.strategies.length ? Math.max(...d.strategies.map((s) => s.cycle_ms)) : 0;
@@ -169,6 +171,7 @@ function DwellFileCard({
 
   return (
     <section className="card mdf-dwell-file">
+      {dialog}
       <div className="card-header">
         <h4>
           <Link to={fileUrl(d.dwell_file_id)}>{d.name}</Link>{" "}
@@ -223,9 +226,17 @@ function DwellFileCard({
                 ? [
                     { label: "Pin another version…", onSelect: onPinOther },
                     {
-                      label: "Unpin from this MDF",
+                      label: "Unpin…",
                       danger: true,
-                      onSelect: () => void run(() => unpin.mutateAsync(d.dwell_file_id)),
+                      onSelect: async () => {
+                        if (
+                          await confirmDelete(
+                            `Unpin ${d.name} from this MDF? The file itself stays; the next saved version won't have it.`,
+                            { confirmLabel: "Unpin", danger: true },
+                          )
+                        )
+                          await run(() => unpin.mutateAsync(d.dwell_file_id));
+                      },
                     },
                   ]
                 : []),
