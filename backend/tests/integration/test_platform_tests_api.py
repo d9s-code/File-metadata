@@ -28,6 +28,8 @@ def _platform(client, *emitters):
             f"/platforms/{p['id']}/links",
             json={"emitter_id": x["emitter"]["id"], "emitter_version_id": x["version"]["id"]},
         )
+    # Saved, so a test logged on it records the Platform version it ran against.
+    client.post(f"/platforms/{p['id']}/versions", json={"change_summary": "pins"})
     return p
 
 

@@ -96,10 +96,9 @@ def test_links_flag_a_pin_older_than_the_emitters_latest_version(editor_client, 
 
 
 def test_platform_version_commit_and_diff(editor_client, emitter_with_version):
-    # POST /platforms already auto-commits an initial version (v1, no links) —
-    # see "Automatically commit the initial version" in create_platform. No
-    # need to commit again before adding the link.
+    # A new Platform has no version yet: v1 saved empty, v2 with the pin.
     platform = editor_client.post("/platforms", json={"name": "Versioned Platform"}).json()
+    editor_client.post(f"/platforms/{platform['id']}/versions", json={})
     emitter = emitter_with_version["emitter"]
     v1 = emitter_with_version["version"]
 
@@ -238,7 +237,7 @@ def test_list_summarises_each_platforms_emitters_versions_and_mdfs(editor_client
     assert s["outdated_pins"] == 1
     assert s["worst_status"] == "draft"  # In progress is worse than Testing
     assert s["status_counts"]["draft"] == 1 and s["status_counts"]["in_review"] == 1
-    assert s["latest_version_number"] == 2
+    assert (s["latest_version_number"], s["latest_version_label"]) == (1, "1")
     assert s["mdf_count"] == 1
     assert s["ambiguous_emitters"] == 2 and s["open_ambiguities"] == 2
 

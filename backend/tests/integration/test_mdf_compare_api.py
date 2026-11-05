@@ -47,8 +47,8 @@ def test_compare_two_versions_of_an_mdf(editor_client):
 
     [platform] = body["platforms"]
     assert platform["change"] == "changed"
-    # Repinning the Emitter saved a minor version (v2.1); Save version, the next whole one (v3).
-    assert (platform["from_version_label"], platform["to_version_label"]) == ("2", "3")
+    # Repinning the Emitter saved a minor version (v1.1); Save version, the next whole one (v2).
+    assert (platform["from_version_label"], platform["to_version_label"]) == ("1", "2")
     assert platform["to_version"] == platform["from_version"] + 2
     assert (platform["from_status"], platform["to_status"], platform["status_changed"]) == ("draft", "in_review", True)
     assert platform["emitters_added"] == ["Compare Newcomer"]
