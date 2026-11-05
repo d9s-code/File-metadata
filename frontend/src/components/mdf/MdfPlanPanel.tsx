@@ -11,6 +11,7 @@ import { DateInput } from "../common/DateInput";
 import { LoadingState } from "../common/LoadingState";
 import { MenuButton } from "../common/MenuButton";
 import { useConfirmDialog } from "../common/ConfirmDialog";
+import { SummaryPanel } from "./MdfSummary";
 
 /** "in 12 days", "today", "3 days overdue" — from today to a YYYY-MM-DD date. */
 export function dueText(due: string): { text: string; overdue: boolean; soon: boolean } {
@@ -243,6 +244,7 @@ export function MdfPlanPanel({
   const [editingDue, setEditingDue] = useState(false);
   const [due, setDue] = useState(mdf.due_date ?? "");
   const [error, setError] = useState<string | null>(null);
+  const [summarizing, setSummarizing] = useState(false);
   const fail = (what: string) => (err: unknown) => setError(err instanceof ApiRequestError ? err.message : what);
 
   const list = goals ?? [];
@@ -375,10 +377,22 @@ export function MdfPlanPanel({
         )}
       </section>
 
+      {summarizing && <SummaryPanel mdfId={mdf.id} versions={versions} onClose={() => setSummarizing(false)} />}
       <section className="card">
         <div className="card-header">
           <h4>Release notes</h4>
-          <span className="hint-text">Per saved version — they go into the release notes document (Timeline tab).</span>
+          <span className="section-actions">
+            <span className="hint-text">Per saved version — they go into the release notes document.</span>
+            <button
+              type="button"
+              className="button secondary small"
+              disabled={versions.length === 0 || summarizing}
+              title={versions.length === 0 ? "Save a version first" : "What changed between two versions — and the release notes document"}
+              onClick={() => setSummarizing(true)}
+            >
+              Summarize…
+            </button>
+          </span>
         </div>
         {versions.length === 0 ? (
           <p className="hint-text">Save a version first — release notes belong to a saved version.</p>

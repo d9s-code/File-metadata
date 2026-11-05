@@ -36,22 +36,6 @@ export interface MdfLogEntry {
   created_at: string;
 }
 
-export type TimelineKind = "version" | "status" | "pins" | "goal" | "log" | "due" | "created" | "details";
-
-export interface TimelineEvent {
-  kind: TimelineKind;
-  at: string;
-  by: string | null;
-  title: string;
-  text?: string | null;
-  version_number?: number;
-  release_notes?: string | null;
-  changes?: PinChange[];
-  log_kind?: LogKind;
-  goal_event?: string;
-  due?: { old: string | null; new: string | null } | null;
-}
-
 export interface MdfSummary {
   mdf: { id: string; name: string; status: string; customer: string | null; due_date: string | null; release_date: string | null };
   from_version: number | null;
@@ -87,7 +71,6 @@ export const mdfPlanApi = {
   deleteLog: (mdfId: string, entryId: string) => api.delete<void>(`/mdfs/${mdfId}/log/${entryId}`),
   setReleaseNotes: (mdfId: string, versionNumber: number, text: string | null) =>
     api.put<{ release_notes: string | null }>(`/mdfs/${mdfId}/versions/${versionNumber}/release-notes`, { text }),
-  timeline: (mdfId: string) => api.get<{ events: TimelineEvent[] }>(`/mdfs/${mdfId}/timeline`),
   summary: (mdfId: string, from?: number | null, to?: number | null) =>
     api.get<MdfSummary>(`/mdfs/${mdfId}/summary${range(from, to)}`),
   summaryDocxUrl: (mdfId: string, from?: number | null, to?: number | null) =>

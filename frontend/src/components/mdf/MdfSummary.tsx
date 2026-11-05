@@ -1,33 +1,11 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { ApiRequestError } from "../../api/client";
-import { mdfPlanApi, type PinChange, type TimelineEvent, type TimelineKind } from "../../api/mdfPlan";
+import { mdfPlanApi, type PinChange } from "../../api/mdfPlan";
 import type { MdfVersionSummary } from "../../api/mdfVersions";
-import { useMdfSummary, useMdfTimeline } from "../../state/hooks/useMdfPlan";
+import { useMdfSummary } from "../../state/hooks/useMdfPlan";
 import { formatDate, formatDateTime } from "../common/dates";
-import { LoadingState } from "../common/LoadingState";
-import { useSessionState } from "../common/useSessionState";
 
-const KINDS: [TimelineKind | "all", string][] = [
-  ["all", "All"],
-  ["version", "Versions"],
-  ["status", "Status"],
-  ["goal", "Goals"],
-  ["log", "Log"],
-  ["pins", "Pins"],
-  ["due", "Due date"],
-  ["details", "Details"],
-];
-const KIND_LABEL: Record<TimelineKind, string> = {
-  version: "Version",
-  status: "Status",
-  pins: "Pins",
-  goal: "Goal",
-  log: "Log",
-  due: "Due date",
-  created: "Created",
-  details: "Details",
-};
-
+/** The pins that changed: added, removed or at another version. */
 function Changes({ changes }: { changes: PinChange[] }) {
   if (changes.length === 0) return <p className="hint-text">No changes to the pins.</p>;
   return (
@@ -47,53 +25,10 @@ function Changes({ changes }: { changes: PinChange[] }) {
   );
 }
 
-function Event({ e }: { e: TimelineEvent }) {
-  const [open, setOpen] = useState(false);
-  const changes = e.changes ?? [];
-  return (
-    <li className={`mdf-event ${e.kind}${e.log_kind ? ` ${e.log_kind}` : ""}`}>
-      <div className="mdf-event-dot" aria-hidden />
-      <div className="mdf-event-body">
-        <div className="mdf-event-head">
-          <span className={`status-badge mdf-event-kind ${e.kind}`}>
-            {e.kind === "log" ? (e.log_kind === "release" ? "Release note" : "Progress") : KIND_LABEL[e.kind]}
-          </span>
-          <strong>{e.title}</strong>
-          <span className="hint-text">
-            {formatDateTime(e.at)}
-            {e.by && ` · ${e.by}`}
-          </span>
-        </div>
-        {e.kind === "due" && e.due && (
-          <div className="hint-text">
-            {e.due.old ? formatDate(e.due.old) : "none"} → {e.due.new ? formatDate(e.due.new) : "none"}
-          </div>
-        )}
-        {e.text && e.kind !== "version" && <div className="mdf-event-text">{e.text}</div>}
-        {e.kind === "version" && (
-          <>
-            {e.text && <div className="mdf-event-text">{e.text}</div>}
-            {e.release_notes && (
-              <div className="mdf-event-release">
-                <span className="hint-text">Release notes</span>
-                <div>{e.release_notes}</div>
-              </div>
-            )}
-            <button type="button" className="link-button" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
-              {open ? "▾" : "▸"} {changes.length} change{changes.length === 1 ? "" : "s"} since the version before
-            </button>
-            {open && <Changes changes={changes} />}
-          </>
-        )}
-      </div>
-    </li>
-  );
-}
-
 /** "Summarize…": what changed between two saved versions (by default since
  * the last release), with its release notes, goals, status moves and log —
  * on the page, or as a Word document (the release notes). */
-function SummaryPanel({ mdfId, versions, onClose }: { mdfId: string; versions: MdfVersionSummary[]; onClose: () => void }) {
+export function SummaryPanel({ mdfId, versions, onClose }: { mdfId: string; versions: MdfVersionSummary[]; onClose: () => void }) {
   const [from, setFrom] = useState<number | null>(null);
   const [to, setTo] = useState<number | null>(null);
   const [picked, setPicked] = useState(false);
@@ -240,72 +175,5 @@ function SummaryPanel({ mdfId, versions, onClose }: { mdfId: string; versions: M
         </div>
       )}
     </section>
-  );
-}
-
-/** Everything that happened to an MDF, newest first — versions with what
- * changed, status moves, goals, the log, pins and due-date moves. */
-export function MdfTimeline({ mdfId, versions }: { mdfId: string; versions: MdfVersionSummary[] }) {
-  const { data, isLoading, error } = useMdfTimeline(mdfId);
-  const [kind, setKind] = useSessionState<TimelineKind | "all">("mdfTimeline.kind", "all");
-  const [summarizing, setSummarizing] = useState(false);
-  const events = useMemo(
-    () => (data?.events ?? []).filter((e) => kind === "all" || e.kind === kind || (kind === "details" && e.kind === "created")),
-    [data, kind],
-  );
-  const counts = useMemo(() => {
-    const c: Record<string, number> = {};
-    for (const e of data?.events ?? []) c[e.kind === "created" ? "details" : e.kind] = (c[e.kind === "created" ? "details" : e.kind] ?? 0) + 1;
-    return c;
-  }, [data]);
-
-  return (
-    <div className="mdf-timeline-tab">
-      {summarizing && <SummaryPanel mdfId={mdfId} versions={versions} onClose={() => setSummarizing(false)} />}
-      <section className="card">
-        <div className="card-header">
-          <h4>Timeline</h4>
-          <span className="section-actions">
-            <button
-              type="button"
-              className="button secondary small"
-              disabled={versions.length === 0 || summarizing}
-              title={versions.length === 0 ? "Save a version first" : "What changed between two versions — and the release notes document"}
-              onClick={() => setSummarizing(true)}
-            >
-              Summarize…
-            </button>
-          </span>
-        </div>
-        <div className="mdf-timeline-filters" role="group" aria-label="Show">
-          {KINDS.map(([k, label]) => (
-            <button
-              key={k}
-              type="button"
-              className={`recording-chip${kind === k ? " active" : ""}`}
-              aria-pressed={kind === k}
-              onClick={() => setKind(k)}
-              disabled={k !== "all" && !counts[k]}
-            >
-              {label}
-              {k !== "all" && counts[k] ? <span className="hint-text"> {counts[k]}</span> : null}
-            </button>
-          ))}
-        </div>
-        {isLoading ? (
-          <LoadingState label="Loading the timeline…" />
-        ) : error ? (
-          <div className="error-text">{(error as Error).message}</div>
-        ) : events.length === 0 ? (
-          <p className="hint-text">Nothing here yet.</p>
-        ) : (
-          <ol className="mdf-timeline">
-            {events.map((e, i) => (
-              <Event key={`${e.kind}-${e.at}-${i}`} e={e} />
-            ))}
-          </ol>
-        )}
-      </section>
-    </div>
   );
 }

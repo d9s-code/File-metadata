@@ -4,13 +4,12 @@ import { mdfPlanApi, type LogKind } from "../../api/mdfPlan";
 const goalsKey = (mdfId: string) => ["mdf-goals", mdfId] as const;
 const logKey = (mdfId: string) => ["mdf-log", mdfId] as const;
 
-/** After any change to an MDF's plan: its goals, log, header counts, timeline and audit. */
+/** After any change to an MDF's plan: its goals, log, header counts, summary and audit. */
 function useRefresh(mdfId: string) {
   const qc = useQueryClient();
   return () => {
     qc.invalidateQueries({ queryKey: goalsKey(mdfId) });
     qc.invalidateQueries({ queryKey: logKey(mdfId) });
-    qc.invalidateQueries({ queryKey: ["mdf-timeline", mdfId] });
     qc.invalidateQueries({ queryKey: ["mdf-summary", mdfId] });
     qc.invalidateQueries({ queryKey: ["mdfs"] });
     qc.invalidateQueries({ queryKey: ["mdfVersions", mdfId] });
@@ -24,10 +23,6 @@ export function useMdfGoals(mdfId: string) {
 
 export function useMdfLog(mdfId: string) {
   return useQuery({ queryKey: logKey(mdfId), queryFn: () => mdfPlanApi.log(mdfId), enabled: !!mdfId });
-}
-
-export function useMdfTimeline(mdfId: string, enabled = true) {
-  return useQuery({ queryKey: ["mdf-timeline", mdfId], queryFn: () => mdfPlanApi.timeline(mdfId), enabled: !!mdfId && enabled });
 }
 
 export function useMdfSummary(mdfId: string, from: number | null, to: number | null, enabled: boolean) {

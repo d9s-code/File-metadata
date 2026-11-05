@@ -2,7 +2,7 @@
 version — pins are changed (and stored) straight away, but only "Save
 version" makes them part of a version, which is what an MDF pins and what
 gets exported. Also the change summary between two MDF versions, Platforms
-and the Emitters inside them, for the MDF's timeline and its release notes."""
+and the Emitters inside them, for the MDF's summary and its release notes."""
 
 from sqlalchemy.orm import Session
 

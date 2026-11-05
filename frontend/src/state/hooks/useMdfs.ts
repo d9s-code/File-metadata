@@ -128,7 +128,6 @@ export function useTransitionMdfStatus(mdfId: string) {
       qc.invalidateQueries({ queryKey: mdfReadinessKey(mdfId) });
       // The checklist depends on the status too (no outdated-pin warnings once released).
       qc.invalidateQueries({ queryKey: mdfReadinessChecklistKey(mdfId) });
-      qc.invalidateQueries({ queryKey: ["mdf-timeline", mdfId] });
     },
   });
 }

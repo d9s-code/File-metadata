@@ -1,6 +1,6 @@
 """An MDF's plan and history: due date, goals, the progress log, release
-notes, the pins not saved yet, no outdated warnings once released, the
-timeline and the summary between two versions (and its Word document)."""
+notes, the pins not saved yet, no outdated warnings once released, and the
+summary between two versions (and its Word document)."""
 
 import io
 import zipfile
@@ -108,7 +108,7 @@ def test_a_released_mdf_gets_no_outdated_pin_warnings(editor_client):
     assert items["platform_pins"]["status"] == "warn"
 
 
-def test_the_timeline_and_the_summary_since_the_last_release(editor_client):
+def test_the_summary_since_the_last_release(editor_client):
     emitter, platform, mdf = _setup(editor_client, "History MDF")
     mid = mdf["id"]
     editor_client.post(f"/mdfs/{mid}/goals", json={"text": "Ship it"})
@@ -128,16 +128,10 @@ def test_the_timeline_and_the_summary_since_the_last_release(editor_client):
     v2 = _save(editor_client, "mdfs", mid, "Track mode")
     editor_client.put(f"/mdfs/{mid}/versions/{v2['version_number']}/release-notes", json={"text": "Adds the Track mode."})
 
-    events = editor_client.get(f"/mdfs/{mid}/timeline").json()["events"]
-    kinds = {e["kind"] for e in events}
-    assert {"version", "status", "goal", "log", "due", "pins"} <= kinds
-    newest_version = next(e for e in events if e["kind"] == "version")
-    assert newest_version["version_number"] == v2["version_number"] and newest_version["release_notes"] == "Adds the Track mode."
-    scopes = [c["scope"] for c in newest_version["changes"]]
-    assert any(s.startswith("Platform 'History MDF Ship' → Emitter 'History MDF Radar'") for s in scopes)
-
     s = editor_client.get(f"/mdfs/{mid}/summary").json()
     assert (s["from_version"], s["to_version"], s["last_release_version"]) == (1, v2["version_number"], 1)
+    scopes = [c["scope"] for c in s["changes"]]
+    assert any(x.startswith("Platform 'History MDF Ship' → Emitter 'History MDF Radar'") for x in scopes)
     assert [v["release_notes"] for v in s["versions"]] == ["Adds the Track mode."]
     assert [e["text"] for e in s["log"]] == ["New Track mode in."]
     assert s["contents"][0]["emitters"][0]["version"] == ev2["version_number"]
@@ -155,4 +149,3 @@ def test_the_timeline_and_the_summary_since_the_last_release(editor_client):
 def test_an_mdf_never_saved_has_nothing_to_summarize(editor_client):
     mdf = editor_client.post("/mdfs", json={"name": "Empty MDF"}).json()
     assert editor_client.get(f"/mdfs/{mdf['id']}/summary").status_code == 409
-    assert editor_client.get(f"/mdfs/{mdf['id']}/timeline").json()["events"][0]["kind"] == "created"

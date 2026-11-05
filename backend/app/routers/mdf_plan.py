@@ -1,7 +1,6 @@
 """An MDF's plan and history: its goals (its own list, ticked when reached),
 a log of how it's going and how it went out, release notes per saved
-version, a timeline of everything that happened to it, and a summary of
-what changed between two versions — on the page, or as a Word document."""
+version, and a summary of what changed between two versions — on the page, or as a Word document."""
 
 from __future__ import annotations
 
@@ -44,7 +43,7 @@ def _mdf(db: Session, mdf_id: uuid.UUID, *, writing: bool = False) -> Mdf:
 
 
 def _audit(db: Session, mdf: Mdf, user_id, action: AuditAction, summary: str, changes: dict) -> None:
-    """Filed under the MDF itself, so it shows on its Audit tab and its timeline."""
+    """Filed under the MDF itself, so it shows on its Audit tab."""
     record_audit(
         db,
         actor_id=user_id,
@@ -293,85 +292,8 @@ def _status_moves(db: Session, mdf_id: uuid.UUID) -> list[AuditLog]:
     ).all()
 
 
-def _kind_of(row: AuditLog) -> str | None:
-    """Which strand of the timeline an audit entry belongs to — or None when
-    it's shown another way (a saved version, a log entry) or isn't worth it."""
-    changes = row.changes or {}
-    if row.action == AuditAction.commit:
-        return None
-    if row.action == AuditAction.status_change:
-        return "status"
-    if row.entity_type == AuditEntityType.mdf_link.value:
-        return "pins"
-    if "goal" in changes:
-        return "goal"
-    if "log" in changes or "release_notes" in changes:
-        return None
-    if row.action == AuditAction.create:
-        return "created"
-    if "due_date" in changes:
-        return "due"
-    return "details"
-
-
 def _user(row) -> str | None:
     return row.actor.username if getattr(row, "actor", None) else None
-
-
-@router.get("/{mdf_id}/timeline")
-def timeline(mdf_id: uuid.UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))) -> dict:
-    """Everything that happened to the MDF, newest first: saved versions with
-    what changed since the one before, status moves, pin changes, goals,
-    log entries, due-date moves and other edits."""
-    _mdf(db, mdf_id)
-    events: list[dict] = []
-    previous: dict = {}
-    for v in _versions(db, mdf_id):
-        events.append(
-            {
-                "kind": "version",
-                "at": v.created_at,
-                "by": v.created_by_username,
-                "version_number": v.version_number,
-                "title": f"Saved v{v.version_number}",
-                "text": v.change_summary,
-                "release_notes": v.release_notes,
-                "changes": mdf_change_summary(db, previous, v.snapshot),
-            }
-        )
-        previous = v.snapshot
-    for row in db.scalars(
-        select(AuditLog)
-        .where(AuditLog.entity_id == mdf_id, AuditLog.entity_type.in_([AuditEntityType.mdf.value, AuditEntityType.mdf_link.value]))
-        .order_by(AuditLog.created_at)
-    ):
-        kind = _kind_of(row)
-        if kind is None:
-            continue
-        summary = row.summary
-        prefix = "MDF '"
-        if summary.startswith(prefix) and "': " in summary:
-            summary = summary.split("': ", 1)[1]
-        event = {"kind": kind, "at": row.created_at, "by": _user(row), "title": summary}
-        if kind == "due":
-            moved = (row.changes or {}).get("due_date") or {}
-            event["due"] = moved
-            if not moved.get("old"):
-                event["title"] = "Due date set"
-            elif not moved.get("new"):
-                event["title"] = "Due date cleared"
-            else:
-                event["title"] = "Due date moved"
-        if kind == "goal":
-            event["goal_event"] = (row.changes or {}).get("goal_event")
-        events.append(event)
-    for e in db.scalars(select(MdfLogEntry).where(MdfLogEntry.mdf_id == mdf_id)):
-        events.append(
-            {"kind": "log", "log_kind": e.kind, "at": e.created_at, "by": e.author.username if e.author else None,
-             "title": "Release note" if e.kind == "release" else "Progress", "text": e.body}
-        )
-    events.sort(key=lambda e: e["at"], reverse=True)
-    return {"events": events}
 
 
 # --- Summary between two versions (and the release notes document) -----------------

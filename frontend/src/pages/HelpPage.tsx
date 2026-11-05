@@ -1082,12 +1082,11 @@ export function HelpPage() {
             </li>
           </ul>
           <p>
-            <strong>Timeline</strong> lists everything that happened to the MDF, newest first. Each saved
-            version shows what changed since the one before, down to the Emitters inside a repinned Platform.
-            Status moves, goals, the log, pins and due-date changes are there too, and you can filter by
-            kind. <strong>Summarize…</strong> compares two versions, by default everything since the last
-            release, and <strong>Download release notes (.docx)</strong> turns that summary into a Word
-            document.
+            <strong>Summarize…</strong> (in the Release notes card) compares two saved versions, by default
+            everything since the last release: what changed, down to the Emitters inside a repinned Platform, with
+            the release notes, goals, status moves and log in that stretch. <strong>Download release notes
+            (.docx)</strong> turns that summary into a Word document. Everything that happened to the MDF is on its{" "}
+            <strong>Audit</strong> tab.
           </p>
           <p>
             <strong>Emitters</strong> lists every Emitter on the MDF, through the Platform versions it pins (as

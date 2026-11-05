@@ -7714,7 +7714,7 @@ button.meta-chip:hover:not(:disabled) { color: var(--text); }
 .mdf-goal-add input { flex: 1; min-width: 220px; }
 .mdf-release-list, .mdf-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.7rem; }
 .mdf-release-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.6rem; }
-.mdf-release-body, .mdf-log-body, .mdf-event-text, .mdf-event-release > div, .mdf-summary-notes > div, .mdf-summary-log > div { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.45; }
+.mdf-release-body, .mdf-log-body, .mdf-summary-notes > div, .mdf-summary-log > div { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.45; }
 .mdf-release-body { margin-top: 0.25rem; }
 .mdf-release-text { width: 100%; margin: 0.3rem 0; font-family: inherit; line-height: 1.45; }
 .mdf-log-add { display: grid; gap: 0.4rem; margin-bottom: 0.8rem; }
@@ -7724,20 +7724,8 @@ button.meta-chip:hover:not(:disabled) { color: var(--text); }
 .mdf-log-entry { padding: 0.5rem 0.7rem; border-left: 3px solid var(--border); background: var(--hover-bg); border-radius: 0 6px 6px 0; }
 .mdf-log-entry.release { border-left-color: var(--viz-in); }
 .mdf-log-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.6rem; margin-bottom: 0.2rem; }
-.mdf-log-kind.release, .mdf-event-kind.version { background: color-mix(in srgb, var(--viz-in) 16%, transparent); color: var(--text); }
+.mdf-log-kind.release { background: color-mix(in srgb, var(--viz-in) 16%, transparent); color: var(--text); }
 .mdf-log-kind.progress { background: var(--hover-bg); color: var(--text); border: 1px solid var(--border); }
-.mdf-timeline-filters { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.8rem; }
-.mdf-timeline { list-style: none; margin: 0; padding: 0 0 0 0.4rem; border-left: 2px solid var(--border); }
-.mdf-event { position: relative; display: flex; gap: 0.6rem; padding: 0 0 0.9rem 0.8rem; }
-.mdf-event-dot { position: absolute; left: -0.42rem; top: 0.35rem; width: 0.7rem; height: 0.7rem; border-radius: 50%; background: var(--card-bg); border: 2px solid var(--muted); }
-.mdf-event.version .mdf-event-dot, .mdf-event.log.release .mdf-event-dot { border-color: var(--viz-in); background: var(--viz-in); }
-.mdf-event.status .mdf-event-dot { border-color: var(--viz-in); }
-.mdf-event.goal .mdf-event-dot { border-color: var(--success, #1d7a46); }
-.mdf-event-body { display: grid; gap: 0.25rem; min-width: 0; flex: 1; }
-.mdf-event-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.6rem; }
-.mdf-event-kind { background: var(--hover-bg); color: var(--text); font-size: 0.72rem; }
-.mdf-event-release { padding: 0.35rem 0.6rem; border-left: 3px solid var(--viz-in); background: var(--hover-bg); border-radius: 0 6px 6px 0; }
-.mdf-event .link-button { justify-self: start; }
 .mdf-changes { list-style: none; margin: 0.2rem 0 0; padding: 0; display: grid; gap: 0.2rem; font-size: 0.88rem; }
 .mdf-change { display: flex; gap: 0.4rem; }
 .mdf-summary-range { margin-bottom: 0.6rem; }

@@ -26,7 +26,6 @@ import { MdfEmittersTable, useMdfCoverage } from "../components/mdf/MdfEmittersT
 import { downloadMdfReport } from "../components/mdf/mdfReport";
 import { UnsavedPinsFlag } from "../components/versioning/UnsavedPinsFlag";
 import { MdfPlanChips, MdfPlanPanel } from "../components/mdf/MdfPlanPanel";
-import { MdfTimeline } from "../components/mdf/MdfTimeline";
 import { MdfDwellsPanel } from "../components/mdf/MdfDwellsPanel";
 import { useMdfDwells } from "../state/hooks/useDwells";
 import { useStatuses } from "../state/hooks/useStatuses";
@@ -37,8 +36,8 @@ import { NotesDrawer } from "../components/common/NotesDrawer";
 import { TasksButton } from "../components/tasks/TasksButton";
 import { MilestonesButton } from "../components/status/MilestonesButton";
 
-type Tab = "platforms" | "emitters" | "dwells" | "plan" | "timeline" | "charts" | "tests" | "readiness" | "files" | "audit";
-const TABS: readonly Tab[] = ["platforms", "emitters", "dwells", "plan", "timeline", "charts", "tests", "readiness", "files", "audit"];
+type Tab = "platforms" | "emitters" | "dwells" | "plan" | "charts" | "tests" | "readiness" | "files" | "audit";
+const TABS: readonly Tab[] = ["platforms", "emitters", "dwells", "plan", "charts", "tests", "readiness", "files", "audit"];
 /** Where each readiness check is dealt with. */
 const READINESS_TAB: Record<string, Tab> = {
   pinned: "platforms",
@@ -49,7 +48,9 @@ const READINESS_TAB: Record<string, Tab> = {
   simulation: "emitters",
   mdf_test: "tests",
 };
-const linkedTab = (t: string | null): Tab | null => (TABS.includes(t as Tab) ? (t as Tab) : null);
+// The Timeline tab is gone: its history is on the Audit tab, its summary on Plan.
+const linkedTab = (t: string | null): Tab | null =>
+  t === "timeline" ? "plan" : TABS.includes(t as Tab) ? (t as Tab) : null;
 
 export function MdfBuilderPage() {
   const { mdfId } = useParams<{ mdfId: string }>();
@@ -318,9 +319,6 @@ export function MdfBuilderPage() {
         <button className={tab === "plan" ? "tab active" : "tab"} onClick={() => setTab("plan")}>
           Plan{mdf.goals_total > 0 && <span className="tab-count">{mdf.goals_done}/{mdf.goals_total}</span>}
         </button>
-        <button className={tab === "timeline" ? "tab active" : "tab"} onClick={() => setTab("timeline")}>
-          Timeline
-        </button>
         <button className={tab === "charts" ? "tab active" : "tab"} onClick={() => setTab("charts")}>
           Charts
         </button>
@@ -397,7 +395,6 @@ export function MdfBuilderPage() {
       {tab === "emitters" && <MdfEmittersTable mdfId={mdf.id} mdfName={mdf.name} />}
       {tab === "dwells" && <MdfDwellsPanel mdfId={mdf.id} pinsFrozen={pinsFrozen} canEdit={canWrite && !mdf.deleted_at} />}
       {tab === "plan" && <MdfPlanPanel mdf={mdf} versions={versions ?? []} canEdit={canWrite && !mdf.deleted_at} />}
-      {tab === "timeline" && <MdfTimeline mdfId={mdf.id} versions={versions ?? []} />}
       {tab === "charts" && <MdfCharts mdfId={mdf.id} />}
       {tab === "tests" && <MdfTestHistory mdfId={mdf.id} highlightTestRecordId={highlightTestRecordId} />}
       {tab === "files" && (

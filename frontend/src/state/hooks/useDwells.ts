@@ -172,7 +172,7 @@ export function useMdfDwells(mdfId: string) {
 }
 
 /** Pin, repin and unpin an MDF's dwell files — refreshing its readiness,
- * timeline and the files' own "used by" lists. */
+ * audit and the files' own "used by" lists. */
 export function useMdfDwellMutations(mdfId: string) {
   const qc = useQueryClient();
   const refresh = useRefreshDwells();
@@ -181,7 +181,6 @@ export function useMdfDwellMutations(mdfId: string) {
     else qc.invalidateQueries({ queryKey: mdfDwellsKey(mdfId) });
     refresh();
     qc.invalidateQueries({ queryKey: mdfReadinessChecklistKey(mdfId) });
-    qc.invalidateQueries({ queryKey: ["mdf-timeline", mdfId] });
     qc.invalidateQueries({ queryKey: ["auditLog"] });
   };
   return {
