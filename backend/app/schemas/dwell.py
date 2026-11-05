@@ -145,12 +145,12 @@ class DwellStrategyOut(BaseModel):
 
 class DwellFileCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
+    # Pinned into this MDF straight away (at the new file's v1).
     mdf_id: UUID | None = None
 
 
 class DwellFileUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
-    mdf_id: UUID | None = None
     timeout: float | None = Field(default=None, ge=0)
     setup_time: float | None = Field(default=None, ge=0)
     notes: str | None = None
@@ -174,7 +174,7 @@ class DwellFileLinkOut(BaseModel):
     platform_ids: list[UUID]
     platform_names: list[str]
     is_default: bool
-    # When the file is for an MDF: those of its Platforms the MDF doesn't pin.
+    # When MDFs use the file: those of its Platforms none of them pins.
     platforms_not_in_mdf: list[str] | None
     pinned_version_id: UUID
     pinned_version_number: int
@@ -185,11 +185,22 @@ class DwellFileLinkOut(BaseModel):
     dwells: list[Dwell]
 
 
+class DwellFileMdf(BaseModel):
+    """An MDF using the file, and the version of it that MDF pins."""
+
+    id: UUID
+    name: str
+    status: str
+    pinned_version_number: int
+    outdated: bool
+
+
 class DwellFileOut(BaseModel):
     id: UUID
     name: str
-    mdf_id: UUID | None
-    mdf_name: str | None
+    mdfs: list[DwellFileMdf]
+    # The Platforms the MDFs using it pin (None when no MDF uses it).
+    mdf_platform_ids: list[UUID] | None = None
     timeout: float
     setup_time: float
     notes: str | None
@@ -203,8 +214,7 @@ class DwellFileOut(BaseModel):
 class DwellFileSummary(BaseModel):
     id: UUID
     name: str
-    mdf_id: UUID | None
-    mdf_name: str | None
+    mdfs: list[DwellFileMdf]
     strategy_count: int
     platform_names: list[str]
     outdated_count: int
@@ -304,3 +314,49 @@ class SettingsUpdate(BaseModel):
         if bad:
             raise ValueError(f"Unknown kind(s): {', '.join(bad)}")
         return {path.strip(): kind for path, kind in kinds.items() if path.strip()}
+
+
+# A dwell file in an MDF
+
+
+class MdfDwellPin(BaseModel):
+    dwell_file_id: UUID
+    # Blank: the file's latest saved version.
+    dwell_file_version_id: UUID | None = None
+
+
+class MdfDwellStrategy(BaseModel):
+    """A Strategy as the pinned file version has it."""
+
+    strategy_id: UUID | None
+    name: str
+    version_number: int | None
+    latest_version_number: int | None
+    outdated: bool
+    platform_names: list[str]
+    is_default: bool
+    dwell_count: int
+    cycle_ms: float
+    bandwidth_mhz: float | None = None
+
+
+class MdfDwellOut(BaseModel):
+    dwell_file_id: UUID
+    name: str
+    notes: str | None
+    pinned_version_id: UUID
+    pinned_version_number: int
+    pinned_at: datetime
+    pinned_version_saved_at: datetime
+    latest_version_number: int | None
+    latest_version_id: UUID | None
+    # A newer saved version of the file than the one pinned (not flagged once the MDF is released).
+    outdated: bool
+    # The file has changes not saved as a version yet.
+    file_changed: bool
+    timeout: float
+    setup_time: float
+    strategies: list[MdfDwellStrategy]
+    # The MDF's Platforms that no Strategy in this file covers (empty with a default dwell).
+    platforms_not_covered: list[str]
+    other_mdfs: list[DwellFileMdf]

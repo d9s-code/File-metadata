@@ -5,7 +5,7 @@ two versions."""
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models.dwell import DwellFile, DwellFileVersion, DwellStrategy, DwellStrategyVersion
+from app.models.dwell import DwellFile, DwellFileVersion, DwellStrategy, DwellStrategyVersion, MdfDwellLink
 from app.services.dwell_xml import build_dwell_xml, fmt
 from app.services.emitter_diff_service import _entry
 
@@ -25,11 +25,10 @@ def strategy_snapshot(strategy: DwellStrategy) -> dict:
 
 def file_snapshot(dwell_file: DwellFile) -> dict:
     """The file's settings and, in order, each pinned Strategy version — its
-    whole snapshot, so the file can be written from this alone."""
+    whole snapshot, so the file can be written from this alone. (Which MDFs
+    use it isn't part of it: they pin it, not the other way round.)"""
     return {
         "name": dwell_file.name,
-        "mdf_id": str(dwell_file.mdf_id) if dwell_file.mdf_id else None,
-        "mdf_name": dwell_file.mdf.name if dwell_file.mdf else None,
         "timeout": dwell_file.timeout,
         "setup_time": dwell_file.setup_time,
         "notes": dwell_file.notes,
@@ -43,6 +42,18 @@ def file_snapshot(dwell_file: DwellFile) -> dict:
             for link in dwell_file.links
         ],
     }
+
+
+#: Kept in versions saved while a file belonged to one MDF; not part of what it is.
+_NOT_CONTENT = ("mdf_id", "mdf_name")
+
+
+def file_changed(saved: DwellFileVersion | None, dwell_file: DwellFile) -> bool:
+    """Whether the file differs from this saved version of it (or was never saved)."""
+    if saved is None:
+        return True
+    old = {k: v for k, v in saved.snapshot.items() if k not in _NOT_CONTENT}
+    return old != file_snapshot(dwell_file)
 
 
 def latest_strategy_version(db: Session, strategy_id) -> DwellStrategyVersion | None:
@@ -114,6 +125,9 @@ def file_diff(old: dict, new: dict) -> list[dict]:
     versions it pins (added, removed, repinned, moved)."""
     entries: list[dict] = []
     for key, label in (("name", "Name"), ("mdf_name", "MDF"), ("notes", "Notes")):
+        # Older versions named the one MDF a file was for; compared only between two of those.
+        if key == "mdf_name" and not (key in old and key in new):
+            continue
         if old.get(key) != new.get(key):
             entries.append(_entry("Dwell file", label, "changed", old.get(key), new.get(key)))
     for key, label in (("timeout", "Timeout"), ("setup_time", "Setup time")):
@@ -170,34 +184,25 @@ def commit_file(db: Session, dwell_file: DwellFile, summary: str | None, user_id
     return version
 
 
-def unsaved_files(db: Session, mdf_id) -> list[DwellFile]:
-    """The MDF's dwell files whose current state isn't their latest saved
-    version (or that have never been saved)."""
-    out = []
-    for dwell_file in db.query(DwellFile).filter(DwellFile.mdf_id == mdf_id).order_by(DwellFile.name):
-        latest = latest_file_version(db, dwell_file.id)
-        if latest is None or latest.snapshot != file_snapshot(dwell_file):
-            out.append(dwell_file)
-    return out
+def mdf_dwell_links(db: Session, mdf_id) -> list[MdfDwellLink]:
+    """The dwell files an MDF pins, by name."""
+    links = db.query(MdfDwellLink).filter(MdfDwellLink.mdf_id == mdf_id).all()
+    return sorted(links, key=lambda link: link.dwell_file.name.lower())
 
 
 def mdf_dwell_pins(db: Session, mdf_id) -> list[dict]:
-    """What an MDF version keeps of its dwell files: each one's latest saved
-    version, whole, so the version's export is written from it alone."""
-    pins = []
-    for dwell_file in db.query(DwellFile).filter(DwellFile.mdf_id == mdf_id).order_by(DwellFile.name):
-        saved = latest_file_version(db, dwell_file.id)
-        if saved is not None:
-            pins.append(
-                {
-                    "dwell_file_id": str(dwell_file.id),
-                    "name": dwell_file.name,
-                    "version_id": str(saved.id),
-                    "version_number": saved.version_number,
-                    "snapshot": saved.snapshot,
-                }
-            )
-    return pins
+    """What an MDF version keeps of its dwell files: the version of each that
+    it pins, whole, so the version's export is written from it alone."""
+    return [
+        {
+            "dwell_file_id": str(link.dwell_file_id),
+            "name": link.dwell_file.name,
+            "version_id": str(link.dwell_file_version_id),
+            "version_number": link.version.version_number,
+            "snapshot": {k: v for k, v in link.version.snapshot.items() if k not in _NOT_CONTENT},
+        }
+        for link in mdf_dwell_links(db, mdf_id)
+    ]
 
 
 def mdf_dwell_files(db: Session, mdf_id, mdf_snapshot: dict | None = None) -> dict[str, bytes]:

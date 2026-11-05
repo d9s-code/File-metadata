@@ -7747,3 +7747,28 @@ button.meta-chip:hover:not(:disabled) { color: var(--text); }
 .mdf-summary-goals { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.2rem; }
 .mdf-summary-goals li.done { color: var(--muted); }
 .mdf-summary-contents { margin: 0; padding-left: 1.1rem; }
+
+/* --- MDF Dwells tab ------------------------------------------------------- */
+.tab .tab-dot {
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-left: 0.3rem;
+  border-radius: 50%;
+  background: var(--attention);
+  vertical-align: middle;
+}
+.mdf-dwells-tab { display: flex; flex-direction: column; gap: 1rem; }
+.mdf-dwells-tab > .card { margin: 0; }
+.mdf-dwell-file .card-header h4 { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
+.mdf-dwell-file .section-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.mdf-dwell-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.6rem;
+  margin: 0.25rem 0 0.75rem;
+}
+.mdf-dwell-facts div { display: flex; flex-direction: column; min-width: 0; }
+.mdf-dwell-facts dt { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.mdf-dwell-facts dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.mdf-dwell-others { margin: 0.6rem 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }

@@ -22,6 +22,7 @@ from app.models.dwell import (
     DwellStrategyNote,
     DwellStrategyPlatform,
     DwellStrategyVersion,
+    MdfDwellLink,
 )
 from app.models.mdf import Mdf, MdfPlatformLink
 from app.models.platform import Platform
@@ -31,6 +32,7 @@ from app.schemas.dwell import (
     DwellDiffOut,
     DwellFileCreate,
     DwellFileLinkOut,
+    DwellFileMdf,
     DwellFileLinkUpdate,
     DwellFileOut,
     DwellFileSummary,
@@ -41,6 +43,9 @@ from app.schemas.dwell import (
     DwellStrategyUpdate,
     DwellVersionDetailOut,
     DwellVersionOut,
+    MdfDwellOut,
+    MdfDwellPin,
+    MdfDwellStrategy,
     PinStrategy,
     SettingsOut,
     SettingsUpdate,
@@ -54,10 +59,12 @@ from app.services import app_settings, dwell_testing_service
 from app.services.audit_service import record_audit
 from app.services.dwell_service import (
     commit_file,
+    file_changed,
     file_diff,
     file_snapshot,
     latest_file_version,
     latest_strategy_version,
+    mdf_dwell_links,
     strategy_diff,
     strategy_snapshot,
 )
@@ -528,14 +535,36 @@ def _file_name_free(db: Session, name: str, file_id=None) -> str:
     return name
 
 
+def _file_mdfs(db: Session, dwell_file: DwellFile, latest: DwellFileVersion | None) -> list[DwellFileMdf]:
+    """The MDFs using the file, by name, each with the version it pins."""
+    from app.services.pinned_changes import pins_frozen
+
+    out = []
+    for link in sorted(dwell_file.mdf_links, key=lambda link: link.mdf.name.lower()):
+        if link.mdf.is_deleted:
+            continue
+        number = link.version.version_number
+        out.append(
+            DwellFileMdf(
+                id=link.mdf_id,
+                name=link.mdf.name,
+                status=link.mdf.status,
+                pinned_version_number=number,
+                outdated=bool(latest and latest.version_number > number and not pins_frozen(db, link.mdf.status)),
+            )
+        )
+    return out
+
+
 def _file_out(db: Session, dwell_file: DwellFile) -> DwellFileOut:
+    latest = latest_file_version(db, dwell_file.id)
+    mdfs = _file_mdfs(db, dwell_file, latest)
     pinned = None
-    if dwell_file.mdf_id is not None:
+    if mdfs:
         pinned = {
             pid
-            for (pid,) in db.query(MdfPlatformLink.platform_id).filter(MdfPlatformLink.mdf_id == dwell_file.mdf_id).all()
+            for (pid,) in db.query(MdfPlatformLink.platform_id).filter(MdfPlatformLink.mdf_id.in_([m.id for m in mdfs])).all()
         }
-    latest = latest_file_version(db, dwell_file.id)
     links = []
     for link in dwell_file.links:
         newest = latest_strategy_version(db, link.strategy_id)
@@ -564,13 +593,13 @@ def _file_out(db: Session, dwell_file: DwellFile) -> DwellFileOut:
     return DwellFileOut(
         id=dwell_file.id,
         name=dwell_file.name,
-        mdf_id=dwell_file.mdf_id,
-        mdf_name=dwell_file.mdf.name if dwell_file.mdf else None,
+        mdfs=mdfs,
+        mdf_platform_ids=sorted(pinned, key=str) if pinned is not None else None,
         timeout=dwell_file.timeout,
         setup_time=dwell_file.setup_time,
         notes=dwell_file.notes,
         latest_version_number=latest.version_number if latest else None,
-        unsaved=latest is None or latest.snapshot != file_snapshot(dwell_file),
+        unsaved=file_changed(latest, dwell_file),
         links=links,
         created_at=dwell_file.created_at,
         updated_at=dwell_file.updated_at,
@@ -605,13 +634,12 @@ def list_files(db: Session = Depends(get_db), _=Depends(require_role(Role.viewer
             DwellFileSummary(
                 id=f.id,
                 name=f.name,
-                mdf_id=f.mdf_id,
-                mdf_name=f.mdf.name if f.mdf else None,
+                mdfs=_file_mdfs(db, f, latest),
                 strategy_count=len(f.links),
                 platform_names=list(dict.fromkeys(n for link in f.links for n in link.strategy.platform_names)),
                 outdated_count=outdated,
                 latest_version_number=latest.version_number if latest else None,
-                unsaved=latest is None or latest.snapshot != file_snapshot(f),
+                unsaved=file_changed(latest, f),
                 updated_at=f.updated_at,
             )
         )
@@ -621,12 +649,14 @@ def list_files(db: Session = Depends(get_db), _=Depends(require_role(Role.viewer
 @router.post("/dwell-files", response_model=DwellFileOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(verify_csrf)])
 def create_file(payload: DwellFileCreate, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))) -> DwellFileOut:
     name = _file_name_free(db, payload.name)
-    _mdf(db, payload.mdf_id)
-    dwell_file = DwellFile(name=name, mdf_id=payload.mdf_id, timeout=5, setup_time=5, created_by=user.id)
+    mdf = _mdf(db, payload.mdf_id)
+    dwell_file = DwellFile(name=name, timeout=5, setup_time=5, created_by=user.id)
     db.add(dwell_file)
     db.flush()
-    commit_file(db, dwell_file, "Created", user.id)
+    version = commit_file(db, dwell_file, "Created", user.id)
     _audit(db, user, AuditAction.create, AuditEntityType.dwell_file, dwell_file.id, f"Created dwell file '{name}'")
+    if mdf is not None:
+        _pin_into_mdf(db, user, mdf, dwell_file, version)
     db.commit()
     db.refresh(dwell_file)
     return _file_out(db, dwell_file)
@@ -654,10 +684,8 @@ def import_file(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     default_name = (file.filename or "Dwell file").rsplit("/", 1)[-1].removesuffix(".xml")
     name = _file_name_free(db, name or default_name)
-    _mdf(db, mdf_id)
-    dwell_file = DwellFile(
-        name=name, mdf_id=mdf_id, timeout=parsed["timeout"], setup_time=parsed["setup_time"], created_by=user.id
-    )
+    mdf = _mdf(db, mdf_id)
+    dwell_file = DwellFile(name=name, timeout=parsed["timeout"], setup_time=parsed["setup_time"], created_by=user.id)
     db.add(dwell_file)
     db.flush()
     for i, s in enumerate(parsed["strategies"], start=1):
@@ -666,11 +694,13 @@ def import_file(
         db.flush()
         version = _commit_strategy(db, strategy, f"Imported from '{name}'", user.id)
         _pin(db, dwell_file, strategy, version)
-    commit_file(db, dwell_file, "Imported", user.id)
+    version = commit_file(db, dwell_file, "Imported", user.id)
     _audit(
         db, user, AuditAction.create, AuditEntityType.dwell_file, dwell_file.id,
         f"Imported dwell file '{name}' ({len(parsed['strategies'])} Strategies)",
     )
+    if mdf is not None:
+        _pin_into_mdf(db, user, mdf, dwell_file, version)
     db.commit()
     db.refresh(dwell_file)
     return _file_out(db, dwell_file)
@@ -689,8 +719,6 @@ def update_file(
     fields = payload.model_dump(exclude_unset=True)
     if "name" in fields:
         fields["name"] = _file_name_free(db, fields["name"], dwell_file.id)
-    if "mdf_id" in fields:
-        _mdf(db, fields["mdf_id"])
     changes = {}
     for key, value in fields.items():
         if key in ("timeout", "setup_time") and value is None:
@@ -713,6 +741,12 @@ def update_file(
 @router.delete("/dwell-files/{file_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(verify_csrf)])
 def delete_file(file_id: UUID, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))) -> None:
     dwell_file = _file_or_404(db, file_id)
+    using = [link.mdf.name for link in dwell_file.mdf_links]
+    if using:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"'{dwell_file.name}' is pinned into {', '.join(sorted(using))} — unpin it there first",
+        )
     _audit(db, user, AuditAction.delete, AuditEntityType.dwell_file, dwell_file.id, f"Deleted dwell file '{dwell_file.name}'")
     db.delete(dwell_file)
     db.commit()
@@ -862,6 +896,138 @@ def diff_file_version(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Version not found")
     entries = file_diff(versions[base].snapshot, versions[number].snapshot)
     return DwellDiffOut(entries=entries, identical=not entries)
+
+
+# ---------------------------------------------------------------- A dwell file in an MDF
+
+
+def _pin_into_mdf(db: Session, user, mdf: Mdf, dwell_file: DwellFile, version: DwellFileVersion | None = None) -> MdfDwellLink:
+    """Pins (or repins) a saved version of the file into the MDF — the one
+    given, or the file's latest."""
+    version = version or latest_file_version(db, dwell_file.id)
+    if version is None or version.dwell_file_id != dwell_file.id:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Pick a saved version of that dwell file")
+    link = db.query(MdfDwellLink).filter(MdfDwellLink.mdf_id == mdf.id, MdfDwellLink.dwell_file_id == dwell_file.id).first()
+    before = link.version.version_number if link else None
+    if link is None:
+        link = MdfDwellLink(mdf_id=mdf.id, dwell_file_id=dwell_file.id, dwell_file_version_id=version.id)
+        db.add(link)
+    else:
+        link.dwell_file_version_id = version.id
+    if before != version.version_number:
+        _audit(
+            db, user, AuditAction.update, AuditEntityType.mdf_link, mdf.id,
+            f"Pinned dwell file '{dwell_file.name}' v{version.version_number} into MDF '{mdf.name}'"
+            + (f" (was v{before})" if before else ""),
+            {"dwell_file": dwell_file.name, "version": {"old": before, "new": version.version_number}},
+        )
+    db.flush()
+    return link
+
+
+def _mdf_dwell_out(db: Session, mdf: Mdf, link: MdfDwellLink, frozen: bool, mdf_platforms: dict[str, str]) -> MdfDwellOut:
+    f, pinned = link.dwell_file, link.version
+    latest = latest_file_version(db, f.id)
+    snap = pinned.snapshot
+    strategies = []
+    covered: set[str] = set()
+    has_default = False
+    for st in snap.get("strategies") or []:
+        ss = st.get("snapshot") or {}
+        ids = ss.get("platform_ids") or []
+        covered.update(ids)
+        has_default = has_default or not ids
+        newest = latest_strategy_version(db, st["strategy_id"]) if st.get("strategy_id") else None
+        dwells = ss.get("dwells") or []
+        strategies.append(
+            MdfDwellStrategy(
+                strategy_id=st.get("strategy_id"),
+                name=ss.get("name") or "Strategy",
+                version_number=st.get("strategy_version_number"),
+                latest_version_number=newest.version_number if newest else None,
+                outdated=bool(not frozen and newest and newest.version_number > (st.get("strategy_version_number") or 0)),
+                platform_names=ss.get("platform_names") or [],
+                is_default=not ids,
+                dwell_count=len(dwells),
+                cycle_ms=sum(float(d.get("dwell_time_ms") or 0) for d in dwells),
+                bandwidth_mhz=ss.get("bandwidth_mhz"),
+            )
+        )
+    return MdfDwellOut(
+        dwell_file_id=f.id,
+        name=f.name,
+        notes=snap.get("notes"),
+        pinned_version_id=pinned.id,
+        pinned_version_number=pinned.version_number,
+        pinned_at=link.added_at,
+        pinned_version_saved_at=pinned.created_at,
+        latest_version_number=latest.version_number if latest else None,
+        latest_version_id=latest.id if latest else None,
+        outdated=bool(not frozen and latest and latest.version_number > pinned.version_number),
+        file_changed=bool(latest and latest.id == pinned.id and file_changed(latest, f)),
+        timeout=snap.get("timeout", f.timeout),
+        setup_time=snap.get("setup_time", f.setup_time),
+        strategies=strategies,
+        platforms_not_covered=[] if has_default else sorted(n for pid, n in mdf_platforms.items() if pid not in covered),
+        other_mdfs=[m for m in _file_mdfs(db, f, latest) if m.id != mdf.id],
+    )
+
+
+@router.get("/mdfs/{mdf_id}/dwell-files", response_model=list[MdfDwellOut])
+def list_mdf_dwell_files(mdf_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))) -> list[MdfDwellOut]:
+    """The dwell files an MDF pins, each as the pinned version has it: its
+    settings and Strategies (versions, Platforms, dwells, cycle time), the
+    MDF's Platforms none of them covers, and the other MDFs using the file."""
+    from app.services.pinned_changes import pins_frozen
+
+    mdf = db.get(Mdf, mdf_id)
+    if mdf is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "MDF not found")
+    frozen = pins_frozen(db, mdf.status)
+    platforms = {str(link.platform_id): link.platform.name for link in mdf.links}
+    return [_mdf_dwell_out(db, mdf, link, frozen, platforms) for link in mdf_dwell_links(db, mdf.id)]
+
+
+@router.post("/mdfs/{mdf_id}/dwell-files", response_model=list[MdfDwellOut], dependencies=[Depends(verify_csrf)])
+def pin_mdf_dwell_file(
+    mdf_id: UUID, payload: MdfDwellPin, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))
+) -> list[MdfDwellOut]:
+    """Pins a saved version of a dwell file into the MDF (or repins it)."""
+    mdf = _mdf(db, mdf_id)
+    dwell_file = _file_or_404(db, payload.dwell_file_id)
+    version = db.get(DwellFileVersion, payload.dwell_file_version_id) if payload.dwell_file_version_id else None
+    if payload.dwell_file_version_id and version is None:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Pick a saved version of that dwell file")
+    _pin_into_mdf(db, user, mdf, dwell_file, version)
+    db.commit()
+    return list_mdf_dwell_files(mdf_id, db)
+
+
+@router.post("/mdfs/{mdf_id}/dwell-files/repin-latest", response_model=list[MdfDwellOut], dependencies=[Depends(verify_csrf)])
+def repin_mdf_dwell_files(mdf_id: UUID, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))) -> list[MdfDwellOut]:
+    """Every dwell file the MDF pins, to its latest saved version."""
+    mdf = _mdf(db, mdf_id)
+    for link in mdf_dwell_links(db, mdf.id):
+        _pin_into_mdf(db, user, mdf, link.dwell_file)
+    db.commit()
+    return list_mdf_dwell_files(mdf_id, db)
+
+
+@router.delete("/mdfs/{mdf_id}/dwell-files/{file_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(verify_csrf)])
+def unpin_mdf_dwell_file(
+    mdf_id: UUID, file_id: UUID, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))
+) -> None:
+    mdf = _mdf(db, mdf_id)
+    link = db.query(MdfDwellLink).filter(MdfDwellLink.mdf_id == mdf_id, MdfDwellLink.dwell_file_id == file_id).first()
+    if link is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "That dwell file isn't in this MDF")
+    _audit(
+        db, user, AuditAction.update, AuditEntityType.mdf_link, mdf.id,
+        f"Unpinned dwell file '{link.dwell_file.name}' from MDF '{mdf.name}'",
+        {"dwell_file": link.dwell_file.name, "version": {"old": link.version.version_number, "new": None}},
+    )
+    db.delete(link)
+    db.commit()
 
 
 # ---------------------------------------------------------------- Settings

@@ -7,7 +7,9 @@ import {
   type DwellFileUpdate,
   type DwellKind,
   type DwellStrategyUpdate,
+  type MdfDwell,
 } from "../../api/dwells";
+import { mdfReadinessChecklistKey } from "./useMdfs";
 
 // Strategies and files lean on each other (a file shows which pinned
 // versions are outdated; a Strategy, the files it's in), so a change to
@@ -160,4 +162,35 @@ export function useUpdateAppSettings() {
 /** Strategies, refreshed after a create, copy or delete made outside a hook. */
 export function useRefreshDwellLists() {
   return useRefreshDwells();
+}
+
+export const mdfDwellsKey = (mdfId: string) => ["mdf-dwells", mdfId] as const;
+
+/** The dwell files an MDF pins, at the versions it pins. */
+export function useMdfDwells(mdfId: string) {
+  return useQuery({ queryKey: mdfDwellsKey(mdfId), queryFn: () => dwellsApi.mdfFiles(mdfId), enabled: !!mdfId });
+}
+
+/** Pin, repin and unpin an MDF's dwell files — refreshing its readiness,
+ * timeline and the files' own "used by" lists. */
+export function useMdfDwellMutations(mdfId: string) {
+  const qc = useQueryClient();
+  const refresh = useRefreshDwells();
+  const after = (list?: MdfDwell[]) => {
+    if (list) qc.setQueryData(mdfDwellsKey(mdfId), list);
+    else qc.invalidateQueries({ queryKey: mdfDwellsKey(mdfId) });
+    refresh();
+    qc.invalidateQueries({ queryKey: mdfReadinessChecklistKey(mdfId) });
+    qc.invalidateQueries({ queryKey: ["mdf-timeline", mdfId] });
+    qc.invalidateQueries({ queryKey: ["auditLog"] });
+  };
+  return {
+    pin: useMutation({
+      mutationFn: ({ fileId, versionId }: { fileId: string; versionId?: string | null }) =>
+        dwellsApi.pinIntoMdf(mdfId, fileId, versionId),
+      onSuccess: after,
+    }),
+    repinAll: useMutation({ mutationFn: () => dwellsApi.repinMdfLatest(mdfId), onSuccess: after }),
+    unpin: useMutation({ mutationFn: (fileId: string) => dwellsApi.unpinFromMdf(mdfId, fileId), onSuccess: () => after() }),
+  };
 }

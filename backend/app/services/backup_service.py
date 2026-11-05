@@ -379,13 +379,36 @@ def compute_overview(conn: Connection) -> dict:
         """
     ):
         file_pins.setdefault(r.pop("owner"), []).append(r)
-    files = rows(
+    if "mdf_dwell_links" in has:
+        # A dwell file pinned into any number of MDFs.
+        for r in rows(
+            """
+            SELECT l.mdf_id::text AS owner, l.dwell_file_id::text AS id, 'Dwell file ' || f.name AS name,
+                   v.version_number AS version
+            FROM mdf_dwell_links l
+            JOIN dwell_files f ON f.id = l.dwell_file_id
+            JOIN dwell_file_versions v ON v.id = l.dwell_file_version_id
+            ORDER BY f.name
+            """
+        ):
+            mdf_pins.setdefault(r.pop("owner"), []).append(r)
+        for m in mdfs:
+            m["pins"] = mdf_pins.get(m["id"], [])
+        files_sql = """
+        SELECT f.id::text AS id, f.name,
+               (SELECT string_agg(m.name, ', ' ORDER BY m.name) FROM mdf_dwell_links l JOIN mdfs m ON m.id = l.mdf_id
+                WHERE l.dwell_file_id = f.id) AS mdf,
+               (SELECT max(v.version_number) FROM dwell_file_versions v WHERE v.dwell_file_id = f.id) AS version
+        FROM dwell_files f ORDER BY f.name
         """
+    else:
+        # Before a dwell file could be shared: it belonged to one MDF.
+        files_sql = """
         SELECT f.id::text AS id, f.name, m.name AS mdf,
                (SELECT max(v.version_number) FROM dwell_file_versions v WHERE v.dwell_file_id = f.id) AS version
         FROM dwell_files f LEFT JOIN mdfs m ON m.id = f.mdf_id ORDER BY f.name
         """
-    )
+    files = rows(files_sql)
     for f in files:
         f["pins"] = file_pins.get(f["id"], [])
     return {**overview, "dwell_strategies": strategies, "dwell_files": files}
@@ -801,7 +824,7 @@ def _item_changes(kind: str, old: dict, new: dict) -> list[str]:
     if kind == "dwell_strategies" and old.get("dwells") != new.get("dwells"):
         out.append(f"Dwells: {old.get('dwells')} → {new.get('dwells')}")
     if kind == "dwell_files" and old.get("mdf") != new.get("mdf"):
-        out.append(f"MDF: {old.get('mdf') or '—'} → {new.get('mdf') or '—'}")
+        out.append(f"MDFs: {old.get('mdf') or '—'} → {new.get('mdf') or '—'}")
     if old.get("version") != new.get("version"):
         out.append(
             f"Saved version: v{old['version']} → v{new['version']}" if old.get("version") else f"First saved as v{new['version']}"

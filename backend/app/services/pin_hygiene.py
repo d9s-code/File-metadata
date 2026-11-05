@@ -18,7 +18,6 @@ from app.core.enums import (
 )
 from app.models.ambiguity import AmbiguityFinding, AmbiguityRun
 from app.models.emitter_version import EmitterVersion
-from app.models.dwell import DwellFile
 from app.models.emitter import Emitter
 from app.models.mdf import Mdf, MdfVersion
 from app.models.platform import PlatformVersion
@@ -88,11 +87,17 @@ def mdf_readiness(db: Session, mdf: Mdf) -> list[dict]:
     latest_mdf = (
         db.query(MdfVersion).filter(MdfVersion.mdf_id == mdf.id).order_by(MdfVersion.version_number.desc()).first()
     )
-    current = {(str(link.platform_id), str(link.platform_version_id)) for link in links}
+    from app.services.dwell_service import mdf_dwell_links
+
+    current = {(str(link.platform_id), str(link.platform_version_id)) for link in links} | {
+        ("dwell:" + str(d.dwell_file_id), str(d.dwell_file_version_id)) for d in mdf_dwell_links(db, mdf.id)
+    }
     if latest_mdf is None:
         checks.append(_item("saved", "Saved as a version", "fail", "Not saved yet — save a version to export it."))
     else:
-        saved = {(sl["platform_id"], sl["platform_version_id"]) for sl in latest_mdf.snapshot.get("links", [])}
+        saved = {(sl["platform_id"], sl["platform_version_id"]) for sl in latest_mdf.snapshot.get("links", [])} | {
+            ("dwell:" + d["dwell_file_id"], d["version_id"]) for d in latest_mdf.snapshot.get("dwell_files", [])
+        }
         if saved == current:
             checks.append(_item("saved", "Saved as a version", "ok", f"The pins are saved as v{latest_mdf.version_number}."))
         else:
@@ -170,43 +175,56 @@ def _pin_freshness(db: Session, links: list, emitter_pins: list[tuple[str, dict]
 
 
 def _dwell_check(db: Session, mdf: Mdf, latest_mdf) -> dict:
-    """Its dwell files: changed since saved (saved with the next MDF version),
-    saved since the latest MDF version (not in it yet), a Strategy pinned at
-    a version with no dwells, or one with a newer saved version."""
-    from app.services.dwell_service import file_snapshot, latest_file_version, latest_strategy_version
+    """Its dwell files, at the versions it pins: a newer saved version of a
+    file (not flagged once the MDF is released), a file changed since it was
+    saved, a pinned version with no Strategy or a Strategy with no dwells, a
+    Strategy at an older version, and Platforms no dwell Strategy covers."""
+    from app.services.dwell_service import file_changed, latest_file_version, latest_strategy_version, mdf_dwell_links
+    from app.services.pinned_changes import pins_frozen
 
-    files = db.query(DwellFile).filter(DwellFile.mdf_id == mdf.id).order_by(DwellFile.name).all()
-    if not files:
+    links = mdf_dwell_links(db, mdf.id)
+    if not links:
         return _item("dwells", "Dwell files", "ok", "No dwell file goes into this MDF.")
-    in_mdf = {d["dwell_file_id"]: d["version_number"] for d in (latest_mdf.snapshot.get("dwell_files", []) if latest_mdf else [])}
+    frozen = pins_frozen(db, mdf.status)
     problems: list[str] = []
-    warn = False
-    for f in files:
+    covered: set[str] = set()
+    has_default = False
+    for link in links:
+        f, pinned = link.dwell_file, link.version
         latest = latest_file_version(db, f.id)
-        if latest is None or latest.snapshot != file_snapshot(f):
-            problems.append(f"{f.name}: changed since it was saved — saving the MDF saves it too")
-            warn = True
-        elif latest_mdf is not None and in_mdf.get(str(f.id)) != latest.version_number:
-            problems.append(f"{f.name}: v{latest.version_number} isn't in MDF v{latest_mdf.version_number} yet — save a version")
-            warn = True
-        if not f.links:
-            problems.append(f"{f.name}: no Strategy in it — its file would be empty")
-            warn = True
-        for link in f.links:
-            if not (link.strategy_version.snapshot.get("dwells") or []):
-                problems.append(f"{f.name} → {link.strategy.name}: v{link.strategy_version.version_number} pinned has no dwells")
-                warn = True
-            newest = latest_strategy_version(db, link.strategy_id)
-            if newest and newest.version_number > link.strategy_version.version_number:
+        if not frozen and latest is not None and latest.version_number > pinned.version_number:
+            problems.append(f"{f.name}: v{pinned.version_number} pinned, v{latest.version_number} saved — repin to include it")
+        elif latest is not None and latest.id == pinned.id and file_changed(latest, f):
+            problems.append(f"{f.name}: changed since v{latest.version_number} — save the file, then repin")
+        strategies = pinned.snapshot.get("strategies") or []
+        if not strategies:
+            problems.append(f"{f.name} v{pinned.version_number}: no Strategy in it — its file would be empty")
+        for st in strategies:
+            snap = st.get("snapshot") or {}
+            name = snap.get("name") or "Strategy"
+            ids = snap.get("platform_ids") or []
+            if not ids:
+                has_default = True
+            covered.update(ids)
+            if not (snap.get("dwells") or []):
+                problems.append(f"{f.name} → {name}: v{st.get('strategy_version_number')} has no dwells")
+            newest = latest_strategy_version(db, st.get("strategy_id")) if not frozen and st.get("strategy_id") else None
+            if newest and newest.version_number > (st.get("strategy_version_number") or 0):
                 problems.append(
-                    f"{f.name} → {link.strategy.name}: v{link.strategy_version.version_number} pinned, v{newest.version_number} saved"
+                    f"{f.name} → {name}: v{st.get('strategy_version_number')} in the pinned file, v{newest.version_number} saved"
                 )
-                warn = True
+    if not has_default:
+        missing = sorted(link.platform.name for link in mdf.links if str(link.platform_id) not in covered)
+        if missing:
+            problems.append(f"No dwell Strategy for: {', '.join(missing)}")
     return _item(
         "dwells",
         "Dwell files",
-        "warn" if warn else "ok",
-        f"{_plural(len(problems), 'thing')} to look at in its dwell files." if warn else f"{_plural(len(files), 'dwell file')}, saved and up to date.",
+        "warn" if problems else "ok",
+        f"{_plural(len(problems), 'thing')} to look at in its dwell files."
+        if problems
+        else f"{_plural(len(links), 'dwell file')} pinned"
+        + (", covering every Platform." if frozen else ", each at its latest saved version and covering every Platform."),
         problems,
     )
 

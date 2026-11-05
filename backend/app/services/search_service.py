@@ -171,7 +171,7 @@ def search(db: Session, q: str) -> list[dict]:
                 "kind": "dwell_file",
                 "id": str(f.id),
                 "title": f.name,
-                "subtitle": f"Dwell file · {f.mdf.name}" if f.mdf else "Dwell file",
+                "subtitle": "Dwell file · " + ", ".join(sorted(link.mdf.name for link in f.mdf_links)) if f.mdf_links else "Dwell file",
                 "url": f"/dwells/files/{f.id}",
             }
         )

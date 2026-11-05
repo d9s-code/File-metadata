@@ -23,7 +23,7 @@ from app.services.mdf_compare import compare_mdfs
 from app.services.platform_coverage import mdf_coverage
 from app.schemas.mdf_version import MdfStatusTransitionOut, MdfVersionDetailOut, MdfVersionOut
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
-from app.services.dwell_service import commit_file, mdf_dwell_files, unsaved_files
+from app.services.dwell_service import mdf_dwell_files
 from app.services.prs_export.packager import build_mdf_export_zip
 from app.services.pin_hygiene import latest_platform_versions, mdf_readiness
 from app.services.readiness_service import compute_mdf_readiness_warnings
@@ -445,18 +445,8 @@ def commit_mdf_version(
     user=Depends(require_role(Role.editor)),
 ) -> MdfVersion:
     mdf = _get_mdf_or_404(db, mdf_id)
-    # Its dwell files go in as they are now: one changed since its last saved
-    # version (or never saved) is saved first, so the MDF version holds it.
-    for dwell_file in unsaved_files(db, mdf.id):
-        saved = commit_file(db, dwell_file, f"Saved with MDF '{mdf.name}'", user.id)
-        record_audit(
-            db,
-            actor_id=user.id,
-            action=AuditAction.commit,
-            entity_type=AuditEntityType.dwell_file.value,
-            entity_id=dwell_file.id,
-            summary=f"Saved v{saved.version_number} of dwell file '{dwell_file.name}' with MDF '{mdf.name}'",
-        )
+    # Its dwell files go in at the versions it pins (saving a dwell file, and
+    # repinning it, is done on the file — it may be shared with other MDFs).
     snapshot = build_mdf_snapshot(mdf)
     record_audit(
         db,

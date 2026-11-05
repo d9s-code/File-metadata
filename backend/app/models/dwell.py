@@ -122,10 +122,6 @@ class DwellFile(UUIDPkMixin, TimestampMixin, Base):
     __tablename__ = "dwell_files"
 
     name: Mapped[str] = mapped_column(String(200), nullable=False, unique=True)
-    # The MDF whose export it goes into, if any.
-    mdf_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("mdfs.id", ondelete="SET NULL"), nullable=True, index=True
-    )
     # <Settings timeout setup_time>, as written in the file.
     timeout: Mapped[float] = mapped_column(Float, nullable=False, default=5)
     setup_time: Mapped[float] = mapped_column(Float, nullable=False, default=5)
@@ -134,7 +130,8 @@ class DwellFile(UUIDPkMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
 
-    mdf: Mapped["Mdf | None"] = relationship()  # noqa: F821
+    # The MDFs it goes into — each pins a saved version of it.
+    mdf_links: Mapped[list["MdfDwellLink"]] = relationship(back_populates="dwell_file", viewonly=True)
     links: Mapped[list["DwellFileStrategy"]] = relationship(
         back_populates="dwell_file", cascade="all, delete-orphan", order_by="DwellFileStrategy.sort_order"
     )
@@ -184,3 +181,27 @@ class DwellFileVersion(UUIDPkMixin, Base):
     @property
     def created_by_username(self) -> str | None:
         return self.creator.username if self.creator else None
+
+
+class MdfDwellLink(UUIDPkMixin, Base):
+    """A dwell file in an MDF: which saved version of it goes into the MDF's
+    export. One file can go into many MDFs, each at its own version — like a
+    Platform pinned into MDFs."""
+
+    __tablename__ = "mdf_dwell_links"
+    __table_args__ = (UniqueConstraint("mdf_id", "dwell_file_id", name="uq_mdf_dwell_file"),)
+
+    mdf_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("mdfs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    dwell_file_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("dwell_files.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    dwell_file_version_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("dwell_file_versions.id", ondelete="CASCADE"), nullable=False
+    )
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    mdf: Mapped["Mdf"] = relationship(lazy="joined", viewonly=True)  # noqa: F821
+    dwell_file: Mapped[DwellFile] = relationship(back_populates="mdf_links", lazy="joined")
+    version: Mapped[DwellFileVersion] = relationship(lazy="joined")

@@ -27,6 +27,8 @@ import { downloadMdfReport } from "../components/mdf/mdfReport";
 import { UnsavedPinsFlag } from "../components/versioning/UnsavedPinsFlag";
 import { MdfPlanChips, MdfPlanPanel } from "../components/mdf/MdfPlanPanel";
 import { MdfTimeline } from "../components/mdf/MdfTimeline";
+import { MdfDwellsPanel } from "../components/mdf/MdfDwellsPanel";
+import { useMdfDwells } from "../state/hooks/useDwells";
 import { useStatuses } from "../state/hooks/useStatuses";
 import { LoadingState } from "../components/common/LoadingState";
 import { Modal } from "../components/common/Modal";
@@ -35,8 +37,8 @@ import { NotesDrawer } from "../components/common/NotesDrawer";
 import { TasksButton } from "../components/tasks/TasksButton";
 import { MilestonesButton } from "../components/status/MilestonesButton";
 
-type Tab = "platforms" | "emitters" | "plan" | "timeline" | "charts" | "tests" | "files" | "audit";
-const TABS: readonly Tab[] = ["platforms", "emitters", "plan", "timeline", "charts", "tests", "files", "audit"];
+type Tab = "platforms" | "emitters" | "dwells" | "plan" | "timeline" | "charts" | "tests" | "files" | "audit";
+const TABS: readonly Tab[] = ["platforms", "emitters", "dwells", "plan", "timeline", "charts", "tests", "files", "audit"];
 const linkedTab = (t: string | null): Tab | null => (TABS.includes(t as Tab) ? (t as Tab) : null);
 
 export function MdfBuilderPage() {
@@ -52,6 +54,7 @@ export function MdfBuilderPage() {
 
   const { data: mdf, isLoading } = useMdf(mdfId);
   const { data: links } = useMdfLinks(mdfId ?? "");
+  const { data: dwellPins } = useMdfDwells(mdfId ?? "");
   const repinAll = useRepinMdfLatest(mdfId ?? "");
   const mdfStatuses = useStatuses("mdf");
   // Released (or later): its pins stay as they went out, so a newer Platform version isn't flagged.
@@ -181,7 +184,7 @@ export function MdfBuilderPage() {
             <UnsavedPinsFlag
               kind="mdf"
               id={mdf.id}
-              signature={`${(links ?? []).map((l) => `${l.platform_id}:${l.platform_version_id}`).sort().join(",")}|${versions?.length ?? 0}`}
+              signature={`${(links ?? []).map((l) => `${l.platform_id}:${l.platform_version_id}`).sort().join(",")}|${(dwellPins ?? []).map((d) => `${d.dwell_file_id}:${d.pinned_version_id}`).sort().join(",")}|${versions?.length ?? 0}`}
             />
             <TasksButton type="mdf" id={mdf.id} name={mdf.name} />
             <MilestonesButton type="mdf" id={mdf.id} status={mdf.status} />
@@ -295,6 +298,12 @@ export function MdfBuilderPage() {
         <button className={tab === "emitters" ? "tab active" : "tab"} onClick={() => setTab("emitters")}>
           Emitters <span className="tab-count">{emitterCount}</span>
         </button>
+        <button className={tab === "dwells" ? "tab active" : "tab"} onClick={() => setTab("dwells")}>
+          Dwells <span className="tab-count">{dwellPins?.length ?? 0}</span>
+          {(dwellPins ?? []).some((d) => d.outdated) && (
+            <span className="tab-dot" title="A pinned dwell file has a newer saved version" aria-label="outdated" />
+          )}
+        </button>
         <button className={tab === "plan" ? "tab active" : "tab"} onClick={() => setTab("plan")}>
           Plan{mdf.goals_total > 0 && <span className="tab-count">{mdf.goals_done}/{mdf.goals_total}</span>}
         </button>
@@ -358,6 +367,7 @@ export function MdfBuilderPage() {
       )}
 
       {tab === "emitters" && <MdfEmittersTable mdfId={mdf.id} mdfName={mdf.name} />}
+      {tab === "dwells" && <MdfDwellsPanel mdfId={mdf.id} pinsFrozen={pinsFrozen} canEdit={canWrite && !mdf.deleted_at} />}
       {tab === "plan" && <MdfPlanPanel mdf={mdf} versions={versions ?? []} canEdit={canWrite && !mdf.deleted_at} />}
       {tab === "timeline" && <MdfTimeline mdfId={mdf.id} versions={versions ?? []} />}
       {tab === "charts" && <MdfCharts mdfId={mdf.id} />}

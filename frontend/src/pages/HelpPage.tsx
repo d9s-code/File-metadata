@@ -1097,6 +1097,16 @@ export function HelpPage() {
             with their versions.
           </p>
           <p>
+            <strong>Dwells</strong> lists the dwell files the MDF pins, each at a saved version:
+            the version and when it was saved, its timeout and setup time, and its Strategies at that version, with
+            their versions, Platforms, number of dwells, cycle time and bandwidth. Below them are the MDF&apos;s Platforms
+            no Strategy in the file covers and the other MDFs using the file. <strong>+ Pin dwell file</strong> picks a
+            file and a version (the latest by default). A newer saved version is flagged with{" "}
+            <strong>Repin to vN</strong>, except from Released onwards. The <strong>⋯</strong> menu opens the file,
+            downloads the pinned version&apos;s XML, pins another version or unpins it. A pin is in the MDF&apos;s export
+            once the MDF is saved.
+          </p>
+          <p>
             <strong>Charts</strong> works like a Platform&apos;s, one level up: <strong>Per Platform</strong> draws
             a line per pinned Platform — everything its Emitters cover, gaps kept as gaps; <strong>Per
             Emitter</strong> a line per Emitter under its Platform; <strong>Per Mode</strong> a line per Mode
@@ -1128,11 +1138,13 @@ export function HelpPage() {
             named set of dwells (e.g. &quot;Summer&quot;) for one or more Platforms — a Platform can have several, and
             one Strategy can cover several Platforms. With no Platform ticked it&apos;s a <strong>default dwell</strong>:
             not tied to any Platform, typically a larger sweep, listed first. A <strong>dwell file</strong> pins saved
-            versions of any Strategies — a Platform can have several in one file; linked to an MDF, it goes into
-            that MDF&apos;s export as dwells/&lt;name&gt;.xml. <strong>Saving an MDF version</strong> records its dwell
-            files at a saved version (saving any changed since, first), so exporting that MDF version always gives the
-            same dwells; the MDF&apos;s readiness checklist flags a dwell file that&apos;s changed, empty, or behind.
-            The same Strategy can be in several files.
+            versions of any Strategies — a Platform can have several in one file. A dwell file can go into{" "}
+            <strong>any number of MDFs</strong>: like a Platform, each MDF pins a saved version of it (on the MDF&apos;s{" "}
+            <strong>Dwells</strong> tab), and that version goes into the MDF&apos;s export as dwells/&lt;name&gt;.xml.
+            Later changes to the file stay out of an MDF until it&apos;s saved and repinned there; saving an MDF version
+            records the pinned versions, so exporting that MDF version always gives the same dwells. The MDF&apos;s
+            readiness checklist flags a dwell file that&apos;s behind, changed since saved, empty, or missing a Strategy
+            for one of its Platforms. The same Strategy can be in several files.
           </p>
           <p>
             <strong>Testing a Strategy</strong> happens through Emitter testing: a simulation run that records the
@@ -1170,8 +1182,9 @@ export function HelpPage() {
           </p>
           <p>
             A dwell file pins a saved version of each Strategy, flags newer versions (<strong>Repin all</strong>) and the
-            MDF&apos;s Platforms with no Strategy yet; its row opens to the pinned version&apos;s chart. Timeout, setup
-            time and the MDF are under More ▾ → Details…. Version history shows what each version changed. When logging a
+            Platforms of the MDFs using it with no Strategy yet; its row opens to the pinned version&apos;s chart.{" "}
+            <strong>Used by MDFs</strong> lists the MDFs using it and the version each pins. Timeout, setup time and
+            notes are under More ▾ → Details…. Version history shows what each version changed. When logging a
             test run, <strong>Dwell → Strategy…</strong> records the Strategy (its latest version) the run used; a
             Strategy&apos;s <strong>Used in</strong> tab lists its files and test runs.
           </p>

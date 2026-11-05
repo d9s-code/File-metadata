@@ -160,16 +160,29 @@ def test_bandwidth_default_is_an_admin_setting(admin_client, editor_client):
     assert editor_client.patch(f"/dwell-strategies/{strategy['id']}", json={"bandwidth_mhz": 40}).json()["bandwidth_mhz"] == 40
 
 
-def test_an_mdf_version_keeps_the_dwell_files_it_was_saved_with(editor_client):
+def test_an_mdf_pins_a_saved_dwell_file_version(editor_client):
     platform = _platform(editor_client, "Dwell Platform")
     pv = editor_client.post(f"/platforms/{platform['id']}/versions", json={}).json()
     mdf = editor_client.post("/mdfs", json={"name": "Dwell MDF"}).json()
     editor_client.post(f"/mdfs/{mdf['id']}/links", json={"platform_id": platform["id"], "platform_version_id": pv["id"]})
     editor_client.post(f"/mdfs/{mdf['id']}/versions", json={})  # v1: no dwell file yet
     dwell_file = _import(editor_client).json()
-    editor_client.patch(f"/dwell-strategies/{dwell_file['links'][0]['strategy_id']}", json={"platform_ids": [platform["id"]]})
-    body = editor_client.patch(f"/dwell-files/{dwell_file['id']}", json={"mdf_id": mdf["id"]}).json()
-    assert body["mdf_name"] == "Dwell MDF" and body["links"][0]["platforms_not_in_mdf"] == []
+    for link in dwell_file["links"]:
+        editor_client.patch(
+            f"/dwell-strategies/{link['strategy_id']}", json={"platform_ids": [platform["id"]], "save_version": True}
+        )
+    editor_client.post(f"/dwell-files/{dwell_file['id']}/strategies/repin-latest")
+    editor_client.post(f"/dwell-files/{dwell_file['id']}/versions", json={})  # v2 covers the Platform
+    url = f"/mdfs/{mdf['id']}/dwell-files"
+    pinned = editor_client.post(url, json={"dwell_file_id": dwell_file["id"]}).json()
+    assert [(d["name"], d["pinned_version_number"], d["outdated"]) for d in pinned] == [("Northern dwells", 2, False)]
+    assert pinned[0]["timeout"] == 5 and pinned[0]["platforms_not_covered"] == []
+    body = editor_client.get(f"/dwell-files/{dwell_file['id']}").json()
+    assert [s["dwell_count"] for s in pinned[0]["strategies"]] == [len(link["dwells"]) for link in body["links"]]
+    assert pinned[0]["strategies"][0]["cycle_ms"] == sum(d["dwell_time_ms"] for d in body["links"][0]["dwells"])
+    assert pinned[0]["strategies"][0]["platform_names"] == ["Dwell Platform"]
+    assert [(m["name"], m["pinned_version_number"]) for m in body["mdfs"]] == [("Dwell MDF", 2)]
+    assert body["links"][0]["platforms_not_in_mdf"] == []
 
     def export(number):
         resp = editor_client.get(f"/mdfs/{mdf['id']}/versions/{number}/export/prs")
@@ -179,25 +192,95 @@ def test_an_mdf_version_keeps_the_dwell_files_it_was_saved_with(editor_client):
         checks = editor_client.get(f"/mdfs/{mdf['id']}/readiness").json()
         return next(c for c in checks if c["key"] == "dwells")
 
-    # Changed, not saved: the MDF's readiness says saving the MDF saves it too.
-    editor_client.patch(f"/dwell-files/{dwell_file['id']}", json={"timeout": 9})
-    assert readiness()["status"] == "warn" and "saving the MDF saves it too" in readiness()["items"][0]
-
+    assert readiness()["status"] == "ok"
+    # The pin is stored, not saved: the MDF flags it until it's saved.
+    unsaved = editor_client.get(f"/mdfs/{mdf['id']}/unsaved").json()["entries"]
+    assert [e["scope"] for e in unsaved] == ["Dwell file 'Northern dwells'"]
     v2 = editor_client.post(f"/mdfs/{mdf['id']}/versions", json={}).json()
     assert v2["version_number"] == 2
-    versions = editor_client.get(f"/dwell-files/{dwell_file['id']}/versions").json()
-    assert versions[-1]["change_summary"] == "Saved with MDF 'Dwell MDF'"
-    assert readiness()["status"] == "ok"
-    assert b'timeout="9"' in export(2).read("dwells/Northern_dwells.xml")
+    assert b'timeout="5"' in export(2).read("dwells/Northern_dwells.xml")
     assert not [n for n in export(1).namelist() if n.startswith("dwells/")]
     diff = editor_client.get(f"/mdfs/{mdf['id']}/versions/2/diff").json()["entries"]
     assert any(e["scope"] == "Dwell file 'Northern dwells'" and e["kind"] == "added" for e in diff)
 
-    # Later changes, even saved, stay out of v2 until the MDF is saved again.
-    editor_client.patch(f"/dwell-files/{dwell_file['id']}", json={"timeout": 4})
+    # Changed, not saved: saving the MDF no longer saves the file.
+    editor_client.patch(f"/dwell-files/{dwell_file['id']}", json={"timeout": 9})
+    assert "save the file, then repin" in readiness()["items"][0]
+    editor_client.post(f"/mdfs/{mdf['id']}/versions", json={})
+    assert len(editor_client.get(f"/dwell-files/{dwell_file['id']}/versions").json()) == 2
+    assert b'timeout="5"' in export(3).read("dwells/Northern_dwells.xml")
+
+    # Saved: the MDF still pins v2 until it's repinned.
     editor_client.post(f"/dwell-files/{dwell_file['id']}/versions", json={})
-    assert b'timeout="9"' in export(2).read("dwells/Northern_dwells.xml")
-    assert "isn't in MDF v2 yet" in readiness()["items"][0]
+    assert "v2 pinned, v3 saved" in readiness()["items"][0]
+    assert editor_client.get(url).json()[0]["outdated"] is True
+    repinned = editor_client.post(f"{url}/repin-latest").json()
+    assert (repinned[0]["pinned_version_number"], repinned[0]["outdated"]) == (3, False)
+    editor_client.post(f"/mdfs/{mdf['id']}/versions", json={})
+    assert b'timeout="9"' in export(4).read("dwells/Northern_dwells.xml")
+    assert b'timeout="5"' in export(2).read("dwells/Northern_dwells.xml")
+    audit = [x["summary"] for x in editor_client.get("/audit-log", params={"entity_id": mdf["id"]}).json()["items"]]
+    assert any("Pinned dwell file 'Northern dwells' v3 into MDF 'Dwell MDF' (was v2)" in a for a in audit)
+
+    # Pinned somewhere: not deleted.
+    assert editor_client.delete(f"/dwell-files/{dwell_file['id']}").status_code == 409
+    assert editor_client.delete(f"{url}/{dwell_file['id']}").status_code == 204
+    assert editor_client.get(url).json() == []
+    assert editor_client.delete(f"/dwell-files/{dwell_file['id']}").status_code == 204
+
+
+def test_one_dwell_file_goes_into_several_mdfs(editor_client):
+    covered = _platform(editor_client, "Covered Ship")
+    bare = _platform(editor_client, "Bare Ship")
+    mdfs = []
+    for name, platform in (("Shared A", covered), ("Shared B", bare)):
+        pv = editor_client.post(f"/platforms/{platform['id']}/versions", json={}).json()
+        mdf = editor_client.post("/mdfs", json={"name": name}).json()
+        editor_client.post(f"/mdfs/{mdf['id']}/links", json={"platform_id": platform["id"], "platform_version_id": pv["id"]})
+        mdfs.append(mdf)
+    dwell_file = _import(editor_client, name="Shared dwells").json()
+    for link in dwell_file["links"]:
+        editor_client.patch(
+            f"/dwell-strategies/{link['strategy_id']}", json={"platform_ids": [covered["id"]], "save_version": True}
+        )
+    editor_client.post(f"/dwell-files/{dwell_file['id']}/strategies/repin-latest")
+    editor_client.post(f"/dwell-files/{dwell_file['id']}/versions", json={})
+    # Pinned at v1 into one, made with the other.
+    v1 = editor_client.get(f"/dwell-files/{dwell_file['id']}/versions").json()[0]
+    a = editor_client.post(f"/mdfs/{mdfs[0]['id']}/dwell-files", json={"dwell_file_id": dwell_file["id"]}).json()[0]
+    b = editor_client.post(
+        f"/mdfs/{mdfs[1]['id']}/dwell-files", json={"dwell_file_id": dwell_file["id"], "dwell_file_version_id": v1["id"]}
+    ).json()[0]
+    assert (a["pinned_version_number"], b["pinned_version_number"], b["outdated"]) == (2, 1, True)
+    a = editor_client.get(f"/mdfs/{mdfs[0]['id']}/dwell-files").json()[0]
+    assert [(m["name"], m["pinned_version_number"]) for m in a["other_mdfs"]] == [("Shared B", 1)]
+    assert a["platforms_not_covered"] == []
+    a_check = next(c for c in editor_client.get(f"/mdfs/{mdfs[0]['id']}/readiness").json() if c["key"] == "dwells")
+    assert a_check["status"] == "ok"
+    def b_items():
+        return next(c for c in editor_client.get(f"/mdfs/{mdfs[1]['id']}/readiness").json() if c["key"] == "dwells")["items"]
+
+    assert "Shared dwells: v1 pinned, v2 saved — repin to include it" in b_items()
+    editor_client.post(f"/mdfs/{mdfs[1]['id']}/dwell-files/repin-latest")
+    assert "No dwell Strategy for: Bare Ship" in b_items()
+    editor_client.post(
+        f"/mdfs/{mdfs[1]['id']}/dwell-files", json={"dwell_file_id": dwell_file["id"], "dwell_file_version_id": v1["id"]}
+    )
+    body = editor_client.get(f"/dwell-files/{dwell_file['id']}").json()
+    assert [(m["name"], m["outdated"]) for m in body["mdfs"]] == [("Shared A", False), ("Shared B", True)]
+    listed = next(f for f in editor_client.get("/dwell-files").json() if f["id"] == dwell_file["id"])
+    assert [m["name"] for m in listed["mdfs"]] == ["Shared A", "Shared B"]
+
+    # Released: an older pin isn't flagged.
+    for s in ("pending_review", "approved", "released"):
+        editor_client.post(f"/mdfs/{mdfs[1]['id']}/status", json={"new_status": s, "confirm_unmet": True})
+    assert editor_client.get(f"/mdfs/{mdfs[1]['id']}/dwell-files").json()[0]["outdated"] is False
+    assert b_items() == []
+
+    # A file made from an MDF is pinned into it.
+    made = editor_client.post("/dwell-files", json={"name": "Made here", "mdf_id": mdfs[0]["id"]}).json()
+    assert [m["name"] for m in made["mdfs"]] == ["Shared A"]
+    assert [d["name"] for d in editor_client.get(f"/mdfs/{mdfs[0]['id']}/dwell-files").json()] == ["Made here", "Shared dwells"]
 
 
 def test_a_test_run_records_the_strategy_version_used(editor_client):

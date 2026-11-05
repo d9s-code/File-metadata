@@ -16,6 +16,7 @@ from app.models.dwell import (  # noqa: F401
     DwellStrategyNote,
     DwellStrategyPlatform,
     DwellStrategyVersion,
+    MdfDwellLink,
 )
 from app.models.emitter import Emitter  # noqa: F401
 from app.models.emitter_note import EmitterNote  # noqa: F401

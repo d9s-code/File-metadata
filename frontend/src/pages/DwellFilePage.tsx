@@ -23,8 +23,8 @@ import {
   useRefreshDwellLists,
   useUpdateDwellFile,
 } from "../state/hooks/useDwells";
-import { useMdfLinks, useMdfs } from "../state/hooks/useMdfs";
 import { usePlatforms } from "../state/hooks/usePlatforms";
+import { StatusBadge } from "../components/status/StatusBadge";
 
 /** Saves a file as the browser's download. */
 export function saveBlob(blob: Blob, filename: string) {
@@ -62,7 +62,6 @@ function DwellFileView({ file }: { file: DwellFile }) {
   const refreshLists = useRefreshDwellLists();
   const { data: versions } = useDwellVersions("files", file.id);
   const commit = useCommitDwellVersion("files", file.id);
-  const { data: mdfLinks } = useMdfLinks(file.mdf_id ?? "");
   const { data: platforms } = usePlatforms();
   const repinAll = useDwellFileMutation(file.id, () => dwellsApi.repinLatest(file.id));
   const { confirmDelete, dialog } = useConfirmDialog();
@@ -71,9 +70,11 @@ function DwellFileView({ file }: { file: DwellFile }) {
   const [error, setError] = useState<string | null>(null);
 
   const outdated = file.links.filter((l) => l.outdated).length;
-  const mdfPlatformIds = file.mdf_id ? new Set((mdfLinks ?? []).map((l) => l.platform_id)) : null;
+  const mdfPlatformIds = file.mdf_platform_ids ? new Set(file.mdf_platform_ids) : null;
+  const mdfNames = file.mdfs.length === 1 ? file.mdfs[0].name : "the MDFs using it";
   const platformName = new Map((platforms ?? []).map((p) => [p.id, p.name]));
-  const missing = mdfPlatformIds
+  // A default dwell covers every Platform.
+  const missing = mdfPlatformIds && !file.links.some((l) => l.is_default)
     ? [...mdfPlatformIds].filter((id) => !file.links.some((l) => l.platform_ids.includes(id)))
     : [];
 
@@ -87,6 +88,10 @@ function DwellFileView({ file }: { file: DwellFile }) {
   }
 
   async function handleDelete() {
+    if (file.mdfs.length > 0) {
+      setError(`It's pinned into ${file.mdfs.map((m) => m.name).join(", ")} — unpin it there first.`);
+      return;
+    }
     if (!(await confirmDelete(`Delete the dwell file "${file.name}"? Its Strategies stay.`))) return;
     await run(async () => {
       await dwellsApi.deleteFile(file.id);
@@ -128,17 +133,26 @@ function DwellFileView({ file }: { file: DwellFile }) {
         status={
           <>
             <span className="dwell-chip">
-              {file.mdf_id ? (
-                <>
-                  MDF <Link to={`/mdfs/${file.mdf_id}`}>{file.mdf_name}</Link>
-                </>
-              ) : (
+              {file.mdfs.length === 0 ? (
                 "In no MDF"
+              ) : (
+                <>
+                  {file.mdfs.length === 1 ? "MDF" : `${file.mdfs.length} MDFs`}
+                  <span>
+                    {file.mdfs.map((m, i) => (
+                      <Fragment key={m.id}>
+                        {i > 0 && ", "}
+                        <Link to={`/mdfs/${m.id}?tab=dwells`}>{m.name}</Link>
+                        <span className="hint-text"> v{m.pinned_version_number}</span>
+                      </Fragment>
+                    ))}
+                  </span>
+                </>
               )}
             </span>
             <LatestVersion versions={versions} />
             {file.unsaved && file.latest_version_number != null && (
-              <span className="status-badge status-draft" title="An MDF export uses the latest saved version">
+              <span className="status-badge status-draft" title="An MDF uses the saved version it pins — save, then repin it there">
                 Changed since v{file.latest_version_number}
               </span>
             )}
@@ -164,7 +178,7 @@ function DwellFileView({ file }: { file: DwellFile }) {
       {missing.length > 0 && (
             <div className="dwell-callout">
               <strong>
-                {missing.length} Platform{missing.length === 1 ? "" : "s"} in {file.mdf_name} {missing.length === 1 ? "has" : "have"} no
+                {missing.length} Platform{missing.length === 1 ? "" : "s"} in {mdfNames} {missing.length === 1 ? "has" : "have"} no
                 Strategy here:
               </strong>{" "}
               {missing.map((id, i) => (
@@ -204,9 +218,16 @@ function DwellFileView({ file }: { file: DwellFile }) {
               + Add a Strategy
             </button>
           )}
+      <FileMdfs file={file} />
       {editing && <FileDetails file={file} canEdit={canEdit} onClose={() => setEditing(false)} />}
       {adding != null && (
-        <AddStrategy file={file} platformId={adding} mdfPlatformIds={mdfPlatformIds} onClose={() => setAdding(null)} />
+        <AddStrategy
+          file={file}
+          platformId={adding}
+          mdfPlatformIds={mdfPlatformIds}
+          mdfNames={mdfNames}
+          onClose={() => setAdding(null)}
+        />
       )}
       {dialog}
     </div>
@@ -280,7 +301,7 @@ function PinnedStrategies({ file, canEdit, onError }: { file: DwellFile; canEdit
                         {(l.platforms_not_in_mdf?.length ?? 0) > 0 && (
                           <span
                             className="status-badge status-pending_review"
-                            title={`The file's MDF doesn't pin ${l.platforms_not_in_mdf?.join(", ")}`}
+                            title={`No MDF using the file pins ${l.platforms_not_in_mdf?.join(", ")}`}
                           >
                             {l.platform_names.length > 1 ? `${l.platforms_not_in_mdf?.length} not in the MDF` : "not in the MDF"}
                           </span>
@@ -440,11 +461,13 @@ function AddStrategy({
   file,
   platformId: initialPlatform,
   mdfPlatformIds,
+  mdfNames,
   onClose,
 }: {
   file: DwellFile;
   platformId: string;
   mdfPlatformIds: Set<string> | null;
+  mdfNames: string;
   onClose: () => void;
 }) {
   const { data: strategies } = useDwellStrategies();
@@ -456,7 +479,7 @@ function AddStrategy({
   // How many of the file's Strategies cover each Platform — a Platform can have several here.
   const inFile = new Map<string, number>();
   for (const l of file.links) for (const id of l.platform_ids) inFile.set(id, (inFile.get(id) ?? 0) + 1);
-  // Platforms that have a Strategy to offer, the file's MDF's first.
+  // Platforms that have a Strategy to offer, those of the MDFs using the file first.
   const platforms = new Map<string, string>();
   for (const s of strategies ?? []) s.platform_ids.forEach((id, i) => platforms.set(id, s.platform_names[i] ?? "?"));
   const hasDefaults = (strategies ?? []).some((s) => s.is_default);
@@ -505,7 +528,7 @@ function AddStrategy({
             {hasDefaults && <option value={DEFAULT_KEY}>Default dwells (no Platform)</option>}
             {mdfPlatformIds ? (
               <>
-                {inMdf.length > 0 && <optgroup label={`In ${file.mdf_name}`}>{inMdf.map(option)}</optgroup>}
+                {inMdf.length > 0 && <optgroup label={`In ${mdfNames}`}>{inMdf.map(option)}</optgroup>}
                 {others.length > 0 && <optgroup label="Others">{others.map(option)}</optgroup>}
               </>
             ) : (
@@ -555,13 +578,56 @@ function AddStrategy({
   );
 }
 
-/** Name, MDF, the file's settings and notes. */
+/** The MDFs using the file, each with the version it pins. */
+function FileMdfs({ file }: { file: DwellFile }) {
+  return (
+    <>
+      <h2 className="dwell-section-title">
+        Used by MDFs <span className="tab-count">{file.mdfs.length}</span>
+      </h2>
+      {file.mdfs.length === 0 ? (
+        <p className="hint-text">No MDF pins this file yet — pin it from an MDF&apos;s Dwells tab.</p>
+      ) : (
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>MDF</th>
+              <th>Status</th>
+              <th>Pinned version</th>
+            </tr>
+          </thead>
+          <tbody>
+            {file.mdfs.map((m) => (
+              <tr key={m.id}>
+                <td>
+                  <Link to={`/mdfs/${m.id}?tab=dwells`}>{m.name}</Link>
+                </td>
+                <td>
+                  <StatusBadge type="mdf" status={m.status} />
+                </td>
+                <td>
+                  v{m.pinned_version_number}
+                  {m.outdated && file.latest_version_number != null && (
+                    <span className="status-badge status-pending_review" title="Repin it on the MDF's Dwells tab">
+                      {" "}
+                      v{file.latest_version_number} saved
+                    </span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </>
+  );
+}
+
+/** Name, the file's settings and notes. */
 function FileDetails({ file, canEdit, onClose }: { file: DwellFile; canEdit: boolean; onClose: () => void }) {
   const update = useUpdateDwellFile(file.id);
-  const { data: mdfs } = useMdfs();
   const { data: files } = useDwellFiles();
   const [name, setName] = useState(file.name);
-  const [mdfId, setMdfId] = useState(file.mdf_id ?? "");
   const [timeout, setTimeoutValue] = useState(num(file.timeout));
   const [setup, setSetup] = useState(num(file.setup_time));
   const [notes, setNotes] = useState(file.notes ?? "");
@@ -577,7 +643,6 @@ function FileDetails({ file, canEdit, onClose }: { file: DwellFile; canEdit: boo
     try {
       await update.mutateAsync({
         name: name.trim(),
-        mdf_id: mdfId || null,
         timeout: Number(timeout),
         setup_time: Number(setup),
         notes: notes.trim() || null,
@@ -596,18 +661,10 @@ function FileDetails({ file, canEdit, onClose }: { file: DwellFile; canEdit: boo
           Name
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={200} autoFocus />
         </label>
-        <label>
-          For the MDF
-          <select value={mdfId} onChange={(e) => setMdfId(e.target.value)}>
-            <option value="">None</option>
-            {(mdfs ?? []).map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <p className="hint-text">The MDF&apos;s export carries the file&apos;s latest saved version as dwells/{xmlName(name || file.name)}.</p>
+        <p className="hint-text">
+          An MDF using it pins a saved version (on its Dwells tab); its export carries that version as dwells/
+          {xmlName(name || file.name)}.
+        </p>
         <div className="form-row">
           <label>
             Timeout

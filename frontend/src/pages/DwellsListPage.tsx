@@ -202,7 +202,7 @@ function FileList() {
       <thead>
         <tr>
           <th>Name</th>
-          <th>MDF</th>
+          <th>MDFs</th>
           <th>Platforms</th>
           <th>Version</th>
           <th>Updated</th>
@@ -214,7 +214,26 @@ function FileList() {
             <td>
               <Link to={`/dwells/files/${f.id}`}>{f.name}</Link>
             </td>
-            <td>{f.mdf_id ? <Link to={`/mdfs/${f.mdf_id}`}>{f.mdf_name}</Link> : <span className="hint-text">—</span>}</td>
+            <td>
+              {f.mdfs.length === 0 ? (
+                <span className="hint-text">—</span>
+              ) : (
+                f.mdfs.map((m, i) => (
+                  <Fragment key={m.id}>
+                    {i > 0 && ", "}
+                    <Link to={`/mdfs/${m.id}?tab=dwells`} title={`Pins v${m.pinned_version_number}`}>
+                      {m.name}
+                    </Link>
+                    {m.outdated && (
+                      <span className="hint-text" title="Pins an older saved version">
+                        {" "}
+                        (v{m.pinned_version_number})
+                      </span>
+                    )}
+                  </Fragment>
+                ))
+              )}
+            </td>
             <td title={f.platform_names.join("\n")}>
               {f.platform_names.slice(0, 3).join(", ") || <span className="hint-text">none yet</span>}
               {f.platform_names.length > 3 && <span className="hint-text"> +{f.platform_names.length - 3}</span>}
@@ -364,7 +383,7 @@ function NewDwellFile({ importing, onClose }: { importing: boolean; onClose: () 
           <input value={name} onChange={(e) => setName(e.target.value)} autoFocus={!importing} />
         </label>
         <label>
-          For the MDF (optional)
+          Pin into an MDF (optional)
           <select value={mdfId} onChange={(e) => setMdfId(e.target.value)}>
             <option value="">None yet</option>
             {(mdfs ?? []).map((m) => (

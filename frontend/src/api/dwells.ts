@@ -144,11 +144,23 @@ export interface DwellFileLink {
   dwells: Dwell[];
 }
 
+/** An MDF using a dwell file, and the version of it that MDF pins. */
+export interface DwellFileMdf {
+  id: string;
+  name: string;
+  status: string;
+  pinned_version_number: number;
+  /** A newer saved version of the file than the one pinned (not flagged once the MDF is released). */
+  outdated: boolean;
+}
+
 export interface DwellFile {
   id: string;
   name: string;
-  mdf_id: string | null;
-  mdf_name: string | null;
+  /** The MDFs using it, each pinning a saved version. */
+  mdfs: DwellFileMdf[];
+  /** The Platforms those MDFs pin (null when no MDF uses it). */
+  mdf_platform_ids: string[] | null;
   timeout: number;
   setup_time: number;
   notes: string | null;
@@ -162,8 +174,7 @@ export interface DwellFile {
 export interface DwellFileSummary {
   id: string;
   name: string;
-  mdf_id: string | null;
-  mdf_name: string | null;
+  mdfs: DwellFileMdf[];
   strategy_count: number;
   platform_names: string[];
   outdated_count: number;
@@ -174,10 +185,46 @@ export interface DwellFileSummary {
 
 export interface DwellFileUpdate {
   name?: string;
-  mdf_id?: string | null;
   timeout?: number;
   setup_time?: number;
   notes?: string | null;
+}
+
+/** A Strategy as the version of a file an MDF pins has it. */
+export interface MdfDwellStrategy {
+  strategy_id: string | null;
+  name: string;
+  version_number: number | null;
+  latest_version_number: number | null;
+  outdated: boolean;
+  platform_names: string[];
+  is_default: boolean;
+  dwell_count: number;
+  /** The sum of its dwell times, ms. */
+  cycle_ms: number;
+  bandwidth_mhz: number | null;
+}
+
+/** A dwell file an MDF pins, at the version it pins. */
+export interface MdfDwell {
+  dwell_file_id: string;
+  name: string;
+  notes: string | null;
+  pinned_version_id: string;
+  pinned_version_number: number;
+  pinned_at: string;
+  pinned_version_saved_at: string;
+  latest_version_number: number | null;
+  latest_version_id: string | null;
+  outdated: boolean;
+  /** The file has changes not saved as a version yet. */
+  file_changed: boolean;
+  timeout: number;
+  setup_time: number;
+  strategies: MdfDwellStrategy[];
+  /** The MDF's Platforms no Strategy in the file covers (none with a default dwell). */
+  platforms_not_covered: string[];
+  other_mdfs: DwellFileMdf[];
 }
 
 export interface DwellVersionDetail extends VersionSummary {
@@ -234,6 +281,7 @@ export const dwellsApi = {
 
   files: () => api.get<DwellFileSummary[]>("/dwell-files"),
   file: (id: string) => api.get<DwellFile>(`/dwell-files/${id}`),
+  /** With an MDF: pinned into it at v1. */
   createFile: (input: { name: string; mdf_id?: string | null }) => api.post<DwellFile>("/dwell-files", input),
   importFile: (file: File, name?: string, mdfId?: string | null) => {
     const form = new FormData();
@@ -249,6 +297,13 @@ export const dwellsApi = {
     api.get<Blob>(`/dwell-files/${id}/xml${version ? `?version=${version}` : ""}`, { responseType: "blob" }),
   pin: (fileId: string, strategyId: string, versionId?: string | null) =>
     api.post<DwellFile>(`/dwell-files/${fileId}/strategies`, { strategy_id: strategyId, strategy_version_id: versionId ?? null }),
+  /** The dwell files an MDF pins. */
+  mdfFiles: (mdfId: string) => api.get<MdfDwell[]>(`/mdfs/${mdfId}/dwell-files`),
+  /** Pin a file into an MDF: a saved version, or its latest. */
+  pinIntoMdf: (mdfId: string, fileId: string, versionId?: string | null) =>
+    api.post<MdfDwell[]>(`/mdfs/${mdfId}/dwell-files`, { dwell_file_id: fileId, dwell_file_version_id: versionId ?? null }),
+  repinMdfLatest: (mdfId: string) => api.post<MdfDwell[]>(`/mdfs/${mdfId}/dwell-files/repin-latest`, {}),
+  unpinFromMdf: (mdfId: string, fileId: string) => api.delete<void>(`/mdfs/${mdfId}/dwell-files/${fileId}`),
   repinLatest: (fileId: string) => api.post<DwellFile>(`/dwell-files/${fileId}/strategies/repin-latest`, {}),
   updateLink: (linkId: string, input: { strategy_version_id?: string; sort_order?: number }) =>
     api.patch<DwellFile>(`/dwell-file-strategies/${linkId}`, input),
