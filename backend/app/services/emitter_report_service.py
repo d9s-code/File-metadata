@@ -163,17 +163,81 @@ def report_emitters(db: Session, platform_ids: list[UUID], emitter_ids: list[UUI
     return out
 
 
-def build_report_rows(db: Session, platform_ids: list[UUID], emitter_ids: list[UUID]) -> list[list]:
-    """The header, then a line per Mode, in the report's order."""
+def _rows(reported: list[tuple[str | None, dict, int | None]]) -> list[list]:
+    """The header, then a line per Mode of these Emitters, in their order."""
     rows: list[list] = []
-    for platform, snapshot, _number in report_emitters(db, platform_ids, emitter_ids):
+    for platform, snapshot, _number in reported:
         rows.extend(_emitter_rows(platform, snapshot))
-
     steps = max([STAGGER_COLUMNS, *(len(r) - len(HEADER) for r in rows)])
     return [HEADER + [f"Stagger {i} [µs]" for i in range(1, steps + 1)], *rows]
 
 
+def _report_sheet(rows: list[list]) -> Sheet:
+    return Sheet(name="Report", rows=rows, widths=[18, 22, 14, 22] + [12] * (len(rows[0]) - 4))
+
+
+def build_report_rows(db: Session, platform_ids: list[UUID], emitter_ids: list[UUID]) -> list[list]:
+    """The header, then a line per Mode, in the report's order."""
+    return _rows(report_emitters(db, platform_ids, emitter_ids))
+
+
 def build_report(db: Session, platform_ids: list[UUID], emitter_ids: list[UUID]) -> bytes:
-    rows = build_report_rows(db, platform_ids, emitter_ids)
-    widths = [18, 22, 14, 22] + [12] * (len(rows[0]) - 4)
-    return write_xlsx([Sheet(name="Report", rows=rows, widths=widths)])
+    return write_xlsx([_report_sheet(build_report_rows(db, platform_ids, emitter_ids))])
+
+
+# --- An MDF's report -----------------------------------------------------------------
+
+
+def mdf_report_emitters(db: Session, mdf_id: UUID) -> list[tuple[str, int, dict, int | None]]:
+    """What an MDF carries, as the export takes it: each Platform version it
+    pins (Platforms alphabetically) and, under each, the Emitter versions
+    recorded in that Platform version (alphabetically) — as (Platform name,
+    Platform version, Emitter snapshot, Emitter version)."""
+    from app.models.mdf import MdfPlatformLink
+    from app.models.platform import PlatformVersion
+
+    links = (
+        db.query(MdfPlatformLink, PlatformVersion, Platform)
+        .join(PlatformVersion, MdfPlatformLink.platform_version_id == PlatformVersion.id)
+        .join(Platform, MdfPlatformLink.platform_id == Platform.id)
+        .filter(MdfPlatformLink.mdf_id == mdf_id)
+        .all()
+    )
+    out: list[tuple[str, int, dict, int | None]] = []
+    for _link, version, platform in sorted(links, key=lambda lvp: _name_key(lvp[2].name)):
+        pinned = [
+            (el["emitter_snapshot"], el.get("emitter_version_number"))
+            for el in (version.snapshot or {}).get("links", [])
+            if el.get("emitter_snapshot")
+        ]
+        for snapshot, number in sorted(pinned, key=lambda sv: _name_key(sv[0].get("name"))):
+            out.append((platform.name, version.version_number, snapshot, number))
+    return out
+
+
+CONTENTS_HEADER = ["Platform", "Platform version", "Emitter", "Emitter version", "Modes"]
+
+
+def build_mdf_report(db: Session, mdf_id: UUID) -> bytes:
+    """The Emitter report for everything an MDF pins — the same sheet, a line
+    per Mode under its Platform — and a second sheet listing what's pinned:
+    each Platform version and the Emitter versions in it."""
+    reported = mdf_report_emitters(db, mdf_id)
+    if not reported:
+        raise ReportError("This MDF has no Emitters yet — pin a Platform that pins some")
+    contents = [CONTENTS_HEADER] + [
+        [
+            platform,
+            f"v{platform_version}",
+            snapshot.get("name"),
+            f"v{number}" if number else None,
+            sum(len(g.get("modes", [])) for g in snapshot.get("ew_groups", [])),
+        ]
+        for platform, platform_version, snapshot, number in reported
+    ]
+    return write_xlsx(
+        [
+            _report_sheet(_rows([(platform, snapshot, number) for platform, _pv, snapshot, number in reported])),
+            Sheet(name="Pinned", rows=contents, widths=[24, 16, 26, 16, 10]),
+        ]
+    )

@@ -1058,7 +1058,11 @@ export function HelpPage() {
             Modes and PRI types, its overall RF, PRI and PW ranges (tick <strong>With deltas (±)</strong> for the
             engineered ones) and its status now. Click a column heading to sort, and type to filter by Emitter,
             designation or Platform. An Emitter that two Platforms pin at different versions gets a row per
-            version, marked &ldquo;also vN&rdquo;, and a warning above the table counts them.
+            version, marked &ldquo;also vN&rdquo;, and a warning above the table counts them.{" "}
+            <strong>Download report (.xlsx)</strong> (also in the <strong>⋯</strong> menu) gives the Emitter
+            report for the MDF: the same sheet, a line per Mode of every Emitter under the Platform that pins
+            it, as the MDF pins them. A second sheet, <strong>Pinned</strong>, lists the Platforms and Emitters
+            with their versions.
           </p>
           <p>
             <strong>Charts</strong> works like a Platform&apos;s, one level up: <strong>Per Platform</strong> draws

@@ -23,6 +23,7 @@ import { RequireRole, useHasRole } from "../auth/RequireAuth";
 import { useAttachments } from "../state/hooks/useAttachments";
 import { FilesPanel } from "../components/files/FilesPanel";
 import { MdfEmittersTable, useMdfCoverage } from "../components/mdf/MdfEmittersTable";
+import { downloadMdfReport } from "../components/mdf/mdfReport";
 import { LoadingState } from "../components/common/LoadingState";
 import { Modal } from "../components/common/Modal";
 import { NotesFeed } from "../components/common/NotesFeed";
@@ -148,6 +149,15 @@ export function MdfBuilderPage() {
                 { label: "Compare with an earlier version", to: `/mdfs/compare?a=${mdf.id}&b=${mdf.id}` },
                 { label: "Compare with another MDF", to: `/mdfs/compare?a=${mdf.id}` },
                 { label: "Ambiguity check", to: `/ambiguity/mdf/${mdf.id}` },
+                {
+                  label: "Download report (.xlsx)",
+                  onSelect: () => {
+                    setExportError(null);
+                    downloadMdfReport(mdf).catch((err) =>
+                      setExportError(err instanceof ApiRequestError ? err.message : "Couldn't make the report"),
+                    );
+                  },
+                },
                 ...(canWrite ? [{ label: "Edit details", onSelect: handleStartEdit }] : []),
               ]}
             />
@@ -321,7 +331,7 @@ export function MdfBuilderPage() {
         </div>
       )}
 
-      {tab === "emitters" && <MdfEmittersTable mdfId={mdf.id} />}
+      {tab === "emitters" && <MdfEmittersTable mdfId={mdf.id} mdfName={mdf.name} />}
       {tab === "charts" && <MdfCharts mdfId={mdf.id} />}
       {tab === "tests" && <MdfTestHistory mdfId={mdf.id} highlightTestRecordId={highlightTestRecordId} />}
       {tab === "files" && (

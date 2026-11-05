@@ -10,7 +10,9 @@ from app.core.enums import Role
 from app.database import get_db
 from app.deps import require_role
 from app.services.analysis_report_service import build_analysis
-from app.services.emitter_report_service import ReportError, build_report
+from app.core.downloads import attachment_disposition
+from app.models.mdf import Mdf
+from app.services.emitter_report_service import ReportError, build_mdf_report, build_report
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -53,3 +55,19 @@ def analysis_report(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc))
     filename = f"Analysis sheet {date.today().isoformat()}.xlsx"
     return Response(content=content, media_type=XLSX, headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+@router.get("/mdfs/{mdf_id}")
+def mdf_report(mdf_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))) -> Response:
+    """The Emitter report for an MDF: a line per Mode of every Emitter its
+    pinned Platform versions pin, under its Platform, and a sheet of what's
+    pinned — see emitter_report_service.build_mdf_report."""
+    mdf = db.get(Mdf, mdf_id)
+    if mdf is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "MDF not found")
+    try:
+        content = build_mdf_report(db, mdf_id)
+    except ReportError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc))
+    filename = f"MDF report {mdf.name} {date.today().isoformat()}.xlsx"
+    return Response(content=content, media_type=XLSX, headers={"Content-Disposition": attachment_disposition(filename)})

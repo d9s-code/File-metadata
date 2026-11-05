@@ -11,6 +11,8 @@ import { useSortableTable } from "../common/useSortableTable";
 import { useSessionState } from "../common/useSessionState";
 import { compareNullable, compareStrings, type SortDirection } from "../common/sortUtils";
 import { statusLabel } from "../common/emitterStatusLabel";
+import { ApiRequestError } from "../../api/client";
+import { downloadMdfReport } from "./mdfReport";
 import type { EmitterStatus } from "../../types/domain";
 
 /** What an MDF's pinned Platform versions cover — shared with its Charts tab. */
@@ -92,12 +94,25 @@ function toRows(coverage: PlatformCoverage[], statusById: Map<string, EmitterSta
 /** Every Emitter on an MDF — through the Platform versions it pins, as the
  * export takes them — in one sortable table. An Emitter two Platforms pin at
  * different versions gets a row per version, flagged. */
-export function MdfEmittersTable({ mdfId }: { mdfId: string }) {
+export function MdfEmittersTable({ mdfId, mdfName }: { mdfId: string; mdfName: string }) {
   const { data: coverage, isLoading, error } = useMdfCoverage(mdfId);
   const { data: emitters } = useEmitters();
   const [search, setSearch] = useSessionState("mdfEmitters.search", "");
   const [engineered, setEngineered] = useSessionState("mdfEmitters.engineered", false);
   const [onlyMismatched, setOnlyMismatched] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
+  async function report() {
+    setReportError(null);
+    setDownloading(true);
+    try {
+      await downloadMdfReport({ id: mdfId, name: mdfName });
+    } catch (err) {
+      setReportError(err instanceof ApiRequestError ? err.message : "Couldn't make the report");
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   const statusById = useMemo(() => new Map((emitters ?? []).map((e) => [e.id, e.status])), [emitters]);
   const rows = useMemo(() => toRows(coverage ?? [], statusById), [coverage, statusById]);
@@ -189,8 +204,20 @@ export function MdfEmittersTable({ mdfId }: { mdfId: string }) {
         <h4>
           Emitters on this MDF <span className="hint-text">{distinct}</span>
         </h4>
-        <span className="hint-text">As pinned by its Platform versions — what the MDF exports.</span>
+        <span className="section-actions">
+          <span className="hint-text">As pinned by its Platform versions — what the MDF exports.</span>
+          <button
+            type="button"
+            className="button secondary small"
+            disabled={downloading}
+            onClick={() => void report()}
+            title="The Emitter report for this MDF: a line per Mode under its Platform, and a sheet of what's pinned"
+          >
+            {downloading ? "Making the report…" : "Download report (.xlsx)"}
+          </button>
+        </span>
       </div>
+      {reportError && <div className="error-text">{reportError}</div>}
       {mismatched > 0 && (
         <p className="mdf-emitters-warning">
           ⚠ {mismatched} Emitter{mismatched === 1 ? " is" : "s are"} pinned at different versions by different Platforms.{" "}

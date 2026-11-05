@@ -44,10 +44,10 @@ STAGGER = {
 }
 
 
-def _read_sheet(content: bytes) -> list[list]:
-    """The first sheet's rows, each cell a string, a number or None."""
+def _read_sheet(content: bytes, sheet: int = 1) -> list[list]:
+    """A sheet's rows (the first by default), each cell a string, a number or None."""
     z = zipfile.ZipFile(io.BytesIO(content))
-    root = ET.fromstring(z.read("xl/worksheets/sheet1.xml"))
+    root = ET.fromstring(z.read(f"xl/worksheets/sheet{sheet}.xml"))
     rows = []
     for row in root.find("m:sheetData", NS):
         cells: dict[int, object] = {}
@@ -159,3 +159,44 @@ def test_the_report_needs_a_pick_and_is_open_to_viewers(editor_client, viewer_cl
     ]
     missing = editor_client.post("/reports/emitters", json={"emitter_ids": ["00000000-0000-0000-0000-000000000000"]})
     assert missing.status_code == 422
+
+
+def test_an_mdf_report_lists_what_its_pinned_platforms_pin(editor_client, viewer_client):
+    zulu = _emitter(editor_client, "Zulu Radar", "ZR-1", [("Search 10", "fixed", FIXED), ("Search 2", "stagger", STAGGER)])
+    alpha = _emitter(editor_client, "Alpha Radar", "AR-1", [("Track", "fixed", FIXED)])
+    south = _platform(editor_client, "South", zulu, alpha)
+    north = _platform(editor_client, "north", zulu)
+    mdf = editor_client.post("/mdfs", json={"name": "Fleet MDF"}).json()
+    assert editor_client.get(f"/reports/mdfs/{mdf['id']}").status_code == 422  # nothing pinned yet
+    saved = {}
+    for platform in (south, north):
+        version = editor_client.post(f"/platforms/{platform['id']}/versions", json={"change_summary": "v"}).json()
+        saved[platform["name"]] = f"v{version['version_number']}"
+        r = editor_client.post(f"/mdfs/{mdf['id']}/links", json={"platform_id": platform["id"], "platform_version_id": version["id"]})
+        assert r.status_code == 201, r.text
+    # Changed after the Platform version was saved: the report keeps to what the MDF pins.
+    editor_client.patch(f"/platforms/{south['id']}", json={"name": "South renamed"})
+
+    resp = viewer_client.get(f"/reports/mdfs/{mdf['id']}")
+    assert resp.status_code == 200, resp.text
+    assert "MDF%20report%20Fleet%20MDF" in resp.headers["content-disposition"]
+    rows = _read_sheet(resp.content)
+    assert rows[0][:4] == ["Platform", "Emitter", DESIGNATION, "Mode"] and len(rows[0]) == 23 + 32
+    assert [(r[0], r[1], r[3]) for r in rows[1:]] == [
+        ("north", "Zulu Radar", "Search 2"),
+        ("north", "Zulu Radar", "Search 10"),
+        ("South renamed", "Alpha Radar", "Track"),
+        ("South renamed", "Zulu Radar", "Search 2"),
+        ("South renamed", "Zulu Radar", "Search 10"),
+    ]
+    col = {name: i for i, name in enumerate(rows[0])}
+    assert (rows[2][col["Frequency Min [MHz]"]], rows[2][col["Frequency Max [MHz]"]]) == (8995, 9105)
+
+    pinned = _read_sheet(resp.content, sheet=2)
+    assert pinned == [
+        ["Platform", "Platform version", "Emitter", "Emitter version", "Modes"],
+        ["north", saved["north"], "Zulu Radar", "v1", 2],
+        ["South renamed", saved["South"], "Alpha Radar", "v1", 1],
+        ["South renamed", saved["South"], "Zulu Radar", "v1", 2],
+    ]
+    assert viewer_client.get("/reports/mdfs/00000000-0000-0000-0000-000000000000").status_code == 404
