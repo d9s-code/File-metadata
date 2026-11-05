@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { EmitterDiffResult, VersionSummary } from "../../types/versioning";
+import { versionName, type EmitterDiffResult, type VersionSummary } from "../../types/versioning";
 import { EmitterDiffViewer, changeCounts } from "./EmitterDiffViewer";
 import { versionDate } from "./VersionList";
 
@@ -34,13 +34,14 @@ export function VersionPanel({
   const latest = versions.length ? Math.max(...versions.map((v) => v.version_number)) : null;
   const baseline = against ?? (selected > 1 ? selected - 1 : null);
   const others = [...versions].reverse().filter((v) => v.version_number !== selected);
+  const name = (n: number) => versionName(versions.find((v) => v.version_number === n) ?? { version_number: n });
 
   return (
     <div className="card version-panel">
       <div className="version-panel-head">
         <div>
           <h2 className="version-panel-title">
-            Version {selected}
+            Version {name(selected).slice(1)}
             {selected === latest && <span className="version-tag latest">Latest</span>}
             {tags}
           </h2>
@@ -64,12 +65,12 @@ export function VersionPanel({
             <label className="inline-label">
               Changes since
               <select value={against ?? ""} onChange={(e) => onAgainst(e.target.value === "" ? null : Number(e.target.value))}>
-                {selected > 1 && <option value="">v{selected - 1} (the one before)</option>}
+                {selected > 1 && <option value="">{name(selected - 1)} (the one before)</option>}
                 {others
                   .filter((v) => v.version_number !== selected - 1)
                   .map((v) => (
                     <option key={v.id} value={v.version_number}>
-                      v{v.version_number}
+                      {versionName(v)}
                       {v.version_number === latest ? " (latest)" : ""}
                       {v.version_number > selected ? " — newer" : ""}
                     </option>

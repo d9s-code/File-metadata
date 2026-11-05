@@ -28,10 +28,13 @@ export function ExportPrsButton({
   kind,
   id,
   versionNumber,
+  versionLabel,
 }: {
   kind: "platform" | "mdf";
   id: string;
   versionNumber: number;
+  /** What people see — a Platform's "3.1". */
+  versionLabel?: string;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
@@ -51,7 +54,7 @@ export function ExportPrsButton({
   return (
     <span>
       <button className="button secondary small" onClick={() => void handleExport()} disabled={downloading}>
-        {downloading ? "Exporting…" : `Export v${versionNumber} PRS`}
+        {downloading ? "Exporting…" : `Export v${versionLabel ?? versionNumber} PRS`}
       </button>
       {error && <span className="error-text"> {error}</span>}
     </span>

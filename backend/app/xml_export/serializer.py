@@ -76,7 +76,11 @@ def _build_platform_xml(parent: etree._Element, platform_link: dict) -> None:
     _set_text(platform_el, PLATFORM["id"], platform_link["platform_id"])
     _set_text(platform_el, PLATFORM["name"], platform_link["platform_name"])
     _set_text(platform_el, PLATFORM["description"], platform_snapshot.get("description"))
-    _set_text(platform_el, PLATFORM["pinned_version"], platform_link["platform_version_number"])
+    _set_text(
+        platform_el,
+        PLATFORM["pinned_version"],
+        platform_link.get("platform_version_label") or platform_link["platform_version_number"],
+    )
 
     emitters_el = etree.SubElement(platform_el, PLATFORM["emitters_container"])
     for emitter_link in platform_snapshot["links"]:

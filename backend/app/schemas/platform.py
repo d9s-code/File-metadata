@@ -39,6 +39,7 @@ class PlatformSummary(BaseModel):
     mode_count: int
     mdf_count: int
     latest_version_number: int | None = None
+    latest_version_label: str | None = None
     latest_version_at: datetime | None = None
     # From the latest finished ambiguity check; None when never checked.
     ambiguity_checked_at: datetime | None = None

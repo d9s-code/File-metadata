@@ -67,6 +67,13 @@ class PlatformEmitterLink(UUIDPkMixin, Base):
     emitter_version: Mapped["EmitterVersion"] = relationship()  # noqa: F821
 
 
+def platform_version_label(major: int | None, minor: int | None) -> str:
+    """"3" for a whole version, "3.1" for a minor one."""
+    if major is None:
+        return "?"
+    return f"{major}.{minor}" if minor else f"{major}"
+
+
 class PlatformVersion(UUIDPkMixin, Base):
     __tablename__ = "platform_versions"
     __table_args__ = (UniqueConstraint("platform_id", "version_number", name="uq_platform_version_number"),)
@@ -74,7 +81,12 @@ class PlatformVersion(UUIDPkMixin, Base):
     platform_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("platforms.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    # The order versions were saved in (what links, routes and "outdated" go by).
     version_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    # What people see: Save version makes the next whole version (v4), and
+    # repinning an Emitter in the saved version a minor one (v3.1, v3.2).
+    major: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    minor: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
     change_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
@@ -91,3 +103,7 @@ class PlatformVersion(UUIDPkMixin, Base):
     @property
     def created_by_username(self) -> str | None:
         return self.creator.username if self.creator else None
+
+    @property
+    def version_label(self) -> str:
+        return platform_version_label(self.major or self.version_number, self.minor)

@@ -24,6 +24,8 @@ export interface PlatformSummary {
   mode_count: number;
   mdf_count: number;
   latest_version_number: number | null;
+  /** "3", or "3.1" for a minor version. */
+  latest_version_label?: string | null;
   latest_version_at: string | null;
   /** From the latest finished ambiguity check; null when never checked. */
   ambiguity_checked_at: string | null;
@@ -132,6 +134,7 @@ export interface PlatformCoverage {
   platform_id: string;
   platform_name: string;
   version_number: number;
+  version_label?: string;
   emitters: EmitterCoverage[];
 }
 

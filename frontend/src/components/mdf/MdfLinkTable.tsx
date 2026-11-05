@@ -21,7 +21,7 @@ function PinnedVersionCell({ platformId, versionId }: { platformId: string; vers
   if (!version) return <span title={versionId}>{versionId.slice(0, 8)}…</span>;
   return (
     <Link to={`/platforms/${platformId}/versions?version=${version.version_number}`}>
-      v{version.version_number}
+      v{version.version_label ?? version.version_number}
     </Link>
   );
 }
@@ -35,9 +35,9 @@ function OutdatedPin({ mdfId, link }: { mdfId: string; link: MdfLink }) {
       {" "}
       <span
         className="status-badge status-pending_review"
-        title={`The Platform has a newer saved version (v${link.latest_version_number}) than the one pinned here (v${link.pinned_version_number}).`}
+        title={`The Platform has a newer saved version (v${link.latest_version_label ?? link.latest_version_number}) than the one pinned here (v${link.pinned_version_label ?? link.pinned_version_number}).`}
       >
-        Outdated — v{link.latest_version_number} saved
+        Outdated — v{link.latest_version_label ?? link.latest_version_number} saved
       </span>
       {link.latest_version_id && (
         <RequireRole minimum="editor">
@@ -49,7 +49,7 @@ function OutdatedPin({ mdfId, link }: { mdfId: string; link: MdfLink }) {
               void pin.mutateAsync({ platformId: link.platform_id, platformVersionId: link.latest_version_id! })
             }
           >
-            {pin.isPending ? "Repinning…" : `Repin to v${link.latest_version_number}`}
+            {pin.isPending ? "Repinning…" : `Repin to v${link.latest_version_label ?? link.latest_version_number}`}
           </button>
         </RequireRole>
       )}

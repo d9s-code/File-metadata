@@ -184,6 +184,7 @@ def build_mdf_snapshot(mdf: Mdf) -> dict:
                 "platform_name": link.platform.name,
                 "platform_version_id": str(link.platform_version_id),
                 "platform_version_number": link.platform_version.version_number,
+                "platform_version_label": link.platform_version.version_label,
                 "platform_snapshot": link.platform_version.snapshot,
             }
             for link in sorted(mdf.links, key=lambda link: link.platform.name)

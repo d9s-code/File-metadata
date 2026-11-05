@@ -31,7 +31,7 @@ interface Row {
   version: number;
   /** Other Platforms pin this Emitter at a different version. */
   otherVersions: number[];
-  platforms: { id: string; name: string; version: number }[];
+  platforms: { id: string; name: string; version: number | string }[];
   modes: CoverageMode[];
   status: EmitterStatus | null;
 }
@@ -81,7 +81,7 @@ function toRows(coverage: PlatformCoverage[], statusById: Map<string, EmitterSta
         modes: e.modes,
         status: statusById.get(e.emitter_id) ?? null,
       };
-      row.platforms.push({ id: p.platform_id, name: p.platform_name, version: p.version_number });
+      row.platforms.push({ id: p.platform_id, name: p.platform_name, version: p.version_label ?? p.version_number });
       rows.set(key, row);
     }
   }

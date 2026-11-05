@@ -99,7 +99,7 @@ def create_ambiguity_run(
         entity_id=run.id,
         summary=(
             f"Ran the ambiguity check of {_SCOPE_NOUN[payload.scope_type]} "
-            f"'{scope.name if scope else '?'}' (version {version.version_number}; thresholds "
+            f"'{scope.name if scope else '?'}' (version {getattr(version, 'version_label', version.version_number)}; thresholds "
             f"{_pct(tol.get('low_threshold'))} / {_pct(tol.get('high_threshold'))} / {_pct(tol.get('exact_threshold'))} %)"
         ),
         changes={"tolerance_config": tol},

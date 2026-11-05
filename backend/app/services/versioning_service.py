@@ -35,7 +35,13 @@ def commit_version(
     last_version_number = (
         db.query(func.max(spec.version_model.version_number)).filter_by(**fk).scalar() or 0
     )
+    extra = {}
+    if hasattr(spec.version_model, "major"):
+        # Versions with a major.minor label (Platforms): the next whole version.
+        last_major = db.query(func.max(spec.version_model.major)).filter_by(**fk).scalar() or 0
+        extra = {"major": last_major + 1, "minor": 0}
     version = spec.version_model(
+        **extra,
         version_number=last_version_number + 1,
         snapshot=snapshot,
         change_summary=change_summary,

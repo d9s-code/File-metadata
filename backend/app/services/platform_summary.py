@@ -15,7 +15,7 @@ from app.models.ambiguity import AmbiguityFinding, AmbiguityRun
 from app.models.emitter import Emitter
 from app.models.emitter_version import EmitterVersion
 from app.models.mdf import Mdf, MdfPlatformLink
-from app.models.platform import Platform, PlatformEmitterLink, PlatformVersion
+from app.models.platform import Platform, PlatformEmitterLink, PlatformVersion, platform_version_label
 
 # Worst first: an Emitter that needs rework holds the Platform back the most.
 
@@ -40,6 +40,7 @@ def _blank(keys: list[str]) -> dict:
         "mode_count": 0,
         "mdf_count": 0,
         "latest_version_number": None,
+        "latest_version_label": None,
         "latest_version_at": None,
         "ambiguity_checked_at": None,
         "ambiguous_emitters": None,
@@ -96,13 +97,20 @@ def platform_summaries(db: Session, platforms: list[Platform]) -> dict[UUID, dic
         out[pid]["mdf_count"] = count
 
     latest_versions = (
-        db.query(PlatformVersion.platform_id, PlatformVersion.version_number, PlatformVersion.created_at)
+        db.query(
+            PlatformVersion.platform_id,
+            PlatformVersion.version_number,
+            PlatformVersion.created_at,
+            PlatformVersion.major,
+            PlatformVersion.minor,
+        )
         .filter(PlatformVersion.platform_id.in_(ids))
         .order_by(PlatformVersion.platform_id, PlatformVersion.version_number.desc())
         .distinct(PlatformVersion.platform_id)
     )
-    for pid, number, created_at in latest_versions:
+    for pid, number, created_at, major, minor in latest_versions:
         out[pid]["latest_version_number"] = number
+        out[pid]["latest_version_label"] = platform_version_label(major or number, minor)
         out[pid]["latest_version_at"] = created_at
 
     # The latest finished ambiguity check of each Platform: which Emitters it

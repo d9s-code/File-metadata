@@ -428,6 +428,7 @@ class PlatformTestOut(BaseModel):
     id: UUID
     platform_id: UUID
     platform_version_number: int | None = None
+    platform_version_label: str | None = None
     title: str
     test_type: str
     test_date: date

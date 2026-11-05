@@ -129,6 +129,7 @@ def mdf_coverage(db: Session, mdf_id: UUID) -> list[dict]:
                 "platform_id": platform.id,
                 "platform_name": platform.name,
                 "version_number": version.version_number,
+                "version_label": version.version_label,
                 "emitters": _by_designation(emitters),
             }
         )

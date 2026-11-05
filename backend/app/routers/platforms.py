@@ -35,6 +35,7 @@ from app.services.platform_summary import platform_summaries
 from app.services.prs_export.packager import build_platform_export_zip
 from app.services.snapshots import build_platform_snapshot
 from app.services.pinned_diff_service import compute_pinned_diff
+from app.services.platform_minor import save_minor_version
 from app.services.versioning_service import VersionSpec, commit_version, diff_versions, get_version, list_versions
 from app.services.prs_export.serializer import sanitize_filename
 from app.services.xml_export.xml_exporter_service import XMLExporterService
@@ -276,11 +277,13 @@ def repin_emitters_to_latest(
     links = db.query(PlatformEmitterLink).filter(PlatformEmitterLink.platform_id == platform_id).all()
     latest = latest_emitter_versions(db, [link.emitter_id for link in links])
     moved = []
+    repinned: dict[str, EmitterVersion] = {}
     for link in links:
         number, version_id = latest.get(link.emitter_id, (None, None))
         if number is not None and number > link.emitter_version.version_number:
             moved.append(f"{link.emitter.name} v{link.emitter_version.version_number} → v{number}")
             link.emitter_version_id = version_id
+            repinned[str(link.emitter_id)] = db.get(EmitterVersion, version_id)
     if moved:
         record_audit(
             db,
@@ -291,6 +294,8 @@ def repin_emitters_to_latest(
             summary=f"Repinned {len(moved)} Emitter(s) in Platform '{platform.name}' to their latest version: "
             + ", ".join(moved),
         )
+        # One minor version for them all (v3 → v3.1).
+        save_minor_version(db, platform, user.id, repinned)
         db.commit()
     for link in links:
         db.refresh(link)
@@ -333,6 +338,7 @@ def pin_emitter(
         .filter(PlatformEmitterLink.platform_id == platform_id, PlatformEmitterLink.emitter_id == payload.emitter_id)
         .first()
     )
+    repinned = existing is not None and existing.emitter_version_id != payload.emitter_version_id
     if existing is not None:
         existing.emitter_version_id = payload.emitter_version_id
         link = existing
@@ -349,6 +355,10 @@ def pin_emitter(
         entity_id=platform.id,
         summary=f"Pinned Emitter '{emitter_version.emitter.name}' v{emitter_version.version_number} into Platform '{platform.name}'",
     )
+    if repinned:
+        # Another version of an Emitter in the saved version: the next minor version (v3 → v3.1).
+        db.flush()
+        save_minor_version(db, platform, user.id, {str(payload.emitter_id): emitter_version})
     db.commit()
     db.refresh(link)
     return link

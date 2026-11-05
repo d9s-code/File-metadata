@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { versionName } from "../../types/versioning";
 import { formatDate } from "../common/dates";
 import { Modal } from "../common/Modal";
 import { ApiRequestError } from "../../api/client";
@@ -72,13 +73,17 @@ export function SaveVersionButton({
 }
 
 /** "Last saved as v3 · 30/09/2026" — or that nothing's saved yet. */
-export function LatestVersion({ versions }: { versions: { version_number: number; created_at: string }[] | undefined }) {
+export function LatestVersion({
+  versions,
+}: {
+  versions: { version_number: number; version_label?: string; created_at: string }[] | undefined;
+}) {
   if (!versions) return null;
   const latest = versions.length ? versions[versions.length - 1] : null;
   return (
     <span className="hint-text">
       {latest
-        ? `Last saved as v${latest.version_number} · ${formatDate(latest.created_at)}`
+        ? `Last saved as ${versionName(latest)} · ${formatDate(latest.created_at)}`
         : "No saved version yet — save one to pin or export it"}
     </span>
   );

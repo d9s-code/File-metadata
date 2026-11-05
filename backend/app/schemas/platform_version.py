@@ -10,6 +10,10 @@ class PlatformVersionOut(BaseModel):
     id: UUID
     platform_id: UUID
     version_number: int
+    # "3", or "3.1" for a minor version (an Emitter repinned in v3).
+    version_label: str
+    major: int
+    minor: int
     change_summary: str | None = None
     created_by: UUID | None = None
     created_at: datetime

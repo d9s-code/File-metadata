@@ -61,6 +61,9 @@ class MdfLinkOut(BaseModel):
     # the pin is outdated when the latter is higher (filled in by list_links).
     pinned_version_number: int | None = None
     latest_version_number: int | None = None
+    # Platform version labels: "3", or "3.1" for a minor version.
+    pinned_version_label: str | None = None
+    latest_version_label: str | None = None
     latest_version_id: UUID | None = None
 
 

@@ -120,7 +120,7 @@ export function PlatformTests({ platformId, pinnedCount }: { platformId: string;
                     ))}
                   </ul>
                 </td>
-                <td>{t.platform_version_number != null ? `v${t.platform_version_number}` : "—"}</td>
+                <td>{t.platform_version_number != null ? `v${t.platform_version_label ?? t.platform_version_number}` : "—"}</td>
                 <td>{t.tested_by_username ?? "—"}</td>
                 <td>
                   <RequireRole minimum="editor">

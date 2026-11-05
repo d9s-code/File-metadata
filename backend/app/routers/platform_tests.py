@@ -62,6 +62,9 @@ def _out(db: Session, tests: list[PlatformTest]) -> list[PlatformTestOut]:
     numbers |= dict(
         db.query(PlatformVersion.id, PlatformVersion.version_number).filter(PlatformVersion.id.in_(version_ids)).all()
     ) if version_ids else {}
+    from app.services.platform_minor import version_labels
+
+    platform_labels = version_labels(db, [t.platform_version_id for t in tests])
     users = dict(
         db.query(User.id, User.username).filter(User.id.in_({t.tested_by for t in tests if t.tested_by})).all()
     )
@@ -99,6 +102,7 @@ def _out(db: Session, tests: list[PlatformTest]) -> list[PlatformTestOut]:
                 id=t.id,
                 platform_id=t.platform_id,
                 platform_version_number=numbers.get(t.platform_version_id),
+                platform_version_label=platform_labels.get(t.platform_version_id),
                 title=t.title,
                 test_type=t.test_type,
                 test_date=t.test_date,

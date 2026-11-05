@@ -267,7 +267,7 @@ export function PlatformsListPage() {
                   <td>
                     {s?.latest_version_number != null && s.latest_version_at ? (
                       <span title={formatDateTime(s.latest_version_at)}>
-                        v{s.latest_version_number} · {formatDate(s.latest_version_at)}
+                        v{s.latest_version_label ?? s.latest_version_number} · {formatDate(s.latest_version_at)}
                       </span>
                     ) : (
                       "—"

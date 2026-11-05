@@ -149,3 +149,48 @@ def test_the_summary_since_the_last_release(editor_client):
 def test_an_mdf_never_saved_has_nothing_to_summarize(editor_client):
     mdf = editor_client.post("/mdfs", json={"name": "Empty MDF"}).json()
     assert editor_client.get(f"/mdfs/{mdf['id']}/summary").status_code == 409
+
+
+def test_repinning_an_emitter_saves_a_minor_platform_version(editor_client):
+    emitter, platform, mdf = _setup(editor_client, "Minor MDF")
+    pid, eid = platform["id"], emitter[0]["id"]
+    versions = lambda: editor_client.get(f"/platforms/{pid}/versions").json()  # noqa: E731
+    labels = lambda: [v["version_label"] for v in versions()]  # noqa: E731
+    before = labels()
+    m = versions()[-1]["major"]
+    assert before[-1] == str(m)
+
+    # A new Emitter version, repinned: v1.1 — saved on its own, nothing left unsaved.
+    ev2 = _save(editor_client, "emitters", eid, "e2")
+    assert editor_client.post(f"/platforms/{pid}/links", json={"emitter_id": eid, "emitter_version_id": ev2["id"]}).status_code == 201
+    assert labels() == before + [f"{m}.1"]
+    assert "Repinned Minor MDF Radar v1 → v2" in versions()[-1]["change_summary"]
+    assert editor_client.get(f"/platforms/{pid}/unsaved").json()["entries"] == []
+    snap = editor_client.get(f"/platforms/{pid}/versions/{versions()[-1]['version_number']}").json()["snapshot"]
+    assert snap["links"][0]["emitter_version_number"] == 2
+
+    # Repinning to the same version saves nothing; Repin all is one minor version.
+    editor_client.post(f"/platforms/{pid}/links", json={"emitter_id": eid, "emitter_version_id": ev2["id"]})
+    assert labels() == before + [f"{m}.1"]
+    _save(editor_client, "emitters", eid, "e3")
+    editor_client.post(f"/platforms/{pid}/links/repin-latest")
+    assert labels() == before + [f"{m}.1", f"{m}.2"]
+
+    # A new Emitter isn't a repin: it waits for Save version, which is the next whole version.
+    other = _emitter(editor_client, "Minor Other", None, [("Track", "fixed", FIXED)])
+    editor_client.post(f"/platforms/{pid}/links", json={"emitter_id": other[0]["id"]})
+    assert labels() == before + [f"{m}.1", f"{m}.2"]
+    assert [e["label"] for e in editor_client.get(f"/platforms/{pid}/unsaved").json()["entries"]] == ["Pinned"]
+    assert _save(editor_client, "platforms", pid)["version_label"] == str(m + 1)
+
+    # The MDF sees the minor versions by their labels.
+    links = editor_client.get(f"/mdfs/{mdf['id']}/links").json()
+    assert (links[0]["pinned_version_label"], links[0]["latest_version_label"]) == (str(m), str(m + 1))
+    v11 = next(v for v in versions() if v["version_label"] == f"{m}.1")
+    editor_client.post(f"/mdfs/{mdf['id']}/links", json={"platform_id": pid, "platform_version_id": v11["id"]})
+    links = editor_client.get(f"/mdfs/{mdf['id']}/links").json()
+    assert links[0]["pinned_version_label"] == f"{m}.1"
+    audit = [x["summary"] for x in editor_client.get("/audit-log", params={"entity_id": mdf["id"]}).json()["items"]]
+    assert any(f"Pinned Platform 'Minor MDF Ship' v{m}.1 into MDF 'Minor MDF'" in a for a in audit)
+    items = {i["key"]: i for i in editor_client.get(f"/mdfs/{mdf['id']}/readiness").json()}
+    assert f"Minor MDF Ship: v{m}.1 pinned, v{m + 1} saved" in items["platform_pins"]["items"]

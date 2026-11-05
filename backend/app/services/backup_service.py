@@ -301,6 +301,13 @@ def compute_overview(conn: Connection) -> dict:
         FROM emitters e ORDER BY e.name
         """
     )
+    # A Platform version as people see it: "3", or "3.1" for a minor version
+    # (before those, its number).
+    pv_label = (
+        "(CASE WHEN {v}.minor > 0 THEN {v}.major || '.' || {v}.minor ELSE {v}.major::text END)"
+        if "major" in has.get("platform_versions", set())
+        else "{v}.version_number::text"
+    )
     platform_pins: dict[str, list[dict]] = {}
     for r in rows(
         """
@@ -315,21 +322,22 @@ def compute_overview(conn: Connection) -> dict:
     platforms = rows(
         """
         SELECT p.id::text AS id, p.name, {status} p.is_deleted AS deleted,
-               (SELECT max(v.version_number) FROM platform_versions v WHERE v.platform_id = p.id) AS version
+               (SELECT {label} FROM platform_versions v WHERE v.platform_id = p.id
+                ORDER BY v.version_number DESC LIMIT 1) AS version
         FROM platforms p ORDER BY p.name
-        """.format(status="p.status," if "status" in has.get("platforms", set()) else "")
+        """.format(status="p.status," if "status" in has.get("platforms", set()) else "", label=pv_label.format(v="v"))
     )
     for p in platforms:
         p["pins"] = platform_pins.get(p["id"], [])
     mdf_pins: dict[str, list[dict]] = {}
     for r in rows(
         """
-        SELECT l.mdf_id::text AS owner, l.platform_id::text AS id, p.name, v.version_number AS version
+        SELECT l.mdf_id::text AS owner, l.platform_id::text AS id, p.name, {label} AS version
         FROM mdf_platform_links l
         JOIN platforms p ON p.id = l.platform_id
         JOIN platform_versions v ON v.id = l.platform_version_id
         ORDER BY p.name
-        """
+        """.format(label=pv_label.format(v="v"))
     ):
         mdf_pins.setdefault(r.pop("owner"), []).append(r)
     mdfs = rows(

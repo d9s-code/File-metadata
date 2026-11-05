@@ -136,9 +136,12 @@ def _pin_freshness(db: Session, links: list, emitter_pins: list[tuple[str, dict]
     """Whether the pinned Platform versions, and the Emitter versions inside
     them, are each at their latest saved version."""
     items: list[dict] = []
+    from app.services.platform_minor import version_labels
+
     latest_p = latest_platform_versions(db, [link.platform_id for link in links])
+    label = version_labels(db, [v for _n, v in latest_p.values()])
     outdated_p = [
-        f"{link.platform.name}: v{link.platform_version.version_number} pinned, v{latest_p[link.platform_id][0]} saved"
+        f"{link.platform.name}: v{link.platform_version.version_label} pinned, v{label.get(latest_p[link.platform_id][1])} saved"
         for link in links
         if link.platform_id in latest_p and latest_p[link.platform_id][0] > link.platform_version.version_number
     ]

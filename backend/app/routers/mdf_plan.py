@@ -352,7 +352,7 @@ def build_summary(db: Session, mdf: Mdf, from_version: int | None, to_version: i
     contents = [
         {
             "platform": link["platform_name"],
-            "platform_version": link.get("platform_version_number"),
+            "platform_version": link.get("platform_version_label") or link.get("platform_version_number"),
             "emitters": [
                 {"name": el["emitter_name"], "version": el.get("emitter_version_number")}
                 for el in sorted((link.get("platform_snapshot") or {}).get("links", []), key=lambda el: el["emitter_name"].lower())

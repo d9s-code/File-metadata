@@ -1058,6 +1058,13 @@ export function HelpPage() {
             status now.
           </p>
           <p>
+            <strong>Minor Platform versions.</strong> Repinning an Emitter that&apos;s in a Platform&apos;s saved
+            version (Repin to vN, Pin another version, Repin all) saves the Platform&apos;s next minor version by
+            itself — v3 → v3.1 → v3.2 — with just those pins moved, so an MDF can pin it straight away. Adding or
+            removing an Emitter still waits for <strong>Save version</strong>, which makes the next whole version
+            (v4).
+          </p>
+          <p>
             <strong>Pins not saved.</strong> Pinning or repinning on an MDF or a Platform is kept straight away,
             but only <strong>Save version</strong> puts it in a version, which is what gets exported and what an
             MDF pins. Until you save, the header says <strong>● Pins not saved</strong>. Click it to see what

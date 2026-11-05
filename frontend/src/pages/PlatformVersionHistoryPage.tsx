@@ -69,7 +69,12 @@ export function PlatformVersionHistoryPage() {
             diff={diff && { entries: diff.entries ?? [], identical: diff.identical }}
             loading={diffLoading}
             actions={
-              <ExportPrsButton kind="platform" id={platform.id} versionNumber={selected} />
+              <ExportPrsButton
+                kind="platform"
+                id={platform.id}
+                versionNumber={selected}
+                versionLabel={versions?.find((v) => v.version_number === selected)?.version_label}
+              />
             }
           />
         )}

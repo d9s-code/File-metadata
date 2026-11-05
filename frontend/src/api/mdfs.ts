@@ -30,6 +30,9 @@ export interface MdfLink {
   /** The pinned Platform version's number and the Platform's latest saved one. */
   pinned_version_number?: number | null;
   latest_version_number?: number | null;
+  /** Platform version labels: "3", or "3.1" for a minor version. */
+  pinned_version_label?: string | null;
+  latest_version_label?: string | null;
   latest_version_id?: string | null;
 }
 

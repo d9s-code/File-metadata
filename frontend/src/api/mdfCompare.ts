@@ -17,6 +17,9 @@ export interface MdfComparePlatform {
   change: MdfChange;
   from_version: number | null;
   to_version: number | null;
+  /** "3", or "3.1" for a minor version. */
+  from_version_label?: string | null;
+  to_version_label?: string | null;
   from_status: string | null;
   to_status: string | null;
   status_changed: boolean;

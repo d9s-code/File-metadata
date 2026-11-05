@@ -63,7 +63,10 @@ def mdf_change_summary(db: Session, old: dict, new: dict) -> list[dict]:
     before = {link["platform_id"]: link for link in old.get("links", [])}
     for link in new.get("links", []):
         prior = before.get(link["platform_id"])
-        if prior and prior.get("platform_version_number") != link.get("platform_version_number"):
+        if prior and (prior.get("platform_version_id"), prior.get("platform_version_number")) != (
+            link.get("platform_version_id"),
+            link.get("platform_version_number"),
+        ):
             inner = compute_pinned_diff(
                 prior.get("platform_snapshot") or {}, link.get("platform_snapshot") or {}, own="Platform", child="emitter"
             )

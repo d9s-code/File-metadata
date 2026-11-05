@@ -536,7 +536,7 @@ def get_mdf(db: Session, step: ChatStep) -> str:
         out.append(f"Description: {mdf.description.strip()[:400]}")
     out.append(f"Pinned Platforms ({len(mdf.links)}):")
     for link in mdf.links:
-        out.append(f"- {link.platform.name} v{link.platform_version.version_number}")
+        out.append(f"- {link.platform.name} v{link.platform_version.version_label}")
     out.append("Readiness:")
     for item in mdf_readiness(db, mdf):
         out.append(f"- [{item['status']}] {item['label']}: {item['detail']}")

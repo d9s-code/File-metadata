@@ -78,7 +78,7 @@ export function PlatformTestDetailPage() {
         {test.platform_version_number != null && (
           <Fact label="Platform version">
             <Link to={`/platforms/${platformId}/versions?version=${test.platform_version_number}`}>
-              v{test.platform_version_number}
+              v{test.platform_version_label ?? test.platform_version_number}
             </Link>
           </Fact>
         )}

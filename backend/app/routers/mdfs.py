@@ -25,6 +25,7 @@ from app.schemas.mdf_version import MdfStatusTransitionOut, MdfVersionDetailOut,
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.dwell_service import mdf_dwell_files
 from app.services.prs_export.packager import build_mdf_export_zip
+from app.services.platform_minor import version_labels
 from app.services.pin_hygiene import latest_platform_versions, mdf_readiness
 from app.services.readiness_service import compute_mdf_readiness_warnings
 from app.services.snapshots import build_mdf_snapshot
@@ -309,12 +310,15 @@ def delete_mdf_note(
 
 def _links_with_version_numbers(db: Session, links: list[MdfPlatformLink]) -> list[MdfLinkOut]:
     latest = latest_platform_versions(db, [link.platform_id for link in links])
+    labels = version_labels(db, [v for _n, v in latest.values()])
     out = []
     for link in links:
         item = MdfLinkOut.model_validate(link)
         item.pinned_version_number = link.platform_version.version_number
+        item.pinned_version_label = link.platform_version.version_label
         if link.platform_id in latest:
             item.latest_version_number, item.latest_version_id = latest[link.platform_id]
+            item.latest_version_label = labels.get(item.latest_version_id)
         out.append(item)
     return out
 
@@ -334,11 +338,12 @@ def repin_platforms_to_latest(
     mdf = _get_mdf_or_404(db, mdf_id)
     links = db.query(MdfPlatformLink).filter(MdfPlatformLink.mdf_id == mdf_id).all()
     latest = latest_platform_versions(db, [link.platform_id for link in links])
+    labels = version_labels(db, [v for _n, v in latest.values()])
     moved = []
     for link in links:
         number, version_id = latest.get(link.platform_id, (None, None))
         if number is not None and number > link.platform_version.version_number:
-            moved.append(f"{link.platform.name} v{link.platform_version.version_number} → v{number}")
+            moved.append(f"{link.platform.name} v{link.platform_version.version_label} → v{labels.get(version_id)}")
             link.platform_version_id = version_id
     if moved:
         record_audit(
@@ -401,7 +406,7 @@ def pin_platform(
         action=AuditAction.update,
         entity_type=AuditEntityType.mdf_link.value,
         entity_id=mdf.id,
-        summary=f"Pinned Platform version {platform_version.version_number} into MDF '{mdf.name}'",
+        summary=f"Pinned Platform '{platform_version.platform.name}' v{platform_version.version_label} into MDF '{mdf.name}'",
     )
     db.commit()
     db.refresh(link)

@@ -91,7 +91,7 @@ def build_repository_prs_zip(db: Session, taken_at: datetime) -> tuple[bytes, di
         if version is None:
             summary["never_saved"] += 1
             return f"{label} — never saved; its current state"
-        return f"{label} — v{version.version_number}, saved {version.created_at:%Y-%m-%d %H:%M} UTC"
+        return f"{label} — v{getattr(version, 'version_label', version.version_number)}, saved {version.created_at:%Y-%m-%d %H:%M} UTC"
 
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as out:
         # Emitters

@@ -743,7 +743,7 @@ export function MdfCharts({ mdfId }: { mdfId: string }) {
   const nodes = useMemo(
     () =>
       (data ?? []).map((p): CoverageNode => {
-        const title = `${p.platform_name} (v${p.version_number})`;
+        const title = `${p.platform_name} (v${p.version_label ?? p.version_number})`;
         const emitters = p.emitters.map((e) => emitterNode(e, `${p.platform_id}:`));
         return { key: p.platform_id, label: p.platform_name, title, modes: p.emitters.flatMap((e) => e.modes), children: emitters };
       }),

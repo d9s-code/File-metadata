@@ -80,16 +80,29 @@ export function usePinEmitter(platformId: string) {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: platformLinksKey(platformId) });
       void qc.invalidateQueries({ queryKey: ["pinCandidates", platformId] });
+      // Repinning an Emitter in the saved version saves a minor Platform version.
+      afterRepin(qc, platformId);
     },
   });
 }
 
-/** Moves every pinned Emitter with a newer saved version to that version. */
+function afterRepin(qc: ReturnType<typeof useQueryClient>, platformId: string) {
+  void qc.invalidateQueries({ queryKey: ["platformVersions", platformId] });
+  void qc.invalidateQueries({ queryKey: platformsKey });
+  void qc.invalidateQueries({ queryKey: ["unsaved-pins", "platform", platformId] });
+  void qc.invalidateQueries({ queryKey: ["mdfLinks"] });
+  void qc.invalidateQueries({ queryKey: ["auditLog"] });
+}
+
+/** Moves every pinned Emitter with a newer saved version to that version — one minor Platform version. */
 export function useRepinPlatformLatest(platformId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => platformsApi.repinLatest(platformId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: platformLinksKey(platformId) }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: platformLinksKey(platformId) });
+      afterRepin(qc, platformId);
+    },
   });
 }
 

@@ -19,26 +19,29 @@ def compute_pinned_diff(
 
     noun = child.capitalize()
     id_key, name_key, version_key = f"{child}_id", f"{child}_name", f"{child}_version_number"
+    label_key, version_id_key = f"{child}_version_label", f"{child}_version_id"
+
+    def v(link: dict) -> str:
+        # A Platform version's label ("3.1"); otherwise its number.
+        return f"v{link.get(label_key) or link[version_key]}"
+
     old_links = {link[id_key]: link for link in old.get("links", [])}
     new_links = {link[id_key]: link for link in new.get("links", [])}
     for link_id, link in new_links.items():
         if link_id not in old_links:
-            entries.append(_entry(f"{noun} '{link[name_key]}'", "Pinned", "added", new_value=f"At its v{link[version_key]}"))
+            entries.append(_entry(f"{noun} '{link[name_key]}'", "Pinned", "added", new_value=f"At its {v(link)}"))
     for link_id, link in old_links.items():
         if link_id not in new_links:
-            entries.append(_entry(f"{noun} '{link[name_key]}'", "Unpinned", "removed", old_value=f"Was at its v{link[version_key]}"))
+            entries.append(_entry(f"{noun} '{link[name_key]}'", "Unpinned", "removed", old_value=f"Was at its {v(link)}"))
     for link_id in set(old_links) & set(new_links):
         before, after = old_links[link_id], new_links[link_id]
-        if before[version_key] != after[version_key]:
-            entries.append(
-                _entry(
-                    f"{noun} '{after[name_key]}'",
-                    "Pinned version",
-                    "changed",
-                    f"v{before[version_key]}",
-                    f"v{after[version_key]}",
-                )
-            )
+        moved = (
+            before.get(version_id_key) != after.get(version_id_key)
+            if before.get(version_id_key) and after.get(version_id_key)
+            else before[version_key] != after[version_key]
+        )
+        if moved:
+            entries.append(_entry(f"{noun} '{after[name_key]}'", "Pinned version", "changed", v(before), v(after)))
     return entries
 
 

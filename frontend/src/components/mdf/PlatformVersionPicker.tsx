@@ -56,7 +56,7 @@ export function PlatformVersionPicker({ mdfId, onDone }: { mdfId: string; onDone
         </option>
         {versions?.map((v) => (
           <option key={v.id} value={v.version_number}>
-            v{v.version_number} {v.change_summary ? `— ${v.change_summary}` : ""}
+            v{v.version_label ?? v.version_number} {v.change_summary ? `— ${v.change_summary}` : ""}
           </option>
         ))}
       </select>

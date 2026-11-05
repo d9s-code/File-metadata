@@ -148,6 +148,7 @@ def _collect(snapshot: dict) -> tuple[dict, dict, dict]:
         platforms[pid] = {
             "name": link.get("platform_name") or ps.get("name"),
             "version": link.get("platform_version_number"),
+            "label": link.get("platform_version_label") or str(link.get("platform_version_number")),
             "status": ps.get("status"),
             "emitters": {e["emitter_id"]: e.get("emitter_name") for e in ps.get("links", [])},
         }
@@ -297,6 +298,9 @@ def compare_mdfs(db: Session, a: UUID, b: UUID, a_version: int | None, b_version
                 "change": _change(old is not None, new is not None, differs),
                 "from_version": old["version"] if old else None,
                 "to_version": new["version"] if new else None,
+                # "3", or "3.1" for a minor version.
+                "from_version_label": old["label"] if old else None,
+                "to_version_label": new["label"] if new else None,
                 "from_status": st_a,
                 "to_status": st_b,
                 "status_changed": bool(old and new and st_a != st_b),

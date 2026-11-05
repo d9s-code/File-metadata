@@ -1,5 +1,5 @@
 import type { EmitterSave } from "../../api/emitterVersions";
-import type { VersionSummary } from "../../types/versioning";
+import { versionName, type VersionSummary } from "../../types/versioning";
 import { formatDateTime } from "../common/dates";
 import { useSessionState } from "../common/useSessionState";
 
@@ -103,7 +103,7 @@ export function VersionList({
             onClick={() => onSelect(v.version_number)}
           >
             <span className="version-row-top">
-              <span className="version-number">v{v.version_number}</span>
+              <span className="version-number">{versionName(v)}</span>
               {v.version_number === latest && <span className="version-tag latest">Latest</span>}
               {forkBoundary != null && v.version_number <= forkBoundary && (
                 <span className="version-tag" title="Copied in from the source Emitter at fork time — view and compare only">

@@ -66,6 +66,7 @@ export interface PlatformTest {
   id: string;
   platform_id: string;
   platform_version_number: number | null;
+  platform_version_label?: string | null;
   title: string;
   test_type: LoggableTestType;
   test_date: string;

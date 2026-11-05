@@ -203,7 +203,7 @@ def mdf_report_emitters(db: Session, mdf_id: UUID) -> list[tuple[str, int, dict,
         .filter(MdfPlatformLink.mdf_id == mdf_id)
         .all()
     )
-    out: list[tuple[str, int, dict, int | None]] = []
+    out: list[tuple[str, str, dict, int | None]] = []
     for _link, version, platform in sorted(links, key=lambda lvp: _name_key(lvp[2].name)):
         pinned = [
             (el["emitter_snapshot"], el.get("emitter_version_number"))
@@ -211,7 +211,7 @@ def mdf_report_emitters(db: Session, mdf_id: UUID) -> list[tuple[str, int, dict,
             if el.get("emitter_snapshot")
         ]
         for snapshot, number in sorted(pinned, key=lambda sv: _name_key(sv[0].get("name"))):
-            out.append((platform.name, version.version_number, snapshot, number))
+            out.append((platform.name, version.version_label, snapshot, number))
     return out
 
 

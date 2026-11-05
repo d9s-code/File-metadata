@@ -44,7 +44,7 @@ function sideName(s: MdfCompareSide) {
 }
 
 /** "v1 → v2", or the one version when it didn't move. */
-function versions(from: number[], to: number[]) {
+function versions(from: (number | string)[], to: (number | string)[]) {
   const f = from.map((v) => `v${v}`).join(", ");
   const t = to.map((v) => `v${v}`).join(", ");
   if (!f) return t;
@@ -272,7 +272,12 @@ export function MdfComparePage() {
                         <td>
                           <StatusMove type="platform" from={p.from_status} to={p.to_status} />
                         </td>
-                        <td>{versions(p.from_version != null ? [p.from_version] : [], p.to_version != null ? [p.to_version] : [])}</td>
+                        <td>
+                          {versions(
+                            p.from_version != null ? [p.from_version_label ?? p.from_version] : [],
+                            p.to_version != null ? [p.to_version_label ?? p.to_version] : [],
+                          )}
+                        </td>
                         <td>
                           {p.emitters_added.length === 0 && p.emitters_removed.length === 0 ? (
                             <span className="hint-text">{plural(p.emitter_count, "Emitter")}</span>
