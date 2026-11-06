@@ -18,6 +18,7 @@ import { StatusBadge } from "../components/status/StatusBadge";
 import { useStatuses } from "../state/hooks/useStatuses";
 import { TasksButton } from "../components/tasks/TasksButton";
 import { useTasks } from "../state/hooks/useTasks";
+import { useColumnVisibility, useColumnVisibilityMenu, type ToggleableColumn } from "../components/common/ColumnVisibilityMenu";
 import type { Platform } from "../api/platforms";
 import { useSessionState } from "../components/common/useSessionState";
 
@@ -32,6 +33,32 @@ type PlatformSortKey =
   | "mdfs"
   | "ambiguity"
   | "saved";
+
+type ColumnId =
+  | "description"
+  | "status"
+  | "emitters"
+  | "progress"
+  | "outdated"
+  | "modes"
+  | "mdfs"
+  | "ambiguity"
+  | "saved"
+  | "tasks";
+
+/** The columns that can be hidden (Columns ▾); Name always shows. */
+const COLUMNS: ToggleableColumn<ColumnId>[] = [
+  { id: "description", label: "Description" },
+  { id: "status", label: "Platform status" },
+  { id: "emitters", label: "Emitters" },
+  { id: "progress", label: "Emitter progress" },
+  { id: "outdated", label: "Outdated pins" },
+  { id: "modes", label: "Modes" },
+  { id: "mdfs", label: "In MDFs" },
+  { id: "ambiguity", label: "Ambiguity" },
+  { id: "saved", label: "Last saved" },
+  { id: "tasks", label: "Tasks" },
+];
 
 /** The Platform status column sorts A–Z by the name shown: `platformStatus`
  * gives it for a status key. */
@@ -77,6 +104,9 @@ export function PlatformsListPage() {
       .map(([k, n]) => `${n} ${emitterStatuses.label(k)}`)
       .join(" · ");
   const platformStatuses = useStatuses("platform");
+  const columns = useColumnVisibility("platforms-list-columns", COLUMNS);
+  const columnMenu = useColumnVisibilityMenu(columns);
+  const show = columns.isVisible;
   const comparator = useCallback(
     (a: Platform, b: Platform, key: PlatformSortKey, dir: "asc" | "desc") =>
       comparePlatforms(a, b, key, dir, platformStatuses.label),
@@ -170,7 +200,16 @@ export function PlatformsListPage() {
       )}
 
       {platforms && platforms.length > 0 && (
-        <FilterBar active={!!filter} onReset={() => setFilter("")} count={shownCount(visible.length, platforms.length, "Platform")}>
+        <FilterBar
+          active={!!filter}
+          onReset={() => setFilter("")}
+          count={shownCount(visible.length, platforms.length, "Platform")}
+          end={
+            <button type="button" className="button secondary small" onClick={columnMenu.openFrom}>
+              Columns ▾
+            </button>
+          }
+        >
           <input
             type="search"
             placeholder="Name or description…"
@@ -189,23 +228,24 @@ export function PlatformsListPage() {
         <div className="card table-card">
           <table className="data-table platforms-table">
             <thead>
-              <tr>
+              <tr {...columnMenu.openProps}>
                 {header("Name", "name")}
-                {header("Description", "description")}
-                {header("Platform status", "own_status", "The Platform's own status")}
-                {header("Emitters", "emitters", "Emitters pinned on the Platform", "number")}
-                {header(
+                {show("description") && header("Description", "description")}
+                {show("status") && header("Platform status", "own_status", "The Platform's own status")}
+                {show("emitters") && header("Emitters", "emitters", "Emitters pinned on the Platform", "number")}
+                {show("progress") &&
+                  header(
                   "Emitter progress",
                   "progress",
                   "How far the pinned Emitters are towards Operational, on average: In progress 0%, Testing 33%, Partially operational 67%, Operational 100%, Needs rework 0%. Hover a row for how many are in each status.",
                   "number",
                 )}
-                {header("Outdated pins", "outdated", "Pinned Emitters with a newer saved version", "number")}
-                {header("Modes", "modes", "Modes in the pinned Emitter versions", "number")}
-                {header("In MDFs", "mdfs", "MDFs this Platform is pinned in", "number")}
-                {header("Ambiguity", "ambiguity", "From the latest ambiguity check: Emitters that could be taken for another", "number")}
-                {header("Last saved", "saved", undefined, "date")}
-                <th>Tasks</th>
+                {show("outdated") && header("Outdated pins", "outdated", "Pinned Emitters with a newer saved version", "number")}
+                {show("modes") && header("Modes", "modes", "Modes in the pinned Emitter versions", "number")}
+                {show("mdfs") && header("In MDFs", "mdfs", "MDFs this Platform is pinned in", "number")}
+                {show("ambiguity") && header("Ambiguity", "ambiguity", "From the latest ambiguity check: Emitters that could be taken for another", "number")}
+                {show("saved") && header("Last saved", "saved", undefined, "date")}
+                {show("tasks") && <th>Tasks</th>}
                 <th className="row-actions" aria-label="Actions"></th>
               </tr>
             </thead>
@@ -217,71 +257,91 @@ export function PlatformsListPage() {
                     <td>
                       <Link to={`/platforms/${p.id}`}>{p.name}</Link>
                     </td>
-                    <td className="platforms-description" title={p.description ?? undefined}>
-                      {p.description ?? "—"}
-                    </td>
-                    <td>
-                      <StatusBadge type="platform" status={p.status} />
-                    </td>
-                    <td className="num">{s?.emitter_count ?? "—"}</td>
-                    <td className="platforms-progress">
-                      {s?.emitter_progress != null ? (
-                        <span className="platforms-progress-cell" title={statusTitle(s.status_counts)}>
-                          <span
-                            className="progress-bar-track"
-                            role="progressbar"
-                            aria-valuenow={s.emitter_progress}
-                            aria-valuemin={0}
-                            aria-valuemax={100}
-                            aria-label="Emitter progress"
-                          >
-                            <span className="progress-bar-fill" style={{ width: `${s.emitter_progress}%` }} />
+                    {show("description") && (
+                      <td className="platforms-description" title={p.description ?? undefined}>
+                        {p.description ?? "—"}
+                      </td>
+                    )}
+                    {show("status") && (
+                      <td>
+                        <StatusBadge type="platform" status={p.status} />
+                      </td>
+                    )}
+                    {show("emitters") && (
+                      <td className="num">{s?.emitter_count ?? "—"}</td>
+                    )}
+                    {show("progress") && (
+                      <td className="platforms-progress">
+                        {s?.emitter_progress != null ? (
+                          <span className="platforms-progress-cell" title={statusTitle(s.status_counts)}>
+                            <span
+                              className="progress-bar-track"
+                              role="progressbar"
+                              aria-valuenow={s.emitter_progress}
+                              aria-valuemin={0}
+                              aria-valuemax={100}
+                              aria-label="Emitter progress"
+                            >
+                              <span className="progress-bar-fill" style={{ width: `${s.emitter_progress}%` }} />
+                            </span>
+                            <span className="platforms-progress-value">{s.emitter_progress}%</span>
+                            <span className="hint-text platforms-progress-detail">{statusTitle(s.status_counts)}</span>
                           </span>
-                          <span className="platforms-progress-value">{s.emitter_progress}%</span>
-                          <span className="hint-text platforms-progress-detail">{statusTitle(s.status_counts)}</span>
-                        </span>
-                      ) : (
-                        <span className="hint-text">—</span>
-                      )}
-                    </td>
-                    <td className="num">
-                      {s?.outdated_pins ? (
-                        <span className="status-badge status-pending_review" title="Pinned Emitters with a newer saved version">
-                          {s.outdated_pins}
-                        </span>
-                      ) : (
-                        <span className="hint-text">0</span>
-                      )}
-                    </td>
-                    <td className="num">{s?.mode_count ?? "—"}</td>
-                    <td className="num">{s?.mdf_count ?? "—"}</td>
-                    <td>
-                      {s?.ambiguity_checked_at == null ? (
-                        <span className="hint-text">Not checked</span>
-                      ) : (
-                        <Link
-                          to={`/ambiguity/platform/${p.id}`}
-                          title={`Checked ${formatDateTime(s.ambiguity_checked_at)}`}
-                          className={s.ambiguous_emitters ? "platforms-ambiguous" : undefined}
-                        >
-                          {s.ambiguous_emitters
-                            ? `${s.ambiguous_emitters} Emitters · ${s.open_ambiguities} open`
-                            : "None found"}
-                        </Link>
-                      )}
-                    </td>
-                    <td>
-                      {s?.latest_version_number != null && s.latest_version_at ? (
-                        <span title={formatDateTime(s.latest_version_at)}>
-                          v{s.latest_version_label ?? s.latest_version_number} · {formatDate(s.latest_version_at)}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td>
-                      <TasksButton type="platform" id={p.id} name={p.name} openCount={openTasks.get(p.id) ?? 0} compact />
-                    </td>
+                        ) : (
+                          <span className="hint-text">—</span>
+                        )}
+                      </td>
+                    )}
+                    {show("outdated") && (
+                      <td className="num">
+                        {s?.outdated_pins ? (
+                          <span className="status-badge status-pending_review" title="Pinned Emitters with a newer saved version">
+                            {s.outdated_pins}
+                          </span>
+                        ) : (
+                          <span className="hint-text">0</span>
+                        )}
+                      </td>
+                    )}
+                    {show("modes") && (
+                      <td className="num">{s?.mode_count ?? "—"}</td>
+                    )}
+                    {show("mdfs") && (
+                      <td className="num">{s?.mdf_count ?? "—"}</td>
+                    )}
+                    {show("ambiguity") && (
+                      <td>
+                        {s?.ambiguity_checked_at == null ? (
+                          <span className="hint-text">Not checked</span>
+                        ) : (
+                          <Link
+                            to={`/ambiguity/platform/${p.id}`}
+                            title={`Checked ${formatDateTime(s.ambiguity_checked_at)}`}
+                            className={s.ambiguous_emitters ? "platforms-ambiguous" : undefined}
+                          >
+                            {s.ambiguous_emitters
+                              ? `${s.ambiguous_emitters} Emitters · ${s.open_ambiguities} open`
+                              : "None found"}
+                          </Link>
+                        )}
+                      </td>
+                    )}
+                    {show("saved") && (
+                      <td>
+                        {s?.latest_version_number != null && s.latest_version_at ? (
+                          <span title={formatDateTime(s.latest_version_at)}>
+                            v{s.latest_version_label ?? s.latest_version_number} · {formatDate(s.latest_version_at)}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                    )}
+                    {show("tasks") && (
+                      <td>
+                        <TasksButton type="platform" id={p.id} name={p.name} openCount={openTasks.get(p.id) ?? 0} compact />
+                      </td>
+                    )}
                     <td className="row-actions">
                       <RequireRole minimum="editor">
                         <MenuButton
@@ -300,6 +360,7 @@ export function PlatformsListPage() {
         </div>
       )}
       {dialog}
+      {columnMenu.menu}
     </div>
   );
 }

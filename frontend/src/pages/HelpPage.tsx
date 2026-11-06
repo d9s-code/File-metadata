@@ -962,7 +962,8 @@ export function HelpPage() {
           <strong>Emitter progress</strong> towards Operational: a percent averaged over the pinned Emitters (In
           progress 0%, Testing 33%, Partially operational 67%, Operational 100%, Needs rework 0%), with how many are in
           each status beside it. Then outdated pins, the Modes pinned, how many MDFs it&apos;s in, what its latest
-          ambiguity check found, when it was last saved, and its open Tasks.
+          ambiguity check found, when it was last saved, and its open Tasks. <strong>Columns ▾</strong> hides or shows
+          columns, as on the Emitters list.
         </p>
 
         <div className="help-subsection" id="platform-detail">
