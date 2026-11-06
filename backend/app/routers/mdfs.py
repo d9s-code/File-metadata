@@ -17,7 +17,16 @@ from app.models.mdf import Mdf, MdfPlatformLink, MdfVersion
 from app.models.mdf_note import MdfNote
 from app.models.platform import PlatformVersion
 from app.schemas.emitter_version import CommitVersionRequest, DiffOut, StatusTransitionRequest
-from app.schemas.mdf import MdfCreate, MdfLinkCreate, MdfLinkOut, MdfOut, MdfReadinessOut, MdfUpdate, ReadinessItem
+from app.schemas.mdf import (
+    MdfCreate,
+    MdfLinkCreate,
+    MdfLinkOut,
+    MdfNewFrom,
+    MdfOut,
+    MdfReadinessOut,
+    MdfUpdate,
+    ReadinessItem,
+)
 from app.schemas.mdf_note import MdfNoteCreate, MdfNoteOut
 from app.services.mdf_compare import compare_mdfs
 from app.services.platform_coverage import mdf_coverage
@@ -63,7 +72,44 @@ def _goal_counts(db: Session, mdf_ids: list[UUID]) -> dict[UUID, tuple[int, int]
 def _attach_platforms_count(db: Session, mdf: Mdf) -> Mdf:
     mdf.platforms_count = db.query(func.count(MdfPlatformLink.id)).filter(MdfPlatformLink.mdf_id == mdf.id).scalar() or 0
     mdf.goals_total, mdf.goals_done = _goal_counts(db, [mdf.id]).get(mdf.id, (0, 0))
+    _attach_based_on(db, [mdf])
     return mdf
+
+
+def _previous_version(db: Session, mdf: Mdf, previous_id: UUID | None, number: int | None) -> int | None:
+    """The version of the MDF `mdf` follows: the one given, or its latest
+    saved; None when it follows none."""
+    if previous_id is None:
+        return None
+    if previous_id == mdf.id:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "An MDF can't follow itself")
+    previous = db.get(Mdf, previous_id)
+    if previous is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "The previous MDF wasn't found")
+    numbers = [v.version_number for v in list_versions(db, spec=_VERSION_SPEC, entity_id=previous_id)]
+    if not numbers:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"'{previous.name}' has no saved version to follow")
+    if number is None:
+        return _released_or_latest(db, previous_id, numbers)
+    if number not in numbers:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"'{previous.name}' has no version {number}")
+    return number
+
+
+def _released_or_latest(db: Session, mdf_id: UUID, numbers: list[int]) -> int:
+    """The version an MDF last went out as (latest saved when it last moved
+    to Released), else its latest saved one."""
+    from app.routers.mdf_plan import last_release_version
+
+    return last_release_version(db, mdf_id) or numbers[-1]
+
+
+def _attach_based_on(db: Session, mdfs: list[Mdf]) -> None:
+    """The name of the MDF each was started from, if any."""
+    ids = {m.based_on_mdf_id for m in mdfs if m.based_on_mdf_id}
+    names = dict(db.query(Mdf.id, Mdf.name).filter(Mdf.id.in_(ids)).all()) if ids else {}
+    for m in mdfs:
+        m.based_on_mdf_name = names.get(m.based_on_mdf_id)
 
 
 def _check_customer(db: Session, customer_id: UUID | None) -> None:
@@ -92,6 +138,7 @@ def list_mdfs(
         mdf.platforms_count = platforms_count
         mdf.goals_total, mdf.goals_done = goals.get(mdf.id, (0, 0))
         results.append(mdf)
+    _attach_based_on(db, results)
     return results
 
 
@@ -148,6 +195,112 @@ def create_mdf(
     return _attach_platforms_count(db, mdf)
 
 
+@router.post(
+    "/{mdf_id}/new-mdf", response_model=MdfOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(verify_csrf)]
+)
+def new_mdf_from(
+    mdf_id: UUID, payload: MdfNewFrom, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))
+) -> Mdf:
+    """A new, separate MDF started from a saved version of this one (the one
+    it went out as — else its latest — unless `version` is given): its next
+    release, for another customer, say, rather than building on top of an
+    MDF that has gone out. It gets that version's
+    Platform pins and dwell files, its own name, customer and id, starts at
+    the first status with v1 saved as the copy, and remembers what it was
+    based on. Notes, goals, the progress log, files and test history stay
+    with the original."""
+    from app.models.dwell import DwellFile, DwellFileVersion, MdfDwellLink
+    from app.models.platform import Platform
+    from app.services.dwell_service import mdf_dwell_links
+
+    source = _get_mdf_or_404(db, mdf_id)
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Give the new MDF a name")
+    if db.query(Mdf).filter(Mdf.name == name, Mdf.is_deleted.is_(False)).first() is not None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "MDF name already exists")
+    _check_customer(db, payload.customer_id)
+    versions = list_versions(db, spec=_VERSION_SPEC, entity_id=source.id)
+    if not versions:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, f"Save a version of '{source.name}' first — a new MDF starts from a saved version"
+        )
+    if payload.version is None:
+        number = _released_or_latest(db, source.id, [v.version_number for v in versions])
+        base = next(v for v in versions if v.version_number == number)
+    else:
+        base = next((v for v in versions if v.version_number == payload.version), None)
+        if base is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, f"'{source.name}' has no version {payload.version}")
+
+    new = Mdf(
+        name=name,
+        description=payload.description,
+        due_date=payload.due_date,
+        customer_id=payload.customer_id,
+        created_by=user.id,
+        based_on_mdf_id=source.id,
+        based_on_version_number=base.version_number,
+    )
+    db.add(new)
+    db.flush()
+
+    left_out: list[str] = []
+    for link in base.snapshot.get("links", []):
+        platform = db.get(Platform, UUID(link["platform_id"]))
+        version = db.get(PlatformVersion, UUID(link["platform_version_id"]))
+        if platform is None or platform.is_deleted or version is None:
+            left_out.append(f"Platform '{link.get('platform_name')}'")
+            continue
+        db.add(MdfPlatformLink(mdf_id=new.id, platform_id=platform.id, platform_version_id=version.id))
+    # The dwell files at the versions that version pinned (one saved before
+    # MDF versions kept them: the source's dwell files as they're pinned now).
+    if "dwell_files" in base.snapshot:
+        dwell = [(UUID(d["dwell_file_id"]), UUID(d["version_id"]), d.get("name")) for d in base.snapshot["dwell_files"]]
+    else:
+        dwell = [(link.dwell_file_id, link.dwell_file_version_id, link.dwell_file.name) for link in mdf_dwell_links(db, source.id)]
+    for file_id, version_id, file_name in dwell:
+        dwell_file = db.get(DwellFile, file_id)
+        if dwell_file is None or getattr(dwell_file, "is_deleted", False) or db.get(DwellFileVersion, version_id) is None:
+            left_out.append(f"dwell file '{file_name}'")
+            continue
+        db.add(MdfDwellLink(mdf_id=new.id, dwell_file_id=file_id, dwell_file_version_id=version_id))
+    db.flush()
+    db.refresh(new)
+
+    origin = f"'{source.name}' v{base.version_number}"
+    summary = f"Started from {origin}" + (f" (left out, deleted since: {', '.join(left_out)})" if left_out else "")
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.fork,
+        entity_type=AuditEntityType.mdf.value,
+        entity_id=new.id,
+        summary=f"Created MDF '{new.name}' — {summary}",
+        changes=payload.model_dump(mode="json") | {"based_on": origin},
+    )
+    record_audit(
+        db,
+        actor_id=user.id,
+        action=AuditAction.fork,
+        entity_type=AuditEntityType.mdf.value,
+        entity_id=source.id,
+        summary=f"New MDF '{new.name}' started from v{base.version_number}",
+    )
+    commit_version(
+        db,
+        spec=_VERSION_SPEC,
+        entity_id=new.id,
+        snapshot=build_mdf_snapshot(new),
+        change_summary=summary,
+        created_by=user.id,
+        commit=False,
+    )
+    db.commit()
+    db.refresh(new)
+    return _attach_platforms_count(db, new)
+
+
 @router.patch("/{mdf_id}", response_model=MdfOut, dependencies=[Depends(verify_csrf)])
 def update_mdf(
     mdf_id: UUID, payload: MdfUpdate, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))
@@ -156,6 +309,10 @@ def update_mdf(
     data = payload.model_dump(exclude_unset=True)
     if "customer_id" in data:
         _check_customer(db, data["customer_id"])
+    if "based_on_mdf_id" in data:
+        data["based_on_version_number"] = _previous_version(db, mdf, data["based_on_mdf_id"], data.get("based_on_version_number"))
+    elif "based_on_version_number" in data:
+        data["based_on_version_number"] = _previous_version(db, mdf, mdf.based_on_mdf_id, data["based_on_version_number"])
     changes = apply_and_diff(mdf, data)
     record_audit(
         db,

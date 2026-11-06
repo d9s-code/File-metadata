@@ -312,7 +312,30 @@ def last_release_version(db: Session, mdf_id: uuid.UUID, before: datetime | None
     return None
 
 
-def build_summary(db: Session, mdf: Mdf, from_version: int | None, to_version: int | None) -> dict:
+def previous_mdf_version(db: Session, mdf: Mdf) -> tuple[Mdf, MdfVersion] | None:
+    """The MDF this one follows and the version of it (set when it was made
+    with New MDF from this one, or under Edit details), if it still has it."""
+    if not mdf.based_on_mdf_id or not mdf.based_on_version_number:
+        return None
+    prev = db.get(Mdf, mdf.based_on_mdf_id)
+    version = (
+        db.query(MdfVersion)
+        .filter(MdfVersion.mdf_id == mdf.based_on_mdf_id, MdfVersion.version_number == mdf.based_on_version_number)
+        .one_or_none()
+    )
+    return (prev, version) if prev is not None and version is not None else None
+
+
+SummaryBase = Literal["start", "previous"]
+
+
+def build_summary(
+    db: Session, mdf: Mdf, from_version: int | None, to_version: int | None, base: SummaryBase | None = None
+) -> dict:
+    """`base` "start": everything up to `to_version`; "previous": the changes
+    since the MDF this one follows. Otherwise from `from_version`, or by
+    default since this MDF's last release — or, before it has one, since the
+    MDF it follows."""
     versions = _versions(db, mdf.id)
     if not versions:
         raise HTTPException(status.HTTP_409_CONFLICT, "Nothing to summarize — the MDF has no saved version yet")
@@ -320,7 +343,12 @@ def build_summary(db: Session, mdf: Mdf, from_version: int | None, to_version: i
     to = by_number.get(to_version) if to_version else versions[-1]
     if to is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"MDF v{to_version} not found")
-    if from_version is None:
+    previous = previous_mdf_version(db, mdf)
+    if base == "previous" and previous is None:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "This MDF doesn't follow another MDF — set one under Edit details")
+    if base is not None:
+        from_version = None
+    elif from_version is None:
         from_version = last_release_version(db, mdf.id, before=None)
         if from_version is not None and from_version >= to.version_number:
             # Released at this version already: since the release before it.
@@ -333,6 +361,10 @@ def build_summary(db: Session, mdf: Mdf, from_version: int | None, to_version: i
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"MDF v{from_version} not found")
     if frm is not None and frm.version_number >= to.version_number:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "'From' must be an earlier version than 'to'")
+    # Changes since the MDF this one follows: asked for, or by default when
+    # this MDF has no release of its own to count from yet.
+    from_previous = previous is not None and (base == "previous" or (base is None and from_version is None and frm is None))
+    base_snapshot = previous[1].snapshot if from_previous else (frm.snapshot if frm else {})
 
     start = frm.created_at if frm else None
     following = [v for v in versions if v.version_number > to.version_number]
@@ -371,6 +403,15 @@ def build_summary(db: Session, mdf: Mdf, from_version: int | None, to_version: i
         },
         "from_version": frm.version_number if frm else None,
         "from_at": frm.created_at if frm else None,
+        # Set when the changes are counted from the MDF this one follows.
+        "from_mdf": (
+            {"id": str(previous[0].id), "name": previous[0].name, "version": previous[1].version_number, "at": previous[1].created_at}
+            if from_previous
+            else None
+        ),
+        "previous_mdf": (
+            {"id": str(previous[0].id), "name": previous[0].name, "version": previous[1].version_number} if previous else None
+        ),
         "to_version": to.version_number,
         "to_at": to.created_at,
         "versions": [
@@ -384,7 +425,12 @@ def build_summary(db: Session, mdf: Mdf, from_version: int | None, to_version: i
             for v in versions
             if (frm is None or v.version_number > frm.version_number) and v.version_number <= to.version_number
         ],
-        "changes": mdf_change_summary(db, frm.snapshot if frm else {}, to.snapshot),
+        "changes": [
+            c
+            for c in mdf_change_summary(db, base_snapshot, to.snapshot)
+            # Two separate MDFs: the other one's status says nothing about this one.
+            if not (from_previous and c["scope"] == "MDF" and c["label"] == "Status")
+        ],
         "contents": contents,
         "goals": [
             {"text": g.text, "done": g.done_at is not None, "done_at": g.done_at, "note": g.done_note,
@@ -408,13 +454,14 @@ def summary(
     mdf_id: uuid.UUID,
     from_version: int | None = None,
     to_version: int | None = None,
+    base: SummaryBase | None = None,
     db: Session = Depends(get_db),
     _=Depends(require_role(Role.viewer)),
 ) -> dict:
     """What changed between two saved versions (by default: since the last
     release, up to the latest) — with release notes, goals, status moves and
     log entries from that stretch."""
-    return build_summary(db, _mdf(db, mdf_id), from_version, to_version)
+    return build_summary(db, _mdf(db, mdf_id), from_version, to_version, base)
 
 
 def _day(value) -> str:
@@ -429,11 +476,13 @@ def _day(value) -> str:
 
 def summary_document(s: dict) -> bytes:
     m = s["mdf"]
-    span = (
-        f"Changes from v{s['from_version']} ({_day(s['from_at'])}) to v{s['to_version']} ({_day(s['to_at'])})"
-        if s["from_version"]
-        else f"Everything up to v{s['to_version']} ({_day(s['to_at'])})"
-    )
+    if s.get("from_mdf"):
+        prev = s["from_mdf"]
+        span = f"Changes from {prev['name']} v{prev['version']} ({_day(prev['at'])}) to v{s['to_version']} ({_day(s['to_at'])})"
+    elif s["from_version"]:
+        span = f"Changes from v{s['from_version']} ({_day(s['from_at'])}) to v{s['to_version']} ({_day(s['to_at'])})"
+    else:
+        span = f"Everything up to v{s['to_version']} ({_day(s['to_at'])})"
     blocks = [
         Block("title", f"{m['name']} — release notes v{s['to_version']}"),
         Block("meta", " · ".join(x for x in [
@@ -506,11 +555,12 @@ def summary_docx(
     mdf_id: uuid.UUID,
     from_version: int | None = None,
     to_version: int | None = None,
+    base: SummaryBase | None = None,
     db: Session = Depends(get_db),
     _=Depends(require_role(Role.viewer)),
 ) -> Response:
     """The same summary as a Word document: the release notes."""
     mdf = _mdf(db, mdf_id)
-    s = build_summary(db, mdf, from_version, to_version)
+    s = build_summary(db, mdf, from_version, to_version, base)
     name = f"{mdf.name} release notes v{s['to_version']}.docx"
     return Response(content=summary_document(s), media_type=DOCX, headers={"Content-Disposition": attachment_disposition(name)})

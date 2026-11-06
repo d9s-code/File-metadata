@@ -307,6 +307,11 @@ export function MdfsListPage() {
                 <tr key={m.id}>
                   <td>
                     <Link to={`/mdfs/${m.id}`}>{m.name}</Link>
+                    {m.based_on_mdf_id && (
+                      <span className="hint-text mdf-follows-hint">
+                        follows {m.based_on_mdf_name ?? "a deleted MDF"} v{m.based_on_version_number}
+                      </span>
+                    )}
                   </td>
                   <td>{m.platforms_count}</td>
                   <td>{formatDate(m.release_date)}</td>

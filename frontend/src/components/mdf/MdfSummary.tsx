@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ApiRequestError } from "../../api/client";
-import { mdfPlanApi, type PinChange } from "../../api/mdfPlan";
+import { Link } from "react-router-dom";
+import { mdfPlanApi, type PinChange, type SummaryFrom } from "../../api/mdfPlan";
 import type { MdfVersionSummary } from "../../api/mdfVersions";
 import { useMdfSummary } from "../../state/hooks/useMdfPlan";
 import { formatDate, formatDateTime } from "../common/dates";
@@ -26,16 +27,17 @@ function Changes({ changes }: { changes: PinChange[] }) {
 }
 
 /** "Summarize…": what changed between two saved versions (by default since
- * the last release), with its release notes, goals, status moves and log —
- * on the page, or as a Word document (the release notes). */
+ * the last release — or, before this MDF has one, since the MDF it follows),
+ * with its release notes, goals, status moves and log — on the page, or as a
+ * Word document (the release notes). */
 export function SummaryPanel({ mdfId, versions, onClose }: { mdfId: string; versions: MdfVersionSummary[]; onClose: () => void }) {
-  const [from, setFrom] = useState<number | null>(null);
+  const [from, setFrom] = useState<SummaryFrom>(null);
   const [to, setTo] = useState<number | null>(null);
   const [picked, setPicked] = useState(false);
   const { data: s, isFetching, error } = useMdfSummary(mdfId, picked ? from : null, picked ? to : null, true);
-  const fromShown = picked ? from : (s?.from_version ?? null);
+  const fromShown: SummaryFrom = picked ? from : s?.from_mdf ? "previous" : (s?.from_version ?? "start");
   const toShown = picked ? to : (s?.to_version ?? null);
-  const docUrl = mdfPlanApi.summaryDocxUrl(mdfId, s?.from_version ?? null, s?.to_version ?? null);
+  const docUrl = mdfPlanApi.summaryDocxUrl(mdfId, s?.from_mdf ? "previous" : (s?.from_version ?? "start"), s?.to_version ?? null);
   return (
     <section className="card mdf-summary">
       <div className="card-header">
@@ -48,14 +50,20 @@ export function SummaryPanel({ mdfId, versions, onClose }: { mdfId: string; vers
         <label>
           From
           <select
-            value={fromShown ?? ""}
+            value={fromShown ?? "start"}
             onChange={(e) => {
+              const v = e.target.value;
               setPicked(true);
-              setFrom(e.target.value ? Number(e.target.value) : null);
+              setFrom(v === "start" || v === "previous" ? v : Number(v));
               setTo(toShown);
             }}
           >
-            <option value="">The start</option>
+            <option value="start">The start</option>
+            {s?.previous_mdf && (
+              <option value="previous">
+                The previous MDF: {s.previous_mdf.name} v{s.previous_mdf.version}
+              </option>
+            )}
             {versions.map((v) => (
               <option key={v.id} value={v.version_number}>
                 v{v.version_number} · {formatDate(v.created_at)}
@@ -92,9 +100,16 @@ export function SummaryPanel({ mdfId, versions, onClose }: { mdfId: string; vers
       {s && (
         <div className="mdf-summary-body">
           <p className="hint-text">
-            {s.from_version
-              ? `From v${s.from_version} (${formatDateTime(s.from_at)}) to v${s.to_version} (${formatDateTime(s.to_at)})`
-              : `Everything up to v${s.to_version} (${formatDateTime(s.to_at)})`}
+            {s.from_mdf ? (
+              <>
+                From the previous MDF, <Link to={`/mdfs/${s.from_mdf.id}`}>{s.from_mdf.name}</Link> v{s.from_mdf.version} (
+                {formatDateTime(s.from_mdf.at)}), to v{s.to_version} ({formatDateTime(s.to_at)})
+              </>
+            ) : s.from_version ? (
+              `From v${s.from_version} (${formatDateTime(s.from_at)}) to v${s.to_version} (${formatDateTime(s.to_at)})`
+            ) : (
+              `Everything up to v${s.to_version} (${formatDateTime(s.to_at)})`
+            )}
             {!picked && s.from_version && s.from_version === s.last_release_version && " — since the last release"}
           </p>
           <h3 className="as-h5">Release notes</h3>

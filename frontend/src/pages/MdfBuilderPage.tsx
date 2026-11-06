@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { BackLink } from "../components/common/BackLink";
 import { DateInput } from "../components/common/DateInput";
-import { useParams, useSearchParams } from "react-router-dom";
-import { useMdf, useMdfLinks, useRepinMdfLatest, useUpdateMdf } from "../state/hooks/useMdfs";
+import { Link, useParams, useSearchParams } from "react-router-dom";
+import { formatDate } from "../components/common/dates";
+import { useMdf, useMdfLinks, useMdfs, useRepinMdfLatest, useUpdateMdf } from "../state/hooks/useMdfs";
 import { useCommitMdfVersion, useMdfVersions } from "../state/hooks/useMdfVersions";
 import { usePlatforms } from "../state/hooks/usePlatforms";
 import { useCustomers } from "../state/hooks/useCustomers";
@@ -29,6 +30,7 @@ import { UnsavedPinsFlag } from "../components/versioning/UnsavedPinsFlag";
 import { MdfPlanChips, MdfPlanPanel } from "../components/mdf/MdfPlanPanel";
 import { MdfDwellsPanel } from "../components/mdf/MdfDwellsPanel";
 import { MdfImportCheckPanel } from "../components/mdf/MdfImportCheckPanel";
+import { NewMdfFromDialog } from "../components/mdf/NewMdfFromDialog";
 import { useMdfDwells } from "../state/hooks/useDwells";
 import { useStatuses } from "../state/hooks/useStatuses";
 import { LoadingState } from "../components/common/LoadingState";
@@ -89,6 +91,11 @@ export function MdfBuilderPage() {
   const { mutateAsync: deleteMdfNote } = useDeleteMdfNote(mdfId ?? "");
 
   const [isEditing, setIsEditing] = useState(false);
+  const [makingNew, setMakingNew] = useState(false);
+  const { data: allMdfs } = useMdfs();
+  const [editPreviousId, setEditPreviousId] = useState("");
+  const [editPreviousVersion, setEditPreviousVersion] = useState("");
+  const { data: previousVersions } = useMdfVersions(editPreviousId);
   const [editName, setEditName] = useState("");
   const [pinningPlatform, setPinningPlatform] = useState(false);
   const [editDescription, setEditDescription] = useState("");
@@ -109,6 +116,8 @@ export function MdfBuilderPage() {
     setEditReleaseDate(mdf.release_date ?? "");
     setEditDueDate(mdf.due_date ?? "");
     setEditCustomerId(mdf.customer_id ?? "");
+    setEditPreviousId(mdf.based_on_mdf_id ?? "");
+    setEditPreviousVersion(mdf.based_on_version_number ? String(mdf.based_on_version_number) : "");
     setIsEditing(true);
   };
 
@@ -134,6 +143,8 @@ export function MdfBuilderPage() {
           release_date: editReleaseDate || null,
           due_date: editDueDate || null,
           customer_id: editCustomerId || null,
+          based_on_mdf_id: editPreviousId || null,
+          based_on_version_number: editPreviousId && editPreviousVersion ? Number(editPreviousVersion) : null,
         },
       },
       { onSuccess: () => setIsEditing(false) },
@@ -162,6 +173,16 @@ export function MdfBuilderPage() {
             >
               Export PRS{latestVersion ? ` (v${latestVersion.version_number})` : ""}
             </button>
+            {canWrite && pinsFrozen && (
+              <button
+                type="button"
+                className="button secondary"
+                onClick={() => setMakingNew(true)}
+                title="The next release as a separate MDF, following this one"
+              >
+                New MDF from this one…
+              </button>
+            )}
             <SaveVersionButton
               noun="MDF"
               save={(summary) => commitVersion.mutateAsync(summary)}
@@ -186,7 +207,12 @@ export function MdfBuilderPage() {
                     );
                   },
                 },
-                ...(canWrite ? [{ label: "Edit details", onSelect: handleStartEdit }] : []),
+                ...(canWrite
+                  ? [
+                      { label: "New MDF from this one…", onSelect: () => setMakingNew(true) },
+                      { label: "Edit details", onSelect: handleStartEdit },
+                    ]
+                  : []),
               ]}
             />
           </>
@@ -196,6 +222,20 @@ export function MdfBuilderPage() {
             <MdfStatusTransitionControls mdfId={mdf.id} status={mdf.status} />
             <LatestVersion versions={versions} />
             <MdfPlanChips mdf={mdf} done={pinsFrozen} />
+            {mdf.based_on_mdf_id && (
+              <span className="meta-chip mdf-follows-chip" title="The MDF this one follows: its changelog counts from that version">
+                Follows{" "}
+                <Link to={`/mdfs/${mdf.based_on_mdf_id}`}>
+                  {mdf.based_on_mdf_name ?? "a deleted MDF"} v{mdf.based_on_version_number}
+                </Link>
+                {" · "}
+                <Link
+                  to={`/mdfs/compare?a=${mdf.based_on_mdf_id}&av=${mdf.based_on_version_number}&b=${mdf.id}${latestVersion ? `&bv=${latestVersion.version_number}` : ""}`}
+                >
+                  Compare
+                </Link>
+              </span>
+            )}
             <UnsavedPinsFlag
               kind="mdf"
               id={mdf.id}
@@ -294,6 +334,41 @@ export function MdfBuilderPage() {
                 ))}
               </select>
             </label>
+            <div className="form-row">
+              <label title="The MDF this is the next release of — its summary and release notes count changes from that version">
+                Previous MDF
+                <select
+                  value={editPreviousId}
+                  onChange={(e) => {
+                    setEditPreviousId(e.target.value);
+                    setEditPreviousVersion("");
+                  }}
+                  className="edit-input"
+                >
+                  <option value="">— none —</option>
+                  {(allMdfs ?? [])
+                    .filter((m) => m.id !== mdf.id)
+                    .map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              {editPreviousId && (
+                <label>
+                  Its version
+                  <select value={editPreviousVersion} onChange={(e) => setEditPreviousVersion(e.target.value)} className="edit-input">
+                    <option value="">The version it went out as (else the latest)</option>
+                    {[...(previousVersions ?? [])].reverse().map((v) => (
+                      <option key={v.id} value={v.version_number}>
+                        v{v.version_number} · {formatDate(v.created_at)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </div>
           </div>
           <div className="modal-actions">
             <button className="button secondary" onClick={handleCancelEdit} disabled={isUpdating}>
@@ -398,6 +473,7 @@ export function MdfBuilderPage() {
       )}
 
       {tab === "readiness" && <MdfReadinessPanel mdfId={mdf.id} onGo={(key) => setTab(READINESS_TAB[key] ?? "platforms")} />}
+      {makingNew && <NewMdfFromDialog mdf={mdf} versions={versions ?? []} onClose={() => setMakingNew(false)} />}
       {tab === "check" && <MdfImportCheckPanel mdf={mdf} versions={versions ?? []} />}
       {tab === "emitters" && <MdfEmittersTable mdfId={mdf.id} mdfName={mdf.name} />}
       {tab === "dwells" && <MdfDwellsPanel mdfId={mdf.id} pinsFrozen={pinsFrozen} canEdit={canWrite && !mdf.deleted_at} />}

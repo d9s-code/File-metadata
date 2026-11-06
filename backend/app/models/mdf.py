@@ -36,6 +36,13 @@ class Mdf(UUIDPkMixin, TimestampMixin, Base):
     customer_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("customers.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    # Started from a saved version of another MDF ("New MDF from this one"):
+    # which MDF, and which of its versions. A separate MDF all the same — its
+    # own name, customer, id, history and status.
+    based_on_mdf_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("mdfs.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    based_on_version_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # A status_definitions key (MdfStatus names the built-in ones).
     status: Mapped[str] = mapped_column(String(64), nullable=False, default=MdfStatus.draft.value)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

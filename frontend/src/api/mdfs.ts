@@ -19,6 +19,11 @@ export interface Mdf {
   /** Its goals, and how many are reached. */
   goals_total: number;
   goals_done: number;
+  /** The MDF it follows (its previous release, as a separate MDF) and the
+   * version of it — what its changelog counts from. */
+  based_on_mdf_id?: string | null;
+  based_on_mdf_name?: string | null;
+  based_on_version_number?: number | null;
 }
 
 export interface MdfLink {
@@ -61,6 +66,19 @@ export interface MdfCreateInput {
   release_date?: string | null;
   due_date?: string | null;
   customer_id?: string | null;
+  /** The MDF this one follows; null clears it. */
+  based_on_mdf_id?: string | null;
+  /** Which version of it; left out: the version it went out as (else its latest). */
+  based_on_version_number?: number | null;
+}
+
+export interface MdfNewFromInput {
+  name: string;
+  customer_id?: string | null;
+  description?: string | null;
+  due_date?: string | null;
+  /** The saved version to start from; left out: the version it went out as (else its latest). */
+  version?: number | null;
 }
 
 export const mdfsApi = {
@@ -68,6 +86,8 @@ export const mdfsApi = {
   get: (id: string) => api.get<Mdf>(`/mdfs/${id}`),
   create: (input: MdfCreateInput) => api.post<Mdf>("/mdfs", input),
   update: (id: string, input: Partial<MdfCreateInput>) => api.patch<Mdf>(`/mdfs/${id}`, input),
+  /** A new, separate MDF that starts from a saved version of this one and follows it. */
+  newFrom: (id: string, input: MdfNewFromInput) => api.post<Mdf>(`/mdfs/${id}/new-mdf`, input),
   delete: (id: string, hard = false) => api.delete<void>(`/mdfs/${id}${hard ? "?hard=true" : ""}`),
   restore: (id: string) => api.post<Mdf>(`/mdfs/${id}/restore`),
 

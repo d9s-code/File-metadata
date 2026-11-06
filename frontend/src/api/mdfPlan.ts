@@ -49,11 +49,20 @@ export interface MdfSummary {
   status_moves: { at: string; by: string | null; from: string; to: string; summary: string }[];
   log: { kind: LogKind; at: string; by: string | null; text: string }[];
   last_release_version: number | null;
+  /** Set when the changes count from the MDF this one follows. */
+  from_mdf?: { id: string; name: string; version: number; at: string } | null;
+  /** The MDF this one follows, if any. */
+  previous_mdf?: { id: string; name: string; version: number } | null;
 }
 
-function range(from?: number | null, to?: number | null) {
+/** Where a summary counts from: a version of this MDF, its very start, or
+ * the MDF it follows. */
+export type SummaryFrom = number | "start" | "previous" | null;
+
+function range(from?: SummaryFrom, to?: number | null) {
   const q = new URLSearchParams();
-  if (from) q.set("from_version", String(from));
+  if (from === "start" || from === "previous") q.set("base", from);
+  else if (from) q.set("from_version", String(from));
   if (to) q.set("to_version", String(to));
   const s = q.toString();
   return s ? `?${s}` : "";
@@ -71,9 +80,9 @@ export const mdfPlanApi = {
   deleteLog: (mdfId: string, entryId: string) => api.delete<void>(`/mdfs/${mdfId}/log/${entryId}`),
   setReleaseNotes: (mdfId: string, versionNumber: number, text: string | null) =>
     api.put<{ release_notes: string | null }>(`/mdfs/${mdfId}/versions/${versionNumber}/release-notes`, { text }),
-  summary: (mdfId: string, from?: number | null, to?: number | null) =>
+  summary: (mdfId: string, from?: SummaryFrom, to?: number | null) =>
     api.get<MdfSummary>(`/mdfs/${mdfId}/summary${range(from, to)}`),
-  summaryDocxUrl: (mdfId: string, from?: number | null, to?: number | null) =>
+  summaryDocxUrl: (mdfId: string, from?: SummaryFrom, to?: number | null) =>
     `${API_BASE_URL}/mdfs/${mdfId}/summary.docx${range(from, to)}`,
   unsaved: (kind: "platform" | "mdf", id: string) =>
     api.get<UnsavedPins>(`/${kind === "mdf" ? "mdfs" : "platforms"}/${id}/unsaved`),

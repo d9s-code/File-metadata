@@ -397,6 +397,26 @@ Earlier statuses (Draft, Pending review, Approved) are flagged as before.
 
 **Summary between versions.** Everything that happens to the MDF — status moves, pins, goals, the log, due-date moves, saved versions — is on its **Audit** tab, so there is no separate timeline. **Summarize…** (in the Plan tab's Release notes card) compares two saved versions. It lists what changed between them — Platforms (and dwell files) pinned, unpinned or repinned, and for a repinned Platform the Emitters that changed version inside it. By default it covers everything since the last release (the version that was latest when the MDF last moved to Released) up to the latest. It shows the release notes, what changed, the goals (marking those reached in that stretch), status moves, the log entries and the contents of the later version. **Download release notes (.docx)** gives the same summary as a Word document to send on (`GET /mdfs/{id}/summary`, `GET /mdfs/{id}/summary.docx`).
 
+**The next release as a new MDF.** A new release, for another customer or after the old one is deprecated, can be a separate MDF rather than another version of the old one. **New MDF from this one…** does this. It's a button on a Released (or later) MDF, and it's also in any MDF's ⋯ menu.
+
+- **What it makes:** a new MDF with its own name, customer and id (so a new Id in the export), at the first status. It gets the Platform pins and dwell files of a saved version of the old one, saved as its v1 ("Started from 'Fleet 2026' v3").
+- **Which version it starts from:** by default the version the old MDF went out as, meaning the latest saved when it last moved to Released (else its latest). Any saved version can be picked.
+- **What stays behind:** notes, goals, the progress log, files and test history stay with the old MDF, and the old MDF is untouched.
+
+Audited on both MDFs (`POST /mdfs/{id}/new-mdf`: `name`, `customer_id`, `due_date`, `version`).
+
+**Which MDF it follows.** The new MDF **follows** the old one at that version. An MDF made from scratch can be set to follow another under **Edit details** → **Previous MDF** and its version, or cleared there (`based_on_mdf_id`, `based_on_version_number`). The link shows in these places:
+
+- the MDF's header: "Follows Fleet 2026 v3 · Compare", where **Compare** opens the two MDFs side by side;
+- under its name on the MDFs list.
+
+**The changelog between two MDFs.** The summary and release notes of an MDF that follows another count what changed since that MDF's version. This is the default until the new MDF has a release of its own; after that the default is its own last release again. The changelog lists:
+
+- the MDF's new name;
+- Platforms and dwell files pinned, unpinned or repinned, and the Emitters that changed inside a repinned Platform.
+
+The other MDF's status is left out. **From** in the summary offers **The previous MDF: Fleet 2026 v3**, **The start** or any of this MDF's own versions (`base=previous` / `base=start` on the summary, else `from_version`; the response's `from_mdf` says when it counted from the previous MDF).
+
 The MDF page's **Emitters** tab lists every Emitter on the MDF in one sortable table. It works through the Platform versions the MDF pins, exactly as the export takes them. Each row shows:
 
 - the Emitter (a link) and its designation;

@@ -14,6 +14,18 @@ class MdfCreate(BaseModel):
     customer_id: UUID | None = None
 
 
+class MdfNewFrom(BaseModel):
+    """A new MDF started from a saved version of another one."""
+
+    name: str
+    customer_id: UUID | None = None
+    description: str | None = None
+    due_date: date | None = None
+    # Which saved version of the source to start from; by default the one it
+    # went out as (latest saved when it last moved to Released), else its latest.
+    version: int | None = None
+
+
 class MdfUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
@@ -21,6 +33,10 @@ class MdfUpdate(BaseModel):
     release_date: date | None = None
     due_date: date | None = None
     customer_id: UUID | None = None
+    # The MDF this one follows, and the version of it (its latest saved one
+    # when left out); null clears it.
+    based_on_mdf_id: UUID | None = None
+    based_on_version_number: int | None = None
 
 
 class MdfOut(BaseModel):
@@ -39,6 +55,10 @@ class MdfOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     platforms_count: int = 0
+    # The MDF and saved version it was started from (New MDF from this one).
+    based_on_mdf_id: UUID | None = None
+    based_on_mdf_name: str | None = None
+    based_on_version_number: int | None = None
     # Its goals, and how many are reached.
     goals_total: int = 0
     goals_done: int = 0

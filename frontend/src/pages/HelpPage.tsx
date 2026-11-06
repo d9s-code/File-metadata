@@ -1108,6 +1108,15 @@ export function HelpPage() {
             <strong>Audit</strong> tab.
           </p>
           <p>
+            <strong>The next release as a new MDF.</strong> When the next release should be a separate MDF (for
+            another customer, or once the old one is deprecated), use <strong>New MDF from this one…</strong>. It&apos;s
+            a button on a Released MDF and is also in the <strong>⋯</strong> menu. The new MDF gets its own name,
+            customer and id, and starts with the Platforms and dwell files of the version the old one went out as. It
+            then <strong>follows</strong> the old MDF, shown as &ldquo;Follows … · Compare&rdquo; in its header. Its
+            summary and release notes list what changed since that release until it has a release of its own. An MDF
+            made from scratch can follow another too: set <strong>Previous MDF</strong> under Edit details.
+          </p>
+          <p>
             <strong>Emitters</strong> lists every Emitter on the MDF, through the Platform versions it pins (as
             the export takes them). It shows each Emitter&apos;s pinned version, the Platforms that pin it, its
             Modes and PRI types, its overall RF, PRI and PW ranges (tick <strong>With deltas (±)</strong> for the

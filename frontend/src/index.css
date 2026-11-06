@@ -7886,6 +7886,11 @@ button.emitter-pins-chip:hover { filter: brightness(0.97); }
   flex-basis: 100%;
 }
 
+/* An MDF that is the next release of another: which one, under its name. */
+.mdf-follows-hint {
+  display: block;
+}
+
 /* A list page's table on the same white card as everything else; the table
    runs to the card's edges, its first and last rows clear of the corners. */
 .card.table-card {
