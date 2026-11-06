@@ -1,0 +1,244 @@
+/* The Emitter page: header, summary strip, Modes table and cards, Source tabs. */
+
+/* --- Emitter page header --------------------------------------------- */
+.emitter-header {
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.25rem;
+}
+/* While you hold the checkout the header carries a blue edge, so edit mode
+   is obvious at a glance. */
+.emitter-header.editing {
+  border-left: 4px solid var(--primary);
+  padding-left: 0.75rem;
+  margin-left: calc(-0.75rem - 4px);
+}
+.emitter-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.emitter-title-row h1 {
+  margin: 0;
+}
+.emitter-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.emitter-description {
+  margin: 0 0 0.6rem;
+}
+.emitter-summary-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.75rem;
+  padding: 1rem 1.5rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.summary-label {
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+.summary-value {
+  font-size: 0.92rem;
+}
+/* Takes the rest of the row, so the latest note has room to be read. */
+.summary-notes {
+  flex: 1 1 18rem;
+}
+.summary-notes .summary-link {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  max-width: 100%;
+  text-align: left;
+}
+.summary-note-preview {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-style: italic;
+}
+.summary-notes .hint-text {
+  white-space: nowrap;
+}
+.summary-link {
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: normal;
+  text-align: left;
+}
+/* Inline, not flex: a flex box drops the spaces between its words ("16correct"). */
+.summary-item:not(.summary-notes) .summary-link {
+  display: inline;
+}
+.summary-link:hover {
+  background: none;
+  box-shadow: none;
+  text-decoration: underline;
+}
+.summary-good {
+  color: var(--badge-green-fg);
+}
+.summary-bad {
+  color: var(--error);
+}
+
+/* The Modes table scrolls inside the viewport's height, so its header row
+   stays pinned and its horizontal scrollbar is always in reach — not at the
+   bottom of a 60-row table. */
+.matrix-scroll.modes-scroll {
+  max-height: calc(100vh - 10rem);
+  overflow: auto;
+}
+.modes-scroll > .data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--card-bg);
+}
+.modes-scroll > .data-table thead th.sticky-end {
+  z-index: 3;
+}
+.data-table .row-actions {
+  width: 1%;
+  text-align: center;
+}
+.row-menu-button {
+  background: none;
+  color: var(--text);
+  border: 1px solid transparent;
+  box-shadow: none;
+  padding: 0.1rem 0.55rem;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+.row-menu-button:hover,
+.row-menu-button[aria-expanded="true"] {
+  background: var(--hover-bg);
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+/* Compact Mode cards: name, tags, then one line each for RF, PRI and PW. */
+.mode-card-header strong {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.mode-card-params {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.75rem;
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+}
+.mode-card-params dt {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  align-self: center;
+}
+.mode-card-params dd {
+  margin: 0;
+}
+.mode-card-pri-type {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.mode-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--border);
+  padding-top: 0.4rem;
+  font-size: 0.82rem;
+}
+.mode-card-tested {
+  margin-left: auto;
+}
+
+/* A card's title with its actions on the same line, actions right. */
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+.card-header :is(h4, .as-h4) {
+  margin: 0;
+}
+.empty-state-compact {
+  margin: 0.25rem 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.empty-state-compact strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Tabs inside an opened Source. */
+.sub-tab-bar {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.75rem;
+}
+.sub-tab {
+  background: none;
+  color: var(--muted);
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0.4rem 0.8rem;
+  font-weight: 600;
+}
+.sub-tab:hover {
+  background: var(--hover-bg);
+  color: var(--text);
+  box-shadow: none;
+}
+.sub-tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.run-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 1.25rem;
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+}
+.run-summary .test-result-badge {
+  margin-right: 0.25rem;
+}
+
+label.inline-label {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+}

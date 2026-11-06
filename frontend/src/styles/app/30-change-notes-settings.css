@@ -1,0 +1,95 @@
+/* Admin › Defaults › Change notes, and screen-reader-only text. */
+
+/* Admin › Defaults › Change notes: the rules beside an MDF's change notes as
+   they'd read — lines a toggle adds marked "now shown", lines it takes away
+   struck through and marked "now hidden". */
+.counts-layout {
+  display: grid;
+  grid-template-columns: minmax(20rem, 28rem) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+.counts-group {
+  grid-template-columns: 1fr;
+  gap: 0.35rem;
+}
+.counts-group:nth-of-type(2) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.counts-rule {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.counts-rule input {
+  margin-top: 0.2rem;
+}
+.counts-hint {
+  display: block;
+  font-size: 0.8rem;
+}
+.counts-unsaved {
+  color: var(--badge-amber-fg);
+  font-size: 0.7rem;
+  vertical-align: 0.1em;
+}
+.counts-preview {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  min-height: 12rem;
+  position: sticky;
+  top: 1rem;
+}
+.counts-preview-head {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.25rem;
+}
+.counts-preview-head label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.counts-preview-tally {
+  margin: 0.5rem 0 0;
+}
+.counts-tag {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-decoration: none;
+  vertical-align: 0.05em;
+}
+.counts-tag-shown {
+  background: var(--badge-green-bg);
+  color: var(--badge-green-fg);
+}
+.counts-tag-hidden {
+  background: var(--badge-red-bg);
+  color: var(--badge-red-fg);
+}
+.counts-shown > span > .counts-line,
+li.counts-shown > .counts-line {
+  background: var(--badge-green-bg);
+  border-radius: 3px;
+}
+.counts-hidden > span > .counts-line,
+li.counts-hidden > .counts-line,
+.mdf-change.counts-hidden .change-notes-items .counts-line {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

@@ -1,0 +1,646 @@
+/* Quick jump, readiness, bulk actions, comparisons, help tips, filters, date fields, dialogs. */
+
+/* Quick-jump search (Ctrl+K). */
+.quick-jump-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--input-bg, var(--card-bg));
+  color: var(--viz-ink-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.quick-jump-button:hover {
+  color: var(--text);
+  border-color: var(--viz-ink-muted);
+}
+.quick-jump-button kbd {
+  font-family: inherit;
+  font-size: 0.7rem;
+  padding: 0 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.quick-jump-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 12vh;
+}
+.quick-jump-box {
+  width: min(640px, calc(100vw - 2rem));
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+.quick-jump-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  padding: 0.85rem 1rem;
+  font-size: 1rem;
+  background: transparent;
+  color: var(--text);
+  outline: none;
+}
+.quick-jump-results {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 0.4rem 0;
+}
+.quick-jump-results > .hint-text {
+  margin: 0.5rem 1rem;
+}
+.quick-jump-group-label {
+  padding: 0.4rem 1rem 0.2rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--viz-ink-muted);
+}
+.quick-jump-hit {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.4rem 1rem;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.quick-jump-hit.active {
+  background: var(--hover-bg);
+}
+.quick-jump-subtitle {
+  color: var(--viz-ink-muted);
+  font-size: 0.8rem;
+}
+
+/* Repinning every outdated pin at once. */
+.repin-all-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.6rem;
+}
+
+/* An MDF's readiness checklist. */
+.readiness-panel {
+  border-left: 4px solid var(--badge-green-fg);
+}
+.readiness-panel.has-warn {
+  border-left-color: var(--badge-amber-fg);
+}
+.readiness-panel.has-fail {
+  border-left-color: var(--error);
+}
+.readiness-panel .section-toggle :is(h4, .as-h4) {
+  display: inline;
+  margin: 0;
+}
+.readiness-list {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.readiness-item {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+}
+.readiness-icon {
+  flex: 0 0 1.3rem;
+  height: 1.3rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.readiness-ok .readiness-icon {
+  background: var(--badge-green-bg);
+  color: var(--badge-green-fg);
+}
+.readiness-warn .readiness-icon {
+  background: var(--badge-amber-bg);
+  color: var(--badge-amber-fg);
+}
+.readiness-fail .readiness-icon {
+  background: var(--badge-red-bg);
+  color: var(--badge-red-fg);
+}
+.readiness-sublist {
+  margin: 0.2rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+}
+
+/* Bulk actions on the Emitters list. */
+.emitter-bulk-bar {
+  /* Floats over the bottom of the window, so ticking a row never moves the table. */
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  /* Clear of the Editing reminder in the bottom-left corner. */
+  width: min(60rem, calc(100vw - 2rem));
+  max-height: 45vh;
+  overflow-y: auto;
+  margin: 0;
+  z-index: 60;
+  border-left: 4px solid var(--primary);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+}
+/* Room under the table for the bar while it shows. */
+.emitters-page-bulk {
+  padding-bottom: 9rem;
+}
+.emitter-bulk-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+.emitter-bulk-note {
+  min-width: 18rem;
+}
+.emitter-bulk-result ul {
+  margin: 0.3rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+}
+.data-table .select-col {
+  width: 2rem;
+  text-align: center;
+}
+.data-table tr.selected-row > td {
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+/* Platform tests: each Emitter's result across runs. */
+.platform-test-trend {
+  margin: 0.5rem 0 1rem;
+}
+.platform-test-trend :is(h5, .as-h5) {
+  margin: 0 0 0.4rem;
+}
+.platform-test-trend .trend-col {
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Comparing two Emitters. */
+.compare-pickers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.compare-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1 1 22rem;
+}
+.compare-picker select:first-of-type {
+  flex: 1;
+  min-width: 0;
+}
+.compare-side {
+  font-weight: 700;
+  color: var(--viz-ink-muted);
+}
+.compare-verdict .compare-severity {
+  margin-left: 0.6rem;
+}
+.compare-sides {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .compare-sides { grid-template-columns: minmax(0, 1fr); }
+}
+.compare-side-card :is(h4, .as-h4) {
+  margin-top: 0;
+}
+.data-table tr.compare-overlapping > td:first-child {
+  box-shadow: inset 3px 0 0 var(--error);
+}
+/* Comparing versions of one Emitter: a Mode added, removed or changed between them. */
+.data-table tr.compare-changed > td { background: color-mix(in srgb, var(--status-warning) 14%, transparent); }
+.data-table tr.compare-changed > td:first-child { font-weight: 600; }
+
+/* Help as a "?" beside Search in the menu bar. */
+.navbar-help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.navbar-help:hover,
+.navbar-help.navbar-link-active {
+  color: var(--text);
+  background: var(--hover-bg);
+}
+
+/* A page's title with its "?" tip beside it. */
+.page-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.info-tip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: none;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: help;
+}
+.info-tip:hover,
+.info-tip:focus-visible {
+  background: var(--hover-bg);
+  color: var(--text);
+  box-shadow: none;
+}
+.info-popover-trigger:has(> .info-tip) {
+  border-bottom: none;
+}
+.info-tip-content {
+  display: block;
+  max-width: 26rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+/* The pages under one top-menu item, under the page title like any other tabs. */
+.section-tabs {
+  margin: 0 0 0.75rem;
+}
+
+/* Analyst notes: a tab on the window's right edge, and the panel it opens —
+   both fixed, so they stay put while the page scrolls. */
+.notes-drawer-tab {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 850;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.7rem 0.4rem;
+  border: 1px solid var(--border);
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  background: var(--card-bg);
+  color: var(--text);
+  box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.15));
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.notes-drawer-tab:hover {
+  background: var(--hover-bg);
+  color: var(--text);
+}
+.notes-drawer-tab-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  letter-spacing: 0.04em;
+}
+.notes-drawer-tab-count {
+  min-width: 1.3rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 0.72rem;
+  text-align: center;
+}
+.notes-drawer {
+  position: fixed;
+  right: 0;
+  top: var(--navbar-height, 3.5rem);
+  bottom: 0;
+  z-index: 850;
+  width: min(380px, 92vw);
+  display: flex;
+  flex-direction: column;
+  background: var(--card-bg);
+  border-left: 1px solid var(--border);
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.18);
+}
+.notes-drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.notes-drawer-header :is(h4, .as-h4) {
+  margin: 0;
+}
+.notes-drawer-subject {
+  display: block;
+  font-size: 0.8rem;
+}
+.notes-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem 1rem 1rem;
+}
+.notes-feed.in-drawer .notes-feed-add {
+  align-items: stretch;
+  margin-bottom: 0.9rem;
+}
+.notes-feed.in-drawer .notes-feed-add .button {
+  align-self: flex-end;
+}
+.notes-feed.in-drawer .notes-feed-list {
+  max-height: none;
+  overflow: visible;
+}
+.notes-drawer-tab-draft {
+  color: var(--warning-text, #b45309);
+  font-size: 0.85rem;
+}
+.notes-draft-hint {
+  font-size: 0.78rem;
+}
+
+/* A list's filters, on one line above its table. */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.6rem;
+  margin: 0 0 0.6rem;
+}
+.filter-bar input[type="search"],
+.filter-bar input[type="text"] {
+  width: 15rem;
+  max-width: 100%;
+}
+.filter-bar select {
+  width: auto;
+}
+.filter-bar-end {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.filter-bar-ranges {
+  padding: 0.5rem 0.75rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md, 6px);
+}
+.range-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.range-filter input {
+  width: 5.5rem;
+}
+.filter-toggle.active {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* A row's Tasks chip with nothing open only shows when the row is pointed
+   at, so a column of "☑ 0" doesn't fill the list. */
+.data-table .task-count-chip:not(.has-open) {
+  opacity: 0;
+}
+.data-table tr:hover .task-count-chip:not(.has-open),
+.data-table .task-count-chip:not(.has-open):focus-visible {
+  opacity: 1;
+}
+
+/* Date fields typed as dd.mm.yyyy, with a calendar button; the browser's own
+   date field sits hidden underneath only to open its calendar. */
+.date-input {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  max-width: 100%;
+}
+.date-input > input[type="text"] {
+  width: 7.6rem;
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+.date-input-picker {
+  padding: 0.15rem 0.35rem;
+  background: none;
+  color: var(--muted);
+  border: 1px solid transparent;
+  box-shadow: none;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+.date-input-picker:hover:not(:disabled) {
+  background: var(--hover-bg);
+  color: var(--text);
+  border-color: var(--border);
+  box-shadow: none;
+}
+.date-input-native {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.time-input {
+  width: 4.6rem;
+  font-variant-numeric: tabular-nums;
+}
+input[aria-invalid="true"] {
+  border-color: var(--danger, #c0392b);
+}
+
+/* A test run's own notes on its report. */
+.run-notes {
+  margin: 0.5rem 0 1rem;
+  padding: 0.6rem 0.85rem;
+  border-left: 3px solid var(--border);
+  background: var(--card-bg);
+  border-radius: 0 var(--radius-md, 6px) var(--radius-md, 6px) 0;
+}
+.run-notes :is(h4, .as-h4) {
+  margin: 0 0 0.25rem;
+}
+.run-notes p {
+  margin: 0;
+}
+
+/* A form in a dialog (editing a Mode, cleaning up Elements): centred in the
+   window and never taller than it, its actions always in reach at the bottom. */
+.modal-dialog.form-dialog {
+  width: min(64rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+}
+.form-dialog .mode-form.card {
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+  background: none;
+}
+/* The dialog's title already names it. */
+.form-dialog .mode-form-head :is(h4, .as-h4) {
+  display: none;
+}
+.form-dialog .mode-form-actions {
+  position: sticky;
+  bottom: -1.25rem;
+  margin-bottom: -1.25rem;
+  padding: 0.75rem 0 1.25rem;
+  background: var(--card-bg);
+  border-top: 1px solid var(--border);
+  z-index: 1;
+}
+
+.card-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.element-cleanup-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin: 0.75rem 0;
+}
+.element-cleanup-filters input {
+  width: 11rem;
+}
+.element-cleanup-scroll {
+  max-height: 50vh;
+}
+.element-cleanup tbody tr {
+  cursor: pointer;
+}
+
+/* Modes table: a value changed in place (double-click its cell). */
+.data-table td.inline-editable {
+  cursor: cell;
+}
+.data-table td.inline-editable:hover {
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+.data-table td.inline-editing {
+  padding: 0.2rem 0.3rem;
+  box-shadow: inset 0 0 0 2px var(--primary);
+}
+.inline-editing input {
+  width: 100%;
+  min-width: 5.5rem;
+  box-sizing: border-box;
+}
+.inline-editing-name input {
+  min-width: 11rem;
+}
+.inline-editing-stagger input {
+  min-width: 13rem;
+}
+.inline-editing input[aria-invalid="true"] {
+  border-color: var(--error);
+}
+.inline-editing .line-row-problem {
+  display: block;
+  margin: 0.2rem 0 0;
+  max-width: 12rem;
+  font-size: 0.75rem;
+  white-space: normal;
+}
+
+/* Renaming one thing from its ⋯ menu. */
+.rename-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: min(24rem, 80vw);
+}
+.rename-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.rename-form p {
+  margin: 0;
+}
+
+/* A labelled field in a one-line form (EW Group, Source). */
+.inline-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.inline-field input,
+.inline-field select {
+  font-size: 0.9rem;
+  color: var(--text);
+}
+.inline-form-title {
+  flex-basis: 100%;
+  margin: 0 0 0.25rem;
+}

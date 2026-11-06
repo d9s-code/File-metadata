@@ -1,0 +1,381 @@
+/* Import, Modes and range charts, the simulation trend. */
+
+/* Import charts */
+.import-charts-section {
+  margin: 0.25rem 0 0.75rem;
+  font-size: 0.9rem;
+}
+.import-charts-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.25rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.import-charts-bar > .link-button {
+  align-self: center;
+}
+.import-chart-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: -1px;
+}
+.import-charts-bar > .hint-text {
+  flex: 1 1 18rem;
+  align-self: center;
+  padding: 0.25rem 0;
+}
+.import-marks {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--primary);
+  border-radius: 6px;
+  position: sticky;
+  top: calc(var(--navbar-height, 0px) + 0.25rem);
+  z-index: 2;
+  background: var(--card-bg);
+}
+.import-preview {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+}
+.tolerance-slider span {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.tolerance-slider input[type="range"] {
+  width: 9rem;
+  accent-color: var(--primary);
+}
+.tolerance-slider input[type="number"] {
+  width: 5.5rem;
+}
+.import-charts {
+  margin-top: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.import-time-charts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.import-time-charts > .hint-text {
+  margin: 0;
+  font-size: 0.85rem;
+}
+.viz-summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.4rem 1rem;
+  font-size: 0.88rem;
+}
+.viz-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.9rem;
+  color: var(--muted);
+}
+.viz-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.viz-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  vertical-align: -1px;
+}
+.viz-swatch.viz-in { background: var(--viz-in); }
+.viz-swatch.viz-out { background: var(--viz-out); }
+.viz-swatch.viz-coverage { background: var(--viz-ink-muted); height: 5px; }
+.viz-swatch.viz-marks-swatch { width: 2px; height: 10px; background: var(--viz-ink-muted); }
+.viz-out-text { color: var(--text); }
+.viz-out-text strong { color: var(--text); }
+.viz-grid-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(26rem, 1fr));
+  gap: 0.75rem;
+}
+.viz-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 0.75rem 1rem 0.5rem;
+  background: var(--card-bg);
+  min-width: 0;
+}
+.viz-card-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+  font-size: 0.85rem;
+  margin-bottom: 0.2rem;
+}
+.viz-plot {
+  position: relative;
+  width: 100%;
+  min-height: 60px;
+  user-select: none;
+}
+.viz-brushable { cursor: crosshair; touch-action: none; }
+.viz-splittable { cursor: col-resize; touch-action: none; }
+.viz-plot .viz-split { stroke: var(--text); stroke-width: 1.5; }
+.viz-plot .viz-split-hover { stroke: var(--text); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.7; }
+.viz-plot svg text.viz-split-label { fill: var(--text); font-weight: 600; }
+.viz-plot .viz-mark {
+  fill: var(--primary);
+  fill-opacity: 0.06;
+  stroke: var(--primary);
+  stroke-width: 1.5;
+}
+.viz-plot .viz-mark.narrow { stroke-dasharray: 5 3; fill-opacity: 0; }
+.import-time-charts kbd {
+  font: inherit;
+  font-size: 0.8em;
+  padding: 0 0.3em;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--card-bg);
+}
+.viz-plot .viz-groupbox { fill: none; stroke: var(--viz-ink-muted); stroke-opacity: 0.6; stroke-width: 1; }
+.viz-plot .viz-groupbox.dashed { stroke-dasharray: 5 3; }
+.viz-plot .viz-groupbox.faint { stroke-opacity: 0.3; }
+.viz-plot .viz-groupbox.hover { stroke: var(--primary); stroke-opacity: 1; stroke-width: 1.5; stroke-dasharray: none; }
+.viz-swatch.viz-groupbox-swatch {
+  background: color-mix(in srgb, var(--viz-ink-muted) 15%, transparent);
+  border: 1px solid var(--viz-ink-muted);
+}
+.viz-swatch.viz-groupbox-swatch.dashed { border-style: dashed; }
+.viz-empty { margin: 1.5rem 0; text-align: center; }
+.viz-canvas,
+.viz-overlay {
+  position: absolute;
+  inset: 0;
+}
+.viz-overlay { pointer-events: none; }
+.viz-plot svg text.viz-axis-label {
+  fill: var(--viz-ink-muted);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+.viz-plot .viz-grid { stroke: var(--viz-grid); stroke-width: 1; }
+.viz-plot .viz-baseline { stroke: var(--viz-axis); stroke-width: 1; }
+.viz-plot rect.viz-in { fill: var(--viz-in); }
+.viz-plot rect.viz-single { fill: var(--viz-in); }
+.viz-plot rect.viz-out { fill: var(--viz-out); }
+.viz-plot .viz-bar.hovered rect { filter: brightness(1.15); }
+.viz-plot rect.viz-coverage { fill: var(--viz-ink-muted); opacity: 0.7; rx: 1; }
+.viz-plot .viz-marks { stroke: var(--viz-ink-muted); stroke-width: 1; opacity: 0.6; }
+/* The value axis of a chart that zooms vertically: drag up or down along it. */
+.viz-yzoom-handle {
+  position: absolute;
+  left: 0;
+  z-index: 1;
+  cursor: ns-resize;
+  border-radius: 4px;
+}
+.viz-yzoom-handle:hover {
+  background: var(--hover-bg);
+  opacity: 0.6;
+}
+.viz-plot .viz-yzoom-band {
+  fill: var(--primary);
+  fill-opacity: 0.1;
+  stroke: var(--primary);
+  stroke-dasharray: 4 3;
+}
+.viz-yzoom-reset {
+  font-size: inherit;
+}
+.viz-plot .viz-selection {
+  fill: var(--text);
+  fill-opacity: 0.08;
+  stroke: var(--viz-ink-muted);
+  stroke-dasharray: 3 2;
+}
+.viz-tooltip {
+  position: absolute;
+  top: 0.25rem;
+  pointer-events: none;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  padding: 0.3rem 0.5rem;
+  font-size: 0.8rem;
+  min-width: 11rem;
+  z-index: 3;
+}
+.viz-tooltip > div { white-space: nowrap; }
+/* Sit above a page's sticky bottom bar (the import footer) rather than on it. */
+body:has(.import-footer) .checkout-reminder,
+body:has(.import-footer) .checkout-reminder-tab {
+  bottom: 5.5rem;
+}
+
+/* Status colours for test results (fixed in both themes; always shown with a
+   label in the legend or tooltip, never alone). */
+:root {
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-critical: #d03b3b;
+  --status-neutral: #8b929c;
+}
+.viz-swatch.status-good, .viz-plot .status-good { background: var(--status-good); fill: var(--status-good); stroke: var(--status-good); }
+.viz-swatch.status-warning, .viz-plot .status-warning { background: var(--status-warning); fill: var(--status-warning); stroke: var(--status-warning); }
+.viz-swatch.status-critical, .viz-plot .status-critical { background: var(--status-critical); fill: var(--status-critical); stroke: var(--status-critical); }
+.viz-swatch.status-neutral, .viz-plot .status-neutral { background: var(--status-neutral); fill: var(--status-neutral); stroke: var(--status-neutral); }
+
+/* Modes coloured one by one (up to eight at once; the rest grey), always
+   named beside the swatch in the legend and tooltips. */
+.viz-swatch.series-1, .viz-plot .series-1 { background: var(--series-1); fill: var(--series-1); stroke: var(--series-1); }
+.viz-swatch.series-2, .viz-plot .series-2 { background: var(--series-2); fill: var(--series-2); stroke: var(--series-2); }
+.viz-swatch.series-3, .viz-plot .series-3 { background: var(--series-3); fill: var(--series-3); stroke: var(--series-3); }
+.viz-swatch.series-4, .viz-plot .series-4 { background: var(--series-4); fill: var(--series-4); stroke: var(--series-4); }
+.viz-swatch.series-5, .viz-plot .series-5 { background: var(--series-5); fill: var(--series-5); stroke: var(--series-5); }
+.viz-swatch.series-6, .viz-plot .series-6 { background: var(--series-6); fill: var(--series-6); stroke: var(--series-6); }
+.viz-swatch.series-7, .viz-plot .series-7 { background: var(--series-7); fill: var(--series-7); stroke: var(--series-7); }
+.viz-swatch.series-8, .viz-plot .series-8 { background: var(--series-8); fill: var(--series-8); stroke: var(--series-8); }
+.viz-swatch.series-other, .viz-plot .series-other { background: var(--status-neutral); fill: var(--status-neutral); stroke: var(--status-neutral); }
+.viz-plot .dimmed { opacity: 0.15; }
+
+/* Modes tab charts */
+.mode-charts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.mode-charts > .hint-text { margin: 0; }
+.viz-plot .ladder-row-bg { fill: transparent; }
+.viz-plot .ladder-row.hovered .ladder-row-bg { fill: var(--hover-bg); }
+.viz-plot .ladder-name {
+  fill: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+.viz-plot .ladder-name:hover { text-decoration: underline; }
+.viz-plot text.ladder-title { fill: var(--text); font-weight: 600; font-size: 11.5px; }
+.viz-plot rect.ladder-eng { fill-opacity: 0.3; stroke: none; }
+.viz-plot rect.ladder-raw { stroke: none; }
+.viz-plot rect.ladder-dot { stroke: none; }
+.viz-plot rect.ladder-dot.toggles { cursor: pointer; }
+.viz-plot rect.ladder-dot-hit { fill: transparent; cursor: pointer; }
+.viz-swatch.entry-tick { width: 2px; height: 10px; background: var(--text); opacity: 0.55; border-radius: 0; }
+.viz-swatch.entry-tick.out { background: var(--viz-out); opacity: 1; width: 3px; }
+.viz-plot .ladder-entry { stroke: var(--text); stroke-width: 1; opacity: 0.55; }
+.viz-plot .ladder-entry-out { stroke: var(--viz-out); stroke-width: 1.5; }
+.ladder-sort { font-size: 0.8rem; padding: 0.1rem 0.3rem; }
+.viz-plot .ladder-beyond { fill: var(--viz-ink-muted); font-size: 11px; }
+/* Mode charts grouped by value: each range labelled above its bar, and the grid of combinations. */
+.viz-plot text.groups-label { fill: var(--text); font-size: 11px; }
+.viz-plot .groups-faded { opacity: 0.35; }
+.combo-grid-wrap { overflow-x: auto; padding-bottom: 0.4rem; }
+.combo-grid { border-collapse: collapse; font-size: 0.8rem; }
+.combo-grid th, .combo-grid td { border: 1px solid var(--border); padding: 0.25rem 0.4rem; text-align: left; vertical-align: middle; }
+.combo-grid thead th { font-weight: 600; white-space: nowrap; background: var(--hover-bg); }
+.combo-grid tbody th { font-weight: 600; white-space: nowrap; }
+.combo-grid .combo-corner { color: var(--muted); font-weight: 500; }
+.combo-grid .combo-unit { color: var(--muted); font-weight: 400; }
+.combo-grid td { min-width: 3.5rem; }
+.combo-grid td.combo-empty { color: var(--viz-grid); text-align: center; }
+.combo-grid .combo-mode { width: 12px; height: 12px; margin: 1px; padding: 0; border: none; cursor: pointer; vertical-align: middle; box-shadow: none; }
+.combo-grid .combo-mode:hover, .combo-grid .combo-mode.marked { outline: 2px solid var(--text); outline-offset: 1px; }
+
+/* Charts toolbar: colour choice, the Mode legend and the axis ranges */
+.chart-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card-bg);
+  font-size: 0.86rem;
+}
+.chart-controls-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 1.1rem;
+}
+.chart-controls-row > strong { min-width: 5.5rem; }
+.chart-scale-param {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.chart-scale-param input {
+  width: 6.5rem;
+  padding: 0.15rem 0.35rem;
+  font-size: 0.84rem;
+}
+.chart-scale-param input[aria-invalid="true"] { border-color: var(--status-critical); }
+.mode-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.4rem;
+}
+.mode-legend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.1rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.mode-legend-x { color: var(--muted); margin-left: 0.1rem; }
+.mode-colour-pick { font-size: 0.82rem; padding: 0.1rem 0.3rem; max-width: 18rem; }
+.mode-legend-chip:hover, .mode-legend-chip:focus-visible { background: var(--hover-bg); }
+
+/* Simulation trend */
+.viz-plot .trend-hit { fill: transparent; cursor: pointer; }
+.viz-plot .trend-run.hovered .trend-hit { fill: var(--hover-bg); }
+.viz-plot rect.trend-seg { stroke: none; pointer-events: none; }
+.viz-swatch.trend-not-run { background: transparent; border: 1px dashed var(--status-neutral); }
+.viz-plot rect.trend-not-run { fill: color-mix(in srgb, var(--status-neutral) 22%, transparent); stroke: var(--status-neutral); stroke-dasharray: 3 2; stroke-width: 1; }
+.viz-plot .trend-count { font-size: 10px; font-weight: 600; fill: #fff; pointer-events: none; }
+.viz-plot .trend-not-run + .trend-count { fill: var(--text); }
+.viz-plot .trend-time-logged { font-style: italic; opacity: 0.75; }
+.trend-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 1rem; margin: 0 0 0.4rem; }
+.trend-controls .hint-text { flex: 1; min-width: 16rem; }
+.inline-check { display: inline-flex; flex-direction: row; align-items: center; gap: 0.3rem; font-size: 0.82rem; }
+.card-header .viz-legend {
+  font-size: 0.82rem;
+  font-weight: 400;
+}
+
+/* Range ladders: each parameter in its own box */
+.viz-plot .ladder-panel {
+  fill: var(--bg);
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.viz-plot .ladder-panel-rule { stroke: var(--border); stroke-width: 1; }
+.viz-plot text.ladder-title { fill: var(--text); font-weight: 700; font-size: 12.5px; }
+.viz-plot .ladder-title-unit { fill: var(--viz-ink-muted); font-weight: 400; }
+.map-axes {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.8rem;
+}
+label.map-axis { font-size: 0.8rem; gap: 0.3rem; }
+label.map-axis select { font-size: 0.8rem; padding: 0.1rem 0.3rem; }
+.viz-plot text.map-axis-title { fill: var(--text); font-weight: 600; }
+.modal-dialog .change-list {
+  margin-bottom: 0.75rem;
+}

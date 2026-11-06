@@ -1,0 +1,211 @@
+/* Colour tokens, light and dark, and the type scale. */
+
+:root {
+  --bg: #f5f6f8;
+  --card-bg: #ffffff;
+  /* Chart colours (validated pair: within a Mode / outside every Mode). */
+  --viz-in: #2a78d6;
+  --viz-out: #eb6834;
+  --viz-grid: #e5e8ec;
+  --viz-axis: #b4bbc4;
+  --viz-ink-muted: #5f6772;
+  /* Categorical colours for telling Modes apart, in this fixed order. */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #4a3aa7;
+  --series-8: #e34948;
+  --hover-bg: #f1f3f5;
+  --active-bg: #eef2f7;
+  --border: #d7dbe0;
+  /* Separators that only group things (table rows, card edges) — lighter than
+     a control's outline, which keeps --border. */
+  --border-subtle: #e6e8ec;
+  /* How wide a page's content gets: wide enough for the big tables, narrow
+     enough that a page reads as one block on a large or zoomed-out screen. */
+  --page-max: 1600px;
+  --text: #1a1d21;
+  --muted: #5f6672; /* ≥4.5:1 on the page, cards and grey badges */
+  --primary: #2b5aa0;
+  --primary-hover: #1f4278;
+  /* Text on a --primary background. */
+  --on-primary: #ffffff;
+  --accent: #7c3aed;
+  --accent-hover: #6425d0;
+  /* Calls to action that unlock everything else (Start editing). */
+  --attention: #c2410c;
+  --attention-hover: #9a3412;
+  --on-attention: #ffffff;
+  --error: #b3261e;
+  --success: #065f46;
+  --code-bg: #f1f3f5;
+
+  --badge-neutral-bg: #e5e7eb;
+  --badge-neutral-fg: #374151;
+  --badge-amber-bg: #fef3c7;
+  --badge-amber-fg: #92400e;
+  --badge-green-bg: #d1fae5;
+  --badge-green-fg: #065f46;
+  --badge-red-bg: #fee2e2;
+  --badge-red-fg: #991b1b;
+  --badge-blue-bg: #dbeafe;
+  --badge-blue-fg: #1e40af;
+  --badge-orange-bg: #fed7aa;
+  --badge-orange-fg: #9a3412;
+  --badge-yellow-bg: #fef9c3;
+  --badge-yellow-fg: #854d0e;
+  --badge-purple-bg: #ede9fe;
+  --badge-purple-fg: #5b21b6;
+
+  --matrix-none: #e5e7eb;
+  --matrix-low: #93c5fd;
+  --matrix-medium: #fcd34d;
+  --matrix-high: #fb923c;
+  --matrix-exact: #ef4444;
+  --matrix-diagonal: #f1f3f5;
+  --matrix-empty: #fafafa;
+
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-md: 0 2px 8px rgba(16, 24, 40, 0.08);
+  --shadow-lg: 0 8px 24px rgba(16, 24, 40, 0.12);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --ease: cubic-bezier(0.2, 0, 0.2, 1);
+
+  /* Base rem unit for the whole app's type scale — every font-size below is
+     in rem, so this one change scales body text, headings, and labels
+     together while keeping their relative proportions. */
+  font-size: 87.5%;
+  /* Inter: one neutral typeface for the whole app, bundled (no network needed). */
+  font-family: "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-optical-sizing: auto;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --viz-in: #3987e5;
+    --viz-out: #d95926;
+    --viz-grid: #2c323b;
+    --viz-axis: #4a525e;
+    --viz-ink-muted: #9aa2ad;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+    --series-8: #e66767;
+    --bg: #14171c;
+    --card-bg: #1c2027;
+    --hover-bg: #262b33;
+    --active-bg: #2a3038;
+    --border: #333941;
+    --border-subtle: #2a2f37;
+    --text: #e6e8eb;
+    --muted: #9aa1ab;
+    --primary: #6ea8fe;
+    --primary-hover: #8fbcff;
+    --on-primary: #0b1a33;
+    --accent: #a78bfa;
+    --accent-hover: #c4b5fd;
+    --attention: #fb923c;
+    --attention-hover: #fdba74;
+    --on-attention: #1f1305;
+    --error: #f87171;
+    --success: #34d399;
+    --code-bg: #262b33;
+
+    --badge-neutral-bg: #333941;
+    --badge-neutral-fg: #d1d5db;
+    --badge-amber-bg: #4a3a14;
+    --badge-amber-fg: #fbbf24;
+    --badge-green-bg: #113a2c;
+    --badge-green-fg: #34d399;
+    --badge-red-bg: #431419;
+    --badge-red-fg: #f87171;
+    --badge-blue-bg: #17304d;
+    --badge-blue-fg: #93c5fd;
+    --badge-orange-bg: #4a2a12;
+    --badge-orange-fg: #fb923c;
+    --badge-yellow-bg: #3d3a10;
+    --badge-yellow-fg: #fde047;
+    --badge-purple-bg: #2e2150;
+    --badge-purple-fg: #c4b5fd;
+
+    --matrix-none: #333941;
+    --matrix-low: #3b6ea5;
+    --matrix-medium: #b8860b;
+    --matrix-high: #c2601a;
+    --matrix-exact: #c0392b;
+    --matrix-diagonal: #20242b;
+    --matrix-empty: #1a1d23;
+
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --viz-in: #3987e5;
+  --viz-out: #d95926;
+  --viz-grid: #2c323b;
+  --viz-axis: #4a525e;
+  --viz-ink-muted: #9aa2ad;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+  --bg: #14171c;
+  --card-bg: #1c2027;
+  --hover-bg: #262b33;
+  --active-bg: #2a3038;
+  --border: #333941;
+  --border-subtle: #2a2f37;
+  --text: #e6e8eb;
+  --muted: #9aa1ab;
+  --primary: #6ea8fe;
+  --primary-hover: #8fbcff;
+    --on-primary: #0b1a33;
+  --attention: #fb923c;
+  --attention-hover: #fdba74;
+  --on-attention: #1f1305;
+  --error: #f87171;
+  --success: #34d399;
+  --code-bg: #262b33;
+
+  --badge-neutral-bg: #333941;
+  --badge-neutral-fg: #d1d5db;
+  --badge-amber-bg: #4a3a14;
+  --badge-amber-fg: #fbbf24;
+  --badge-green-bg: #113a2c;
+  --badge-green-fg: #34d399;
+  --badge-red-bg: #431419;
+  --badge-red-fg: #f87171;
+  --badge-blue-bg: #17304d;
+  --badge-blue-fg: #93c5fd;
+  --badge-orange-bg: #4a2a12;
+  --badge-orange-fg: #fb923c;
+  --badge-yellow-bg: #3d3a10;
+  --badge-yellow-fg: #fde047;
+  --badge-purple-bg: #2e2150;
+  --badge-purple-fg: #c4b5fd;
+
+  --matrix-none: #333941;
+  --matrix-low: #3b6ea5;
+  --matrix-medium: #b8860b;
+  --matrix-high: #c2601a;
+  --matrix-exact: #c0392b;
+  --matrix-diagonal: #20242b;
+  --matrix-empty: #1a1d23;
+
+  color-scheme: dark;
+}

@@ -1,0 +1,441 @@
+/* Elements, buttons, links, page headers, modals and form fields. */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, :is(h4, .as-h4), :is(h5, .as-h5), h6 {
+  margin: 0 0 0.5rem 0;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+h1 { font-size: 1.55rem; margin-bottom: 0.35rem; letter-spacing: -0.02em; }
+h2 { font-size: 1.07rem; }
+h3 { font-size: 1rem; }
+:is(h4, .as-h4) { font-size: 1.07rem; color: var(--text); }
+:is(h5, .as-h5) { font-size: 0.93rem; color: var(--muted); }
+
+a {
+  color: var(--primary);
+}
+
+::selection {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Controls take the page's font — browsers give them their own by default. */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+button {
+  cursor: pointer;
+  background: var(--primary);
+  color: var(--on-primary);
+  /* Transparent, so a primary button is as tall as a bordered secondary one. */
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0.48rem 0.95rem;
+  font-size: 0.93rem;
+  font-weight: 500;
+  box-shadow: none;
+  transition: background 0.15s var(--ease), box-shadow 0.15s var(--ease), transform 0.1s var(--ease);
+}
+
+button:hover {
+  background: var(--primary-hover);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.link-button {
+  background: none;
+  color: var(--primary);
+  border: 1px solid var(--border);
+  padding: 0.1rem 0.45rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  box-shadow: none;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.link-button:hover {
+  background: var(--hover-bg);
+  border-color: var(--primary);
+  text-decoration: none;
+  box-shadow: none;
+}
+.link-button:active:not(:disabled) {
+  transform: none;
+}
+/* Semantic color variants — layered on top of .link-button so every
+ * destructive/constructive text action reads the same way everywhere in the
+ * app, instead of every link-styled button looking identical regardless of
+ * what it actually does. Border tints along with the text so the action
+ * reads as a small colored button, not just colored text. */
+.link-button-danger {
+  color: var(--error);
+  border-color: color-mix(in srgb, var(--error) 45%, var(--border));
+}
+.link-button-danger:hover {
+  border-color: var(--error);
+  background: var(--badge-red-bg);
+}
+.link-button-accent {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+.link-button-accent:hover {
+  border-color: var(--accent);
+  background: var(--badge-blue-bg);
+}
+.link-button-success {
+  color: var(--badge-green-fg);
+  border-color: color-mix(in srgb, var(--badge-green-fg) 45%, var(--border));
+}
+.link-button-success:hover {
+  border-color: var(--badge-green-fg);
+  background: var(--badge-green-bg);
+}
+
+.icon-button {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.3rem 0.55rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 500;
+  box-shadow: none;
+}
+.icon-button:hover {
+  background: var(--hover-bg);
+  box-shadow: none;
+}
+
+.danger-button {
+  background: var(--error);
+}
+.danger-button:hover {
+  background: var(--error);
+  filter: brightness(0.9);
+}
+
+.accent-button {
+  background: var(--accent);
+  color: white;
+}
+.accent-button:hover {
+  background: var(--accent-hover);
+}
+
+/* Start editing: everything on an Emitter is locked until it's pressed, so
+   it stands out from the blue buttons around it. */
+button.start-editing-button,
+.button.start-editing-button {
+  background: var(--attention);
+  color: var(--on-attention);
+  border: none;
+  font-weight: 600;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--attention) 25%, transparent), var(--shadow-sm);
+}
+button.start-editing-button:hover:not(:disabled),
+.button.start-editing-button:hover:not(:disabled) {
+  background: var(--attention-hover);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--attention) 30%, transparent), var(--shadow-md);
+}
+
+.info-popover-trigger {
+  cursor: default;
+  border-bottom: 1px dotted var(--muted);
+}
+.info-popover-content {
+  position: fixed;
+  z-index: 1000;
+  /* Read-only: it closes as soon as the pointer leaves its trigger, so it
+     must never catch a click meant for whatever it covers. */
+  pointer-events: none;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  padding: 0.6rem 0.75rem;
+  min-width: 220px;
+  max-width: 320px;
+  font-size: 0.8rem;
+  font-weight: normal;
+  color: var(--text);
+  white-space: normal;
+  line-height: 1.4;
+  pointer-events: none;
+}
+.info-popover-content dl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.info-popover-content dt {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+.info-popover-content dd {
+  margin: 0 0 0.3rem 0;
+}
+
+.stagger-box-trigger {
+  background: var(--hover-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.stagger-box-trigger:hover {
+  background: var(--active-bg);
+}
+.stagger-box {
+  position: relative;
+}
+.stagger-box-content {
+  position: fixed;
+  z-index: 1000;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  padding: 0.6rem 0.75rem;
+  min-width: 200px;
+  font-size: 0.8rem;
+  white-space: normal;
+}
+
+.sort-indicator {
+  color: var(--muted);
+  margin-left: 0.25rem;
+}
+
+.sortable-th-trigger {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+}
+.sortable-th-trigger:hover {
+  color: var(--text);
+}
+.sortable-th-caret {
+  color: var(--muted);
+  font-size: 0.65rem;
+}
+.sortable-th-menu {
+  position: fixed;
+  z-index: 1000;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  min-width: 150px;
+  padding: 0.25rem;
+}
+.sortable-th-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.35rem 0.6rem;
+  border: none;
+  background: none;
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.sortable-th-menu button:hover {
+  background: var(--hover-bg);
+}
+.sortable-th-menu button.active {
+  font-weight: 600;
+  color: var(--primary);
+}
+.sortable-th-menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0.25rem 0;
+}
+
+.page-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+.page-header-row h1 {
+  margin-bottom: 0;
+}
+/* A page title without a header row keeps the same gap below it. */
+.page > h1 {
+  margin-bottom: 0.75rem;
+}
+
+.modes-toolbar-row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+.toolbar-filters,
+.toolbar-view,
+.section-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.section-count {
+  font-size: 0.8rem;
+  font-weight: normal;
+  text-transform: none;
+  letter-spacing: 0;
+  margin-left: 0.25rem;
+}
+.modes-toolbar-row input[type="text"],
+.modes-toolbar-row input[type="search"] {
+  min-width: 200px;
+}
+
+.jitter-subline {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.modal-dialog {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  padding: 1.25rem;
+  width: 360px;
+  max-width: calc(100vw - 2rem);
+}
+.modal-dialog p {
+  margin: 0 0 1rem 0;
+}
+/* A confirm message keeps its line breaks — a list of warnings, say. */
+.confirm-message {
+  white-space: pre-line;
+}
+.modal-dialog-wide {
+  width: 760px;
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+.modal-header :is(h4, .as-h4) {
+  margin: 0;
+}
+.edit-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.edit-input {
+  width: 100%;
+}
+textarea.edit-input {
+  resize: vertical;
+  font-family: inherit;
+}
+.edit-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+input,
+select,
+textarea {
+  background: var(--card-bg);
+  color: var(--text);
+  padding: 0.42rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.93rem;
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+input:hover,
+select:hover,
+textarea:hover {
+  border-color: color-mix(in srgb, var(--border) 50%, var(--muted));
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}

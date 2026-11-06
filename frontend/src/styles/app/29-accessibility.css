@@ -1,0 +1,58 @@
+/* The accessibility floor: contrast and focus fixes on top of everything above. */
+
+/* --- Accessibility floor (UI/UX audit) -------------------------------------
+ * Readable text is at least 12px (the root is 14px, so 0.86rem), and every
+ * control has a hit area of at least 24×24px (WCAG 2.2 target size).
+ * Kept here, last, so it wins over the older per-component sizes. */
+.hint-text,
+.tab,
+.data-table th,
+.status-badge,
+.task-count-chip,
+.button.small,
+.quick-jump-button,
+.link-button,
+.section-count,
+.progress-bar-label,
+.version-row-meta,
+.jitter-subline { font-size: max(0.86rem, 12px); }
+.data-table th .hint-text, .status-badge .hint-text { font-size: inherit; }
+
+.row-menu-button,
+.task-count-chip,
+.button.small,
+.quick-jump-button,
+.theme-toggle button,
+.sortable-th-trigger { min-height: 24px; }
+.row-menu-button { min-width: 28px; }
+.theme-toggle button { min-width: 28px; }
+.info-tip { width: 24px; height: 24px; cursor: pointer; }
+input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; cursor: pointer; }
+
+/* On a phone, a card's table scrolls inside the card, not the whole page. */
+@media (max-width: 760px) {
+  .card:has(> table), .card:has(> .data-table) { overflow-x: auto; }
+}
+.role-badge { font-size: max(0.79rem, 11px); }
+/* (second pass) The badges and chips the first one missed, and controls
+ * outside running text — a link-button inside a sentence is exempt. */
+.test-result-badge,
+.audit-action-badge,
+.backup-level,
+.editing-chip,
+.meta-chip { font-size: max(0.86rem, 12px); }
+.link-button:not(p *):not(li *),
+.attention-group-head,
+.emitter-pins-chip,
+.data-table select,
+.split-button-caret,
+.stagger-box-trigger { min-height: 24px; }
+.split-button-caret, .expand-col .link-button { min-width: 24px; }
+.summary-link { display: inline-flex; align-items: center; min-height: 24px; }
+/* (third pass) Labels whose older rules are more specific. The keyboard
+ * hint in the search button stays a little smaller, as a hint. */
+:root :is(.task-count-chip, .summary-label, .notes-drawer-tab-label, .theme-toggle button, .view-toggle button, .segmented button, .version-tag, .inline-label, .change-item-kind) {
+  font-size: max(0.86rem, 12px);
+}
+:root .theme-toggle button .icon { font-size: 1rem; }
+:root .quick-jump-button kbd { font-size: 11px; }

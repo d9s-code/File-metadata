@@ -1,0 +1,128 @@
+/* Platform coverage charts, the Platforms list, Platform tests. */
+
+/* A Platform's coverage charts. */
+.platform-charts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.platform-charts-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.platform-chart-band {
+  fill: color-mix(in srgb, var(--viz-grid) 40%, transparent);
+}
+.platform-chart .viz-gridline { stroke: var(--viz-grid); stroke-width: 1; }
+.platform-chart-label {
+  font-size: 11px;
+  fill: var(--text);
+}
+.platform-chart svg text.platform-chart-tick {
+  fill: var(--viz-ink-muted);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+.platform-chart svg text.platform-chart-none {
+  fill: var(--viz-ink-muted);
+  font-size: 11px;
+}
+.platform-charts-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.platform-charts-grid.side {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .platform-charts-grid.side { grid-template-columns: minmax(0, 1fr); }
+}
+.platform-chart .viz-card-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.platform-chart-zoom {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.platform-chart-scroll {
+  overflow-x: auto;
+}
+.platform-chart-svg {
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+}
+.platform-chart-svg.dragging {
+  cursor: grabbing;
+}
+.platform-chart-mark-swatch {
+  vertical-align: middle;
+  background: repeating-linear-gradient(45deg, var(--error) 0 2px, transparent 2px 5px);
+  border: 1.5px solid var(--error);
+}
+.platform-chart-ambiguity-note { margin: 0; }
+.platform-chart-mark {
+  stroke: var(--error);
+  stroke-width: 1.5;
+}
+.platform-chart-hatch {
+  stroke: var(--error);
+  stroke-width: 2.5;
+}
+.platform-chart-label.emitter {
+  font-weight: 600;
+}
+.platform-chart-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-right: 1rem;
+}
+.platform-chart-swatch {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 2px;
+}
+
+/* The Platforms list. */
+.platforms-table td.platforms-description {
+  max-width: 22rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.platforms-ambiguous {
+  color: var(--error);
+}
+
+/* A Platform test: a section per pinned Emitter. */
+.platform-test-table .platform-test-notes {
+  min-width: 18rem;
+  width: 45%;
+}
+.platform-test-table .platform-test-notes textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+.platform-test-table tr.excluded-row > td {
+  opacity: 0.55;
+}
+.platform-test-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.platform-test-results li + li {
+  margin-top: 0.2rem;
+}

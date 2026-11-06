@@ -1,0 +1,325 @@
+/* Tabs, EW Group panels and what goes with them. */
+
+.tab-bar {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+/* One size for every tab, whether a button or a link. */
+.tab {
+  background: none;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  line-height: 1.25;
+}
+a.tab {
+  display: inline-block;
+  text-decoration: none;
+}
+.tab.active {
+  background: var(--primary);
+  color: var(--on-primary);
+  border-color: var(--primary);
+}
+/* A tab isn't a primary button: hovering it shouldn't paint it blue. */
+.tab:hover {
+  background: var(--hover-bg);
+  color: var(--text);
+  box-shadow: none;
+}
+.tab.active:hover {
+  background: var(--primary-hover);
+  color: var(--on-primary);
+}
+
+.ew-group-panel .ew-group-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+.ew-group-meta {
+  display: flex;
+  gap: 1rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  flex: 1;
+}
+
+.page-loading {
+  padding: 2rem;
+  text-align: center;
+  color: var(--muted);
+}
+
+code {
+  background: var(--code-bg);
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  font-size: 0.85em;
+}
+
+.success-text {
+  color: var(--success);
+}
+
+.source-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.source-card-header h3 {
+  margin: 0 0 0.25rem 0;
+}
+.source-card-header .ew-group-meta {
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.source-card-body {
+  margin-top: 1rem;
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+}
+
+
+.source-group-section {
+  margin-top: 1rem;
+}
+.source-group-section:first-child {
+  margin-top: 0;
+}
+.source-group-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0.5rem 0.25rem;
+  cursor: pointer;
+  text-align: left;
+  font-size: 1rem;
+  color: var(--text);
+}
+.source-group-header:hover {
+  background: var(--hover-bg);
+  border-radius: 4px;
+}
+.source-group-toggle {
+  color: var(--muted);
+  font-size: 0.75rem;
+  width: 1rem;
+}
+
+.setup-collapse {
+  margin-top: 1.5rem;
+}
+.setup-collapse summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 0.5rem 0;
+  list-style: none;
+}
+.setup-collapse summary::-webkit-details-marker {
+  display: none;
+}
+.setup-collapse summary::before {
+  content: "▸ ";
+}
+.setup-collapse[open] summary::before {
+  content: "▾ ";
+}
+.setup-collapse > .card {
+  margin-top: 0.5rem;
+}
+
+.modes-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+.modes-section-header :is(h4, .as-h4) {
+  margin: 0;
+}
+
+.mode-status-badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin-left: 0.4rem;
+  vertical-align: middle;
+}
+.mode-status-draft { background: var(--badge-amber-bg); color: var(--badge-amber-fg); }
+.mode-status-superseded { background: var(--badge-neutral-bg); color: var(--badge-neutral-fg); }
+.mode-status-rejected { background: var(--badge-red-bg); color: var(--badge-red-fg); }
+
+.test-derived-badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  background: var(--badge-blue-bg);
+  color: var(--badge-blue-fg);
+  margin-left: 0.4rem;
+  vertical-align: middle;
+  cursor: pointer;
+  text-decoration: none;
+}
+a.test-derived-badge:hover {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+span.test-derived-badge {
+  cursor: default;
+  border-bottom: 1px dotted currentColor;
+}
+
+.highlighted-row {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+.mode-draft-row {
+  background: color-mix(in srgb, var(--badge-amber-bg) 40%, transparent);
+}
+
+.mode-draft-notice {
+  font-size: 0.75rem;
+  color: var(--badge-amber-fg);
+  display: block;
+  margin-top: 0.2rem;
+}
+
+.derived-from-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.75rem;
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.mode-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.mode-card {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.mode-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.mode-card-badges {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.mode-card-fields {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem 0.75rem;
+}
+.mode-card-fields dt {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.mode-card-fields dd {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.element-group {
+  margin-bottom: 0.75rem;
+}
+.element-group :is(h5, .as-h5) {
+  margin: 0 0 0.35rem 0;
+}
+.element-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.5rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.element-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.frametime-badge {
+  font-size: 0.75rem;
+  color: var(--muted);
+  background: var(--hover-bg);
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+}
+
+.cartesian-panel {
+  margin-bottom: 1rem;
+}
+.cartesian-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 0.75rem 0;
+}
+.checkbox-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 160px;
+  overflow-y: auto;
+}
+.checkbox-label {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.batch-summary-row {
+  background: var(--bg);
+  font-weight: 600;
+}
+.batch-summary-row td {
+  border-bottom: 1px solid var(--border);
+}
+
+.dsl-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.dsl-editor textarea {
+  font-family: ui-monospace, monospace;
+}
+
+/* A test report's details under its title: labelled fields, divided. */

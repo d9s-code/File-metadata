@@ -1,0 +1,79 @@
+/* Button variants and the More menu. */
+
+/* --- Buttons: primary (solid), secondary (outlined), danger-outline ---- */
+/* A link that does a button's job (e.g. "Import CSV" opening a page). */
+a.button {
+  display: inline-block;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0.48rem 0.95rem;
+  font-size: 0.93rem;
+  font-weight: 500;
+  line-height: normal;
+  text-decoration: none;
+  background: var(--primary);
+  color: var(--on-primary);
+}
+.button.secondary {
+  background: var(--card-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+.button.secondary:hover:not(:disabled) {
+  background: var(--hover-bg);
+  border-color: var(--primary);
+}
+.button.danger-outline {
+  background: var(--card-bg);
+  color: var(--error);
+  border: 1px solid color-mix(in srgb, var(--error) 45%, var(--border));
+  box-shadow: none;
+}
+.button.danger-outline:hover:not(:disabled) {
+  background: var(--badge-red-bg);
+  border-color: var(--error);
+}
+.button.small {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.8rem;
+}
+
+/* --- "More" menu ------------------------------------------------------ */
+.menu-button-list {
+  position: fixed;
+  z-index: 1000;
+  min-width: 15rem;
+  padding: 0.3rem 0;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+}
+.menu-button-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.4rem 0.8rem;
+  background: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  font-weight: normal;
+  text-decoration: none;
+}
+.menu-button-item:hover:not(:disabled) {
+  background: var(--hover-bg);
+  box-shadow: none;
+  text-decoration: none;
+}
+.menu-button-item:disabled {
+  color: var(--muted);
+}
+.menu-button-item.danger {
+  color: var(--error);
+}

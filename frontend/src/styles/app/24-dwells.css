@@ -1,0 +1,202 @@
+/* Dwells. */
+
+/* Dwells: Strategies (the dwells table beside the waterfall chart) and dwell files. */
+.dwell-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.dwell-chip a { font-weight: 600; }
+.tab .tab-count {
+  display: inline-block;
+  min-width: 1.4em;
+  margin-left: 0.3rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--badge-neutral-bg);
+  color: var(--badge-neutral-fg);
+  font-size: 0.72rem;
+  text-align: center;
+}
+.dwell-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 31rem) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+  margin-top: 0.75rem;
+}
+@media (max-width: 1100px) {
+  .dwell-editor { grid-template-columns: minmax(0, 1fr); }
+}
+.dwell-editor-table { margin: 0; }
+.dwell-editor-chart { position: sticky; top: 0.75rem; }
+.dwell-editor.wide { grid-template-columns: minmax(0, 1fr); }
+.dwell-editor.wide .dwell-editor-chart { position: static; order: -1; }
+.dwell-editor.wide .dwell-editor-table { max-width: 40rem; }
+.dwell-editor-chart .dwell-chart { margin: 0; }
+.dwell-table-wrap { max-height: 32rem; overflow-y: auto; }
+.dwell-table { width: 100%; table-layout: fixed; }
+.dwell-table .dwell-col-n { width: 2.2rem; }
+.dwell-table .dwell-col-start { width: 4.6rem; }
+.dwell-table .dwell-col-menu { width: 2.6rem; }
+.dwell-table th, .dwell-table td { padding-left: 0.35rem; padding-right: 0.35rem; }
+.dwell-table th { white-space: normal; }
+.dwell-table thead th { position: sticky; top: 0; background: var(--card-bg); z-index: 1; }
+.dwell-table td { padding-top: 0.2rem; padding-bottom: 0.2rem; }
+.dwell-table input { width: 100%; min-width: 0; box-sizing: border-box; padding-left: 0.35rem; padding-right: 0.2rem; }
+.dwell-table td.row-actions { width: auto; padding-left: 0; padding-right: 0; }
+.dwell-table-wrap { overflow-x: hidden; }
+.dwell-table th.num, .dwell-table td.num, .dwell-links .num, .dwell-strategy-list .num { text-align: right; white-space: nowrap; }
+.dwell-table tr.hovered td, .dwell-links tr.open td { background: var(--hover-bg); }
+.dwell-table .muted { color: var(--muted); font-size: 0.85rem; }
+.dwell-editor-add { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.6rem; }
+.dwell-save-bar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--attention);
+  border-radius: var(--radius-sm);
+  background: var(--card-bg);
+  font-size: 0.85rem;
+}
+.dwell-save-bar > span { flex: 1; }
+.dwell-chart-empty { padding: 2rem 1rem; text-align: center; }
+.viz-plot .dwell-hit { fill: transparent; }
+.viz-plot .dwell-band { fill-opacity: 0.45; stroke-opacity: 0.95; stroke-width: 1; transition: fill-opacity 0.1s; }
+.viz-plot .dwell-step.hovered .dwell-band { fill-opacity: 0.85; }
+.viz-plot .dwell-step.dimmed .dwell-band { fill-opacity: 0.3; stroke-opacity: 0.55; }
+.viz-plot .dwell-hop { stroke: var(--viz-ink-muted); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.6; }
+.viz-plot text.dwell-step-label { fill: var(--muted); font-size: 11px; pointer-events: none; }
+.viz-plot text.dwell-step-label.inside { fill: var(--text); font-weight: 600; }
+.viz-plot .viz-axis { stroke: var(--border); }
+.dwell-used-in { display: grid; grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr)); gap: 1rem; margin-top: 0.75rem; }
+.dwell-used-in .card { margin: 0; }
+.dwell-used-in h3 { margin-top: 0; }
+.dwell-group-row th {
+  background: var(--hover-bg);
+  text-align: left;
+  font-weight: 600;
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
+}
+.dwell-dot {
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-left: 0.35rem;
+  border-radius: 50%;
+  background: var(--attention);
+  vertical-align: middle;
+}
+.dwell-links { margin-top: 0.5rem; }
+.dwell-link-row { cursor: pointer; }
+.dwell-link-row:hover td { background: var(--hover-bg); }
+.dwell-disclosure { color: var(--muted); display: inline-block; width: 0.8rem; }
+.dwell-link-detail > td { padding: 0.5rem 0.75rem 0.75rem; }
+.dwell-link-detail .dwell-chart { margin: 0; }
+.dwell-links .status-badge, .dwell-strategy-list .status-badge, td .status-badge { margin-left: 0.35rem; }
+.dwell-callout {
+  margin: 0.75rem 0;
+  padding: 0.55rem 0.8rem;
+  border-left: 3px solid var(--attention);
+  background: var(--hover-bg);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+}
+.dwell-empty { margin: 1rem 0; }
+.viz-plot .dwell-occupied { fill-opacity: 0.1; stroke: none; transition: fill-opacity 0.1s; }
+.viz-plot .dwell-occupied.picked { fill-opacity: 0.26; }
+.viz-plot .dwell-occupied.faded { fill-opacity: 0.04; }
+.viz-plot .dwell-lane-track { fill: var(--hover-bg); }
+.viz-plot .dwell-lane.faded { opacity: 0.35; }
+.dwell-overlay-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.9rem;
+  padding: 0.5rem 0.75rem 0.6rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.82rem;
+}
+.dwell-overlay-title { color: var(--muted); font-weight: 600; }
+.dwell-overlay-item { display: inline-flex; align-items: center; gap: 0.35rem; }
+.dwell-overlay-item.off { opacity: 0.45; }
+.dwell-overlay-item.off a { text-decoration: line-through; }
+.dwell-overlay-toggle {
+  display: inline-flex;
+  padding: 0.15rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: none;
+  box-shadow: none;
+  cursor: pointer;
+}
+.dwell-overlay-toggle .viz-swatch { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 2px; }
+.dwell-overlay-item.off .viz-swatch { background: transparent; }
+.dwell-coverage { color: var(--success); font-size: 0.78rem; }
+.dwell-coverage.part { color: var(--muted); }
+.dwell-coverage.none { color: var(--error); font-weight: 600; }
+.platform-dwells { margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem; }
+.platform-dwells-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.platform-dwells-head p { margin: 0; }
+.platform-dwells .dwell-chart { margin: 0; }
+.dwell-pick-row { cursor: pointer; }
+.dwell-pick-row:hover td { background: var(--hover-bg); }
+.dwell-pick-row.picked td { background: var(--active-bg); }
+.dwell-pick-row.picked td:first-child { box-shadow: inset 3px 0 0 var(--primary); }
+.dwell-chart-header { flex-wrap: wrap; gap: 0.5rem 1rem; }
+.dwell-chart-controls { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-left: auto; }
+.dwell-chart-controls .theme-toggle button { font-size: 0.78rem; padding: 0.2rem 0.55rem; }
+.dwell-chart-summary { padding: 0 0.75rem; font-size: 0.8rem; }
+label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: center; gap: 0.35rem; font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+.dwell-bandwidth input { width: 4.5rem; padding: 0.15rem 0.35rem; }
+.dwell-plot { position: relative; }
+.dwell-tip {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 11rem;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--series-1);
+  border-radius: var(--radius-sm);
+  background: var(--card-bg);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  font-size: 0.82rem;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.dwell-tip-freq { font-size: 1.05rem; font-weight: 700; color: var(--primary); }
+.dwell-tip-name { font-weight: 600; }
+.dwell-tip-minor { color: var(--muted); font-size: 0.78rem; }
+.viz-plot .dwell-break rect { fill: var(--hover-bg); opacity: 0.8; }
+.viz-plot .dwell-break-mark { stroke: var(--muted); stroke-width: 1.5; fill: none; }
+.viz-plot text.dwell-plot-empty { fill: var(--muted); font-size: 13px; }
+.dwell-restored {
+  margin-bottom: 0.6rem;
+  padding: 0.45rem 0.7rem;
+  border-left: 3px solid var(--attention);
+  background: var(--hover-bg);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+}
+.dwell-save-bar { flex-wrap: wrap; }
+.dwell-save-bar .dwell-save-state { flex: 1 1 100%; }
+.dwell-save-bar input { flex: 1 1 12rem; min-width: 0; }
+.dwell-save-actions { display: flex; align-items: center; gap: 0.6rem; margin-left: auto; }
+.dwell-desc { color: var(--muted); font-size: 0.8rem; margin-top: 0.1rem; max-width: 28rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dwell-section-title { display: flex; align-items: center; gap: 0.4rem; font-size: 1.05rem; margin: 1rem 0 0.25rem; }
+.plain-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: inherit; }
+.dwell-version-main { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+.dwell-version-main .version-panel { margin: 0; }

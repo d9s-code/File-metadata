@@ -1,0 +1,121 @@
+/* The top bar. */
+
+.navbar {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.55rem 1.5rem;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.navbar-brand a {
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  letter-spacing: -0.01em;
+}
+.navbar-brand a::before {
+  content: "";
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  background: var(--primary);
+}
+.navbar-links {
+  flex: 1;
+  display: flex;
+  gap: 0.25rem;
+}
+.navbar-links a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 0.4rem 0.7rem;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+.navbar-links a:hover {
+  background: var(--hover-bg);
+  color: var(--text);
+}
+.navbar-links a.navbar-link-active {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+.navbar-user {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+.navbar-menu-toggle {
+  display: none;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  font-size: 0.85rem;
+  padding: 0.3rem 0.65rem;
+}
+.navbar-menu-toggle:hover {
+  background: var(--hover-bg);
+}
+/* Nine-plus links don't fit next to the brand and user controls on a
+   narrow window: fold them behind a Menu button, opening as a row below. */
+@media (max-width: 1100px) {
+  .navbar {
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+  }
+  .navbar-menu-toggle {
+    display: inline-block;
+  }
+  .navbar-user {
+    margin-left: auto;
+  }
+  .navbar-links {
+    display: none;
+    order: 10;
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    padding-top: 0.35rem;
+    border-top: 1px solid var(--border);
+  }
+  .navbar-links.open {
+    display: flex;
+  }
+}
+
+.theme-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.theme-toggle button {
+  background: var(--card-bg);
+  color: var(--muted);
+  border: none;
+  border-radius: 0;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+.theme-toggle button:hover {
+  background: var(--hover-bg);
+}
+.theme-toggle button.active {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+.theme-toggle button + button {
+  border-left: 1px solid var(--border);
+}

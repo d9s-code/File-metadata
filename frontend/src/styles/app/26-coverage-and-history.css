@@ -1,0 +1,235 @@
+/* Platform › Emitters, Element coverage, the test-run chart, version history, revert preview. */
+
+/* Platform → Emitters: the head row and the Pin Emitters dialog */
+.pinned-emitters-head {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+.pinned-emitters-head .hint-text {
+  margin-right: auto;
+}
+.pinned-version {
+  white-space: nowrap;
+}
+.pinned-version select {
+  width: auto;
+  max-width: 16rem;
+  padding: 0.15rem 0.35rem;
+  font-size: 0.85rem;
+}
+.pin-emitters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.pin-emitters-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 22rem;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.pin-emitters-list li {
+  padding: 0.3rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+.pin-emitters-list li:last-child {
+  border-bottom: none;
+}
+.pin-emitters-list li.muted {
+  opacity: 0.6;
+}
+.pin-emitters .checkbox-label {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+.pin-emitters .checkbox-label input {
+  width: auto;
+  margin: 0;
+}
+.pin-emitters-name {
+  flex: 1;
+  min-width: 0;
+}
+.pin-emitters-version {
+  white-space: nowrap;
+}
+.pin-emitters .modal-actions .hint-text {
+  margin-right: auto;
+  font-size: 0.8rem;
+}
+
+/* Element coverage: Modes' ranges above, Elements below, per parameter. */
+.element-coverage .coverage-legend {
+  margin: 0.2rem 0 0.6rem;
+  font-size: 0.85rem;
+}
+.coverage-charts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.coverage-chart .viz-plot svg text {
+  font-size: 11px;
+}
+.viz-plot .coverage-grid { stroke: var(--viz-grid); stroke-width: 1; }
+.viz-plot .coverage-axis { stroke: var(--viz-axis); stroke-width: 1; }
+.viz-plot .coverage-tick { fill: var(--viz-ink-muted); }
+.viz-plot .coverage-lane-label { fill: var(--muted); font-weight: 600; }
+.viz-plot .coverage-break rect { fill: var(--viz-grid); fill-opacity: 0.5; }
+.viz-plot .coverage-break text { fill: var(--viz-ink-muted); }
+.viz-plot .coverage-hit { fill: transparent; stroke: none; }
+.viz-plot .coverage-range rect:not(.coverage-hit) { fill: var(--viz-ink-muted); fill-opacity: 0.55; }
+.viz-plot .coverage-range:hover rect:not(.coverage-hit) { fill-opacity: 0.9; }
+.viz-plot .coverage-steps-line { stroke: var(--viz-ink-muted); stroke-width: 1; stroke-opacity: 0.6; }
+.viz-plot .coverage-element circle,
+.viz-plot .coverage-element rect:not(.coverage-hit) { stroke: var(--card-bg); stroke-width: 1.5; }
+.viz-plot .coverage-element .coverage-steps-line { stroke-width: 1.5; stroke-opacity: 1; }
+.viz-plot .coverage-element.status-good .coverage-steps-line { stroke: var(--status-good); }
+.viz-plot .coverage-element.status-warning .coverage-steps-line { stroke: var(--status-warning); }
+.viz-plot .coverage-element.status-critical .coverage-steps-line { stroke: var(--status-critical); }
+.viz-plot .coverage-element { cursor: default; }
+.viz-plot .coverage-element .coverage-hit,
+.viz-plot .coverage-range .coverage-hit { cursor: pointer; }
+.viz-swatch.coverage-range-swatch { background: var(--viz-ink-muted); opacity: 0.55; height: 6px; border-radius: 3px; }
+.coverage-tip { min-width: 14rem; }
+.coverage-type-summary { margin: 0.15rem 0 0; font-size: 0.8rem; }
+.coverage-gaps caption { text-align: left; font-weight: 600; padding: 0.6rem 0 0.3rem; color: var(--text); }
+.coverage-state { white-space: nowrap; }
+.coverage-all-good { margin: 0.6rem 0 0.2rem; }
+.coverage-include {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 1rem;
+  margin: 0.2rem 0 0.4rem;
+}
+.coverage-include .checkbox-label {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+.coverage-include .checkbox-label input {
+  width: auto;
+  margin: 0;
+}
+
+/* Test run: logged intercepts against the Modes now. */
+.recheck-bar {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  margin: 0.4rem 0;
+  border-radius: 5px;
+  overflow: hidden;
+}
+.recheck-bar-part { min-width: 6px; }
+.recheck-bar-part.status-good { background: var(--status-good); }
+.recheck-bar-part.status-warning { background: var(--status-warning); }
+.recheck-bar-part.status-critical { background: var(--status-critical); }
+.recheck-bar-part.status-neutral { background: var(--status-neutral); }
+.recheck-legend { font-size: 0.85rem; margin-bottom: 0.4rem; }
+.recheck-filter {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--text);
+  margin-bottom: 0.4rem;
+}
+.recheck-filter input { width: auto; margin: 0; }
+.recheck-state { white-space: nowrap; }
+.recheck-changed-badge { margin-left: 0.4rem; }
+.recheck-expected { font-size: 0.82rem; color: var(--error); }
+.recheck-expected.ok { color: var(--success); }
+.recheck-filter-row { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; align-items: center; }
+.recheck-picked > td { background: color-mix(in srgb, var(--status-warning) 18%, transparent); }
+.recheck-table tbody tr { cursor: pointer; }
+.recheck-chart { margin: 0.25rem 0 0.75rem; }
+.recheck-chart .chart-controls-row { margin-bottom: 0.25rem; }
+.recheck-chart-controls { flex-wrap: wrap; gap: 0.35rem 0.9rem; }
+.recheck-chart-counts { margin: 0 0 0.2rem; font-size: 0.8rem; }
+.recheck-chart-legend { font-size: 0.82rem; }
+.recheck-chart-legend svg { vertical-align: middle; }
+.recheck-chart-note { margin: 0.2rem 0 0; font-size: 0.8rem; }
+/* Zoom: the buttons and how to pan and zoom. */
+.recheck-zoom-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.9rem; margin: 0.15rem 0 0.25rem; font-size: 0.8rem; }
+.recheck-zoom-buttons { display: inline-flex; gap: 0.25rem; }
+.recheck-zoom-buttons .icon-button { min-width: 2rem; }
+/* The plot: themed from the chart tokens, so it reads in light and dark. */
+.recheck-chart-plot { position: relative; width: 100%; }
+.recheck-plot { display: block; cursor: grab; touch-action: none; }
+.recheck-plot.panning { cursor: grabbing; }
+.recheck-strip { margin-bottom: 0.5rem; }
+.recheck-plot-area { fill: var(--card-bg); }
+.recheck-plot-frame { fill: none; stroke: var(--viz-axis); stroke-width: 1; pointer-events: none; }
+.viz-plot svg text.recheck-axis-title { fill: var(--text); font-weight: 600; font-size: 11.5px; }
+.recheck-mode-box { fill: color-mix(in srgb, var(--viz-ink-muted) 8%, transparent); stroke: color-mix(in srgb, var(--viz-ink-muted) 55%, transparent); stroke-width: 1; }
+.recheck-mode-box.hot { fill: color-mix(in srgb, var(--primary) 14%, transparent); stroke: var(--primary); stroke-width: 2; }
+/* Names keep a halo of the plot's own colour, so they read over grid lines and other boxes. */
+.recheck-mode-label { font-size: 10.5px; fill: var(--viz-ink-muted); pointer-events: none; paint-order: stroke; stroke: var(--card-bg); stroke-width: 3px; stroke-linejoin: round; }
+.recheck-mode-label.hot { fill: var(--text); font-weight: 600; }
+.recheck-mode-swatch { background: color-mix(in srgb, var(--viz-ink-muted) 10%, transparent); border: 1px solid color-mix(in srgb, var(--viz-ink-muted) 55%, transparent); }
+.recheck-mark { stroke: var(--card-bg); stroke-width: 2; paint-order: stroke; }
+.recheck-mark-match { fill: var(--status-good); }
+.recheck-mark-near { fill: var(--status-warning); }
+.recheck-mark-none { stroke: var(--status-critical); stroke-width: 3; fill: none; }
+.recheck-mark-unknown { fill: var(--status-neutral); }
+.recheck-mark-ring { fill: none; stroke: var(--text); stroke-width: 1.25; stroke-dasharray: 2 2; }
+.recheck-mark-ring.picked { stroke: var(--primary); stroke-dasharray: none; stroke-width: 2.5; }
+.recheck-near-line { stroke: var(--viz-ink-muted); stroke-width: 1; stroke-dasharray: 4 3; }
+.recheck-zoom-box { fill: color-mix(in srgb, var(--primary) 10%, transparent); stroke: var(--primary); stroke-width: 1; stroke-dasharray: 4 3; pointer-events: none; }
+.recheck-wheel-hint { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; font-size: 0.95rem; font-weight: 600; color: var(--text); background: color-mix(in srgb, var(--card-bg) 70%, transparent); }
+.recheck-chart-tip { position: fixed; z-index: 50; max-width: 320px; padding: 0.4rem 0.55rem; border: 1px solid var(--border); border-radius: 6px; background: var(--card-bg); color: var(--text); box-shadow: 0 4px 14px rgb(0 0 0 / 0.25); font-size: 0.8rem; pointer-events: none; display: grid; gap: 0.35rem; }
+.recheck-tip-mode { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Version history: versions saved only for a status change (as every
+   status change was, before status stopped being versioned). */
+.version-list-fold { font-size: 0.82rem; margin: 0 0 0.4rem; }
+.version-row.status-only { opacity: 0.7; }
+.version-row.status-only .version-row-summary { font-style: italic; }
+
+/* Add a value to the Modes. */
+.add-value { display: flex; flex-direction: column; gap: 0.7rem; }
+.add-value-params { display: flex; gap: 0.4rem; }
+.add-value-fields { display: flex; flex-wrap: wrap; gap: 0.5rem 0.8rem; align-items: flex-end; }
+.add-value-fields label { font-size: 0.85rem; }
+.add-value-fields input { width: 7rem; }
+.add-value-fields .add-value-steps input { width: 16rem; }
+.add-value-rows-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.8rem; }
+.add-value-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 18rem;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.add-value-rows li { padding: 0.3rem 0.6rem; border-bottom: 1px solid var(--border); }
+.add-value-rows li:last-child { border-bottom: none; }
+.add-value-rows li.muted { opacity: 0.6; }
+.add-value-rows .checkbox-label { flex-direction: row; align-items: center; gap: 0.5rem; font-size: 0.88rem; color: var(--text); flex-wrap: wrap; }
+.add-value-rows .checkbox-label input { width: auto; margin: 0; }
+.add-value-row-label { font-weight: 500; }
+.add-value-naming { border: 0; padding: 0; margin: 0.75rem 0 0; display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.85rem; }
+.add-value-created { columns: 2 14rem; margin: 0.5rem 0 1rem; padding-left: 1.2rem; }
+.add-value-naming legend { font-weight: 600; margin-bottom: 0.25rem; }
+.add-value-naming input:not([type="radio"]) { width: 14rem; }
+.add-value .modal-actions .hint-text { margin-right: auto; }
+
+/* Revert preview. */
+.revert-preview { display: flex; flex-direction: column; gap: 0.6rem; }
+.revert-preview-list { max-height: 22rem; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.4rem 0.6rem; }
+.tab-bar .build-label { margin-left: auto; align-self: center; font-size: 0.78rem; white-space: nowrap; }

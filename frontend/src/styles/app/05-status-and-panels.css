@@ -1,0 +1,498 @@
+/* Status colours, card grids and the SIM outcome bar. */
+
+/* Status colours Admins pick for a status (see Admin → Statuses). */
+.status-color-grey { background: var(--badge-neutral-bg); color: var(--badge-neutral-fg); }
+.status-color-blue { background: var(--badge-blue-bg); color: var(--badge-blue-fg); }
+.status-color-green { background: var(--badge-green-bg); color: var(--badge-green-fg); }
+.status-color-yellow { background: var(--badge-yellow-bg); color: var(--badge-yellow-fg); }
+.status-color-amber { background: var(--badge-amber-bg); color: var(--badge-amber-fg); }
+.status-color-orange { background: var(--badge-orange-bg); color: var(--badge-orange-fg); }
+.status-color-red { background: var(--badge-red-bg); color: var(--badge-red-fg); }
+.status-color-purple { background: var(--badge-purple-bg); color: var(--badge-purple-fg); }
+.status-validated, .status-approved { background: var(--badge-green-bg); color: var(--badge-green-fg); }
+.status-deprecated, .status-rejected { background: var(--badge-red-bg); color: var(--badge-red-fg); }
+.status-released { background: var(--badge-blue-bg); color: var(--badge-blue-fg); }
+
+.test-result-badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  text-transform: capitalize;
+}
+.test-result-pass { background: var(--badge-green-bg); color: var(--badge-green-fg); }
+.test-result-fail { background: var(--badge-red-bg); color: var(--badge-red-fg); }
+.test-result-partial { background: var(--badge-amber-bg); color: var(--badge-amber-fg); }
+.test-result-inconclusive { background: var(--badge-neutral-bg); color: var(--badge-neutral-fg); }
+.test-result-derived { background: var(--badge-orange-bg); color: var(--badge-orange-fg); }
+.test-result-outdated { background: var(--badge-amber-bg); color: var(--badge-amber-fg); text-transform: none; }
+.sim-outdated-banner { margin: 0.5rem 0; padding: 0.5rem 0.7rem; border-left: 3px solid var(--status-warning); background: color-mix(in srgb, var(--status-warning) 12%, transparent); font-size: 0.88rem; }
+.sim-outdated-banner p { margin: 0.25rem 0; }
+
+.audit-action-badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  background: var(--badge-neutral-bg);
+  color: var(--badge-neutral-fg);
+}
+.audit-action-create { background: var(--badge-green-bg); color: var(--badge-green-fg); }
+.audit-action-update, .audit-action-status_change { background: var(--badge-amber-bg); color: var(--badge-amber-fg); }
+.audit-action-delete { background: var(--badge-red-bg); color: var(--badge-red-fg); }
+.audit-action-commit { background: var(--badge-blue-bg); color: var(--badge-blue-fg); }
+.audit-action-login { background: var(--badge-green-bg); color: var(--badge-green-fg); }
+.audit-action-login_failed { background: var(--badge-red-bg); color: var(--badge-red-fg); }
+.audit-action-logout { background: var(--badge-neutral-bg); color: var(--badge-neutral-fg); }
+
+.audit-diff-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0.4rem 0 0;
+  max-width: 460px;
+}
+.audit-diff-row {
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.audit-diff-label {
+  color: var(--muted);
+  margin-right: 0.4rem;
+}
+.audit-diff-old,
+.audit-diff-new {
+  display: inline-block;
+  padding: 0.05rem 0.4rem;
+  border-radius: 3px;
+  word-break: break-word;
+}
+.audit-diff-old {
+  background: var(--badge-red-bg);
+  color: var(--badge-red-fg);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+.audit-diff-new {
+  background: var(--badge-green-bg);
+  color: var(--badge-green-fg);
+}
+.audit-diff-arrow {
+  color: var(--muted);
+  margin: 0 0.3rem;
+}
+
+.audit-changes-pre {
+  margin: 0.4rem 0 0;
+  padding: 0.5rem 0.6rem;
+  background: var(--hover-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.75rem;
+  max-width: 420px;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.audit-log-layout {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+.audit-log-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 200px;
+  flex-shrink: 0;
+}
+.audit-group-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  background: none;
+  border: none;
+  color: var(--text);
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.9rem;
+}
+.audit-group-item:hover { background: var(--hover-bg); }
+.audit-group-item.active { background: var(--primary); color: var(--on-primary); }
+.audit-group-count { color: var(--muted); font-size: 0.8rem; }
+.audit-group-item.active .audit-group-count { color: rgba(255, 255, 255, 0.8); }
+.audit-log-content { flex: 1; min-width: 0; }
+
+.audit-entity-search {
+  position: relative;
+  flex: 1;
+  min-width: 260px;
+}
+.audit-entity-search input {
+  width: 100%;
+}
+.audit-entity-picker {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  max-height: 280px;
+  overflow-y: auto;
+}
+.audit-entity-picker li button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  background: none;
+  color: var(--text);
+  border: none;
+  box-shadow: none;
+  padding: 0.45rem 0.6rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 400;
+  text-align: left;
+}
+.audit-entity-picker li button:hover {
+  background: var(--hover-bg);
+}
+.audit-entity-picker-type {
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
+}
+.audit-entity-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--primary);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  font-size: 0.85rem;
+}
+.audit-entity-chip .link-button {
+  margin-left: 0.2rem;
+}
+
+/* A fixed column count rather than "as many as fit": the wide cards below
+   span a set number of columns, which only lines up when the count is
+   known — auto-fill left holes at 1920px. */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  align-items: stretch;
+}
+.dashboard-grid > .card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin-bottom: 0;
+}
+.dashboard-full {
+  grid-column: 1 / -1;
+}
+@media (max-width: 1150px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.lifecycle-card :is(h4, .as-h4) a {
+  color: inherit;
+  text-decoration: none;
+}
+.lifecycle-card :is(h4, .as-h4) a:hover {
+  text-decoration: underline;
+}
+.lifecycle-second {
+  margin-top: 1rem;
+}
+
+.dashboard-table-scroll {
+  max-height: 220px;
+  overflow-y: auto;
+}
+/* Cards that grow with the data scroll inside a fixed height instead. */
+.dashboard-table-tall {
+  max-height: 22rem;
+}
+.dashboard-scroll-body {
+  max-height: 17rem;
+  overflow-y: auto;
+}
+.dashboard-wide {
+  grid-column: span 2;
+}
+@media (max-width: 760px) {
+  .dashboard-wide {
+    grid-column: auto;
+  }
+}
+@media (min-width: 1151px) {
+  /* The Emitter table and Test Runs share a row: keep both to the same
+     scroll height so neither card runs long. */
+  .dashboard-wide .dashboard-table-tall {
+    max-height: 31rem;
+  }
+}
+.dashboard-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+.dashboard-card-header :is(h4, .as-h4) {
+  margin: 0;
+}
+.dashboard-card-tools {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.dashboard-card-tools input {
+  width: 12rem;
+}
+.dashboard-card-footer {
+  margin: 0.4rem 0 0;
+}
+.dashboard-subheading {
+  margin-top: 0.9rem;
+}
+.data-table td.nowrap {
+  white-space: nowrap;
+}
+
+/* SIM Test Line outcomes as one stacked bar. Colours match the outcome
+   badges: correct / partial / missed / inconclusive / untested. */
+.sim-headline {
+  margin: 0 0 0.6rem;
+}
+.sim-bar {
+  display: flex;
+  height: 0.6rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--viz-grid);
+}
+.sim-bar-segment {
+  height: 100%;
+  box-sizing: border-box;
+}
+/* A 2px gap of the surface between outcomes. */
+.sim-bar-segment + .sim-bar-segment { border-left: 2px solid var(--card-bg); }
+.sim-pass { background: var(--status-good); }
+.sim-partial { background: var(--status-warning); }
+.sim-fail { background: var(--status-critical); }
+.sim-inconclusive { background: var(--status-neutral); }
+.sim-untested { background: var(--viz-grid); }
+.sim-outdated { background: repeating-linear-gradient(45deg, var(--status-warning) 0 3px, color-mix(in srgb, var(--status-warning) 25%, var(--card-bg)) 3px 6px); }
+.sim-legend {
+  list-style: none;
+  margin: 0.6rem 0 0.4rem;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  font-size: 0.85rem;
+}
+.sim-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.sim-legend-swatch {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 2px;
+  border: 1px solid var(--border);
+}
+.sim-lines-cell {
+  min-width: 14rem;
+}
+.sim-lines-cell .sim-bar {
+  margin-bottom: 0.2rem;
+}
+.dashboard-table-scroll table {
+  margin-bottom: 0;
+}
+.dashboard-table-scroll th {
+  position: sticky;
+  top: 0;
+  background: var(--card-bg);
+}
+.dashboard-table-summary {
+  max-width: 1px; /* forces the column to the table-layout width, not its content width */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inline-date-filter {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.card-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.card-header-row :is(h4, .as-h4) {
+  margin-bottom: 0;
+}
+.status-summary-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.progress-bar-track {
+  background: var(--hover-bg);
+  border-radius: 999px;
+  height: 0.55rem;
+  overflow: hidden;
+}
+.progress-bar-fill {
+  background: var(--success);
+  height: 100%;
+  border-radius: 999px;
+}
+.progress-bar-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.severity-badge {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  text-transform: capitalize;
+}
+.severity-none { background: var(--badge-neutral-bg); color: var(--badge-neutral-fg); }
+.severity-low { background: var(--badge-blue-bg); color: var(--badge-blue-fg); }
+.severity-medium { background: var(--badge-amber-bg); color: var(--badge-amber-fg); }
+.severity-high { background: var(--badge-orange-bg); color: var(--badge-orange-fg); }
+.severity-exact_overlap { background: var(--badge-red-bg); color: var(--badge-red-fg); }
+
+.tolerance-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.finding-row {
+  cursor: pointer;
+}
+.finding-row:hover {
+  background: var(--hover-bg);
+}
+.finding-row.selected {
+  background: var(--active-bg);
+}
+
+.matrix-scroll {
+  overflow-x: auto;
+  /* Pin overflow-y explicitly — leaving it at its 'visible' default gets
+     silently coerced to 'auto' by the UA (per the CSS overflow spec) whenever
+     overflow-x isn't 'visible', which clips popover/dropdown content that
+     pops out below a row near the container's auto-fit height. */
+  overflow-y: hidden;
+}
+.ambiguity-matrix {
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+.ambiguity-matrix th {
+  padding: 0.3rem;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  color: var(--muted);
+}
+.ambiguity-matrix th:first-child {
+  text-align: right;
+}
+.matrix-cell {
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--bg);
+  cursor: pointer;
+}
+.matrix-diagonal {
+  background: var(--matrix-diagonal);
+  cursor: default;
+}
+.matrix-empty {
+  background: var(--matrix-empty);
+  cursor: default;
+}
+.matrix-cell.severity-none { background: var(--matrix-none); }
+.matrix-cell.severity-low { background: var(--matrix-low); }
+.matrix-cell.severity-medium { background: var(--matrix-medium); }
+.matrix-cell.severity-high { background: var(--matrix-high); }
+.matrix-cell.severity-exact_overlap { background: var(--matrix-exact); }
+.matrix-cell.matrix-selected {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+.matrix-cluster-row {
+  margin-bottom: 0.5rem;
+}
+th.matrix-group-boundary,
+td.matrix-group-boundary {
+  border-left: 2px solid var(--primary);
+}
+tr.matrix-group-boundary th,
+tr.matrix-group-boundary td {
+  border-top: 2px solid var(--primary);
+}
+
+.scatter-plot-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.range-chart h6 {
+  margin: 0 0 0.25rem 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.role-badge {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: var(--muted);
+}

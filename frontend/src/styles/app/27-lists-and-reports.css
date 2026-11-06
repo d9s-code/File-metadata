@@ -1,0 +1,185 @@
+/* The Emitters list, logged intercepts, reports, Admin › Defaults, MDF comparison. */
+
+/* Emitters list: each range as min and max columns, compact. */
+.emitters-table th,
+.emitters-table td {
+  padding: 0.55rem 0.6rem;
+}
+.emitters-table td.num,
+.emitters-table th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.emitters-table th.num .sortable-th-trigger { justify-content: flex-end; width: 100%; }
+.emitters-table .range-group {
+  text-align: center;
+  border-left: 1px solid var(--border-subtle);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.emitters-table .range-unit { color: var(--muted); font-weight: 400; }
+.emitters-table .range-start { border-left: 1px solid var(--border-subtle); }
+/* Wider filters: the search, and the ranges across the page's width. */
+.filter-bar input.filter-search-wide { width: 24rem; }
+.filter-bar-ranges {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: 0.5rem 1.2rem;
+  align-items: center;
+}
+.filter-bar-ranges .range-filter { display: flex; flex-direction: row; align-items: center; gap: 0.4rem; }
+.filter-bar-ranges .range-filter-label { min-width: 4.5rem; color: var(--muted); }
+.filter-bar-ranges .range-filter input { flex: 1; width: auto; min-width: 5rem; }
+/* The table spans the page; the name gets a set width (long names wrap)
+   and the page's spare width is shared among the other columns. */
+.emitters-table th,
+.emitters-table td { white-space: nowrap; }
+.emitters-table .emitters-name-col { width: 14rem; white-space: normal; }
+.emitters-table .sortable-th-trigger { padding-left: 0; padding-right: 0; }
+/* A required field: its star, and the field while it's still empty. */
+.required-mark { color: var(--status-critical); }
+.field-missing input { border-color: var(--status-critical); }
+/* Several Platforms wrap, within a cap, rather than widening the table. */
+.emitters-table .emitters-platforms-col { white-space: normal; min-width: 8rem; max-width: 16rem; }
+/* Logged intercepts: one line each, the parameters as columns. */
+.observed-values-editor { border-collapse: collapse; }
+.observed-values-editor th {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: left;
+  padding: 0 0.4rem 0.2rem 0;
+  white-space: nowrap;
+}
+.observed-values-editor td { padding: 0.15rem 0.4rem 0.15rem 0; vertical-align: middle; }
+.observed-values-editor input { width: 6.5rem; }
+.observed-values-editor select { width: 7.5rem; }
+.observed-values-editor td.observed-values-steps input { width: 12rem; }
+.observed-values-editor .observed-values-number { color: var(--muted); font-size: 0.8rem; text-align: right; }
+.test-run-header .received-power-input { width: 8rem; }
+/* Report: the Platforms and Emitters to pick, side by side. */
+.report-summary { margin: 0 0 0.75rem; }
+.report-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr)); gap: 1rem; align-items: start; }
+.report-picker-head { display: flex; align-items: baseline; gap: 0.6rem; margin-bottom: 0.5rem; }
+.report-picker-head h2 { margin: 0; }
+.report-picker > .card > input[type="search"] { width: 100%; margin-bottom: 0.4rem; }
+.report-picker-list { list-style: none; margin: 0; padding: 0; max-height: 60vh; overflow-y: auto; }
+.report-picker-list li { padding: 0.2rem 0; }
+.report-picker-list .checkbox-label { display: flex; align-items: center; gap: 0.5rem; }
+
+/* Admin › Defaults: label, value with its unit, and a hint or problem below. */
+.defaults-group {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin: 0 0 1rem;
+  padding: 0.5rem 1rem 0.75rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.75rem 1.5rem;
+}
+.defaults-group legend {
+  font-weight: 600;
+  padding: 0 0.25rem;
+}
+.defaults-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.defaults-input {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.defaults-input input {
+  width: 8rem;
+}
+
+/* The way back up, above a page's title (BackLink). */
+.back-link {
+  display: inline-block;
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
+/* A table row's actions, side by side. */
+.action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+/* An update's changes in one line, under its summary. */
+.audit-digest {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: 0.15rem;
+}
+/* An Emitter's version saves, reverts and discards in a trail narrowed to one kind. */
+.audit-version-row td {
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  border-top: 2px solid color-mix(in srgb, var(--primary) 45%, transparent);
+  font-weight: 600;
+}
+.audit-version-revert td,
+.audit-version-discard td {
+  background: var(--badge-amber-bg);
+  border-top-color: var(--badge-amber-fg);
+}
+
+/* A Strategy's testing in the lists: open items in amber. */
+.testing-open { color: var(--badge-amber-fg); font-weight: 600; }
+.testing-done { color: var(--muted); }
+.tab-count-warn { background: var(--badge-amber-bg); color: var(--badge-amber-fg); }
+
+/* Setting a logged run's Dwell Strategy afterwards. */
+.run-dwell-edit { margin-left: 0.4rem; }
+.run-dwell-picker { display: inline-flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+
+/* Batch-style forms in a fitted dialog (Batch edit, Add a value, Elements
+   from a test): the body scrolls, the buttons stay at the bottom. */
+.form-dialog .batch-edit-actions {
+  position: sticky;
+  bottom: -1.25rem;
+  margin-bottom: -1.25rem;
+  padding: 0.75rem 0 1.25rem;
+  background: var(--card-bg);
+  z-index: 1;
+}
+
+/* A table that may be wider (or, with a max-height, taller) than its box
+   scrolls inside it rather than spilling out. */
+.table-scroll {
+  overflow: auto;
+  max-width: 100%;
+}
+.doc-kinds-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin: 0.25rem 0 0.5rem; }
+.doc-kinds-tools .doc-kinds-filter { margin: 0; }
+.doc-kinds-page { overflow-wrap: anywhere; }
+.doc-kinds-toggle { display: inline-block; width: 1.2em; margin-right: 0.15rem; padding: 0; border: 0; background: none; text-decoration: none; color: var(--muted); }
+.doc-kinds-toggle:hover { color: var(--primary); }
+
+/* Comparing MDFs. */
+.mdf-compare-counts { margin: 0.4rem 0 0.6rem; padding-left: 1.1rem; }
+.mdf-compare-counts li { margin: 0.15rem 0; }
+.mdf-compare-kinds { display: inline-flex; flex-wrap: wrap; gap: 0.3rem 1rem; }
+.mdf-status-move { display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap; }
+.mdf-change-added { background: var(--badge-green-bg); color: var(--badge-green-fg); }
+.mdf-change-changed { background: var(--badge-amber-bg); color: var(--badge-amber-fg); }
+.mdf-change-removed { background: var(--badge-red-bg); color: var(--badge-red-fg); }
+.mdf-change-same { background: var(--badge-neutral-bg); color: var(--badge-neutral-fg); }
+.compare-verdict > p:first-child { margin-top: 0; }
+.mdf-compare-was { color: var(--muted); text-decoration: line-through; font-size: 0.85em; }
+
+/* Filling a SIM run's lines from a pasted results table. */
+.sim-results-import-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.8rem; margin-bottom: 0.5rem; }
+.sim-results-import { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.6rem 0.75rem; margin-bottom: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.sim-results-import p { margin: 0; }
+.sim-results-import textarea { width: 100%; font-family: ui-monospace, monospace; font-size: 0.82rem; }
+.sim-results-preview td { vertical-align: top; }
+.sim-results-notes { white-space: pre-line; }
+.sim-results-warning { color: var(--attention); }
+.mdf-compare-names ul { margin: 0.1rem 0 0.3rem; padding-left: 1rem; }
+.mdf-compare-names li { margin: 0; }
+.mdf-compare-toggle { font: inherit; font-weight: 600; color: var(--text); padding: 0; border: none; background: none; box-shadow: none; }

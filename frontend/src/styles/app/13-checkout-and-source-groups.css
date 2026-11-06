@@ -1,0 +1,124 @@
+/* The editing reminder and Source Groups. */
+
+/* Your checked-out Emitters, in the bottom-left corner of every page. */
+.checkout-reminder,
+.checkout-reminder-tab {
+  position: fixed;
+  left: 1rem;
+  bottom: 1rem;
+  z-index: 60;
+  box-shadow: var(--shadow-md);
+}
+.checkout-reminder {
+  width: 18rem;
+  max-height: 40vh;
+  overflow-y: auto;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--badge-amber-fg);
+  border-radius: var(--radius-md);
+  padding: 0.6rem 0.8rem;
+  font-size: 0.88rem;
+}
+/* While it's open, the page can scroll its last buttons up past it. */
+.checkout-reminder ~ .page {
+  padding-bottom: calc(min(40vh, 18rem) + 2rem);
+}
+.checkout-reminder.long-held {
+  border-left-color: var(--error);
+}
+.checkout-reminder-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.checkout-reminder p {
+  margin: 0.2rem 0 0.4rem;
+}
+.checkout-reminder ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.checkout-reminder li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.checkout-reminder li a {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.checkout-held {
+  color: var(--muted);
+  white-space: nowrap;
+}
+.checkout-held.long,
+.checkout-reminder-warning {
+  color: var(--error);
+}
+.checkout-reminder-tab {
+  background: var(--badge-amber-bg);
+  color: var(--badge-amber-fg);
+  border: 1px solid color-mix(in srgb, var(--badge-amber-fg) 40%, transparent);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  padding: 0.3rem 0.8rem;
+}
+.checkout-reminder-tab:hover {
+  background: var(--badge-amber-bg);
+  filter: brightness(0.97);
+}
+.checkout-reminder-tab.long-held {
+  background: var(--badge-red-bg);
+  color: var(--badge-red-fg);
+}
+
+/* Source Groups: query bar and the Group -> Emitter -> Source tree */
+.source-query-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.9rem;
+  align-items: flex-end;
+}
+.source-query-fields label.grow {
+  flex: 1 1 16rem;
+}
+.source-query-summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+}
+.source-tree-table td {
+  vertical-align: top;
+}
+.tree-toggle {
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--muted);
+  padding: 0 0.35rem 0 0;
+  font-size: 0.85rem;
+  width: 1.2rem;
+}
+.tree-toggle:hover:not(:disabled) {
+  background: none;
+  color: var(--text);
+}
+.tree-row.tree-emitter > td:first-child {
+  padding-left: 1.8rem;
+}
+.tree-row.tree-source > td:first-child {
+  padding-left: 3.6rem;
+}
+.data-table tbody tr.tree-group > td {
+  border-top: 2px solid var(--border);
+}
