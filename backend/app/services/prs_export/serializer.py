@@ -8,6 +8,7 @@ package for exactly which fields are real vs. placeholder.
 """
 
 import re
+import uuid
 
 from lxml import etree
 
@@ -180,11 +181,25 @@ def build_platform_element(platform_snapshot: dict) -> etree._Element:
     return root
 
 
-def build_library_root(*, mdf_id: str, mdf_name: str) -> etree._Element:
+def library_id(value) -> str:
+    """The MDF's Id as the library file writes it: XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
+    (8-4-4-4-12 letters and digits). It's the MDF's own UUID, made when the
+    MDF was created, so it stays the same across its versions and exports."""
+    return str(uuid.UUID(str(value)))
+
+
+def build_library_root(*, mdf_id: str, mdf_name: str, platform_names: list[str]) -> etree._Element:
+    """The library file at the top of an export: the default Unknown Platform,
+    then the MDF — its Id, its name, and a PlatformFile for each Platform in
+    it, pointing at the file in platforms\\ (as a Platform file lists its
+    Emitters with EmitterFile)."""
     root = etree.Element("ThreatLibrary", nsmap={None: PRS_NAMESPACE})
     etree.SubElement(root, "DefaultUnknown").text = "platforms\\default_unknown_platform.xml"
-    mdf_el = etree.SubElement(root, "MDF", Id=str(mdf_id))
+    mdf_el = etree.SubElement(root, "MDF", Id=library_id(mdf_id))
     etree.SubElement(mdf_el, "Name").text = _sanitize(mdf_name)
+    config_el = etree.SubElement(mdf_el, "Configuration")
+    for name in platform_names:
+        etree.SubElement(config_el, "PlatformFile").text = f"platforms\\{sanitize_filename(name)}.xml"
     return root
 
 

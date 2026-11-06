@@ -64,7 +64,7 @@ def build_platform_export_zip(platform_snapshot: dict, *, platform_id: str) -> b
         platform_name = platform_snapshot["name"]
         zf.writestr(f"platforms/{sanitize_filename(platform_name)}.xml", to_xml_bytes(platform_el))
 
-        root_el = build_library_root(mdf_id=platform_id, mdf_name=platform_name)
+        root_el = build_library_root(mdf_id=platform_id, mdf_name=platform_name, platform_names=[platform_name])
         zf.writestr(f"{sanitize_filename(platform_name)}.xml", to_xml_bytes(root_el))
 
     return buffer.getvalue()
@@ -82,6 +82,7 @@ def build_mdf_export_zip(mdf_snapshot: dict, *, mdf_id: str, dwell_files: dict[s
 
         written_emitters: set[str] = set()
         written_platforms: set[str] = set()
+        written_platforms_in_order: list[str] = []
         for link in mdf_snapshot.get("links", []):
             platform_snapshot = link["platform_snapshot"]
             _write_emitter_files(zf, written_emitters, platform_snapshot.get("links", []))
@@ -89,13 +90,16 @@ def build_mdf_export_zip(mdf_snapshot: dict, *, mdf_id: str, dwell_files: dict[s
             platform_name = link["platform_name"]
             if platform_name not in written_platforms:
                 written_platforms.add(platform_name)
+                written_platforms_in_order.append(platform_name)
                 platform_el = build_platform_element(platform_snapshot)
                 zf.writestr(f"platforms/{sanitize_filename(platform_name)}.xml", to_xml_bytes(platform_el))
 
         for name, content in (dwell_files or {}).items():
             zf.writestr(f"dwells/{sanitize_filename(name)}.xml", content)
 
-        root_el = build_library_root(mdf_id=mdf_id, mdf_name=mdf_snapshot["name"])
+        root_el = build_library_root(
+            mdf_id=mdf_id, mdf_name=mdf_snapshot["name"], platform_names=list(written_platforms_in_order)
+        )
         zf.writestr(f"{sanitize_filename(mdf_snapshot['name'])}.xml", to_xml_bytes(root_el))
 
     return buffer.getvalue()

@@ -24,7 +24,10 @@ The exported ZIP file must contain the following hierarchy:
 The root file links the library to a specific MDF ID.
 - **Root Element**: `<ThreatLibrary xmlns="urn:com:bae:prs:pfm:library">`
 - **DefaultUnknown**: `<DefaultUnknown>platforms\default_unknown_platform.xml</DefaultUnknown>`
-- **MDF Entry**: `<MDF Id="{uuid}"><Name>{name}</Name></MDF>`
+- **MDF Entry**: `<MDF Id="{uuid}"><Name>{name}</Name><Configuration>…</Configuration></MDF>`
+    - `Id`: `XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX` (8-4-4-4-12 letters and digits) — the MDF's own UUID, the same in every export of it.
+    - `<Configuration>`: one `<PlatformFile>platforms\{platform_name}.xml</PlatformFile>` per Platform in the MDF (no `Count`), as a Platform file lists its Emitters with `EmitterFile`.
+    - A single Platform's export lists just that Platform, with the Platform's UUID as `Id`.
 
 ### 3.2. Emitter (`emitters/[emitter_name].xml`)
 Maps an Emitter and its Modes.
