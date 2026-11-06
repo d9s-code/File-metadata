@@ -94,7 +94,7 @@ def main(argv: list[str] | None = None) -> int:
     print_report(diffs)
     if args.csv:
         with open(args.csv, "w", newline="", encoding="utf-8-sig") as f:
-            writer = csv.DictWriter(f, fieldnames=["sheet", "key", "column", "app", "other", "kind"])
+            writer = csv.DictWriter(f, fieldnames=["sheet", "key", "column", "app", "other", "kind"], extrasaction="ignore")
             writer.writeheader()
             writer.writerows(diffs)
     return 1 if diffs else 0

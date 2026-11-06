@@ -183,7 +183,7 @@ export function MdfImportCheckPanel({ mdf, versions }: { mdf: { id: string; name
                     type="search"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Platform, Emitter, Mode or column"
+                    placeholder="Name or column"
                   />
                 </label>
                 <button type="button" className="button secondary small" onClick={() => downloadCsv(result, mdf.name)}>
