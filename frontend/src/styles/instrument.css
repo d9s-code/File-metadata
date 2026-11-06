@@ -1,0 +1,164 @@
+/* Instrument style (Settings › Appearance): a compact console. Neutral
+   black in dark mode, panels with monospace title bars, dense tables with
+   column lines and zebra rows, figures and tags in a monospace face.
+   Applies only while <html data-style="instrument">; Classic is index.css alone. */
+
+:root[data-style="instrument"] {
+  --bg: #f3f3f5;
+  --nav-bg: #fafafa;
+  --card-bg: #ffffff;
+  --panel-head: #f4f4f6;
+  --th-bg: #f4f4f6;
+  --zebra: #fafafb;
+  --row-hover: #eef0f6;
+  --input-bg: #ffffff;
+  --border: #d4d4d8;
+  --border-subtle: #e4e4e7;
+  --text: #18181b;
+  --muted: #5d5d69;
+  --primary: #4352cf;
+  --primary-hover: #3341b5;
+  --on-primary: #ffffff;
+  --hover-bg: #ededf0;
+  --active-bg: #e6e8f5;
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 4px;
+  --shadow-sm: none;
+  --mono: "JetBrains Mono Variable", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-style="instrument"]:not([data-theme="light"]) {
+    --bg: #0b0b0d;
+    --nav-bg: #0f0f12;
+    --card-bg: #131316;
+    --panel-head: #18181c;
+    --th-bg: #18181c;
+    --zebra: #151518;
+    --row-hover: #1d1d23;
+    --input-bg: #0f0f12;
+    --border: #2c2c33;
+    --border-subtle: #222228;
+    --text: #e7e7ea;
+    --muted: #8d8d98;
+    --primary: #8fa2ff;
+    --primary-hover: #aebbff;
+    --on-primary: #0b0d1a;
+    --hover-bg: #1b1b20;
+    --active-bg: #1f1f26;
+  }
+}
+:root[data-style="instrument"][data-theme="dark"] {
+  --bg: #0b0b0d;
+  --nav-bg: #0f0f12;
+  --card-bg: #131316;
+  --panel-head: #18181c;
+  --th-bg: #18181c;
+  --zebra: #151518;
+  --row-hover: #1d1d23;
+  --input-bg: #0f0f12;
+  --border: #2c2c33;
+  --border-subtle: #222228;
+  --text: #e7e7ea;
+  --muted: #8d8d98;
+  --primary: #8fa2ff;
+  --primary-hover: #aebbff;
+  --on-primary: #0b0d1a;
+  --hover-bg: #1b1b20;
+  --active-bg: #1f1f26;
+}
+
+:root[data-style="instrument"] {
+  & body { background: var(--bg); }
+
+  /* Top bar: compact, a monogram, indicator tabs. */
+  & .navbar { min-height: 44px; padding-top: 0; padding-bottom: 0; background: var(--nav-bg); border-bottom: 1px solid var(--border-subtle); box-shadow: none; gap: 20px; }
+  & .navbar-brand a { font-family: var(--mono); font-size: 0.9rem; font-weight: 600; letter-spacing: 0.02em; }
+  & .navbar-brand a::before { width: auto; height: auto; content: "PRS"; font-size: 0.7rem; padding: 3px 5px; border-radius: 3px; background: var(--primary); color: var(--on-primary); font-weight: 800; }
+  & .navbar-links:not(.open) { align-self: stretch; gap: 0; }
+  & .navbar-links:not(.open) a { display: flex; align-items: center; padding: 0 14px; border-radius: 0; font-size: 0.88rem; }
+  & .navbar-links a:hover { background: var(--hover-bg); color: var(--text); }
+  & .navbar-links a.navbar-link-active { background: transparent; color: var(--text); box-shadow: inset 0 -2px 0 var(--primary); }
+  & .navbar-account .role-badge { font-family: var(--mono); text-transform: lowercase; background: none; color: var(--muted); font-size: 0.68rem; }
+
+  /* Page: full width, tight. */
+  & .page { max-width: none; padding: 14px 20px 6rem; }
+  & a { text-decoration: none; }
+  & a:hover { text-decoration: underline; }
+  & .back-link { font-family: var(--mono); font-size: 0.76rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  & h1 { font-size: 1.45rem; font-weight: 600; letter-spacing: -0.01em; }
+
+  /* Entity header as its own panel with a readout row. */
+  & .emitter-header, & .emitter-header.editing { background: var(--card-bg); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 14px 16px 0; box-shadow: none; }
+  & .emitter-header::before { display: none; }
+  & .emitter-summary-strip { background: transparent; border: none; border-top: 1px solid var(--border-subtle); border-radius: 0; margin: 14px -16px 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0; }
+  & .emitter-summary-strip .summary-item { padding: 10px 18px; margin: 0; border: none; border-right: 1px solid var(--border-subtle); display: flex; flex-direction: column; gap: 2px; }
+  & .summary-label { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  & .summary-value { font-family: var(--mono); font-size: 1.05rem; font-weight: 600; }
+  & .summary-value .hint-text { font-weight: 400; font-size: 0.8rem; }
+
+  /* Tabs: boxed segments. */
+  & .tab-bar { margin: 12px 0; border-bottom: 1px solid var(--border-subtle); gap: 0; }
+  & .tab-bar .tab { border: 1px solid transparent; border-bottom: none; background: none; border-radius: 3px 3px 0 0; padding: 7px 14px; color: var(--muted); font-size: 0.86rem; box-shadow: none; margin-bottom: -1px; }
+  & .tab-bar .tab:hover { color: var(--text); background: none; }
+  & .tab-bar .tab.active { color: var(--text); background: var(--card-bg); border-color: var(--border-subtle); box-shadow: none; }
+  & .tab-count { font-family: var(--mono); background: none; color: var(--muted); }
+
+  /* Panels with monospace title bars. */
+  & .card:not(.login-card) { background: var(--card-bg); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 0 0 2px; margin-bottom: 12px; overflow: hidden; }
+  & .card:not(.login-card) > * { margin-left: 14px; margin-right: 14px; }
+  & .card:not(.login-card) > :is(.card-header, .card-header-row, .modes-section-header, .dashboard-card-header) { margin: 0 0 10px; padding: 7px 14px; background: var(--panel-head); border-bottom: 1px solid var(--border-subtle); min-height: 38px; }
+  & .card:not(.login-card) > h2.as-h4:first-child { margin: 0 0 10px; padding: 10px 14px; background: var(--panel-head); border-bottom: 1px solid var(--border-subtle); }
+  & .card :is(h2, h3, .as-h4):not(.as-h5) { font-family: var(--mono); font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; color: var(--muted); }
+  & .card :is(h2, .as-h4) :is(.section-count, .hint-text) { color: var(--text); letter-spacing: 0; }
+  & .card:not(.login-card) > .modes-toolbar-row { margin: 0; padding: 0 14px 10px; }
+  & .card:not(.login-card) > :is(.data-table, .matrix-scroll, .table-scroll) { margin-left: 0; margin-right: 0; }
+  & .card > .matrix-scroll > .data-table, & .card > .table-scroll > .data-table, & .card > .data-table { margin-bottom: 0; }
+  & .modal-dialog .card { border: none; padding: 0; }
+  & .modal-dialog .card > * { margin-left: 0; margin-right: 0; }
+
+  /* Dense tables with column lines and zebra rows. */
+  & .data-table th { background: var(--th-bg); font-size: 0.74rem; font-weight: 600; color: var(--muted); padding: 6px 10px; border-bottom: 1px solid var(--border); }
+  & .data-table td { padding: 6px 10px; font-size: 0.88rem; }
+  & .data-table > * > tr > :is(th, td) + :is(th, td) { border-left: 1px solid var(--border-subtle); }
+  & .data-table > tbody > tr:nth-child(even) { background: var(--zebra); }
+  & .data-table > tbody > tr:hover { background: var(--row-hover); }
+  & .data-table :is(td, th).num { text-align: right; }
+  & .data-table td.num { font-family: var(--mono); font-size: 0.82rem; }
+  & .data-table th.num .sortable-th-trigger { justify-content: flex-end; width: 100%; }
+  & .data-table .info-popover-trigger { border-bottom: none; }
+
+  /* Status and test results: square monospace tags. */
+  & .status-badge, & span.test-result-badge { font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.66rem; font-weight: 600; border-radius: 2px; padding: 2px 6px; background: color-mix(in srgb, currentColor 14%, transparent); border: 1px solid color-mix(in srgb, currentColor 40%, transparent); }
+
+  /* A test run: a readout bar, a coloured edge per result, the intercepted
+     values on one line. */
+  & .run-facts { display: flex; flex-wrap: wrap; gap: 0; background: var(--card-bg); border: 1px solid var(--border-subtle); border-radius: 4px; margin: 10px 0 12px; }
+  & .run-fact, & .run-fact:first-child { padding: 9px 16px; border-left: none; border-right: 1px solid var(--border-subtle); }
+  & .run-fact dt { font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.1em; text-transform: uppercase; }
+  & .run-fact dt .unit { text-transform: none; letter-spacing: 0; }
+  & .run-fact dd { font-family: var(--mono); font-size: 0.95rem; font-weight: 600; }
+  & .data-table tbody tr:has(> td > .test-result-fail) > td:first-child { box-shadow: inset 3px 0 0 var(--badge-red-fg); }
+  & .data-table tbody tr:has(> td > .test-result-partial) > td:first-child { box-shadow: inset 3px 0 0 var(--badge-amber-fg); }
+  & .data-table tbody tr:has(> td > .test-result-pass) > td:first-child { box-shadow: inset 3px 0 0 var(--badge-green-fg); }
+  & .observed-values { border: none; background: none; margin: 0; }
+  & .observed-values thead { display: none; }
+  & .observed-values :is(tbody, tr) { display: block; background: none; border: none; }
+  & .observed-values td { display: inline; padding: 0 14px 0 0; border: none; font-family: var(--mono); font-size: 0.8rem; white-space: nowrap; text-align: left; }
+  & .observed-values td::before { content: attr(data-label) " "; font-size: 0.66rem; color: var(--muted); letter-spacing: 0.06em; }
+  & .observed-values td::after { content: " " attr(data-unit); color: var(--muted); font-size: 0.66rem; }
+
+  /* Controls: squarer. */
+  & :is(button, a.button, .button, .link-button, input, select, textarea) { border-radius: 3px; }
+  & :is(input:not([type="checkbox"], [type="radio"]), select, textarea) { background-color: var(--input-bg); border-color: var(--border); }
+  & .button.secondary, & a.button.secondary { background: transparent; }
+
+  /* Dialogs: a console title bar. */
+  & .modal-overlay { background: rgba(0, 0, 0, 0.6); }
+  & .modal-dialog { border-radius: 4px; }
+  & .modal-dialog.form-dialog { padding: 0; }
+  & .modal-dialog.form-dialog > .modal-header { position: sticky; top: 0; z-index: 2; background: var(--panel-head); padding: 9px 16px; border-bottom: 1px solid var(--border-subtle); margin: 0; }
+  & .modal-dialog.form-dialog > .modal-header :is(h2, .as-h4) { font-family: var(--mono); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.1em; }
+  & .modal-dialog.form-dialog > :not(.modal-header) { padding-left: 16px; padding-right: 16px; }
+  & .modal-dialog.form-dialog input:not([type="checkbox"], [type="radio"]) { font-family: var(--mono); }
+}

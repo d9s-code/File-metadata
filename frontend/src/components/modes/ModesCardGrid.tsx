@@ -20,6 +20,7 @@ import {
   groupModesForDisplay,
   jitterOrFrameTimeDisplay,
   priDisplay,
+  priTypeLabel,
   pwDisplay,
   rangeMatchingTags,
   rfDisplay,
@@ -142,7 +143,7 @@ export function ModesCardGrid({
               </dd>
               <dt>PRI</dt>
               <dd>
-                <span className="mode-card-pri-type">{m.pri_type.toUpperCase()}</span>{" "}
+                <span className="mode-card-pri-type">{priTypeLabel(m.pri_type)}</span>{" "}
                 {m.pri_type === "fixed" ? (
                   <>
                     {span(pri.min, pri.max)} <span className="hint-text">µs</span>

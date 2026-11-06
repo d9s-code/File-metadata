@@ -949,6 +949,10 @@ export function HelpPage() {
           <p>
             <strong>Settings</strong> (your name, top right → Settings…) lets you switch off the AI chat, telling it
             which page you&apos;re on, or the AI drafts on the ambiguity page — for you only, wherever you sign in.
+            It&apos;s also where you pick the app&apos;s <strong>Style</strong>: <strong>Workbench</strong> (roomy, key
+            numbers as readouts, the Mode editor sliding in from the right), <strong>Instrument</strong> (compact and
+            dense, like a console) or <strong>Classic</strong> (the original look). Each has a light and a dark version,
+            and the choice is kept in this browser, like light and dark.
           </p>
         </div>
       </div>

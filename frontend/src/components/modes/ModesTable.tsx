@@ -11,6 +11,7 @@ import {
   groupModesForDisplay,
   jitterOrFrameTimeDisplay,
   priDisplay,
+  priTypeLabel,
   pwDisplay,
   rangeMatchingTags,
   rfDisplay,
@@ -87,6 +88,13 @@ function deltaText(delta: number | null | undefined): string {
   return delta == null ? "—" : `±${delta}`;
 }
 
+/** Columns holding numbers: set in figures and aligned for comparing down
+ * the column (each style decides how). */
+const NUMBER_COLUMNS = new Set<ModeColumnId>([
+  "rf_min", "rf_max", "rf_delta", "pri_min", "pri_max", "pri_delta", "pw_min", "pw_max", "pw_delta",
+  "jitter", "frame_time", "confirmation_quality", "confirmation_quantity",
+]);
+
 export function ModesTable({
   emitterId,
   modes,
@@ -150,8 +158,9 @@ export function ModesTable({
     });
   }
 
-  const header = (label: string, key: ModeSortKey, columnType?: ColumnType) => (
+  const header = (label: string, key: ModeSortKey, columnType?: ColumnType, className?: string) => (
     <SortableColumnHeader
+      className={className}
       label={label}
       columnKey={key}
       columnType={columnType}
@@ -181,9 +190,10 @@ export function ModesTable({
       setCellEdit(move !== "close" && next ? { modeId: m.id, field: next } : null);
     }
     /** A cell, editable in place when its column holds one of the Mode's values. */
-    function td(column: ModeColumnId, content: ReactNode, colSpan?: number) {
+    function td(column: ModeColumnId, content: ReactNode, colSpan?: number, notNumber = false) {
       const field = fieldOf(column);
-      if (!field) return <td colSpan={colSpan}>{content}</td>;
+      const num = !notNumber && NUMBER_COLUMNS.has(column) ? "num" : undefined;
+      if (!field) return <td colSpan={colSpan} className={num}>{content}</td>;
       if (cellEdit?.modeId === m.id && cellEdit.field === field) {
         return (
           <InlineEditCell
@@ -199,7 +209,7 @@ export function ModesTable({
       return (
         <td
           colSpan={colSpan}
-          className="inline-editable"
+          className={num ? "inline-editable num" : "inline-editable"}
           title="Double-click to change"
           onDoubleClick={() => setCellEdit({ modeId: m.id, field })}
         >
@@ -212,7 +222,7 @@ export function ModesTable({
     // the two PRI columns are shown (a stagger's steps, editable there).
     const priSpan = (priMinShown ? 1 : 0) + (columns.isVisible("pri_max") ? 1 : 0);
     const priSpanning = (column: ModeColumnId) =>
-      td(column, m.pri_type === "stagger" ? <StaggerSequenceBox mode={m} /> : m.pri_type === "cw" ? "CW (constant)" : "—", priSpan);
+      td(column, m.pri_type === "stagger" ? <StaggerSequenceBox mode={m} /> : m.pri_type === "cw" ? "CW (constant)" : "—", priSpan, true);
 
     const cells: Record<ModeColumnId, () => ReactNode | null> = {
       name: () =>
@@ -229,7 +239,7 @@ export function ModesTable({
       rf_min: () => td("rf_min", rf.min ?? "—"),
       rf_max: () => td("rf_max", rf.max ?? "—"),
       rf_delta: () => td("rf_delta", deltaText(m.line?.rf_delta)),
-      pri_type: () => <td>{m.pri_type.toUpperCase()}</td>,
+      pri_type: () => <td>{priTypeLabel(m.pri_type)}</td>,
       pri_min: () => (isFixed ? td("pri_min", pri.min ?? "—") : priSpanning("pri_min")),
       pri_max: () => (isFixed ? td("pri_max", pri.max ?? "—") : priMinShown ? null : priSpanning("pri_max")),
       pri_delta: () => td("pri_delta", deltaText(m.pri_type === "stagger" ? m.line?.frame_time_delta_us : m.line?.pri_delta)),
@@ -238,7 +248,7 @@ export function ModesTable({
       pw_delta: () => td("pw_delta", deltaText(m.line?.pw_delta)),
       jitter: () => td("jitter", jft.label === "jitter" ? rangeText(jft.min, jft.max) : <span className="hint-text">—</span>),
       frame_time: () => (
-        <td>{jft.label === "frametime" ? rangeText(jft.min, jft.max) : <span className="hint-text">—</span>}</td>
+        <td className="num">{jft.label === "frametime" ? rangeText(jft.min, jft.max) : <span className="hint-text">—</span>}</td>
       ),
       range_matching: () => (
         <td>
@@ -362,9 +372,11 @@ export function ModesTable({
             </th>
             {visibleColumns.map((c) =>
               c.sortKey ? (
-                <Fragment key={c.id}>{header(c.label, c.sortKey, c.type)}</Fragment>
+                <Fragment key={c.id}>{header(c.label, c.sortKey, c.type, NUMBER_COLUMNS.has(c.id) ? "num" : undefined)}</Fragment>
               ) : (
-                <th key={c.id}>{c.label}</th>
+                <th key={c.id} className={NUMBER_COLUMNS.has(c.id) ? "num" : undefined}>
+                  {c.label}
+                </th>
               ),
             )}
             <th className="sticky-end row-actions" aria-label="Actions"></th>

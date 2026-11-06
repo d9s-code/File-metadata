@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ApiRequestError } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import { useAiStatus } from "../../state/hooks/useAmbiguity";
+import { UI_STYLES, useUiStyle } from "../../theme/uiStyle";
 import type { UserPreferences } from "../../types/domain";
 import { Modal } from "./Modal";
 
@@ -31,6 +32,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const aiAvailable = useAiStatus().data?.enabled ?? false;
   const [saving, setSaving] = useState<keyof UserPreferences | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [style, setStyle] = useUiStyle();
   if (!user) return null;
   const prefs = user.preferences;
 
@@ -48,7 +50,22 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
 
   return (
     <Modal title="Settings" onClose={onClose}>
-      <p className="hint-text">Saved with your account — they apply wherever you sign in.</p>
+      <fieldset className="settings-group">
+        <legend>Style</legend>
+        <p className="hint-text">For this browser, like light and dark (the buttons in the top bar).</p>
+        <div className="style-choices" role="radiogroup" aria-label="Style">
+          {UI_STYLES.map((s) => (
+            <label key={s.value} className={style === s.value ? "style-choice active" : "style-choice"}>
+              <input type="radio" name="ui-style" checked={style === s.value} onChange={() => setStyle(s.value)} />
+              <span>
+                <strong>{s.label}</strong>
+                <span className="hint-text">{s.hint}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <p className="hint-text">The rest are saved with your account — they apply wherever you sign in.</p>
       <fieldset className="settings-group">
         <legend>AI</legend>
         {!aiAvailable && <p className="hint-text">No language model is set up on this server, so these have no effect yet.</p>}

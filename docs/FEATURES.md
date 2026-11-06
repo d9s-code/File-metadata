@@ -679,6 +679,14 @@ The documentation sections matching the question go with it too, and the chat is
 
 Each person's own settings (their name, top right → **Settings…**), kept with their account: the AI chat, whether the chat is told which page they're on, and the AI drafts on the ambiguity page. Everything is on until switched off.
 
+**Style** (also under **Settings…**) is the app's look. Like light and dark (the buttons in the top bar), it's kept in the browser, not with the account. Each style has a light and a dark version:
+
+- **Workbench** (the default). The roomier one. An Emitter's key numbers (Simulation, Modes, RF, PRI, PW, notes) and a test run's facts are a row of readouts. Each panel has a title bar, and tables run edge to edge. Status and results are a coloured dot and a word. Form dialogs such as the Mode editor slide in from the right, with the page still in view.
+- **Instrument**. Compact, like a console. Panels have monospace title bars, tables are dense with column lines and alternate rows shaded, and status and results are square monospace tags.
+- **Classic**. The original look.
+
+Workbench and Instrument set figures in a monospace face (JetBrains Mono, bundled), right-aligned in table columns. On a test run, each result row has a coloured edge for its outcome, and the intercepted values sit on one line (RF 9387.1 MHz · PRI 1228.3 µs …) instead of a small table in each row. The two styles are stylesheets on top of Classic (`frontend/src/styles/`), applied by `data-style` on the page; `public/theme-init.js` sets it before the first paint, so a reload doesn't flash the default.
+
 ---
 
 ## 11. XML Export (PRS Format)

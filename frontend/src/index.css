@@ -3190,6 +3190,10 @@ a.button {
   font-weight: normal;
   text-align: left;
 }
+/* Inline, not flex: a flex box drops the spaces between its words ("16correct"). */
+.summary-item:not(.summary-notes) .summary-link {
+  display: inline;
+}
 .summary-link:hover {
   background: none;
   box-shadow: none;
@@ -5634,6 +5638,14 @@ a.ai-cite:hover { text-decoration: underline; }
 .settings-group legend { font-weight: 600; padding: 0 0.3rem; }
 .settings-row { display: flex; flex-direction: row; gap: 0.6rem; align-items: flex-start; padding: 0.45rem 0; cursor: pointer; }
 .settings-row input { width: auto; flex: none; margin: 0.2rem 0 0; }
+/* Settings › Style: one card per style, the picked one outlined. */
+.style-choices { display: grid; gap: 0.4rem; margin-top: 0.3rem; }
+.style-choice { display: flex; flex-direction: row; gap: 0.6rem; align-items: flex-start; padding: 0.5rem 0.65rem; border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
+.style-choice:hover { background: var(--hover-bg); }
+.style-choice.active { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, transparent); }
+.style-choice input { width: auto; flex: none; margin: 0.2rem 0 0; }
+.style-choice > span { display: flex; flex-direction: column; gap: 0.1rem; }
+.style-choice strong { font-size: 0.93rem; }
 .settings-row > span { display: flex; flex-direction: column; gap: 0.1rem; }
 .settings-row.disabled { opacity: 0.55; cursor: default; }
 .settings-row strong { color: var(--text); font-size: 0.9rem; }

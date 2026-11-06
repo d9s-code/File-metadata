@@ -55,7 +55,8 @@ const COLUMNS: { key: keyof Row; label: string }[] = [
 
 /** Intercepted parameters as a small table inside a cell: one row per set,
  * the units in the small headings and the values plain to read. Only the
- * columns some set has are shown. */
+ * columns some set has are shown. Each value carries its label and unit
+ * (data-label, data-unit), so a style can set a set on one line instead. */
 export function ObservedValuesTable({ sets, empty = "—" }: { sets: ObservedValues[] | null | undefined; empty?: string }) {
   const rows = nonEmptySets(sets).map(row);
   const shown = COLUMNS.filter((c) => rows.some((r) => r[c.key] != null));
@@ -73,7 +74,9 @@ export function ObservedValuesTable({ sets, empty = "—" }: { sets: ObservedVal
         {rows.map((r, i) => (
           <tr key={i}>
             {shown.map((c) => (
-              <td key={c.key}>{r[c.key] ?? "—"}</td>
+              <td key={c.key} data-label={c.label.replace(/\s*\(.*\)$/, "")} data-unit={c.label.match(/\((.*)\)$/)?.[1] ?? ""}>
+                {r[c.key] ?? "—"}
+              </td>
             ))}
           </tr>
         ))}

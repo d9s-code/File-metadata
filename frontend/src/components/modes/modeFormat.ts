@@ -1,6 +1,12 @@
 import type { EwGroup, Mode, Source } from "../../types/domain";
 import { naturalCompare } from "../common/sortUtils";
 
+/** A PRI type as a word: Fixed, Stagger, CW. */
+export function priTypeLabel(priType: string): string {
+  if (priType === "cw") return "CW";
+  return priType.charAt(0).toUpperCase() + priType.slice(1);
+}
+
 export function formatPri(mode: Mode): string {
   const line = mode.line;
   if (!line) return "—";
