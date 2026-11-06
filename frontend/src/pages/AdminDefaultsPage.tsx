@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { AdminNav } from "../components/common/AdminNav";
+import { ChangeNotesCountsCard } from "../components/mdf/ChangeNotesCounts";
 import { LoadingState } from "../components/common/LoadingState";
 import { ApiRequestError } from "../api/client";
 import type { ModeDefaults } from "../api/dwells";
@@ -139,6 +140,7 @@ export function AdminDefaultsPage() {
           </p>
         )}
       </form>
+      <ChangeNotesCountsCard />
     </div>
   );
 }

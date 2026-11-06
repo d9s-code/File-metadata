@@ -1050,7 +1050,32 @@ _MODE_DEFAULT_LABELS = {
 }
 
 
+_COUNT_LABELS = {
+    "platforms": "Platforms added/removed",
+    "emitters": "Emitters added/removed",
+    "modes": "Modes added/removed",
+    "platform_moves": "Emitters moved between Platforms",
+    "dwell_files": "dwell files",
+    "name": "Mode name",
+    "pri_type": "PRI type",
+    "rf": "RF",
+    "pw": "PW",
+    "pri": "PRI",
+    "jitter": "jitter",
+    "stagger": "stagger",
+    "threat_priority": "threat priority",
+    "ageout": "ageout",
+    "confirmation": "confirmation",
+    "scan_period": "scan period",
+    "range_matching": "range matching",
+    "deltas": "deltas applied",
+}
+
+
 def _setting_summary(key: str, old, new) -> str:
+    if key == app_settings.CHANGE_NOTES_COUNTS:
+        parts = [f"{label} {'on' if new[k] else 'off'}" for k, label in _COUNT_LABELS.items() if old.get(k) != new.get(k)]
+        return "Changed what counts in change notes: " + ", ".join(parts)
     if key == app_settings.DWELL_BANDWIDTH_MHZ:
         return f"Changed the dwell charts' default bandwidth: {old:g} → {new:g} MHz"
     if key == app_settings.AI_CHAT_MAX_CONTEXT:
@@ -1073,7 +1098,7 @@ def update_settings(payload: SettingsUpdate, db: Session = Depends(get_db), user
     for key, value in payload.model_dump(exclude_unset=True).items():
         if value is None:
             continue
-        old = app_settings.get_setting(db, key)
+        old = app_settings.change_notes_counts(db) if key == app_settings.CHANGE_NOTES_COUNTS else app_settings.get_setting(db, key)
         if old != value:
             app_settings.set_setting(db, key, value, user.id)
             _audit(db, user, AuditAction.update, AuditEntityType.setting, None, _setting_summary(key, old, value), {key: {"old": old, "new": value}})

@@ -293,6 +293,8 @@ class SettingsOut(BaseModel):
     # What each Outline page holds, by its path (see knowledge_service.KINDS).
     outline_page_kinds: dict[str, str]
     mode_defaults: ModeDefaults
+    # What counts in change notes (see change_notes.COUNTS_DEFAULT).
+    change_notes_counts: dict[str, bool]
 
 
 class SettingsUpdate(BaseModel):
@@ -300,6 +302,19 @@ class SettingsUpdate(BaseModel):
     ai_chat_max_context_tokens: int | None = Field(default=None, ge=4_096, le=2_000_000)
     outline_page_kinds: dict[str, str] | None = None
     mode_defaults: ModeDefaults | None = None
+    change_notes_counts: dict[str, bool] | None = None
+
+    @field_validator("change_notes_counts")
+    @classmethod
+    def known_counts(cls, counts: dict[str, bool] | None) -> dict[str, bool] | None:
+        from app.services.change_notes import COUNTS_DEFAULT
+
+        if counts is None:
+            return None
+        bad = sorted(k for k in counts if k not in COUNTS_DEFAULT)
+        if bad:
+            raise ValueError(f"Unknown change-note rule(s): {', '.join(bad)}")
+        return {k: counts.get(k, v) for k, v in COUNTS_DEFAULT.items()}
 
     @field_validator("outline_page_kinds")
     @classmethod

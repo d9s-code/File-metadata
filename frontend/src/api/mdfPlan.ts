@@ -72,8 +72,11 @@ export interface MdfSummary {
  * the MDF it follows. */
 export type SummaryFrom = number | "start" | "previous" | null;
 
-function range(from?: SummaryFrom, to?: number | null) {
+/** `counts`: preview these rules for what counts (the ones that are on) in
+ * place of the admin's setting. */
+function range(from?: SummaryFrom, to?: number | null, counts?: string[]) {
   const q = new URLSearchParams();
+  if (counts) q.set("counts", counts.join(","));
   if (from === "start" || from === "previous") q.set("base", from);
   else if (from) q.set("from_version", String(from));
   if (to) q.set("to_version", String(to));
@@ -93,8 +96,8 @@ export const mdfPlanApi = {
   deleteLog: (mdfId: string, entryId: string) => api.delete<void>(`/mdfs/${mdfId}/log/${entryId}`),
   setReleaseNotes: (mdfId: string, versionNumber: number, text: string | null) =>
     api.put<{ release_notes: string | null }>(`/mdfs/${mdfId}/versions/${versionNumber}/release-notes`, { text }),
-  summary: (mdfId: string, from?: SummaryFrom, to?: number | null) =>
-    api.get<MdfSummary>(`/mdfs/${mdfId}/summary${range(from, to)}`),
+  summary: (mdfId: string, from?: SummaryFrom, to?: number | null, counts?: string[]) =>
+    api.get<MdfSummary>(`/mdfs/${mdfId}/summary${range(from, to, counts)}`),
   summaryDocxUrl: (mdfId: string, from?: SummaryFrom, to?: number | null) =>
     `${API_BASE_URL}/mdfs/${mdfId}/summary.docx${range(from, to)}`,
   unsaved: (kind: "platform" | "mdf", id: string) =>

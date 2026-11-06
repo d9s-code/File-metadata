@@ -137,3 +137,28 @@ def test_dwell_files():
     assert [(e["kind"], e["name"]) for e in notes["added"]] == [("Dwell file", "New")]
     assert [(e["kind"], e["name"]) for e in notes["removed"]] == [("Dwell file", "Old")]
     assert notes["updated"] == [{"kind": "Dwell file", "name": "Northern", "items": ["Strategy North: dwells changed"]}]
+
+
+def test_what_counts_can_be_switched():
+    old = _mdf([("p1", "Frigate", 1, [("e1", 1, RADAR)])], [_dwell("d1", "Northern", [])])
+    later = copy.deepcopy(RADAR)
+    modes = later["ew_groups"][0]["modes"]
+    modes[0]["confirmation_quality"] = 80  # off by default
+    modes[1]["line"]["rf_delta"] = 1  # delta only
+    modes.append(_mode("m3", "Acquire"))
+    new = _mdf([("p1", "Frigate", 2, [("e1", 2, later)]), ("p2", "Tug", 1, [])], [_dwell("d1", "Northern", [])])
+
+    def changed(**counts):
+        notes = change_notes(old, new, counts)
+        return notes, {c["mode"]: c["fields"] for u in notes["updated"] for c in u.get("modes_changed", [])}
+
+    notes, fields = changed()
+    assert fields == {"Track": ["RF"]} and notes["updated"][0]["modes_added"] == ["Acquire"]
+    assert [a["name"] for a in notes["added"]] == ["Tug"]
+    # Confirmation on: it's listed. Deltas off: the delta-only RF change isn't.
+    assert changed(confirmation=True, deltas=False)[1] == {"Search": ["Confirmation"]}
+    # Whole lists off: no Platforms or Modes added, and no RF either.
+    notes, fields = changed(platforms=False, modes=False, rf=False)
+    assert notes == {"added": [], "removed": [], "updated": []}
+    # Unknown rules are ignored.
+    assert change_notes(old, new, {"nonsense": True}) == change_notes(old, new)

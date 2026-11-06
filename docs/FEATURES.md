@@ -411,6 +411,8 @@ Left out on purpose:
 - confirmation quality and quantity, scan period and range matching;
 - notes, Sources and statuses.
 
+That is what counts out of the box. An Admin can change it on **Admin › Defaults** (see [Defaults](#defaults)). Each list and each Mode value can be turned on or off there, confirmation, scan period and range matching included. Values can also be compared as typed, so a delta-only change doesn't count. Version numbers, the MDF's own fields, notes, Sources and statuses never count.
+
 **The next release as a new MDF.** The next release of an MDF, usually to the same customer, can be a separate MDF in the app rather than another version of the old one, which is then deprecated. **New MDF from this one…** does this. It's a button on a Released (or later) MDF, and it's also in any MDF's ⋯ menu.
 
 - **What it makes:** a new MDF with its own name, customer and id (so a new Id in the export), at the first status. It gets the Platform pins and dwell files of a saved version of the old one, saved as its v1 ("Started from 'Fleet 2026' v3").
@@ -754,6 +756,8 @@ Every Emitter someone is holding for editing: who, since when, how long, their *
 ### Defaults
 
 What a new Mode starts with (`mode_defaults` in `/settings`): **confirmation quality** (100%) and **quantity** (2), and the **RF**, **PRI** (Fixed) and **PW deltas** (0) and the **frame-time delta** (Stagger, **3 µs**). The frame-time delta widens a stagger's frame time — the sum of its steps, or its explicit frame time — never each step. The Add Mode form and the Intercept planning page start with these (they can be changed there for one Mode; a Fixed Mode switched to Stagger in its Edit form gets the default frame-time delta). Modes made without a form get the confirmation and, for a stagger, the frame-time delta: from Elements (a stagger Element with no delta of its own) or a sequence's steps, a typed DSL line, the AI chat (unless it gave one), and the bulk Intercept route. Imports keep what the file says. Existing Modes don't change. A request that gives a value keeps it. Each change is in the Audit Log ("Changed the Mode defaults: frame-time delta 3 µs → 5 µs"); **Back to the built-in defaults** puts the original values back in the form.
+
+**Change notes — what counts** (`change_notes_counts` in `/settings`): one toggle for each rule the change notes follow. The lists are Platforms, Emitters and Modes added or removed, Emitters moved onto or off a Platform, and dwell files. The Mode values are name, PRI type, RF, PW, PRI, jitter, stagger, threat priority, ageout, confirmation, scan period and range matching. **As exported, deltas applied** sets how values compare. Out of the box, everything is on except confirmation, scan period and range matching. Beside the toggles, a preview shows an MDF's change notes as they'd read with them (by default an MDF that follows another). It uses the summary's default span. Lines a toggle adds are marked **now shown**; lines it takes away are struck through and marked **now hidden**, both against the saved setting. Saving changes every MDF's summary and release notes from then on (`GET /mdfs/{id}/summary?counts=rf,pw,…` previews other rules without saving: the rules that are on, comma-separated). Each change is in the Audit Log ("Changed what counts in change notes: confirmation on"). **Back to the built-in rules** puts the original toggles back.
 
 ### Recently Deleted
 

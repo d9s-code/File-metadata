@@ -252,6 +252,8 @@ export interface AppSettings {
   /** What each Outline page holds, by its path ("Parent › Page"). */
   outline_page_kinds: Record<string, string>;
   mode_defaults: ModeDefaults;
+  /** What counts in change notes: each rule on or off (see CHANGE_NOTE_RULES). */
+  change_notes_counts: Record<string, boolean>;
 }
 
 /** "strategies" or "files": the two versioned kinds, for the shared version pages. */

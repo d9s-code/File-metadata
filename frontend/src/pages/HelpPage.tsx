@@ -1106,7 +1106,9 @@ export function HelpPage() {
             dwell files added or removed. They also list Emitters updated: Modes added or removed, and Modes whose
             exported name, PRI type, RF, PW, PRI, jitter, stagger, threat priority or ageout changed (deltas included).
             The release notes you wrote for those versions are shown with them. Version bumps with nothing exported
-            changed, notes, confirmation, scan period and range matching don&apos;t appear. <strong>Download release
+            changed, notes, confirmation, scan period and range matching don&apos;t appear, unless an Admin changes
+            what counts on <strong>Admin › Defaults</strong>, where a preview shows how an MDF&apos;s change notes would
+            read before saving. <strong>Download release
             notes (.docx)</strong> turns it into a Word document for the customer. Goals, status moves and the log
             stay on the Plan and Audit tabs. Everything that happened to the MDF is on its{" "}
             <strong>Audit</strong> tab.

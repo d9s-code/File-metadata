@@ -29,11 +29,16 @@ MODE_DEFAULT_VALUES: dict[str, float] = {
     "pw_delta": 0.0,
 }
 
+# What counts in change notes (see change_notes.COUNTS_DEFAULT): each list
+# and Mode value on or off, and whether values compare with deltas applied.
+CHANGE_NOTES_COUNTS = "change_notes_counts"
+
 DEFAULTS: dict[str, object] = {
     DWELL_BANDWIDTH_MHZ: 10.0,
     AI_CHAT_MAX_CONTEXT: 32_768,
     OUTLINE_PAGE_KINDS: {},
     MODE_DEFAULTS: MODE_DEFAULT_VALUES,
+    CHANGE_NOTES_COUNTS: {},
 }
 
 
@@ -47,6 +52,13 @@ def mode_defaults(db: Session) -> dict:
     return {**MODE_DEFAULT_VALUES, **(get_setting(db, MODE_DEFAULTS) or {})}
 
 
+def change_notes_counts(db: Session) -> dict[str, bool]:
+    """What counts in change notes: the admin's setting over the built-in one."""
+    from app.services.change_notes import resolve_counts
+
+    return resolve_counts(get_setting(db, CHANGE_NOTES_COUNTS))
+
+
 def fill_confirmation(db: Session, payload) -> None:
     """A request's confirmation quality / quantity that it didn't give comes
     from the Mode defaults."""
@@ -57,7 +69,10 @@ def fill_confirmation(db: Session, payload) -> None:
 
 
 def all_settings(db: Session) -> dict:
-    return {key: get_setting(db, key) for key in DEFAULTS} | {MODE_DEFAULTS: mode_defaults(db)}
+    return {key: get_setting(db, key) for key in DEFAULTS} | {
+        MODE_DEFAULTS: mode_defaults(db),
+        CHANGE_NOTES_COUNTS: change_notes_counts(db),
+    }
 
 
 def set_setting(db: Session, key: str, value, user_id) -> None:

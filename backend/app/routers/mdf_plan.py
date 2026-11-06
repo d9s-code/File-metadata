@@ -22,10 +22,10 @@ from app.models.audit_log import AuditLog
 from app.models.customer import Customer
 from app.models.mdf import Mdf, MdfVersion
 from app.models.mdf_plan import MdfGoal, MdfLogEntry
-from app.services import statuses
+from app.services import app_settings, statuses
 from app.services.audit_service import record_audit
 from app.services.docx_writer import Block, write_docx
-from app.services.change_notes import change_notes
+from app.services.change_notes import COUNTS_DEFAULT, change_notes
 
 router = APIRouter(prefix="/mdfs", tags=["mdf-plan"])
 
@@ -330,12 +330,18 @@ SummaryBase = Literal["start", "previous"]
 
 
 def build_summary(
-    db: Session, mdf: Mdf, from_version: int | None, to_version: int | None, base: SummaryBase | None = None
+    db: Session,
+    mdf: Mdf,
+    from_version: int | None,
+    to_version: int | None,
+    base: SummaryBase | None = None,
+    counts: dict[str, bool] | None = None,
 ) -> dict:
     """`base` "start": everything up to `to_version`; "previous": the changes
     since the MDF this one follows. Otherwise from `from_version`, or by
     default since this MDF's last release — or, before it has one, since the
-    MDF it follows."""
+    MDF it follows. `counts`: what counts in the change notes, else the
+    admin's setting."""
     versions = _versions(db, mdf.id)
     if not versions:
         raise HTTPException(status.HTTP_409_CONFLICT, "Nothing to summarize — the MDF has no saved version yet")
@@ -413,7 +419,7 @@ def build_summary(
             if (frm is None or v.version_number > frm.version_number) and v.version_number <= to.version_number
         ],
         # Major changes only — see change_notes.
-        "change_notes": change_notes(base_snapshot, to.snapshot),
+        "change_notes": change_notes(base_snapshot, to.snapshot, counts or app_settings.change_notes_counts(db)),
         "contents": contents,
         "last_release_version": last_release_version(db, mdf.id),
     }
@@ -425,6 +431,7 @@ def summary(
     from_version: int | None = None,
     to_version: int | None = None,
     base: SummaryBase | None = None,
+    counts: str | None = None,
     db: Session = Depends(get_db),
     _=Depends(require_role(Role.viewer)),
 ) -> dict:
@@ -432,8 +439,21 @@ def summary(
     one follows (by default: since the last release, else since that MDF) —
     with the release notes written for that stretch and the contents of the
     later version. Major changes only: see change_notes. Goals, status moves
-    and the progress log stay on the Plan and Audit tabs."""
-    return build_summary(db, _mdf(db, mdf_id), from_version, to_version, base)
+    and the progress log stay on the Plan and Audit tabs.
+
+    `counts` previews other rules for what counts: the rules that are on,
+    comma-separated (blank: none), in place of the admin's setting."""
+    return build_summary(db, _mdf(db, mdf_id), from_version, to_version, base, _preview_counts(counts))
+
+
+def _preview_counts(counts: str | None) -> dict[str, bool] | None:
+    if counts is None:
+        return None
+    on = {c.strip() for c in counts.split(",") if c.strip()}
+    unknown = sorted(on - COUNTS_DEFAULT.keys())
+    if unknown:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Unknown change-note rule(s): {', '.join(unknown)}")
+    return {k: k in on for k in COUNTS_DEFAULT}
 
 
 def _day(value) -> str:
