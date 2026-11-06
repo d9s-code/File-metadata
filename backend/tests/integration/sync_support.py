@@ -14,19 +14,20 @@ from app.core.security import hash_password
 from app.database import Base, get_db
 from app.main import app as fastapi_app
 from app.services.sync_service import collect_subtrees, compute_changes, load_copy
+from tests.conftest import SCHEMA, SUFFIX
 from tests.integration.test_modes_api import FIXED_LINE
 
 _URL = os.environ["DATABASE_URL"]
 
 
 def _schema_url(schema: str) -> str:
-    return _URL.replace("search_path%3Dv2_test", f"search_path%3D{schema}")
+    return _URL.replace(f"search_path%3D{SCHEMA}", f"search_path%3D{schema}")
 
 
 def make_pc_schemas():
     main = create_engine(_URL)
     engines = {}
-    for schema in ("v2_sync_pc", "v2_sync_base"):
+    for schema in (f"v2_sync_pc{SUFFIX}", f"v2_sync_base{SUFFIX}"):
         with main.begin() as c:
             c.execute(text(f"DROP SCHEMA IF EXISTS {schema} CASCADE"))
             c.execute(text(f"CREATE SCHEMA {schema}"))
@@ -46,8 +47,8 @@ def drop_pc_schemas(main, engines):
 
 class PC:
     def __init__(self, engines):
-        self.engine = engines["v2_sync_pc"]
-        self.base = engines["v2_sync_base"]
+        self.engine = engines[f"v2_sync_pc{SUFFIX}"]
+        self.base = engines[f"v2_sync_base{SUFFIX}"]
 
     def take_copy(self, server):
         resp = server.get("/sync/copy")

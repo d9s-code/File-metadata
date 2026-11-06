@@ -5,7 +5,9 @@ os.environ["DATABASE_URL"] = (
     # An isolated schema, not "public" — this is the same physical database
     # File-metadata's own test suite uses, and this suite runs drop_all() on
     # every session start, so a shared schema would destroy its tables.
+    # One schema per worker when run in parallel (see SCHEMA below).
     "postgresql+psycopg2://rf_app:rf_app_dev_pw@localhost:5432/rf_emitter_test?options=-csearch_path%3Dv2_test"
+    + (f"_{os.environ['PYTEST_XDIST_WORKER']}" if os.environ.get("PYTEST_XDIST_WORKER") else "")
 )
 os.environ["COOKIE_SECURE"] = "false"
 os.environ["JWT_SECRET"] = secrets.token_hex(32)
@@ -22,16 +24,31 @@ from app.database import Base, get_db
 from app.main import app as fastapi_app
 from app.models.user import User
 
+# Run in parallel with `pytest -n auto --dist loadgroup` (pytest-xdist): each
+# worker ("gw0", "gw1"…) gets its own schema — and the sync tests' "PC"
+# schemas its suffix — so their drop_all / TRUNCATE never meet. The backup
+# tests share the one verification database, so they're kept on one worker
+# (@pytest.mark.xdist_group, which needs --dist loadgroup).
+WORKER = os.environ.get("PYTEST_XDIST_WORKER", "")
+SUFFIX = f"_{WORKER}" if WORKER else ""
+SCHEMA = f"v2_test{SUFFIX}"
+
 engine = create_engine(os.environ["DATABASE_URL"])
 TestSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
 @pytest.fixture(scope="session", autouse=True)
 def _create_schema():
+    with engine.begin() as conn:
+        conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{SCHEMA}"'))
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
+    if WORKER:
+        # A worker's schema is only for this run; its enum types go with it.
+        with engine.begin() as conn:
+            conn.execute(text(f'DROP SCHEMA IF EXISTS "{SCHEMA}" CASCADE'))
 
 
 @pytest.fixture(autouse=True)

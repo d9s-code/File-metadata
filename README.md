@@ -382,6 +382,13 @@ pytest
 Integration tests run against a real Postgres database (not SQLite) since the schema uses
 JSONB and array columns whose behavior only real Postgres reproduces faithfully.
 
+In parallel, one worker per CPU (each gets its own schema in the test database; the backup
+tests stay together on one worker, as they share the verification database):
+
+```bash
+pytest -n auto --dist loadgroup
+```
+
 ### Frontend
 
 ```bash

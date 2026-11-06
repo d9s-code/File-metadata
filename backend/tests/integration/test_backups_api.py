@@ -7,6 +7,11 @@ from sqlalchemy.exc import OperationalError
 
 from app.config import settings
 from app.services import backup_service
+from tests.conftest import SUFFIX
+
+# The verification database (rf_emitter_test_verify) is one for every worker:
+# these tests stay together on one worker when run in parallel.
+pytestmark = pytest.mark.xdist_group("backup-verify-db")
 
 FIXED_LINE = {
     "rf_min_mhz": 2900,
@@ -464,8 +469,8 @@ def _restore_module():
 def test_an_empty_database_has_an_empty_overview(db_session):
     # A new server about to be restored into: its safety backup used to crash here.
     conn = db_session.connection()
-    conn.execute(text("CREATE SCHEMA IF NOT EXISTS empty_for_test"))
-    conn.execute(text("SET LOCAL search_path TO empty_for_test"))
+    conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS empty_for_test{SUFFIX}"))
+    conn.execute(text(f"SET LOCAL search_path TO empty_for_test{SUFFIX}"))
     assert backup_service.compute_overview(conn) == {kind: [] for kind in backup_service.OVERVIEW_KINDS}
     db_session.rollback()
 
