@@ -33,6 +33,7 @@ from app.services.platform_coverage import platform_coverage
 from app.services.pin_hygiene import latest_emitter_versions
 from app.services.platform_summary import platform_summaries
 from app.services.prs_export.packager import build_platform_export_zip
+from app.services.rf_range import emitter_rf_range
 from app.services.snapshots import build_platform_snapshot
 from app.services.pinned_diff_service import compute_pinned_diff
 from app.services.platform_minor import save_minor_version
@@ -207,15 +208,19 @@ def with_version_numbers(db: Session, links: list[PlatformEmitterLink]) -> list[
         ):
             if emitter_id not in latest or number > latest[emitter_id][0]:
                 latest[emitter_id] = (number, version_id)
-    pinned = dict(
-        db.query(EmitterVersion.id, EmitterVersion.version_number)
+    pinned = {
+        version_id: (number, emitter_rf_range(snapshot))
+        for version_id, number, snapshot in db.query(
+            EmitterVersion.id, EmitterVersion.version_number, EmitterVersion.snapshot
+        )
         .filter(EmitterVersion.id.in_([link.emitter_version_id for link in links]))
         .all()
-    ) if links else {}
+    } if links else {}
     out = []
     for link in links:
         item = PlatformLinkOut.model_validate(link)
-        item.pinned_version_number = pinned.get(link.emitter_version_id)
+        number, (item.rf_min_mhz, item.rf_max_mhz) = pinned.get(link.emitter_version_id, (None, (None, None)))
+        item.pinned_version_number = number
         if link.emitter_id in latest:
             item.latest_version_number, item.latest_version_id = latest[link.emitter_id]
         out.append(item)

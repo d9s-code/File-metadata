@@ -34,6 +34,8 @@ import { SimResultsImport } from "../components/testing/SimResultsImport";
 import { InterceptModeResultsTable, type InterceptModeEntry } from "../components/testing/InterceptModeResultsTable";
 import { InterceptSignalsEditor, loggedSignals, type SignalEntry } from "../components/testing/InterceptSignals";
 import {
+  emitterRf,
+  mhz,
   nonEmptySets,
   observedValueOptions,
   TEST_RESULTS,
@@ -584,6 +586,12 @@ export function TestRunNewPage() {
                 </span>
               )}
             </label>
+            <div className="run-frequency" title="The Emitter's Modes as they are now, deltas applied">
+              <span className="run-frequency-label">Frequency</span>
+              <span className="run-frequency-value">
+                {mhz(emitterRf(modes)[0])} – {mhz(emitterRf(modes)[1])} MHz
+              </span>
+            </div>
             <label>
               Retest of (optional)
               <select value={retestsId} onChange={(e) => setRetestsId(e.target.value)}>

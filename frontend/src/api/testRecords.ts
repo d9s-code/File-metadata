@@ -72,6 +72,10 @@ export interface TestRecord {
   emitter_version_id: string | null;
   /** The saved Emitter version tested, by number. */
   emitter_version_number: number | null;
+  /** The tested version's frequency range (deltas applied), and each Mode's by id — empty when no saved version was tested. */
+  rf_min_mhz?: number | null;
+  rf_max_mhz?: number | null;
+  mode_rf_mhz?: Record<string, [number | null, number | null]>;
   mdf_version_id: string | null;
   test_type: TestType;
   result: TestResult;

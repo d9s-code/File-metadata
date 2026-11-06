@@ -8,7 +8,7 @@ import { usePlatformTest } from "../state/hooks/usePlatformTests";
 import { RequireRole } from "../auth/RequireAuth";
 import { LoadingState } from "../components/common/LoadingState";
 import { PageHeader } from "../components/common/PageHeader";
-import { lineOutcomeLabel, TEST_RESULTS, testResultLabel, testTypeLabel } from "../components/testing/testFormat";
+import { lineOutcomeLabel, mhz, TEST_RESULTS, testResultLabel, testTypeLabel } from "../components/testing/testFormat";
 import type { TestResult } from "../types/domain";
 
 function Fact({ label, children }: { label: string; children: ReactNode }) {
@@ -98,6 +98,8 @@ export function PlatformTestDetailPage() {
             <tr>
               <th>Emitter</th>
               <th>Version tested</th>
+              <th className="num" title="In the version tested, deltas applied">RF Min [MHz]</th>
+              <th className="num" title="In the version tested, deltas applied">RF Max [MHz]</th>
               {test.test_type !== "intercept" && <th>Simulation created</th>}
               <th>Result</th>
               {detailed && <th>Detail</th>}
@@ -119,6 +121,8 @@ export function PlatformTestDetailPage() {
                     "—"
                   )}
                 </td>
+                <td className="num">{mhz(e.rf_min_mhz)}</td>
+                <td className="num">{mhz(e.rf_max_mhz)}</td>
                 {test.test_type !== "intercept" && <td className="nowrap">{formatDate(e.simulation_created_date)}</td>}
                 <td className="nowrap">
                   <span className={`test-result-badge test-result-${e.result}`}>{testResultLabel(e.result)}</span>

@@ -7839,6 +7839,22 @@ button.emitter-pins-chip:hover { filter: brightness(0.97); }
   white-space: nowrap;
 }
 
+/* The Emitter's frequency range beside a test run's form fields. */
+.run-frequency {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+}
+.run-frequency-label {
+  color: var(--muted);
+}
+.run-frequency-value {
+  padding: 0.45rem 0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 /* --- Accessibility floor (UI/UX audit) -------------------------------------
  * Readable text is at least 12px (the root is 14px, so 0.86rem), and every
  * control has a hit area of at least 24×24px (WCAG 2.2 target size).

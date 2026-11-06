@@ -26,7 +26,7 @@ import { useConfirmDialog } from "../components/common/ConfirmDialog";
 import { LoadingState } from "../components/common/LoadingState";
 import { AutoGrowTextarea } from "../components/common/AutoGrowTextarea";
 import { computeOverallResult } from "../components/testing/modeResultAggregate";
-import { TEST_RESULTS, testResultLabel, testTypeLabel } from "../components/testing/testFormat";
+import { mhz, TEST_RESULTS, testResultLabel, testTypeLabel } from "../components/testing/testFormat";
 import { DwellInput, MANUAL_DWELL } from "../components/testing/DwellInput";
 import { ReceivedPowerInput, receivedPowerError } from "../components/testing/ReceivedPowerInput";
 
@@ -497,6 +497,8 @@ export function PlatformTestRunPage() {
                   <th>In run</th>
                   <th>Emitter</th>
                   <th>Pinned version</th>
+                  <th className="num" title="In the pinned version, deltas applied">RF Min [MHz]</th>
+                  <th className="num" title="In the pinned version, deltas applied">RF Max [MHz]</th>
                   {isSimulation && (
                     <th title="Each Emitter's simulation date — the newest of its SIM Test Lines' created dates, unless changed here">
                       Simulation created
@@ -529,6 +531,8 @@ export function PlatformTestRunPage() {
                           <span className="hint-text"> · v{link.latest_version_number} saved since</span>
                         )}
                       </td>
+                      <td className="num">{mhz(link.rf_min_mhz)}</td>
+                      <td className="num">{mhz(link.rf_max_mhz)}</td>
                       {isSimulation && (
                         <td className="nowrap">
                           <DateInput

@@ -28,6 +28,9 @@ import type { ObservedValues, TestRecord } from "../api/testRecords";
 import type { TestResult } from "../types/domain";
 import {
   compareLineLabels,
+  emitterRf,
+  mhz,
+  modeRf,
   nonEmptySets,
   lineOutcomeLabel,
   TEST_RESULTS,
@@ -205,6 +208,19 @@ export function TestRunDetailPage() {
               None saved
             </span>
           )}
+        </Fact>
+        <Fact label="Frequency">
+          {(() => {
+            // The version tested; a run logged before any save shows the Emitter as it is now.
+            const [lo, hi] = record.emitter_version_id
+              ? [record.rf_min_mhz ?? null, record.rf_max_mhz ?? null]
+              : emitterRf(modes);
+            return (
+              <span title={record.emitter_version_id ? "In the version tested, deltas applied" : "As the Emitter is now, deltas applied"}>
+                {mhz(lo)} – {mhz(hi)} MHz
+              </span>
+            );
+          })()}
         </Fact>
         <Fact label="Tested">
           {formatDate(record.test_date)}
@@ -389,13 +405,17 @@ export function TestRunDetailPage() {
             <thead>
               <tr>
                 <th>Mode</th>
+                <th className="num" title="In the version tested, deltas applied">RF Min [MHz]</th>
+                <th className="num" title="In the version tested, deltas applied">RF Max [MHz]</th>
                 <th>Result</th>
                 <th>Intercepted parameters</th>
                 <th>Notes</th>
               </tr>
             </thead>
             <tbody>
-              {exercised.map((m) => (
+              {exercised.map((m) => {
+                const [lo, hi] = record.mode_rf_mhz?.[m.mode_id] ?? modeRf(modesById.get(m.mode_id));
+                return (
                 <tr key={m.mode_id}>
                   <td>
                     {m.mode_name}
@@ -406,6 +426,8 @@ export function TestRunDetailPage() {
                       </span>
                     )}
                   </td>
+                  <td className="num">{mhz(lo)}</td>
+                  <td className="num">{mhz(hi)}</td>
                   <td>
                     {m.result && <span className={`test-result-badge test-result-${m.result}`}>{testResultLabel(m.result)}</span>}
                     {m.result !== "pass" && (
@@ -424,7 +446,8 @@ export function TestRunDetailPage() {
                   </td>
                   <td className="pre-wrap">{m.notes ?? "—"}</td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -1,16 +1,18 @@
 import { Fragment, useMemo, useState } from "react";
 import type { ObservedValues } from "../../api/testRecords";
-import type { TestResult } from "../../types/domain";
+import type { ModeLine, TestResult } from "../../types/domain";
 import { ObservedValuesEditor } from "./ObservedValuesEditor";
 import { ObservedValuesTable } from "./ObservedValuesTable";
 import { AutoGrowTextarea } from "../common/AutoGrowTextarea";
-import { nonEmptySets, TEST_RESULTS, testResultLabel } from "./testFormat";
+import { mhz, modeRf, nonEmptySets, TEST_RESULTS, testResultLabel } from "./testFormat";
 import { matchesWords, searchWords } from "../../utils/wordSearch";
 
 export interface InterceptModeOption {
   id: string;
   name: string;
   last_test_result: TestResult | null;
+  /** For its frequency range (deltas applied). */
+  line?: ModeLine | null;
 }
 
 export interface InterceptModeEntry {
@@ -75,6 +77,8 @@ export function InterceptModeResultsTable({
           <tr>
             <th>Intercepted</th>
             <th>Mode</th>
+            <th className="num" title="Deltas applied">RF Min [MHz]</th>
+            <th className="num" title="Deltas applied">RF Max [MHz]</th>
             <th>Result</th>
             <th>Intercepted parameters</th>
             <th>Notes</th>
@@ -104,6 +108,8 @@ export function InterceptModeResultsTable({
                       </span>
                     )}
                   </td>
+                  <td className="num">{mhz(modeRf(m)[0])}</td>
+                  <td className="num">{mhz(modeRf(m)[1])}</td>
                   <td>
                     <select
                       value={entry.result}
@@ -140,7 +146,7 @@ export function InterceptModeResultsTable({
                 {paramsOpen.has(m.id) && !off && (
                   <tr className="params-editor-row">
                     <td></td>
-                    <td colSpan={4}>
+                    <td colSpan={6}>
                       <ObservedValuesEditor
                         autoFocus
                         sets={entry.observedValues}
@@ -154,7 +160,7 @@ export function InterceptModeResultsTable({
           })}
           {visible.length === 0 && (
             <tr>
-              <td colSpan={5} className="hint-text">
+              <td colSpan={7} className="hint-text">
                 {modes.length === 0 ? "This Emitter has no Modes yet." : "No Modes match the filter."}
               </td>
             </tr>

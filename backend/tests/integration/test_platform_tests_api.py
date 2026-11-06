@@ -93,6 +93,13 @@ def test_logging_a_platform_test_writes_a_record_per_emitter_against_the_pinned_
     assert listed["id"] == test["id"] and listed["platform_version_number"] is not None
     # The run's Received Power: on the Platform test and each Emitter's record.
     assert test["received_power_dbfs"] == -40 and record["received_power_dbfs"] == -40
+    # Each Emitter's frequency range in the version tested, its delta applied (2900–3100 ± 1),
+    # on the Platform test, on each record (and per Mode), and on the Platform's pins.
+    assert {(e["rf_min_mhz"], e["rf_max_mhz"]) for e in test["emitters"]} == {(2899, 3101)}
+    assert (record["rf_min_mhz"], record["rf_max_mhz"]) == (2899, 3101)
+    assert record["mode_rf_mhz"] == {a["mode"]["id"]: [2899, 3101]}
+    links = editor_client.get(f"/platforms/{platform['id']}/links").json()
+    assert {(link["rf_min_mhz"], link["rf_max_mhz"]) for link in links} == {(2899, 3101)}
 
 
 def test_a_platform_test_is_all_or_nothing(editor_client):

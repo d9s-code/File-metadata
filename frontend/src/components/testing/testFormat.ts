@@ -1,5 +1,5 @@
 import type { ObservedValues } from "../../api/testRecords";
-import type { TestResult, TestType } from "../../types/domain";
+import type { ModeLine, TestResult, TestType } from "../../types/domain";
 
 export const TEST_RESULTS: TestResult[] = ["pass", "fail", "partial", "inconclusive"];
 
@@ -128,4 +128,22 @@ export function observedValueOptions(
  * and a run's report. */
 export function compareLineLabels(a: string, b: string): number {
   return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+}
+
+/** A frequency as the test pages show it, in MHz ("—" when there's none). */
+export function mhz(value: number | null | undefined): string {
+  return value == null ? "—" : String(Number(value.toFixed(4)));
+}
+
+/** A Mode's frequency range as programmed (its delta applied). */
+export function modeRf(mode: { line?: ModeLine | null } | null | undefined): [number | null, number | null] {
+  return [mode?.line?.engineered_rf_min_mhz ?? null, mode?.line?.engineered_rf_max_mhz ?? null];
+}
+
+/** An Emitter's frequency range: its Modes' lowest minimum and highest maximum. */
+export function emitterRf(modes: { line?: ModeLine | null }[] | null | undefined): [number | null, number | null] {
+  const ranges = (modes ?? []).map(modeRf);
+  const lows = ranges.map((r) => r[0]).filter((v): v is number => v != null);
+  const highs = ranges.map((r) => r[1]).filter((v): v is number => v != null);
+  return [lows.length ? Math.min(...lows) : null, highs.length ? Math.max(...highs) : null];
 }

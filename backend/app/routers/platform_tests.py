@@ -22,6 +22,7 @@ from app.models.user import User
 from app.routers.test_records import _create_test_record
 from app.schemas.test_record import PlatformTestCreate, PlatformTestEmitterOut, PlatformTestOut
 from app.services.audit_service import record_audit
+from app.services.rf_range import emitter_rf_range
 from app.services.test_result_service import compute_overall_result
 
 router = APIRouter(tags=["platform-tests"])
@@ -56,9 +57,16 @@ def _out(db: Session, tests: list[PlatformTest]) -> list[PlatformTestOut]:
     version_ids = {r.emitter_version_id for r in records if r.emitter_version_id} | {
         t.platform_version_id for t in tests if t.platform_version_id
     }
-    numbers = dict(
-        db.query(EmitterVersion.id, EmitterVersion.version_number).filter(EmitterVersion.id.in_(version_ids)).all()
-    ) if version_ids else {}
+    numbers: dict = {}
+    rf: dict = {}
+    if version_ids:
+        for version_id, number, snapshot in (
+            db.query(EmitterVersion.id, EmitterVersion.version_number, EmitterVersion.snapshot)
+            .filter(EmitterVersion.id.in_(version_ids))
+            .all()
+        ):
+            numbers[version_id] = number
+            rf[version_id] = emitter_rf_range(snapshot)
     numbers |= dict(
         db.query(PlatformVersion.id, PlatformVersion.version_number).filter(PlatformVersion.id.in_(version_ids)).all()
     ) if version_ids else {}
@@ -84,6 +92,8 @@ def _out(db: Session, tests: list[PlatformTest]) -> list[PlatformTestOut]:
                     emitter_name=emitter.name if emitter else "(deleted Emitter)",
                     designation=emitter.designation if emitter else None,
                     version_number=numbers.get(r.emitter_version_id),
+                    rf_min_mhz=rf.get(r.emitter_version_id, (None, None))[0],
+                    rf_max_mhz=rf.get(r.emitter_version_id, (None, None))[1],
                     result=r.result,
                     computed_result=r.computed_result,
                     lines=len(r.lines),

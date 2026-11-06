@@ -48,6 +48,9 @@ export interface PlatformTestEmitter {
   designation: string | null;
   /** The Emitter version tested: the one the Platform pinned. */
   version_number: number | null;
+  /** Its frequency range in the version tested, deltas applied. */
+  rf_min_mhz?: number | null;
+  rf_max_mhz?: number | null;
   result: TestResult;
   computed_result: TestResult | null;
   lines: number;

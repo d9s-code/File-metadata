@@ -82,3 +82,6 @@ class PlatformLinkOut(BaseModel):
     pinned_version_number: int | None = None
     latest_version_number: int | None = None
     latest_version_id: UUID | None = None
+    # The pinned version's frequency range, deltas applied (filled in by list_links).
+    rf_min_mhz: float | None = None
+    rf_max_mhz: float | None = None

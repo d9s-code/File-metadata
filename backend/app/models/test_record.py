@@ -79,6 +79,26 @@ class TestRecord(UUIDPkMixin, TimestampMixin, Base):
         return self.emitter_version.version_number if self.emitter_version else None
 
     @property
+    def rf_min_mhz(self) -> float | None:
+        """The tested version's frequency range (deltas applied) — see rf_range."""
+        from app.services.rf_range import emitter_rf_range
+
+        return emitter_rf_range(self.emitter_version.snapshot)[0] if self.emitter_version else None
+
+    @property
+    def rf_max_mhz(self) -> float | None:
+        from app.services.rf_range import emitter_rf_range
+
+        return emitter_rf_range(self.emitter_version.snapshot)[1] if self.emitter_version else None
+
+    @property
+    def mode_rf_mhz(self) -> dict[str, list[float | None]]:
+        """Each Mode's frequency range in the tested version, by Mode id."""
+        from app.services.rf_range import mode_rf_ranges
+
+        return mode_rf_ranges(self.emitter_version.snapshot) if self.emitter_version else {}
+
+    @property
     def dwell_strategy_id(self) -> uuid.UUID | None:
         return self.dwell_strategy_version.strategy_id if self.dwell_strategy_version else None
 

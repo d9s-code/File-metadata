@@ -286,6 +286,11 @@ class TestRecordOut(BaseModel):
     retests_test_record_id: UUID | None = None
     # The saved Emitter version tested, by number (emitter_version_id is the version).
     emitter_version_number: int | None = None
+    # The tested version's frequency range, deltas applied, and each of its
+    # Modes' by Mode id (empty when no saved version was tested).
+    rf_min_mhz: float | None = None
+    rf_max_mhz: float | None = None
+    mode_rf_mhz: dict[str, list[float | None]] = {}
     # The Dwell Strategy version the run used: the Strategy, its name then, and the version.
     dwell_strategy_version_id: UUID | None = None
     dwell_strategy_id: UUID | None = None
@@ -410,6 +415,9 @@ class PlatformTestEmitterOut(BaseModel):
     designation: str | None = None
     # The Emitter version tested: the one the Platform pinned.
     version_number: int | None = None
+    # Its frequency range in that version, deltas applied.
+    rf_min_mhz: float | None = None
+    rf_max_mhz: float | None = None
     result: TestResult
     computed_result: TestResult | None = None
     lines: int = 0
