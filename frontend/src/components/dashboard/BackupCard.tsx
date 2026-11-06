@@ -30,8 +30,10 @@ function kindLine(k: { added: number; removed: number; changed: number }) {
 }
 
 /** Time since the latest backup and what's changed since. The alert scales with
- * the changes: the more there are, the sooner a backup is due (see Help). */
-export function BackupCard() {
+ * the changes: the more there are, the sooner a backup is due (see Help).
+ * `compact`: only the figures, the alert and the button — what changed is a
+ * click away under Backups & what changed. */
+export function BackupCard({ compact = false }: { compact?: boolean }) {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
   const { data: f, error } = useBackupStatus();
@@ -75,7 +77,7 @@ export function BackupCard() {
       )}
       <p className={f.level === "ok" ? "backup-card-due" : "backup-card-due alert"}>{dueLine(f)}</p>
 
-      {f.kinds && (f.changes ?? 0) > 0 && (
+      {!compact && f.kinds && (f.changes ?? 0) > 0 && (
         touched.length > 0 ? (
           <dl className="backup-card-kinds">
             {touched.map((k) => (
@@ -92,7 +94,7 @@ export function BackupCard() {
           </p>
         )
       )}
-      {named.length > 0 && (
+      {!compact && named.length > 0 && (
         <ul className="backup-card-named">
           {named.map((n) => (
             <li key={`${n.path}-${n.id}`}>
@@ -103,7 +105,7 @@ export function BackupCard() {
         </ul>
       )}
 
-      <p className="hint-text backup-card-next">
+      <p className={compact ? "hint-text backup-card-next compact" : "hint-text backup-card-next"}>
         {f.next_scheduled_at
           ? `Next automatic backup ${relativeTime(f.next_scheduled_at)}.`
           : "The automatic backup scheduler isn't reporting."}

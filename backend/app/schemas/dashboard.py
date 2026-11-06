@@ -87,3 +87,61 @@ class AdminOut(BaseModel):
     failed_logins_24h: int
     recent_failed_logins: list[AuditLogOut]
     long_held_locks: list[NeedsAttentionItem]
+
+
+class ReleaseMdf(BaseModel):
+    id: str
+    name: str
+    status: str
+    due_date: str | None
+    customer: str | None
+    # The MDF this one is the next release of, and the version it follows.
+    based_on_mdf_name: str | None
+    based_on_version_number: int | None
+    latest_version: int | None
+
+
+class ReleaseEmitter(BaseModel):
+    """An Emitter on the current MDF: once, however many Platforms carry it."""
+
+    emitter_id: str
+    name: str
+    designation: str | None
+    status: str | None
+    pinned_version: int
+    latest_version: int | None
+    platforms: list[str]
+    assignee: str | None
+    sim: EmitterSimStatus | None
+
+
+class ReleaseChanges(BaseModel):
+    """The current MDF's change notes, as its summary counts them by default."""
+
+    since: str
+    to_version: int
+    change_notes: dict
+
+
+class ReleaseOut(BaseModel):
+    mdf: ReleaseMdf | None
+    # An admin pinned it; otherwise it's the most recently changed unreleased MDF.
+    pinned: bool
+    emitters: list[ReleaseEmitter]
+    changes: ReleaseChanges | None
+
+
+class CurrentMdfIn(BaseModel):
+    # None: unpin (the dashboard picks the most recently changed unreleased MDF).
+    mdf_id: str | None
+
+
+class HealthOut(BaseModel):
+    """Counts of what needs a look outside the current release."""
+
+    ambiguity: int
+    intercepts: int
+    held_for_editing: int
+    dwell_testing: int
+    # Admins only; None for everyone else.
+    failed_logins_24h: int | None

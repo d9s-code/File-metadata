@@ -1,3 +1,4 @@
+import type { ChangeNotes } from "./mdfPlan";
 import { api } from "./client";
 import type { AuditLogEntry, EmitterStatus, TestResult, TestType } from "../types/domain";
 
@@ -72,6 +73,49 @@ export interface DashboardAdmin {
   long_held_locks: NeedsAttentionItem[];
 }
 
+/** The MDF the dashboard is about: pinned by an admin, else the most recently
+ * changed MDF that isn't released. */
+export interface ReleaseMdf {
+  id: string;
+  name: string;
+  status: string;
+  due_date: string | null;
+  customer: string | null;
+  based_on_mdf_name: string | null;
+  based_on_version_number: number | null;
+  latest_version: number | null;
+}
+
+/** An Emitter on the current MDF — once, however many Platforms carry it. */
+export interface ReleaseEmitter {
+  emitter_id: string;
+  name: string;
+  designation: string | null;
+  status: string | null;
+  pinned_version: number;
+  latest_version: number | null;
+  platforms: string[];
+  assignee: string | null;
+  sim: EmitterSimStatus | null;
+}
+
+export interface DashboardRelease {
+  mdf: ReleaseMdf | null;
+  pinned: boolean;
+  emitters: ReleaseEmitter[];
+  /** What the customer will get: the change notes the MDF's summary counts. */
+  changes: { since: string; to_version: number; change_notes: ChangeNotes } | null;
+}
+
+/** Counts of what needs a look across everything; failed sign-ins for admins only. */
+export interface DashboardHealth {
+  ambiguity: number;
+  intercepts: number;
+  held_for_editing: number;
+  dwell_testing: number;
+  failed_logins_24h: number | null;
+}
+
 export const dashboardApi = {
   get: () => api.get<Dashboard>("/dashboard"),
   // One section per card, so each loads on its own.
@@ -81,4 +125,8 @@ export const dashboardApi = {
   activity: (everything: boolean) =>
     api.get<{ recent_activity: AuditLogEntry[] }>(`/dashboard/activity${everything ? "?everything=true" : ""}`),
   admin: () => api.get<DashboardAdmin>("/dashboard/admin"),
+  release: () => api.get<DashboardRelease>("/dashboard/release"),
+  health: () => api.get<DashboardHealth>("/dashboard/health"),
+  /** Admins: pin the MDF the dashboard is about; null unpins it. */
+  pinCurrentMdf: (mdfId: string | null) => api.put<DashboardRelease>("/dashboard/current-mdf", { mdf_id: mdfId }),
 };

@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from uuid import UUID
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload, selectinload
@@ -277,10 +278,14 @@ def _compute_needs_attention(db: Session, sim_rows: list[dict], user: User | Non
     return items
 
 
-def _compute_emitter_sim_status(db: Session) -> list[dict]:
-    """One row per Emitter: how its SIM Test Lines did in their latest run,
-    and when it was last validated against a simulation."""
-    emitters = db.query(Emitter).filter(Emitter.is_deleted.is_(False)).order_by(Emitter.name).all()
+def _compute_emitter_sim_status(db: Session, only_ids=None) -> list[dict]:
+    """One row per Emitter (or per one of `only_ids`): how its SIM Test Lines
+    did in their latest run, and when it was last validated against a
+    simulation."""
+    query = db.query(Emitter).filter(Emitter.is_deleted.is_(False))
+    if only_ids is not None:
+        query = query.filter(Emitter.id.in_(list(only_ids)))
+    emitters = query.order_by(Emitter.name).all()
     ids = [e.id for e in emitters]
     if not ids:
         return []
@@ -493,6 +498,96 @@ def attention_section(db: Session, user: User | None = None) -> dict:
 
 def test_runs_section(db: Session) -> dict:
     return {"recent_test_runs": _compute_recent_test_runs(db), "needs_redo": _compute_needs_redo(db)}
+
+
+def current_mdf(db: Session) -> tuple[Mdf | None, bool]:
+    """The MDF the dashboard is about, and whether an admin pinned it: the
+    pinned one, else the most recently changed MDF that isn't released."""
+    from app.services import app_settings
+
+    pinned = app_settings.get_setting(db, app_settings.CURRENT_MDF)
+    if pinned:
+        try:
+            mdf = db.get(Mdf, UUID(str(pinned)))
+        except ValueError:
+            mdf = None
+        if mdf is not None and not mdf.is_deleted:
+            return mdf, True
+    mdf = (
+        db.query(Mdf)
+        .filter(Mdf.is_deleted.is_(False), Mdf.status.notin_([MdfStatus.released, MdfStatus.deprecated]))
+        .order_by(Mdf.updated_at.desc())
+        .first()
+    )
+    return mdf, False
+
+
+def release_section(db: Session) -> dict:
+    """The current MDF and every Emitter it holds (once each, however many of
+    its Platforms carry it): status, pinned and latest version, who has it,
+    and how its SIM Test Lines did. The change notes are added by the router."""
+    from app.services.platform_coverage import mdf_coverage
+
+    mdf, pinned = current_mdf(db)
+    if mdf is None:
+        return {"mdf": None, "pinned": False, "emitters": []}
+    rows: dict[str, dict] = {}
+    for platform in mdf_coverage(db, mdf.id):
+        for e in platform["emitters"]:
+            eid = str(e["emitter_id"])
+            if eid in rows:
+                rows[eid]["platforms"].append(platform["platform_name"])
+                continue
+            rows[eid] = {
+                "emitter_id": eid,
+                "name": e["emitter_name"],
+                "designation": e.get("designation"),
+                "status": e.get("status"),
+                "pinned_version": e["version_number"],
+                "latest_version": e.get("latest_version_number"),
+                "platforms": [platform["platform_name"]],
+                "assignee": None,
+                "sim": None,
+            }
+    ids = [UUID(i) for i in rows]
+    if ids:
+        for eid, username in (
+            db.query(Emitter.id, User.username).join(User, Emitter.assignee_id == User.id).filter(Emitter.id.in_(ids)).all()
+        ):
+            rows[str(eid)]["assignee"] = username
+        for sim in _compute_emitter_sim_status(db, ids):
+            rows[sim["emitter_id"]]["sim"] = sim
+    latest = max((v.version_number for v in mdf.versions), default=None)
+    previous = db.get(Mdf, mdf.based_on_mdf_id) if mdf.based_on_mdf_id else None
+    return {
+        "mdf": {
+            "id": str(mdf.id),
+            "name": mdf.name,
+            "status": getattr(mdf.status, "value", mdf.status),
+            "due_date": mdf.due_date.isoformat() if mdf.due_date else None,
+            "customer": mdf.customer.name if mdf.customer else None,
+            "based_on_mdf_name": previous.name if previous else None,
+            "based_on_version_number": mdf.based_on_version_number,
+            "latest_version": latest,
+        },
+        "pinned": pinned,
+        "emitters": sorted(rows.values(), key=lambda r: r["name"].lower()),
+    }
+
+
+def health_section(db: Session, user: User | None = None) -> dict:
+    """Counts only — what needs a look across everything."""
+    since = datetime.now(timezone.utc) - timedelta(hours=24)
+    is_admin = user is not None and has_role(user, Role.admin)
+    return {
+        "ambiguity": len(_ambiguity_findings(db)),
+        "intercepts": len(_uncovered_intercepts(db)),
+        "held_for_editing": len(long_held_locks(db)),
+        "dwell_testing": len(_dwell_testing(db)),
+        "failed_logins_24h": (
+            db.query(AuditLog).filter(AuditLog.action == "login_failed", AuditLog.created_at >= since).count() if is_admin else None
+        ),
+    }
 
 
 def admin_section(db: Session) -> dict:

@@ -546,23 +546,22 @@ A test record automatically pins to whichever version of the Emitter or MDF was 
 
 ## 9. Dashboard
 
-The **Dashboard** is the landing page after login. Each card loads on its own, so a slow one never holds up the rest.
+The **Dashboard** is the landing page after login. It has one row per subject, and the cards in a row are the same height. Each card loads on its own, so a slow one never holds up the rest.
 
-- **My work**, across the top — your open tasks (overdue first, tick them off right there), the Emitters assigned to you with their status and open tasks, and the Emitters you're editing now with how long you've held each. See [Tasks & Assignment](#15-tasks--assignment).
-- **Needs Attention** — one line per item, grouped by kind; each group folds away (the first two start open), with **Open all / Fold all**:
-  - **Simulation** — SIM Test Lines missed or partial in their latest run, or out of date (tested against Modes since deleted); an Emitter in Testing never checked against a simulation; an Emitter whose content was committed after its last Simulation Test was logged (status changes alone don't count)
-  - **Needs rework**
-  - **Intercepts not covered** — Intercepts with entries no Mode of their Emitter matches, not even nearly (a lead for Plan Modes)
-  - **Ambiguity** — unreviewed high-severity or exact overlaps in an Emitter's, Platform's or MDF's latest ambiguity check
-  - **Held for editing** — Emitters someone else has held over 8 hours (not shown to viewers; your own holds are on My work)
-  - **Stalled** — Emitters in progress with no commit for over a week
-  - **MDF readiness** — open readiness warnings on MDFs in progress
-- **Emitters / MDFs** — counts per lifecycle stage, compact, with zeros faded.
-- **Admin** (admins only) — failed sign-ins in the last 24 hours, and every Emitter held for editing over 8 hours, with a link to release one.
-- **Simulation validation** — how every SIM Test Line did in its latest run as one bar, how many Emitters had every line correct, then one row per Emitter, worst first, searchable and filterable, scrolling inside a fixed height.
-- **Test Runs** — the latest runs with their line outcomes, plus failed/partial runs with no retest on file.
-- **Recent Activity** — the latest changes; sign-ins and starting or ending an edit are left out unless **Sign-ins & edit locks too** is ticked.
-- **Backup** — time since the last backup and changes since; see [Backup & Restore](#12-backup--restore).
+**Your work.** One line: your open tasks (and how many are up for grabs), the Emitters assigned to you, and the Emitters you're editing, with how long you've held the oldest. Clicking **You're editing** lists them with how long each has been held. A note says how many you've held over 8 hours. See [Tasks & Assignment](#15-tasks--assignment).
+
+**Current release.** The MDF being worked towards, and what the customer will get from it.
+
+- **Current MDF** is the MDF an admin pinned there (**Pinned MDF**, top right of the card, admins only; each pin and unpin is in the Audit Log). Until one is pinned, it's the most recently changed MDF that isn't released, and the card says so. A pinned MDF stays even once released.
+- The card shows the MDF's status, due date (with how many days are left, or how late it is) and how many of its Emitters are Operational. Two bars cover all its Emitters: by status, and every SIM Test Line by its latest outcome. Below them, four counts link to the MDF's Emitters tab: pinned behind a newer version, never simulation-tested, without SIM Test Lines, and not done with nobody assigned.
+- **Next up** lists at most six Emitters, the furthest from done first, each with the main reason and who has it. Reasons in that order: SIM Test Lines missed or partial, or Needs rework; never tested, changed since its last SIM run, or pinned behind a newer version; no SIM Test Lines; or simply not Operational yet. **All N Emitters on this MDF →** opens the full list. The card is the same size whether the MDF holds 3 Emitters or 50.
+- **What the customer will get** is the MDF's change notes (see [Change notes](#7-mission-data-files-mdfs)), counted as its summary counts them by default: since its last release, else since the MDF it follows, else everything. Added, removed and updated are counted at the top. **Summary & release notes** opens the full summary.
+
+**Testing.** **Latest test runs** (the six newest, with their SIM line outcomes) beside **Needs a redo** (failed or partial runs with no retest on file).
+
+**Health & backups.** **Health** is a number each for what needs a look across everything: ambiguity to review (unreviewed serious overlaps in the latest checks), intercepts not covered, held for editing over 8 hours by anyone, dwell testing, and, for admins, failed sign-ins in the last 24 hours. A number above 0 is amber. Beside it, **Backup** shows the time since the last backup, the changes since, and **Back up now**; what changed is under **Backups & what changed** (see [Backup & Restore](#12-backup--restore)).
+
+`GET /dashboard/release` (the current MDF, its Emitters and change notes), `PUT /dashboard/current-mdf` (admins; `{"mdf_id": null}` unpins), `GET /dashboard/health`. The older `GET /dashboard/attention`, `/overview` and `/activity` still answer, for other uses.
 
 ## 10. Ambiguity Checks
 

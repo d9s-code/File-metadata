@@ -1,69 +1,58 @@
-import { useAuth } from "../auth/AuthContext";
+import type { ReactNode } from "react";
 import { PageHeader } from "../components/common/PageHeader";
-import { useDashboardAttention, useDashboardOverview, useDashboardTestRuns } from "../state/hooks/useDashboard";
 import { LoadingState } from "../components/common/LoadingState";
-import { LifecycleCard } from "../components/dashboard/LifecycleCard";
-import { NeedsAttentionCard } from "../components/dashboard/NeedsAttentionCard";
-import { EmitterSimTable } from "../components/dashboard/EmitterSimTable";
-import { TestRunsCard } from "../components/dashboard/TestRunsCard";
-import { RecentActivityCard } from "../components/dashboard/RecentActivityCard";
 import { BackupCard } from "../components/dashboard/BackupCard";
-import { MyWorkCard } from "../components/dashboard/MyWorkCard";
-import { AdminCard } from "../components/dashboard/AdminCard";
+import { CurrentMdfCard } from "../components/dashboard/CurrentMdfCard";
+import { CustomerChangesCard } from "../components/dashboard/CustomerChangesCard";
+import { HealthCard } from "../components/dashboard/HealthCard";
+import { LatestRunsCard, NeedsRedoCard } from "../components/dashboard/TestRunCards";
+import { YourWorkRow } from "../components/dashboard/YourWorkRow";
+import { useDashboardHealth, useDashboardRelease, useDashboardTestRuns } from "../state/hooks/useDashboard";
 
-/** A card still loading — the rest of the dashboard doesn't wait for it. */
-function Loading({ title, className = "card" }: { title: string; className?: string }) {
+/** One row per subject; in a row, the cards are the same height. */
+function Row({ title, wide = false, children }: { title: string; wide?: boolean; children: ReactNode }) {
   return (
-    <div className={className}>
+    <section className="dashboard-row" aria-label={title}>
+      <h2 className="dashboard-row-title">{title}</h2>
+      <div className={wide ? "dashboard-row-cards one" : "dashboard-row-cards"}>{children}</div>
+    </section>
+  );
+}
+
+function Loading({ title }: { title: string }) {
+  return (
+    <div className="card">
       <h2 className="as-h4">{title}</h2>
       <LoadingState label={`Loading ${title.toLowerCase()}…`} />
     </div>
   );
 }
 
-/** Each card loads on its own. Three columns: My work across the top; Needs
- * Attention beside the status counts (and, for admins, the Admin card);
- * Simulation validation beside Test Runs; Recent Activity beside Backup. */
+/** Your work; the current release (the MDF being worked towards and what the
+ * customer will get); testing; health and backups. Each card loads on its own. */
 export function DashboardPage() {
-  const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
-  const overview = useDashboardOverview();
-  const attention = useDashboardAttention();
+  const release = useDashboardRelease();
   const testRuns = useDashboardTestRuns();
+  const health = useDashboardHealth();
 
   return (
-    <div className="page">
+    <div className="page dashboard-page">
       <PageHeader title="Dashboard" />
-
-      <div className="dashboard-grid">
-        <MyWorkCard />
-
-        {attention.data ? (
-          <NeedsAttentionCard items={attention.data.needs_attention} wide={!isAdmin} />
-        ) : (
-          <Loading title="Needs Attention" className={isAdmin ? "card" : "card dashboard-wide"} />
-        )}
-        {overview.data ? (
-          <LifecycleCard emitterCounts={overview.data.emitter_status_counts} mdfCounts={overview.data.mdf_status_counts} />
-        ) : (
-          <Loading title="Emitters" />
-        )}
-        {isAdmin && <AdminCard />}
-
-        {overview.data ? (
-          <EmitterSimTable rows={overview.data.emitter_sim_status} counts={overview.data.sim_line_counts} />
-        ) : (
-          <Loading title="Simulation validation" className="card dashboard-wide" />
-        )}
-        {testRuns.data ? (
-          <TestRunsCard runs={testRuns.data.recent_test_runs} needsRedo={testRuns.data.needs_redo} />
-        ) : (
-          <Loading title="Test Runs" />
-        )}
-
-        <RecentActivityCard wide />
-        <BackupCard />
-      </div>
+      <Row title="Your work" wide>
+        <YourWorkRow />
+      </Row>
+      <Row title="Current release">
+        {release.data ? <CurrentMdfCard release={release.data} /> : <Loading title="Current MDF" />}
+        {release.data ? <CustomerChangesCard release={release.data} /> : <Loading title="What the customer will get" />}
+      </Row>
+      <Row title="Testing">
+        {testRuns.data ? <LatestRunsCard runs={testRuns.data.recent_test_runs} /> : <Loading title="Latest test runs" />}
+        {testRuns.data ? <NeedsRedoCard items={testRuns.data.needs_redo} /> : <Loading title="Needs a redo" />}
+      </Row>
+      <Row title="Health & backups">
+        <HealthCard health={health.data} />
+        <BackupCard compact />
+      </Row>
     </div>
   );
 }

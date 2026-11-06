@@ -8,7 +8,7 @@ import { formatDate, formatDateTime } from "../common/dates";
 
 /** The change notes: what was added, removed and updated in what's
  * delivered — major changes only. */
-function ChangeNotesList({ notes }: { notes: ChangeNotes }) {
+export function ChangeNotesList({ notes }: { notes: ChangeNotes }) {
   if (!notes.added.length && !notes.removed.length && !notes.updated.length) {
     return <p className="hint-text">No major changes.</p>;
   }

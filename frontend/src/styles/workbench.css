@@ -106,7 +106,7 @@
   & .card:not(.login-card) > h2.as-h4:first-child { margin: 0 0 12px; padding: 12px 18px; background: var(--panel-head); border-bottom: 1px solid var(--border-subtle); }
   & .card > :is(.card-header, .card-header-row, .modes-section-header, .dashboard-card-header) :is(h2, h3, h4, .as-h4) { font-size: 0.95rem; margin: 0; }
   & .card:not(.login-card) > .modes-toolbar-row { margin: 0; padding: 0 18px 12px; border-bottom: 1px solid var(--border-subtle); }
-  & .card:not(.login-card) > :is(.data-table, .matrix-scroll, .table-scroll) { margin-left: 0; margin-right: 0; }
+  & .card:not(.login-card) > :is(.data-table, .matrix-scroll, .table-scroll, .health-tiles) { margin-left: 0; margin-right: 0; }
   & .card > .matrix-scroll > .data-table, & .card > .table-scroll > .data-table, & .card > .data-table { margin-bottom: 0; }
   & .modal-dialog .card { border: none; padding: 0; }
   & .modal-dialog .card > * { margin-left: 0; margin-right: 0; }

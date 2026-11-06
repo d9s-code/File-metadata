@@ -112,7 +112,7 @@
   & .card :is(h2, h3, .as-h4):not(.as-h5) { font-family: var(--mono); font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; color: var(--muted); }
   & .card :is(h2, .as-h4) :is(.section-count, .hint-text) { color: var(--text); letter-spacing: 0; }
   & .card:not(.login-card) > .modes-toolbar-row { margin: 0; padding: 0 14px 10px; }
-  & .card:not(.login-card) > :is(.data-table, .matrix-scroll, .table-scroll) { margin-left: 0; margin-right: 0; }
+  & .card:not(.login-card) > :is(.data-table, .matrix-scroll, .table-scroll, .health-tiles) { margin-left: 0; margin-right: 0; }
   & .card > .matrix-scroll > .data-table, & .card > .table-scroll > .data-table, & .card > .data-table { margin-bottom: 0; }
   & .modal-dialog .card { border: none; padding: 0; }
   & .modal-dialog .card > * { margin-left: 0; margin-right: 0; }

@@ -232,43 +232,28 @@ export function HelpPage() {
       <div className="card" id="dashboard">
         <h2>Dashboard</h2>
         <p>
-          The landing page after login, and the best place to start when you&rsquo;re not sure where
-          something stands. Each card loads on its own.
+          The landing page after login: one row per subject, the cards in a row the same height. Each card loads on
+          its own.
         </p>
         <ul>
           <li>
-            <strong>My work</strong>, across the top — your open tasks (tick them off right there), the Emitters
-            assigned to you, and the Emitters you&apos;re editing now. See <a href="#tasks">Tasks &amp; assignment</a>.
+            <strong>Your work</strong> — your open tasks, the Emitters assigned to you, and the ones you&apos;re
+            editing (click to list them). See <a href="#tasks">Tasks &amp; assignment</a>.
           </li>
           <li>
-            <strong>Needs Attention</strong> — one line per item, grouped: Simulation (SIM Test Lines missed or
-            partial, an Emitter in Testing never simulated, one changed since its last simulation), Needs rework,
-            Intercepts with entries no Mode covers, unreviewed serious overlaps from the latest
-            ambiguity check, Emitters held for editing over 8 hours, stalled Emitters and MDF readiness. Click a group
-            to fold it; click an item to go to it.
+            <strong>Current release</strong> — the MDF being worked towards: the one an admin pinned (
+            <em>Pinned MDF</em> on the card), else the most recently changed MDF not released. Its status, due date,
+            how many Emitters are Operational, bars for its Emitters by status and its SIM Test Lines, and{" "}
+            <strong>Next up</strong>: at most six Emitters, the furthest from done first, each with why and who has it.
+            Beside it, <strong>What the customer will get</strong>: the MDF&apos;s change notes.
           </li>
           <li>
-            <strong>Emitters</strong> and <strong>MDFs</strong> — how many are at each lifecycle stage.
+            <strong>Testing</strong> — the latest test runs, and failed or partial runs that still need a redo.
           </li>
           <li>
-            <strong>Admin</strong> (admins only) — failed sign-ins in the last day, and long-held edit locks.
-          </li>
-          <li>
-            <strong>Simulation validation</strong> — every SIM Test Line&rsquo;s latest outcome as one bar, then
-            one row per Emitter, worst first, with a search box and a filter.
-          </li>
-          <li>
-            <strong>Test Runs</strong> — the latest runs with their line outcomes, and failed or partial runs
-            that still need a redo.
-          </li>
-          <li>
-            <strong>Recent Activity</strong> — the latest changes from the Audit Log; tick{" "}
-            <em>Sign-ins &amp; edit locks too</em> to include those.
-          </li>
-          <li>
-            <strong>Backup</strong> — how long since the last backup, how many changes have been made since, and
-            which Emitters, Platforms and MDFs were added, changed or removed. The more that changes, the sooner a
-            backup is due. See <a href="#admin-backups">Backups</a>.
+            <strong>Health &amp; backups</strong> — a number each for ambiguity to review, intercepts not covered,
+            Emitters held for editing over 8 hours and dwell testing (and failed sign-ins, for admins); and how long
+            since the last backup. See <a href="#admin-backups">Backups</a>.
           </li>
         </ul>
       </div>

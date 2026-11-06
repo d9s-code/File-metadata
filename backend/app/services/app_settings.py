@@ -33,12 +33,17 @@ MODE_DEFAULT_VALUES: dict[str, float] = {
 # and Mode value on or off, and whether values compare with deltas applied.
 CHANGE_NOTES_COUNTS = "change_notes_counts"
 
+# The MDF the dashboard is about (its id), pinned by an admin. Unset: the
+# most recently changed MDF that isn't released (dashboard_service.current_mdf).
+CURRENT_MDF = "current_mdf_id"
+
 DEFAULTS: dict[str, object] = {
     DWELL_BANDWIDTH_MHZ: 10.0,
     AI_CHAT_MAX_CONTEXT: 32_768,
     OUTLINE_PAGE_KINDS: {},
     MODE_DEFAULTS: MODE_DEFAULT_VALUES,
     CHANGE_NOTES_COUNTS: {},
+    CURRENT_MDF: None,
 }
 
 
