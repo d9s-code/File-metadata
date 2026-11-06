@@ -212,7 +212,7 @@ export function MdfEmittersTable({ mdfId, mdfName }: { mdfId: string; mdfName: s
             className="button secondary small"
             disabled={downloading}
             onClick={() => void report()}
-            title="The Emitter report for this MDF: a line per Mode under its Platform, and a sheet of what's pinned"
+            title="The report for this MDF's latest saved version, laid out like the other app's import report"
           >
             {downloading ? "Making the report…" : "Download report (.xlsx)"}
           </button>

@@ -6,6 +6,7 @@ import { useCommitMdfVersion, useMdfVersionDiff, useMdfVersions } from "../state
 import { VersionList } from "../components/versioning/VersionList";
 import { VersionPanel } from "../components/versioning/VersionPanel";
 import { ExportPrsButton } from "../components/versioning/ExportPrsButton";
+import { useMdfReportDownload } from "../components/mdf/mdfReport";
 import { SaveVersionButton } from "../components/versioning/SaveVersionButton";
 import { LoadingState } from "../components/common/LoadingState";
 
@@ -15,6 +16,7 @@ export function MdfVersionHistoryPage() {
   const { data: versions } = useMdfVersions(mdfId ?? "");
   const commitVersion = useCommitMdfVersion(mdfId ?? "");
   const [selected, setSelected] = useState<number | null>(null);
+  const report = useMdfReportDownload();
 
   /** The version compared with; null = the one just before. */
   const [against, setAgainst] = useState<number | null>(null);
@@ -66,7 +68,18 @@ export function MdfVersionHistoryPage() {
             diff={diff && { entries: diff.entries ?? [], identical: diff.identical }}
             loading={diffLoading}
             actions={
-<ExportPrsButton kind="mdf" id={mdf.id} versionNumber={selected} />
+              <>
+                <ExportPrsButton kind="mdf" id={mdf.id} versionNumber={selected} />
+                <button
+                  className="button secondary small"
+                  onClick={() => void report.download(mdf, selected)}
+                  disabled={report.downloading}
+                  title="This version's report (.xlsx), laid out like the other app's import report"
+                >
+                  {report.downloading ? "Making the report…" : `Report v${selected} (.xlsx)`}
+                </button>
+                {report.error && <span className="error-text"> {report.error}</span>}
+              </>
             }
           />
         )}

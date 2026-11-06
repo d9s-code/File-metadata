@@ -288,12 +288,14 @@ export function HelpPage() {
           than a full page; click a row to open that Emitter.
         </p>
         <p>
-          <strong>Report</strong> (a tab beside Source Groups) downloads a spreadsheet with a line per Mode. Tick the
-          Platforms and Emitters to include — an Emitter on a ticked Platform is already in, through it — then{" "}
-          <strong>Download report (.xlsx)</strong>. It lists Platforms A–Z, each one&apos;s Emitters A–Z, each
-          Emitter&apos;s Modes A–Z, then the Emitters picked on their own. A Platform&apos;s Emitters are the versions it
-          pins; an Emitter picked on its own is its latest saved version. Values are as the PRS export writes them
-          (deltas applied; scan period in ms).
+          <strong>Report</strong> (a tab beside Source Groups) downloads a spreadsheet laid out exactly like the
+          report the other app makes after an import: a <strong>Platforms</strong> sheet and an{" "}
+          <strong>Emitters</strong> sheet (a line per Mode), with the same headers. Tick the Platforms and Emitters to
+          include. An Emitter on a ticked Platform is already in, through it. Then press{" "}
+          <strong>Download report (.xlsx)</strong>. Values are read back from the PRS export: names with underscores,
+          deltas applied, the scan period in ms. Each Emitter appears once, after the Unknown Platform and Emitter every
+          export carries. To check an import, run <code>backend/scripts/compare_reports.py</code> on this report and the
+          other app&apos;s. It matches rows by name, whatever their order, and lists every value that differs.
         </p>
         <p>
           <strong>Analysis sheet (.xlsx)</strong>, beside it, is for working from rather than loading: the same Emitters,
@@ -1109,10 +1111,10 @@ export function HelpPage() {
             engineered ones) and its status now. Click a column heading to sort, and type to filter by Emitter,
             designation or Platform. An Emitter that two Platforms pin at different versions gets a row per
             version, marked &ldquo;also vN&rdquo;, and a warning above the table counts them.{" "}
-            <strong>Download report (.xlsx)</strong> (also in the <strong>⋯</strong> menu) gives the Emitter
-            report for the MDF: the same sheet, a line per Mode of every Emitter under the Platform that pins
-            it, as the MDF pins them. A second sheet, <strong>Pinned</strong>, lists the Platforms and Emitters
-            with their versions.
+            <strong>Download report (.xlsx)</strong> (also in the <strong>⋯</strong> menu) gives the report for the
+            MDF&apos;s latest saved version. It is made from the same snapshot as its PRS export and laid out like the
+            other app&apos;s import report, ready for <code>compare_reports.py</code>. Version history has{" "}
+            <strong>Report vN</strong> for any saved version.
           </p>
           <p>
             <strong>Dwells</strong> lists the dwell files the MDF pins, each at a saved version:

@@ -22,6 +22,21 @@ def _template_bytes(filename: str) -> bytes:
     return resources.files("app.services.prs_export").joinpath("templates", filename).read_bytes()
 
 
+def mdf_export_contents(mdf_snapshot: dict) -> tuple[list[dict], list[dict]]:
+    """What an MDF's export holds, in the order it's written: each Platform
+    snapshot once per name, and each Emitter snapshot once per name (the
+    first pin met wins). The Emitter report reads these, so it can't drift
+    from the export."""
+    platforms: dict[str, dict] = {}
+    emitters: dict[str, dict] = {}
+    for link in mdf_snapshot.get("links", []):
+        platform_snapshot = link["platform_snapshot"]
+        for pin in platform_snapshot.get("links", []):
+            emitters.setdefault(pin["emitter_name"], pin["emitter_snapshot"])
+        platforms.setdefault(link["platform_name"], platform_snapshot)
+    return list(platforms.values()), list(emitters.values())
+
+
 def _write_emitter_files(zf: zipfile.ZipFile, written: set[str], links: list[dict]) -> None:
     for link in links:
         emitter_name = link["emitter_name"]

@@ -81,11 +81,33 @@ EW Groups are how the "EW Groups → Modes" tab on the Emitter page is organized
 
 **Report** (a tab on the Emitters page) downloads a spreadsheet (.xlsx) with a line per Mode for the Platforms and Emitters picked. Two lists, each with a search and All / None: **Platforms** (each with how many Emitters it pins) and **Emitters** — an Emitter on a picked Platform is ticked and greyed, "on <Platform>", as it's in the report through it; tick others to add them on their own. The line above says how many Platforms, extra Emitters and Emitters in all; the picks are kept for the session.
 
-The sheet has the export header's columns, with **Platform** in front: Emitter, its designation, Mode, Polarization, Ageout [s], Threat Priority, Quality, Quantity, Scan Type, Period Min/Max [ms] (the EW Group's scan, in ms), Frequency and Pulse Width Min/Max, PRI Type, PRI and Jitter Min/Max, Frame Min/Max, then Stagger 1–32 [µs] (more columns if a stagger has more steps). Frequency, pulse width, PRI and frame time have their deltas applied, as the PRS export writes them. Polarization and Scan Type aren't kept in the app, so they're empty. The header row stays in view while scrolling.
+**Laid out like the other app's import report.** The workbook matches, header for header, the report the other app makes after an import, so the two can be compared (see **Comparing the reports** below). Two sheets:
 
-**Order:** Platforms A–Z, each one's Emitters A–Z under it, each Emitter's Modes A–Z (numbers by value: "Search 2" before "Search 10"); then the Emitters picked on their own, A–Z, with Platform empty. An Emitter on two picked Platforms is listed under each. A Platform's Emitters are the versions it pins; an Emitter picked on its own is its latest saved version (as it is now, if never saved). An Emitter without Modes still gets a line, its Mode columns empty (`POST /reports/emitters`).
+- **Platforms** — Name, Hostility, Base, Speed Low, Speed High, Speed Unit, TRL 1–3.
+- **Emitters** — a line per Mode: Emitter, its designation, Mode, Polarization, Ageout [s], Threat Priority, Quality, Quantity, Scan Type, Period Min/Max [ms], Frequency Min/Max [MHz], Pulse Width Min/Max [µs], PRI Type, PRI Min/Max, Jitter Min/Max, Frame Min/max, then Stagger 1–32 [µs] (more if a stagger has more steps). The headers are copied exactly, including the other app's quirks: a no-break space in "Jitter Max [µs]" and "Frame Min [µs]", and a small m in "Frame max [µs]".
 
-**An MDF's report.** **Download report (.xlsx)** on an MDF's Emitters tab (also in its ⋯ menu) gives the same report for everything the MDF carries. The **Report** sheet has the same columns, values and order. Its Platforms are the Platform versions the MDF pins, and their Emitters are the Emitter versions recorded in those Platform versions, as the export takes them. Renaming or changing a Platform since its pinned version doesn't change the report until it's repinned. A second sheet, **Pinned**, lists each Platform with its pinned version and, under it, each Emitter with its version and how many Modes it has. An MDF with nothing pinned is refused with the reason (`GET /reports/mdfs/{id}`).
+Every value is read back from the PRS export's own XML, so the report shows what was exported. That means names with underscores for spaces, PRI Type as the export's class (Simple, Stagger, CW, Xlet), Scan Type "Undetermined", Hostility and Base "UNKNOWN", speed 0/0 kph, TRL empty, frequency, pulse width, PRI and frame time with their deltas applied, and the scan period in ms. Polarization isn't kept or exported; the other app reports "IGNORED" then, and so does this. As in the export, each Platform and each Emitter appears once by name: an Emitter on two Platforms appears through the first pin met. The Unknown Platform and Emitter every export carries come first. An Emitter without Modes still gets a line with only its names. The header row stays in view while scrolling.
+
+**Order:** Platforms A–Z, Emitters A–Z, each Emitter's Modes A–Z (numbers by value: "Search 2" before "Search 10"). The order doesn't matter to the comparison. A Platform's Emitters are the versions it pins now. An Emitter picked on its own is its latest saved version, or as it is now if it has never been saved (`POST /reports/emitters`).
+
+**An MDF's report.** **Download report (.xlsx)** on an MDF's Emitters tab (also in its ⋯ menu) gives the report for the MDF's **latest saved version**, from the same snapshot its PRS export is made of. **Report vN (.xlsx)** in version history gives it for any saved version. Pins changed since the version was saved aren't in it until a new version is saved. An MDF with no saved version, or a version with no Emitters, is refused with the reason (`GET /reports/mdfs/{id}?version=N`, latest when no version is given). The file name carries the version.
+
+**Comparing the reports.** `backend/scripts/compare_reports.py` puts this app's report beside the other app's and flags every difference. It needs only Python 3.9 or newer, with no packages:
+
+```
+python compare_reports.py "MDF report Fleet v3.xlsx" "Other app report.xlsx" [--csv diffs.csv]
+```
+
+How it compares:
+
+- **Rows** are matched by name, never by position, so the order of Platforms, Emitters and Modes doesn't matter. Platforms are matched by Name; Emitters by Emitter and Mode. Names match ignoring case, extra spaces, and spaces vs. underscores.
+- **Columns** are matched by header, ignoring case and no-break or extra spaces. A column only one side has is reported once.
+- **Numbers** match within 0.001 (`--abs`) or 1e-6 relative (`--rel`), so 1000, 1000.0 and "1000" are equal. An empty cell only matches an empty one.
+- **Text** matches the way names do, unless `--strict-text` is given.
+- **The Unknown Platform and Emitter** are skipped, since each app fills them with its own defaults, unless `--include-unknown` is given.
+- `--ignore-column HEADER` leaves a column out.
+
+It prints the rows only in one report and each value that differs (row, column, both values). `--csv` writes the same as a table. It exits 0 when the reports agree, 1 when they differ and 2 when a file can't be read.
 
 **Analysis sheet.** **Analysis sheet (.xlsx)** beside the report (`POST /reports/analysis`, same picks) is a workbook to work from: **Modes** — a line per Mode with Platform, Emitter, designation, version, EW Group, PRI type, its Sources, quality, quantity, every value as typed (min, max) with its delta (±) and with the delta applied (min ±Δ, max ±Δ — **shaded** columns) for RF, PW, PRI, frame time and scan, jitter, stagger steps, range matching and the Mode's notes; **Sources** — each Source's date, type, group, legacy terms, description, the Modes citing it, its Element count and its notes; **Elements** — each Source's Elements as typed and with their delta (shaded); **Notes** — the Emitters' analyst notes and their Sources' notes (as they are now — notes aren't versioned); **Key** — what the sheets and shading mean.
 

@@ -19,8 +19,8 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-/** Picks the Platforms and Emitters for the Emitter report — a spreadsheet
- * line per Mode — and downloads it. */
+/** Picks the Platforms and Emitters for the Emitter report — laid out like
+ * the other app's import report — and downloads it. */
 export function ReportsPage() {
   const { data: platforms, isLoading: loadingPlatforms } = usePlatforms();
   const { data: emitters, isLoading: loadingEmitters } = useEmitters();
@@ -89,9 +89,10 @@ export function ReportsPage() {
         section={EMITTERS_SECTION}
         info={
           <>
-            A spreadsheet with a line per Mode: Platforms A–Z, each one&apos;s Emitters A–Z, each Emitter&apos;s Modes A–Z;
-            then the Emitters picked on their own. A Platform&apos;s Emitters are the versions it pins; an Emitter picked
-            on its own is its latest saved version. The <strong>analysis sheet</strong> is for working from: each
+            A spreadsheet laid out like the other app&apos;s import report, with a Platforms sheet and an Emitters
+            sheet (a line per Mode), so the two can be compared with <code>compare_reports.py</code>. Values are as
+            the PRS export writes them. A Platform&apos;s Emitters are the versions it pins; an Emitter picked on its own
+            is its latest saved version. The <strong>analysis sheet</strong> is for working from: each
             Mode with its Sources and notes, and every value as typed and with its delta (shaded columns), plus sheets
             of the Sources, their Elements and the notes.
           </>

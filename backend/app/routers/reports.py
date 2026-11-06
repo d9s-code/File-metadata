@@ -30,8 +30,8 @@ def emitter_report(
     db: Session = Depends(get_db),
     _=Depends(require_role(Role.viewer)),
 ) -> Response:
-    """The Emitter report for the Platforms and Emitters picked, as a spreadsheet:
-    a line per Mode — see emitter_report_service for what's in it and its order."""
+    """The Emitter report for the Platforms and Emitters picked, laid out like
+    the other app's import report — see emitter_report_service."""
     try:
         content = build_report(db, payload.platform_ids, payload.emitter_ids)
     except ReportError as exc:
@@ -58,16 +58,21 @@ def analysis_report(
 
 
 @router.get("/mdfs/{mdf_id}")
-def mdf_report(mdf_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))) -> Response:
-    """The Emitter report for an MDF: a line per Mode of every Emitter its
-    pinned Platform versions pin, under its Platform, and a sheet of what's
-    pinned — see emitter_report_service.build_mdf_report."""
+def mdf_report(
+    mdf_id: UUID,
+    version: int | None = None,
+    db: Session = Depends(get_db),
+    _=Depends(require_role(Role.viewer)),
+) -> Response:
+    """The Emitter report for a saved MDF version (the latest unless
+    `version` is given), laid out like the other app's import report — see
+    emitter_report_service.build_mdf_report."""
     mdf = db.get(Mdf, mdf_id)
     if mdf is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "MDF not found")
     try:
-        content = build_mdf_report(db, mdf_id)
+        content, number = build_mdf_report(db, mdf_id, version)
     except ReportError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc))
-    filename = f"MDF report {mdf.name} {date.today().isoformat()}.xlsx"
+    filename = f"MDF report {mdf.name} v{number} {date.today().isoformat()}.xlsx"
     return Response(content=content, media_type=XLSX, headers={"Content-Disposition": attachment_disposition(filename)})

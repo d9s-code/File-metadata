@@ -1,33 +1,42 @@
-"""The Emitter report: a spreadsheet with a line per Mode of the Platforms
-and Emitters picked — Platforms in alphabetical order, each one's Emitters
-alphabetically under it, and each Emitter's Modes alphabetically (numbers
-by value: "Search 2" before "Search 10"); then any Emitter picked that
-isn't on one of those Platforms. An Emitter without Modes gets a line of
-its own with the Mode's columns empty.
+"""The Emitter report: a spreadsheet laid out exactly like the report the
+other app makes after an import — a "Platforms" sheet and an "Emitters"
+sheet, with the same headers letter for letter — so the two can be put side
+by side with scripts/compare_reports.py and any difference flagged.
 
-A Platform's Emitters are reported as the versions it pins; an Emitter
-picked on its own as its latest saved version (as it is now, if it has
-never been saved). Values are those the PRS export writes: frequency, pulse
-width, PRI and frame time with their margins applied."""
+Every value is read back from the PRS export's own XML (the elements
+prs_export.serializer builds), so the report shows what was exported, not a
+second reading of the data: names with spaces as underscores, frequency,
+pulse width, PRI and frame time with their deltas applied, the scan period
+in ms. As in the export, each Platform and each Emitter appears once by name
+(an Emitter pinned on two Platforms: the first pin met), plus the Unknown
+Platform and Emitter every export carries. Polarization isn't kept in this
+app or exported; the other app reports "IGNORED" then, and so does this.
+
+An MDF's report is for one saved MDF version (the latest, by default) — the
+same snapshot its export is made from. The Platforms-and-Emitters report
+takes the Platforms' current pins and each Emitter picked on its own at its
+latest saved version."""
 
 import re
 from uuid import UUID
 
+from lxml import etree
 from sqlalchemy.orm import Session
 
 from app.models.emitter import Emitter
 from app.models.emitter_version import EmitterVersion
 from app.models.platform import Platform
-from app.services.delta import apply_delta
-from app.services.frametime_service import effective_frametime_us
+from app.services.prs_export.packager import _template_bytes, mdf_export_contents
+from app.services.prs_export.serializer import build_emitter_element, build_platform_element
 from app.services.snapshots import build_emitter_snapshot
 from app.services.xlsx_writer import Sheet, write_xlsx
 
 STAGGER_COLUMNS = 32
 
-# The report's header, as the export format has it (plus Platform in front).
+# The other app's headers, exactly — the odd spots included: a no-break space
+# in "Jitter Max [µs]" and "Frame Min [µs]", and a small m in "Frame max".
+PLATFORM_HEADER = ["Name", "Hostility", "Base", "Speed Low", "Speed High", "Speed Unit", "TRL 1", "TRL 2", "TRL 3"]
 HEADER = [
-    "Platform",
     "Emitter",
     "ELNOT",
     "Mode",
@@ -47,11 +56,15 @@ HEADER = [
     "PRI Min [µs]",
     "PRI Max [µs]",
     "Jitter Min [µs]",
-    "Jitter Max [µs]",
-    "Frame Min [µs]",
-    "Frame Max [µs]",
+    "Jitter Max\u00a0[µs]",
+    "Frame Min\u00a0[µs]",
+    "Frame max [µs]",
 ]
+POLARIZATION = "IGNORED"
+# The export's tag for the designation has the same name as its column.
+_DESIGNATION_TAG = HEADER[1]
 
+# Used by the analysis sheet (analysis_report_service).
 PRI_TYPE_NAMES = {"fixed": "Fixed", "stagger": "Stagger", "cw": "CW", "xlet": "Xlet"}
 
 
@@ -64,65 +77,110 @@ def _n(value):
     return None if value is None else round(float(value), 4)
 
 
-def _ms(seconds):
-    return None if seconds is None else round(float(seconds) * 1000, 4)
+def _num(text: str | None, scale: float = 1):
+    """An exported attribute as a number cell (None when it isn't there)."""
+    if text is None or text == "":
+        return None
+    try:
+        value = round(float(text) * scale, 6)
+    except ValueError:
+        return text
+    return int(value) if value.is_integer() else value
 
 
-def _mode_row(platform: str | None, snapshot: dict, group: dict, mode: dict) -> list:
-    line = mode.get("line") or {}
-    pri_type = mode.get("pri_type")
-    rf = apply_delta(line.get("rf_min_mhz"), line.get("rf_max_mhz"), line.get("rf_delta"))
-    pw = apply_delta(line.get("pw_min_us"), line.get("pw_max_us"), line.get("pw_delta"))
-    pri = jitter = frame = (None, None)
-    steps: list = []
-    if pri_type == "fixed":
-        pri = apply_delta(line.get("pri_min_us"), line.get("pri_max_us"), line.get("pri_delta"))
-        jitter = (line.get("jitter_min_us"), line.get("jitter_max_us"))
-    elif pri_type == "stagger":
-        steps = line.get("pri_stagger_values_us") or []
-        frame_time = effective_frametime_us(steps, line.get("explicit_frame_time_us"))
-        if frame_time is not None:
-            frame = apply_delta(frame_time, frame_time, line.get("frame_time_delta_us"))
+def _attr(element, path: str, name: str = "Value"):
+    found = element.find(path) if element is not None else None
+    return None if found is None else found.get(name)
+
+
+def emitter_rows(element) -> list[list]:
+    """The Emitters sheet's lines for one exported Emitter element: a line per
+    Mode, or one line with only the names when it has none."""
+    name = element.get("Name")
+    designation = element.findtext(_DESIGNATION_TAG)
+    params = {p.get("SetId"): p for p in element.findall("EWParameters")}
+    scans: dict[str, etree._Element] = {}
+    for scan in element.findall("Scan"):
+        scans.setdefault(scan.get("Name"), scan)
+    rows = []
+    for mode in element.findall("Mode"):
+        scan = scans.get(_attr(mode, "ScanData", "Name"))
+        group = params.get(_attr(scan, "EWParametersRef", "SetId")) if scan is not None else None
+        pri = mode.find("PRI")
+        pri_values = [None] * 6  # PRI min/max, jitter min/max, frame min/max
+        steps: list = []
+        if pri is not None:
+            pri_values = [
+                _num(_attr(pri, "SimplePRI", "Min")),
+                _num(_attr(pri, "SimplePRI", "Max")),
+                _num(_attr(pri, "Jitter", "Min")),
+                _num(_attr(pri, "Jitter", "Max")),
+                _num(_attr(pri, "FramePeriod", "Min")),
+                _num(_attr(pri, "FramePeriod", "Max")),
+            ]
+            steps = [_num(level.get("Value")) for level in pri.findall("StaggerLevels/Level")]
+        rows.append(
+            [
+                name,
+                designation,
+                mode.get("Name"),
+                POLARIZATION,
+                _num(_attr(group, "Ageout")),
+                _num(_attr(group, "ThreatPriority")),
+                _num(_attr(mode, "ConfirmationQuality")),
+                _num(_attr(mode, "ConfirmationQuantity")),
+                scan.findtext("Class") if scan is not None else None,
+                _num(_attr(scan, "Period", "Min"), 1000),
+                _num(_attr(scan, "Period", "Max"), 1000),
+                _num(_attr(mode, "Frequency", "Min")),
+                _num(_attr(mode, "Frequency", "Max")),
+                _num(_attr(mode, "PulseWidth", "Min")),
+                _num(_attr(mode, "PulseWidth", "Max")),
+                pri.get("Class") if pri is not None else None,
+                *pri_values,
+                *steps,
+            ]
+        )
+    rows.sort(key=lambda r: _name_key(r[2]))
+    return rows or [[name, designation]]
+
+
+def platform_row(element) -> list:
+    """The Platforms sheet's line for one exported Platform element."""
     return [
-        platform,
-        snapshot.get("name"),
-        snapshot.get("designation"),
-        mode.get("name"),
-        None,  # Polarization: not kept in the app.
-        _n(group.get("ageout")),
-        group.get("threat_priority"),
-        mode.get("confirmation_quality"),
-        mode.get("confirmation_quantity"),
-        None,  # Scan Type: not kept in the app.
-        _ms(group.get("scan_min")),
-        _ms(group.get("scan_max")),
-        _n(rf[0]),
-        _n(rf[1]),
-        _n(pw[0]),
-        _n(pw[1]),
-        PRI_TYPE_NAMES.get(pri_type, pri_type),
-        _n(pri[0]),
-        _n(pri[1]),
-        _n(jitter[0]),
-        _n(jitter[1]),
-        _n(frame[0]),
-        _n(frame[1]),
-        *[_n(v) for v in steps],
+        element.findtext("Name"),
+        _attr(element, "Hostility"),
+        _attr(element, "Base"),
+        _num(_attr(element, "Speed", "Min")),
+        _num(_attr(element, "Speed", "Max")),
+        _attr(element, "Speed", "Units"),
     ]
+
+
+def _template(filename: str):
+    return etree.fromstring(_template_bytes(filename))
+
+
+def _workbook(platform_snapshots: list[dict], emitter_snapshots: list[dict]) -> bytes:
+    """The two sheets for these Platform and Emitter snapshots, each read back
+    from its exported element, after the Unknown Platform and Emitter."""
+    platforms = sorted((build_platform_element(s) for s in platform_snapshots), key=lambda e: _name_key(e.findtext("Name")))
+    emitters = sorted((build_emitter_element(s) for s in emitter_snapshots), key=lambda e: _name_key(e.get("Name")))
+    platform_lines = [platform_row(e) for e in [_template("default_unknown_platform.xml"), *platforms]]
+    emitter_lines = [r for e in [_template("default_unknown_emitter.xml"), *emitters] for r in emitter_rows(e)]
+    steps = max([STAGGER_COLUMNS, *(len(r) - len(HEADER) for r in emitter_lines)])
+    header = HEADER + [f"Stagger {i} [µs]" for i in range(1, steps + 1)]
+    return write_xlsx(
+        [
+            Sheet(name="Platforms", rows=[PLATFORM_HEADER, *platform_lines], widths=[24, 12, 12, 11, 11, 11, 8, 8, 8]),
+            Sheet(name="Emitters", rows=[header, *emitter_lines], widths=[24, 14, 22] + [12] * (len(header) - 3)),
+        ]
+    )
 
 
 def _name_key(name: str | None) -> list:
     """Alphabetical, ignoring case, with numbers compared by value."""
     return [(0, int(part), "") if part.isdigit() else (1, 0, part) for part in re.split(r"(\d+)", (name or "").casefold())]
-
-
-def _emitter_rows(platform: str | None, snapshot: dict) -> list[list]:
-    modes = [(group, mode) for group in snapshot.get("ew_groups", []) for mode in group.get("modes", [])]
-    modes.sort(key=lambda gm: _name_key(gm[1].get("name")))
-    if not modes:
-        # Still listed, so an Emitter without Modes doesn't drop out unseen.
-        return [[platform, snapshot.get("name"), snapshot.get("designation")]]
-    return [_mode_row(platform, snapshot, group, mode) for group, mode in modes]
 
 
 def _latest(db: Session, emitter: Emitter) -> tuple[dict, int | None]:
@@ -163,81 +221,42 @@ def report_emitters(db: Session, platform_ids: list[UUID], emitter_ids: list[UUI
     return out
 
 
-def _rows(reported: list[tuple[str | None, dict, int | None]]) -> list[list]:
-    """The header, then a line per Mode of these Emitters, in their order."""
-    rows: list[list] = []
-    for platform, snapshot, _number in reported:
-        rows.extend(_emitter_rows(platform, snapshot))
-    steps = max([STAGGER_COLUMNS, *(len(r) - len(HEADER) for r in rows)])
-    return [HEADER + [f"Stagger {i} [µs]" for i in range(1, steps + 1)], *rows]
-
-
-def _report_sheet(rows: list[list]) -> Sheet:
-    return Sheet(name="Report", rows=rows, widths=[18, 22, 14, 22] + [12] * (len(rows[0]) - 4))
-
-
-def build_report_rows(db: Session, platform_ids: list[UUID], emitter_ids: list[UUID]) -> list[list]:
-    """The header, then a line per Mode, in the report's order."""
-    return _rows(report_emitters(db, platform_ids, emitter_ids))
-
-
 def build_report(db: Session, platform_ids: list[UUID], emitter_ids: list[UUID]) -> bytes:
-    return write_xlsx([_report_sheet(build_report_rows(db, platform_ids, emitter_ids))])
+    """The report for the Platforms and Emitters picked: each Platform with
+    its current pins, and any Emitter picked on its own."""
+    reported = report_emitters(db, platform_ids, emitter_ids)
+    platforms = db.query(Platform).filter(Platform.id.in_(platform_ids)).all() if platform_ids else []
+    emitters: dict[str, dict] = {}
+    for _platform, snapshot, _number in reported:
+        emitters.setdefault(snapshot.get("name"), snapshot)
+    return _workbook([{"name": p.name} for p in platforms], list(emitters.values()))
 
 
 # --- An MDF's report -----------------------------------------------------------------
 
 
-def mdf_report_emitters(db: Session, mdf_id: UUID) -> list[tuple[str, int, dict, int | None]]:
-    """What an MDF carries, as the export takes it: each Platform version it
-    pins (Platforms alphabetically) and, under each, the Emitter versions
-    recorded in that Platform version (alphabetically) — as (Platform name,
-    Platform version, Emitter snapshot, Emitter version)."""
-    from app.models.mdf import MdfPlatformLink
-    from app.models.platform import PlatformVersion
+def mdf_report_snapshot(db: Session, mdf_id: UUID, version_number: int | None = None) -> tuple[dict, int]:
+    """The MDF version a report is for: the one asked for, else the latest
+    saved — as (snapshot, version number)."""
+    from app.models.mdf import MdfVersion
 
-    links = (
-        db.query(MdfPlatformLink, PlatformVersion, Platform)
-        .join(PlatformVersion, MdfPlatformLink.platform_version_id == PlatformVersion.id)
-        .join(Platform, MdfPlatformLink.platform_id == Platform.id)
-        .filter(MdfPlatformLink.mdf_id == mdf_id)
-        .all()
-    )
-    out: list[tuple[str, str, dict, int | None]] = []
-    for _link, version, platform in sorted(links, key=lambda lvp: _name_key(lvp[2].name)):
-        pinned = [
-            (el["emitter_snapshot"], el.get("emitter_version_number"))
-            for el in (version.snapshot or {}).get("links", [])
-            if el.get("emitter_snapshot")
-        ]
-        for snapshot, number in sorted(pinned, key=lambda sv: _name_key(sv[0].get("name"))):
-            out.append((platform.name, version.version_label, snapshot, number))
-    return out
+    query = db.query(MdfVersion).filter(MdfVersion.mdf_id == mdf_id)
+    if version_number is not None:
+        version = query.filter(MdfVersion.version_number == version_number).one_or_none()
+        if version is None:
+            raise ReportError(f"This MDF has no version {version_number}")
+    else:
+        version = query.order_by(MdfVersion.version_number.desc()).first()
+        if version is None:
+            raise ReportError("This MDF has no saved version yet — save one, then make the report")
+    return version.snapshot, version.version_number
 
 
-CONTENTS_HEADER = ["Platform", "Platform version", "Emitter", "Emitter version", "Modes"]
-
-
-def build_mdf_report(db: Session, mdf_id: UUID) -> bytes:
-    """The Emitter report for everything an MDF pins — the same sheet, a line
-    per Mode under its Platform — and a second sheet listing what's pinned:
-    each Platform version and the Emitter versions in it."""
-    reported = mdf_report_emitters(db, mdf_id)
-    if not reported:
-        raise ReportError("This MDF has no Emitters yet — pin a Platform that pins some")
-    contents = [CONTENTS_HEADER] + [
-        [
-            platform,
-            f"v{platform_version}",
-            snapshot.get("name"),
-            f"v{number}" if number else None,
-            sum(len(g.get("modes", [])) for g in snapshot.get("ew_groups", [])),
-        ]
-        for platform, platform_version, snapshot, number in reported
-    ]
-    return write_xlsx(
-        [
-            _report_sheet(_rows([(platform, snapshot, number) for platform, _pv, snapshot, number in reported])),
-            Sheet(name="Pinned", rows=contents, widths=[24, 16, 26, 16, 10]),
-        ]
-    )
+def build_mdf_report(db: Session, mdf_id: UUID, version_number: int | None = None) -> tuple[bytes, int]:
+    """The report for an MDF version, from the same snapshot its export is
+    made of — as (the workbook, the version number)."""
+    snapshot, number = mdf_report_snapshot(db, mdf_id, version_number)
+    platforms, emitters = mdf_export_contents(snapshot)
+    if not emitters:
+        raise ReportError(f"Version {number} of this MDF has no Emitters — pin a Platform that pins some, then save")
+    return _workbook(platforms, emitters), number
