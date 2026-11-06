@@ -631,11 +631,19 @@ label {
 }
 
 .page {
-  max-width: min(1680px, 96vw);
-  margin: 0 auto;
+  /* The whole width of the window, whatever its size or zoom — tables and
+     forms use it. The side padding keeps content clear of the Notes tab on
+     the right edge. */
+  max-width: none;
+  margin: 0;
   /* Room at the bottom to scroll the last buttons clear of the corner
      panels (the editing reminder, the AI chat button). */
-  padding: 1.25rem 1.5rem 6rem;
+  padding: 1.25rem 2.5rem 6rem;
+}
+/* Running text stays a readable line length on a wide page. */
+.page p.hint-text,
+.page .pre-wrap:not(td) {
+  max-width: 160ch;
 }
 
 .centered-page {
