@@ -235,124 +235,126 @@ export function MdfsListPage() {
       ) : mdfs && mdfs.length === 0 ? (
         <EmptyState icon="◇" title="No MDFs yet" message="Add one with + Add MDF, then pin saved Platform versions to it." />
       ) : (
-        <table className="data-table">
-          <thead>
-            <tr>
-              <SortableColumnHeader
-                label="Name"
-                columnKey="name"
-                activeKey={sortKey}
-                activeDir={sortDir}
-                onSort={onSort}
-                onClear={onClear}
-              />
-              <SortableColumnHeader
-                label="Platforms"
-                columnKey="platforms"
-                columnType="number"
-                activeKey={sortKey}
-                activeDir={sortDir}
-                onSort={onSort}
-                onClear={onClear}
-              />
-              <SortableColumnHeader
-                label="Release date"
-                columnKey="release_date"
-                columnType="date"
-                activeKey={sortKey}
-                activeDir={sortDir}
-                onSort={onSort}
-                onClear={onClear}
-              />
-              <SortableColumnHeader
-                label="Due"
-                columnKey="due_date"
-                columnType="date"
-                activeKey={sortKey}
-                activeDir={sortDir}
-                onSort={onSort}
-                onClear={onClear}
-              />
-              <SortableColumnHeader
-                label="Goals"
-                columnKey="goals"
-                columnType="number"
-                activeKey={sortKey}
-                activeDir={sortDir}
-                onSort={onSort}
-                onClear={onClear}
-              />
-              <SortableColumnHeader
-                label="Status"
-                columnKey="status"
-                activeKey={sortKey}
-                activeDir={sortDir}
-                onSort={onSort}
-                onClear={onClear}
-              />
-              <SortableColumnHeader
-                label="Customer"
-                columnKey="customer"
-                activeKey={sortKey}
-                activeDir={sortDir}
-                onSort={onSort}
-                onClear={onClear}
-              />
-              <th className="row-actions" aria-label="Actions"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {visible.map((m) => (
-              <tr key={m.id}>
-                <td>
-                  <Link to={`/mdfs/${m.id}`}>{m.name}</Link>
-                </td>
-                <td>{m.platforms_count}</td>
-                <td>{formatDate(m.release_date)}</td>
-                <td>
-                  {m.due_date ? (
-                    <span className="cell-nowrap">
-                      {formatDate(m.due_date)}
-                      {!mdfStatuses.atOrAfter(m.status, "released") && dueText(m.due_date).overdue && (
-                        <span className="status-badge mdf-due overdue" title={dueText(m.due_date).text}>
-                          overdue
-                        </span>
-                      )}
-                    </span>
-                  ) : (
-                    <span className="hint-text">—</span>
-                  )}
-                </td>
-                <td>
-                  {m.goals_total ? (
-                    <span className="cell-nowrap" title={`${m.goals_done} of ${m.goals_total} goals reached`}>
-                      <span className="mdf-goals-bar" aria-hidden>
-                        <span style={{ width: `${(100 * m.goals_done) / m.goals_total}%` }} />
-                      </span>{" "}
-                      {m.goals_done}/{m.goals_total}
-                    </span>
-                  ) : (
-                    <span className="hint-text">—</span>
-                  )}
-                </td>
-                <td>
-                  <StatusBadge type="mdf" status={m.status} />
-                </td>
-                <td>{m.customer_id ? customersById[m.customer_id]?.name ?? "—" : "—"}</td>
-                <td className="row-actions">
-                  <RequireRole minimum="editor">
-                    <MenuButton
-                      label="⋯"
-                      className="row-menu-button"
-                      ariaLabel={`Actions for ${m.name}`}
-                      items={[{ label: "Delete…", danger: true, onSelect: () => void handleDelete(m) }]}
-                    />
-                  </RequireRole>
-                </td>
+        <div className="card table-card">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <SortableColumnHeader
+                  label="Name"
+                  columnKey="name"
+                  activeKey={sortKey}
+                  activeDir={sortDir}
+                  onSort={onSort}
+                  onClear={onClear}
+                />
+                <SortableColumnHeader
+                  label="Platforms"
+                  columnKey="platforms"
+                  columnType="number"
+                  activeKey={sortKey}
+                  activeDir={sortDir}
+                  onSort={onSort}
+                  onClear={onClear}
+                />
+                <SortableColumnHeader
+                  label="Release date"
+                  columnKey="release_date"
+                  columnType="date"
+                  activeKey={sortKey}
+                  activeDir={sortDir}
+                  onSort={onSort}
+                  onClear={onClear}
+                />
+                <SortableColumnHeader
+                  label="Due"
+                  columnKey="due_date"
+                  columnType="date"
+                  activeKey={sortKey}
+                  activeDir={sortDir}
+                  onSort={onSort}
+                  onClear={onClear}
+                />
+                <SortableColumnHeader
+                  label="Goals"
+                  columnKey="goals"
+                  columnType="number"
+                  activeKey={sortKey}
+                  activeDir={sortDir}
+                  onSort={onSort}
+                  onClear={onClear}
+                />
+                <SortableColumnHeader
+                  label="Status"
+                  columnKey="status"
+                  activeKey={sortKey}
+                  activeDir={sortDir}
+                  onSort={onSort}
+                  onClear={onClear}
+                />
+                <SortableColumnHeader
+                  label="Customer"
+                  columnKey="customer"
+                  activeKey={sortKey}
+                  activeDir={sortDir}
+                  onSort={onSort}
+                  onClear={onClear}
+                />
+                <th className="row-actions" aria-label="Actions"></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {visible.map((m) => (
+                <tr key={m.id}>
+                  <td>
+                    <Link to={`/mdfs/${m.id}`}>{m.name}</Link>
+                  </td>
+                  <td>{m.platforms_count}</td>
+                  <td>{formatDate(m.release_date)}</td>
+                  <td>
+                    {m.due_date ? (
+                      <span className="cell-nowrap">
+                        {formatDate(m.due_date)}
+                        {!mdfStatuses.atOrAfter(m.status, "released") && dueText(m.due_date).overdue && (
+                          <span className="status-badge mdf-due overdue" title={dueText(m.due_date).text}>
+                            overdue
+                          </span>
+                        )}
+                      </span>
+                    ) : (
+                      <span className="hint-text">—</span>
+                    )}
+                  </td>
+                  <td>
+                    {m.goals_total ? (
+                      <span className="cell-nowrap" title={`${m.goals_done} of ${m.goals_total} goals reached`}>
+                        <span className="mdf-goals-bar" aria-hidden>
+                          <span style={{ width: `${(100 * m.goals_done) / m.goals_total}%` }} />
+                        </span>{" "}
+                        {m.goals_done}/{m.goals_total}
+                      </span>
+                    ) : (
+                      <span className="hint-text">—</span>
+                    )}
+                  </td>
+                  <td>
+                    <StatusBadge type="mdf" status={m.status} />
+                  </td>
+                  <td>{m.customer_id ? customersById[m.customer_id]?.name ?? "—" : "—"}</td>
+                  <td className="row-actions">
+                    <RequireRole minimum="editor">
+                      <MenuButton
+                        label="⋯"
+                        className="row-menu-button"
+                        ariaLabel={`Actions for ${m.name}`}
+                        items={[{ label: "Delete…", danger: true, onSelect: () => void handleDelete(m) }]}
+                      />
+                    </RequireRole>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
       {dialog}
     </div>

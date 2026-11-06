@@ -227,9 +227,10 @@ h1, h2, h3, :is(h4, .as-h4), :is(h5, .as-h5), h6 {
   line-height: 1.25;
 }
 h1 { font-size: 1.55rem; margin-bottom: 0.35rem; letter-spacing: -0.02em; }
-h3 { font-size: 1.1rem; }
+h2 { font-size: 1.07rem; }
+h3 { font-size: 1rem; }
 :is(h4, .as-h4) { font-size: 1.07rem; color: var(--text); }
-:is(h5, .as-h5) { font-size: 0.85rem; color: var(--muted); }
+:is(h5, .as-h5) { font-size: 0.93rem; color: var(--muted); }
 
 a {
   color: var(--primary);
@@ -246,11 +247,20 @@ a {
   border-radius: 2px;
 }
 
+/* Controls take the page's font — browsers give them their own by default. */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
 button {
   cursor: pointer;
   background: var(--primary);
   color: var(--on-primary);
-  border: none;
+  /* Transparent, so a primary button is as tall as a bordered secondary one. */
+  border: 1px solid transparent;
   border-radius: 8px;
   padding: 0.48rem 0.95rem;
   font-size: 0.93rem;
@@ -2430,7 +2440,7 @@ span.test-derived-badge {
 }
 .version-panel-title {
   margin: 0 0 0.2rem;
-  font-size: 1.25rem;
+  font-size: 1.07rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -2667,12 +2677,13 @@ a.link-as-button {
   display: inline-block;
   background: var(--primary);
   color: var(--on-primary);
-  border-radius: var(--radius-sm);
-  padding: 0.4rem 0.85rem;
-  font-size: 0.88rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0.48rem 0.95rem;
+  font-size: 0.93rem;
   font-weight: 500;
+  line-height: normal;
   text-decoration: none;
-  box-shadow: var(--shadow-sm);
 }
 a.link-as-button:hover {
   background: var(--primary-hover);
@@ -3020,9 +3031,10 @@ fieldset.edit-lock:disabled * {
 /* A link that does a button's job (e.g. "Import CSV" opening a page). */
 a.button {
   display: inline-block;
-  border-radius: var(--radius-sm);
-  padding: 0.4rem 0.85rem;
-  font-size: 0.88rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0.48rem 0.95rem;
+  font-size: 0.93rem;
   font-weight: 500;
   line-height: normal;
   text-decoration: none;
@@ -3128,10 +3140,10 @@ a.button {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem 1.75rem;
-  padding: 0.6rem 0.9rem;
+  padding: 1rem 1.5rem;
   background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
 }
 .summary-item {
   display: flex;
@@ -4168,9 +4180,9 @@ label.grow {
   gap: 0.75rem;
 }
 .viz-card {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 0.5rem 0.6rem 0.25rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 0.75rem 1rem 0.5rem;
   background: var(--card-bg);
   min-width: 0;
 }
@@ -4546,7 +4558,6 @@ label.map-axis select { font-size: 0.8rem; padding: 0.1rem 0.3rem; }
 }
 .backup-diff-section :is(h5, .as-h5) {
   margin: 0 0 0.5rem;
-  font-size: 0.95rem;
 }
 .backup-diff-section :is(h5, .as-h5) .hint-text {
   font-weight: 400;
@@ -5182,7 +5193,6 @@ label.map-axis select { font-size: 0.8rem; padding: 0.1rem 0.3rem; }
 }
 .admin-card :is(h5, .as-h5) {
   margin: 0 0 0.25rem;
-  font-size: 0.86rem;
 }
 .section-count.warn {
   color: var(--badge-red-fg);
@@ -7206,8 +7216,7 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
 /* Emitters list: each range as min and max columns, compact. */
 .emitters-table th,
 .emitters-table td {
-  padding: 0.3rem 0.45rem;
-  font-size: 0.86rem;
+  padding: 0.55rem 0.6rem;
 }
 .emitters-table td.num,
 .emitters-table th.num {
@@ -7218,12 +7227,12 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
 .emitters-table th.num .sortable-th-trigger { justify-content: flex-end; width: 100%; }
 .emitters-table .range-group {
   text-align: center;
-  border-left: 1px solid var(--border);
+  border-left: 1px solid var(--border-subtle);
   font-weight: 600;
   white-space: nowrap;
 }
 .emitters-table .range-unit { color: var(--muted); font-weight: 400; }
-.emitters-table .range-start { border-left: 1px solid var(--border); }
+.emitters-table .range-start { border-left: 1px solid var(--border-subtle); }
 /* Wider filters: the search, and the ranges across the page's width. */
 .filter-bar input.filter-search-wide { width: 24rem; }
 .filter-bar-ranges {
@@ -7266,7 +7275,7 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
 .report-summary { margin: 0 0 0.75rem; }
 .report-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr)); gap: 1rem; align-items: start; }
 .report-picker-head { display: flex; align-items: baseline; gap: 0.6rem; margin-bottom: 0.5rem; }
-.report-picker-head h2 { margin: 0; font-size: 1rem; }
+.report-picker-head h2 { margin: 0; }
 .report-picker > .card > input[type="search"] { width: 100%; margin-bottom: 0.4rem; }
 .report-picker-list { list-style: none; margin: 0; padding: 0; max-height: 60vh; overflow-y: auto; }
 .report-picker-list li { padding: 0.2rem 0; }
@@ -7638,7 +7647,7 @@ button.meta-chip:hover:not(:disabled) { color: var(--text); }
 .files-panel { position: relative; }
 .files-panel.dragging { outline: 2px dashed var(--primary); outline-offset: -6px; background: var(--hover-bg); }
 .files-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; margin-bottom: 0.7rem; }
-.files-head h3 { margin: 0; }
+.files-head h2 { margin: 0; }
 .files-add { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.8rem; }
 .files-problems { display: grid; gap: 0.2rem; margin-bottom: 0.6rem; }
 .files-problems .link-button { justify-self: start; }
@@ -7852,6 +7861,26 @@ button.emitter-pins-chip:hover { filter: brightness(0.97); }
   white-space: nowrap;
 }
 
+/* A list page's table on the same white card as everything else; the table
+   runs to the card's edges, its first and last rows clear of the corners. */
+.card.table-card {
+  padding: 0.35rem 0.75rem;
+}
+.card.table-card > .data-table,
+.card.table-card > * > .data-table {
+  margin-bottom: 0;
+}
+
+/* Fields and dropdowns share one height across the app; inside a table row
+   they're a little more compact. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]),
+select {
+  min-height: 2.25rem;
+}
+.data-table :is(input:not([type="checkbox"]):not([type="radio"]), select) {
+  min-height: 2rem;
+}
+
 /* --- Accessibility floor (UI/UX audit) -------------------------------------
  * Readable text is at least 12px (the root is 14px, so 0.86rem), and every
  * control has a hit area of at least 24×24px (WCAG 2.2 target size).
@@ -7892,8 +7921,7 @@ input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; cursor:
 .audit-action-badge,
 .backup-level,
 .editing-chip,
-.meta-chip,
-.as-h5 { font-size: max(0.86rem, 12px); }
+.meta-chip { font-size: max(0.86rem, 12px); }
 .link-button:not(p *):not(li *),
 .attention-group-head,
 .emitter-pins-chip,

@@ -231,22 +231,24 @@ export function InterceptsPage() {
       ) : sorted.length === 0 && !(byRecording && (recordings ?? []).length > 0) ? (
         <EmptyState icon="◇" title="No matches" message="No Intercepts match the current search/filters." />
       ) : (
-        <table className="data-table">
-          <thead>
-            <tr>
-              {header("Name", "name")}
-              {header("Emitter", "emitter")}
-              {header("Recorded", "intercepted_on", "date")}
-              {header("Collected by", "collected_by")}
-              {header("Entries", "entry_count", "number")}
-              {header("Logged", "created_at", "date")}
-              <th className="row-actions" aria-label="Actions"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {groupedRows()}
-          </tbody>
-        </table>
+        <div className="card table-card">
+          <table className="data-table">
+            <thead>
+              <tr>
+                {header("Name", "name")}
+                {header("Emitter", "emitter")}
+                {header("Recorded", "intercepted_on", "date")}
+                {header("Collected by", "collected_by")}
+                {header("Entries", "entry_count", "number")}
+                {header("Logged", "created_at", "date")}
+                <th className="row-actions" aria-label="Actions"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {groupedRows()}
+            </tbody>
+          </table>
+        </div>
       )}
       {deleteError && <div className="error-text">{deleteError}</div>}
       {dialog}

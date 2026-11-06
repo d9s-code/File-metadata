@@ -159,98 +159,100 @@ function StrategyList({ onNew }: { onNew: () => void }) {
           onChange={(e) => setFilter(e.target.value)}
         />
       </FilterBar>
-      <table className="data-table dwell-strategy-list">
-        <thead>
-          <tr>
-            <th>Strategy</th>
-            <th className="num">Dwells</th>
-            <th>Range (MHz)</th>
-            <th className="num">Cycle (ms)</th>
-            <th>Version</th>
-            <th>In files</th>
-            <th>Testing</th>
-            <th>Updated</th>
-            <th aria-label="Actions" />
-          </tr>
-        </thead>
-        <tbody>
-          {[...groups.entries()].map(([key, items]) => (
-            <Fragment key={key || "default"}>
-              <tr className="dwell-group-row">
-                <th colSpan={9}>
-                  {key ? (
-                    items[0].platform_ids.map((id, i) => (
-                      <span key={id}>
-                        {i > 0 && " + "}
-                        <Link to={`/platforms/${id}`}>{items[0].platform_names[i]}</Link>
-                      </span>
-                    ))
-                  ) : (
-                    <span title="Not tied to any Platform — typically larger plans">Default dwells</span>
-                  )}
-                  <span className="hint-text">
-                    {" "}
-                    · {items.length} Strateg{items.length === 1 ? "y" : "ies"}
-                  </span>
-                </th>
-              </tr>
-              {items.map((s) => (
-                <tr key={s.id}>
-                  <td>
-                    <Link to={`/dwells/strategies/${s.id}`}>{s.name}</Link>
-                    {s.description && <div className="dwell-desc">{s.description}</div>}
-                  </td>
-                  <td className="num">{s.dwell_count}</td>
-                  <td className="nowrap">
-                    {s.lowest_mhz != null && s.highest_mhz != null ? `${num(s.lowest_mhz)}–${num(s.highest_mhz)}` : "—"}
-                  </td>
-                  <td className="num">{s.cycle_ms ? num(s.cycle_ms) : "—"}</td>
-                  <td className="nowrap">
-                    {s.latest_version_number ? `v${s.latest_version_number}` : <span className="hint-text">none</span>}
-                    {s.unsaved && s.latest_version_number != null && (
-                      <span className="dwell-dot" title={`Changed since v${s.latest_version_number}`} aria-label="changed" />
-                    )}
-                  </td>
-                  <td title={s.used_in.join("\n")}>
-                    {s.used_in.slice(0, SHOWN).join(", ") || <span className="hint-text">—</span>}
-                    {s.used_in.length > SHOWN && <span className="hint-text"> +{s.used_in.length - SHOWN}</span>}
-                  </td>
-                  <td className="nowrap">
-                    <TestingCell strategyId={s.id} counts={s.testing} />
-                  </td>
-                  <td className="nowrap">{formatDate(s.updated_at)}</td>
-                  <td className="row-actions">
-                    <MenuButton
-                      label="⋯"
-                      className="row-menu-button"
-                      ariaLabel={`Actions for ${s.name}`}
-                      items={[
-                        { label: "Version history", to: `/dwells/strategies/${s.id}/versions` },
-                        ...(actions.canWrite
-                          ? [
-                              {
-                                label: "Delete…",
-                                danger: true,
-                                onSelect: () => void actions.remove("Strategy", s.name, () => dwellsApi.deleteStrategy(s.id)),
-                              },
-                            ]
-                          : []),
-                      ]}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </Fragment>
-          ))}
-          {shown.length === 0 && (
+      <div className="card table-card">
+        <table className="data-table dwell-strategy-list">
+          <thead>
             <tr>
-              <td colSpan={9} className="hint-text">
-                Nothing matches &quot;{filter}&quot;.
-              </td>
+              <th>Strategy</th>
+              <th className="num">Dwells</th>
+              <th>Range (MHz)</th>
+              <th className="num">Cycle (ms)</th>
+              <th>Version</th>
+              <th>In files</th>
+              <th>Testing</th>
+              <th>Updated</th>
+              <th aria-label="Actions" />
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {[...groups.entries()].map(([key, items]) => (
+              <Fragment key={key || "default"}>
+                <tr className="dwell-group-row">
+                  <th colSpan={9}>
+                    {key ? (
+                      items[0].platform_ids.map((id, i) => (
+                        <span key={id}>
+                          {i > 0 && " + "}
+                          <Link to={`/platforms/${id}`}>{items[0].platform_names[i]}</Link>
+                        </span>
+                      ))
+                    ) : (
+                      <span title="Not tied to any Platform — typically larger plans">Default dwells</span>
+                    )}
+                    <span className="hint-text">
+                      {" "}
+                      · {items.length} Strateg{items.length === 1 ? "y" : "ies"}
+                    </span>
+                  </th>
+                </tr>
+                {items.map((s) => (
+                  <tr key={s.id}>
+                    <td>
+                      <Link to={`/dwells/strategies/${s.id}`}>{s.name}</Link>
+                      {s.description && <div className="dwell-desc">{s.description}</div>}
+                    </td>
+                    <td className="num">{s.dwell_count}</td>
+                    <td className="nowrap">
+                      {s.lowest_mhz != null && s.highest_mhz != null ? `${num(s.lowest_mhz)}–${num(s.highest_mhz)}` : "—"}
+                    </td>
+                    <td className="num">{s.cycle_ms ? num(s.cycle_ms) : "—"}</td>
+                    <td className="nowrap">
+                      {s.latest_version_number ? `v${s.latest_version_number}` : <span className="hint-text">none</span>}
+                      {s.unsaved && s.latest_version_number != null && (
+                        <span className="dwell-dot" title={`Changed since v${s.latest_version_number}`} aria-label="changed" />
+                      )}
+                    </td>
+                    <td title={s.used_in.join("\n")}>
+                      {s.used_in.slice(0, SHOWN).join(", ") || <span className="hint-text">—</span>}
+                      {s.used_in.length > SHOWN && <span className="hint-text"> +{s.used_in.length - SHOWN}</span>}
+                    </td>
+                    <td className="nowrap">
+                      <TestingCell strategyId={s.id} counts={s.testing} />
+                    </td>
+                    <td className="nowrap">{formatDate(s.updated_at)}</td>
+                    <td className="row-actions">
+                      <MenuButton
+                        label="⋯"
+                        className="row-menu-button"
+                        ariaLabel={`Actions for ${s.name}`}
+                        items={[
+                          { label: "Version history", to: `/dwells/strategies/${s.id}/versions` },
+                          ...(actions.canWrite
+                            ? [
+                                {
+                                  label: "Delete…",
+                                  danger: true,
+                                  onSelect: () => void actions.remove("Strategy", s.name, () => dwellsApi.deleteStrategy(s.id)),
+                                },
+                              ]
+                            : []),
+                        ]}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </Fragment>
+            ))}
+            {shown.length === 0 && (
+              <tr>
+                <td colSpan={9} className="hint-text">
+                  Nothing matches &quot;{filter}&quot;.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </>
   );
 }

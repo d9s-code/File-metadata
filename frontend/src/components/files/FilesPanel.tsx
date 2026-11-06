@@ -177,9 +177,9 @@ export function FilesPanel({
       onDrop={canEdit ? onDrop : undefined}
     >
       <div className="files-head">
-        <h3>
+        <h2 className="as-h4">
           Files <span className="section-count">{list.length}</span>
-        </h3>
+        </h2>
         {canEdit ? (
           <span className="files-add">
             <span className="hint-text">Drop files here or paste (Ctrl+V)</span>

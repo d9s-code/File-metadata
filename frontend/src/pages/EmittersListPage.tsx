@@ -443,7 +443,7 @@ export function EmittersListPage() {
         {canWrite && selected.size > 0 && (
           <EmitterBulkBar selected={[...selected]} onClear={() => setSelected(new Set())} />
         )}
-        <div className="matrix-scroll">
+        <div className="matrix-scroll card table-card">
         <table className="data-table emitters-table">
           <thead>
             <tr {...columnMenu.openProps}>

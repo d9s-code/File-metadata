@@ -204,7 +204,9 @@ export function AuditLogPage() {
             <p className="page-loading">Loading…</p>
           ) : (
             <>
-              <AuditLogList entries={data?.items ?? []} showEntityType={entityType === null && !selectedEntity} />
+              <div className="card table-card">
+                <AuditLogList entries={data?.items ?? []} showEntityType={entityType === null && !selectedEntity} />
+              </div>
               {total > shown && (
                 <button className="icon-button" onClick={() => setOffset(offset + PAGE_SIZE)}>
                   Load more ({shown} of {total})

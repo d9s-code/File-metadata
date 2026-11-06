@@ -152,58 +152,60 @@ async function handleCreate(e: FormEvent) {
         <EmptyState icon="◇" title="No users yet" message="Add the first user with + Add user." />
       ) : (
         <>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <SortableColumnHeader label="Username" columnKey="username" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
-                <SortableColumnHeader label="Role" columnKey="role" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
-                <SortableColumnHeader label="Active" columnKey="is_active" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
-                <SortableColumnHeader label="Created" columnKey="created_at" columnType="date" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
-                <SortableColumnHeader label="Last login" columnKey="last_login_at" columnType="date" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map((u) => (
-                <tr key={u.id}>
-                  <td>{u.username}</td>
-                  <td>
-                    <select value={u.role} onChange={(e) => handleRoleChange(u, e.target.value as Role)}>
-                      {ROLES.map((r) => (
-                        <option key={r} value={r}>
-                          {r}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    <span className={u.is_active ? "status-badge status-validated" : "status-badge status-deprecated"}>
-                      {u.is_active ? "Active" : "Deactivated"}
-                    </span>
-                  </td>
-                  <td>{formatDate(u.created_at)}</td>
-                  <td>{u.last_login_at ? formatDateTime(u.last_login_at) : "never"}</td>
-                  <td>
-                    <MenuButton
-                      label="⋯"
-                      className="row-menu-button"
-                      ariaLabel={`Actions for ${u.username}`}
-                      items={[
-                        {
-                          label: "Reset password…",
-                          onSelect: () => {
-                            setResetTargetUserId(u.id);
-                            setShowResetModal(true);
-                          },
-                        },
-                        { label: u.is_active ? "Deactivate" : "Activate", danger: u.is_active, onSelect: () => handleToggleActive(u) },
-                      ]}
-                    />
-                  </td>
+          <div className="card table-card">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <SortableColumnHeader label="Username" columnKey="username" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
+                  <SortableColumnHeader label="Role" columnKey="role" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
+                  <SortableColumnHeader label="Active" columnKey="is_active" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
+                  <SortableColumnHeader label="Created" columnKey="created_at" columnType="date" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
+                  <SortableColumnHeader label="Last login" columnKey="last_login_at" columnType="date" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
+                  <th></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {sorted.map((u) => (
+                  <tr key={u.id}>
+                    <td>{u.username}</td>
+                    <td>
+                      <select value={u.role} onChange={(e) => handleRoleChange(u, e.target.value as Role)}>
+                        {ROLES.map((r) => (
+                          <option key={r} value={r}>
+                            {r}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <span className={u.is_active ? "status-badge status-validated" : "status-badge status-deprecated"}>
+                        {u.is_active ? "Active" : "Deactivated"}
+                      </span>
+                    </td>
+                    <td>{formatDate(u.created_at)}</td>
+                    <td>{u.last_login_at ? formatDateTime(u.last_login_at) : "never"}</td>
+                    <td>
+                      <MenuButton
+                        label="⋯"
+                        className="row-menu-button"
+                        ariaLabel={`Actions for ${u.username}`}
+                        items={[
+                          {
+                            label: "Reset password…",
+                            onSelect: () => {
+                              setResetTargetUserId(u.id);
+                              setShowResetModal(true);
+                            },
+                          },
+                          { label: u.is_active ? "Deactivate" : "Activate", danger: u.is_active, onSelect: () => handleToggleActive(u) },
+                        ]}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           {showResetModal && (
             <Modal title="Reset password" onClose={() => setShowResetModal(false)}>

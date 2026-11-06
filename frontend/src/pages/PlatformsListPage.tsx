@@ -191,106 +191,108 @@ export function PlatformsListPage() {
       ) : platforms && platforms.length === 0 ? (
         <EmptyState icon="◇" title="No Platforms yet" message="Add one with + Add Platform, then pin saved Emitter versions to it." />
       ) : (
-        <table className="data-table platforms-table">
-          <thead>
-            <tr>
-              {header("Name", "name")}
-              {header("Description", "description")}
-              {header("Status", "own_status", "The Platform's own status")}
-              {header("Emitters", "emitters", "Emitters pinned on the Platform", "number")}
-              {header("Emitter status", "status", "The worst status among the pinned Emitters")}
-              {header("Outdated pins", "outdated", "Pinned Emitters with a newer saved version", "number")}
-              {header("Modes", "modes", "Modes in the pinned Emitter versions", "number")}
-              {header("In MDFs", "mdfs", "MDFs this Platform is pinned in", "number")}
-              {header("Ambiguity", "ambiguity", "From the latest ambiguity check: Emitters that could be taken for another", "number")}
-              {header("Last saved", "saved", undefined, "date")}
-              <th>Tasks</th>
-              <th className="row-actions" aria-label="Actions"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {visible.map((p) => {
-              const s = p.summary;
-              return (
-                <tr key={p.id}>
-                  <td>
-                    <Link to={`/platforms/${p.id}`}>{p.name}</Link>
-                  </td>
-                  <td className="platforms-description" title={p.description ?? undefined}>
-                    {p.description ?? "—"}
-                  </td>
-                  <td>
-                    <StatusBadge type="platform" status={p.status} />
-                  </td>
-                  <td className="num">{s?.emitter_count ?? "—"}</td>
-                  <td>
-                    {s?.worst_status ? (
-                      <span title={statusTitle(s.status_counts)}>
-                        <StatusBadge type="emitter" status={s.worst_status} />
-                        {s.emitter_count > 1 && (
-                          <span className="hint-text">
-                            {" "}
-                            {s.status_counts[s.worst_status]} of {s.emitter_count}
-                          </span>
-                        )}
-                      </span>
-                    ) : (
-                      <span className="hint-text">—</span>
-                    )}
-                  </td>
-                  <td className="num">
-                    {s?.outdated_pins ? (
-                      <span className="status-badge status-pending_review" title="Pinned Emitters with a newer saved version">
-                        {s.outdated_pins}
-                      </span>
-                    ) : (
-                      <span className="hint-text">0</span>
-                    )}
-                  </td>
-                  <td className="num">{s?.mode_count ?? "—"}</td>
-                  <td className="num">{s?.mdf_count ?? "—"}</td>
-                  <td>
-                    {s?.ambiguity_checked_at == null ? (
-                      <span className="hint-text">Not checked</span>
-                    ) : (
-                      <Link
-                        to={`/ambiguity/platform/${p.id}`}
-                        title={`Checked ${formatDateTime(s.ambiguity_checked_at)}`}
-                        className={s.ambiguous_emitters ? "platforms-ambiguous" : undefined}
-                      >
-                        {s.ambiguous_emitters
-                          ? `${s.ambiguous_emitters} Emitters · ${s.open_ambiguities} open`
-                          : "None found"}
-                      </Link>
-                    )}
-                  </td>
-                  <td>
-                    {s?.latest_version_number != null && s.latest_version_at ? (
-                      <span title={formatDateTime(s.latest_version_at)}>
-                        v{s.latest_version_label ?? s.latest_version_number} · {formatDate(s.latest_version_at)}
-                      </span>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td>
-                    <TasksButton type="platform" id={p.id} name={p.name} openCount={openTasks.get(p.id) ?? 0} compact />
-                  </td>
-                  <td className="row-actions">
-                    <RequireRole minimum="editor">
-                      <MenuButton
-                        label="⋯"
-                        className="row-menu-button"
-                        ariaLabel={`Actions for ${p.name}`}
-                        items={[{ label: "Delete…", danger: true, onSelect: () => void handleDelete(p) }]}
-                      />
-                    </RequireRole>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <div className="card table-card">
+          <table className="data-table platforms-table">
+            <thead>
+              <tr>
+                {header("Name", "name")}
+                {header("Description", "description")}
+                {header("Status", "own_status", "The Platform's own status")}
+                {header("Emitters", "emitters", "Emitters pinned on the Platform", "number")}
+                {header("Emitter status", "status", "The worst status among the pinned Emitters")}
+                {header("Outdated pins", "outdated", "Pinned Emitters with a newer saved version", "number")}
+                {header("Modes", "modes", "Modes in the pinned Emitter versions", "number")}
+                {header("In MDFs", "mdfs", "MDFs this Platform is pinned in", "number")}
+                {header("Ambiguity", "ambiguity", "From the latest ambiguity check: Emitters that could be taken for another", "number")}
+                {header("Last saved", "saved", undefined, "date")}
+                <th>Tasks</th>
+                <th className="row-actions" aria-label="Actions"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((p) => {
+                const s = p.summary;
+                return (
+                  <tr key={p.id}>
+                    <td>
+                      <Link to={`/platforms/${p.id}`}>{p.name}</Link>
+                    </td>
+                    <td className="platforms-description" title={p.description ?? undefined}>
+                      {p.description ?? "—"}
+                    </td>
+                    <td>
+                      <StatusBadge type="platform" status={p.status} />
+                    </td>
+                    <td className="num">{s?.emitter_count ?? "—"}</td>
+                    <td>
+                      {s?.worst_status ? (
+                        <span title={statusTitle(s.status_counts)}>
+                          <StatusBadge type="emitter" status={s.worst_status} />
+                          {s.emitter_count > 1 && (
+                            <span className="hint-text">
+                              {" "}
+                              {s.status_counts[s.worst_status]} of {s.emitter_count}
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="hint-text">—</span>
+                      )}
+                    </td>
+                    <td className="num">
+                      {s?.outdated_pins ? (
+                        <span className="status-badge status-pending_review" title="Pinned Emitters with a newer saved version">
+                          {s.outdated_pins}
+                        </span>
+                      ) : (
+                        <span className="hint-text">0</span>
+                      )}
+                    </td>
+                    <td className="num">{s?.mode_count ?? "—"}</td>
+                    <td className="num">{s?.mdf_count ?? "—"}</td>
+                    <td>
+                      {s?.ambiguity_checked_at == null ? (
+                        <span className="hint-text">Not checked</span>
+                      ) : (
+                        <Link
+                          to={`/ambiguity/platform/${p.id}`}
+                          title={`Checked ${formatDateTime(s.ambiguity_checked_at)}`}
+                          className={s.ambiguous_emitters ? "platforms-ambiguous" : undefined}
+                        >
+                          {s.ambiguous_emitters
+                            ? `${s.ambiguous_emitters} Emitters · ${s.open_ambiguities} open`
+                            : "None found"}
+                        </Link>
+                      )}
+                    </td>
+                    <td>
+                      {s?.latest_version_number != null && s.latest_version_at ? (
+                        <span title={formatDateTime(s.latest_version_at)}>
+                          v{s.latest_version_label ?? s.latest_version_number} · {formatDate(s.latest_version_at)}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td>
+                      <TasksButton type="platform" id={p.id} name={p.name} openCount={openTasks.get(p.id) ?? 0} compact />
+                    </td>
+                    <td className="row-actions">
+                      <RequireRole minimum="editor">
+                        <MenuButton
+                          label="⋯"
+                          className="row-menu-button"
+                          ariaLabel={`Actions for ${p.name}`}
+                          items={[{ label: "Delete…", danger: true, onSelect: () => void handleDelete(p) }]}
+                        />
+                      </RequireRole>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
       {dialog}
     </div>

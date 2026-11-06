@@ -76,37 +76,39 @@ export function AdminTrashPage() {
       ) : (items ?? []).length === 0 ? (
         <EmptyState icon="✓" title="Nothing recently deleted" message="Deleted Emitters, Platforms and MDFs show up here." />
       ) : (
-        <table className="data-table">
-          <thead>
-            <tr>
-              <SortableColumnHeader label="Type" columnKey="entity_type" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
-              <SortableColumnHeader label="Name" columnKey="name" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
-              <SortableColumnHeader label="Deleted" columnKey="deleted_at" columnType="date" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
-              <SortableColumnHeader label="Days left" columnKey="expires_at" columnType="date" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.map((item) => (
-              <tr key={`${item.entity_type}-${item.id}`}>
-                <td>{ENTITY_LABELS[item.entity_type]}</td>
-                <td>
-                  <Link to={`${ENTITY_PATHS[item.entity_type]}/${item.id}`}>{item.name}</Link>
-                </td>
-                <td>{formatDateTime(item.deleted_at)}</td>
-                <td>{Math.max(daysRemaining(item.expires_at), 0)} day(s)</td>
-                <td>
-                  <button className="icon-button" onClick={() => void handleRestore(item)}>
-                    Restore
-                  </button>{" "}
-                  <button className="link-button link-button-danger" onClick={() => void handlePurge(item)}>
-                    Delete forever
-                  </button>
-                </td>
+        <div className="card table-card">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <SortableColumnHeader label="Type" columnKey="entity_type" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
+                <SortableColumnHeader label="Name" columnKey="name" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
+                <SortableColumnHeader label="Deleted" columnKey="deleted_at" columnType="date" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
+                <SortableColumnHeader label="Days left" columnKey="expires_at" columnType="date" activeKey={sortKey} activeDir={sortDir} onSort={onSort} onClear={onClear} />
+                <th></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {sorted.map((item) => (
+                <tr key={`${item.entity_type}-${item.id}`}>
+                  <td>{ENTITY_LABELS[item.entity_type]}</td>
+                  <td>
+                    <Link to={`${ENTITY_PATHS[item.entity_type]}/${item.id}`}>{item.name}</Link>
+                  </td>
+                  <td>{formatDateTime(item.deleted_at)}</td>
+                  <td>{Math.max(daysRemaining(item.expires_at), 0)} day(s)</td>
+                  <td>
+                    <button className="icon-button" onClick={() => void handleRestore(item)}>
+                      Restore
+                    </button>{" "}
+                    <button className="link-button link-button-danger" onClick={() => void handlePurge(item)}>
+                      Delete forever
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
       {dialog}
     </div>
