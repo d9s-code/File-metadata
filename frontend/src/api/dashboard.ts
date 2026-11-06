@@ -103,7 +103,7 @@ export interface DashboardRelease {
   mdf: ReleaseMdf | null;
   pinned: boolean;
   emitters: ReleaseEmitter[];
-  /** What the customer will get: the change notes the MDF's summary counts. */
+  /** The MDF Changelog: the change notes the MDF's summary counts. */
   changes: { since: string; to_version: number; change_notes: ChangeNotes } | null;
 }
 

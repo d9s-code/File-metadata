@@ -550,12 +550,12 @@ The **Dashboard** is the landing page after login. It has one row per subject, a
 
 **Your work.** One line: your open tasks (and how many are up for grabs), the Emitters assigned to you, and the Emitters you're editing, with how long you've held the oldest. Clicking **You're editing** lists them with how long each has been held. A note says how many you've held over 8 hours. See [Tasks & Assignment](#15-tasks--assignment).
 
-**Current release.** The MDF being worked towards, and what the customer will get from it.
+**Current release.** The MDF being worked towards, and its changelog.
 
 - **Current MDF** is the MDF an admin pinned there (**Pinned MDF**, top right of the card, admins only; each pin and unpin is in the Audit Log). Until one is pinned, it's the most recently changed MDF that isn't released, and the card says so. A pinned MDF stays even once released.
 - The card shows the MDF's status, due date (with how many days are left, or how late it is) and how many of its Emitters are Operational. Two bars cover all its Emitters: by status, and every SIM Test Line by its latest outcome. Below them, four counts link to the MDF's Emitters tab: pinned behind a newer version, never simulation-tested, without SIM Test Lines, and not done with nobody assigned.
 - **Next up** lists at most six Emitters, the furthest from done first, each with the main reason and who has it. Reasons in that order: SIM Test Lines missed or partial, or Needs rework; never tested, changed since its last SIM run, or pinned behind a newer version; no SIM Test Lines; or simply not Operational yet. **All N Emitters on this MDF →** opens the full list. The card is the same size whether the MDF holds 3 Emitters or 50.
-- **What the customer will get** is the MDF's change notes (see [Change notes](#7-mission-data-files-mdfs)), counted as its summary counts them by default: since its last release, else since the MDF it follows, else everything. Added, removed and updated are counted at the top. **Summary & release notes** opens the full summary.
+- **MDF Changelog** is the MDF's change notes (see [Change notes](#7-mission-data-files-mdfs)), counted as its summary counts them by default: since its last release, else since the MDF it follows, else everything. Added, removed and updated are counted at the top. **Summary & release notes** opens the full summary.
 
 **Testing.** **Latest test runs** (the six newest, with their SIM line outcomes) beside **Needs a redo** (failed or partial runs with no retest on file).
 

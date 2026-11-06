@@ -245,7 +245,7 @@ export function HelpPage() {
             <em>Pinned MDF</em> on the card), else the most recently changed MDF not released. Its status, due date,
             how many Emitters are Operational, bars for its Emitters by status and its SIM Test Lines, and{" "}
             <strong>Next up</strong>: at most six Emitters, the furthest from done first, each with why and who has it.
-            Beside it, <strong>What the customer will get</strong>: the MDF&apos;s change notes.
+            Beside it, the <strong>MDF Changelog</strong>: the MDF&apos;s change notes.
           </li>
           <li>
             <strong>Testing</strong> — the latest test runs, and failed or partial runs that still need a redo.

@@ -1,5 +1,5 @@
 """The dashboard's current release: the MDF an admin pinned (else the most
-recently changed one not released), its Emitters, what the customer will get;
+recently changed one not released), its Emitters, its changelog;
 and the Health counts."""
 
 from tests.integration.test_mdf_plan_api import _setup
@@ -20,7 +20,7 @@ def test_the_latest_unreleased_mdf_until_an_admin_pins_one(admin_client, editor_
     assert row["name"] == "Release Two Radar" and row["platforms"] == ["Release Two Ship"]
     assert row["pinned_version"] == row["latest_version"] == 1
     assert row["sim"]["line_count"] == 0 and row["assignee"] is None
-    # What the customer will get: everything, as nothing was released before.
+    # The changelog: everything, as nothing was released before.
     assert out["changes"]["since"] == "the start" and out["changes"]["to_version"] == 1
     assert [a["name"] for a in out["changes"]["change_notes"]["added"]] == ["Release Two Ship", "Release Two Radar"]
 

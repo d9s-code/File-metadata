@@ -89,8 +89,8 @@ def _release(db: Session) -> dict:
 @router.get("/release", response_model=ReleaseOut)
 def get_release(db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))) -> dict:
     """The current MDF: the one an admin pinned, else the most recently
-    changed MDF that isn't released — with every Emitter on it and what the
-    customer will get (its change notes)."""
+    changed MDF that isn't released — with every Emitter on it and its
+    changelog (its change notes)."""
     return _release(db)
 
 

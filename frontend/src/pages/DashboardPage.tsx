@@ -28,8 +28,8 @@ function Loading({ title }: { title: string }) {
   );
 }
 
-/** Your work; the current release (the MDF being worked towards and what the
- * customer will get); testing; health and backups. Each card loads on its own. */
+/** Your work; the current release (the MDF being worked towards and its
+ * changelog); testing; health and backups. Each card loads on its own. */
 export function DashboardPage() {
   const release = useDashboardRelease();
   const testRuns = useDashboardTestRuns();
@@ -43,7 +43,7 @@ export function DashboardPage() {
       </Row>
       <Row title="Current release">
         {release.data ? <CurrentMdfCard release={release.data} /> : <Loading title="Current MDF" />}
-        {release.data ? <CustomerChangesCard release={release.data} /> : <Loading title="What the customer will get" />}
+        {release.data ? <CustomerChangesCard release={release.data} /> : <Loading title="MDF Changelog" />}
       </Row>
       <Row title="Testing">
         {testRuns.data ? <LatestRunsCard runs={testRuns.data.recent_test_runs} /> : <Loading title="Latest test runs" />}

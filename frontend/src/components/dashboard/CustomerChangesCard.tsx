@@ -3,7 +3,7 @@ import type { DashboardRelease } from "../../api/dashboard";
 import { EmptyState } from "../common/EmptyState";
 import { ChangeNotesList } from "../mdf/MdfSummary";
 
-/** What the customer will get: the current MDF's change notes, counted as its
+/** MDF Changelog: the current MDF's change notes, counted as its
  * summary counts them by default (since its last release, else since the MDF
  * it follows, else everything). */
 export function CustomerChangesCard({ release }: { release: DashboardRelease }) {
@@ -12,7 +12,7 @@ export function CustomerChangesCard({ release }: { release: DashboardRelease }) 
   return (
     <div className="card customer-changes">
       <div className="dashboard-card-header">
-        <h2 className="as-h4">What the customer will get</h2>
+        <h2 className="as-h4">MDF Changelog</h2>
         {mdf && changes && (
           <span className="hint-text">
             v{changes.to_version} against {changes.since}
