@@ -132,6 +132,25 @@ def severity_order(db: Session, entity_type: str) -> list[str]:
     return ["deprecated", *[k for k in keys if k != "deprecated"]] if "deprecated" in keys else keys
 
 
+# How far along an Emitter is: its status's step on the way from the first
+# status to Operational. Needs rework counts as back at the start.
+DONE_STATUS = "validated"
+REWORK_STATUS = "deprecated"
+
+
+def emitter_progress_weights(db: Session) -> dict[str, float]:
+    """Each Emitter status's share of the way to Operational, 0–1, in the
+    statuses' order: with the built-in ones In progress 0, Testing ⅓,
+    Partially operational ⅔, Operational 1. Needs rework is 0; a status an
+    Admin placed after Operational counts as done."""
+    keys = [d.key for d in definitions(db, "emitter") if d.key != REWORK_STATUS]
+    if DONE_STATUS not in keys:
+        return {k: 0.0 for k in keys} | {REWORK_STATUS: 0.0}
+    done_at = keys.index(DONE_STATUS)
+    weights = {k: (min(i / done_at, 1.0) if done_at else 1.0) for i, k in enumerate(keys)}
+    return weights | {REWORK_STATUS: 0.0}
+
+
 def check_move(db: Session, entity_type: str, old: str, new: str, note: str | None) -> StatusDefinition:
     """The status moved to, once the move is allowed and has its note."""
     defs = by_key(db, entity_type)

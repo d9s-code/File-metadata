@@ -36,6 +36,7 @@ def _blank(keys: list[str]) -> dict:
         "emitter_count": 0,
         "status_counts": {k: 0 for k in keys},
         "worst_status": None,
+        "emitter_progress": None,
         "outdated_pins": 0,
         "mode_count": 0,
         "mdf_count": 0,
@@ -85,8 +86,13 @@ def platform_summaries(db: Session, platforms: list[Platform]) -> dict[UUID, dic
         if pinned is not None and latest is not None and latest > pinned:
             s["outdated_pins"] += 1
         s["mode_count"] += int(modes.get(link.emitter_version_id) or 0)
+    weights = status_defs.emitter_progress_weights(db)
     for s in out.values():
         s["worst_status"] = next((k for k in severity if s["status_counts"].get(k)), None)
+        # How far the pinned Emitters are towards Operational, on average (0–100).
+        if s["emitter_count"]:
+            done = sum(weights.get(k, 0.0) * n for k, n in s["status_counts"].items())
+            s["emitter_progress"] = round(100 * done / s["emitter_count"])
 
     for pid, count in (
         db.query(MdfPlatformLink.platform_id, func.count(func.distinct(MdfPlatformLink.mdf_id)))

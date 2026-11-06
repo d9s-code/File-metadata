@@ -7861,6 +7861,25 @@ button.emitter-pins-chip:hover { filter: brightness(0.97); }
   white-space: nowrap;
 }
 
+/* Platforms list: the pinned Emitters' progress towards Operational. */
+.platforms-progress-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.platforms-progress-cell .progress-bar-track {
+  display: block;
+  width: 5rem;
+}
+.platforms-progress-cell .progress-bar-fill {
+  display: block;
+}
+.platforms-progress-value {
+  min-width: 2.75rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 /* A list page's table on the same white card as everything else; the table
    runs to the card's edges, its first and last rows clear of the corners. */
 .card.table-card {

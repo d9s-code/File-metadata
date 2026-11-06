@@ -27,6 +27,7 @@ type PlatformSortKey =
   | "own_status"
   | "emitters"
   | "status"
+  | "progress"
   | "outdated"
   | "modes"
   | "mdfs"
@@ -58,6 +59,8 @@ function comparePlatforms(
         sb?.worst_status ? emitterStatus(sb.worst_status) : null,
         dir,
       );
+    case "progress":
+      return compareNullable(sa?.emitter_progress, sb?.emitter_progress, dir);
     case "own_status":
       return compareStrings(a.status ? platformStatus(a.status) : null, b.status ? platformStatus(b.status) : null, dir);
     case "outdated":
@@ -200,6 +203,12 @@ export function PlatformsListPage() {
                 {header("Status", "own_status", "The Platform's own status")}
                 {header("Emitters", "emitters", "Emitters pinned on the Platform", "number")}
                 {header("Emitter status", "status", "The worst status among the pinned Emitters")}
+                {header(
+                  "Progress",
+                  "progress",
+                  "How far the pinned Emitters are towards Operational, on average: In progress 0%, Testing 33%, Partially operational 67%, Operational 100%, Needs rework 0%",
+                  "number",
+                )}
                 {header("Outdated pins", "outdated", "Pinned Emitters with a newer saved version", "number")}
                 {header("Modes", "modes", "Modes in the pinned Emitter versions", "number")}
                 {header("In MDFs", "mdfs", "MDFs this Platform is pinned in", "number")}
@@ -234,6 +243,25 @@ export function PlatformsListPage() {
                               {s.status_counts[s.worst_status]} of {s.emitter_count}
                             </span>
                           )}
+                        </span>
+                      ) : (
+                        <span className="hint-text">—</span>
+                      )}
+                    </td>
+                    <td className="platforms-progress">
+                      {s?.emitter_progress != null ? (
+                        <span className="platforms-progress-cell" title={statusTitle(s.status_counts)}>
+                          <span
+                            className="progress-bar-track"
+                            role="progressbar"
+                            aria-valuenow={s.emitter_progress}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-label="Emitter progress"
+                          >
+                            <span className="progress-bar-fill" style={{ width: `${s.emitter_progress}%` }} />
+                          </span>
+                          <span className="platforms-progress-value">{s.emitter_progress}%</span>
                         </span>
                       ) : (
                         <span className="hint-text">—</span>

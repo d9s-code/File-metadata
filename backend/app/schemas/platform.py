@@ -34,6 +34,9 @@ class PlatformSummary(BaseModel):
     # Live statuses of the pinned Emitters, and the worst of them.
     status_counts: dict[str, int]
     worst_status: str | None = None
+    # How far the pinned Emitters are towards Operational, on average, as a
+    # percent (see statuses.emitter_progress_weights); None without Emitters.
+    emitter_progress: int | None = None
     outdated_pins: int
     # Modes in the pinned Emitter versions.
     mode_count: int

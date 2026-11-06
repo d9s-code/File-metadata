@@ -19,6 +19,10 @@ export interface PlatformSummary {
   /** Live statuses of the pinned Emitters, and the worst of them. */
   status_counts: Record<string, number>;
   worst_status: string | null;
+  /** How far the pinned Emitters are towards Operational, on average, as a
+   * percent (In progress 0, Testing 33, Partially operational 67,
+   * Operational 100, Needs rework 0); null without Emitters. */
+  emitter_progress?: number | null;
   outdated_pins: number;
   /** Modes in the pinned Emitter versions. */
   mode_count: number;

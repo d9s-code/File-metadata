@@ -240,6 +240,16 @@ def test_list_summarises_each_platforms_emitters_versions_and_mdfs(editor_client
     assert (s["latest_version_number"], s["latest_version_label"]) == (1, "1")
     assert s["mdf_count"] == 1
     assert s["ambiguous_emitters"] == 2 and s["open_ambiguities"] == 2
+    # Progress towards Operational: In progress 0, Testing ⅓ — on average 17%.
+    assert s["emitter_progress"] == 17
+    # Operational counts in full, Needs rework as back at the start.
+    r = editor_client.post(f"/emitters/{b['id']}/status", json={"new_status": "validated", "note": "Bench-tested", "confirm_unmet": True})
+    assert r.status_code == 200, r.text
+    [item] = [p for p in editor_client.get("/platforms").json() if p["id"] == platform["id"]]
+    assert item["summary"]["emitter_progress"] == 50
+    editor_client.post(f"/emitters/{b['id']}/status", json={"new_status": "deprecated", "note": "Wrong PRI", "confirm_unmet": True})
+    [item] = [p for p in editor_client.get("/platforms").json() if p["id"] == platform["id"]]
+    assert item["summary"]["emitter_progress"] == 0
 
 
 def test_repin_latest_moves_every_outdated_pin_and_reports_numbers(editor_client):
