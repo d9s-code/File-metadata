@@ -382,6 +382,27 @@ pytest
 Integration tests run against a real Postgres database (not SQLite) since the schema uses
 JSONB and array columns whose behavior only real Postgres reproduces faithfully.
 
+### Frontend
+
+```bash
+cd frontend
+npm test                     # unit tests (Vitest): parsing, formatting, sorting — *.test.ts beside the code
+```
+
+Browser tests (Playwright, `frontend/e2e/`) drive whole flows in a real browser: edit a Mode
+and save a version, log a test run, pick a style. They need the app running (the dev
+servers, as above) and an editor or admin account. Each test makes its own Emitter and deletes
+it after, so use a development database, not production:
+
+```bash
+cd frontend
+npx playwright install chromium          # once
+E2E_USERNAME=… E2E_PASSWORD=… npm run test:e2e
+```
+
+`E2E_BASE_URL` (default `http://localhost:5173`) and `E2E_API_URL` (default
+`http://localhost:8000`) point them elsewhere. `npx tsc -b` type-checks the app and the tests.
+
 ## Documentation
 
 - **[docs/FEATURES.md](docs/FEATURES.md)** — full feature walkthrough (Emitters, Modes &

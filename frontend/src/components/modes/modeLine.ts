@@ -222,9 +222,9 @@ export function frameTimeOf(text: string): number {
 
 /** The first free "<prefix> <n>" among names already used — "Search 3" after
  * "Search 1" and "Search 2". */
-export function nextFreeName(prefix: string, used: Iterable<string>): string {
+export function nextFreeName(prefix: string, used: Iterable<string>, from = 1): string {
   const taken = new Set(used);
-  let n = 1;
+  let n = from;
   while (taken.has(`${prefix} ${n}`)) n++;
   return `${prefix} ${n}`;
 }
@@ -234,5 +234,6 @@ export function nextFreeName(prefix: string, used: Iterable<string>): string {
 export function nameAfter(last: string, used: Iterable<string>): string {
   const m = last.match(/^(.*?)\s*(\d+)$/);
   const prefix = (m ? m[1] : last).trim() || last;
-  return nextFreeName(prefix, used);
+  // "Acquire" is the first of its kind, so the next is "Acquire 2".
+  return nextFreeName(prefix, used, m ? 1 : 2);
 }
