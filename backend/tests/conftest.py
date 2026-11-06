@@ -26,9 +26,10 @@ from app.models.user import User
 
 # Run in parallel with `pytest -n auto --dist loadgroup` (pytest-xdist): each
 # worker ("gw0", "gw1"…) gets its own schema — and the sync tests' "PC"
-# schemas its suffix — so their drop_all / TRUNCATE never meet. The backup
-# tests share the one verification database, so they're kept on one worker
-# (@pytest.mark.xdist_group, which needs --dist loadgroup).
+# schemas its suffix — so their drop_all / TRUNCATE never meet. What spans
+# the whole database is kept on one worker (@pytest.mark.xdist_group, which
+# needs --dist loadgroup): the backup tests' verification database and the
+# documentation sync's advisory lock.
 WORKER = os.environ.get("PYTEST_XDIST_WORKER", "")
 SUFFIX = f"_{WORKER}" if WORKER else ""
 SCHEMA = f"v2_test{SUFFIX}"

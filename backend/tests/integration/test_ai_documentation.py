@@ -13,6 +13,10 @@ from tests.integration.test_ai_review_api import EXPLANATION, SUMMARY, _finding,
 from tests.integration.test_ambiguity_api import emitter_with_two_overlapping_modes  # noqa: F401  (fixture)
 from tests.unit.test_outline_client import outline  # noqa: F401  (fixture)
 
+# A sync takes a Postgres advisory lock, which spans the whole database, not
+# one worker's schema: these tests stay together on one worker in parallel.
+pytestmark = pytest.mark.xdist_group("documentation-sync-lock")
+
 
 @pytest.fixture()
 def docs(outline, monkeypatch, db_session):  # noqa: F811
