@@ -100,14 +100,14 @@ def test_mdf_prs_export_returns_zip_with_expected_structure(editor_client):
     assert root.find(f"{{{_PRS_NS}}}DefaultUnknown").text == "platforms\\default_unknown_platform.xml"
     assert root.find(f"{{{_PRS_NS}}}MDF/{{{_PRS_NS}}}Name").text == "PRS_Export_MDF"
     # The MDF's Id is XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX — the MDF's own, the same in every export —
-    # and the library lists each Platform's file (no Count), as a Platform file lists its Emitters.
+    # and the library lists each Platform's file straight under MDF (no Configuration, no Count).
     mdf_el = root.find(f"{{{_PRS_NS}}}MDF")
     assert re.fullmatch(r"[0-9a-z]{8}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{12}", mdf_el.get("Id"))
     assert mdf_el.get("Id") == mdf_id
-    platform_files = mdf_el.findall(f"{{{_PRS_NS}}}Configuration/{{{_PRS_NS}}}PlatformFile")
+    platform_files = mdf_el.findall(f"{{{_PRS_NS}}}PlatformFile")
     assert [f.text for f in platform_files] == ["platforms\\PRS_Export_Platform.xml"]
     assert all(f.attrib == {} for f in platform_files)
-    assert [etree.QName(c).localname for c in mdf_el] == ["Name", "Configuration"]
+    assert [etree.QName(c).localname for c in mdf_el] == ["Name", "PlatformFile"]
 
     platform_el = etree.fromstring(zf.read("platforms/PRS_Export_Platform.xml"))
     assert platform_el.find("Name").text == "PRS_Export_Platform"

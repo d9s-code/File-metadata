@@ -191,15 +191,13 @@ def library_id(value) -> str:
 def build_library_root(*, mdf_id: str, mdf_name: str, platform_names: list[str]) -> etree._Element:
     """The library file at the top of an export: the default Unknown Platform,
     then the MDF — its Id, its name, and a PlatformFile for each Platform in
-    it, pointing at the file in platforms\\ (as a Platform file lists its
-    Emitters with EmitterFile)."""
+    it, pointing at the file in platforms\\ (straight under MDF)."""
     root = etree.Element("ThreatLibrary", nsmap={None: PRS_NAMESPACE})
     etree.SubElement(root, "DefaultUnknown").text = "platforms\\default_unknown_platform.xml"
     mdf_el = etree.SubElement(root, "MDF", Id=library_id(mdf_id))
     etree.SubElement(mdf_el, "Name").text = _sanitize(mdf_name)
-    config_el = etree.SubElement(mdf_el, "Configuration")
     for name in platform_names:
-        etree.SubElement(config_el, "PlatformFile").text = f"platforms\\{sanitize_filename(name)}.xml"
+        etree.SubElement(mdf_el, "PlatformFile").text = f"platforms\\{sanitize_filename(name)}.xml"
     return root
 
 
