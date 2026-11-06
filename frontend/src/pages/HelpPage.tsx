@@ -294,8 +294,8 @@ export function HelpPage() {
           include. An Emitter on a ticked Platform is already in, through it. Then press{" "}
           <strong>Download report (.xlsx)</strong>. Values are read back from the PRS export: names with underscores,
           deltas applied, the scan period in ms. Each Emitter appears once, after the Unknown Platform and Emitter every
-          export carries. To check an import, run <code>backend/scripts/compare_reports.py</code> on this report and the
-          other app&apos;s. It matches rows by name, whatever their order, and lists every value that differs.
+          export carries. To check an import, use an MDF&apos;s <strong>Import check</strong> tab, or run{" "}
+          <code>backend/scripts/compare_reports.py</code> on this report and the other app&apos;s.
         </p>
         <p>
           <strong>Analysis sheet (.xlsx)</strong>, beside it, is for working from rather than loading: the same Emitters,
@@ -1115,6 +1115,14 @@ export function HelpPage() {
             MDF&apos;s latest saved version. It is made from the same snapshot as its PRS export and laid out like the
             other app&apos;s import report, ready for <code>compare_reports.py</code>. Version history has{" "}
             <strong>Report vN</strong> for any saved version.
+          </p>
+          <p>
+            <strong>Import check</strong> verifies an import into the other app. Make the report there after importing
+            the MDF and upload it on this tab, picking the version you exported. The app compares it with its own
+            report of that version. Rows are matched by name, so their order doesn&apos;t matter. You get{" "}
+            <strong>The reports agree</strong> or a table of every difference: row, column, the value here and there.
+            Filter it by sheet or name, or download it as CSV. The Unknown Platform and Emitter are left out unless you
+            tick them in, because each app fills them with its own defaults.
           </p>
           <p>
             <strong>Dwells</strong> lists the dwell files the MDF pins, each at a saved version:

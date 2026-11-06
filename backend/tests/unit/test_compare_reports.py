@@ -114,3 +114,25 @@ def test_it_reads_shared_strings_as_spreadsheet_apps_write_them(tmp_path):
             '<row r="3"><c r="A3" t="s"><v>1</v></c><c r="D3"><v>0</v></c></row></sheetData></worksheet>',
         )
     assert read_workbook(str(path)) == {"Platforms": [["Name"], [], ["dummy platform", None, None, 0]]}
+
+
+def test_a_file_that_is_not_a_report_is_refused_plainly(tmp_path):
+    import pytest
+
+    from app.services.report_compare import WorkbookError
+
+    with pytest.raises(WorkbookError):
+        read_workbook(b"not a zip")
+    path = tmp_path / "empty.xlsx"
+    import zipfile
+
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr("hello.txt", "no workbook here")
+    with pytest.raises(WorkbookError):
+        read_workbook(path.read_bytes())
+    # Bytes work as well as a path; too much unpacked is refused.
+    good = _write(tmp_path / "good.xlsx", [PLATFORM], [ONE])
+    data = open(good, "rb").read()
+    assert read_workbook(data) == read_workbook(good)
+    with pytest.raises(WorkbookError, match="upload limit"):
+        read_workbook(data, max_bytes=100)

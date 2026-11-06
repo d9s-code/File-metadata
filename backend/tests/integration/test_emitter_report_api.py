@@ -217,3 +217,64 @@ def test_an_mdf_report_is_for_a_saved_version(editor_client, viewer_client):
     assert _sheets(first.content) == sheets
     assert viewer_client.get(f"/reports/mdfs/{mdf['id']}", params={"version": 9}).status_code == 422
     assert viewer_client.get("/reports/mdfs/00000000-0000-0000-0000-000000000000").status_code == 404
+
+
+def test_the_import_check_compares_an_uploaded_report_with_a_saved_version(editor_client, viewer_client):
+    from app.services.xlsx_writer import Sheet, write_xlsx
+
+    zulu = _emitter(editor_client, "Zulu Radar", "ZR-1", [("Search 10", "fixed", FIXED), ("Search 2", "stagger", STAGGER)])
+    south = _platform(editor_client, "South", zulu)
+    mdf = editor_client.post("/mdfs", json={"name": "Checked MDF"}).json()
+    url = f"/reports/mdfs/{mdf['id']}/compare"
+    xlsx = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+    def upload(content: bytes, **form):
+        return viewer_client.post(url, files={"file": ("Other.xlsx", content, xlsx)}, data=form)
+
+    assert upload(b"not a spreadsheet").status_code == 422  # no saved version yet
+    version = editor_client.post(f"/platforms/{south['id']}/versions", json={"change_summary": "v"}).json()
+    editor_client.post(f"/mdfs/{mdf['id']}/links", json={"platform_id": south["id"], "platform_version_id": version["id"]})
+    assert editor_client.post(f"/mdfs/{mdf['id']}/versions", json={"change_summary": "Release 1"}).status_code == 201
+
+    ours = _sheets(viewer_client.get(f"/reports/mdfs/{mdf['id']}").content)
+    # The other app: rows in another order, names with spaces, its own Unknown Emitter.
+    emitters = [ours["Emitters"][0], *reversed(ours["Emitters"][2:]), ["Unknown", "U000A", "default"]]
+    emitters = [[v.replace("_", " ") if isinstance(v, str) and i in (0, 2) else v for i, v in enumerate(r)] for r in emitters]
+
+    def workbook(rows):
+        return write_xlsx([Sheet("Platforms", ours["Platforms"]), Sheet("Emitters", rows)])
+
+    resp = upload(workbook(emitters))
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["agrees"] is True and body["mdf_version"] == 1 and body["file_name"] == "Other.xlsx"
+    assert body["rows"] == {"Platforms": {"app": 1, "other": 1}, "Emitters": {"app": 2, "other": 2}}
+    with_unknown = upload(workbook(emitters), include_unknown="true").json()
+    assert {d["code"] for d in with_unknown["differences"]} == {"only_app", "only_other"}
+
+    col = _cols(ours["Emitters"][0])
+    changed = [list(r) for r in emitters]
+    search_10 = next(r for r in changed if r[2] == "Search 10")
+    search_10[col["Frequency Max [MHz]"]] = 9200
+    resp = upload(workbook(changed[:-1] + [changed[-1]]))
+    body = resp.json()
+    assert body["agrees"] is False and body["difference_count"] == 1
+    assert body["differences"] == [
+        {
+            "sheet": "Emitters",
+            "key": "Zulu_Radar / Search_10",
+            "column": "Frequency Max [MHz]",
+            "app": "9105",
+            "other": "9200",
+            "kind": "value differs",
+            "code": "value",
+        }
+    ]
+    # Compared with another version than the latest; an unreadable file is refused.
+    assert upload(workbook(emitters), version="1").json()["agrees"] is True
+    assert upload(workbook(emitters), version="7").status_code == 422
+    bad = upload(b"not a spreadsheet")
+    assert bad.status_code == 422 and "readable .xlsx" in bad.json()["detail"]
+    assert viewer_client.post(
+        "/reports/mdfs/00000000-0000-0000-0000-000000000000/compare", files={"file": ("x.xlsx", b"x", xlsx)}
+    ).status_code == 404

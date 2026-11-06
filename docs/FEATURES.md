@@ -92,7 +92,9 @@ Every value is read back from the PRS export's own XML, so the report shows what
 
 **An MDF's report.** **Download report (.xlsx)** on an MDF's Emitters tab (also in its ⋯ menu) gives the report for the MDF's **latest saved version**, from the same snapshot its PRS export is made of. **Report vN (.xlsx)** in version history gives it for any saved version. Pins changed since the version was saved aren't in it until a new version is saved. An MDF with no saved version, or a version with no Emitters, is refused with the reason (`GET /reports/mdfs/{id}?version=N`, latest when no version is given). The file name carries the version.
 
-**Comparing the reports.** `backend/scripts/compare_reports.py` puts this app's report beside the other app's and flags every difference. It needs only Python 3.9 or newer, with no packages:
+**Import check.** The **Import check** tab on an MDF's page compares the two reports in the app. After importing the MDF into the other app, make its report there and upload it on the tab. Pick the version that was exported (the latest by default). The app builds its own report for that version and compares the two. It answers either **The reports agree** or the number of differences, with how many Platforms and Mode lines each side had, and a table of the differences: sheet, row (Platform, or Emitter / Mode), column, the value here and there, and what kind of difference it is. The table filters by sheet and by name, and **Download differences (.csv)** saves it. **Include the Unknown Platform and Emitter** and **Compare text exactly** switch on the options below. Nothing is stored (`POST /reports/mdfs/{id}/compare`, multipart: `file`, optional `version`, `include_unknown`, `strict_text`; at most 2000 differences are returned, with the total).
+
+**From the command line.** `backend/scripts/compare_reports.py` runs the same comparison, from `backend/app/services/report_compare.py`, without the app. It needs only Python 3.9 or newer, with no packages. Copy both files, keeping `scripts/` beside `app/services/`:
 
 ```
 python compare_reports.py "MDF report Fleet v3.xlsx" "Other app report.xlsx" [--csv diffs.csv]
@@ -103,11 +105,11 @@ How it compares:
 - **Rows** are matched by name, never by position, so the order of Platforms, Emitters and Modes doesn't matter. Platforms are matched by Name; Emitters by Emitter and Mode. Names match ignoring case, extra spaces, and spaces vs. underscores.
 - **Columns** are matched by header, ignoring case and no-break or extra spaces. A column only one side has is reported once.
 - **Numbers** match within 0.001 (`--abs`) or 1e-6 relative (`--rel`), so 1000, 1000.0 and "1000" are equal. An empty cell only matches an empty one.
-- **Text** matches the way names do, unless `--strict-text` is given.
-- **The Unknown Platform and Emitter** are skipped, since each app fills them with its own defaults, unless `--include-unknown` is given.
+- **Text** matches the way names do, unless `--strict-text` is given (**Compare text exactly** in the app).
+- **The Unknown Platform and Emitter** are skipped, since each app fills them with its own defaults, unless `--include-unknown` is given (**Include the Unknown Platform and Emitter** in the app).
 - `--ignore-column HEADER` leaves a column out.
 
-It prints the rows only in one report and each value that differs (row, column, both values). `--csv` writes the same as a table. It exits 0 when the reports agree, 1 when they differ and 2 when a file can't be read.
+The script prints the rows only in one report and each value that differs (row, column, both values). `--csv` writes the same as a table. It exits 0 when the reports agree, 1 when they differ and 2 when a file can't be read.
 
 **Analysis sheet.** **Analysis sheet (.xlsx)** beside the report (`POST /reports/analysis`, same picks) is a workbook to work from: **Modes** — a line per Mode with Platform, Emitter, designation, version, EW Group, PRI type, its Sources, quality, quantity, every value as typed (min, max) with its delta (±) and with the delta applied (min ±Δ, max ±Δ — **shaded** columns) for RF, PW, PRI, frame time and scan, jitter, stagger steps, range matching and the Mode's notes; **Sources** — each Source's date, type, group, legacy terms, description, the Modes citing it, its Element count and its notes; **Elements** — each Source's Elements as typed and with their delta (shaded); **Notes** — the Emitters' analyst notes and their Sources' notes (as they are now — notes aren't versioned); **Key** — what the sheets and shading mean.
 

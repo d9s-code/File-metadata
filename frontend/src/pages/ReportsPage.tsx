@@ -90,7 +90,7 @@ export function ReportsPage() {
         info={
           <>
             A spreadsheet laid out like the other app&apos;s import report, with a Platforms sheet and an Emitters
-            sheet (a line per Mode), so the two can be compared with <code>compare_reports.py</code>. Values are as
+            sheet (a line per Mode), so the two can be compared on an MDF&apos;s Import check tab. Values are as
             the PRS export writes them. A Platform&apos;s Emitters are the versions it pins; an Emitter picked on its own
             is its latest saved version. The <strong>analysis sheet</strong> is for working from: each
             Mode with its Sources and notes, and every value as typed and with its delta (shaded columns), plus sheets

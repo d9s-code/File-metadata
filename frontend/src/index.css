@@ -7787,6 +7787,58 @@ button.emitter-pins-chip:hover { filter: brightness(0.97); }
 /* Icons: inline SVG at the text's size and colour (see Icon.tsx). */
 .icon { display: inline-block; width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; }
 
+/* MDF Import check: the other app's report compared with this one. */
+.import-check-form {
+  margin: 0.5rem 0;
+}
+.import-check-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.25rem;
+  margin-bottom: 0.75rem;
+}
+.import-check-verdict {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.8rem;
+  border-radius: var(--radius-sm);
+  background: var(--hover-bg);
+  border-left: 3px solid var(--attention);
+}
+.import-check-verdict.ok {
+  border-left-color: var(--success);
+}
+.import-check-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  font-weight: 700;
+  flex: none;
+}
+.import-check-verdict.ok .import-check-icon {
+  background: var(--badge-green-bg);
+  color: var(--badge-green-fg);
+}
+.import-check-verdict.differs .import-check-icon {
+  background: var(--badge-amber-bg);
+  color: var(--badge-amber-fg);
+}
+.import-check-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem 1rem;
+  margin: 0.75rem 0 0.5rem;
+}
+.import-check-value {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 /* --- Accessibility floor (UI/UX audit) -------------------------------------
  * Readable text is at least 12px (the root is 14px, so 0.86rem), and every
  * control has a hit area of at least 24×24px (WCAG 2.2 target size).

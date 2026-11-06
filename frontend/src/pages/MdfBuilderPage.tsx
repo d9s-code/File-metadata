@@ -28,6 +28,7 @@ import { downloadMdfReport } from "../components/mdf/mdfReport";
 import { UnsavedPinsFlag } from "../components/versioning/UnsavedPinsFlag";
 import { MdfPlanChips, MdfPlanPanel } from "../components/mdf/MdfPlanPanel";
 import { MdfDwellsPanel } from "../components/mdf/MdfDwellsPanel";
+import { MdfImportCheckPanel } from "../components/mdf/MdfImportCheckPanel";
 import { useMdfDwells } from "../state/hooks/useDwells";
 import { useStatuses } from "../state/hooks/useStatuses";
 import { LoadingState } from "../components/common/LoadingState";
@@ -37,8 +38,8 @@ import { NotesDrawer } from "../components/common/NotesDrawer";
 import { TasksButton } from "../components/tasks/TasksButton";
 import { MilestonesButton } from "../components/status/MilestonesButton";
 
-type Tab = "platforms" | "emitters" | "dwells" | "plan" | "charts" | "tests" | "readiness" | "files" | "audit";
-const TABS: readonly Tab[] = ["platforms", "emitters", "dwells", "plan", "charts", "tests", "readiness", "files", "audit"];
+type Tab = "platforms" | "emitters" | "dwells" | "plan" | "charts" | "tests" | "readiness" | "check" | "files" | "audit";
+const TABS: readonly Tab[] = ["platforms", "emitters", "dwells", "plan", "charts", "tests", "readiness", "check", "files", "audit"];
 /** Where each readiness check is dealt with. */
 const READINESS_TAB: Record<string, Tab> = {
   pinned: "platforms",
@@ -338,6 +339,9 @@ export function MdfBuilderPage() {
             </span>
           )}
         </button>
+        <button className={tab === "check" ? "tab active" : "tab"} onClick={() => setTab("check")}>
+          Import check
+        </button>
         <button className={tab === "files" ? "tab active" : "tab"} onClick={() => setTab("files")}>
           Files <span className="tab-count">{files?.length ?? 0}</span>
         </button>
@@ -394,6 +398,7 @@ export function MdfBuilderPage() {
       )}
 
       {tab === "readiness" && <MdfReadinessPanel mdfId={mdf.id} onGo={(key) => setTab(READINESS_TAB[key] ?? "platforms")} />}
+      {tab === "check" && <MdfImportCheckPanel mdf={mdf} versions={versions ?? []} />}
       {tab === "emitters" && <MdfEmittersTable mdfId={mdf.id} mdfName={mdf.name} />}
       {tab === "dwells" && <MdfDwellsPanel mdfId={mdf.id} pinsFrozen={pinsFrozen} canEdit={canWrite && !mdf.deleted_at} />}
       {tab === "plan" && <MdfPlanPanel mdf={mdf} versions={versions ?? []} canEdit={canWrite && !mdf.deleted_at} />}
