@@ -19,6 +19,12 @@
   --hover-bg: #f1f3f5;
   --active-bg: #eef2f7;
   --border: #d7dbe0;
+  /* Separators that only group things (table rows, card edges) — lighter than
+     a control's outline, which keeps --border. */
+  --border-subtle: #e6e8ec;
+  /* How wide a page's content gets: wide enough for the big tables, narrow
+     enough that a page reads as one block on a large or zoomed-out screen. */
+  --page-max: 1600px;
   --text: #1a1d21;
   --muted: #5f6672; /* ≥4.5:1 on the page, cards and grey badges */
   --primary: #2b5aa0;
@@ -72,7 +78,9 @@
      in rem, so this one change scales body text, headings, and labels
      together while keeping their relative proportions. */
   font-size: 87.5%;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Inter: one neutral typeface for the whole app, bundled (no network needed). */
+  font-family: "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-optical-sizing: auto;
   color-scheme: light;
 }
 
@@ -96,6 +104,7 @@
     --hover-bg: #262b33;
     --active-bg: #2a3038;
     --border: #333941;
+    --border-subtle: #2a2f37;
     --text: #e6e8eb;
     --muted: #9aa1ab;
     --primary: #6ea8fe;
@@ -158,6 +167,7 @@
   --hover-bg: #262b33;
   --active-bg: #2a3038;
   --border: #333941;
+  --border-subtle: #2a2f37;
   --text: #e6e8eb;
   --muted: #9aa1ab;
   --primary: #6ea8fe;
@@ -216,9 +226,9 @@ h1, h2, h3, :is(h4, .as-h4), :is(h5, .as-h5), h6 {
   letter-spacing: -0.01em;
   line-height: 1.25;
 }
-h1 { font-size: 1.6rem; margin-bottom: 0.35rem; }
+h1 { font-size: 1.55rem; margin-bottom: 0.35rem; letter-spacing: -0.02em; }
 h3 { font-size: 1.1rem; }
-:is(h4, .as-h4) { font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); }
+:is(h4, .as-h4) { font-size: 1.07rem; color: var(--text); }
 :is(h5, .as-h5) { font-size: 0.85rem; color: var(--muted); }
 
 a {
@@ -241,17 +251,16 @@ button {
   background: var(--primary);
   color: var(--on-primary);
   border: none;
-  border-radius: var(--radius-sm);
-  padding: 0.4rem 0.85rem;
-  font-size: 0.88rem;
+  border-radius: 8px;
+  padding: 0.48rem 0.95rem;
+  font-size: 0.93rem;
   font-weight: 500;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
   transition: background 0.15s var(--ease), box-shadow 0.15s var(--ease), transform 0.1s var(--ease);
 }
 
 button:hover {
   background: var(--primary-hover);
-  box-shadow: var(--shadow-md);
 }
 
 button:active:not(:disabled) {
@@ -395,7 +404,6 @@ button.start-editing-button:hover:not(:disabled),
 .info-popover-content dt {
   color: var(--muted);
   font-size: 0.7rem;
-  text-transform: uppercase;
 }
 .info-popover-content dd {
   margin: 0 0 0.3rem 0;
@@ -603,10 +611,10 @@ select,
 textarea {
   background: var(--card-bg);
   color: var(--text);
-  padding: 0.32rem 0.5rem;
+  padding: 0.42rem 0.65rem;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-size: 0.88rem;
+  border-radius: 8px;
+  font-size: 0.93rem;
   transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
 }
 input:hover,
@@ -631,14 +639,13 @@ label {
 }
 
 .page {
-  /* The whole width of the window, whatever its size or zoom — tables and
-     forms use it. The side padding keeps content clear of the Notes tab on
-     the right edge. */
-  max-width: none;
-  margin: 0;
+  /* Centred and bounded (--page-max), so a page reads as one block; the side
+     padding keeps content clear of the Notes tab on the right edge. */
+  max-width: calc(var(--page-max) + 5rem);
+  margin: 0 auto;
   /* Room at the bottom to scroll the last buttons clear of the corner
      panels (the editing reminder, the AI chat button). */
-  padding: 1.25rem 2.5rem 6rem;
+  padding: 1.75rem 2.5rem 6rem;
 }
 /* Running text stays a readable line length on a wide page. */
 .page p.hint-text,
@@ -659,11 +666,10 @@ label {
 
 .card {
   background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 0.85rem 1rem;
-  margin-bottom: 0.75rem;
-  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.25rem;
 }
 
 .login-card {
@@ -855,8 +861,6 @@ label {
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
 }
 
 .test-record-mode-list {
@@ -1130,17 +1134,18 @@ label {
 .data-table th,
 .data-table td {
   text-align: left;
-  padding: 0.4rem 0.55rem;
-  border-bottom: 1px solid var(--border);
-  font-size: 0.88rem;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.93rem;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Mixed case, not uppercase: uppercasing turns "µs" into "ΜS", which reads
    as milliseconds — and sortable headers (buttons) were never uppercased. */
 .data-table th {
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   color: var(--muted);
-  font-weight: 600;
+  font-weight: 500;
   border-bottom: 1px solid var(--border);
 }
 
@@ -1150,8 +1155,8 @@ label {
 /* Reuses the page background (rather than a new token) for the stripe —
    it already reads as a step down from the card's own background in both
    themes, so alternating rows separate at a glance without extra colors. */
-.data-table tbody tr:nth-child(even) {
-  background: var(--bg);
+.data-table tbody tr:last-child > td {
+  border-bottom: none;
 }
 .data-table tbody tr:hover {
   background: var(--hover-bg);
@@ -1161,10 +1166,7 @@ label {
 }
 
 /* Vertical grid lines between columns, alongside the row lines above. */
-.data-table th + th,
-.data-table td + td {
-  border-left: 1px solid var(--border);
-}
+
 
 /* Long text wraps inside a capped width instead of stretching its column
    until the rest of the table is pushed out of reach. Full-width rows
@@ -1218,9 +1220,6 @@ body.col-resizing { user-select: none; }
   z-index: 1;
   background: var(--card-bg);
   box-shadow: -6px 0 8px -6px rgba(0, 0, 0, 0.18);
-}
-.data-table tbody tr:nth-child(even) > .sticky-end {
-  background: var(--bg);
 }
 .data-table tbody tr:hover > .sticky-end {
   background: var(--hover-bg);
@@ -2199,11 +2198,9 @@ span.test-derived-badge {
   border-left: none;
 }
 .run-fact dt {
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--viz-ink-muted);
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: var(--muted);
 }
 .run-fact dt .unit {
   /* Uppercase would turn µs into MS. */
@@ -2926,8 +2923,6 @@ a.link-as-button.accent-button:hover {
   padding: 0.25rem 0.75rem 0.35rem;
   font-size: 0.72rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
   color: var(--muted);
 }
 .column-menu-item {
@@ -3145,10 +3140,8 @@ a.button {
   min-width: 0;
 }
 .summary-label {
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 0.86rem;
+  font-weight: 500;
   color: var(--muted);
 }
 .summary-value {
@@ -3675,8 +3668,6 @@ label.grow {
 }
 .entry-view-tabs .sub-tab {
   font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 .reports-view-bar {
   display: flex;
@@ -5295,8 +5286,6 @@ a.ai-cite:hover { text-decoration: underline; }
   text-align: left;
   font-weight: 600;
   font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
   color: var(--muted);
   padding: 0.3rem 0.5rem;
   border-bottom: 1px solid var(--border);
@@ -7765,7 +7754,7 @@ button.meta-chip:hover:not(:disabled) { color: var(--text); }
   margin: 0.25rem 0 0.75rem;
 }
 .mdf-dwell-facts div { display: flex; flex-direction: column; min-width: 0; }
-.mdf-dwell-facts dt { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.mdf-dwell-facts dt { font-size: 0.86rem; color: var(--muted); }
 .mdf-dwell-facts dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
 .mdf-dwell-others { margin: 0.6rem 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
 .tab .tab-count.tab-count-fail { background: var(--badge-red-bg); color: var(--badge-red-fg); }
@@ -7909,7 +7898,8 @@ input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; cursor:
 .attention-group-head,
 .emitter-pins-chip,
 .data-table select,
-.split-button-caret { min-height: 24px; }
+.split-button-caret,
+.stagger-box-trigger { min-height: 24px; }
 .split-button-caret, .expand-col .link-button { min-width: 24px; }
 .summary-link { display: inline-flex; align-items: center; min-height: 24px; }
 /* (third pass) Labels whose older rules are more specific. The keyboard

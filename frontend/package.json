@@ -11,6 +11,7 @@
     "build:standalone": "tsc -b && vite build --mode standalone --outDir dist-standalone"
   },
   "dependencies": {
+    "@fontsource-variable/inter": "^5.3.0",
     "@tanstack/react-query": "^5.102.2",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
