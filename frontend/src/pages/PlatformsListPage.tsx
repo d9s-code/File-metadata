@@ -26,7 +26,6 @@ type PlatformSortKey =
   | "description"
   | "own_status"
   | "emitters"
-  | "status"
   | "progress"
   | "outdated"
   | "modes"
@@ -34,14 +33,13 @@ type PlatformSortKey =
   | "ambiguity"
   | "saved";
 
-/** Status columns sort A–Z by the name shown: `emitterStatus` and
- * `platformStatus` give it for a status key. */
+/** The Platform status column sorts A–Z by the name shown: `platformStatus`
+ * gives it for a status key. */
 function comparePlatforms(
   a: Platform,
   b: Platform,
   key: PlatformSortKey,
   dir: "asc" | "desc",
-  emitterStatus: (key: string) => string,
   platformStatus: (key: string) => string,
 ): number {
   const sa = a.summary;
@@ -53,12 +51,6 @@ function comparePlatforms(
       return compareStrings(a.description, b.description, dir);
     case "emitters":
       return compareNullable(sa?.emitter_count, sb?.emitter_count, dir);
-    case "status":
-      return compareStrings(
-        sa?.worst_status ? emitterStatus(sa.worst_status) : null,
-        sb?.worst_status ? emitterStatus(sb.worst_status) : null,
-        dir,
-      );
     case "progress":
       return compareNullable(sa?.emitter_progress, sb?.emitter_progress, dir);
     case "own_status":
@@ -87,8 +79,8 @@ export function PlatformsListPage() {
   const platformStatuses = useStatuses("platform");
   const comparator = useCallback(
     (a: Platform, b: Platform, key: PlatformSortKey, dir: "asc" | "desc") =>
-      comparePlatforms(a, b, key, dir, emitterStatuses.label, platformStatuses.label),
-    [emitterStatuses, platformStatuses],
+      comparePlatforms(a, b, key, dir, platformStatuses.label),
+    [platformStatuses],
   );
   const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(platforms ?? [], comparator, "platforms");
   const createPlatform = useCreatePlatform();
@@ -200,13 +192,12 @@ export function PlatformsListPage() {
               <tr>
                 {header("Name", "name")}
                 {header("Description", "description")}
-                {header("Status", "own_status", "The Platform's own status")}
+                {header("Platform status", "own_status", "The Platform's own status")}
                 {header("Emitters", "emitters", "Emitters pinned on the Platform", "number")}
-                {header("Emitter status", "status", "The worst status among the pinned Emitters")}
                 {header(
-                  "Progress",
+                  "Emitter progress",
                   "progress",
-                  "How far the pinned Emitters are towards Operational, on average: In progress 0%, Testing 33%, Partially operational 67%, Operational 100%, Needs rework 0%",
+                  "How far the pinned Emitters are towards Operational, on average: In progress 0%, Testing 33%, Partially operational 67%, Operational 100%, Needs rework 0%. Hover a row for how many are in each status.",
                   "number",
                 )}
                 {header("Outdated pins", "outdated", "Pinned Emitters with a newer saved version", "number")}
@@ -233,21 +224,6 @@ export function PlatformsListPage() {
                       <StatusBadge type="platform" status={p.status} />
                     </td>
                     <td className="num">{s?.emitter_count ?? "—"}</td>
-                    <td>
-                      {s?.worst_status ? (
-                        <span title={statusTitle(s.status_counts)}>
-                          <StatusBadge type="emitter" status={s.worst_status} />
-                          {s.emitter_count > 1 && (
-                            <span className="hint-text">
-                              {" "}
-                              {s.status_counts[s.worst_status]} of {s.emitter_count}
-                            </span>
-                          )}
-                        </span>
-                      ) : (
-                        <span className="hint-text">—</span>
-                      )}
-                    </td>
                     <td className="platforms-progress">
                       {s?.emitter_progress != null ? (
                         <span className="platforms-progress-cell" title={statusTitle(s.status_counts)}>
@@ -262,6 +238,7 @@ export function PlatformsListPage() {
                             <span className="progress-bar-fill" style={{ width: `${s.emitter_progress}%` }} />
                           </span>
                           <span className="platforms-progress-value">{s.emitter_progress}%</span>
+                          <span className="hint-text platforms-progress-detail">{statusTitle(s.status_counts)}</span>
                         </span>
                       ) : (
                         <span className="hint-text">—</span>

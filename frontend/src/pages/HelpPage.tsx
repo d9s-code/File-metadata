@@ -957,12 +957,12 @@ export function HelpPage() {
         <h2>Platforms</h2>
         <p>
           The Platforms list (top nav) shows every Platform — a Platform bundles the Emitters carried by a
-          given vehicle or site. A Platform has no status of its own; it's purely a container, ready to be
-          pinned into an MDF whenever the Emitters inside it are. The list shows how many Emitters each pins, the
-          worst status among them (hover for the count of each), their <strong>Progress</strong> towards Operational
-          (a percent: In progress 0%, Testing 33%, Partially operational 67%, Operational 100%, Needs rework 0%,
-          averaged over the pinned Emitters), outdated pins, the Modes pinned, how many MDFs
-          it&apos;s in, what its latest ambiguity check found, when it was last saved, and its open Tasks.
+          given vehicle or site, ready to be pinned into an MDF. For each one it shows its{" "}
+          <strong>Platform status</strong> (the Platform&apos;s own), how many Emitters it pins, and their{" "}
+          <strong>Emitter progress</strong> towards Operational: a percent averaged over the pinned Emitters (In
+          progress 0%, Testing 33%, Partially operational 67%, Operational 100%, Needs rework 0%), with how many are in
+          each status beside it. Then outdated pins, the Modes pinned, how many MDFs it&apos;s in, what its latest
+          ambiguity check found, when it was last saved, and its open Tasks.
         </p>
 
         <div className="help-subsection" id="platform-detail">

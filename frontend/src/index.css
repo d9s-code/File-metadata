@@ -7864,8 +7864,10 @@ button.emitter-pins-chip:hover { filter: brightness(0.97); }
 /* Platforms list: the pinned Emitters' progress towards Operational. */
 .platforms-progress-cell {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.1rem 0.5rem;
+  max-width: 18rem;
 }
 .platforms-progress-cell .progress-bar-track {
   display: block;
@@ -7876,8 +7878,12 @@ button.emitter-pins-chip:hover { filter: brightness(0.97); }
 }
 .platforms-progress-value {
   min-width: 2.75rem;
-  text-align: right;
+  text-align: left;
   font-variant-numeric: tabular-nums;
+}
+/* How many are in each status, on its own line under the bar. */
+.platforms-progress-detail {
+  flex-basis: 100%;
 }
 
 /* A list page's table on the same white card as everything else; the table
