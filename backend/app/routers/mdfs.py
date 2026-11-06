@@ -203,8 +203,8 @@ def new_mdf_from(
 ) -> Mdf:
     """A new, separate MDF started from a saved version of this one (the one
     it went out as — else its latest — unless `version` is given): its next
-    release, for another customer, say, rather than building on top of an
-    MDF that has gone out. It gets that version's
+    release (usually to the same customer) as a separate MDF, rather than
+    building on top of an MDF that has gone out. It gets that version's
     Platform pins and dwell files, its own name, customer and id, starts at
     the first status with v1 saved as the copy, and remembers what it was
     based on. Notes, goals, the progress log, files and test history stay

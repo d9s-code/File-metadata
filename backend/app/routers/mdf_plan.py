@@ -25,7 +25,7 @@ from app.models.mdf_plan import MdfGoal, MdfLogEntry
 from app.services import statuses
 from app.services.audit_service import record_audit
 from app.services.docx_writer import Block, write_docx
-from app.services.pinned_changes import mdf_change_summary
+from app.services.change_notes import change_notes
 
 router = APIRouter(prefix="/mdfs", tags=["mdf-plan"])
 
@@ -366,19 +366,6 @@ def build_summary(
     from_previous = previous is not None and (base == "previous" or (base is None and from_version is None and frm is None))
     base_snapshot = previous[1].snapshot if from_previous else (frm.snapshot if frm else {})
 
-    start = frm.created_at if frm else None
-    following = [v for v in versions if v.version_number > to.version_number]
-    end = following[0].created_at if following else None
-
-    def within(at: datetime) -> bool:
-        return (start is None or at > start) and (end is None or at <= end)
-
-    log = [
-        e for e in db.scalars(select(MdfLogEntry).where(MdfLogEntry.mdf_id == mdf.id).order_by(MdfLogEntry.created_at))
-        if within(e.created_at)
-    ]
-    moves = [m for m in _status_moves(db, mdf.id) if within(m.created_at)]
-    goals = _goals(db, mdf.id)
     labels = statuses.labels(db, "mdf")
     customer = db.get(Customer, mdf.customer_id) if mdf.customer_id else None
     contents = [
@@ -425,26 +412,9 @@ def build_summary(
             for v in versions
             if (frm is None or v.version_number > frm.version_number) and v.version_number <= to.version_number
         ],
-        "changes": [
-            c
-            for c in mdf_change_summary(db, base_snapshot, to.snapshot)
-            # Two separate MDFs: the other one's status says nothing about this one.
-            if not (from_previous and c["scope"] == "MDF" and c["label"] == "Status")
-        ],
+        # Major changes only — see change_notes.
+        "change_notes": change_notes(base_snapshot, to.snapshot),
         "contents": contents,
-        "goals": [
-            {"text": g.text, "done": g.done_at is not None, "done_at": g.done_at, "note": g.done_note,
-             "by": g.doer.username if g.doer else None, "in_period": bool(g.done_at and within(g.done_at))}
-            for g in goals
-        ],
-        "status_moves": [
-            {"at": m.created_at, "by": _user(m), "from": labels.get(((m.changes or {}).get("status") or {}).get("old"), ""),
-             "to": labels.get(((m.changes or {}).get("status") or {}).get("new"), ""), "summary": m.summary}
-            for m in moves
-        ],
-        "log": [
-            {"kind": e.kind, "at": e.created_at, "by": e.author.username if e.author else None, "text": e.body} for e in log
-        ],
         "last_release_version": last_release_version(db, mdf.id),
     }
 
@@ -458,9 +428,11 @@ def summary(
     db: Session = Depends(get_db),
     _=Depends(require_role(Role.viewer)),
 ) -> dict:
-    """What changed between two saved versions (by default: since the last
-    release, up to the latest) — with release notes, goals, status moves and
-    log entries from that stretch."""
+    """The change notes between two saved versions — or since the MDF this
+    one follows (by default: since the last release, else since that MDF) —
+    with the release notes written for that stretch and the contents of the
+    later version. Major changes only: see change_notes. Goals, status moves
+    and the progress log stay on the Plan and Audit tabs."""
     return build_summary(db, _mdf(db, mdf_id), from_version, to_version, base)
 
 
@@ -504,40 +476,19 @@ def summary_document(s: dict) -> bytes:
     else:
         blocks.append(Block("meta", "No release notes written for these versions."))
 
-    blocks.append(Block("h1", "What changed"))
-    if s["changes"]:
-        blocks.append(Block("table", rows=[["What", "Change", "Before", "After"]] + [
-            [c["scope"], c["label"], c["old_value"] or "", c["new_value"] or ""] for c in s["changes"]
-        ]))
-    else:
-        blocks.append(Block("meta", "No changes to the pins."))
-    if len(s["versions"]) > 0:
-        blocks.append(Block("h2", "Versions saved"))
-        for v in s["versions"]:
-            blocks.append(Block("bullet", f"v{v['version_number']} — {_day(v['at'])}" + (f" by {v['by']}" if v["by"] else "")
-                                + (f": {v['change_summary']}" if v["change_summary"] else "")))
-
-    blocks.append(Block("h1", "Goals"))
-    if s["goals"]:
-        for g in s["goals"]:
-            mark = "✔" if g["done"] else "☐"
-            line = f"{mark} {g['text']}"
-            if g["done"]:
-                line += f" — reached {_day(g['done_at'])}" + (f" by {g['by']}" if g["by"] else "") + (f": {g['note']}" if g["note"] else "")
-            blocks.append(Block("p", line))
-    else:
-        blocks.append(Block("meta", "No goals set."))
-
-    if s["status_moves"]:
-        blocks.append(Block("h1", "Status"))
-        for mv in s["status_moves"]:
-            blocks.append(Block("bullet", f"{_day(mv['at'])}: {mv['from']} → {mv['to']}" + (f" ({mv['by']})" if mv["by"] else "")))
-
-    if s["log"]:
-        blocks.append(Block("h1", "Progress log"))
-        for e in s["log"]:
-            blocks.append(Block("h2", f"{'Release' if e['kind'] == 'release' else 'Progress'} — {_day(e['at'])}" + (f" · {e['by']}" if e["by"] else "")))
-            blocks.append(Block("p", e["text"]))
+    blocks.append(Block("h1", "Change notes"))
+    notes_ = s["change_notes"]
+    if not (notes_["added"] or notes_["removed"] or notes_["updated"]):
+        blocks.append(Block("meta", "No major changes."))
+    for title, entries in (("Added", notes_["added"]), ("Removed", notes_["removed"])):
+        if entries:
+            blocks.append(Block("h2", title))
+            for e in entries:
+                blocks.append(Block("bullet", f"{e['kind']} {e['name']}" + (f" — {e['detail']}" if e.get("detail") else "")))
+    if notes_["updated"]:
+        blocks.append(Block("h2", "Updated"))
+        for e in notes_["updated"]:
+            blocks.append(Block("bullet", f"{e['kind']} {e['name']}: " + "; ".join(e["items"])))
 
     blocks.append(Block("h1", f"Contents of v{s['to_version']}"))
     rows = [["Platform", "Platform version", "Emitter", "Emitter version"]]

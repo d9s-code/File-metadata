@@ -1101,15 +1101,19 @@ export function HelpPage() {
             </li>
           </ul>
           <p>
-            <strong>Summarize…</strong> (in the Release notes card) compares two saved versions, by default
-            everything since the last release: what changed, down to the Emitters inside a repinned Platform, with
-            the release notes, goals, status moves and log in that stretch. <strong>Download release notes
-            (.docx)</strong> turns that summary into a Word document. Everything that happened to the MDF is on its{" "}
+            <strong>Summarize…</strong> (in the Release notes card) gives the <strong>change notes</strong> between two
+            saved versions, by default since the last release. They list only major changes: Platforms, Emitters and
+            dwell files added or removed. They also list Emitters updated: Modes added or removed, and Modes whose
+            exported name, PRI type, RF, PW, PRI, jitter, stagger, threat priority or ageout changed (deltas included).
+            The release notes you wrote for those versions are shown with them. Version bumps with nothing exported
+            changed, notes, confirmation, scan period and range matching don&apos;t appear. <strong>Download release
+            notes (.docx)</strong> turns it into a Word document for the customer. Goals, status moves and the log
+            stay on the Plan and Audit tabs. Everything that happened to the MDF is on its{" "}
             <strong>Audit</strong> tab.
           </p>
           <p>
-            <strong>The next release as a new MDF.</strong> When the next release should be a separate MDF (for
-            another customer, or once the old one is deprecated), use <strong>New MDF from this one…</strong>. It&apos;s
+            <strong>The next release as a new MDF.</strong> When the next release of an MDF (usually to the same
+            customer) should be a separate MDF, with the old one deprecated, use <strong>New MDF from this one…</strong>. It&apos;s
             a button on a Released MDF and is also in the <strong>⋯</strong> menu. The new MDF gets its own name,
             customer and id, and starts with the Platforms and dwell files of the version the old one went out as. It
             then <strong>follows</strong> the old MDF, shown as &ldquo;Follows … · Compare&rdquo; in its header. Its

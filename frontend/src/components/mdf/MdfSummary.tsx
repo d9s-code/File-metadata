@@ -1,35 +1,59 @@
 import { useState } from "react";
 import { ApiRequestError } from "../../api/client";
 import { Link } from "react-router-dom";
-import { mdfPlanApi, type PinChange, type SummaryFrom } from "../../api/mdfPlan";
+import { mdfPlanApi, type ChangeNote, type ChangeNotes, type SummaryFrom } from "../../api/mdfPlan";
 import type { MdfVersionSummary } from "../../api/mdfVersions";
 import { useMdfSummary } from "../../state/hooks/useMdfPlan";
 import { formatDate, formatDateTime } from "../common/dates";
 
-/** The pins that changed: added, removed or at another version. */
-function Changes({ changes }: { changes: PinChange[] }) {
-  if (changes.length === 0) return <p className="hint-text">No changes to the pins.</p>;
+/** The change notes: what was added, removed and updated in what's
+ * delivered — major changes only. */
+function ChangeNotesList({ notes }: { notes: ChangeNotes }) {
+  if (!notes.added.length && !notes.removed.length && !notes.updated.length) {
+    return <p className="hint-text">No major changes.</p>;
+  }
+  const sections: [string, string, ChangeNote[]][] = [
+    ["Added", "added", notes.added],
+    ["Removed", "removed", notes.removed],
+    ["Updated", "changed", notes.updated],
+  ];
   return (
-    <ul className="mdf-changes">
-      {changes.map((c, i) => (
-        <li key={i} className={`mdf-change ${c.kind}`}>
-          <span className="mdf-change-mark" aria-hidden>
-            {c.kind === "added" ? "+" : c.kind === "removed" ? "−" : "~"}
-          </span>
-          <span>
-            <strong>{c.scope}</strong> {c.label.toLowerCase()}
-            {c.old_value && c.new_value ? `: ${c.old_value} → ${c.new_value}` : c.new_value ? ` — ${c.new_value}` : c.old_value ? ` — ${c.old_value}` : ""}
-          </span>
-        </li>
-      ))}
-    </ul>
+    <div className="change-notes">
+      {sections
+        .filter(([, , entries]) => entries.length)
+        .map(([title, kind, entries]) => (
+          <div key={title}>
+            <h4 className="change-notes-heading">{title}</h4>
+            <ul className="mdf-changes">
+              {entries.map((e, i) => (
+                <li key={i} className={`mdf-change ${kind}`}>
+                  <span className="mdf-change-mark" aria-hidden>
+                    {kind === "added" ? "+" : kind === "removed" ? "−" : "~"}
+                  </span>
+                  <span>
+                    <span className="hint-text">{e.kind}</span> <strong>{e.name}</strong>
+                    {e.detail && <span className="hint-text"> — {e.detail}</span>}
+                    {e.items && e.items.length > 0 && (
+                      <ul className="change-notes-items">
+                        {e.items.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+    </div>
   );
 }
 
-/** "Summarize…": what changed between two saved versions (by default since
- * the last release — or, before this MDF has one, since the MDF it follows),
- * with its release notes, goals, status moves and log — on the page, or as a
- * Word document (the release notes). */
+/** "Summarize…": the change notes between two saved versions (by default
+ * since the last release — or, before this MDF has one, since the MDF it
+ * follows), with the release notes written for them and the contents of the
+ * later version — on the page, or as a Word document (the release notes). */
 export function SummaryPanel({ mdfId, versions, onClose }: { mdfId: string; versions: MdfVersionSummary[]; onClose: () => void }) {
   const [from, setFrom] = useState<SummaryFrom>(null);
   const [to, setTo] = useState<number | null>(null);
@@ -126,55 +150,8 @@ export function SummaryPanel({ mdfId, versions, onClose }: { mdfId: string; vers
                 </div>
               ))
           )}
-          <h3 className="as-h5">What changed</h3>
-          <Changes changes={s.changes} />
-          <h3 className="as-h5">Goals</h3>
-          {s.goals.length === 0 ? (
-            <p className="hint-text">No goals set.</p>
-          ) : (
-            <ul className="mdf-summary-goals">
-              {s.goals.map((g, i) => (
-                <li key={i} className={g.done ? "done" : undefined}>
-                  {g.done ? "✔" : "☐"} {g.text}
-                  {g.done && (
-                    <span className="hint-text">
-                      {" "}
-                      — reached {formatDate(g.done_at)}
-                      {g.in_period && " (in this stretch)"}
-                      {g.note && `: ${g.note}`}
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-          {s.status_moves.length > 0 && (
-            <>
-              <h3 className="as-h5">Status</h3>
-              <ul>
-                {s.status_moves.map((m, i) => (
-                  <li key={i}>
-                    {formatDateTime(m.at)}: {m.from} → {m.to}
-                    {m.by && <span className="hint-text"> · {m.by}</span>}
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-          {s.log.length > 0 && (
-            <>
-              <h3 className="as-h5">Progress log</h3>
-              {s.log.map((e, i) => (
-                <div key={i} className={`mdf-summary-log ${e.kind}`}>
-                  <span className="hint-text">
-                    {e.kind === "release" ? "Release" : "Progress"} · {formatDateTime(e.at)}
-                    {e.by && ` · ${e.by}`}
-                  </span>
-                  <div>{e.text}</div>
-                </div>
-              ))}
-            </>
-          )}
+          <h3 className="as-h5">Change notes</h3>
+          <ChangeNotesList notes={s.change_notes} />
           <h3 className="as-h5">Contents of v{s.to_version}</h3>
           <ul className="mdf-summary-contents">
             {s.contents.map((p) => (

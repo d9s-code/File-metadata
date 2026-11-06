@@ -130,10 +130,15 @@ def test_the_summary_since_the_last_release(editor_client):
 
     s = editor_client.get(f"/mdfs/{mid}/summary").json()
     assert (s["from_version"], s["to_version"], s["last_release_version"]) == (1, v2["version_number"], 1)
-    scopes = [c["scope"] for c in s["changes"]]
-    assert any(x.startswith("Platform 'History MDF Ship' → Emitter 'History MDF Radar'") for x in scopes)
+    # Change notes: the Emitter gained the Track Mode — the Platform's repin alone isn't a change.
+    assert s["change_notes"]["updated"] == [
+        {"kind": "Emitter", "name": "History MDF Radar", "modes_added": ["Track"], "modes_removed": [],
+         "modes_changed": [], "items": ["1 Mode added: Track"]}
+    ]
+    assert s["change_notes"]["added"] == [] and s["change_notes"]["removed"] == []
     assert [v["release_notes"] for v in s["versions"]] == ["Adds the Track mode."]
-    assert [e["text"] for e in s["log"]] == ["New Track mode in."]
+    # Goals, status moves and the log stay on the Plan and Audit tabs.
+    assert "log" not in s and "goals" not in s and "status_moves" not in s
     assert s["contents"][0]["emitters"][0]["version"] == ev2["version_number"]
     whole = editor_client.get(f"/mdfs/{mid}/summary", params={"to_version": 1}).json()
     assert whole["from_version"] is None and whole["versions"][0]["release_notes"] == "First release."
@@ -142,8 +147,10 @@ def test_the_summary_since_the_last_release(editor_client):
     doc = editor_client.get(f"/mdfs/{mid}/summary.docx")
     assert doc.status_code == 200 and "release%20notes" in doc.headers["content-disposition"]
     text = zipfile.ZipFile(io.BytesIO(doc.content)).read("word/document.xml").decode()
-    for expected in ("History MDF — release notes v2", "Adds the Track mode.", "New Track mode in.", "Ship it", "History MDF Radar"):
+    for expected in ("History MDF — release notes v2", "Adds the Track mode.", "Change notes", "1 Mode added: Track", "History MDF Radar"):
         assert expected in text, expected
+    for left_out in ("New Track mode in.", "Ship it"):
+        assert left_out not in text, left_out
 
 
 def test_an_mdf_never_saved_has_nothing_to_summarize(editor_client):

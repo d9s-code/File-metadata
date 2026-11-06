@@ -36,6 +36,21 @@ export interface MdfLogEntry {
   created_at: string;
 }
 
+/** One line of the change notes: a Platform, Emitter or dwell file, and
+ * what it holds (added) or what changed in it (updated). */
+export interface ChangeNote {
+  kind: "Platform" | "Emitter" | "Dwell file";
+  name: string;
+  detail?: string | null;
+  items?: string[];
+}
+
+export interface ChangeNotes {
+  added: ChangeNote[];
+  removed: ChangeNote[];
+  updated: ChangeNote[];
+}
+
 export interface MdfSummary {
   mdf: { id: string; name: string; status: string; customer: string | null; due_date: string | null; release_date: string | null };
   from_version: number | null;
@@ -43,11 +58,9 @@ export interface MdfSummary {
   to_version: number;
   to_at: string;
   versions: { version_number: number; at: string; by: string | null; change_summary: string | null; release_notes: string | null }[];
-  changes: PinChange[];
+  /** Major changes only: what was added, removed and updated in what's delivered. */
+  change_notes: ChangeNotes;
   contents: { platform: string; platform_version: number; emitters: { name: string; version: number }[] }[];
-  goals: { text: string; done: boolean; done_at: string | null; note: string | null; by: string | null; in_period: boolean }[];
-  status_moves: { at: string; by: string | null; from: string; to: string; summary: string }[];
-  log: { kind: LogKind; at: string; by: string | null; text: string }[];
   last_release_version: number | null;
   /** Set when the changes count from the MDF this one follows. */
   from_mdf?: { id: string; name: string; version: number; at: string } | null;

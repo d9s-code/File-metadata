@@ -395,9 +395,23 @@ Earlier statuses (Draft, Pending review, Approved) are flagged as before.
 - **Progress log.** Dated entries marked **Progress** (where it stands, what's blocking) or **Release** (how it went out). They are added and never edited. The author or an Admin can delete one (`/mdfs/{id}/log`).
 - **Release notes.** One text per saved version, written or corrected at any time after the version is saved, since they're kept apart from its snapshot (`PUT /mdfs/{id}/versions/{n}/release-notes`).
 
-**Summary between versions.** Everything that happens to the MDF — status moves, pins, goals, the log, due-date moves, saved versions — is on its **Audit** tab, so there is no separate timeline. **Summarize…** (in the Plan tab's Release notes card) compares two saved versions. It lists what changed between them — Platforms (and dwell files) pinned, unpinned or repinned, and for a repinned Platform the Emitters that changed version inside it. By default it covers everything since the last release (the version that was latest when the MDF last moved to Released) up to the latest. It shows the release notes, what changed, the goals (marking those reached in that stretch), status moves, the log entries and the contents of the later version. **Download release notes (.docx)** gives the same summary as a Word document to send on (`GET /mdfs/{id}/summary`, `GET /mdfs/{id}/summary.docx`).
+**Summary between versions.** Everything that happens to the MDF — status moves, pins, goals, the log, due-date moves, saved versions — is on its **Audit** tab, so there is no separate timeline. **Summarize…** (in the Plan tab's Release notes card) gives the **change notes** between two saved versions: by default since the last release (the version that was latest when the MDF last moved to Released) up to the latest. It shows the release notes written for those versions, the change notes, and the contents of the later version. **Download release notes (.docx)** gives the same as a Word document to send to the customer (`GET /mdfs/{id}/summary`, `GET /mdfs/{id}/summary.docx`). Goals, status moves and the progress log aren't part of it; they stay on the Plan and Audit tabs.
 
-**The next release as a new MDF.** A new release, for another customer or after the old one is deprecated, can be a separate MDF rather than another version of the old one. **New MDF from this one…** does this. It's a button on a Released (or later) MDF, and it's also in any MDF's ⋯ menu.
+**Change notes** list only major changes to what's delivered, under three headings (`change_notes`: `added`, `removed`, `updated`):
+
+- **Added / Removed:** Platforms (with how many Emitters), Emitters (once each, with the Platforms carrying them and how many Modes), and dwell files.
+- **Updated, for an Emitter:** Modes added, Modes removed, and Modes whose exported values changed. The values that count are name, PRI type, RF, PW, PRI and its jitter, stagger steps and frame time, threat priority and ageout. They are compared as exported, with deltas applied, so a delta-only change counts. A PRI type change is one change.
+- **Updated, for a Platform:** an Emitter moved onto or off it while staying in the MDF.
+- **Updated, for a dwell file:** its settings, or a Strategy added, removed or with changed dwells.
+
+Left out on purpose:
+
+- version numbers that moved with nothing exported changed;
+- the MDF's own name, description and status;
+- confirmation quality and quantity, scan period and range matching;
+- notes, Sources and statuses.
+
+**The next release as a new MDF.** The next release of an MDF, usually to the same customer, can be a separate MDF in the app rather than another version of the old one, which is then deprecated. **New MDF from this one…** does this. It's a button on a Released (or later) MDF, and it's also in any MDF's ⋯ menu.
 
 - **What it makes:** a new MDF with its own name, customer and id (so a new Id in the export), at the first status. It gets the Platform pins and dwell files of a saved version of the old one, saved as its v1 ("Started from 'Fleet 2026' v3").
 - **Which version it starts from:** by default the version the old MDF went out as, meaning the latest saved when it last moved to Released (else its latest). Any saved version can be picked.
@@ -410,12 +424,7 @@ Audited on both MDFs (`POST /mdfs/{id}/new-mdf`: `name`, `customer_id`, `due_dat
 - the MDF's header: "Follows Fleet 2026 v3 · Compare", where **Compare** opens the two MDFs side by side;
 - under its name on the MDFs list.
 
-**The changelog between two MDFs.** The summary and release notes of an MDF that follows another count what changed since that MDF's version. This is the default until the new MDF has a release of its own; after that the default is its own last release again. The changelog lists:
-
-- the MDF's new name;
-- Platforms and dwell files pinned, unpinned or repinned, and the Emitters that changed inside a repinned Platform.
-
-The other MDF's status is left out. **From** in the summary offers **The previous MDF: Fleet 2026 v3**, **The start** or any of this MDF's own versions (`base=previous` / `base=start` on the summary, else `from_version`; the response's `from_mdf` says when it counted from the previous MDF).
+**The changelog between two MDFs.** The summary and release notes of an MDF that follows another count what changed since that MDF's version. This is the default until the new MDF has a release of its own; after that the default is its own last release again. The changelog is the change notes described above. **From** in the summary offers **The previous MDF: Fleet 2026 v3**, **The start** or any of this MDF's own versions (`base=previous` / `base=start` on the summary, else `from_version`; the response's `from_mdf` says when it counted from the previous MDF).
 
 The MDF page's **Emitters** tab lists every Emitter on the MDF in one sortable table. It works through the Platform versions the MDF pins, exactly as the export takes them. Each row shows:
 

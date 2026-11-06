@@ -46,21 +46,19 @@ def test_a_new_mdf_follows_the_release_of_the_old_one(editor_client):
     s = editor_client.get(f"/mdfs/{new['id']}/summary").json()
     assert s["from_mdf"]["name"] == "Fleet 2026" and s["from_mdf"]["version"] == 1 and s["from_version"] is None
     assert s["previous_mdf"] == {"id": old["id"], "name": "Fleet 2026", "version": 1}
-    assert any(c["scope"].startswith("Platform 'Fleet 2026 Ship'") for c in s["changes"])
+    assert [u["items"] for u in s["change_notes"]["updated"]] == [["1 Mode added: Track"]]
     assert [v["version_number"] for v in s["versions"]] == [1, 2]
     # The same, asked for; or from the start; or between its own versions.
-    assert editor_client.get(f"/mdfs/{new['id']}/summary", params={"base": "previous"}).json()["changes"] == s["changes"]
+    assert editor_client.get(f"/mdfs/{new['id']}/summary", params={"base": "previous"}).json()["change_notes"] == s["change_notes"]
     start = editor_client.get(f"/mdfs/{new['id']}/summary", params={"base": "start"}).json()
     assert start["from_mdf"] is None and start["from_version"] is None
     own = editor_client.get(f"/mdfs/{new['id']}/summary", params={"from_version": 1}).json()
     assert own["from_mdf"] is None and own["from_version"] == 1
-    # The same pin changes; across two MDFs the name change is listed too.
-    assert own["changes"] == [c for c in s["changes"] if c["scope"] != "MDF"]
-    assert {"scope": "MDF", "label": "Name", "kind": "changed", "old_value": "Fleet 2026", "new_value": "Fleet 2027"} in s["changes"]
-    assert not any(c["scope"] == "MDF" and c["label"] == "Status" for c in s["changes"])
+    # The same change notes: the MDF's own name and status aren't changes to what's delivered.
+    assert own["change_notes"] == s["change_notes"]
 
     text = zipfile.ZipFile(io.BytesIO(editor_client.get(f"/mdfs/{new['id']}/summary.docx").content)).read("word/document.xml").decode()
-    assert "Changes from Fleet 2026 v1" in text and "Adds the Track mode." in text
+    assert "Changes from Fleet 2026 v1" in text and "Adds the Track mode." in text and "1 Mode added: Track" in text
 
     # Once the new MDF has a release of its own, the changelog counts from that.
     _move(editor_client, new["id"], "pending_review", "approved", "released")
@@ -79,9 +77,11 @@ def test_an_mdf_made_from_scratch_can_follow_another(editor_client):
     assert (r.json()["based_on_mdf_name"], r.json()["based_on_version_number"]) == ("Old Fleet", 1)
     s = editor_client.get(f"{url}/summary").json()
     assert s["from_mdf"]["name"] == "Old Fleet"
-    # Its Platform replaces the old one's.
-    kinds = {(c["kind"], c["scope"].split(" →")[0]) for c in s["changes"]}
-    assert ("added", "Platform 'New Fleet Ship'") in kinds and ("removed", "Platform 'Old Fleet Ship'") in kinds
+    # Its Platform and Emitter replace the old ones.
+    notes = s["change_notes"]
+    assert [(e["kind"], e["name"]) for e in notes["added"]] == [("Platform", "New Fleet Ship"), ("Emitter", "New Fleet Radar")]
+    assert [(e["kind"], e["name"]) for e in notes["removed"]] == [("Platform", "Old Fleet Ship"), ("Emitter", "Old Fleet Radar")]
+    assert notes["added"][1]["detail"] == "on New Fleet Ship · 1 Mode"
 
     assert editor_client.patch(url, json={"based_on_mdf_id": new["id"]}).status_code == 422
     assert editor_client.patch(url, json={"based_on_mdf_id": old["id"], "based_on_version_number": 9}).status_code == 404

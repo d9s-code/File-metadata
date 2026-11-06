@@ -7891,6 +7891,19 @@ button.emitter-pins-chip:hover { filter: brightness(0.97); }
   display: block;
 }
 
+/* Change notes in the MDF summary: Added / Removed / Updated, each entry
+   with what changed in it underneath. */
+.change-notes-heading {
+  margin: 0.6rem 0 0.25rem;
+  font-size: 0.93rem;
+  font-weight: 600;
+}
+.change-notes-items {
+  margin: 0.15rem 0 0.25rem;
+  padding-left: 1.1rem;
+  color: var(--text);
+}
+
 /* A list page's table on the same white card as everything else; the table
    runs to the card's edges, its first and last rows clear of the corners. */
 .card.table-card {
