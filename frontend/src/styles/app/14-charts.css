@@ -346,7 +346,7 @@ body:has(.import-footer) .checkout-reminder-tab {
 .viz-plot .trend-run.hovered .trend-hit { fill: var(--hover-bg); }
 .viz-plot rect.trend-seg { stroke: none; pointer-events: none; }
 .viz-swatch.trend-not-run { background: transparent; border: 1px dashed var(--status-neutral); }
-.viz-plot rect.trend-not-run { fill: color-mix(in srgb, var(--status-neutral) 22%, transparent); stroke: var(--status-neutral); stroke-dasharray: 3 2; stroke-width: 1; }
+.viz-plot rect.trend-not-run { fill: var(--status-neutral); fill-opacity: 0.22; stroke: var(--status-neutral); stroke-dasharray: 3 2; stroke-width: 1; }
 .viz-plot .trend-count { font-size: 10px; font-weight: 600; fill: #fff; pointer-events: none; }
 .viz-plot .trend-not-run + .trend-count { fill: var(--text); }
 .viz-plot .trend-time-logged { font-style: italic; opacity: 0.75; }

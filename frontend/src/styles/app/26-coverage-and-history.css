@@ -175,8 +175,10 @@
 .recheck-plot-area { fill: var(--card-bg); }
 .recheck-plot-frame { fill: none; stroke: var(--viz-axis); stroke-width: 1; pointer-events: none; }
 .viz-plot svg text.recheck-axis-title { fill: var(--text); font-weight: 600; font-size: 11.5px; }
-.recheck-mode-box { fill: color-mix(in srgb, var(--viz-ink-muted) 8%, transparent); stroke: color-mix(in srgb, var(--viz-ink-muted) 55%, transparent); stroke-width: 1; }
-.recheck-mode-box.hot { fill: color-mix(in srgb, var(--primary) 14%, transparent); stroke: var(--primary); stroke-width: 2; }
+/* SVG fills take a solid colour and an opacity, not color-mix(): a browser without
+   color-mix() drops the rule, and an SVG shape with no fill is drawn solid black. */
+.recheck-mode-box { fill: var(--viz-ink-muted); fill-opacity: 0.08; stroke: var(--viz-ink-muted); stroke-opacity: 0.55; stroke-width: 1; }
+.recheck-mode-box.hot { fill: var(--primary); fill-opacity: 0.14; stroke: var(--primary); stroke-opacity: 1; stroke-width: 2; }
 /* Names keep a halo of the plot's own colour, so they read over grid lines and other boxes. */
 .recheck-mode-label { font-size: 10.5px; fill: var(--viz-ink-muted); pointer-events: none; paint-order: stroke; stroke: var(--card-bg); stroke-width: 3px; stroke-linejoin: round; }
 .recheck-mode-label.hot { fill: var(--text); font-weight: 600; }
@@ -189,7 +191,7 @@
 .recheck-mark-ring { fill: none; stroke: var(--text); stroke-width: 1.25; stroke-dasharray: 2 2; }
 .recheck-mark-ring.picked { stroke: var(--primary); stroke-dasharray: none; stroke-width: 2.5; }
 .recheck-near-line { stroke: var(--viz-ink-muted); stroke-width: 1; stroke-dasharray: 4 3; }
-.recheck-zoom-box { fill: color-mix(in srgb, var(--primary) 10%, transparent); stroke: var(--primary); stroke-width: 1; stroke-dasharray: 4 3; pointer-events: none; }
+.recheck-zoom-box { fill: var(--primary); fill-opacity: 0.1; stroke: var(--primary); stroke-width: 1; stroke-dasharray: 4 3; pointer-events: none; }
 .recheck-wheel-hint { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; font-size: 0.95rem; font-weight: 600; color: var(--text); background: color-mix(in srgb, var(--card-bg) 70%, transparent); }
 .recheck-chart-tip { position: fixed; z-index: 50; max-width: 320px; padding: 0.4rem 0.55rem; border: 1px solid var(--border); border-radius: 6px; background: var(--card-bg); color: var(--text); box-shadow: 0 4px 14px rgb(0 0 0 / 0.25); font-size: 0.8rem; pointer-events: none; display: grid; gap: 0.35rem; }
 .recheck-tip-mode { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
