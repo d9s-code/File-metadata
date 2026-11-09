@@ -456,6 +456,11 @@ export function HelpPage() {
               one batch — named with a name of your own and a running number (&ldquo;Range day 1&rdquo;, the default
               from a test) or after the Mode each copies plus a suffix. It&apos;s also offered, already filled in, from a test run&apos;s logged intercepts that no Mode
               matches and from Element coverage&apos;s uncovered Elements. <strong>Import from PRS…</strong> is there too.{" "}
+              <strong>Update from PRS…</strong> (in the selection bar, with Modes ticked) changes the ticked Modes in place
+              from a PRS file — say one exported, edited in another application and brought back: each takes the values
+              of its Mode in the file (matched by name, or picked), keeping its name, Sources, test history and links, so
+              the version summary shows it as changed rather than deleted and added. It shows exactly what changes before
+              anything is saved, and by default keeps each Mode&apos;s ± deltas.{" "}
               <strong>Delete (N)</strong> in the selection bar deletes every ticked Mode at once,
               after asking (all or none; each is kept in the Audit Log, logged test results keep their names, and
               Discard brings them back until you save). <strong>View ▾</strong> switches between engineered and raw

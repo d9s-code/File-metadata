@@ -13,13 +13,37 @@ from app.deps import require_emitter_checkout, require_role
 from app.models.emitter import Emitter
 from app.models.source import Source
 from app.models.source_group import SourceGroup
-from app.schemas.import_batch import ImportCommitResult, ImportPayload, ImportValidationResult
-from app.schemas.prs_import import PrsImportResultOut
+from app.schemas.import_batch import (
+    ImportCommitResult,
+    ImportPayload,
+    ImportValidationResult,
+)
+from app.schemas.prs_import import (
+    PrsFileModeOut,
+    PrsImportIssueOut,
+    PrsImportResultOut,
+    PrsUpdatePairOut,
+    PrsUpdatePreviewOut,
+    PrsUpdateResultOut,
+)
 from app.services.audit_service import record_audit
 from app.services.import_service import commit_import_payload, validate_import_payload
 from app.services.json_import.transformer import transform_json_to_payload
-from app.services.prs_import.prs_import_service import PrsXmlParseError, parse_emitter_xml, plan_import
-from app.services.prs_import.prs_import_service import commit_import as commit_prs_import_plan
+from app.services.prs_import.prs_import_service import (
+    PrsXmlParseError,
+    parse_emitter_xml,
+    plan_import,
+)
+from app.services.prs_import.prs_import_service import (
+    commit_import as commit_prs_import_plan,
+)
+from app.services.prs_import.prs_update_service import (
+    auto_pairs,
+    emitter_modes,
+    file_modes,
+    plan_update,
+    update_payload,
+)
 
 router = APIRouter(prefix="/emitters/{emitter_id}/imports", tags=["imports"])
 
@@ -252,3 +276,135 @@ def commit_prs_import(
         mode_count=len(result.created_mode_ids),
         created_mode_ids=result.created_mode_ids,
     )
+
+
+def _prs_update_plan(db: Session, emitter_id: UUID, file: UploadFile, mode_ids: str, pairs: str | None, keep_deltas: bool):
+    """Parses the file and pairs the Modes picked with its Modes — by name,
+    unless `pairs` (JSON: Mode id -> index into the file's Modes, or null)
+    says otherwise. Shared by the preview and the update itself."""
+    _get_emitter_or_404(db, emitter_id)
+    try:
+        wanted = [UUID(x) for x in json.loads(mode_ids)]
+        chosen_raw = json.loads(pairs) if pairs else None
+    except (ValueError, TypeError):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "mode_ids and pairs must be JSON")
+    if not wanted:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Pick the Modes to update")
+    try:
+        parsed = parse_emitter_xml(_read_upload(file))
+    except PrsXmlParseError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc))
+    planned, issues = plan_import(parsed)
+    if not planned:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "No usable Modes found in this file")
+
+    by_id = {m.id: m for m in emitter_modes(db, emitter_id)}
+    missing = [i for i in wanted if i not in by_id]
+    if missing:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "A Mode picked isn't in this Emitter")
+    modes = [by_id[i] for i in dict.fromkeys(wanted)]
+    auto = auto_pairs(modes, planned)
+    if chosen_raw is None:
+        chosen = auto
+    else:
+        try:
+            chosen = {UUID(k): (None if v is None else int(v)) for k, v in chosen_raw.items()}
+        except (ValueError, TypeError):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "pairs must map Mode ids to a Mode's index in the file")
+        chosen = {m.id: chosen.get(m.id) for m in modes}
+        used = [i for i in chosen.values() if i is not None]
+        if any(i < 0 or i >= len(planned) for i in used):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "A pair names a Mode that isn't in the file")
+        if len(used) != len(set(used)):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Each Mode in the file can update one Mode only")
+    plan = plan_update(modes, planned, chosen, keep_deltas, auto)
+    return parsed, planned, issues, plan
+
+
+@router.post("/prs-update/preview", response_model=PrsUpdatePreviewOut, dependencies=[Depends(verify_csrf)])
+def preview_prs_update(
+    emitter_id: UUID,
+    file: UploadFile = File(...),
+    mode_ids: str = Form(...),
+    pairs: str | None = Form(None),
+    keep_deltas: bool = Form(True),
+    db: Session = Depends(get_db),
+    _=Depends(require_role(Role.editor)),
+) -> PrsUpdatePreviewOut:
+    """What updating the Modes picked from this file would change — nothing is saved."""
+    parsed, planned, issues, plan = _prs_update_plan(db, emitter_id, file, mode_ids, pairs, keep_deltas)
+    out = PrsUpdatePreviewOut(
+        file_emitter_name=parsed.emitter_name,
+        file_modes=[PrsFileModeOut(**f) for f in file_modes(parsed, planned)],
+        issues=[PrsImportIssueOut(mode_name=i.mode_name, error=i.error) for i in issues],
+        pairs=[
+            PrsUpdatePairOut(
+                mode_id=p.mode.id,
+                mode_name=p.mode.name,
+                ew_group_name=p.mode.ew_group.name,
+                file_index=p.index,
+                match=p.match,
+                changes=p.changes,
+                notes=p.notes,
+                error=p.error,
+            )
+            for p in plan
+        ],
+    )
+    db.rollback()
+    return out
+
+
+@router.post("/prs-update", response_model=PrsUpdateResultOut, dependencies=[Depends(verify_csrf)])
+def commit_prs_update(
+    emitter_id: UUID,
+    file: UploadFile = File(...),
+    mode_ids: str = Form(...),
+    pairs: str | None = Form(None),
+    keep_deltas: bool = Form(True),
+    db: Session = Depends(get_db),
+    user=Depends(require_emitter_checkout()),
+) -> PrsUpdateResultOut:
+    """Updates each Mode picked in place from its counterpart in the file —
+    all of them or none. Modes without a counterpart are left as they are."""
+    # Imported here: the Modes router's edit is the one a Mode's form makes,
+    # checked and audited the same way.
+    from app.routers.modes import update_mode_record
+
+    parsed, planned, _issues, plan = _prs_update_plan(db, emitter_id, file, mode_ids, pairs, keep_deltas)
+    bad = [p for p in plan if p.error]
+    if bad:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=[{"mode_name": p.mode.name, "error": p.error} for p in bad],
+        )
+    origin = f" from PRS XML '{parsed.emitter_name}'"
+    updated: list[str] = []
+    unchanged: list[str] = []
+    skipped: list[str] = []
+    for p in plan:
+        if p.index is None:
+            skipped.append(p.mode.name)
+        elif not p.changes:
+            unchanged.append(p.mode.name)
+        else:
+            update_mode_record(db, p.mode, update_payload(p, planned), user.id, origin=origin)
+            updated.append(p.mode.name)
+    if updated:
+        record_audit(
+            db,
+            actor_id=user.id,
+            action=AuditAction.update,
+            entity_type=AuditEntityType.prs_import.value,
+            entity_id=emitter_id,
+            summary=f"Updated {len(updated)} Mode(s) from PRS XML '{parsed.emitter_name}'",
+            changes={
+                "modes_updated": updated,
+                "modes_unchanged": unchanged,
+                "modes_skipped": skipped,
+                "deltas_kept": keep_deltas,
+            },
+            emitter_id=emitter_id,
+        )
+    db.commit()
+    return PrsUpdateResultOut(updated=updated, unchanged=unchanged, skipped=skipped)

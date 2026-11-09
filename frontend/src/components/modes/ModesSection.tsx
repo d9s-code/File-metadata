@@ -14,6 +14,7 @@ import { ModeForm } from "./ModeForm";
 import { BatchEditModal } from "./BatchEditModal";
 import { AddValueToModesDialog } from "./AddValueToModesDialog";
 import { PrsImportModal } from "./PrsImportModal";
+import { PrsUpdateModal } from "./PrsUpdateModal";
 import { compareModes, modeSourceIds, rangeOverlaps, searchableText, type ModeSortKey, type SortDir } from "./modeFormat";
 import type { PriType } from "../../types/domain";
 import { MenuButton } from "../common/MenuButton";
@@ -79,6 +80,7 @@ export function ModesSection({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showBatchEdit, setShowBatchEdit] = useState(false);
   const [showPrsImport, setShowPrsImport] = useState(false);
+  const [showPrsUpdate, setShowPrsUpdate] = useState(false);
   const [addingValue, setAddingValue] = useState(false);
   const [showMoreFilters, setShowMoreFilters] = useSessionState(`modes.${emitterId}.showMoreFilters`, false);
   const [rfMin, setRfMin] = useSessionState(`modes.${emitterId}.rfMin`, "");
@@ -304,6 +306,16 @@ export function ModesSection({
                     disabled: !canEdit,
                     title: canEdit ? undefined : "Start editing this Emitter first",
                   },
+                  {
+                    label: selected.size ? `Update ${selected.size} ticked from PRS…` : "Update from PRS…",
+                    onSelect: () => setShowPrsUpdate(true),
+                    disabled: !canEdit || selected.size === 0,
+                    title: !canEdit
+                      ? "Start editing this Emitter first"
+                      : selected.size === 0
+                        ? "Tick the Modes to update first — each takes the values of its Mode in the file"
+                        : "Each ticked Mode takes the values of its Mode in a PRS file, changed in place",
+                  },
                 ]}
               />
             </div>
@@ -400,6 +412,18 @@ export function ModesSection({
                 onClick={() => setShowBatchEdit(true)}
               >
                 Batch edit
+              </button>
+              <button
+                className="button secondary"
+                disabled={!canEdit}
+                title={
+                  canEdit
+                    ? "Each ticked Mode takes the values of its Mode in a PRS file (by name), changed in place — not deleted and added again"
+                    : "Start editing this Emitter first"
+                }
+                onClick={() => setShowPrsUpdate(true)}
+              >
+                Update from PRS…
               </button>
               <button
                 className="button danger-outline"
@@ -556,6 +580,17 @@ export function ModesSection({
           onClose={() => setShowBatchEdit(false)}
           onDone={() => {
             setShowBatchEdit(false);
+            setSelected(new Set());
+          }}
+        />
+      )}
+      {showPrsUpdate && (
+        <PrsUpdateModal
+          emitterId={emitterId}
+          modeIds={[...selected]}
+          onClose={() => setShowPrsUpdate(false)}
+          onDone={() => {
+            setShowPrsUpdate(false);
             setSelected(new Set());
           }}
         />
