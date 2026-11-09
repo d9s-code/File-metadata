@@ -15,6 +15,7 @@ import {
   useInterceptEntries,
   useIntercept,
   useMergeInterceptEntries,
+  useSetEntriesLeftOut,
   useSetEntryHypothesis,
 } from "../state/hooks/useIntercepts";
 import { HypothesisCell } from "../components/intercepts/HypothesisCell";
@@ -172,6 +173,7 @@ function EntryRow({
   onEdit,
   onDelete,
   onSetHypothesis,
+  onSetLeftOut,
   columns,
   hasReports,
   multiFile,
@@ -189,6 +191,7 @@ function EntryRow({
   onEdit: (entry: InterceptEntry) => void;
   onDelete: (entry: InterceptEntry) => void;
   onSetHypothesis: (entry: InterceptEntry, hypothesis: string | null) => Promise<unknown>;
+  onSetLeftOut: (entry: InterceptEntry, leftOut: boolean) => void;
   columns: number;
   /** The Intercept keeps its reports, so this entry's can be listed. */
   hasReports: boolean;
@@ -205,7 +208,14 @@ function EntryRow({
   return (
     <>
       <tr
-        className={[match?.status === "none" && "entry-unmatched", selected && "entry-selected"].filter(Boolean).join(" ") || undefined}
+        className={
+          [
+            entry.left_out ? "entry-left-out" : match?.status === "none" && "entry-unmatched",
+            selected && "entry-selected",
+          ]
+            .filter(Boolean)
+            .join(" ") || undefined
+        }
       >
         {canWrite && (
           <td>
@@ -269,7 +279,20 @@ function EntryRow({
             </span>
           )}
         </td>
-        <td>{match ? <EntryMatchCell match={match} emitterId={emitterId} compact /> : <span className="hint-text">…</span>}</td>
+        <td>
+          {entry.left_out ? (
+            <span
+              className="match-badge match-left-out"
+              title="Left out of coverage — never flagged as not covered. Count it again from the ⋯ menu."
+            >
+              Left out
+            </span>
+          ) : match ? (
+            <EntryMatchCell match={match} emitterId={emitterId} compact />
+          ) : (
+            <span className="hint-text">…</span>
+          )}
+        </td>
         <td>
           {entry.derived_mode_ids.length === 0 ? (
             <span className="hint-text">—</span>
@@ -306,6 +329,13 @@ function EntryRow({
                   onSelect: () => setShowCreateMode((v) => !v),
                   disabled: !isMine,
                   title: isMine ? undefined : `Start editing ${emitter?.name ?? "the Emitter"} first`,
+                },
+                {
+                  label: entry.left_out ? "Count in coverage again" : "Leave out of coverage",
+                  title: entry.left_out
+                    ? undefined
+                    : "Clutter, another emitter, a bad measurement: keep the entry, but never flag it as not covered",
+                  onSelect: () => onSetLeftOut(entry, !entry.left_out),
                 },
                 { label: "Delete entry", danger: true, onSelect: () => onDelete(entry) },
               ]}
@@ -382,6 +412,7 @@ export function InterceptDetailPage() {
   const deleteEntries = useDeleteInterceptEntries(interceptId ?? "");
   const mergeEntries = useMergeInterceptEntries(interceptId ?? "");
   const setHypothesis = useSetEntryHypothesis(interceptId ?? "");
+  const setLeftOut = useSetEntriesLeftOut(interceptId ?? "");
   const deleteIntercept = useDeleteIntercept();
   const turnIntoSource = useTurnInterceptIntoSource(interceptId ?? "", intercept?.emitter_id ?? "");
   const checkout = useCheckoutEmitter(intercept?.emitter_id ?? "");
@@ -392,7 +423,7 @@ export function InterceptDetailPage() {
   const [entryForm, setEntryForm] = useState<{ entry?: InterceptEntry } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [show, setShow] = useState<"all" | EntryMatchStatus>("all");
+  const [show, setShow] = useState<"all" | "left_out" | EntryMatchStatus>("all");
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [ranges, setRanges] = useState<Record<RangeParam, Range>>({ rf: null, pri: null, pw: null });
@@ -429,7 +460,12 @@ export function InterceptDetailPage() {
   );
   const modeById = useMemo(() => new Map((modes ?? []).map((m) => [m.id, m])), [modes]);
   const byStatus = useMemo(
-    () => (show === "all" ? matched : matched.filter(({ match }) => match?.status === show)),
+    () =>
+      show === "all"
+        ? matched
+        : show === "left_out"
+          ? matched.filter(({ entry }) => entry.left_out)
+          : matched.filter(({ entry, match }) => !entry.left_out && match?.status === show),
     [matched, show],
   );
   const shown = useMemo(
@@ -481,8 +517,15 @@ export function InterceptDetailPage() {
 
   if (isLoading || !intercept) return <LoadingState label="Loading intercept…" />;
 
+  // A left-out entry counts as left out, not as how it matches.
   const counts = modes
-    ? matched.reduce((c, { match }) => ({ ...c, [match!.status]: c[match!.status] + 1 }), { match: 0, near: 0, none: 0 })
+    ? matched.reduce(
+        (c, { entry, match }) => {
+          const key = entry.left_out ? "left_out" : match!.status;
+          return { ...c, [key]: c[key] + 1 };
+        },
+        { match: 0, near: 0, none: 0, left_out: 0 },
+      )
     : null;
   const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
@@ -536,6 +579,23 @@ export function InterceptDetailPage() {
       });
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : "Failed to delete entry");
+    }
+  }
+
+  /** Leave entries out of coverage, or count them again. */
+  async function handleLeftOut(entryIds: string[], leftOut: boolean) {
+    setError(null);
+    const n = entryIds.length;
+    const noun = `entr${n === 1 ? "y" : "ies"}`;
+    try {
+      await setLeftOut.mutateAsync({ entryIds, leftOut });
+      setMessage(
+        leftOut
+          ? `Left ${n} ${noun} out of coverage — ${n === 1 ? "it isn't" : "they aren't"} flagged as not covered any more.`
+          : `Counted ${n} ${noun} in coverage again.`,
+      );
+    } catch (err) {
+      setError(err instanceof ApiRequestError ? err.message : "Couldn't change the entries");
     }
   }
 
@@ -819,6 +879,7 @@ export function InterceptDetailPage() {
                 <option value="none">No matching Mode</option>
                 <option value="near">Partial matches</option>
                 <option value="match">Matches</option>
+                {(counts?.left_out ?? 0) > 0 && <option value="left_out">Left out</option>}
               </select>
             )}
           </span>
@@ -877,6 +938,7 @@ export function InterceptDetailPage() {
         <p className="hint-text">
           Matched against {emitter?.name ?? "the Emitter"}&apos;s Modes on RF, PRI (frame time for a stagger) and PW, using
           each Mode&apos;s engineered range. A partial match is inside a Mode on two of the three and outside on the third — hover the badge for which.
+          An entry <strong>left out</strong> (its ⋯ menu, or Leave out on a selection) stays, but is never flagged as not covered.
           {canWrite && !isMine && counts && counts.none + counts.near > 0 && (
             <> To create a Mode from an entry, start editing {emitter?.name ?? "the Emitter"} first.</>
           )}
@@ -958,6 +1020,25 @@ export function InterceptDetailPage() {
               </button>
               <button
                 type="button"
+                className="button secondary small"
+                disabled={selected.size === 0 || setLeftOut.isPending || selectedEntries.every((e) => e.left_out)}
+                title="Keep them, but never flag them as not covered (clutter, another emitter, a bad measurement)"
+                onClick={() => void handleLeftOut(selectedEntries.filter((e) => !e.left_out).map((e) => e.id), true)}
+              >
+                Leave out
+              </button>
+              {selectedEntries.some((e) => e.left_out) && (
+                <button
+                  type="button"
+                  className="button secondary small"
+                  disabled={setLeftOut.isPending}
+                  onClick={() => void handleLeftOut(selectedEntries.filter((e) => e.left_out).map((e) => e.id), false)}
+                >
+                  Count again
+                </button>
+              )}
+              <button
+                type="button"
                 className="button secondary small danger-outline"
                 disabled={selected.size === 0 || deleteEntries.isPending}
                 onClick={() => void handleDeleteSelected()}
@@ -1034,6 +1115,7 @@ export function InterceptDetailPage() {
                     onEdit={(e) => setEntryForm({ entry: e })}
                     onDelete={(e) => void handleDeleteEntry(e)}
                     onSetHypothesis={(e, hypothesis) => setHypothesis.mutateAsync({ entryId: e.id, hypothesis })}
+                    onSetLeftOut={(e, leftOut) => void handleLeftOut([e.id], leftOut)}
                     columns={columns}
                     hasReports={hasReports}
                     multiFile={multiFile}

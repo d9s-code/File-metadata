@@ -579,8 +579,8 @@ def test_match_counts_per_intercept(editor_client, emitter_ctx):
     editor_client.post(url, json=STAGGER_ENTRY)  # no stagger Mode: none
 
     counts = editor_client.get("/intercepts/match-counts", params={"emitter_id": emitter_ctx["emitter"]["id"]}).json()
-    assert counts["total"] == {"match": 2, "near": 1, "none": 2}
-    assert counts["by_intercept"][intercept["id"]] == {"match": 2, "near": 1, "none": 2}
+    assert counts["total"] == {"match": 2, "near": 1, "none": 2, "left_out": 0}
+    assert counts["by_intercept"][intercept["id"]] == {"match": 2, "near": 1, "none": 2, "left_out": 0}
 
 
 def test_intercepts_of_a_deleted_emitter_are_read_only_and_hidden(editor_client, emitter_ctx):
@@ -871,7 +871,7 @@ def test_intercept_mode_plan_creates_and_widens(editor_client, emitter_ctx):
     unmatched = editor_client.post(url, json={**FIXED_ENTRY, "rf_mean_mhz": 5000}).json()
     new_line = {**MODE_LINE, "rf_min_mhz": 4990, "rf_max_mhz": 5010}
     counts = editor_client.get("/intercepts/match-counts", params={"emitter_id": emitter_ctx["emitter"]["id"]}).json()
-    assert counts["by_intercept"][intercept["id"]] == {"match": 0, "near": 2, "none": 0}
+    assert counts["by_intercept"][intercept["id"]] == {"match": 0, "near": 2, "none": 0, "left_out": 0}
 
     resp = _plan(
         editor_client,
@@ -903,7 +903,7 @@ def test_intercept_mode_plan_creates_and_widens(editor_client, emitter_ctx):
     assert entries[unmatched["id"]]["derived_mode_ids"] == [created["id"]]
     # Before the plan both are partial matches (the second is off on RF). After: both match.
     counts = editor_client.get("/intercepts/match-counts", params={"emitter_id": emitter_ctx["emitter"]["id"]}).json()
-    assert counts["by_intercept"][intercept["id"]] == {"match": 2, "near": 0, "none": 0}
+    assert counts["by_intercept"][intercept["id"]] == {"match": 2, "near": 0, "none": 0, "left_out": 0}
 
     audit = editor_client.get("/audit-log", params={"entity_id": existing["id"], "action": "update"}).json()
     items = audit["items"] if isinstance(audit, dict) else audit
@@ -1043,3 +1043,33 @@ def test_a_hypothesis_on_each_entry_is_kept_through_edits_regroups_and_merges(ed
     assert merged.status_code == 200, merged.text
     # (In the merged entries' order, which for one import's entries is arbitrary.)
     assert set(merged.json()["hypothesis"].split(" / ")) == {"Fire control", "Nav radar", "Same as B?"}
+
+
+def test_entries_left_out_of_coverage(admin_client, editor_client, emitter_ctx):
+    """An entry no Mode covers can be left out: it stays, but isn't counted as
+    not covered — on the Emitter's Intercepts tab or the dashboard."""
+    intercept = _create_intercept(editor_client, emitter_ctx["emitter"]["id"], "Clutter Pass")
+    far = {**FIXED_ENTRY, "rf_mean_mhz": 9000}
+    entries = editor_client.post(f"/intercepts/{intercept['id']}/entries/bulk", json=[far, far]).json()
+    counts = lambda: editor_client.get("/intercepts/match-counts", params={"emitter_id": emitter_ctx["emitter"]["id"]}).json()["total"]  # noqa: E731
+    assert counts() == {"match": 0, "near": 0, "none": 2, "left_out": 0}
+    assert editor_client.get("/dashboard/health").json()["intercepts"] == 1
+
+    url = f"/intercepts/{intercept['id']}/entries/left-out"
+    out = editor_client.post(url, json={"entry_ids": [entries[0]["id"]], "left_out": True})
+    assert out.status_code == 200, out.text
+    assert [e["left_out"] for e in out.json()] == [True]
+    assert counts() == {"match": 0, "near": 0, "none": 1, "left_out": 1}
+
+    editor_client.post(url, json={"entry_ids": [e["id"] for e in entries], "left_out": True})
+    assert counts()["none"] == 0 and editor_client.get("/dashboard/health").json()["intercepts"] == 0
+    listed = editor_client.get(f"/intercepts/{intercept['id']}/entries").json()
+    assert all(e["left_out"] for e in listed)
+
+    # Counted again; one audit row per change, none when nothing changes.
+    editor_client.post(url, json={"entry_ids": [entries[1]["id"]], "left_out": False})
+    assert counts() == {"match": 0, "near": 0, "none": 1, "left_out": 1}
+    log = admin_client.get("/audit-log", params={"entity_id": intercept["id"]}).json()
+    summaries = [e["summary"] for e in (log["items"] if isinstance(log, dict) else log)]
+    assert summaries.count("Left 1 entry of Intercept 'Clutter Pass' out of coverage") == 2
+    assert "Counted 1 entry of Intercept 'Clutter Pass' in coverage again" in summaries

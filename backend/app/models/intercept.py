@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import ARRAY, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import ARRAY, Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, false, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -145,6 +145,9 @@ class InterceptEntry(UUIDPkMixin, Base):
     tracks: Mapped[list[str] | None] = mapped_column(ARRAY(String(50)), nullable=True)
     # The file it was imported from — how a second import of the same file is caught.
     source_file: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    # Left out of coverage by an analyst (clutter, a known other emitter…): it
+    # stays, but is never flagged as not covered by any Mode.
+    left_out: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
 
     intercept: Mapped["Intercept"] = relationship(back_populates="entries")
     modes: Mapped[list["InterceptEntryMode"]] = relationship(

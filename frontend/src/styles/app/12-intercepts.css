@@ -35,6 +35,8 @@ label.grow {
 .match-yes { background: var(--badge-green-bg); color: var(--badge-green-fg); }
 .match-near { background: var(--badge-amber-bg); color: var(--badge-amber-fg); }
 .match-none { background: var(--badge-red-bg); color: var(--badge-red-fg); }
+/* Left out of coverage by an analyst: neither a match nor a miss. */
+.match-left-out { background: var(--badge-neutral-bg); color: var(--badge-neutral-fg); }
 .match-counts {
   display: inline-flex;
   flex-wrap: wrap;
@@ -355,6 +357,7 @@ label.grow {
   border-radius: 3px;
   background: var(--card-bg);
 }
+.data-table tbody tr.entry-left-out > td:not(.row-actions) { opacity: 0.62; }
 .data-table tbody tr.entry-unmatched > td:first-child {
   box-shadow: inset 3px 0 0 var(--badge-red-fg);
 }

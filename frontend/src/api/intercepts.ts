@@ -28,6 +28,8 @@ export interface MatchCountsOut {
   match: number;
   near: number;
   none: number;
+  /** Left out of coverage — not counted as match, near or none. */
+  left_out: number;
 }
 
 export interface InterceptMatchCounts {
@@ -171,6 +173,9 @@ export const interceptsApi = {
   /** Entries that are one signal, merged into the first created of them. */
   mergeEntries: (interceptId: string, entryIds: string[]) =>
     api.post<InterceptEntry>(`/intercepts/${interceptId}/entries/merge`, { entry_ids: entryIds }),
+  /** Leave entries out of coverage (they're never flagged as not covered), or count them again. */
+  setLeftOut: (interceptId: string, entryIds: string[], leftOut: boolean) =>
+    api.post<InterceptEntry[]>(`/intercepts/${interceptId}/entries/left-out`, { entry_ids: entryIds, left_out: leftOut }),
   /** How an Emitter's Intercepts compare with its Modes — the counts only. */
   matchCounts: (emitterId: string) =>
     api.get<InterceptMatchCounts>(`/intercepts/match-counts?emitter_id=${encodeURIComponent(emitterId)}`),

@@ -135,7 +135,7 @@ def _uncovered_intercepts(db: Session) -> list[dict]:
         db.query(InterceptEntry, Intercept.id, Intercept.name, Intercept.emitter_id, Emitter.name)
         .join(Intercept, Intercept.id == InterceptEntry.intercept_id)
         .join(Emitter, Emitter.id == Intercept.emitter_id)
-        .filter(Emitter.is_deleted.is_(False))
+        .filter(Emitter.is_deleted.is_(False), InterceptEntry.left_out.is_(False))
         .all()
     )
     uncovered: dict = {}

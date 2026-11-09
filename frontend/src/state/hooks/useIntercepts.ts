@@ -170,6 +170,20 @@ export function useDeleteInterceptEntries(interceptId: string) {
   });
 }
 
+/** Leave entries out of coverage, or count them again. */
+export function useSetEntriesLeftOut(interceptId: string) {
+  const changed = useEntriesChanged(interceptId);
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ entryIds, leftOut }: { entryIds: string[]; leftOut: boolean }) =>
+      interceptsApi.setLeftOut(interceptId, entryIds, leftOut),
+    onSuccess: () => {
+      changed();
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
+
 export function useMergeInterceptEntries(interceptId: string) {
   const changed = useEntriesChanged(interceptId);
   return useMutation({

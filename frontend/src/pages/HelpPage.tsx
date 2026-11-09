@@ -1524,7 +1524,10 @@ export function HelpPage() {
             Mode's engineered range — the range the system recognises. A <strong>partial match</strong> is
             inside a Mode on two of the three and outside it on the third, and says which and by how much;{" "}
             <strong>No matching Mode</strong> means neither, and is the cue to create one. Jitter isn't
-            compared. Click a Mode's name to open the Modes tab filtered to it.
+            compared. Click a Mode's name to open the Modes tab filtered to it. An entry that no Mode should cover
+            (clutter, another emitter) can be <strong>left out</strong> from its ⋯ menu, or with{" "}
+            <strong>Leave out</strong> on ticked entries: it stays, greyed, but is never flagged as not covered, and{" "}
+            <strong>Count in coverage again</strong> undoes it.
           </p>
           <p>
             <strong>Create Mode from this entry</strong> (in the entry's ⋯ menu, once you're editing the

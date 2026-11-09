@@ -267,6 +267,8 @@ export interface InterceptEntry extends InterceptEntryFields {
   /** Modes this entry was used to derive — traceability in the entry ->
    * Mode direction. */
   derived_mode_ids: string[];
+  /** Left out of coverage: kept, but never flagged as not covered. */
+  left_out?: boolean;
 }
 
 export interface InterceptEntryBrief {

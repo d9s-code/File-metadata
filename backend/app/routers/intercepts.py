@@ -27,6 +27,7 @@ from app.models.source import Source
 from app.services import checkout_service
 from app.schemas.intercept import (
     KEPT_UNLESS_SENT,
+    EntriesLeftOut,
     EntryHypothesis,
     EntryIds,
     REPORT_ROW_FIELDS,
@@ -94,6 +95,7 @@ ENTRY_SNAPSHOT_FIELDS = [
     "hypothesis",
     "report_count",
     "source_file",
+    "left_out",
 ]
 
 
@@ -257,7 +259,7 @@ def emitter_match_counts(
     total = MatchCounts()
     by_intercept: dict[UUID, MatchCounts] = {}
     for entry in entries:
-        result = entry_status(entry, modes)
+        result = "left_out" if entry.left_out else entry_status(entry, modes)
         counts = by_intercept.setdefault(entry.intercept_id, MatchCounts())
         setattr(counts, result, getattr(counts, result) + 1)
         setattr(total, result, getattr(total, result) + 1)
@@ -729,6 +731,45 @@ def _entries_of(db: Session, intercept_id: UUID, entry_ids: list[UUID]) -> list[
 
 
 @router.post(
+    "/{intercept_id}/entries/left-out", response_model=list[InterceptEntryOut], dependencies=[Depends(verify_csrf)]
+)
+def set_entries_left_out(
+    intercept_id: UUID,
+    payload: EntriesLeftOut,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+) -> list[InterceptEntryOut]:
+    """Leaves entries out of coverage, or counts them again: a left-out entry
+    stays on the Intercept, matched as before, but is never flagged as not
+    covered — not on the Intercept, the Emitter's Intercepts tab or the
+    dashboard. One audit row for the lot."""
+    intercept = _get_writable_intercept(db, intercept_id)
+    entries = _entries_of(db, intercept_id, payload.entry_ids)
+    changed = [e for e in entries if e.left_out != payload.left_out]
+    if changed:
+        for e in changed:
+            e.left_out = payload.left_out
+        n = len(changed)
+        noun = f"entr{'y' if n == 1 else 'ies'}"
+        record_audit(
+            db,
+            actor_id=user.id,
+            action=AuditAction.update,
+            entity_type=AuditEntityType.intercept.value,
+            entity_id=intercept.id,
+            summary=(
+                f"Left {n} {noun} of Intercept '{intercept.name}' out of coverage"
+                if payload.left_out
+                else f"Counted {n} {noun} of Intercept '{intercept.name}' in coverage again"
+            ),
+            changes={"left_out": {"entry_ids": [str(e.id) for e in changed], "old": not payload.left_out, "new": payload.left_out}},
+            emitter_id=intercept.emitter_id,
+        )
+        db.commit()
+    return _attach_derived_mode_ids(db, entries)
+
+
+@router.post(
     "/{intercept_id}/entries/delete", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(verify_csrf)]
 )
 def delete_intercept_entries(
@@ -845,6 +886,8 @@ def merge_intercept_entries(
     # Every hypothesis the merged entries had, each once.
     hypotheses = list(dict.fromkeys(h.strip() for h in (e.hypothesis for e in entries) if h and h.strip()))
     keep.hypothesis = " / ".join(hypotheses) or None
+    # Left out only if every one of them was.
+    keep.left_out = all(e.left_out for e in entries)
 
     # The others' reports, and their links to Modes created from them, move to the kept entry.
     db.execute(

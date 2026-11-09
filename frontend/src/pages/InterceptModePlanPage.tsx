@@ -259,8 +259,14 @@ export function InterceptModePlanPage() {
         const ranges = entryRanges(entry, byEntry.get(entry.id), settings.basis);
         const match = matchEntry(entry, modes);
         const options = widenOptions(entry, modes, ranges);
+        // A left-out entry isn't a gap to close: skipped unless it was picked.
+        const leftOut = !!entry.left_out && !pickedSet?.has(entry.id);
         const fallback: Action =
-          match.status === "match" ? { kind: "skip" } : options[0] ? { kind: "widen", modeId: options[0].mode.id } : { kind: "new" };
+          match.status === "match" || leftOut
+            ? { kind: "skip" }
+            : options[0]
+              ? { kind: "widen", modeId: options[0].mode.id }
+              : { kind: "new" };
         const chosen = overrides.get(entry.id);
         // An override pointing at a Mode that's no longer an option falls back.
         const valid = chosen && (chosen.kind !== "widen" || options.some((o) => o.mode.id === chosen.modeId));

@@ -110,6 +110,8 @@ class InterceptEntryOut(InterceptEntryFields):
     pri_type: PriType
     created_at: datetime
     derived_mode_ids: list[UUID] = []
+    # Left out of coverage: never flagged as not covered.
+    left_out: bool = False
 
 
 class InterceptEntryBrief(BaseModel):
@@ -327,10 +329,18 @@ class EntryIds(BaseModel):
     entry_ids: list[UUID] = Field(min_length=1, max_length=MAX_IMPORT_ENTRIES)
 
 
+class EntriesLeftOut(EntryIds):
+    """Leave entries out of coverage (left_out true) or count them again."""
+
+    left_out: bool
+
+
 class MatchCounts(BaseModel):
     match: int = 0
     near: int = 0
     none: int = 0
+    # Left out of coverage — not counted as match, near or none.
+    left_out: int = 0
 
 
 class InterceptMatchCounts(BaseModel):

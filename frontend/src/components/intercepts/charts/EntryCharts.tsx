@@ -108,8 +108,9 @@ export function EntryCharts({
   onSelectBox: (ids: string[], mode: SelectMode) => void;
 }) {
   const coverage = useMemo(() => (modes && modes.length > 0 ? modeCoverage(modes) : null), [modes]);
+  // A left-out entry isn't flagged as outside the Modes, on the charts either.
   const matched = (e: InterceptEntry) =>
-    matchById ? (matchById.get(e.id)?.status ?? "none") === "match" : null;
+    matchById ? !!e.left_out || (matchById.get(e.id)?.status ?? "none") === "match" : null;
   const passes = (e: InterceptEntry, except: RangeParam | null) =>
     (["rf", "pri", "pw"] as RangeParam[]).every((p) => p === except || withinRange(entryValue(e, p), ranges[p]));
   const [axes, setAxesState] = useState(readAxes);
@@ -169,7 +170,7 @@ export function EntryCharts({
         const own = ranges[h.filter];
         if (own && (v < own[0] || v > own[1])) continue;
         values.push(v);
-        covered.push(inIntervals(coverage?.[h.param][e.pri_type as ReportPriType] ?? [], v));
+        covered.push(!!e.left_out || inIntervals(coverage?.[h.param][e.pri_type as ReportPriType] ?? [], v));
       }
       const own = ranges[h.filter];
       const [lo, hi] = extent(values);

@@ -85,12 +85,13 @@ export function EntryMatchCell({
   );
 }
 
-/** "2 match · 1 partial · 1 no match", skipping zeros. */
-export function MatchCounts({ counts }: { counts: { match: number; near: number; none: number } }) {
+/** "2 match · 1 partial · 1 no match · 3 left out", skipping zeros. */
+export function MatchCounts({ counts }: { counts: { match: number; near: number; none: number; left_out?: number } }) {
   const parts: [number, string, string][] = [
     [counts.match, "match", "match-yes"],
     [counts.near, "partial", "match-near"],
     [counts.none, "no match", "match-none"],
+    [counts.left_out ?? 0, "left out", "match-left-out"],
   ];
   const shown = parts.filter(([n]) => n > 0);
   if (shown.length === 0) return <span className="hint-text">—</span>;

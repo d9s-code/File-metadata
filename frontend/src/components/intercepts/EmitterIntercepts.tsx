@@ -54,8 +54,16 @@ export function EmitterIntercepts({ emitterId }: { emitterId: string }) {
         {total && unmatched === 0 && entryTotal > 0 && (
           <>
             {" "}
-            <span className="summary-good">Every entry matches a Mode.</span>
+            <span className="summary-good">
+              {(total.left_out ?? 0) > 0 ? "Every entry counted matches a Mode." : "Every entry matches a Mode."}
+            </span>
           </>
+        )}
+        {total && (total.left_out ?? 0) > 0 && (
+          <span className="hint-text">
+            {" "}
+            {total.left_out} left out of coverage.
+          </span>
         )}
       </p>
 
