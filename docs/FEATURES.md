@@ -594,29 +594,35 @@ Run a check at three levels, each reusing the same engine:
 - **Per-Platform** — which Emitters pinned into one Platform could be taken for each other: each Emitter's Modes against the *other* Emitters' Modes. Overlaps inside one Emitter aren't part of it (its own check covers them).
 - **Per-MDF** — the same across every Emitter reached through the MDF's pinned Platforms; an Emitter on several of its Platforms counts once.
 
-A Platform or MDF check opens on **Emitters**: each ambiguous Emitter with the Emitters it could be taken for (worst first), then every pair of Emitters with its findings by severity — click one for the Mode pairs behind it. Findings, Modes involved and the Matrix follow as for an Emitter.
+A Platform or MDF check groups its pairs by **pair of Emitters** to start (switchable to Modes overlapping each other).
 
 A check always runs against a specific **committed version** (the latest by default), never the live draft — so results are reproducible and tied to a known snapshot, not a moving target. Runs execute in the background; the page polls until it completes.
 
 ### The page
 
-- **Layout** — the views as tabs under the run bar (Emitters for a Platform or MDF, Findings, Modes involved, Matrix; each tab's hover says what it shows), then one row of filters: status and severity chips (only those with findings), Mode search, EW Group and Source.
-- **Findings list beside a detail panel** — open findings first, worst first, each with its per-parameter overlap (jitter for two Fixed Modes; PRI marked frame time or steps for Staggers) and the deciding parameter in bold; arrow keys move through the list. The selected finding shows each parameter on one line — both Modes' values and the overlap — over the ranges drawn to scale with the overlap shaded (stagger steps as dots, shared steps ringed), then one row of actions: **Open A**, **Open B**, **Merge…**, **Acknowledge…** (which asks for the optional reason); what each does is on its hover.
-- **Modes involved** — the Modes in the most findings, worst first; click one to see its findings.
-- **Matrix** — every Mode in a finding against every other, coloured by severity; a cell opens that finding.
+Everything is on one screen, without tabs:
+
+- **Summary** — what was checked and when, **Run again**, the **Thresholds** chip, **How it decides** and (with a language model) **✦ AI overview**, which opens the run's summary. Under it, four figures: **open pairs** (and how many are handled), **Modes involved** in open pairs, **groups**, and the open pairs **by severity** as one bar with a chip per severity that filters to it. A notice says when the scope was saved since the check, the check used older rules, or Modes have **changed since the check** (marked ● everywhere). The Emitters you're editing are listed with their own **Discard / Save checkpoint / Save version** (on an Emitter's check, its **Start editing** too), so a fix is saved without leaving the page.
+- **Filters** in one row: **Open / Handled / All** (Open by default; All when nothing is open), Mode search, EW Group and Source, and on a Platform or MDF **Group by** pair of Emitters or Modes overlapping each other. ↑↓ moves through the pairs and ←→ through the groups.
+- **Groups** (left) — the Modes joined through shared pairs, so each group is one piece of work: worst severity, open pairs, a bar by severity, how many Modes and pairs, and the parameter that decides most of them. **Every pair** is at the top.
+- **Chart & pairs** (middle) — the group's Modes drawn on one parameter, a row each (the parameter that decides the group to start; RF, PRI, PW or jitter on the toggle), ranges with their ± delta, the selected pair in its two colours and the part they share shaded across the rows; the number on the right is how many pairs the Mode is in. Clicking a Mode lists only its pairs. Below, the pairs: open first, worst first, each with the parameter that decides it in bold and any other partly-overlapping one after it — parameters that overlap fully aren't repeated ("rest full"). **Matrix** instead shows the pairs as a half grid with a letter in each cell (E, H, M, L).
+- **The pair** (right) — the verdict in a sentence ("Only RF 80% — the rest overlap fully"), the overlap **each way** (how much of A's box lies inside B's, and of B's inside A's — a narrow Mode inside a wide one is 100% one way and little the other; severity is unchanged), the deciding parameter drawn large, the others one line each, then the actions and **To tell them apart**.
 
 ### Handling findings
 
-- **Open A / Open B** — straight to either Mode in its Emitter.
+- **Edit A / Edit B** — the Mode's own edit window, on this page. When nobody is editing its Emitter it offers **Start editing**; when someone else is, it says who. **Open in its Emitter** links are there too.
+- **To tell them apart** — for each parameter, the smallest move of one edge that separates the two (deltas included; touching ends don't overlap), parameters with the smallest change first: "F0's max 9,101 → 9,019 MHz · moves 82". **Edit like this…** opens that Mode's edit window with the value filled in as typed (its ± delta taken off) to check and save. Identical ranges, and Staggers sharing steps, say so instead.
 - **Merge** (Editors) — for two Modes of the same Emitter that are really the same: keep one, widened to the union of both ranges (jitter too) — keeping its own ± deltas, never the other's — and delete the other. A preview shows the before/after values as typed, each with its delta, and a Fixed pair's jitter or a Stagger's frame time, what moves (test records, test line results, SIM test lines and intercept links all move to the kept Mode; its notes record the merge and keep the other's notes) and any new or worse overlap the wider ranges would cause with the Emitter's other Modes. It changes the Emitter's live data, so it needs the Emitter checked out (the dialog can check it out); a version then has to be saved and the check run again. The finding records the merge, and others involving the deleted Mode are marked until the next run. Different PRI types, or staggers with different sequences, can't be merged.
 - **Acknowledge** (Editors) — known and acceptable, with an optional reason; carried to later runs while the pair's overlap is unchanged. **Undo** reverses it. Acknowledging doesn't delete or hide the finding — it's a record that a human looked at it and made a call.
+
+The check reads saved versions, so an edit shows in the results once the Emitter is saved as a version (and, for a Platform or MDF, pinned) and the check runs again.
 
 ### AI explanations (optional)
 
 When a language model is set up (`LLM_BASE_URL` — any OpenAI-compatible server, such as vLLM on the same network), the page offers two more things:
 
 - **Explain with AI** on a selected finding — why the two Modes can't be told apart, what (if anything) in the data separates them, and one suggested action (keep both, tighten the ranges, merge, add a distinguishing parameter, or check the source data), with the model's confidence. An Editor can acknowledge the finding with the suggestion as its note.
-- **Summarise with AI** for the run — an overview, what to look at first, and patterns across the findings.
+- **Summarise with AI** (under **✦ AI overview** at the top) for the run — an overview, what to look at first, and patterns across the findings.
 
 The model never does the overlap arithmetic: the check computes it, and the model is given only one finding's two Modes and their computed overlap, or a run's counts and 40 most serious findings — a few thousand tokens however many Modes are in scope. Its answers are drafts, kept with the finding or run and labelled with the model and who asked; any number in an answer that wasn't in its input is listed so it can be checked. `scripts/llm_eval.py` tries the model on a run's findings and writes a report for analysts to judge before anyone relies on it.
 

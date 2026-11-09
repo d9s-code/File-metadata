@@ -848,29 +848,39 @@ export function HelpPage() {
             them before running. This explanation is behind <strong>How it decides</strong>. Checks made under older rules say so — run them again.
           </p>
           <p>
-            <strong>The page.</strong> The findings are listed on the left — open ones first, worst first — with each
-            parameter&apos;s overlap and the one that set the severity in bold; the views are tabs, and below them one
-            row filters by status and severity (only those with findings), Mode, EW Group and Source. Arrow keys move
-            through the list. The selected finding is on the right: both Modes&apos; ranges
-            drawn to scale with the overlap shaded. <strong>Modes involved</strong> lists the Modes in the most findings —
-            changing one of those often clears many. <strong>Matrix</strong> shows every pair at once; click a cell to open
-            it.
+            <strong>The page.</strong> Everything is on one screen. At the top: what was checked, <strong>Run again</strong>,
+            the open pairs, Modes involved, groups and a bar of the open pairs by severity (click a severity to see only it),
+            and — when you&apos;re editing one of the Emitters — its <strong>Save version</strong>, so a fix is saved from
+            here. Modes changed since the check are marked ●. Below, three columns: the <strong>groups</strong> of Modes
+            that overlap each other (each one piece of work; on a Platform or MDF, grouped by pair of Emitters to start),
+            the selected group&apos;s Modes drawn on the parameter that decides it with its <strong>pairs</strong> under it
+            (or the <strong>Matrix</strong>), and the selected <strong>pair</strong>. Click a Mode in the chart for only its
+            pairs. ↑↓ moves through the pairs, ←→ through the groups. <strong>Open / Handled / All</strong> picks which
+            pairs are shown.
           </p>
           <p>
-            <strong>Handling a finding.</strong> <strong>Open A / Open B</strong> takes you to either Mode in its Emitter
-            to change it. <strong>Merge</strong> is for two Modes that are really the same: pick the one to keep, see what
-            changes — its values become the union of both (jitter too), keeping its own ± deltas, never the
-            other&apos;s; the other is deleted, and its test
-            history and intercept links move to the kept Mode — including any new overlap the wider ranges would cause
-            with other Modes. It changes the Emitter&apos;s unsaved edits, so the Emitter must be checked out by you (the
-            dialog can do that); save a version and run the check again to see the result. Findings that involved the
-            deleted Mode are marked until then. <strong>Acknowledge</strong> marks a finding as known and acceptable, with
-            an optional reason; it carries over to later checks while the pair&apos;s overlap doesn&apos;t change.
+            <strong>The pair.</strong> A sentence says what still tells them apart (&ldquo;Only RF 80% — the rest overlap
+            fully&rdquo;) and how much of each Mode&apos;s box lies inside the other&apos;s — a narrow Mode inside a wide
+            one is 100% one way and little the other. The deciding parameter is drawn large; the rest are a line each.{" "}
+            <strong>To tell them apart</strong> gives, per parameter, the smallest move of one edge that would separate
+            them, deltas included; <strong>Edit like this…</strong> opens that Mode&apos;s edit window with the value filled
+            in as typed.
+          </p>
+          <p>
+            <strong>Handling a finding.</strong> <strong>Edit A / Edit B</strong> opens the Mode&apos;s edit window on this
+            page (offering <strong>Start editing</strong> if nobody holds its Emitter). <strong>Merge</strong> is for two
+            Modes that are really the same: pick the one to keep, see what changes — its values become the union of both
+            (jitter too), keeping its own ± deltas, never the other&apos;s; the other is deleted, and its test history and
+            intercept links move to the kept Mode — including any new overlap the wider ranges would cause with other
+            Modes. It changes the Emitter&apos;s unsaved edits, so the Emitter must be checked out by you (the dialog can do
+            that). Save a version and run the check again to see the result of any change. <strong>Acknowledge</strong>{" "}
+            marks a finding as known and acceptable, with an optional reason; it carries over to later checks while the
+            pair&apos;s overlap doesn&apos;t change.
           </p>
           <p>
             <strong>AI explanations</strong> (only if a language model is set up): select a finding and press{" "}
             <strong>Explain with AI</strong> for why the two Modes can&apos;t be told apart, what separates them, and a
-            suggested action; <strong>Summarise with AI</strong> gives an overview of the whole run. The check still
+            suggested action; <strong>Summarise with AI</strong> (under <strong>✦ AI overview</strong> at the top) gives an overview of the whole run. The check still
             computes every overlap itself — the model only reads the result and explains it. What it writes is a{" "}
             <strong>draft</strong>: check it against the numbers, and if it mentions a number that wasn&apos;t in the
             data it was given, that number is listed in a warning. The draft stays with the finding for everyone, and{" "}
@@ -1012,9 +1022,8 @@ export function HelpPage() {
           <p>
             Answers <em>which Emitters on this Platform could be taken for each other</em>: each pinned
             Emitter&apos;s Modes are compared with the other Emitters&apos; Modes, never with its own (run the
-            Emitter&apos;s own check for that). It opens on <strong>Emitters</strong> — each ambiguous Emitter with
-            the ones it could be taken for, then every pair of Emitters with its findings by severity; click one to
-            see the Mode pairs behind it. The rules are the Emitter check&apos;s — see &ldquo;Ambiguity check&rdquo;
+            Emitter&apos;s own check for that). Its pairs are grouped by <strong>pair of Emitters</strong> to start
+            (<strong>Group by</strong> switches to Modes overlapping each other). The rules are the Emitter check&apos;s — see &ldquo;Ambiguity check&rdquo;
             above.
           </p>
         </div>

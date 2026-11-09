@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { AmbiguityFinding, AmbiguitySeverity } from "../../api/ambiguity";
+import { SEVERITY_LABEL } from "./ambiguityText";
 
 type ClusterBy = "none" | "ewGroup" | "source";
 
@@ -13,10 +14,13 @@ export function AmbiguityMatrix({
   findings,
   selectedId,
   onSelectFinding,
+  showEmitter,
 }: {
   findings: AmbiguityFinding[];
   selectedId: string | null;
   onSelectFinding: (findingId: string) => void;
+  /** Add the Emitter's name to each Mode (a Platform or MDF check). */
+  showEmitter: boolean;
 }) {
   const [clusterBy, setClusterBy] = useState<ClusterBy>("none");
 
@@ -34,12 +38,12 @@ export function AmbiguityMatrix({
   for (const f of findings) {
     modesById.set(f.mode_id_a, {
       id: f.mode_id_a,
-      label: `${f.details.mode_a.mode_name} (${f.details.mode_a.emitter_name})`,
+      label: showEmitter ? `${f.details.mode_a.mode_name} · ${f.details.mode_a.emitter_name}` : f.details.mode_a.mode_name,
       groupKey: groupKeyFor(f.details.mode_a),
     });
     modesById.set(f.mode_id_b, {
       id: f.mode_id_b,
-      label: `${f.details.mode_b.mode_name} (${f.details.mode_b.emitter_name})`,
+      label: showEmitter ? `${f.details.mode_b.mode_name} · ${f.details.mode_b.emitter_name}` : f.details.mode_b.mode_name,
       groupKey: groupKeyFor(f.details.mode_b),
     });
     const key = [f.mode_id_a, f.mode_id_b].sort().join("|");
@@ -48,7 +52,7 @@ export function AmbiguityMatrix({
 
   const modes = [...modesById.values()].sort((a, b) => {
     if (clusterBy !== "none" && a.groupKey !== b.groupKey) return a.groupKey.localeCompare(b.groupKey);
-    return a.label.localeCompare(b.label);
+    return a.label.localeCompare(b.label, undefined, { numeric: true });
   });
 
   function groupBoundary(index: number): boolean {
@@ -88,6 +92,8 @@ export function AmbiguityMatrix({
                   const cellClass = groupBoundary(j) ? "matrix-group-boundary" : "";
                   if (rowMode.id === colMode.id)
                     return <td key={colMode.id} className={`matrix-cell matrix-diagonal ${cellClass}`} />;
+                  // Each pair once: below the diagonal.
+                  if (j > i) return <td key={colMode.id} className={`matrix-cell matrix-upper ${cellClass}`} />;
                   const key = [rowMode.id, colMode.id].sort().join("|");
                   const cell = severityByPair.get(key);
                   if (!cell) return <td key={colMode.id} className={`matrix-cell matrix-empty ${cellClass}`} />;
@@ -96,8 +102,10 @@ export function AmbiguityMatrix({
                       key={colMode.id}
                       className={`matrix-cell severity-${cell.severity} ${cellClass} ${cell.findingId === selectedId ? "matrix-selected" : ""}`}
                       onClick={() => onSelectFinding(cell.findingId)}
-                      title={cell.severity.replace("_", " ")}
-                    />
+                      title={`${rowMode.label} ↔ ${colMode.label}: ${SEVERITY_LABEL[cell.severity]}`}
+                    >
+                      {SEVERITY_LABEL[cell.severity][0]}
+                    </td>
                   );
                 })}
               </tr>
