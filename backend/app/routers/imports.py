@@ -278,7 +278,7 @@ def commit_prs_import(
     )
 
 
-def _prs_update_plan(db: Session, emitter_id: UUID, file: UploadFile, mode_ids: str, pairs: str | None, keep_deltas: bool):
+def _prs_update_plan(db: Session, emitter_id: UUID, file: UploadFile, mode_ids: str, pairs: str | None):
     """Parses the file and pairs the Modes picked with its Modes — by name,
     unless `pairs` (JSON: Mode id -> index into the file's Modes, or null)
     says otherwise. Shared by the preview and the update itself."""
@@ -317,7 +317,7 @@ def _prs_update_plan(db: Session, emitter_id: UUID, file: UploadFile, mode_ids: 
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "A pair names a Mode that isn't in the file")
         if len(used) != len(set(used)):
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Each Mode in the file can update one Mode only")
-    plan = plan_update(modes, planned, chosen, keep_deltas, auto)
+    plan = plan_update(modes, planned, chosen, auto)
     return parsed, planned, issues, plan
 
 
@@ -327,12 +327,11 @@ def preview_prs_update(
     file: UploadFile = File(...),
     mode_ids: str = Form(...),
     pairs: str | None = Form(None),
-    keep_deltas: bool = Form(True),
     db: Session = Depends(get_db),
     _=Depends(require_role(Role.editor)),
 ) -> PrsUpdatePreviewOut:
     """What updating the Modes picked from this file would change — nothing is saved."""
-    parsed, planned, issues, plan = _prs_update_plan(db, emitter_id, file, mode_ids, pairs, keep_deltas)
+    parsed, planned, issues, plan = _prs_update_plan(db, emitter_id, file, mode_ids, pairs)
     out = PrsUpdatePreviewOut(
         file_emitter_name=parsed.emitter_name,
         file_modes=[PrsFileModeOut(**f) for f in file_modes(parsed, planned)],
@@ -361,7 +360,6 @@ def commit_prs_update(
     file: UploadFile = File(...),
     mode_ids: str = Form(...),
     pairs: str | None = Form(None),
-    keep_deltas: bool = Form(True),
     db: Session = Depends(get_db),
     user=Depends(require_emitter_checkout()),
 ) -> PrsUpdateResultOut:
@@ -371,7 +369,7 @@ def commit_prs_update(
     # checked and audited the same way.
     from app.routers.modes import update_mode_record
 
-    parsed, planned, _issues, plan = _prs_update_plan(db, emitter_id, file, mode_ids, pairs, keep_deltas)
+    parsed, planned, _issues, plan = _prs_update_plan(db, emitter_id, file, mode_ids, pairs)
     bad = [p for p in plan if p.error]
     if bad:
         raise HTTPException(
@@ -402,7 +400,6 @@ def commit_prs_update(
                 "modes_updated": updated,
                 "modes_unchanged": unchanged,
                 "modes_skipped": skipped,
-                "deltas_kept": keep_deltas,
             },
             emitter_id=emitter_id,
         )

@@ -64,19 +64,18 @@ export interface PrsUpdateResult {
   skipped: string[];
 }
 
-function updateForm(file: File, modeIds: string[], pairs: Record<string, number | null> | null, keepDeltas: boolean) {
+function updateForm(file: File, modeIds: string[], pairs: Record<string, number | null> | null) {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("mode_ids", JSON.stringify(modeIds));
   if (pairs) formData.append("pairs", JSON.stringify(pairs));
-  formData.append("keep_deltas", keepDeltas ? "true" : "false");
   return formData;
 }
 
 export const prsUpdateApi = {
   /** What updating these Modes from the file would change — nothing is saved. */
-  preview: (emitterId: string, file: File, modeIds: string[], pairs: Record<string, number | null> | null, keepDeltas: boolean) =>
-    api.post<PrsUpdatePreview>(`/emitters/${emitterId}/imports/prs-update/preview`, updateForm(file, modeIds, pairs, keepDeltas)),
-  update: (emitterId: string, file: File, modeIds: string[], pairs: Record<string, number | null>, keepDeltas: boolean) =>
-    api.post<PrsUpdateResult>(`/emitters/${emitterId}/imports/prs-update`, updateForm(file, modeIds, pairs, keepDeltas)),
+  preview: (emitterId: string, file: File, modeIds: string[], pairs: Record<string, number | null> | null) =>
+    api.post<PrsUpdatePreview>(`/emitters/${emitterId}/imports/prs-update/preview`, updateForm(file, modeIds, pairs)),
+  update: (emitterId: string, file: File, modeIds: string[], pairs: Record<string, number | null>) =>
+    api.post<PrsUpdateResult>(`/emitters/${emitterId}/imports/prs-update`, updateForm(file, modeIds, pairs)),
 };

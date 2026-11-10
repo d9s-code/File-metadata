@@ -10,13 +10,11 @@ same name with the export's underscores read as spaces (the export writes
 spaces as underscores) — each Mode in the file used once. The caller can
 override any pair.
 
-Values: the file holds engineered values (each range with its ± delta). By
-default each Mode keeps its own deltas and the typed range is the file's
-range less the delta, so a Mode that wasn't changed elsewhere comes back
-exactly as it was. Where the file's range is narrower than twice the delta,
-that parameter is taken as typed with delta 0 and the pair says so. Without
-keep_deltas, everything is taken as typed with delta 0, as an import does.
-A Stagger's frame period maps back exactly as on import.
+Values: the file holds engineered values (each range with its ± delta
+already on). They're taken as typed and the Mode's RF, PW and PRI deltas are
+removed (0), as an import does — the file is what the sensor gets. A
+Stagger's frame period maps back exactly as on import: its midpoint ± half
+its width, the one way a frame-time range is stored.
 """
 
 import uuid
@@ -25,7 +23,6 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.core.enums import PriType
 from app.models.ew_group import EwGroup
 from app.models.mode import Mode
 from app.schemas.mode import (
@@ -37,8 +34,6 @@ from app.schemas.mode import (
 from app.services.audit_service import _json_safe
 from app.services.prs_import.prs_import_service import ParsedPrsEmitter, PlannedPrsMode
 
-_RANGES = (("rf_min_mhz", "rf_max_mhz", "rf_delta"), ("pw_min_us", "pw_max_us", "pw_delta"), ("pri_min_us", "pri_max_us", "pri_delta"))
-_LABEL = {"rf_delta": "RF", "pw_delta": "PW", "pri_delta": "PRI"}
 # What a pair reports as changed: the Mode's own fields and its line's.
 _MODE_FIELDS = ("pri_type", "confirmation_quality", "confirmation_quantity")
 
@@ -78,26 +73,18 @@ def _num(v: Any) -> Any:
     return round(v, 4) if isinstance(v, float) else v
 
 
-def line_for(mode: Mode, item: PlannedPrsMode, keep_deltas: bool) -> tuple[ModeLineFields, list[str]]:
-    """The Mode's new line from the file, and notes on anything not kept."""
+def line_for(mode: Mode, item: PlannedPrsMode) -> tuple[ModeLineFields, list[str]]:
+    """The Mode's new line from the file — its values as typed, deltas 0 —
+    and a note when that removes deltas the Mode had."""
     fields = item.line_fields.model_dump()
     notes: list[str] = []
     old = mode.line
-    pri_type = item.parsed.pri_type
-    if keep_deltas and old is not None:
-        for lo, hi, delta_key in _RANGES:
-            if delta_key == "pri_delta" and pri_type != PriType.fixed:
-                continue
-            d = float(getattr(old, delta_key) or 0)
-            if not d or fields.get(lo) is None or fields.get(hi) is None:
-                continue
-            new_lo, new_hi = round(fields[lo] + d, 4), round(fields[hi] - d, 4)
-            if new_lo > new_hi:
-                notes.append(f"{_LABEL[delta_key]} in the file is narrower than ± {d:g}: taken as typed, delta 0")
-                continue
-            fields[lo], fields[hi], fields[delta_key] = new_lo, new_hi, d
-    if old is not None and old.type_data and pri_type == mode.pri_type:
-        fields["type_data"] = old.type_data
+    if old is not None:
+        removed = [label for key, label in (("rf_delta", "RF"), ("pw_delta", "PW"), ("pri_delta", "PRI")) if float(getattr(old, key) or 0)]
+        if removed:
+            notes.append(f"{', '.join(removed)} delta{'s' if len(removed) > 1 else ''} removed — the file's values already include them")
+        if old.type_data and item.parsed.pri_type == mode.pri_type:
+            fields["type_data"] = old.type_data
     return ModeLineFields(**fields), notes
 
 
@@ -138,7 +125,6 @@ def plan_update(
     modes: list[Mode],
     planned: list[PlannedPrsMode],
     pairs: dict[uuid.UUID, int | None],
-    keep_deltas: bool,
     auto: dict[uuid.UUID, int | None],
 ) -> list[UpdatePair]:
     out: list[UpdatePair] = []
@@ -149,7 +135,7 @@ def plan_update(
         if i is not None:
             item = planned[i]
             try:
-                line, notes = line_for(m, item, keep_deltas)
+                line, notes = line_for(m, item)
                 validate_pri_type_fields(item.parsed.pri_type, line)
                 require_manual_deltas(item.parsed.pri_type, line)
             except ValueError as exc:

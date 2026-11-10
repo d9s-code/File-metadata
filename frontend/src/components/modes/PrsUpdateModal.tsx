@@ -55,7 +55,6 @@ export function PrsUpdateModal({
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
-  const [keepDeltas, setKeepDeltas] = useState(true);
   const [pairs, setPairs] = useState<Record<string, number | null> | null>(null);
   const [preview, setPreview] = useState<PrsUpdatePreview | null>(null);
   const [loading, setLoading] = useState(false);
@@ -64,11 +63,11 @@ export function PrsUpdateModal({
   const [issues, setIssues] = useState<PrsImportIssue[] | null>(null);
   const [result, setResult] = useState<PrsUpdateResult | null>(null);
 
-  async function load(f: File, p: Record<string, number | null> | null, keep: boolean) {
+  async function load(f: File, p: Record<string, number | null> | null) {
     setLoading(true);
     setError(null);
     try {
-      const res = await prsUpdateApi.preview(emitterId, f, modeIds, p, keep);
+      const res = await prsUpdateApi.preview(emitterId, f, modeIds, p);
       setPreview(res);
       setPairs(Object.fromEntries(res.pairs.map((x) => [x.mode_id, x.file_index])));
     } catch (err) {
@@ -85,7 +84,7 @@ export function PrsUpdateModal({
     setError(null);
     setIssues(null);
     try {
-      const res = await prsUpdateApi.update(emitterId, file, modeIds, pairs, keepDeltas);
+      const res = await prsUpdateApi.update(emitterId, file, modeIds, pairs);
       setResult(res);
       qc.invalidateQueries({ queryKey: emitterModesKey(emitterId) });
       qc.invalidateQueries({ queryKey: ["modes"] });
@@ -129,8 +128,9 @@ export function PrsUpdateModal({
           <p className="hint-text">
             Each ticked Mode takes the values of its Mode in the file — matched by name (the export writes spaces as
             underscores), or picked below. It keeps its name, EW Group, Sources, notes, test history and intercept links, so
-            the version summary shows it as <em>changed</em>, not removed and added. Modes in the file that aren&apos;t
-            used are left out; <strong>Import from PRS</strong> adds Modes.
+            the version summary shows it as <em>changed</em>, not removed and added. The file&apos;s values already include
+            the ± deltas, so they&apos;re taken as typed and the Mode&apos;s RF, PW and PRI deltas are removed. Modes in the
+            file that aren&apos;t used are left out; <strong>Import from PRS</strong> adds Modes.
           </p>
           <div className="prs-update-controls">
             <input
@@ -142,23 +142,12 @@ export function PrsUpdateModal({
                 const f = e.target.files?.[0] ?? null;
                 setFile(f);
                 setResult(null);
-                if (f) void load(f, null, keepDeltas);
+                if (f) void load(f, null);
               }}
             />
             <button type="button" className="button secondary" onClick={() => fileRef.current?.click()} disabled={loading || saving}>
               {file ? file.name : "Select XML file"}
             </button>
-            <label className="checkbox-label" title="The file's ranges include each ± delta. Kept, a Mode that wasn't changed elsewhere comes back exactly as it was.">
-              <input
-                type="checkbox"
-                checked={keepDeltas}
-                onChange={(e) => {
-                  setKeepDeltas(e.target.checked);
-                  if (file) void load(file, pairs, e.target.checked);
-                }}
-              />
-              Keep each Mode&apos;s ± deltas
-            </label>
             {loading && <span className="hint-text">Reading…</span>}
             {preview && <span className="hint-text">From &ldquo;{preview.file_emitter_name}&rdquo; · {preview.file_modes.length} Modes in the file</span>}
           </div>
@@ -192,7 +181,7 @@ export function PrsUpdateModal({
                             if (e.target.value !== "") {
                               for (const k of Object.keys(next)) if (k !== r.mode_id && next[k] === Number(e.target.value)) next[k] = null;
                             }
-                            if (file) void load(file, next, keepDeltas);
+                            if (file) void load(file, next);
                           }}
                         >
                           <option value="">— leave as it is —</option>

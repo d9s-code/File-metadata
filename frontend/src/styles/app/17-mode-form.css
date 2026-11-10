@@ -171,7 +171,6 @@
 
 /* Update from PRS: each ticked Mode beside its Mode in the file and what changes. */
 .prs-update-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin: 0.6rem 0; }
-.prs-update-controls .checkbox-label { display: inline-flex; flex-direction: row; align-items: center; gap: 0.35rem; }
 .prs-update-table { margin-top: 0.4rem; }
 .prs-update-table td { vertical-align: top; }
 .prs-update-table select { max-width: 22rem; }
