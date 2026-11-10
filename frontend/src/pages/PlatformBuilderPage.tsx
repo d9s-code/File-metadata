@@ -4,7 +4,8 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { usePlatform, usePlatformLinks, useRepinPlatformLatest, useUpdatePlatform } from "../state/hooks/usePlatforms";
 import { useCommitPlatformVersion, usePlatformVersions } from "../state/hooks/usePlatformVersions";
 import { useEmitters } from "../state/hooks/useEmitters";
-import { isOutdatedPin, platformsApi } from "../api/platforms";
+import { isOutdatedPin, platformsApi, type Allegiance, type SpeedUnit } from "../api/platforms";
+import { ALLEGIANCES, AllegianceChip, SPEED_UNITS, convertSpeed, speedText } from "../components/platform/platformTraits";
 import { PlatformLinkTable } from "../components/platform/PlatformLinkTable";
 import { PinEmittersDialog } from "../components/platform/PinEmittersDialog";
 import { EntityAuditTrail } from "../components/audit/EntityAuditTrail";
@@ -51,6 +52,11 @@ export function PlatformBuilderPage() {
   const [pinning, setPinning] = useState(false);
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [editAllegiance, setEditAllegiance] = useState<Allegiance | "">("");
+  const [editSpeedMin, setEditSpeedMin] = useState("");
+  const [editSpeedMax, setEditSpeedMax] = useState("");
+  const [editSpeedUnit, setEditSpeedUnit] = useState<SpeedUnit>("kmh");
+  const [editError, setEditError] = useState<string | null>(null);
   const { data: notes, isLoading: notesLoading } = usePlatformNotes(platformId ?? "");
   const { mutateAsync: createNote, isPending: isAddingNote } = useCreatePlatformNote(platformId ?? "");
   const { mutateAsync: deleteNote } = useDeletePlatformNote(platformId ?? "");
@@ -64,15 +70,44 @@ export function PlatformBuilderPage() {
   const handleStartEdit = () => {
     setEditName(platform.name);
     setEditDescription(platform.description ?? "");
+    setEditAllegiance(platform.allegiance ?? "");
+    setEditSpeedMin(platform.speed_min == null ? "" : String(platform.speed_min));
+    setEditSpeedMax(platform.speed_max == null ? "" : String(platform.speed_max));
+    setEditSpeedUnit(platform.speed_unit ?? "kmh");
+    setEditError(null);
     setIsEditing(true);
   };
 
   const handleCancelEdit = () => setIsEditing(false);
 
+  const speedNumber = (text: string): number | null | "bad" => {
+    if (text.trim() === "") return null;
+    const v = Number(text);
+    return Number.isFinite(v) && v >= 0 ? v : "bad";
+  };
+
   const handleSaveEdit = () => {
+    const lo = speedNumber(editSpeedMin);
+    const hi = speedNumber(editSpeedMax);
+    if (lo === "bad" || hi === "bad") return setEditError("A speed is a number, 0 or more.");
+    if (lo != null && hi != null && lo > hi) return setEditError("The lowest speed can't be above the highest.");
+    setEditError(null);
     updatePlatform(
-      { id: platform.id, input: { name: editName, description: editDescription || undefined } },
-      { onSuccess: () => setIsEditing(false) },
+      {
+        id: platform.id,
+        input: {
+          name: editName,
+          description: editDescription || undefined,
+          allegiance: editAllegiance || null,
+          speed_min: lo,
+          speed_max: hi,
+          speed_unit: editSpeedUnit,
+        },
+      },
+      {
+        onSuccess: () => setIsEditing(false),
+        onError: (err) => setEditError(err instanceof Error ? err.message : "Couldn't save."),
+      },
     );
   };
 
@@ -125,11 +160,28 @@ export function PlatformBuilderPage() {
         status={
           <>
             <PlatformStatusControls platformId={platform.id} status={platform.status} />
+            <AllegianceChip
+              allegiance={platform.allegiance}
+              disabled={isUpdating}
+              onChange={canWrite ? (a) => updatePlatform({ id: platform.id, input: { allegiance: a } }) : undefined}
+            />
+            {canWrite ? (
+              <button
+                type="button"
+                className="speed-chip"
+                onClick={handleStartEdit}
+                title="Its speed range, in km/h or knots — written to the PRS XML (Speed) once a version is saved"
+              >
+                {speedText(platform) ?? "Speed not set"}
+              </button>
+            ) : (
+              speedText(platform) && <span className="speed-chip">{speedText(platform)}</span>
+            )}
             <LatestVersion versions={versions} />
             <UnsavedPinsFlag
               kind="platform"
               id={platform.id}
-              signature={`${(links ?? []).map((l) => `${l.emitter_id}:${l.emitter_version_id}`).sort().join(",")}|${versions?.length ?? 0}`}
+              signature={`${(links ?? []).map((l) => `${l.emitter_id}:${l.emitter_version_id}`).sort().join(",")}|${versions?.length ?? 0}|${platform.allegiance}|${platform.speed_min}|${platform.speed_max}|${platform.speed_unit}`}
             />
             <TasksButton type="platform" id={platform.id} name={platform.name} />
             <MilestonesButton type="platform" id={platform.id} status={platform.status} />
@@ -169,9 +221,56 @@ export function PlatformBuilderPage() {
                 onChange={(e) => setEditDescription(e.target.value)}
                 placeholder="Description"
                 className="edit-input"
-                rows={12}
+                rows={10}
               />
             </label>
+            <label>
+              Allegiance
+              <select value={editAllegiance} onChange={(e) => setEditAllegiance(e.target.value as Allegiance | "")}>
+                <option value="">Unknown</option>
+                {ALLEGIANCES.map((a) => (
+                  <option key={a.key} value={a.key}>
+                    {a.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <fieldset className="platform-speed-fields">
+              <legend>Speed</legend>
+              <label>
+                Lowest
+                <input type="number" min={0} step="any" value={editSpeedMin} onChange={(e) => setEditSpeedMin(e.target.value)} />
+              </label>
+              <label>
+                Highest
+                <input type="number" min={0} step="any" value={editSpeedMax} onChange={(e) => setEditSpeedMax(e.target.value)} />
+              </label>
+              <label>
+                Unit
+                <select
+                  value={editSpeedUnit}
+                  onChange={(e) => {
+                    const to = e.target.value as SpeedUnit;
+                    // The same speed in the other unit.
+                    const conv = (t: string) => (t.trim() === "" || !Number.isFinite(Number(t)) ? t : String(convertSpeed(Number(t), editSpeedUnit, to)));
+                    setEditSpeedMin(conv(editSpeedMin));
+                    setEditSpeedMax(conv(editSpeedMax));
+                    setEditSpeedUnit(to);
+                  }}
+                >
+                  {SPEED_UNITS.map((u) => (
+                    <option key={u.key} value={u.key}>
+                      {u.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <span className="hint-text">
+                Changing the unit converts the numbers (1 knot = 1.852 km/h). Either end can be left empty. Allegiance and
+                speed go into the PRS XML (Hostility, Speed) from the next saved version.
+              </span>
+            </fieldset>
+            {editError && <p className="error-text">{editError}</p>}
           </div>
           <div className="modal-actions">
             <button className="button secondary" onClick={handleCancelEdit} disabled={isUpdating}>

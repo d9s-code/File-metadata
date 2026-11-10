@@ -58,6 +58,15 @@ Maps an Emitter and its Modes.
         - `Class="CW"`: `<CW />`
     - `<ScanData Name="{scan_name}" />`
 
+### 3.2.1. Platform (`platforms/[platform_name].xml`)
+- **Root Element**: `<Platform IsUnknown="false">`
+- `<Name>{platform_name}</Name>`
+- `<Hostility Value="{HOSTILE|NEUTRAL|FRIENDLY|UNKNOWN}" />` — the Platform's allegiance; `UNKNOWN` when it isn't set.
+- `<Base Value="…" />`
+- `<Speed Min="{min}" Max="{max}" Units="{kph|knots}" />` — the Platform's speed range in km/h (`kph`) or knots; an end not set is `0`.
+- `<Configuration>` with one `<EmitterFile Count="1">emitters\{emitter_name}.xml</EmitterFile>` per pinned Emitter.
+- A Platform version export writes the values saved with that version.
+
 ### 3.3. Dwell (`dwells/[name].xml`)
 Defines the dwell strategy.
 - **Root Element**: `<DwellStrategies>`

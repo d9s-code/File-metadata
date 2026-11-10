@@ -34,6 +34,9 @@ export function UnsavedPinsFlag({
   const n = data.entries.length;
   const since = data.saved_version ? `since v${data.saved_version}` : "— nothing saved yet";
   const usedBy = kind === "platform" ? "MDFs pinning it and exports" : "its export and report";
+  // A Platform's allegiance and speed count too: they're in its export.
+  const onlyPins = data.entries.every((e) => e.scope.startsWith("Emitter '") || e.scope.startsWith("Platform '") || e.scope.startsWith("Dwell"));
+  const what = onlyPins ? "Pins" : "Changes";
   return (
     <span className="unsaved-pins" ref={ref}>
       <button
@@ -41,12 +44,12 @@ export function UnsavedPinsFlag({
         className="status-badge unsaved-pins-badge"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        title={`Pins changed ${since} — not in a saved version, so not in ${usedBy}. Save a version to include them.`}
+        title={`${what} ${since} — not in a saved version, so not in ${usedBy}. Save a version to include them.`}
       >
-        ● Pins not saved · {n} change{n === 1 ? "" : "s"} {since}
+        ● {what} not saved · {n} change{n === 1 ? "" : "s"} {since}
       </button>
       {open && (
-        <div className="unsaved-pins-pop" role="dialog" aria-label="Pins not saved">
+        <div className="unsaved-pins-pop" role="dialog" aria-label={`${what} not saved`}>
           <p className="hint-text">
             Stored, but not in a saved version yet — so not in {usedBy}. <strong>Save version</strong> includes them.
           </p>

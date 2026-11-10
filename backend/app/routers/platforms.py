@@ -84,7 +84,7 @@ def create_platform(
 ) -> Platform:
     if db.query(Platform).filter(Platform.name == payload.name, Platform.is_deleted.is_(False)).first() is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, "Platform name already exists")
-    platform = Platform(name=payload.name, description=payload.description, created_by=user.id)
+    platform = Platform(**payload.model_dump(), created_by=user.id)
     db.add(platform)
     db.flush()
     # No version yet — like an Emitter or an MDF, its first is saved once it
@@ -112,7 +112,14 @@ def update_platform(
     user=Depends(require_role(Role.editor)),
 ) -> Platform:
     platform = _get_platform_or_404(db, platform_id)
-    changes = apply_and_diff(platform, payload.model_dump(exclude_unset=True))
+    data = payload.model_dump(exclude_unset=True)
+    if data.get("speed_unit", "") is None:
+        del data["speed_unit"]  # Always one of the two.
+    lo = data.get("speed_min", platform.speed_min)
+    hi = data.get("speed_max", platform.speed_max)
+    if lo is not None and hi is not None and float(lo) > float(hi):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "The lowest speed can't be above the highest")
+    changes = apply_and_diff(platform, data)
     record_audit(
         db,
         actor_id=user.id,

@@ -165,13 +165,33 @@ def _append_mode_element(parent: etree._Element, mode: dict, *, scan_name: str) 
     etree.SubElement(mode_el, "ScanData", Name=_sanitize(scan_name))
 
 
+def hostility_value(allegiance: str | None) -> str:
+    """The Platform's allegiance as Hostility's Value: HOSTILE, NEUTRAL or
+    FRIENDLY; UNKNOWN when it isn't set (and in versions saved before it was)."""
+    return allegiance.upper() if allegiance in ("hostile", "neutral", "friendly") else _PLACEHOLDER_HOSTILITY
+
+
+def speed_attrs(speed_min, speed_max, unit: str | None) -> dict[str, str]:
+    """Speed's Min, Max and Units: the Platform's range in km/h ("kph") or
+    knots; an end not set is 0, as the placeholder always was."""
+
+    def fmt(v) -> str:
+        return "0" if v is None else f"{float(v):g}"
+
+    return {"Min": fmt(speed_min), "Max": fmt(speed_max), "Units": "knots" if unit == "knots" else "kph"}
+
+
 def build_platform_element(platform_snapshot: dict) -> etree._Element:
     root = etree.Element("Platform", IsUnknown="false")
     etree.SubElement(root, "Name").text = _sanitize(platform_snapshot["name"])
+    etree.SubElement(root, "Hostility", Value=hostility_value(platform_snapshot.get("allegiance")))
     # Not modeled anywhere in this app — see prs_export_notes.md.
-    etree.SubElement(root, "Hostility", Value=_PLACEHOLDER_HOSTILITY)
     etree.SubElement(root, "Base", Value=_PLACEHOLDER_BASE)
-    etree.SubElement(root, "Speed", Min="0", Max="0", Units="kph")
+    etree.SubElement(
+        root,
+        "Speed",
+        **speed_attrs(platform_snapshot.get("speed_min"), platform_snapshot.get("speed_max"), platform_snapshot.get("speed_unit")),
+    )
 
     config_el = etree.SubElement(root, "Configuration")
     for link in platform_snapshot.get("links", []):

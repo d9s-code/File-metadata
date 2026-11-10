@@ -1,10 +1,19 @@
 import { api } from "./client";
+export type Allegiance = "hostile" | "neutral" | "friendly";
+export type SpeedUnit = "kmh" | "knots";
+
 export interface Platform {
   id: string;
   name: string;
   description: string | null;
   /** Its own status (a key of the Platform statuses Admins set up). */
   status: string;
+  /** Hostile, neutral or friendly; null: unknown. The PRS XML's Hostility. */
+  allegiance: Allegiance | null;
+  /** Its speed, a range in speed_unit; either end may be unset. The PRS XML's Speed. */
+  speed_min: number | null;
+  speed_max: number | null;
+  speed_unit: SpeedUnit;
   is_deleted: boolean;
   deleted_at: string | null;
   created_at: string;
@@ -64,6 +73,10 @@ export function isOutdatedPin(link: PlatformLink): boolean {
 export interface PlatformCreateInput {
   name: string;
   description?: string;
+  allegiance?: Allegiance | null;
+  speed_min?: number | null;
+  speed_max?: number | null;
+  speed_unit?: SpeedUnit;
 }
 
 /** An Emitter as offered for pinning. */

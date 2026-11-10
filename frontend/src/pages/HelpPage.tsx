@@ -35,6 +35,7 @@ const TOC: TocNode[] = [
     children: [
       { id: "platform-detail", title: "Platform detail" },
       { id: "platform-versions", title: "Version history" },
+      { id: "platform-allegiance", title: "Allegiance and speed" },
       { id: "platform-ambiguity", title: "Ambiguity check" },
     ],
   },
@@ -1020,6 +1021,17 @@ export function HelpPage() {
             Laid out like an Emitter&apos;s — see &ldquo;Version history&rdquo; above. The changes list which
             Emitters were pinned or unpinned, which moved to another of their versions, and any change to the
             Platform&apos;s own name or description. Each version can be exported as a PRS package from beside it.
+          </p>
+        </div>
+
+        <div className="help-subsection" id="platform-allegiance">
+          <h3>Allegiance and speed</h3>
+          <p>
+            Beside a Platform&apos;s status: its allegiance — <strong>Hostile</strong>, <strong>Neutral</strong>,{" "}
+            <strong>Friendly</strong> or unknown (click it to change it) — and its speed. The speed is a range (lowest and
+            highest) in km/h or knots, set under <strong>Edit details</strong> (click the speed chip); switching the unit
+            converts the numbers. Both go into the Platform&apos;s PRS XML (Hostility and Speed) from the next saved
+            version, so the page flags them as not saved until then.
           </p>
         </div>
 

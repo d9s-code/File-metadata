@@ -13,7 +13,7 @@ from app.models.ew_group import EwGroup
 from app.models.source import Source
 from app.services.delta import apply_delta
 from app.services.frametime_service import effective_frametime_us
-from app.services.prs_export.serializer import sanitize_filename
+from app.services.prs_export.serializer import hostility_value, sanitize_filename, speed_attrs
 
 
 class XMLExporterService:
@@ -216,9 +216,9 @@ class XMLExporterService:
     def _generate_platform_xml(self, platform: Platform) -> etree.Element:
         root = etree.Element("Platform", IsUnknown="false")
         etree.SubElement(root, "Name").text = self._sanitize(platform.name)
-        etree.SubElement(root, "Hostility", Value=self._sanitize("UNKNOWN"))
+        etree.SubElement(root, "Hostility", Value=hostility_value(platform.allegiance))
         etree.SubElement(root, "Base", Value=self._sanitize("SEA"))
-        etree.SubElement(root, "Speed", Min="10", Max="1020", Units="knots")
+        etree.SubElement(root, "Speed", **speed_attrs(platform.speed_min, platform.speed_max, platform.speed_unit))
         
         config = etree.SubElement(root, "Configuration")
         

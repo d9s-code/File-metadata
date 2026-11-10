@@ -1,7 +1,20 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, func, Index, Integer, String, text, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    func,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    text,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -20,12 +33,21 @@ class Platform(UUIDPkMixin, TimestampMixin, Base):
     # name hostage until it's purged.
     __table_args__ = (
         Index("uq_platforms_name_active", "name", unique=True, postgresql_where=text("NOT is_deleted")),
+        CheckConstraint("allegiance IN ('hostile', 'neutral', 'friendly')", name="ck_platforms_allegiance"),
+        CheckConstraint("speed_unit IN ('kmh', 'knots')", name="ck_platforms_speed_unit"),
     )
 
     name: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     # A status_definitions key; new Platforms start In progress.
     status: Mapped[str] = mapped_column(String(64), nullable=False, default="draft", server_default="draft")
+    # Hostile, neutral or friendly; None: unknown. The PRS XML's Hostility.
+    allegiance: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # How fast it moves, a range in speed_unit (km/h or knots); either end may
+    # be unset. The PRS XML's Speed (Min, Max, Units).
+    speed_min: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    speed_max: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    speed_unit: Mapped[str] = mapped_column(String(8), nullable=False, default="kmh", server_default="kmh")
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(

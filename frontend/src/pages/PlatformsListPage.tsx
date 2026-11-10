@@ -3,6 +3,7 @@ import { formatDate, formatDateTime } from "../components/common/dates";
 import { MenuButton } from "../components/common/MenuButton";
 import { FilterBar, shownCount } from "../components/common/FilterBar";
 import { PageHeader } from "../components/common/PageHeader";
+import { AllegianceChip, allegianceLabel, convertSpeed, speedText } from "../components/platform/platformTraits";
 import { Link, useNavigate } from "react-router-dom";
 import { useCreatePlatform, useDeletePlatform, usePlatforms } from "../state/hooks/usePlatforms";
 import { RequireRole } from "../auth/RequireAuth";
@@ -26,6 +27,8 @@ type PlatformSortKey =
   | "name"
   | "description"
   | "own_status"
+  | "allegiance"
+  | "speed"
   | "emitters"
   | "progress"
   | "outdated"
@@ -37,6 +40,8 @@ type PlatformSortKey =
 type ColumnId =
   | "description"
   | "status"
+  | "allegiance"
+  | "speed"
   | "emitters"
   | "progress"
   | "outdated"
@@ -50,6 +55,8 @@ type ColumnId =
 const COLUMNS: ToggleableColumn<ColumnId>[] = [
   { id: "description", label: "Description" },
   { id: "status", label: "Platform status" },
+  { id: "allegiance", label: "Allegiance" },
+  { id: "speed", label: "Speed" },
   { id: "emitters", label: "Emitters" },
   { id: "progress", label: "Emitter progress" },
   { id: "outdated", label: "Outdated pins" },
@@ -59,6 +66,11 @@ const COLUMNS: ToggleableColumn<ColumnId>[] = [
   { id: "saved", label: "Last saved" },
   { id: "tasks", label: "Tasks" },
 ];
+
+function topSpeedKmh(p: Platform): number | null {
+  const v = p.speed_max ?? p.speed_min;
+  return v == null ? null : convertSpeed(v, p.speed_unit ?? "kmh", "kmh");
+}
 
 /** The Platform status column sorts A–Z by the name shown: `platformStatus`
  * gives it for a status key. */
@@ -82,6 +94,11 @@ function comparePlatforms(
       return compareNullable(sa?.emitter_progress, sb?.emitter_progress, dir);
     case "own_status":
       return compareStrings(a.status ? platformStatus(a.status) : null, b.status ? platformStatus(b.status) : null, dir);
+    case "allegiance":
+      return compareStrings(a.allegiance ? allegianceLabel(a.allegiance) : null, b.allegiance ? allegianceLabel(b.allegiance) : null, dir);
+    case "speed":
+      // By the highest speed, in km/h whatever the unit.
+      return compareNullable(topSpeedKmh(a), topSpeedKmh(b), dir);
     case "outdated":
       return compareNullable(sa?.outdated_pins, sb?.outdated_pins, dir);
     case "modes":
@@ -232,6 +249,8 @@ export function PlatformsListPage() {
                 {header("Name", "name")}
                 {show("description") && header("Description", "description")}
                 {show("status") && header("Platform status", "own_status", "The Platform's own status")}
+                {show("allegiance") && header("Allegiance", "allegiance", "Hostile, neutral or friendly — the PRS XML's Hostility")}
+                {show("speed") && header("Speed", "speed", "Its speed range, in km/h or knots (sorted by the highest, in km/h)", "number")}
                 {show("emitters") && header("Emitters", "emitters", "Emitters pinned on the Platform", "number")}
                 {show("progress") &&
                   header(
@@ -267,6 +286,12 @@ export function PlatformsListPage() {
                         <StatusBadge type="platform" status={p.status} />
                       </td>
                     )}
+                    {show("allegiance") && (
+                      <td>
+                        <AllegianceChip allegiance={p.allegiance} />
+                      </td>
+                    )}
+                    {show("speed") && <td className="num">{speedText(p) ?? <span className="hint-text">—</span>}</td>}
                     {show("emitters") && (
                       <td className="num">{s?.emitter_count ?? "—"}</td>
                     )}

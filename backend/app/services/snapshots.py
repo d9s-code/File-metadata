@@ -155,6 +155,11 @@ def build_platform_snapshot(platform: Platform) -> dict:
         "name": platform.name,
         "description": platform.description,
         "status": platform.status,
+        # Written to the Platform's PRS XML (Hostility, Speed).
+        "allegiance": platform.allegiance,
+        "speed_min": _num(platform.speed_min),
+        "speed_max": _num(platform.speed_max),
+        "speed_unit": platform.speed_unit,
         "links": [
             {
                 "emitter_id": str(link.emitter_id),

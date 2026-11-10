@@ -5,7 +5,24 @@ instead of raw paths into the full snapshots each pin carries."""
 
 from app.services.emitter_diff_service import _diff_fields, _entry
 
-OWN_FIELD_LABELS = {"name": "Name", "description": "Description", "status": "Status"}
+OWN_FIELD_LABELS = {
+    "name": "Name",
+    "description": "Description",
+    "status": "Status",
+    # A Platform's — in its PRS XML.
+    "allegiance": "Allegiance",
+    "speed_min": "Lowest speed",
+    "speed_max": "Highest speed",
+    "speed_unit": "Speed unit",
+}
+# What goes into a Platform's PRS XML: a change is unsaved until a version is saved.
+EXPORTED_OWN_FIELDS = {"Allegiance", "Lowest speed", "Highest speed", "Speed unit"}
+# What a Platform snapshot from before these fields means by not having them.
+_PLATFORM_FIELD_DEFAULTS = {"allegiance": None, "speed_min": None, "speed_max": None, "speed_unit": "kmh"}
+_VALUE_LABELS = {
+    "allegiance": {"hostile": "Hostile", "neutral": "Neutral", "friendly": "Friendly"},
+    "speed_unit": {"kmh": "km/h", "knots": "knots"},
+}
 
 
 def compute_pinned_diff(
@@ -15,7 +32,12 @@ def compute_pinned_diff(
     ("emitter" or "platform"), as its snapshot's link keys spell it;
     `status_labels` the names of its statuses, by key."""
     entries: list[dict] = []
-    _diff_fields(entries, own, old, new, OWN_FIELD_LABELS, value_labels={"status": status_labels or {}})
+    if own == "Platform" and old:
+        old = {**_PLATFORM_FIELD_DEFAULTS, **old}
+        new = {**_PLATFORM_FIELD_DEFAULTS, **new}
+    _diff_fields(
+        entries, own, old, new, OWN_FIELD_LABELS, value_labels={"status": status_labels or {}, **_VALUE_LABELS}
+    )
 
     noun = child.capitalize()
     id_key, name_key, version_key = f"{child}_id", f"{child}_name", f"{child}_version_number"

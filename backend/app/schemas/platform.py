@@ -1,17 +1,42 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+Allegiance = Literal["hostile", "neutral", "friendly"]
+SpeedUnit = Literal["kmh", "knots"]
+
+
+def _check_speed(m):
+    lo, hi = m.speed_min, m.speed_max
+    if lo is not None and hi is not None and lo > hi:
+        raise ValueError("The lowest speed can't be above the highest")
+    return m
 
 
 class PlatformCreate(BaseModel):
     name: str
     description: str | None = None
+    allegiance: Allegiance | None = None
+    speed_min: float | None = Field(default=None, ge=0, le=100_000)
+    speed_max: float | None = Field(default=None, ge=0, le=100_000)
+    speed_unit: SpeedUnit = "kmh"
+
+    _speed = model_validator(mode="after")(_check_speed)
 
 
 class PlatformUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
+    # Sent as null to clear (unknown).
+    allegiance: Allegiance | None = None
+    speed_min: float | None = Field(default=None, ge=0, le=100_000)
+    speed_max: float | None = Field(default=None, ge=0, le=100_000)
+    speed_unit: SpeedUnit | None = None
+
+    _speed = model_validator(mode="after")(_check_speed)
 
 
 class PlatformOut(BaseModel):
@@ -21,6 +46,10 @@ class PlatformOut(BaseModel):
     name: str
     description: str | None = None
     status: str
+    allegiance: Allegiance | None = None
+    speed_min: float | None = None
+    speed_max: float | None = None
+    speed_unit: SpeedUnit = "kmh"
     is_deleted: bool
     deleted_at: datetime | None = None
     created_at: datetime

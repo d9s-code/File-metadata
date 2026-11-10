@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.models.mdf import Mdf, MdfVersion
 from app.models.platform import Platform, PlatformVersion
 from app.services import statuses
-from app.services.pinned_diff_service import compute_pinned_diff, dwell_file_entries
+from app.services.pinned_diff_service import EXPORTED_OWN_FIELDS, compute_pinned_diff, dwell_file_entries
 from app.services.snapshots import build_mdf_snapshot, build_platform_snapshot
 
 #: The status from which an MDF's pins are kept as they went out: no more
@@ -27,13 +27,18 @@ def _latest(db: Session, model, owner_col, owner_id):
 
 
 def platform_unsaved(db: Session, platform: Platform) -> dict:
-    """{saved_version, entries}: the Emitter pins changed since the latest saved version."""
+    """{saved_version, entries}: the Emitter pins changed since the latest saved
+    version, and the allegiance and speed (they go into the export)."""
     latest = _latest(db, PlatformVersion, PlatformVersion.platform_id, platform.id)
     current = build_platform_snapshot(platform)
     entries = compute_pinned_diff(latest.snapshot if latest else {}, current, own="Platform", child="emitter")
     return {
         "saved_version": latest.version_number if latest else None,
-        "entries": [e for e in entries if e["scope"].startswith("Emitter '")],
+        "entries": [
+            e
+            for e in entries
+            if e["scope"].startswith("Emitter '") or (latest and e["label"] in EXPORTED_OWN_FIELDS)
+        ],
     }
 
 
