@@ -94,3 +94,17 @@ test("ambiguity check: the verdict, and a suggested edit opens the Mode filled i
 
   await removeEmitter(page, emitter.id);
 });
+
+test("threat priorities: set one in the overview, and it's on the Emitter", async ({ page }) => {
+  const emitter = await makeEmitter(page);
+  await api(page, "DELETE", `/emitters/${emitter.id}/checkout`);
+  await page.goto("/threat-priorities");
+  await page.getByLabel("Find an Emitter, EW Group or Platform").fill(emitter.name);
+  const cell = page.getByLabel(`Threat priority of ${emitter.name} › Search`);
+  await cell.fill("7");
+  await cell.press("Enter");
+  await expect(page.getByText(/1 changed\. Now editing: E2E Radar/)).toBeVisible();
+  const [group] = await api<{ threat_priority: number | null }[]>(page, "GET", `/emitters/${emitter.id}/ew-groups`);
+  expect(group.threat_priority).toBe(7);
+  await removeEmitter(page, emitter.id);
+});

@@ -25,6 +25,7 @@ const TOC: TocNode[] = [
           { id: "emitter-audit-tab", title: "Audit tab" },
         ],
       },
+      { id: "emitter-threats", title: "Threat priorities" },
       { id: "emitter-versions", title: "Version history" },
       { id: "emitter-ambiguity", title: "Ambiguity check" },
     ],
@@ -776,6 +777,17 @@ export function HelpPage() {
               Intercept's Emitter; click one to open its detail page.
             </p>
           </div>
+        </div>
+
+        <div className="help-subsection" id="emitter-threats">
+          <h3>Threat priorities</h3>
+          <p>
+            <strong>Emitters → Threat priorities</strong> lists every EW Group of every Emitter with its threat priority,
+            the Platforms the Emitter is on (and their allegiance) and who&apos;s editing it. Group it by priority, Emitter,
+            Platform or allegiance, sort and filter it. Type a priority into its cell to change it (empty clears it), or
+            tick rows and set them together. An Emitter nobody is editing is checked out to you on the way; then{" "}
+            <strong>Save versions…</strong> saves the Emitters you changed as new versions in one go.
+          </p>
         </div>
 
         <div className="help-subsection" id="emitter-versions">

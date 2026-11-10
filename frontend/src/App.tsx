@@ -45,6 +45,7 @@ import { InterceptDetailPage } from "./pages/InterceptDetailPage";
 import { InterceptModePlanPage } from "./pages/InterceptModePlanPage";
 import { InterceptRegroupPage } from "./pages/InterceptRegroupPage";
 import { AmbiguityDashboardPage } from "./pages/AmbiguityDashboardPage";
+import { ThreatPrioritiesPage } from "./pages/ThreatPrioritiesPage";
 import { AuditLogPage } from "./pages/AuditLogPage";
 import { HelpPage } from "./pages/HelpPage";
 import { TasksPage } from "./pages/TasksPage";
@@ -206,6 +207,14 @@ export default function App() {
                 element={
                   <RequireAuth>
                     <MdfVersionHistoryPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/threat-priorities"
+                element={
+                  <RequireAuth>
+                    <ThreatPrioritiesPage />
                   </RequireAuth>
                 }
               />

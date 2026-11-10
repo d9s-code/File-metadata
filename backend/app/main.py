@@ -38,6 +38,7 @@ from app.routers import (
     tasks,
     test_drafts,
     test_lines,
+    threat_priorities,
     test_records,
     trash,
     users,
@@ -97,6 +98,7 @@ app.include_router(ambiguity.router)
 app.include_router(ambiguity.ai_router)
 app.include_router(audit_log.router)
 app.include_router(trash.router)
+app.include_router(threat_priorities.router)
 app.include_router(backups.router)
 app.include_router(backups.status_router)
 app.include_router(dwells.router)
