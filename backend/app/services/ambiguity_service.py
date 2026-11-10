@@ -12,8 +12,10 @@ Which pairs can be ambiguous at all (rules_version 2):
 - Two Fixed: PRI and jitter both compare as ranges (a Fixed Mode always has
   jitter; 0–0 is a steady PRI, not "no jitter").
 - Two Staggers: both with PRI range matching on are compared on their frame
-  time (± frame margin); neither, on their identical steps; only one with
-  range matching on tells them apart.
+  time (± frame margin); neither, on their steps, each step ± the stagger
+  step tolerance (rules_version 3; 1 µs by default, an admin Mode default) —
+  two steps overlap when their windows do; only one with range matching on
+  tells them apart.
 - Two CW or two X-let: RF and PW only (pri_overlap_pct is None).
 """
 
@@ -30,7 +32,9 @@ DEFAULT_TOLERANCE = {
     "high_threshold": 70.0,
     "exact_threshold": 99.0,
     "apply_margins": True,
-    "rules_version": 2,
+    "rules_version": 3,
+    # Each stagger step's ± buffer when steps are compared (with margins).
+    "stagger_step_delta_us": 1.0,
 }
 
 # Which parameter each overlap percentage belongs to, for "decided by".
@@ -135,13 +139,18 @@ def _range_overlap_pct(a_min: float, a_max: float, b_min: float, b_max: float) -
     return round(100.0 * intersection / min_len, 2)
 
 
-def _stagger_values_overlap_pct(values_a: list[float], values_b: list[float]) -> float:
+def _stagger_values_overlap_pct(values_a: list[float], values_b: list[float], step_delta: float = 0.0) -> float:
+    """The share of steps the two have in common: a step is shared when it's
+    within the other's ± step_delta windows (|a − b| ≤ 2 × step_delta) — the
+    larger share of either's distinct steps, as for a range (narrower first)."""
     if not values_a or not values_b:
         return 0.0
-    set_a = {round(v, 6) for v in values_a}
-    set_b = {round(v, 6) for v in values_b}
-    shared = set_a & set_b
-    return round(100.0 * len(shared) / min(len(set_a), len(set_b)), 2)
+    set_a = sorted({round(float(v), 6) for v in values_a})
+    set_b = sorted({round(float(v), 6) for v in values_b})
+    reach = 2 * max(step_delta, 0.0) + 1e-9
+    shared_a = sum(1 for a in set_a if any(abs(a - b) <= reach for b in set_b))
+    shared_b = sum(1 for b in set_b if any(abs(a - b) <= reach for a in set_a))
+    return round(100.0 * max(shared_a / len(set_a), shared_b / len(set_b)), 2)
 
 
 def compute_severity(
@@ -209,7 +218,7 @@ def _compared(line: dict, pri_type: str, frame: tuple[float, float] | None = Non
     }
 
 
-def _pri_and_jitter(a: FlatModeLine, b: FlatModeLine, la: dict, lb: dict, apply_margins: bool):
+def _pri_and_jitter(a: FlatModeLine, b: FlatModeLine, la: dict, lb: dict, apply_margins: bool, step_delta: float = 0.0):
     """For a same-type pair: (pri %, jitter %, what PRI was compared on, frame
     windows) — or None when the rules say they can be told apart outright."""
     t = a.pri_type
@@ -226,7 +235,11 @@ def _pri_and_jitter(a: FlatModeLine, b: FlatModeLine, la: dict, lb: dict, apply_
             if fa is None or fb is None:
                 return None
             return _range_overlap_pct(*fa, *fb), None, "frame_time", (fa, fb)
-        steps = _stagger_values_overlap_pct(la.get("pri_stagger_values_us") or [], lb.get("pri_stagger_values_us") or [])
+        steps = _stagger_values_overlap_pct(
+            la.get("pri_stagger_values_us") or [],
+            lb.get("pri_stagger_values_us") or [],
+            step_delta if apply_margins else 0.0,
+        )
         return steps, None, "steps", None
     return None, None, None, None  # CW, X-let: no PRI.
 
@@ -240,6 +253,8 @@ def compute_pairwise_findings(
     told apart, not what overlaps inside one."""
     tolerance = {**DEFAULT_TOLERANCE, **(tolerance or {})}
     apply_margins = bool(tolerance.get("apply_margins", True))
+    # Runs from before the step tolerance compared steps exactly.
+    step_delta = float(tolerance.get("stagger_step_delta_us") or 0.0) if (tolerance.get("rules_version") or 0) >= 3 else 0.0
     findings: list[dict[str, Any]] = []
     lines = {id(m): compared_line(m.line, apply_margins) for m in mode_lines}
 
@@ -249,7 +264,7 @@ def compute_pairwise_findings(
         if a.pri_type != b.pri_type:
             continue  # A different PRI type tells them apart.
         la, lb = lines[id(a)], lines[id(b)]
-        pri = _pri_and_jitter(a, b, la, lb, apply_margins)
+        pri = _pri_and_jitter(a, b, la, lb, apply_margins, step_delta)
         if pri is None:
             continue
         pri_pct, jitter_pct, pri_basis, frames = pri
@@ -279,6 +294,8 @@ def compute_pairwise_findings(
                     "limiting": limiting,
                     "jitter_overlap_pct": jitter_pct,
                     "pri_basis": pri_basis,
+                    # Each step's ± buffer, when steps were compared.
+                    "step_delta_us": (step_delta if apply_margins else 0.0) if pri_basis == "steps" else None,
                     "compared": {
                         "mode_a": _compared(la, a.pri_type, frames[0] if frames else None, jitter_pct is not None),
                         "mode_b": _compared(lb, b.pri_type, frames[1] if frames else None, jitter_pct is not None),

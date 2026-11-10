@@ -623,7 +623,7 @@ export function HelpPage() {
                 Intercept&apos;s entries are matched, and more strictly: a fixed PRI&apos;s logged jitter must be inside
                 the Mode&apos;s jitter range, and a stagger is matched by the Mode&apos;s PRI range matching: on — by its
                 frame time alone (± the frame-time delta); off — by its steps, as many as the Mode&apos;s and in the
-                same order (starting at any step, each within the frame-time delta, at least 0.1%). Each row is{" "}
+                same order (starting at any step, each within ± the step tolerance, 1 µs unless an Admin set another under Mode defaults). Each row is{" "}
                 <strong>✓ would match</strong> (which Modes),{" "}
                 <strong>≈ near</strong> (one value off, and which — with <strong>Edit ‹Mode›…</strong> while you&apos;re
                 editing the Emitter: the Mode opens widened to cover what was logged, and saving records it as derived
@@ -842,7 +842,7 @@ export function HelpPage() {
             as a range (a jitter of 0–0 is a steady PRI, so it only overlaps jitter ranges that include 0). A{" "}
             <strong>Stagger</strong> with <strong>range matching</strong> on is compared on its <strong>frame time</strong>{" "}
             (± frame delta); if only one of two Staggers has range matching on, they&apos;re told apart; without range
-            matching, Staggers overlap on the share of their steps that are identical. CW and X-let have no PRI, so
+            matching, Staggers overlap on the share of their steps that overlap — each step ± the step tolerance (1 µs unless an Admin set another), so two steps within twice it of each other count as the same. CW and X-let have no PRI, so
             they&apos;re compared on RF and PW only. For each parameter, the overlap is how much of the <em>narrower</em>{" "}
             of the two ranges the other covers, so a narrow Mode inside a wide one is 100%. A pair is a finding only if it
             overlaps on <em>every</em> parameter compared — one clear gap tells them apart. Its severity comes

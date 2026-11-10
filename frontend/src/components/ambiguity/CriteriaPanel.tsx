@@ -100,7 +100,8 @@ export function HowItDecides({ thresholds: t }: { thresholds: ToleranceConfig })
               two has range matching on, they&apos;re told apart.
             </li>
             <li>
-              <strong>Stagger without range matching:</strong> PRI is the share of steps that are identical.
+              <strong>Stagger without range matching:</strong> PRI is the share of steps that overlap — each step ± the
+              step tolerance (an admin setting, 1 µs to start), so two steps overlap within twice it.
             </li>
             <li>
               <strong>CW and X-let:</strong> no PRI — RF and PW only.

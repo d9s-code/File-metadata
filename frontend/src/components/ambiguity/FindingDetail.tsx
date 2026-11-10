@@ -8,7 +8,16 @@ import { SeverityBadge } from "./SeverityBadge";
 import { AiFindingExplanation } from "./AiDrafts";
 import { MergeDialog } from "./MergeDialog";
 import { PARAMS, comparedSides, limitingParam, num, overlapPct, pct, priLabel, rangeText } from "./ambiguityText";
-import { decidingText, directional, separationChange, separations, sideRange, sideSteps } from "./ambiguityAnalysis";
+import {
+  decidingText,
+  directional,
+  separationChange,
+  separations,
+  sharedStepsOf,
+  sideRange,
+  sideSteps,
+  stepDelta,
+} from "./ambiguityAnalysis";
 import { AmbiguityModeEdit } from "./AmbiguityModeEdit";
 import type { LineValues } from "../modes/modeLine";
 
@@ -33,13 +42,14 @@ function RangePair({ a, b }: { a: [number, number]; b: [number, number] }) {
 }
 
 /** Two stagger sequences as dots; steps they share are ringed. */
-function StaggerPair({ a, b }: { a: number[]; b: number[] }) {
+function StaggerPair({ a, b, delta }: { a: number[]; b: number[]; delta: number }) {
   const all = [...a, ...b];
   const lo = Math.min(...all);
   const hi = Math.max(...all);
   const span = hi - lo || 1;
   const x = (v: number) => 4 + ((v - lo) / span) * 92;
-  const shared = new Set(a.filter((v) => b.includes(v)));
+  // Within reach of the other's: each step ± delta.
+  const shared = new Set([...sharedStepsOf(a, b, delta), ...sharedStepsOf(b, a, delta)]);
   return (
     <div className="range-pair" aria-hidden>
       {a.map((v, i) => (
@@ -62,6 +72,7 @@ function ParamRow({
   b,
   value,
   limiting,
+  steps,
 }: {
   param: OverlapParam;
   label: string;
@@ -70,6 +81,8 @@ function ParamRow({
   b: ComparedSide;
   value: number | null;
   limiting: boolean;
+  /** Each stagger step's ± buffer, when steps were compared. */
+  steps?: number;
 }) {
   const pick = (s: ComparedSide) =>
     param === "rf" ? s.rf : param === "pw" ? s.pw : param === "jitter" ? (s.jitter ?? null) : (s.pri ?? s.frame_time ?? null);
@@ -91,7 +104,7 @@ function ParamRow({
         </span>
       </div>
       {staggers ? (
-        <StaggerPair a={a.stagger as number[]} b={b.stagger as number[]} />
+        <StaggerPair a={a.stagger as number[]} b={b.stagger as number[]} delta={steps ?? 0} />
       ) : ra && rb ? (
         <RangePair a={ra} b={rb} />
       ) : null}
@@ -150,8 +163,9 @@ function TellApart({
             <span className="tell-apart-param">{s.label}</span>
             {s.sharedSteps ? (
               <span>
-                They share step{s.sharedSteps.length === 1 ? "" : "s"} {s.sharedSteps.map(num).join(", ")} µs — change those in
-                either Mode.
+                {s.sharedSteps.length} step{s.sharedSteps.length === 1 ? "" : "s"} ({s.sharedSteps.map(num).join(", ")} µs) within ±{" "}
+                {num(stepDelta(finding))} µs of the other&apos;s — move them more than {num(2 * stepDelta(finding))} µs apart
+                in either Mode.
               </span>
             ) : s.identical ? (
               <span className="hint-text">Identical ranges — one of them would have to move entirely.</span>
@@ -279,6 +293,7 @@ export function FindingDetail({
             b={b}
             value={overlapPct(finding, deciding.key)}
             limiting
+            steps={stepDelta(finding)}
           />
         </div>
       )}
@@ -428,7 +443,10 @@ export function FindingDetail({
         {marginsApplied ? "Ranges include each Mode's ± delta." : "This check compared the ranges as typed, without deltas."}{" "}
         A parameter&apos;s overlap is the share of the narrower range the other covers.
         {finding.details.pri_basis === "frame_time" && " Both use range matching, so PRI is compared on frame time (± frame delta)."}
-        {finding.details.pri_basis === "steps" && " PRI is the share of stagger steps that are identical."}
+        {finding.details.pri_basis === "steps" &&
+          (stepDelta(finding)
+            ? ` PRI is the share of stagger steps within reach of the other's — each step ± ${num(stepDelta(finding))} µs.`
+            : " PRI is the share of stagger steps that are identical.")}
         {finding.pri_overlap_pct == null && " CW and X-let have no PRI, so it isn't compared."}
       </p>
 

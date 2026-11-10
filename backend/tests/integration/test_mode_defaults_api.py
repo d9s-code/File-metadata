@@ -15,7 +15,7 @@ def _setup(client):
 def test_the_defaults_out_of_the_box_and_only_an_admin_changes_them(admin_client, editor_client):
     defaults = editor_client.get("/settings").json()["mode_defaults"]
     assert defaults == {"confirmation_quality": 100, "confirmation_quantity": 2, "frame_time_delta_us": 3.0,
-                        "rf_delta": 0.0, "pri_delta": 0.0, "pw_delta": 0.0}
+                        "rf_delta": 0.0, "pri_delta": 0.0, "pw_delta": 0.0, "stagger_step_delta_us": 1.0}
     changed = {**defaults, "confirmation_quality": 80, "frame_time_delta_us": 5}
     assert editor_client.patch("/settings", json={"mode_defaults": changed}).status_code == 403
     assert admin_client.patch("/settings", json={"mode_defaults": {**changed, "confirmation_quality": 101}}).status_code == 422

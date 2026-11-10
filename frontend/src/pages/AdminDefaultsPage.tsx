@@ -22,6 +22,13 @@ const FIELDS: { key: Key; label: string; unit: string; hint: string; whole?: boo
     hint: "on the frame time — the sum of the steps — not on each step",
     min: 0,
   },
+  {
+    key: "stagger_step_delta_us",
+    label: "Step tolerance (Stagger)",
+    unit: "± µs per step",
+    hint: "each step's buffer when steps are compared — the ambiguity check and a test run's logged steps",
+    min: 0,
+  },
 ];
 
 const textsOf = (d: ModeDefaults): Texts =>
@@ -116,7 +123,15 @@ export function AdminDefaultsPage() {
         </fieldset>
         <fieldset className="defaults-group">
           <legend>Deltas</legend>
-          {FIELDS.slice(2).map(row)}
+          {FIELDS.slice(2, 6).map(row)}
+        </fieldset>
+        <fieldset className="defaults-group">
+          <legend>Matching</legend>
+          {FIELDS.slice(6).map(row)}
+          <p className="hint-text">
+            Not stored on a Mode: two Staggers&apos; steps overlap in the ambiguity check when they&apos;re within twice
+            this of each other, and a logged step matches a Mode&apos;s within it. Checks already run keep theirs.
+          </p>
         </fieldset>
         <div className="form-row">
           <button type="submit" className="button primary" disabled={update.isPending || changed === 0}>

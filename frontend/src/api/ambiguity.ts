@@ -194,6 +194,8 @@ export interface AmbiguityFinding {
     jitter_overlap_pct?: number | null;
     /** What PRI was compared on: a Fixed range, identical Stagger steps, or Stagger frame time. */
     pri_basis?: "range" | "steps" | "frame_time" | null;
+    /** Each stagger step's ± buffer, µs, when steps were compared (rules v3). */
+    step_delta_us?: number | null;
     compared?: { mode_a: ComparedSide; mode_b: ComparedSide };
   };
   reviewed_by: string | null;

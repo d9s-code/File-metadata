@@ -10,7 +10,7 @@ export function sideRange(s: ComparedSide, p: OverlapParam): [number, number] | 
   return s.pri ?? s.frame_time ?? null;
 }
 
-/** A Stagger's steps, when PRI was compared on identical steps. */
+/** A Stagger's steps, when PRI was compared on its steps. */
 export function sideSteps(s: ComparedSide, p: OverlapParam): number[] | null {
   return p === "pri" && !sideRange(s, p) && s.stagger?.length ? s.stagger : null;
 }
@@ -22,11 +22,21 @@ export function shareInside(a: [number, number], b: [number, number]): number {
   return Math.max(0, Math.min(a[1], b[1]) - Math.max(a[0], b[0])) / len;
 }
 
-function stepsInside(a: number[], b: number[]): number {
-  const bs = new Set(b.map((v) => Math.round(v * 1e6)));
-  const own = new Set(a.map((v) => Math.round(v * 1e6)));
-  if (own.size === 0) return 0;
-  return [...own].filter((v) => bs.has(v)).length / own.size;
+/** Each step's ± buffer the check used (0 on checks before it, or as typed). */
+export function stepDelta(f: AmbiguityFinding): number {
+  return f.details.step_delta_us ?? 0;
+}
+
+/** Steps of a within reach of one of b's: each ± delta, so within 2 × delta. */
+export function sharedStepsOf(a: number[], b: number[], delta: number): number[] {
+  const reach = 2 * delta + 1e-9;
+  return [...new Set(a)].filter((v) => b.some((w) => Math.abs(v - w) <= reach));
+}
+
+function stepsInside(a: number[], b: number[], delta: number): number {
+  const own = [...new Set(a)];
+  if (own.length === 0) return 0;
+  return sharedStepsOf(own, b, delta).length / own.length;
 }
 
 export interface ParamShares {
@@ -56,7 +66,7 @@ export function directional(f: AmbiguityFinding): { aInB: number; bInA: number; 
     }
     const sa = sideSteps(a, p);
     const sb = sideSteps(b, p);
-    if (sa && sb) params.push({ param: p, aInB: stepsInside(sa, sb), bInA: stepsInside(sb, sa) });
+    if (sa && sb) params.push({ param: p, aInB: stepsInside(sa, sb, stepDelta(f)), bInA: stepsInside(sb, sa, stepDelta(f)) });
   }
   return {
     aInB: params.reduce((x, s) => x * s.aInB, 1),
@@ -85,7 +95,7 @@ export interface ParamSeparation {
   unit: string;
   /** Edge moves that separate them, smallest first (at most two). */
   options: Separation[];
-  /** Stagger steps both have, when PRI is compared on identical steps. */
+  /** A's steps within reach of B's (each ± the step tolerance), when PRI is compared on steps. */
   sharedSteps?: number[];
   /** Identical ranges: no single edge move leaves both with a range. */
   identical?: boolean;
@@ -106,9 +116,7 @@ export function separations(f: AmbiguityFinding): ParamSeparation[] {
     const ra = sideRange(a, p);
     const rb = sideRange(b, p);
     if (!ra || !rb) {
-      const sa = sideSteps(a, p) ?? [];
-      const sb = new Set((sideSteps(b, p) ?? []).map((v) => Math.round(v * 1e6)));
-      const shared = [...new Set(sa.filter((v) => sb.has(Math.round(v * 1e6))))];
+      const shared = sharedStepsOf(sideSteps(a, p) ?? [], sideSteps(b, p) ?? [], stepDelta(f));
       out.push({ param: p, label, unit: UNIT[p], options: [], sharedSteps: shared, best: shared.length ? 1 : Infinity });
       continue;
     }

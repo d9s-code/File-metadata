@@ -22,7 +22,12 @@ export interface MatchChecks {
    * same number, in order, each within the step tolerance), the frame time
    * only when no steps were logged. */
   rangeMatching?: boolean;
+  /** Each stagger step's ± buffer, µs (the admin's Mode default; 1 µs). */
+  stepDelta?: number;
 }
+
+/** A stagger step's ± buffer when none is given: 1 µs. */
+export const STEP_DELTA_US = 1;
 
 /** What a test run's logged values are checked with against the Modes:
  * jitter, and a stagger by its Mode's PRI range matching. */
@@ -72,10 +77,10 @@ function check(param: MatchParam, value: number | null, r: { min: number; max: n
   return { param, value, min: r.min, max: r.max, unit, label: param };
 }
 
-/** How far a measured step may be from the Mode's: its frame-time margin
- * (or PRI margin), and at least 0.1% of the step for measurement rounding. */
-function stepTolerance(line: NonNullable<Mode["line"]>, step: number): number {
-  return Math.max(line.frame_time_delta_us ?? 0, line.pri_delta ?? 0, step * 0.001);
+/** How far a measured step may be from the Mode's: the step buffer (± 1 µs
+ * unless the admin set another) — each step on its own, not the frame-time delta. */
+function stepTolerance(checks: MatchChecks): number {
+  return checks.stepDelta ?? STEP_DELTA_US;
 }
 
 /** The same steps in the same order, starting at any of them (a train repeats). */
@@ -97,7 +102,7 @@ function frameWindow(line: NonNullable<Mode["line"]>) {
 
 /** A stagger against a stagger Mode the way the Mode is matched: PRI range
  * matching on — the frame time alone; off — the steps. */
-function staggerByRangeMatching(entry: MatchableEntry, line: NonNullable<Mode["line"]>): ParamMiss | null {
+function staggerByRangeMatching(entry: MatchableEntry, line: NonNullable<Mode["line"]>, checks: MatchChecks): ParamMiss | null {
   const frameTime = frameWindow(line);
   const frameMiss = () => {
     const miss = check("PRI", entry.pri_mean_us, frameTime, "µs");
@@ -117,9 +122,9 @@ function staggerByRangeMatching(entry: MatchableEntry, line: NonNullable<Mode["l
     label: "Steps",
   };
   if (steps.length !== modeSteps.length) return { ...base, positions: { entry: steps.length, mode: modeSteps.length } };
-  const tol = (step: number) => stepTolerance(line, step);
+  const tol = () => stepTolerance(checks);
   if (sameSequence(steps, modeSteps, tol)) return null;
-  return { ...base, sequence: { entry: steps, mode: modeSteps, tol: tol(Math.min(...modeSteps)) } };
+  return { ...base, sequence: { entry: steps, mode: modeSteps, tol: tol() } };
 }
 
 /** How one entry compares with one Mode: which of RF, PRI and PW fall
@@ -145,7 +150,7 @@ export function compareEntryToMode(entry: MatchableEntry, mode: Mode, checks: Ma
   if (entry.pri_type === "cw") return misses.filter((m): m is ParamMiss => m != null);
 
   if (entry.pri_type === "stagger" && checks.rangeMatching) {
-    misses.push(staggerByRangeMatching(entry, line));
+    misses.push(staggerByRangeMatching(entry, line, checks));
   } else if (entry.pri_type === "stagger") {
     const frameTime =
       range(line.engineered_frame_time_min_us, line.engineered_frame_time_max_us) ??
@@ -170,7 +175,7 @@ export function compareEntryToMode(entry: MatchableEntry, mode: Mode, checks: Ma
     const steps = entry.stagger_values ?? [];
     const modeSteps = line.pri_stagger_values_us ?? [];
     if (checks.sequence && steps.length > 0 && steps.length === modeSteps.length) {
-      const tol = (step: number) => stepTolerance(line, step);
+      const tol = () => stepTolerance(checks);
       if (!sameSequence(steps, modeSteps, tol)) {
         pri = {
           ...(pri ?? {
@@ -181,7 +186,7 @@ export function compareEntryToMode(entry: MatchableEntry, mode: Mode, checks: Ma
             unit: "µs",
             label: "Steps",
           }),
-          sequence: { entry: steps, mode: modeSteps, tol: tol(Math.min(...modeSteps)) },
+          sequence: { entry: steps, mode: modeSteps, tol: tol() },
         };
       }
     }

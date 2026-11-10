@@ -259,10 +259,33 @@ def test_margins_widen_the_ranges_compared_unless_turned_off():
     assert finding["details"]["limiting"] == "rf"
 
 
-def test_stagger_steps_still_match_only_when_identical_with_margins():
+def test_stagger_steps_overlap_within_the_step_tolerance():
+    # Each step ± 1 µs (the default): 800/801 and 850/851 overlap, the PRI delta doesn't widen steps.
     a = {**_line(stagger=[800, 850]), "pri_delta": 5}
     b = {**_line(stagger=[801, 851]), "pri_delta": 5}
+    [finding] = compute_pairwise_findings([_mode("a", "stagger", a), _mode("b", "stagger", b)])
+    assert finding["pri_overlap_pct"] == 100.0
+    assert finding["details"]["step_delta_us"] == 1.0
+
+
+def test_stagger_steps_further_apart_than_twice_the_tolerance_dont_overlap():
+    a = _line(stagger=[800, 850])
+    b = _line(stagger=[802.5, 852.5])
     assert compute_pairwise_findings([_mode("a", "stagger", a), _mode("b", "stagger", b)]) == []
+    # A wider tolerance (an admin setting) brings them together; part of the steps, part of the overlap.
+    c = _line(stagger=[802.5, 900])
+    [finding] = compute_pairwise_findings(
+        [_mode("a", "stagger", a), _mode("c", "stagger", c)], {"stagger_step_delta_us": 1.5}
+    )
+    assert finding["pri_overlap_pct"] == 50.0
+
+
+def test_stagger_steps_compare_exactly_as_typed_and_on_older_rules():
+    a = _line(stagger=[800, 850])
+    b = _line(stagger=[801, 851])
+    modes = [_mode("a", "stagger", a), _mode("b", "stagger", b)]
+    assert compute_pairwise_findings(modes, {"apply_margins": False}) == []
+    assert compute_pairwise_findings(modes, {"rules_version": 2}) == []
 
 
 def test_the_limiting_parameter_is_the_one_overlapping_least():

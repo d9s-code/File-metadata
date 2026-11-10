@@ -29,6 +29,7 @@ from app.services import ai_chat_service, knowledge_service, llm_client, outline
 from app.services.ai_review_service import explain_finding, summarise_run
 from app.services.ambiguity_run_service import execute_ambiguity_run
 from app.services.ambiguity_service import DEFAULT_TOLERANCE
+from app.services.app_settings import mode_defaults
 from app.services.audit_service import apply_and_diff, record_audit
 
 router = APIRouter(prefix="/ambiguity", tags=["ambiguity"])
@@ -82,7 +83,11 @@ def create_ambiguity_run(
     run = AmbiguityRun(
         scope_type=payload.scope_type,
         scope_id=payload.scope_id,
-        tolerance_config={**DEFAULT_TOLERANCE, **(payload.tolerance_config or {})},
+        tolerance_config={
+            **DEFAULT_TOLERANCE,
+            "stagger_step_delta_us": float(mode_defaults(db)["stagger_step_delta_us"]),
+            **(payload.tolerance_config or {}),
+        },
         created_by=user.id,
         **{version_fk_field: version.id},
     )

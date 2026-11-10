@@ -192,7 +192,9 @@ def finding_context(db: Session, finding: AmbiguityFinding) -> str:
     a, b = details.get("mode_a") or {}, details.get("mode_b") or {}
     notes = {m.id: m.notes for m in db.query(Mode).filter(Mode.id.in_([finding.mode_id_a, finding.mode_id_b]))}
     tol = finding.run.tolerance_config or {}
-    basis = {"frame_time": "frame time", "steps": "identical stagger steps", "range": "range"}.get(
+    step = details.get("step_delta_us")
+    steps = f"stagger steps, each ± {step:g} µs" if step else "identical stagger steps"
+    basis = {"frame_time": "frame time", "steps": steps, "range": "range"}.get(
         details.get("pri_basis") or "", ""
     )
     pri = (
@@ -230,7 +232,9 @@ def pair_label(f: AmbiguityFinding) -> str:
 
 def _finding_line(f: AmbiguityFinding, label: str = "-") -> str:
     details = f.details or {}
-    basis = {"frame_time": " (frame time)", "steps": " (identical steps)"}.get(details.get("pri_basis") or "", "")
+    step = details.get("step_delta_us")
+    steps = f" (steps, each ± {step:g} µs)" if step else " (identical steps)"
+    basis = {"frame_time": " (frame time)", "steps": steps}.get(details.get("pri_basis") or "", "")
     pri = f"PRI{basis} {_n(f.pri_overlap_pct)}%" if f.pri_overlap_pct is not None else "no PRI compared"
     if details.get("jitter_overlap_pct") is not None:
         pri += f", jitter {_n(details['jitter_overlap_pct'])}%"

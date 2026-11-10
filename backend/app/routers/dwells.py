@@ -1044,6 +1044,7 @@ _MODE_DEFAULT_LABELS = {
     "confirmation_quality": ("confirmation quality", "%"),
     "confirmation_quantity": ("confirmation quantity", ""),
     "frame_time_delta_us": ("frame-time delta", " µs"),
+    "stagger_step_delta_us": ("stagger step tolerance", " µs"),
     "rf_delta": ("RF delta", " MHz"),
     "pri_delta": ("PRI delta", " µs"),
     "pw_delta": ("PW delta", " µs"),

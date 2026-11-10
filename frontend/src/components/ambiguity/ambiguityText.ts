@@ -61,9 +61,9 @@ export function marginsApplied(run: AmbiguityRun | undefined): boolean {
   return run?.tolerance_config?.apply_margins === true;
 }
 
-/** Whether this check used the current rules (PRI type, frame time, jitter). */
+/** Whether this check used the current rules (PRI type, frame time, jitter, the stagger step tolerance). */
 export function rulesCurrent(run: AmbiguityRun | undefined): boolean {
-  return (run?.tolerance_config?.rules_version ?? 0) >= 2;
+  return (run?.tolerance_config?.rules_version ?? 0) >= 3;
 }
 
 function typedSide(side: FindingModeSide): ComparedSide {

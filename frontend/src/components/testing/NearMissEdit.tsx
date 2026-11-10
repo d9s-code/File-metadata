@@ -3,6 +3,7 @@ import type { ObservedValues } from "../../api/testRecords";
 import type { Mode, Source } from "../../types/domain";
 import { describeMiss, matchEntry, TEST_CHECKS } from "../intercepts/interceptMatch";
 import { ModeEditDialog } from "../modes/ModeDialogs";
+import { useModeDefaults } from "../../state/hooks/useDwells";
 import { widened } from "./nearMiss";
 import { asEntry } from "./signalCoverage";
 import { nonEmptySets } from "./testFormat";
@@ -26,11 +27,12 @@ export function NearMissEdit({
   canEdit: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const stepDelta = useModeDefaults().defaults.stagger_step_delta_us;
   if (!mode) return null;
   const entries = nonEmptySets(sets)
     .map(asEntry)
     .filter((e) => e != null);
-  const matches = entries.map((e) => matchEntry(e, [mode], TEST_CHECKS));
+  const matches = entries.map((e) => matchEntry(e, [mode], { ...TEST_CHECKS, stepDelta }));
   if (matches.length === 0 || matches.some((m) => m.status === "match")) return null;
   const near = matches.flatMap((m) => m.near.filter((n) => n.mode.id === mode.id));
   if (near.length === 0) return null;

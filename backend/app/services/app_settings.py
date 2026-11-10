@@ -27,6 +27,8 @@ MODE_DEFAULT_VALUES: dict[str, float] = {
     "rf_delta": 0.0,
     "pri_delta": 0.0,
     "pw_delta": 0.0,
+    # Each stagger step's ± buffer when steps are compared (not a Mode field).
+    "stagger_step_delta_us": 1.0,
 }
 
 # What counts in change notes (see change_notes.COUNTS_DEFAULT): each list

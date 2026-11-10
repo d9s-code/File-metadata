@@ -16,6 +16,7 @@ import { widened } from "./nearMiss";
 import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 import { useSources } from "../../state/hooks/useSources";
+import { useModeDefaults } from "../../state/hooks/useDwells";
 
 type Now = "match" | "near" | "none" | "unknown";
 
@@ -115,6 +116,8 @@ export function RecheckIntercepts({
   const { data: emitter } = useEmitter(emitterId);
   const { canEdit: editingEmitter } = useEmitterCheckoutState(emitter);
   const { data: sources } = useSources(emitterId);
+  // Each stagger step ± the admin's step buffer.
+  const checks = { ...TEST_CHECKS, stepDelta: useModeDefaults().defaults.stagger_step_delta_us };
   const expectedOf = new Map((testLines ?? []).map((t) => [t.id, t]));
 
   const rows: Row[] = [];
@@ -122,7 +125,7 @@ export function RecheckIntercepts({
     const shown = nonEmptySets(sets);
     shown.forEach((set, i) => {
       const entry = asEntry(set);
-      const match = entry ? matchEntry(entry, modes, TEST_CHECKS) : null;
+      const match = entry ? matchEntry(entry, modes, checks) : null;
       rows.push({
         key: `${key}-${i}`,
         where: shown.length > 1 ? `${where} · set ${i + 1}` : where,
