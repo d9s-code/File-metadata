@@ -32,7 +32,7 @@ router = APIRouter(prefix="/threat-priorities", tags=["threat-priorities"])
 class PlatformRef(BaseModel):
     id: UUID
     name: str
-    allegiance: str | None
+    hostility: str
 
 
 class ThreatPriorityRow(BaseModel):
@@ -81,7 +81,7 @@ def list_threat_priorities(db: Session = Depends(get_db), _=Depends(require_role
         .filter(Platform.is_deleted.is_(False))
         .order_by(func.lower(Platform.name))
     ):
-        pins.setdefault(link.emitter_id, []).append(PlatformRef(id=platform.id, name=platform.name, allegiance=platform.allegiance))
+        pins.setdefault(link.emitter_id, []).append(PlatformRef(id=platform.id, name=platform.name, hostility=platform.hostility))
     rows = (
         db.query(EwGroup, Emitter, User.username)
         .join(Emitter, Emitter.id == EwGroup.emitter_id)

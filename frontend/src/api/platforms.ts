@@ -1,5 +1,7 @@
 import { api } from "./client";
-export type Allegiance = "hostile" | "neutral" | "friendly";
+/** As the PRS XML writes them. */
+export type Hostility = "UNKNOWN" | "FRIEND" | "HOSTILE" | "NEUTRAL";
+export type Base = "SEA" | "GROUND" | "SUBSURFACE" | "UNKNOWN" | "AIR";
 export type SpeedUnit = "kmh" | "knots";
 
 export interface Platform {
@@ -8,8 +10,9 @@ export interface Platform {
   description: string | null;
   /** Its own status (a key of the Platform statuses Admins set up). */
   status: string;
-  /** Hostile, neutral or friendly; null: unknown. The PRS XML's Hostility. */
-  allegiance: Allegiance | null;
+  /** The PRS XML's Hostility and Base, as written there. */
+  hostility: Hostility;
+  base: Base;
   /** Its speed, a range in speed_unit; either end may be unset. The PRS XML's Speed. */
   speed_min: number | null;
   speed_max: number | null;
@@ -73,7 +76,8 @@ export function isOutdatedPin(link: PlatformLink): boolean {
 export interface PlatformCreateInput {
   name: string;
   description?: string;
-  allegiance?: Allegiance | null;
+  hostility?: Hostility;
+  base?: Base;
   speed_min?: number | null;
   speed_max?: number | null;
   speed_unit?: SpeedUnit;

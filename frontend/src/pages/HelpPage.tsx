@@ -36,7 +36,7 @@ const TOC: TocNode[] = [
     children: [
       { id: "platform-detail", title: "Platform detail" },
       { id: "platform-versions", title: "Version history" },
-      { id: "platform-allegiance", title: "Allegiance and speed" },
+      { id: "platform-traits", title: "Hostility, base and speed" },
       { id: "platform-ambiguity", title: "Ambiguity check" },
     ],
   },
@@ -784,9 +784,9 @@ export function HelpPage() {
           <p>
             <strong>Emitters → Threat priorities</strong> lists every EW Group of every Emitter with its function code
             (set there for the whole Emitter, no edit lock needed) and threat priority,
-            the Platforms the Emitter is on (and their allegiance) and who&apos;s editing it. Group it by function code (to
+            the Platforms the Emitter is on (and their hostility) and who&apos;s editing it. Group it by function code (to
             start), priority, Emitter,
-            Platform or allegiance, sort and filter it. Type a priority into its cell to change it (empty clears it), or
+            Platform or hostility, sort and filter it. Type a priority into its cell to change it (empty clears it), or
             tick rows and set them together. An Emitter nobody is editing is checked out to you on the way; then{" "}
             <strong>Save versions…</strong> saves the Emitters you changed as new versions in one go.
           </p>
@@ -1038,14 +1038,16 @@ export function HelpPage() {
           </p>
         </div>
 
-        <div className="help-subsection" id="platform-allegiance">
-          <h3>Allegiance and speed</h3>
+        <div className="help-subsection" id="platform-traits">
+          <h3>Hostility, base and speed</h3>
           <p>
-            Beside a Platform&apos;s status: its allegiance — <strong>Hostile</strong>, <strong>Neutral</strong>,{" "}
-            <strong>Friendly</strong> or unknown (click it to change it) — and its speed. The speed is a range (lowest and
-            highest) in km/h or knots, set under <strong>Edit details</strong> (click the speed chip); switching the unit
-            converts the numbers. Both go into the Platform&apos;s PRS XML (Hostility and Speed) from the next saved
-            version, so the page flags them as not saved until then.
+            Beside a Platform&apos;s status, in caps as the PRS XML writes them: its hostility — <strong>UNKNOWN</strong>,{" "}
+            <strong>FRIEND</strong>, <strong>HOSTILE</strong> or <strong>NEUTRAL</strong> — and its base —{" "}
+            <strong>SEA</strong>, <strong>GROUND</strong>, <strong>SUBSURFACE</strong>, <strong>UNKNOWN</strong> or{" "}
+            <strong>AIR</strong>; click either to change it. The speed is a range (lowest and highest) in km/h or knots,
+            set under <strong>Edit details</strong> (click the speed chip); switching the unit converts the numbers. All
+            three go into the Platform&apos;s PRS XML (Hostility, Base, Speed) from the next saved version, so the page
+            flags them as not saved until then.
           </p>
         </div>
 

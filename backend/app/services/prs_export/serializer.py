@@ -165,10 +165,23 @@ def _append_mode_element(parent: etree._Element, mode: dict, *, scan_name: str) 
     etree.SubElement(mode_el, "ScanData", Name=_sanitize(scan_name))
 
 
-def hostility_value(allegiance: str | None) -> str:
-    """The Platform's allegiance as Hostility's Value: HOSTILE, NEUTRAL or
-    FRIENDLY; UNKNOWN when it isn't set (and in versions saved before it was)."""
-    return allegiance.upper() if allegiance in ("hostile", "neutral", "friendly") else _PLACEHOLDER_HOSTILITY
+HOSTILITIES = ("UNKNOWN", "FRIEND", "HOSTILE", "NEUTRAL")
+BASES = ("SEA", "GROUND", "SUBSURFACE", "UNKNOWN", "AIR")
+# Versions saved while it was the allegiance (lower case; unset for unknown).
+_LEGACY_ALLEGIANCE = {"hostile": "HOSTILE", "neutral": "NEUTRAL", "friendly": "FRIEND"}
+
+
+def hostility_value(hostility: str | None, legacy_allegiance: str | None = None) -> str:
+    """Hostility's Value: UNKNOWN, FRIEND, HOSTILE or NEUTRAL — the Platform's
+    own, or from the allegiance of a version saved before; UNKNOWN otherwise."""
+    if hostility in HOSTILITIES:
+        return hostility
+    return _LEGACY_ALLEGIANCE.get(legacy_allegiance or "", _PLACEHOLDER_HOSTILITY)
+
+
+def base_value(base: str | None) -> str:
+    """Base's Value: SEA, GROUND, SUBSURFACE, UNKNOWN or AIR (UNKNOWN in versions saved before)."""
+    return base if base in BASES else _PLACEHOLDER_BASE
 
 
 def speed_attrs(speed_min, speed_max, unit: str | None) -> dict[str, str]:
@@ -184,9 +197,10 @@ def speed_attrs(speed_min, speed_max, unit: str | None) -> dict[str, str]:
 def build_platform_element(platform_snapshot: dict) -> etree._Element:
     root = etree.Element("Platform", IsUnknown="false")
     etree.SubElement(root, "Name").text = _sanitize(platform_snapshot["name"])
-    etree.SubElement(root, "Hostility", Value=hostility_value(platform_snapshot.get("allegiance")))
-    # Not modeled anywhere in this app — see prs_export_notes.md.
-    etree.SubElement(root, "Base", Value=_PLACEHOLDER_BASE)
+    etree.SubElement(
+        root, "Hostility", Value=hostility_value(platform_snapshot.get("hostility"), platform_snapshot.get("allegiance"))
+    )
+    etree.SubElement(root, "Base", Value=base_value(platform_snapshot.get("base")))
     etree.SubElement(
         root,
         "Speed",

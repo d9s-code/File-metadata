@@ -34,7 +34,7 @@ export function UnsavedPinsFlag({
   const n = data.entries.length;
   const since = data.saved_version ? `since v${data.saved_version}` : "— nothing saved yet";
   const usedBy = kind === "platform" ? "MDFs pinning it and exports" : "its export and report";
-  // A Platform's allegiance and speed count too: they're in its export.
+  // A Platform's hostility, base and speed count too: they're in its export.
   const onlyPins = data.entries.every((e) => e.scope.startsWith("Emitter '") || e.scope.startsWith("Platform '") || e.scope.startsWith("Dwell"));
   const what = onlyPins ? "Pins" : "Changes";
   return (

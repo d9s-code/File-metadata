@@ -527,26 +527,29 @@ select {
   min-height: 2rem;
 }
 
-/* A Platform's allegiance and speed, beside its status. Allegiance in the
-   usual colours — hostile red, neutral green, friendly blue — always with its name. */
-.allegiance-chip, .speed-chip {
+/* A Platform's hostility, base and speed, beside its status — in caps, as the
+   PRS XML writes them. Hostility in the usual colours: HOSTILE red, NEUTRAL
+   green, FRIEND blue, UNKNOWN plain — always with its name. */
+.trait-chip, .speed-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
   border-radius: 999px;
   padding: 0.12rem 0.65rem;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
+  letter-spacing: 0.03em;
   border: 1px solid transparent;
   box-shadow: none;
 }
-button.allegiance-chip, button.speed-chip { cursor: pointer; }
-.allegiance-hostile { background: var(--badge-red-bg); color: var(--badge-red-fg); }
-.allegiance-neutral { background: var(--badge-green-bg); color: var(--badge-green-fg); }
-.allegiance-friendly { background: var(--badge-blue-bg); color: var(--badge-blue-fg); }
-.allegiance-unknown { background: none; color: var(--muted); border-color: var(--border); font-weight: 500; }
-button.allegiance-chip:hover:not(:disabled), button.speed-chip:hover:not(:disabled) { filter: brightness(1.12); }
-.speed-chip { background: none; color: var(--muted); border-color: var(--border); font-weight: 500; font-variant-numeric: tabular-nums; }
+button.trait-chip, button.speed-chip { cursor: pointer; }
+.hostility-hostile { background: var(--badge-red-bg); color: var(--badge-red-fg); }
+.hostility-neutral { background: var(--badge-green-bg); color: var(--badge-green-fg); }
+.hostility-friend { background: var(--badge-blue-bg); color: var(--badge-blue-fg); }
+.hostility-unknown, .base-chip { background: none; color: var(--muted); border-color: var(--border); font-weight: 500; }
+button.trait-chip:hover:not(:disabled), button.speed-chip:hover:not(:disabled) { filter: brightness(1.12); }
+.speed-chip { background: none; color: var(--muted); border-color: var(--border); font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+.platform-trait-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem 0.75rem; }
 .platform-speed-fields { display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.5rem 0.75rem; align-items: end; }
 .platform-speed-fields .hint-text { grid-column: 1 / -1; }
 
@@ -564,7 +567,7 @@ button.allegiance-chip:hover:not(:disabled), button.speed-chip:hover:not(:disabl
 .tp-group-tick { font-size: 0.8rem; }
 .tp-platforms { display: inline-flex; flex-wrap: wrap; gap: 0.25rem 0.7rem; }
 .tp-platform { display: inline-flex; align-items: center; gap: 0.3rem; }
-.tp-platform .allegiance-chip { font-size: 0.7rem; padding: 0 0.45rem; }
+.tp-platform .trait-chip { font-size: 0.7rem; padding: 0 0.45rem; }
 .tp-save-list { list-style: none; padding: 0; margin: 0.4rem 0 0.8rem; display: flex; flex-direction: column; gap: 0.25rem; }
 .tp-save-results { padding-left: 1.1rem; }
 

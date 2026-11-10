@@ -61,8 +61,8 @@ Maps an Emitter and its Modes.
 ### 3.2.1. Platform (`platforms/[platform_name].xml`)
 - **Root Element**: `<Platform IsUnknown="false">`
 - `<Name>{platform_name}</Name>`
-- `<Hostility Value="{HOSTILE|NEUTRAL|FRIENDLY|UNKNOWN}" />` — the Platform's allegiance; `UNKNOWN` when it isn't set.
-- `<Base Value="…" />`
+- `<Hostility Value="{UNKNOWN|FRIEND|HOSTILE|NEUTRAL}" />` — the Platform's hostility, as stored (caps); `UNKNOWN` by default.
+- `<Base Value="{SEA|GROUND|SUBSURFACE|UNKNOWN|AIR}" />` — the Platform's base, as stored (caps); `UNKNOWN` by default.
 - `<Speed Min="{min}" Max="{max}" Units="{kph|knots}" />` — the Platform's speed range in km/h (`kph`) or knots; an end not set is `0`.
 - `<Configuration>` with one `<EmitterFile Count="1">emitters\{emitter_name}.xml</EmitterFile>` per pinned Emitter.
 - A Platform version export writes the values saved with that version.

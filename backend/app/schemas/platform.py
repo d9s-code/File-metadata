@@ -4,8 +4,9 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-
-Allegiance = Literal["hostile", "neutral", "friendly"]
+# As the PRS XML writes them.
+Hostility = Literal["UNKNOWN", "FRIEND", "HOSTILE", "NEUTRAL"]
+Base = Literal["SEA", "GROUND", "SUBSURFACE", "UNKNOWN", "AIR"]
 SpeedUnit = Literal["kmh", "knots"]
 
 
@@ -19,7 +20,8 @@ def _check_speed(m):
 class PlatformCreate(BaseModel):
     name: str
     description: str | None = None
-    allegiance: Allegiance | None = None
+    hostility: Hostility = "UNKNOWN"
+    base: Base = "UNKNOWN"
     speed_min: float | None = Field(default=None, ge=0, le=100_000)
     speed_max: float | None = Field(default=None, ge=0, le=100_000)
     speed_unit: SpeedUnit = "kmh"
@@ -30,8 +32,8 @@ class PlatformCreate(BaseModel):
 class PlatformUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
-    # Sent as null to clear (unknown).
-    allegiance: Allegiance | None = None
+    hostility: Hostility | None = None
+    base: Base | None = None
     speed_min: float | None = Field(default=None, ge=0, le=100_000)
     speed_max: float | None = Field(default=None, ge=0, le=100_000)
     speed_unit: SpeedUnit | None = None
@@ -46,7 +48,8 @@ class PlatformOut(BaseModel):
     name: str
     description: str | None = None
     status: str
-    allegiance: Allegiance | None = None
+    hostility: Hostility = "UNKNOWN"
+    base: Base = "UNKNOWN"
     speed_min: float | None = None
     speed_max: float | None = None
     speed_unit: SpeedUnit = "kmh"

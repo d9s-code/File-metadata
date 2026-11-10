@@ -113,8 +113,9 @@ def update_platform(
 ) -> Platform:
     platform = _get_platform_or_404(db, platform_id)
     data = payload.model_dump(exclude_unset=True)
-    if data.get("speed_unit", "") is None:
-        del data["speed_unit"]  # Always one of the two.
+    for key in ("speed_unit", "hostility", "base"):
+        if key in data and data[key] is None:
+            del data[key]  # Always set: one of its values.
     lo = data.get("speed_min", platform.speed_min)
     hi = data.get("speed_max", platform.speed_max)
     if lo is not None and hi is not None and float(lo) > float(hi):

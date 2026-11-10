@@ -14,14 +14,14 @@ def test_lists_every_ew_group_with_its_emitter_and_platforms(editor_client):
     editor_client.post(f"/emitters/{e['id']}/checkout")
     v = editor_client.post(f"/emitters/{e['id']}/versions", json={"change_summary": "v1"}).json()
     editor_client.delete(f"/emitters/{e['id']}/checkout")
-    platform = editor_client.post("/platforms", json={"name": "TP Frigate", "allegiance": "hostile"}).json()
+    platform = editor_client.post("/platforms", json={"name": "TP Frigate", "hostility": "HOSTILE"}).json()
     editor_client.post(f"/platforms/{platform['id']}/links", json={"emitter_id": e["id"], "emitter_version_id": v["id"]})
 
     rows = {r["ew_group_id"]: r for r in editor_client.get("/threat-priorities").json()}
     assert rows[search["id"]]["threat_priority"] == 3
     assert rows[track["id"]]["threat_priority"] is None
     assert rows[search["id"]]["emitter_name"] == "TP Radar One"
-    assert rows[search["id"]]["platforms"] == [{"id": platform["id"], "name": "TP Frigate", "allegiance": "hostile"}]
+    assert rows[search["id"]]["platforms"] == [{"id": platform["id"], "name": "TP Frigate", "hostility": "HOSTILE"}]
     assert rows[search["id"]]["checked_out_by_id"] is None
 
 

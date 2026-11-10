@@ -4,8 +4,8 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { usePlatform, usePlatformLinks, useRepinPlatformLatest, useUpdatePlatform } from "../state/hooks/usePlatforms";
 import { useCommitPlatformVersion, usePlatformVersions } from "../state/hooks/usePlatformVersions";
 import { useEmitters } from "../state/hooks/useEmitters";
-import { isOutdatedPin, platformsApi, type Allegiance, type SpeedUnit } from "../api/platforms";
-import { ALLEGIANCES, AllegianceChip, SPEED_UNITS, convertSpeed, speedText } from "../components/platform/platformTraits";
+import { isOutdatedPin, platformsApi, type Base, type Hostility, type SpeedUnit } from "../api/platforms";
+import { BASES, BaseChip, HOSTILITIES, HostilityChip, SPEED_UNITS, convertSpeed, speedText } from "../components/platform/platformTraits";
 import { PlatformLinkTable } from "../components/platform/PlatformLinkTable";
 import { PinEmittersDialog } from "../components/platform/PinEmittersDialog";
 import { EntityAuditTrail } from "../components/audit/EntityAuditTrail";
@@ -52,7 +52,8 @@ export function PlatformBuilderPage() {
   const [pinning, setPinning] = useState(false);
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
-  const [editAllegiance, setEditAllegiance] = useState<Allegiance | "">("");
+  const [editHostility, setEditHostility] = useState<Hostility>("UNKNOWN");
+  const [editBase, setEditBase] = useState<Base>("UNKNOWN");
   const [editSpeedMin, setEditSpeedMin] = useState("");
   const [editSpeedMax, setEditSpeedMax] = useState("");
   const [editSpeedUnit, setEditSpeedUnit] = useState<SpeedUnit>("kmh");
@@ -70,7 +71,8 @@ export function PlatformBuilderPage() {
   const handleStartEdit = () => {
     setEditName(platform.name);
     setEditDescription(platform.description ?? "");
-    setEditAllegiance(platform.allegiance ?? "");
+    setEditHostility(platform.hostility ?? "UNKNOWN");
+    setEditBase(platform.base ?? "UNKNOWN");
     setEditSpeedMin(platform.speed_min == null ? "" : String(platform.speed_min));
     setEditSpeedMax(platform.speed_max == null ? "" : String(platform.speed_max));
     setEditSpeedUnit(platform.speed_unit ?? "kmh");
@@ -98,7 +100,8 @@ export function PlatformBuilderPage() {
         input: {
           name: editName,
           description: editDescription || undefined,
-          allegiance: editAllegiance || null,
+          hostility: editHostility,
+          base: editBase,
           speed_min: lo,
           speed_max: hi,
           speed_unit: editSpeedUnit,
@@ -160,10 +163,15 @@ export function PlatformBuilderPage() {
         status={
           <>
             <PlatformStatusControls platformId={platform.id} status={platform.status} />
-            <AllegianceChip
-              allegiance={platform.allegiance}
+            <HostilityChip
+              hostility={platform.hostility}
               disabled={isUpdating}
-              onChange={canWrite ? (a) => updatePlatform({ id: platform.id, input: { allegiance: a } }) : undefined}
+              onChange={canWrite ? (h) => updatePlatform({ id: platform.id, input: { hostility: h } }) : undefined}
+            />
+            <BaseChip
+              base={platform.base}
+              disabled={isUpdating}
+              onChange={canWrite ? (b) => updatePlatform({ id: platform.id, input: { base: b } }) : undefined}
             />
             {canWrite ? (
               <button
@@ -181,7 +189,7 @@ export function PlatformBuilderPage() {
             <UnsavedPinsFlag
               kind="platform"
               id={platform.id}
-              signature={`${(links ?? []).map((l) => `${l.emitter_id}:${l.emitter_version_id}`).sort().join(",")}|${versions?.length ?? 0}|${platform.allegiance}|${platform.speed_min}|${platform.speed_max}|${platform.speed_unit}`}
+              signature={`${(links ?? []).map((l) => `${l.emitter_id}:${l.emitter_version_id}`).sort().join(",")}|${versions?.length ?? 0}|${platform.hostility}|${platform.base}|${platform.speed_min}|${platform.speed_max}|${platform.speed_unit}`}
             />
             <TasksButton type="platform" id={platform.id} name={platform.name} />
             <MilestonesButton type="platform" id={platform.id} status={platform.status} />
@@ -224,17 +232,28 @@ export function PlatformBuilderPage() {
                 rows={10}
               />
             </label>
-            <label>
-              Allegiance
-              <select value={editAllegiance} onChange={(e) => setEditAllegiance(e.target.value as Allegiance | "")}>
-                <option value="">Unknown</option>
-                {ALLEGIANCES.map((a) => (
-                  <option key={a.key} value={a.key}>
-                    {a.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="platform-trait-fields">
+              <label>
+                Hostility
+                <select value={editHostility} onChange={(e) => setEditHostility(e.target.value as Hostility)}>
+                  {HOSTILITIES.map((h) => (
+                    <option key={h} value={h}>
+                      {h}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Base
+                <select value={editBase} onChange={(e) => setEditBase(e.target.value as Base)}>
+                  {BASES.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
             <fieldset className="platform-speed-fields">
               <legend>Speed</legend>
               <label>
@@ -266,8 +285,8 @@ export function PlatformBuilderPage() {
                 </select>
               </label>
               <span className="hint-text">
-                Changing the unit converts the numbers (1 knot = 1.852 km/h). Either end can be left empty. Allegiance and
-                speed go into the PRS XML (Hostility, Speed) from the next saved version.
+                Changing the unit converts the numbers (1 knot = 1.852 km/h). Either end can be left empty. Hostility,
+                base and speed go into the PRS XML (Hostility, Base, Speed) from the next saved version.
               </span>
             </fieldset>
             {editError && <p className="error-text">{editError}</p>}

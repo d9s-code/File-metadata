@@ -10,19 +10,26 @@ OWN_FIELD_LABELS = {
     "description": "Description",
     "status": "Status",
     # A Platform's — in its PRS XML.
-    "allegiance": "Allegiance",
+    "hostility": "Hostility",
+    "base": "Base",
     "speed_min": "Lowest speed",
     "speed_max": "Highest speed",
     "speed_unit": "Speed unit",
 }
 # What goes into a Platform's PRS XML: a change is unsaved until a version is saved.
-EXPORTED_OWN_FIELDS = {"Allegiance", "Lowest speed", "Highest speed", "Speed unit"}
+EXPORTED_OWN_FIELDS = {"Hostility", "Base", "Lowest speed", "Highest speed", "Speed unit"}
 # What a Platform snapshot from before these fields means by not having them.
-_PLATFORM_FIELD_DEFAULTS = {"allegiance": None, "speed_min": None, "speed_max": None, "speed_unit": "kmh"}
-_VALUE_LABELS = {
-    "allegiance": {"hostile": "Hostile", "neutral": "Neutral", "friendly": "Friendly"},
-    "speed_unit": {"kmh": "km/h", "knots": "knots"},
-}
+_PLATFORM_FIELD_DEFAULTS = {"hostility": "UNKNOWN", "base": "UNKNOWN", "speed_min": None, "speed_max": None, "speed_unit": "kmh"}
+_VALUE_LABELS = {"speed_unit": {"kmh": "km/h", "knots": "knots"}}
+# Versions saved while it was the allegiance (lower case, unset for unknown).
+_LEGACY_ALLEGIANCE = {"hostile": "HOSTILE", "neutral": "NEUTRAL", "friendly": "FRIEND"}
+
+
+def platform_hostility(snapshot: dict) -> str:
+    """A Platform snapshot's hostility, read from the allegiance in versions saved before."""
+    if snapshot.get("hostility"):
+        return snapshot["hostility"]
+    return _LEGACY_ALLEGIANCE.get(snapshot.get("allegiance") or "", "UNKNOWN")
 
 
 def compute_pinned_diff(
@@ -33,8 +40,8 @@ def compute_pinned_diff(
     `status_labels` the names of its statuses, by key."""
     entries: list[dict] = []
     if own == "Platform" and old:
-        old = {**_PLATFORM_FIELD_DEFAULTS, **old}
-        new = {**_PLATFORM_FIELD_DEFAULTS, **new}
+        old = {**_PLATFORM_FIELD_DEFAULTS, **old, "hostility": platform_hostility(old)}
+        new = {**_PLATFORM_FIELD_DEFAULTS, **new, "hostility": platform_hostility(new)}
     _diff_fields(
         entries, own, old, new, OWN_FIELD_LABELS, value_labels={"status": status_labels or {}, **_VALUE_LABELS}
     )

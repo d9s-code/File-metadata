@@ -1,11 +1,9 @@
-import type { Allegiance, Platform, SpeedUnit } from "../../api/platforms";
+import type { Base, Hostility, Platform, SpeedUnit } from "../../api/platforms";
 import { MenuButton } from "../common/MenuButton";
 
-export const ALLEGIANCES: { key: Allegiance; label: string }[] = [
-  { key: "hostile", label: "Hostile" },
-  { key: "neutral", label: "Neutral" },
-  { key: "friendly", label: "Friendly" },
-];
+/** As the PRS XML writes them, in this order. */
+export const HOSTILITIES: Hostility[] = ["UNKNOWN", "FRIEND", "HOSTILE", "NEUTRAL"];
+export const BASES: Base[] = ["SEA", "GROUND", "SUBSURFACE", "UNKNOWN", "AIR"];
 
 export const SPEED_UNITS: { key: SpeedUnit; label: string }[] = [
   { key: "kmh", label: "km/h" },
@@ -14,10 +12,6 @@ export const SPEED_UNITS: { key: SpeedUnit; label: string }[] = [
 
 /** 1 knot = 1.852 km/h. */
 export const KMH_PER_KNOT = 1.852;
-
-export function allegianceLabel(a: Allegiance | null | undefined): string {
-  return ALLEGIANCES.find((x) => x.key === a)?.label ?? "Unknown";
-}
 
 export function unitLabel(u: SpeedUnit | null | undefined): string {
   return u === "knots" ? "kn" : "km/h";
@@ -41,20 +35,26 @@ export function convertSpeed(v: number, from: SpeedUnit, to: SpeedUnit): number 
   return Math.round(out * 100) / 100;
 }
 
-/** The allegiance as a chip — red hostile, green neutral, blue friendly,
- * grey unknown — that an Editor clicks to change. */
-export function AllegianceChip({
-  allegiance,
+/** A value as a chip an Editor clicks to change — the hostility in its
+ * usual colour (HOSTILE red, NEUTRAL green, FRIEND blue, UNKNOWN plain), the
+ * base plain; always with its name. */
+function TraitChip<T extends string>({
+  kind,
+  value,
+  values,
   onChange,
   disabled,
+  title,
 }: {
-  allegiance: Allegiance | null | undefined;
-  /** Leave out for a chip that only shows it. */
-  onChange?: (a: Allegiance | null) => void;
+  kind: "hostility" | "base";
+  value: T;
+  values: T[];
+  onChange?: (v: T) => void;
   disabled?: boolean;
+  title: string;
 }) {
-  const cls = `allegiance-chip allegiance-${allegiance ?? "unknown"}`;
-  const text = allegiance ? allegianceLabel(allegiance) : "Allegiance unknown";
+  const cls = kind === "hostility" ? `trait-chip hostility-${value.toLowerCase()}` : "trait-chip base-chip";
+  const text = kind === "base" ? `BASE ${value}` : value;
   if (!onChange) return <span className={cls}>{text}</span>;
   return (
     <MenuButton
@@ -62,11 +62,43 @@ export function AllegianceChip({
       className={cls}
       align="start"
       disabled={disabled}
-      title="Hostile, neutral or friendly — written to the PRS XML (Hostility) once a version is saved"
-      items={[
-        ...ALLEGIANCES.map((a) => ({ label: a.label, onSelect: () => onChange(a.key), disabled: a.key === allegiance })),
-        { label: "Unknown", onSelect: () => onChange(null), disabled: !allegiance },
-      ]}
+      title={title}
+      items={values.map((v) => ({ label: v, onSelect: () => onChange(v), disabled: v === value }))}
+    />
+  );
+}
+
+export function HostilityChip({
+  hostility,
+  onChange,
+  disabled,
+}: {
+  hostility: Hostility;
+  /** Leave out for a chip that only shows it. */
+  onChange?: (h: Hostility) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <TraitChip
+      kind="hostility"
+      value={hostility ?? "UNKNOWN"}
+      values={HOSTILITIES}
+      onChange={onChange}
+      disabled={disabled}
+      title="Hostility — written to the PRS XML once a version is saved"
+    />
+  );
+}
+
+export function BaseChip({ base, onChange, disabled }: { base: Base; onChange?: (b: Base) => void; disabled?: boolean }) {
+  return (
+    <TraitChip
+      kind="base"
+      value={base ?? "UNKNOWN"}
+      values={BASES}
+      onChange={onChange}
+      disabled={disabled}
+      title="Base — written to the PRS XML once a version is saved"
     />
   );
 }

@@ -5,7 +5,7 @@ import { ApiRequestError } from "../../api/client";
 import { emittersApi } from "../../api/emitters";
 import { emitterVersionsApi } from "../../api/emitterVersions";
 import { threatPrioritiesApi, type ThreatPriorityRow } from "../../api/threatPriorities";
-import type { Allegiance } from "../../api/platforms";
+import type { Hostility } from "../../api/platforms";
 import { useAuth } from "../../auth/AuthContext";
 import { useHasRole } from "../../auth/RequireAuth";
 import { functionCodeLabel, type FunctionCode } from "../../api/functionCodes";
@@ -17,12 +17,12 @@ import { EmptyState } from "../common/EmptyState";
 import { Modal } from "../common/Modal";
 import { compareNullable, compareStrings } from "../common/sortUtils";
 import { SortableColumnHeader } from "../common/SortableColumnHeader";
-import { ALLEGIANCES, AllegianceChip, allegianceLabel } from "../platform/platformTraits";
+import { HOSTILITIES, HostilityChip } from "../platform/platformTraits";
 import { StatusBadge } from "../status/StatusBadge";
 
 const KEY = ["threat-priorities"] as const;
 
-type GroupBy = "none" | "code" | "emitter" | "priority" | "platform" | "allegiance";
+type GroupBy = "none" | "code" | "emitter" | "priority" | "platform" | "hostility";
 type SortKey = "emitter" | "code" | "group" | "priority" | "modes" | "platforms";
 
 const GROUP_BY: { key: GroupBy; label: string }[] = [
@@ -31,7 +31,7 @@ const GROUP_BY: { key: GroupBy; label: string }[] = [
   { key: "priority", label: "Threat priority" },
   { key: "emitter", label: "Emitter" },
   { key: "platform", label: "Platform" },
-  { key: "allegiance", label: "Allegiance" },
+  { key: "hostility", label: "Hostility" },
 ];
 
 /** Every key a row is filed under for a grouping — a row on two Platforms is in both. */
@@ -60,14 +60,14 @@ function groupKeys(
       return r.platforms.length
         ? r.platforms.map((p) => ({ key: p.id, label: p.name, order: p.name.toLowerCase() }))
         : [{ key: "none", label: "On no Platform", order: "~" }];
-    case "allegiance": {
-      const set = [...new Set(r.platforms.map((p) => p.allegiance ?? "unknown"))];
+    case "hostility": {
+      const set = [...new Set(r.platforms.map((p) => p.hostility ?? "UNKNOWN"))];
       const keys = set.length ? set : ["none"];
-      const order = (a: string) => ({ hostile: "1", neutral: "2", friendly: "3", unknown: "4", none: "5" })[a] ?? "9";
-      return keys.map((a) => ({
-        key: a,
-        label: a === "none" ? "On no Platform" : a === "unknown" ? "On a Platform of unknown allegiance" : `On a ${allegianceLabel(a as Allegiance).toLowerCase()} Platform`,
-        order: order(a),
+      const order = (h: string) => ({ HOSTILE: "1", NEUTRAL: "2", FRIEND: "3", UNKNOWN: "4", none: "5" })[h] ?? "9";
+      return keys.map((h) => ({
+        key: h,
+        label: h === "none" ? "On no Platform" : `On a ${h} Platform`,
+        order: order(h),
       }));
     }
   }
@@ -131,7 +131,7 @@ function PriorityCell({
 
 /** Threat priorities across every Emitter — one row per EW Group, where the
  * priority lives — editable in place or in bulk, filtered, sorted and grouped
- * by priority, Emitter, Platform or the Platforms' allegiance. */
+ * by function code, priority, Emitter, Platform or the Platforms' hostility. */
 export function ThreatPriorities() {
   const qc = useQueryClient();
   const { user } = useAuth();
@@ -152,7 +152,7 @@ export function ThreatPriorities() {
     onError: (err) => setProblem(err instanceof ApiRequestError ? err.message : "Couldn't change the function code"),
   });
   const [only, setOnly] = useSessionState<"" | "set" | "unset">("threat.only", "");
-  const [allegiance, setAllegiance] = useSessionState<"" | Allegiance | "unknown">("threat.allegiance", "");
+  const [hostility, setHostility] = useSessionState<"" | Hostility>("threat.hostility", "");
   const [sort, setSort] = useSessionState<{ key: SortKey; dir: "asc" | "desc" }>("threat.sort", { key: "emitter", dir: "asc" });
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [ticked, setTicked] = useState<Set<string>>(new Set());
@@ -191,7 +191,7 @@ export function ThreatPriorities() {
     return (rows ?? []).filter((r) => {
       if (only === "set" && r.threat_priority == null) return false;
       if (only === "unset" && r.threat_priority != null) return false;
-      if (allegiance && !r.platforms.some((p) => (p.allegiance ?? "unknown") === allegiance)) return false;
+      if (hostility && !r.platforms.some((p) => (p.hostility ?? "UNKNOWN") === hostility)) return false;
       if (codeFilter && (codeFilter === "none" ? r.function_code_id != null : r.function_code_id !== codeFilter)) return false;
       if (!t) return true;
       return (
@@ -201,7 +201,7 @@ export function ThreatPriorities() {
         r.platforms.some((p) => p.name.toLowerCase().includes(t))
       );
     });
-  }, [rows, search, only, allegiance, codeFilter]);
+  }, [rows, search, only, hostility, codeFilter]);
 
   const sorted = useMemo(() => {
     const d = sort.dir;
@@ -299,12 +299,12 @@ export function ThreatPriorities() {
   return (
     <div className="threat-priorities">
       <FilterBar
-        active={!!(search || only || allegiance || codeFilter)}
+        active={!!(search || only || hostility || codeFilter)}
         onReset={() => {
           setCodeFilter("");
           setSearch("");
           setOnly("");
-          setAllegiance("");
+          setHostility("");
         }}
         count={shownCount(sorted.length, rows.length, "EW Group")}
         end={
@@ -342,14 +342,13 @@ export function ThreatPriorities() {
           ))}
           <option value="none">No function code</option>
         </select>
-        <select value={allegiance} onChange={(e) => setAllegiance(e.target.value as typeof allegiance)} aria-label="Platform allegiance">
-          <option value="">Any allegiance</option>
-          {ALLEGIANCES.map((a) => (
-            <option key={a.key} value={a.key}>
-              On a {a.label.toLowerCase()} Platform
+        <select value={hostility} onChange={(e) => setHostility(e.target.value as typeof hostility)} aria-label="Platform hostility">
+          <option value="">Any hostility</option>
+          {HOSTILITIES.map((h) => (
+            <option key={h} value={h}>
+              On a {h} Platform
             </option>
           ))}
-          <option value="unknown">On a Platform of unknown allegiance</option>
         </select>
       </FilterBar>
 
@@ -544,7 +543,7 @@ export function ThreatPriorities() {
                                 {r.platforms.map((p) => (
                                   <span key={p.id} className="tp-platform">
                                     <Link to={`/platforms/${p.id}`}>{p.name}</Link>
-                                    {p.allegiance && <AllegianceChip allegiance={p.allegiance} />}
+                                    {p.hostility && p.hostility !== "UNKNOWN" && <HostilityChip hostility={p.hostility} />}
                                   </span>
                                 ))}
                               </span>

@@ -1,5 +1,5 @@
 import { api } from "./client";
-import type { Allegiance } from "./platforms";
+import type { Hostility } from "./platforms";
 
 export interface ThreatPriorityRow {
   ew_group_id: string;
@@ -15,7 +15,7 @@ export interface ThreatPriorityRow {
   function_code_id: string | null;
   checked_out_by_id: string | null;
   checked_out_by_username: string | null;
-  platforms: { id: string; name: string; allegiance: Allegiance | null }[];
+  platforms: { id: string; name: string; hostility: Hostility }[];
 }
 
 export interface ThreatPriorityResult {

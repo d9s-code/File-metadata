@@ -33,7 +33,8 @@ class Platform(UUIDPkMixin, TimestampMixin, Base):
     # name hostage until it's purged.
     __table_args__ = (
         Index("uq_platforms_name_active", "name", unique=True, postgresql_where=text("NOT is_deleted")),
-        CheckConstraint("allegiance IN ('hostile', 'neutral', 'friendly')", name="ck_platforms_allegiance"),
+        CheckConstraint("hostility IN ('UNKNOWN', 'FRIEND', 'HOSTILE', 'NEUTRAL')", name="ck_platforms_hostility"),
+        CheckConstraint("base IN ('SEA', 'GROUND', 'SUBSURFACE', 'UNKNOWN', 'AIR')", name="ck_platforms_base"),
         CheckConstraint("speed_unit IN ('kmh', 'knots')", name="ck_platforms_speed_unit"),
     )
 
@@ -41,8 +42,10 @@ class Platform(UUIDPkMixin, TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     # A status_definitions key; new Platforms start In progress.
     status: Mapped[str] = mapped_column(String(64), nullable=False, default="draft", server_default="draft")
-    # Hostile, neutral or friendly; None: unknown. The PRS XML's Hostility.
-    allegiance: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # As the PRS XML writes them: Hostility UNKNOWN, FRIEND, HOSTILE or NEUTRAL;
+    # Base SEA, GROUND, SUBSURFACE, UNKNOWN or AIR. Both UNKNOWN to start.
+    hostility: Mapped[str] = mapped_column(String(16), nullable=False, default="UNKNOWN", server_default="UNKNOWN")
+    base: Mapped[str] = mapped_column(String(16), nullable=False, default="UNKNOWN", server_default="UNKNOWN")
     # How fast it moves, a range in speed_unit (km/h or knots); either end may
     # be unset. The PRS XML's Speed (Min, Max, Units).
     speed_min: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
