@@ -1674,7 +1674,8 @@ export function HelpPage() {
           reorder statuses, choose which moves are allowed and which ask for a note, and set the default milestones
           every item has before each status. Built-in statuses can be renamed but not deleted; an added one can be
           deleted once nothing is in it. <strong>Function codes</strong>: the kinds of emitter (code, name,
-          description, order) every new Emitter must pick one of, which Threat priorities groups by; one in use is
+          description, order) every new Emitter must pick one of, changed later from the chip in the Emitter&apos;s
+          header or in Threat priorities, which groups by them; one in use is
           deleted by moving its Emitters to another. <strong>Defaults</strong>: what a new Mode starts with — confirmation
           quality and quantity, and the RF, PRI, PW and frame-time deltas (frame time ±3 µs to start; it widens a
           stagger&apos;s frame time, the sum of its steps, not each step). The Add Mode form and the Intercept planning

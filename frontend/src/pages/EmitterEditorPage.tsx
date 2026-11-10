@@ -29,6 +29,7 @@ import { Modal } from "../components/common/Modal";
 import { NotesFeed } from "../components/common/NotesFeed";
 import { NotesDrawer, useNotesDrawerOpen } from "../components/common/NotesDrawer";
 import { AssigneeControl } from "../components/tasks/AssigneeControl";
+import { FunctionCodeControl } from "../components/emitters/FunctionCodeControl";
 import { TasksButton } from "../components/tasks/TasksButton";
 import { MilestonesButton } from "../components/status/MilestonesButton";
 import { DuplicateEmitterModal } from "../components/emitters/DuplicateEmitterModal";
@@ -188,6 +189,7 @@ export function EmitterEditorPage() {
                 <Icon name="alert" /> Rework note
               </button>
             )}
+            <FunctionCodeControl emitter={emitter} />
             <AssigneeControl emitter={emitter} />
             <TasksButton type="emitter" id={emitter.id} name={emitter.name} />
             <MilestonesButton type="emitter" id={emitter.id} status={emitter.status} />
