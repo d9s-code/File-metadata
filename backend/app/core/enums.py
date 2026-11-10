@@ -145,6 +145,7 @@ class AuditEntityType(str, enum.Enum):
     function_group = "function_group"
     ambiguity_finding = "ambiguity_finding"
     customer = "customer"
+    function_code = "function_code"
     intercept = "intercept"
     intercept_entry = "intercept_entry"
     intercept_note = "intercept_note"

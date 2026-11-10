@@ -11,6 +11,8 @@ export interface ThreatPriorityRow {
   emitter_name: string;
   designation: string | null;
   emitter_status: string;
+  /** What kind of emitter (an Admin-kept function code); null on older Emitters. */
+  function_code_id: string | null;
   checked_out_by_id: string | null;
   checked_out_by_username: string | null;
   platforms: { id: string; name: string; allegiance: Allegiance | null }[];

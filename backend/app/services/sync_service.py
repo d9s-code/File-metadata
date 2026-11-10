@@ -70,6 +70,7 @@ OWNER_TABLES = {
     "intercepts": ("Intercept", "name"),
     "source_groups": ("Source Group", "name"),
     "customers": ("Customer", "name"),
+    "function_codes": ("Function code", "code"),
     "tasks": ("Task", "title"),
     "status_definitions": ("Status", "label"),
     "milestone_definitions": ("Milestone", "name"),

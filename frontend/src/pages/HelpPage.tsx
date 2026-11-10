@@ -782,8 +782,10 @@ export function HelpPage() {
         <div className="help-subsection" id="emitter-threats">
           <h3>Threat priorities</h3>
           <p>
-            <strong>Emitters → Threat priorities</strong> lists every EW Group of every Emitter with its threat priority,
-            the Platforms the Emitter is on (and their allegiance) and who&apos;s editing it. Group it by priority, Emitter,
+            <strong>Emitters → Threat priorities</strong> lists every EW Group of every Emitter with its function code
+            (set there for the whole Emitter, no edit lock needed) and threat priority,
+            the Platforms the Emitter is on (and their allegiance) and who&apos;s editing it. Group it by function code (to
+            start), priority, Emitter,
             Platform or allegiance, sort and filter it. Type a priority into its cell to change it (empty clears it), or
             tick rows and set them together. An Emitter nobody is editing is checked out to you on the way; then{" "}
             <strong>Save versions…</strong> saves the Emitters you changed as new versions in one go.
@@ -1669,7 +1671,9 @@ export function HelpPage() {
           <strong>Statuses &amp; milestones</strong>: for Emitters, Platforms and MDFs, rename, recolour, add and
           reorder statuses, choose which moves are allowed and which ask for a note, and set the default milestones
           every item has before each status. Built-in statuses can be renamed but not deleted; an added one can be
-          deleted once nothing is in it. <strong>Defaults</strong>: what a new Mode starts with — confirmation
+          deleted once nothing is in it. <strong>Function codes</strong>: the kinds of emitter (code, name,
+          description, order) every new Emitter must pick one of, which Threat priorities groups by; one in use is
+          deleted by moving its Emitters to another. <strong>Defaults</strong>: what a new Mode starts with — confirmation
           quality and quantity, and the RF, PRI, PW and frame-time deltas (frame time ±3 µs to start; it widens a
           stagger&apos;s frame time, the sum of its steps, not each step). The Add Mode form and the Intercept planning
           page fill them in; Modes made from Elements, a typed line or the AI chat get the confirmation and the

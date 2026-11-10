@@ -19,6 +19,7 @@ from app.routers import (
     dwells,
     emitter_checkpoints,
     emitters,
+    function_codes,
     ew_groups,
     imports,
     intercepts,
@@ -99,6 +100,7 @@ app.include_router(ambiguity.ai_router)
 app.include_router(audit_log.router)
 app.include_router(trash.router)
 app.include_router(threat_priorities.router)
+app.include_router(function_codes.router)
 app.include_router(backups.router)
 app.include_router(backups.status_router)
 app.include_router(dwells.router)

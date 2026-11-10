@@ -21,6 +21,7 @@ from app.database import get_db
 from app.services import milestones, statuses
 from app.deps import require_emitter_checkout, require_role
 from app.models.emitter import Emitter
+from app.models.function_code import FunctionCode
 from app.models.emitter_note import EmitterNote
 from app.models.emitter_version import EmitterVersion
 from app.models.ew_group import EwGroup
@@ -198,10 +199,13 @@ def create_emitter(
 ) -> Emitter:
     if _active_name_taken(db, payload.name):
         raise HTTPException(status.HTTP_409_CONFLICT, "Emitter name already exists")
+    if payload.function_code_id is not None and db.get(FunctionCode, payload.function_code_id) is None:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "That function code doesn't exist")
     emitter = Emitter(
         name=payload.name,
         designation=payload.designation,
         description=payload.description,
+        function_code_id=payload.function_code_id,
         created_by=user.id,
     )
     db.add(emitter)
@@ -1121,6 +1125,7 @@ def fork_emitter_version(
         db, source_snapshot=source_version.snapshot, new_name=payload.new_name, created_by=user.id
     )
     new_emitter.forked_from_emitter_id = source_emitter.id
+    new_emitter.function_code_id = source_emitter.function_code_id
     new_emitter.forked_from_version_id = source_version.id
     new_emitter.forked_at_version_number = version_number
     checkout_service.start_checkout(new_emitter, user.id)
@@ -1203,6 +1208,7 @@ def duplicate_emitter(
 
     new_emitter = build_forked_emitter(db, source_snapshot=build_emitter_snapshot(source), new_name=name, created_by=user.id)
     new_emitter.forked_from_emitter_id = source.id
+    new_emitter.function_code_id = source.function_code_id
     new_emitter.forked_from_version_id = latest.id if latest else None
     checkout_service.start_checkout(new_emitter, user.id)
     db.flush()
@@ -1383,3 +1389,40 @@ def bulk_emitter_action(
         results.append(EmitterBulkResult(id=emitter_id, name=name, ok=True, message=message))
     done = sum(1 for r in results if r.ok)
     return EmitterBulkOut(done=done, skipped=len(results) - done, results=results)
+
+
+class FunctionCodeSet(BaseModel):
+    # None: none (only for Emitters made before function codes, or by scripts).
+    function_code_id: UUID | None = None
+
+
+@router.put("/{emitter_id}/function-code", response_model=EmitterOut, dependencies=[Depends(verify_csrf)])
+def set_emitter_function_code(
+    emitter_id: UUID,
+    payload: FunctionCodeSet,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+) -> EmitterOut:
+    """What kind of emitter it is — like the assignee, not part of its saved
+    versions, so it needs no edit lock. Audited."""
+    emitter = _get_emitter_or_404(db, emitter_id)
+    new = db.get(FunctionCode, payload.function_code_id) if payload.function_code_id else None
+    if payload.function_code_id and new is None:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "That function code doesn't exist")
+    old = db.get(FunctionCode, emitter.function_code_id) if emitter.function_code_id else None
+    if (old.id if old else None) != (new.id if new else None):
+        emitter.function_code_id = new.id if new else None
+        label = lambda fc: f"{fc.code} — {fc.name}" if fc else None  # noqa: E731
+        record_audit(
+            db,
+            actor_id=user.id,
+            action=AuditAction.update,
+            entity_type=AuditEntityType.emitter.value,
+            entity_id=emitter.id,
+            summary=f"Set Emitter '{emitter.name}' function code to {new.code if new else 'none'}",
+            changes={"function_code": {"old": label(old), "new": label(new)}},
+            emitter_id=emitter.id,
+        )
+        db.commit()
+        db.refresh(emitter)
+    return attach_emitter_summaries(db, [emitter])[0]

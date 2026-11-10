@@ -109,6 +109,8 @@ export interface Emitter {
   /** Who's responsible for this Emitter — not part of its saved versions. */
   assignee_id: string | null;
   assignee_username: string | null;
+  /** What kind of emitter it is (an Admin-kept function code), for threat priorities. */
+  function_code_id: string | null;
   forked_from_emitter_id: string | null;
   forked_from_version_id: string | null;
   forked_at_version_number: number | null;

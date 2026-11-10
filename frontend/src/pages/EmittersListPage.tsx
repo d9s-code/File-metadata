@@ -17,6 +17,8 @@ import { useSortableTable } from "../components/common/useSortableTable";
 import { compareNullable, compareStrings } from "../components/common/sortUtils";
 import type { Emitter } from "../types/domain";
 import { useAuth } from "../auth/AuthContext";
+import { useFunctionCodes } from "../state/hooks/useFunctionCodes";
+import { functionCodeLabel } from "../api/functionCodes";
 import { usePeople, useTasks } from "../state/hooks/useTasks";
 import { TasksButton } from "../components/tasks/TasksButton";
 import { EmitterBulkBar } from "../components/emitters/EmitterBulkBar";
@@ -150,6 +152,8 @@ export function EmittersListPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [name, setName] = useState("");
   const [designation, setDesignation] = useState("");
+  const [functionCodeId, setFunctionCodeId] = useState("");
+  const { data: functionCodes } = useFunctionCodes();
   const [description, setDescription] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -285,14 +289,20 @@ export function EmittersListPage() {
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
     setFormError(null);
+    if (!functionCodeId) {
+      setFormError("Pick its function code.");
+      return;
+    }
     try {
       const emitter = await createEmitter.mutateAsync({
         name,
         designation: designation || undefined,
         description: description || undefined,
+        function_code_id: functionCodeId,
       });
       setName("");
       setDesignation("");
+      setFunctionCodeId("");
       setDescription("");
       setShowAddModal(false);
       navigate(`/emitters/${emitter.id}`);
@@ -326,6 +336,25 @@ export function EmittersListPage() {
               <label className="wide-label">
                 Designation (optional)
                 <input value={designation} onChange={(e) => setDesignation(e.target.value)} />
+              </label>
+            </div>
+            <div className="form-row">
+              <label className="wide-label">
+                Function code
+                <select value={functionCodeId} onChange={(e) => setFunctionCodeId(e.target.value)} required>
+                  <option value="">— what kind of emitter —</option>
+                  {(functionCodes ?? []).map((fc) => (
+                    <option key={fc.id} value={fc.id} title={fc.description ?? undefined}>
+                      {functionCodeLabel(fc)}
+                    </option>
+                  ))}
+                </select>
+                {functionCodes && functionCodes.length === 0 && (
+                  <span className="error-text">
+                    No function codes yet —{" "}
+                    {user?.role === "admin" ? <Link to="/admin/function-codes">add them under Admin</Link> : "an Admin adds them under Admin"} first.
+                  </span>
+                )}
               </label>
             </div>
             <div className="form-row">

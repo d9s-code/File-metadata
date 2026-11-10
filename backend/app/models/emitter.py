@@ -49,6 +49,12 @@ class Emitter(UUIDPkMixin, TimestampMixin, Base):
     assignee_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    # What kind of emitter it is, from the Admins' list — for grouping threat
+    # priorities. Like the assignee, not part of its saved versions or export,
+    # and set without the edit lock. Required when an Emitter is made in the app.
+    function_code_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("function_codes.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
     forked_from_emitter_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("emitters.id", ondelete="SET NULL"), nullable=True, index=True
     )

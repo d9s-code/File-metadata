@@ -23,6 +23,9 @@ export function AdminNav() {
       <NavLink to="/admin/defaults" className={({ isActive }) => (isActive ? "tab active" : "tab")}>
         Defaults
       </NavLink>
+      <NavLink to="/admin/function-codes" className={({ isActive }) => (isActive ? "tab active" : "tab")}>
+        Function codes
+      </NavLink>
       <NavLink to="/admin/settings" className={({ isActive }) => (isActive ? "tab active" : "tab")}>
         Settings
       </NavLink>

@@ -567,3 +567,15 @@ button.allegiance-chip:hover:not(:disabled), button.speed-chip:hover:not(:disabl
 .tp-platform .allegiance-chip { font-size: 0.7rem; padding: 0 0.45rem; }
 .tp-save-list { list-style: none; padding: 0; margin: 0.4rem 0 0.8rem; display: flex; flex-direction: column; gap: 0.25rem; }
 .tp-save-results { padding-left: 1.1rem; }
+
+/* Admin → Function codes */
+.fc-add { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.5rem 0.75rem; margin: 0.6rem 0 0.8rem; }
+.fc-add label { display: flex; flex-direction: column; gap: 0.2rem; }
+.fc-add-description { flex: 1 1 16rem; }
+.fc-table .fc-order { white-space: nowrap; width: 4.5rem; }
+.fc-table .fc-order .icon-button { padding: 0 0.35rem; }
+.fc-table .fc-code { font-family: var(--mono, inherit); }
+.fc-table .fc-actions { text-align: right; white-space: nowrap; }
+.fc-table .fc-actions > * + * { margin-left: 0.4rem; }
+.fc-table .fc-editing input { width: 100%; }
+.tp-table .tp-code { max-width: 14rem; padding: 0.15rem 0.3rem; font-size: 0.85rem; }

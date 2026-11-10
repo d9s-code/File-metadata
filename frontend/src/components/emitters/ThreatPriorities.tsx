@@ -8,6 +8,8 @@ import { threatPrioritiesApi, type ThreatPriorityRow } from "../../api/threatPri
 import type { Allegiance } from "../../api/platforms";
 import { useAuth } from "../../auth/AuthContext";
 import { useHasRole } from "../../auth/RequireAuth";
+import { functionCodeLabel, type FunctionCode } from "../../api/functionCodes";
+import { useFunctionCodes } from "../../state/hooks/useFunctionCodes";
 import { useSessionState } from "../common/useSessionState";
 import { FilterBar, shownCount } from "../common/FilterBar";
 import { LoadingState } from "../common/LoadingState";
@@ -20,11 +22,12 @@ import { StatusBadge } from "../status/StatusBadge";
 
 const KEY = ["threat-priorities"] as const;
 
-type GroupBy = "none" | "emitter" | "priority" | "platform" | "allegiance";
-type SortKey = "emitter" | "group" | "priority" | "modes" | "platforms";
+type GroupBy = "none" | "code" | "emitter" | "priority" | "platform" | "allegiance";
+type SortKey = "emitter" | "code" | "group" | "priority" | "modes" | "platforms";
 
 const GROUP_BY: { key: GroupBy; label: string }[] = [
   { key: "none", label: "No grouping" },
+  { key: "code", label: "Function code" },
   { key: "priority", label: "Threat priority" },
   { key: "emitter", label: "Emitter" },
   { key: "platform", label: "Platform" },
@@ -32,10 +35,21 @@ const GROUP_BY: { key: GroupBy; label: string }[] = [
 ];
 
 /** Every key a row is filed under for a grouping — a row on two Platforms is in both. */
-function groupKeys(r: ThreatPriorityRow, by: GroupBy): { key: string; label: string; order: string }[] {
+function groupKeys(
+  r: ThreatPriorityRow,
+  by: GroupBy,
+  codes: Map<string, FunctionCode>,
+): { key: string; label: string; order: string }[] {
   switch (by) {
     case "none":
       return [{ key: "all", label: "", order: "" }];
+    case "code": {
+      const fc = r.function_code_id ? codes.get(r.function_code_id) : undefined;
+      // In the Admins' order; none last.
+      return fc
+        ? [{ key: fc.id, label: functionCodeLabel(fc), order: String(fc.sort_order + 1_000_000).padStart(12, "0") + fc.code }]
+        : [{ key: "none", label: "No function code", order: "~" }];
+    }
     case "emitter":
       return [{ key: r.emitter_id, label: r.designation ? `${r.designation} — ${r.emitter_name}` : r.emitter_name, order: r.emitter_name.toLowerCase() }];
     case "priority":
@@ -57,6 +71,15 @@ function groupKeys(r: ThreatPriorityRow, by: GroupBy): { key: string; label: str
       }));
     }
   }
+}
+
+/** "priority 4", "priority 2–7, some none", "no priority". */
+function priorityRange(values: (number | null)[]): string {
+  const set = values.filter((v): v is number => v != null);
+  if (!set.length) return "no priority";
+  const lo = Math.min(...set);
+  const hi = Math.max(...set);
+  return `priority ${lo === hi ? lo : `${lo}–${hi}`}${values.includes(null) ? ", some none" : ""}`;
 }
 
 /** One threat priority cell: type a number, Enter or leaving the cell saves it; empty clears it. */
@@ -115,7 +138,19 @@ export function ThreatPriorities() {
   const canWrite = useHasRole("editor");
   const { data: rows, isLoading, error } = useQuery({ queryKey: KEY, queryFn: threatPrioritiesApi.list });
   const [search, setSearch] = useSessionState("threat.search", "");
-  const [groupBy, setGroupBy] = useSessionState<GroupBy>("threat.groupBy", "priority");
+  const [groupBy, setGroupBy] = useSessionState<GroupBy>("threat.groupBy", "code");
+  const [codeFilter, setCodeFilter] = useSessionState("threat.code", "");
+  const { data: functionCodes } = useFunctionCodes();
+  const codes = useMemo(() => new Map((functionCodes ?? []).map((c) => [c.id, c])), [functionCodes]);
+  const setCode = useMutation({
+    mutationFn: ({ emitterId, codeId }: { emitterId: string; codeId: string | null }) => emittersApi.setFunctionCode(emitterId, codeId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: KEY });
+      qc.invalidateQueries({ queryKey: ["function-codes"] });
+      qc.invalidateQueries({ queryKey: ["emitters"] });
+    },
+    onError: (err) => setProblem(err instanceof ApiRequestError ? err.message : "Couldn't change the function code"),
+  });
   const [only, setOnly] = useSessionState<"" | "set" | "unset">("threat.only", "");
   const [allegiance, setAllegiance] = useSessionState<"" | Allegiance | "unknown">("threat.allegiance", "");
   const [sort, setSort] = useSessionState<{ key: SortKey; dir: "asc" | "desc" }>("threat.sort", { key: "emitter", dir: "asc" });
@@ -157,6 +192,7 @@ export function ThreatPriorities() {
       if (only === "set" && r.threat_priority == null) return false;
       if (only === "unset" && r.threat_priority != null) return false;
       if (allegiance && !r.platforms.some((p) => (p.allegiance ?? "unknown") === allegiance)) return false;
+      if (codeFilter && (codeFilter === "none" ? r.function_code_id != null : r.function_code_id !== codeFilter)) return false;
       if (!t) return true;
       return (
         r.emitter_name.toLowerCase().includes(t) ||
@@ -165,7 +201,7 @@ export function ThreatPriorities() {
         r.platforms.some((p) => p.name.toLowerCase().includes(t))
       );
     });
-  }, [rows, search, only, allegiance]);
+  }, [rows, search, only, allegiance, codeFilter]);
 
   const sorted = useMemo(() => {
     const d = sort.dir;
@@ -173,6 +209,12 @@ export function ThreatPriorities() {
       switch (sort.key) {
         case "emitter":
           return compareStrings(a.emitter_name, b.emitter_name, d) || compareStrings(a.ew_group_name, b.ew_group_name, "asc");
+        case "code":
+          return compareStrings(
+            a.function_code_id ? (codes.get(a.function_code_id)?.code ?? null) : null,
+            b.function_code_id ? (codes.get(b.function_code_id)?.code ?? null) : null,
+            d,
+          );
         case "group":
           return compareStrings(a.ew_group_name, b.ew_group_name, d);
         case "priority":
@@ -189,7 +231,7 @@ export function ThreatPriorities() {
   const groups = useMemo(() => {
     const by = new Map<string, { key: string; label: string; order: string; rows: ThreatPriorityRow[] }>();
     for (const r of sorted) {
-      for (const k of groupKeys(r, groupBy)) {
+      for (const k of groupKeys(r, groupBy, codes)) {
         const g = by.get(k.key) ?? { ...k, rows: [] };
         g.rows.push(r);
         by.set(k.key, g);
@@ -197,7 +239,7 @@ export function ThreatPriorities() {
     }
     // Plain order ("~" — none — after every number and name).
     return [...by.values()].sort((a, b) => (a.order < b.order ? -1 : a.order > b.order ? 1 : 0));
-  }, [sorted, groupBy]);
+  }, [sorted, groupBy, codes]);
 
   // Emitters you hold among these — the ones whose versions can be saved from here.
   const mine = useMemo(() => {
@@ -231,7 +273,7 @@ export function ThreatPriorities() {
       onClear={() => setSort({ key: "emitter", dir: "asc" })}
     />
   );
-  const cols = canWrite ? 7 : 6;
+  const cols = canWrite ? 8 : 7;
 
   async function saveVersions() {
     setSaving(true);
@@ -257,8 +299,9 @@ export function ThreatPriorities() {
   return (
     <div className="threat-priorities">
       <FilterBar
-        active={!!(search || only || allegiance)}
+        active={!!(search || only || allegiance || codeFilter)}
         onReset={() => {
+          setCodeFilter("");
           setSearch("");
           setOnly("");
           setAllegiance("");
@@ -289,6 +332,15 @@ export function ThreatPriorities() {
           <option value="">Any threat priority</option>
           <option value="set">With a threat priority</option>
           <option value="unset">Without one</option>
+        </select>
+        <select value={codeFilter} onChange={(e) => setCodeFilter(e.target.value)} aria-label="Function code">
+          <option value="">Any function code</option>
+          {(functionCodes ?? []).map((c) => (
+            <option key={c.id} value={c.id}>
+              {functionCodeLabel(c)}
+            </option>
+          ))}
+          <option value="none">No function code</option>
         </select>
         <select value={allegiance} onChange={(e) => setAllegiance(e.target.value as typeof allegiance)} aria-label="Platform allegiance">
           <option value="">Any allegiance</option>
@@ -372,6 +424,7 @@ export function ThreatPriorities() {
                 </th>
               )}
               {header("Emitter", "emitter")}
+              {header("Function code", "code")}
               {header("EW Group", "group")}
               {header("Threat priority", "priority", "number")}
               {header("Modes", "modes", "number")}
@@ -403,8 +456,7 @@ export function ThreatPriorities() {
                         </button>
                         <span className="hint-text">
                           {g.rows.length} EW Group{g.rows.length === 1 ? "" : "s"}
-                          {groupBy !== "priority" &&
-                            ` · priority ${priorities.length === 1 ? (priorities[0] ?? "none") : priorities.filter((p) => p != null).length ? `${Math.min(...priorities.filter((p): p is number => p != null))}–${Math.max(...priorities.filter((p): p is number => p != null))}${priorities.includes(null) ? ", some none" : ""}` : "none"}`}
+                          {groupBy !== "priority" && ` · ${priorityRange(priorities)}`}
                         </span>
                         {canWrite && (
                           <button
@@ -445,6 +497,29 @@ export function ThreatPriorities() {
                               {r.emitter_name}
                             </Link>{" "}
                             <StatusBadge type="emitter" status={r.emitter_status} />
+                          </td>
+                          <td>
+                            {canWrite ? (
+                              <select
+                                className="tp-code"
+                                value={r.function_code_id ?? ""}
+                                disabled={setCode.isPending}
+                                aria-label={`Function code of ${r.emitter_name}`}
+                                title="What kind of emitter it is — for the whole Emitter; needs no edit lock"
+                                onChange={(e) => setCode.mutate({ emitterId: r.emitter_id, codeId: e.target.value || null })}
+                              >
+                                <option value="">—</option>
+                                {(functionCodes ?? []).map((c) => (
+                                  <option key={c.id} value={c.id}>
+                                    {functionCodeLabel(c)}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : r.function_code_id && codes.get(r.function_code_id) ? (
+                              functionCodeLabel(codes.get(r.function_code_id))
+                            ) : (
+                              <span className="hint-text">—</span>
+                            )}
                           </td>
                           <td>{r.ew_group_name}</td>
                           <td className="num">

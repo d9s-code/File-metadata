@@ -11,6 +11,8 @@ class EmitterCreate(BaseModel):
     name: str
     designation: str | None = None
     description: str | None = None
+    # The app's Add Emitter form always sends one; scripts and imports may not.
+    function_code_id: UUID | None = None
 
 
 class EmitterUpdate(BaseModel):
@@ -89,6 +91,8 @@ class EmitterOut(BaseModel):
     assignee_id: UUID | None = None
     # Populated by attach_emitter_summaries.
     assignee_username: str | None = None
+    # What kind of emitter it is (an Admin-kept function code), for threat priorities.
+    function_code_id: UUID | None = None
     forked_from_emitter_id: UUID | None = None
     forked_from_version_id: UUID | None = None
     # Versions at or below this number were copied in from the source

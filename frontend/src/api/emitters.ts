@@ -5,6 +5,8 @@ export interface EmitterCreateInput {
   name: string;
   designation?: string;
   description?: string;
+  /** What kind of emitter it is — the Add Emitter form requires one. */
+  function_code_id?: string;
 }
 
 export type EmitterBulkActionName = "assign" | "status" | "pin" | "release";
@@ -39,6 +41,9 @@ export const emittersApi = {
   checkouts: () => api.get<EmitterCheckout[]>("/emitters/checkouts"),
   checkout: (id: string) => api.post<Emitter>(`/emitters/${id}/checkout`),
   checkin: (id: string) => api.delete<Emitter>(`/emitters/${id}/checkout`),
+  /** What kind of emitter it is — needs no edit lock. */
+  setFunctionCode: (id: string, functionCodeId: string | null) =>
+    api.put<Emitter>(`/emitters/${id}/function-code`, { function_code_id: functionCodeId }),
   discard: (id: string) => api.post<Emitter>(`/emitters/${id}/discard`),
   exportXml: (id: string, options?: any) => api.post<Blob>(`/emitters/${id}/export/xml`, undefined, options),
   /** Several Emitters in one XML archive. */

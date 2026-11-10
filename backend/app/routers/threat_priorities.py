@@ -45,6 +45,8 @@ class ThreatPriorityRow(BaseModel):
     emitter_name: str
     designation: str | None
     emitter_status: str
+    # What kind of emitter (see /function-codes); None on Emitters made before them.
+    function_code_id: UUID | None
     checked_out_by_id: UUID | None
     checked_out_by_username: str | None
     platforms: list[PlatformRef]
@@ -99,6 +101,7 @@ def list_threat_priorities(db: Session = Depends(get_db), _=Depends(require_role
             emitter_name=e.name,
             designation=e.designation,
             emitter_status=e.status,
+            function_code_id=e.function_code_id,
             checked_out_by_id=e.checked_out_by_id,
             checked_out_by_username=holder,
             platforms=pins.get(e.id, []),

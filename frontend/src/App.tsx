@@ -37,6 +37,7 @@ import { DwellStrategyPage } from "./pages/DwellStrategyPage";
 import { DwellVersionHistoryPage } from "./pages/DwellVersionHistoryPage";
 import { AdminSettingsPage } from "./pages/AdminSettingsPage";
 import { AdminDefaultsPage } from "./pages/AdminDefaultsPage";
+import { AdminFunctionCodesPage } from "./pages/AdminFunctionCodesPage";
 import { AdminStatusesPage } from "./pages/AdminStatusesPage";
 import { InterceptsPage } from "./pages/InterceptsPage";
 import { RecordingPage } from "./pages/RecordingPage";
@@ -416,6 +417,16 @@ export default function App() {
                   <RequireAuth>
                     <RequireAdmin>
                       <AdminStatusesPage />
+                    </RequireAdmin>
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/admin/function-codes"
+                element={
+                  <RequireAuth>
+                    <RequireAdmin>
+                      <AdminFunctionCodesPage />
                     </RequireAdmin>
                   </RequireAuth>
                 }
