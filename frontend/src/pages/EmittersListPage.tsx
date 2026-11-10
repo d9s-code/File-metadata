@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useState, type FormEvent } from "react";
+import { Fragment, useCallback, useMemo, useState, type FormEvent } from "react";
 import { EMITTERS_SECTION, InfoTip, PageHeader } from "../components/common/PageHeader";
 import { MenuButton } from "../components/common/MenuButton";
 import { DuplicateEmitterModal } from "../components/emitters/DuplicateEmitterModal";
@@ -45,6 +45,7 @@ type EmitterSortKey =
   | "sim_created"
   | "last_tested"
   | "assignee"
+  | "function_code"
   | "platforms";
 
 function platformNames(e: Emitter): string {
@@ -63,6 +64,8 @@ function compareEmitters(
   key: EmitterSortKey,
   dir: "asc" | "desc",
   statusLabel: (key: string) => string,
+  /** A function code's place in the Admins' order (null: none). */
+  codeOrder: (id: string | null) => number | null,
 ): number {
   switch (key) {
     case "name":
@@ -95,6 +98,8 @@ function compareEmitters(
       return compareStrings(a.last_tested_at, b.last_tested_at, dir);
     case "assignee":
       return compareStrings(a.assignee_username, b.assignee_username, dir);
+    case "function_code":
+      return compareNullable(codeOrder(a.function_code_id), codeOrder(b.function_code_id), dir);
     case "platforms":
       return compareStrings(platformNames(a) || null, platformNames(b) || null, dir);
   }
@@ -103,6 +108,7 @@ function compareEmitters(
 type ColumnId =
   | "designation"
   | "status"
+  | "function_code"
   | "assignee"
   | "platforms"
   | "rf"
@@ -116,6 +122,7 @@ type ColumnId =
 const COLUMNS: ToggleableColumn<ColumnId>[] = [
   { id: "designation", label: "Designation" },
   { id: "status", label: "Status" },
+  { id: "function_code", label: "Function code" },
   { id: "assignee", label: "Assigned to" },
   { id: "platforms", label: "Platforms" },
   { id: "rf", label: "RF (MHz)" },
@@ -154,6 +161,9 @@ export function EmittersListPage() {
   const [designation, setDesignation] = useState("");
   const [functionCodeId, setFunctionCodeId] = useState("");
   const { data: functionCodes } = useFunctionCodes();
+  const codesById = useMemo(() => new Map((functionCodes ?? []).map((c) => [c.id, c])), [functionCodes]);
+  // Sorting follows the Admins' order.
+  const codeIndex = useMemo(() => new Map((functionCodes ?? []).map((c, i) => [c.id, i])), [functionCodes]);
   const [description, setDescription] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -173,6 +183,8 @@ export function EmittersListPage() {
   const [platformFilter, setPlatformFilter] = useSessionState("emitters.platformFilter", "");
   // "" anyone, "me", "none", or a person's id.
   const [assignedFilter, setAssignedFilter] = useSessionState("emitters.assignedFilter", "");
+  // A function code's id, or "none" for Emitters without one.
+  const [codeFilter, setCodeFilter] = useSessionState("emitters.codeFilter", "");
   const { user } = useAuth();
   const { data: people } = usePeople();
   const canWrite = useHasRole("editor");
@@ -201,13 +213,15 @@ export function EmittersListPage() {
     if (assignedFilter === "none" && e.assignee_id) return false;
     if (assignedFilter === "me" && e.assignee_id !== user?.id) return false;
     if (assignedFilter && !["me", "none"].includes(assignedFilter) && e.assignee_id !== assignedFilter) return false;
+    if (codeFilter && (codeFilter === "none" ? e.function_code_id != null : e.function_code_id !== codeFilter)) return false;
     return true;
   });
 
   const statuses = useStatuses("emitter");
   const comparator = useCallback(
-    (a: Emitter, b: Emitter, key: EmitterSortKey, dir: "asc" | "desc") => compareEmitters(a, b, key, dir, statuses.label),
-    [statuses],
+    (a: Emitter, b: Emitter, key: EmitterSortKey, dir: "asc" | "desc") =>
+      compareEmitters(a, b, key, dir, statuses.label, (id) => (id ? (codeIndex.get(id) ?? null) : null)),
+    [statuses, codeIndex],
   );
   // Z–A by name until someone sorts it otherwise (kept for the tab's session).
   const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable<Emitter, EmitterSortKey>(filtered, comparator, "emitters", {
@@ -255,7 +269,7 @@ export function EmittersListPage() {
           : [e.summary.scan_min, e.summary.scan_max];
 
   const rangesSet = [rfMin, rfMax, pwMin, pwMax, priMin, priMax, scanMin, scanMax].some(Boolean);
-  const filtering = !!nameFilter || !!platformFilter || !!assignedFilter || rangesSet;
+  const filtering = !!nameFilter || !!platformFilter || !!assignedFilter || !!codeFilter || rangesSet;
   // Every Platform some Emitter is on, for the Platform search's suggestions.
   const platformOptions = [...new Set((emitters ?? []).flatMap((e) => (e.platforms ?? []).map((p) => p.name)))].sort(
     (a, b) => a.localeCompare(b),
@@ -273,6 +287,7 @@ export function EmittersListPage() {
     setScanMin("");
     setScanMax("");
     setAssignedFilter("");
+    setCodeFilter("");
   }
 
   async function handleDelete(emitter: Emitter) {
@@ -412,6 +427,15 @@ export function EmittersListPage() {
           ))}
           <option value="none">On no Platform</option>
         </datalist>
+        <select aria-label="Function code" value={codeFilter} onChange={(e) => setCodeFilter(e.target.value)}>
+          <option value="">Any function code</option>
+          {(functionCodes ?? []).map((fc) => (
+            <option key={fc.id} value={fc.id}>
+              {functionCodeLabel(fc)}
+            </option>
+          ))}
+          <option value="none">No function code</option>
+        </select>
         <select aria-label="Assigned to" value={assignedFilter} onChange={(e) => setAssignedFilter(e.target.value)}>
           <option value="">Assigned to anyone</option>
           <option value="me">Assigned to me</option>
@@ -491,6 +515,7 @@ export function EmittersListPage() {
               {show("designation") && header("Designation", "designation")}
               {header("Name", "name", undefined, { rowSpan: 2, className: "emitters-name-col" })}
               {show("status") && header("Status", "status")}
+              {show("function_code") && header("Function code", "function_code")}
               {show("assignee") && header("Assigned to", "assignee")}
               {show("platforms") && header("Platforms", "platforms")}
               {RANGES.map(([id, label, unit]) => (
@@ -540,6 +565,15 @@ export function EmittersListPage() {
                 {show("status") && (
                   <td>
                     <StatusBadge type="emitter" status={e.status} />
+                  </td>
+                )}
+                {show("function_code") && (
+                  <td title={e.function_code_id ? functionCodeLabel(codesById.get(e.function_code_id)) : undefined}>
+                    {e.function_code_id && codesById.get(e.function_code_id) ? (
+                      <span className="emitters-code">{codesById.get(e.function_code_id)?.code}</span>
+                    ) : (
+                      <span className="muted">—</span>
+                    )}
                   </td>
                 )}
                 {show("assignee") && (
