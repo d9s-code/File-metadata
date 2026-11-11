@@ -4,6 +4,17 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localho
  * expired or was revoked), so the auth layer can send the user to /login. */
 export const SESSION_EXPIRED_EVENT = "auth:session-expired";
 
+/** Fired after any request that changed data succeeds, so every page on
+ * screen can refresh (see AutoRefresh). */
+export const DATA_CHANGED_EVENT = "api:data-changed";
+
+/** Writes that only read: previews, dry runs, comparisons, signing in. */
+const READ_ONLY_WRITE = /(?:[/-]preview(?:[/?]|$)|[?&]dry_run=true|\/compare(?:[/?]|$)|^\/auth\/)/;
+
+export function changesData(method: string, path: string): boolean {
+  return !["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase()) && !READ_ONLY_WRITE.test(path);
+}
+
 function readCookie(name: string): string | null {
   const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
   return match ? decodeURIComponent(match[1]) : null;
@@ -73,6 +84,8 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     }
     throw new ApiRequestError(resp.status, message, detail);
   }
+
+  if (changesData(method, path)) window.dispatchEvent(new CustomEvent(DATA_CHANGED_EVENT, { detail: { method, path } }));
 
   if (resp.status === 204) return undefined as T;
 

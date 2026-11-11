@@ -695,3 +695,68 @@ td.gen-delta-col {
   padding-left: 1.2rem;
   font-size: max(0.86rem, 12px);
 }
+
+/* Import JSON: options, then a preview of what the file would make. */
+.json-import {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.json-import-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.json-import-options label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.json-import-file {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.json-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.json-preview p {
+  margin: 0;
+}
+.json-preview-warn {
+  color: var(--badge-amber-fg);
+}
+ul.json-preview-warn {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+.json-preview-skipped summary {
+  cursor: pointer;
+  color: var(--badge-amber-fg);
+}
+.json-preview-table {
+  max-height: 22rem;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.json-preview-table .data-table {
+  margin: 0;
+}
+.json-preview-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--card-bg);
+}
+.json-preview-detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 2rem;
+}
+.json-preview-detail ul {
+  margin: 0.2rem 0 0;
+  padding-left: 1.1rem;
+}

@@ -756,7 +756,9 @@ export function HelpPage() {
               <strong>Import JSON</strong> leaves out what it can&apos;t read instead of failing the whole file, and
               lists it when it&apos;s done: a sequence with no step that has an RF, PRI or PW, an element whose value
               isn&apos;t a number, or a set left with nothing. A step value that isn&apos;t a number is dropped from its
-              step, and a min above its max is swapped.
+              step, and a min above its max is swapped. Picking a file shows a <strong>preview</strong> first — the Sources it would make, with their Elements and
+              sequences (open a row to list them), what would be left out, and anything that stops it — and nothing is
+              saved until you press <strong>Import</strong>.
             </p>
             <p>
               <strong>Batch add</strong> adds Elements (or a Sequence) to several Sources at once. Tick the Sources

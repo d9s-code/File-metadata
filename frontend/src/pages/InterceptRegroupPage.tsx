@@ -100,6 +100,7 @@ export function InterceptRegroupPage() {
     // Refetching under someone's feet would reset their work.
     refetchOnWindowFocus: false,
     staleTime: Infinity,
+    meta: { autoRefresh: false },
   });
   const stored = useMemo(() => (all.data ? fromStored(all.data) : null), [all.data]);
   const [groups, setGroups] = useState<ReportGroup[] | null>(null);

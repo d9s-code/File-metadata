@@ -77,3 +77,45 @@ class ImportCommitResult(BaseModel):
     sequence_count: int
     # What a JSON file had that couldn't be read and was left out, in words.
     skipped: list[str] = Field(default_factory=list)
+
+
+class JsonPreviewElement(BaseModel):
+    element_type: str
+    variant: str | None = None
+    label: str | None = None
+    value_min: float | None = None
+    value_max: float | None = None
+
+
+class JsonPreviewSequence(BaseModel):
+    label: str | None = None
+    steps: int
+    # The parameters its steps set, e.g. ["RF", "PRI"].
+    parameters: list[str]
+    # What its kind will be guessed as once imported ("stagger" / "dwell_switch").
+    guessed_kind: str
+
+
+class JsonPreviewSet(BaseModel):
+    source_name: str
+    source_date: date
+    source_description: str | None = None
+    elements: list[JsonPreviewElement]
+    sequences: list[JsonPreviewSequence]
+    # A Source of this name is already on the Emitter (the import adds another).
+    name_taken: bool = False
+
+
+class JsonImportPreview(BaseModel):
+    """What importing a JSON file would create — nothing is saved."""
+
+    document_name: str
+    document_reference: str | None = None
+    sets: list[JsonPreviewSet]
+    element_count: int
+    sequence_count: int
+    # What in the file can't be read and would be left out, in words.
+    skipped: list[str] = Field(default_factory=list)
+    # Errors block the import; warnings don't.
+    issues: list[ImportFieldIssue] = Field(default_factory=list)
+    valid: bool

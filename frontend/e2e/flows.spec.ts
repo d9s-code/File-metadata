@@ -130,3 +130,59 @@ test("Emitters list: sorted by status, and a status hidden from the Status colum
   await expect(row).toHaveCount(1);
   await removeEmitter(page, emitter.id);
 });
+
+test("pages refresh after a change: a new Element shows in Element coverage without reloading", async ({ page }) => {
+  const emitter = await makeEmitter(page);
+  await page.goto(`/emitters/${emitter.id}?tab=setup`);
+  const coverage = page.locator("h2", { hasText: "Element coverage" });
+  await expect(coverage).toContainText("nothing to check until the Sources have Elements");
+
+  await page.getByRole("button", { name: "Datasheet", exact: true }).click();
+  await page.getByLabel("RF min (MHz)").fill("2950");
+  await page.getByLabel("RF max (MHz)").fill("3000");
+  await page.getByRole("button", { name: "Add RF" }).click();
+  await expect(page.getByRole("status")).toContainText("Added RF 2950–3000 MHz");
+  await page.getByRole("button", { name: "Close" }).click();
+
+  // The Mode's RF (FIXED_LINE) covers it — counted with no reload.
+  await expect(coverage).toContainText("1 of 1 Elements covered");
+  await removeEmitter(page, emitter.id);
+});
+
+test("Import JSON shows a preview first, and imports only when asked", async ({ page }) => {
+  const emitter = await makeEmitter(page);
+  const file = {
+    file: "preview-e2e.xml",
+    notation: "E2E",
+    parametric_sets: [
+      {
+        set_id: "E2E-SET",
+        date_last_updated: "10-06-2015 17:19:28 GMT",
+        groups: [
+          { type: "sequence", name: "Train", steps: [{ "step-num": "1", "pri-value": { min: "800", max: "800" } }, { "step-num": "2", "pri-value": { min: "900", max: "900" } }] },
+          { type: "sequence", name: "Scan only", steps: [{ "step-num": "1", "scan-value": { min: "2", max: "4" } }] },
+        ],
+      },
+    ],
+  };
+  await page.goto(`/emitters/${emitter.id}?tab=setup`);
+  await page.getByRole("button", { name: "More ways to add Sources" }).click();
+  await page.getByRole("menuitem", { name: "Import JSON…" }).click();
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Select JSON file" }).click();
+  await (await chooser).setFiles({ name: "e2e.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(file)) });
+
+  const preview = page.getByLabel("What the import would make");
+  await expect(preview).toContainText("would make 1 Source with 0 Elements and 1 sequence");
+  await expect(preview).toContainText("Sequence 'Scan only' in 'E2E-SET': no step has an RF, PRI or PW");
+  await expect(page.getByRole("row", { name: /E2E-SET/ })).toBeVisible();
+  // Nothing saved yet.
+  expect(await api<unknown[]>(page, "GET", `/emitters/${emitter.id}/sources`)).toHaveLength(1);
+
+  await page.getByRole("button", { name: "Import 1 Source" }).click();
+  await expect(page.getByText("1 thing in the file couldn't be read and was left out:")).toBeVisible();
+  await page.getByRole("button", { name: "Done" }).click();
+  // The Sources list shows it without reloading.
+  await expect(page.getByRole("button", { name: "E2E-SET", exact: true })).toBeVisible();
+  await removeEmitter(page, emitter.id);
+});

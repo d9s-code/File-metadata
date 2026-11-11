@@ -202,6 +202,7 @@ export function InterceptModePlanPage() {
     queryFn: () => interceptsApi.allReports(interceptId),
     enabled: !!interceptId,
     refetchOnWindowFocus: false,
+    meta: { autoRefresh: false },
   });
   const apply = useApplyInterceptModePlan(emitterId);
   const { confirmDelete: confirm, dialog } = useConfirmDialog();

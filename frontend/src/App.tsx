@@ -5,6 +5,7 @@ import { RequireAuth, RequireAdmin } from "./auth/RequireAuth";
 import { STANDALONE } from "./api/offline";
 import { OfflineSyncPage } from "./pages/OfflineSyncPage";
 import { ThemeProvider } from "./theme/ThemeContext";
+import { AutoRefresh } from "./state/AutoRefresh";
 import { NavBar } from "./components/common/NavBar";
 import { ChatWidget } from "./components/ai/ChatWidget";
 import { BackupWarning } from "./components/common/BackupWarning";
@@ -74,6 +75,7 @@ export default function App() {
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
+        <AutoRefresh />
         <BrowserRouter>
           <AuthProvider>
             <NavBar />

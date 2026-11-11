@@ -59,7 +59,33 @@ export const emittersApi = {
     if (groupId) formData.append("group_id", groupId);
     return api.post<JsonImportResult>(`/emitters/${emitterId}/imports/json-import`, formData);
   },
+  previewJson: (emitterId: string, file: File, sourceDate?: string) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    if (sourceDate) formData.append("source_date", sourceDate);
+    return api.post<JsonImportPreview>(`/emitters/${emitterId}/imports/json-import/preview`, formData);
+  },
 };
+
+/** What importing a JSON file would create — nothing is saved. */
+export interface JsonImportPreview {
+  document_name: string;
+  document_reference: string | null;
+  sets: {
+    source_name: string;
+    source_date: string;
+    source_description: string | null;
+    elements: { element_type: string; variant: string | null; label: string | null; value_min: number | null; value_max: number | null }[];
+    sequences: { label: string | null; steps: number; parameters: string[]; guessed_kind: "stagger" | "dwell_switch" }[];
+    /** A Source of this name is already on the Emitter. */
+    name_taken: boolean;
+  }[];
+  element_count: number;
+  sequence_count: number;
+  skipped: string[];
+  issues: { path: string; message: string; severity: "error" | "warning" }[];
+  valid: boolean;
+}
 
 /** What a JSON import made, and what in the file couldn't be read and was left out. */
 export interface JsonImportResult {

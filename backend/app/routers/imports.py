@@ -15,8 +15,13 @@ from app.models.source import Source
 from app.models.source_group import SourceGroup
 from app.schemas.import_batch import (
     ImportCommitResult,
+    ImportFieldIssue,
     ImportPayload,
     ImportValidationResult,
+    JsonImportPreview,
+    JsonPreviewElement,
+    JsonPreviewSequence,
+    JsonPreviewSet,
 )
 from app.schemas.prs_import import (
     PrsFileModeOut,
@@ -29,6 +34,7 @@ from app.schemas.prs_import import (
 from app.services.audit_service import record_audit
 from app.services.import_service import commit_import_payload, validate_import_payload
 from app.services.json_import.transformer import transform_json_to_payload
+from app.services.sequence_kind import guess_kind
 from app.services.prs_import.prs_import_service import (
     PrsXmlParseError,
     parse_emitter_xml,
@@ -65,6 +71,30 @@ def _read_upload(file: UploadFile) -> bytes:
     return content
 
 
+def _parse_json_upload(file: UploadFile, source_date: date | None) -> tuple[ImportPayload, list[str]]:
+    """An uploaded JSON import file as the payload to import, and what in it
+    can't be read and is left out — the same for the preview and the import."""
+    try:
+        json_data = json.loads(_read_upload(file))
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Not a valid JSON file: {exc}") from exc
+    # The format is a list of files; one file on its own is taken as a list of one.
+    if isinstance(json_data, dict):
+        json_data = [json_data]
+    # What the file has that can't be read is left out and listed here.
+    skipped: list[str] = []
+    try:
+        payload = transform_json_to_payload(json_data, override_source_date=source_date, skipped=skipped)
+    except (ValueError, TypeError, KeyError, IndexError, AttributeError) as exc:
+        # ValueError includes pydantic's ValidationError from the payload models.
+        left_out = f" Left out: {'; '.join(skipped)}." if skipped else ""
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            f"JSON file doesn't match the expected import format: {exc}{left_out}",
+        ) from exc
+    return payload, skipped
+
+
 @router.post("/validate", response_model=ImportValidationResult)
 def validate_import(
     emitter_id: UUID,
@@ -93,21 +123,7 @@ def commit_json_import(
     db: Session = Depends(get_db),
     user=Depends(require_emitter_checkout()),
 ) -> ImportCommitResult:
-    try:
-        json_data = json.loads(_read_upload(file))
-    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Not a valid JSON file: {exc}") from exc
-    # What the file has that can't be read is left out and listed here.
-    skipped: list[str] = []
-    try:
-        payload = transform_json_to_payload(json_data, override_source_date=source_date, skipped=skipped)
-    except (ValueError, TypeError, KeyError, IndexError, AttributeError) as exc:
-        # ValueError includes pydantic's ValidationError from the payload models.
-        left_out = f" Left out: {'; '.join(skipped)}." if skipped else ""
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            f"JSON file doesn't match the expected import format: {exc}{left_out}",
-        ) from exc
+    payload, skipped = _parse_json_upload(file, source_date)
 
     if group_id is not None and db.get(SourceGroup, group_id) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Source group not found")
@@ -147,6 +163,81 @@ def commit_json_import(
         element_count=sum(len(s.elements) for s in sources),
         sequence_count=sum(len(s.parameter_sequences) for s in sources),
         skipped=skipped,
+    )
+
+
+_PARAMS = (("RF", ("rf_mhz", "rf_min_mhz")), ("PRI", ("pri_us", "pri_min_us")), ("PW", ("pw_us", "pw_min_us")))
+
+
+@router.post("/json-import/preview", response_model=JsonImportPreview, dependencies=[Depends(verify_csrf)])
+def preview_json_import(
+    emitter_id: UUID,
+    file: UploadFile = File(...),
+    source_date: date | None = Form(None),
+    db: Session = Depends(get_db),
+    _=Depends(require_role(Role.editor)),
+) -> JsonImportPreview:
+    """What importing this file would create: its Sources with their Elements
+    and sequences, what would be left out, and what's wrong — nothing is saved."""
+    _get_emitter_or_404(db, emitter_id)
+    payload, skipped = _parse_json_upload(file, source_date)
+    result = validate_import_payload(db, emitter_id=emitter_id, payload=payload)
+    taken = {
+        name
+        for (name,) in db.query(Source.name).filter(
+            Source.emitter_id == emitter_id, Source.name.in_([p.source_name for p in payload.parametric_sets])
+        )
+    }
+    issues = list(result.issues) + [
+        ImportFieldIssue(
+            path=f"parametric_sets[{i}].source_name",
+            message=f"A Source named '{p.source_name}' is already on this Emitter — the import adds another",
+            severity="warning",
+        )
+        for i, p in enumerate(payload.parametric_sets)
+        if p.source_name in taken
+    ]
+    sets = []
+    for p in payload.parametric_sets:
+        sequences = []
+        for q in p.sequences:
+            steps = [st.model_dump() for st in q.steps]
+            sequences.append(
+                JsonPreviewSequence(
+                    label=q.label,
+                    steps=len(steps),
+                    parameters=[name for name, fields in _PARAMS if any(st.get(f) is not None for st in steps for f in fields)],
+                    guessed_kind=guess_kind(steps),
+                )
+            )
+        sets.append(
+            JsonPreviewSet(
+                source_name=p.source_name,
+                source_date=p.source_date,
+                source_description=p.source_description,
+                elements=[
+                    JsonPreviewElement(
+                        element_type=str(getattr(e.element_type, "value", e.element_type)),
+                        variant=str(getattr(e.variant, "value", e.variant)) if e.variant else None,
+                        label=e.label,
+                        value_min=e.value_min,
+                        value_max=e.value_max,
+                    )
+                    for e in p.elements
+                ],
+                sequences=sequences,
+                name_taken=p.source_name in taken,
+            )
+        )
+    return JsonImportPreview(
+        document_name=payload.document_name,
+        document_reference=payload.document_reference,
+        sets=sets,
+        element_count=result.element_count,
+        sequence_count=result.sequence_count,
+        skipped=skipped,
+        issues=issues,
+        valid=result.valid,
     )
 
 

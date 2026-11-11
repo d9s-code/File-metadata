@@ -132,3 +132,73 @@ def test_nothing_readable_at_all_is_still_refused_and_says_why(editor_client):
     )
     assert resp.status_code == 422
     assert "Left out: Sequence 'Empty' in 'ONLY'" in resp.text
+
+
+def _upload(client, eid, data, path="json-import"):
+    return client.post(
+        f"/emitters/{eid}/imports/{path}",
+        files={"file": ("f.json", json.dumps(data).encode(), "application/json")},
+        data={"source_date": "2026-03-01"},
+    )
+
+
+def test_preview_shows_what_would_be_imported_and_saves_nothing(editor_client):
+    eid = editor_client.post("/emitters", json={"name": "Preview import"}).json()["id"]
+    data = _file(
+        _set("SET-1", _seq("Train", _pri(1, 800), _pri(2, 900)), _seq("Scan only", {"step-num": "1", "scan-value": {"min": "2", "max": "4"}}), RF_ELEMENT),
+        _set("SET-2", _seq("Hops",
+                           {"step-num": "1", "rf-value": {"min": "9000", "max": "9000"}, "pri-value": {"min": "800", "max": "800"}},
+                           {"step-num": "2", "rf-value": {"min": "9200", "max": "9200"}, "pri-value": {"min": "900", "max": "900"}})),
+    )
+    resp = _upload(editor_client, eid, data, "json-import/preview")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["valid"] is True and body["document_name"] == "doc.xml"
+    assert [s["source_name"] for s in body["sets"]] == ["SET-1", "SET-2"]
+    first, second = body["sets"]
+    assert first["source_date"] == "2026-03-01"
+    assert [(e["element_type"], e["variant"], e["value_min"], e["value_max"]) for e in first["elements"]] == [("rf", "typical", 9000, 9100)]
+    assert first["sequences"] == [{"label": "Train", "steps": 2, "parameters": ["PRI"], "guessed_kind": "stagger"}]
+    assert second["sequences"][0]["parameters"] == ["RF", "PRI"]
+    assert second["sequences"][0]["guessed_kind"] == "dwell_switch"
+    assert body["skipped"] == ["Sequence 'Scan only' in 'SET-1': no step has an RF, PRI or PW — left out"]
+    assert (body["element_count"], body["sequence_count"]) == (1, 2)
+    # Nothing was saved.
+    assert editor_client.get(f"/emitters/{eid}/sources").json() == []
+
+
+def test_preview_warns_about_a_source_name_already_there(editor_client):
+    eid = editor_client.post("/emitters", json={"name": "Preview import"}).json()["id"]
+    data = _file(_set("SET-1", _seq("Train", _pri(1, 800), _pri(2, 900))))
+    assert _upload(editor_client, eid, data).status_code == 201
+    body = _upload(editor_client, eid, data, "json-import/preview").json()
+    assert body["valid"] is True  # a warning, not a block
+    assert body["sets"][0]["name_taken"] is True
+    assert [(i["severity"], i["message"]) for i in body["issues"]] == [
+        ("warning", "A Source named 'SET-1' is already on this Emitter — the import adds another")
+    ]
+
+
+def test_preview_blocks_duplicate_names_within_the_file(editor_client):
+    eid = editor_client.post("/emitters", json={"name": "Preview import"}).json()["id"]
+    data = _file(_set("SAME", _seq("A", _pri(1, 800))), _set("SAME", _seq("B", _pri(1, 900))))
+    body = _upload(editor_client, eid, data, "json-import/preview").json()
+    assert body["valid"] is False
+    assert any(i["severity"] == "error" and "Duplicate source_name 'SAME'" in i["message"] for i in body["issues"])
+
+
+def test_preview_of_an_unreadable_file_says_why(editor_client):
+    eid = editor_client.post("/emitters", json={"name": "Preview import"}).json()["id"]
+    resp = editor_client.post(
+        f"/emitters/{eid}/imports/json-import/preview",
+        files={"file": ("f.json", b"{not json", "application/json")},
+    )
+    assert resp.status_code == 422
+    assert "Not a valid JSON file" in resp.text
+
+
+def test_one_file_object_on_its_own_is_taken_as_a_list_of_one(editor_client):
+    eid = editor_client.post("/emitters", json={"name": "Preview import"}).json()["id"]
+    [one] = _file(_set("SET-1", _seq("Train", _pri(1, 800), _pri(2, 900))))
+    body = _upload(editor_client, eid, one, "json-import/preview").json()
+    assert [s["source_name"] for s in body["sets"]] == ["SET-1"]
