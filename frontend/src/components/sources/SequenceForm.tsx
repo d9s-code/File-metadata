@@ -11,7 +11,19 @@ interface StepState {
   dwell_s?: number | null;
 }
 
-export function SequenceForm({ emitterId, sourceId, canEdit }: { emitterId: string; sourceId: string; canEdit: boolean }) {
+export function SequenceForm({
+  emitterId,
+  sourceId,
+  canEdit,
+  onCancel,
+  onAdded,
+}: {
+  emitterId: string;
+  sourceId: string;
+  canEdit: boolean;
+  onCancel?: () => void;
+  onAdded?: () => void;
+}) {
   const createSequence = useCreateParameterSequence(emitterId, sourceId);
   const [label, setLabel] = useState("");
   const [steps, setSteps] = useState<StepState[]>([{
@@ -72,76 +84,70 @@ export function SequenceForm({ emitterId, sourceId, canEdit }: { emitterId: stri
       });
       setLabel("");
       setSteps([{ order: 0, rf_mhz: undefined, pw_us: undefined, pri_us: undefined, scan_value: undefined, dwell_s: undefined }]);
+      onAdded?.();
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : "Failed to create sequence");
     }
   }
 
-  return (
-    <form className="card space-y-4" onSubmit={handleSubmit}>
-      <div className="flex items-end gap-4">
-        <div className="flex flex-col gap-1 flex-grow">
-          <label className="text-xs font-semibold uppercase text-gray-500">Sequence Label</label>
-          <input placeholder="Sequence Name" value={label} onChange={(e) => setLabel(e.target.value)} />
-        </div>
-      </div>
+  const cell = (index: number, field: "rf_mhz" | "pri_us" | "pw_us" | "dwell_s", label: string, first = false) => (
+    <td>
+      <input
+        ref={first ? (el) => { if (el) rfInputsRef.current[index] = el; } : undefined}
+        type="number"
+        step="any"
+        aria-label={`Step ${index + 1} ${label}`}
+        value={steps[index][field] ?? ""}
+        onChange={(e) => updateStep(index, field, e.target.value ? Number(e.target.value) : null)}
+      />
+    </td>
+  );
 
+  return (
+    <form className="seq-form" onSubmit={handleSubmit} aria-label="Add a sequence">
+      <div className="seq-form-head">
+        <label>
+          Label
+          <input placeholder="e.g. Burst A" value={label} onChange={(e) => setLabel(e.target.value)} />
+        </label>
+        {onCancel && (
+          <button type="button" className="button secondary small" onClick={onCancel}>
+            Cancel
+          </button>
+        )}
+        <button type="submit" className="button primary small" disabled={createSequence.isPending || !canEdit}>
+          {createSequence.isPending ? "Adding…" : "Add sequence"}
+        </button>
+      </div>
       <div className="long-list-scroll">
-        <table className="data-table">
-          <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 text-xs uppercase font-medium">
+        <table className="data-table compact seq-form-table">
+          <thead>
             <tr>
-              <th className="px-2 py-2 w-16 text-center">Order</th>
-              <th className="px-2 py-2">RF (MHz)</th>
-              <th className="px-2 py-2">PRI (µs)</th>
-              <th className="px-2 py-2">PW (µs)</th>
-              <th className="px-2 py-2">Dwell (pulses)</th>
-              <th className="px-2 py-2 w-16 text-center">Action</th>
+              <th className="num">Step</th>
+              <th>RF (MHz)</th>
+              <th>PRI (µs)</th>
+              <th>PW (µs)</th>
+              <th>Dwell (pulses)</th>
+              <th aria-label="Remove" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200">
+          <tbody>
             {steps.map((step, index) => (
-              <tr key={index} className="hover:bg-gray-50 transition-colors">
-                <td className="px-2 py-1 text-center font-mono text-gray-500">{step.order + 1}</td>
-                <td className="px-2 py-1">
-                  <input 
-                    ref={(el) => { if (el) rfInputsRef.current[index] = el; }}
-                    type="number" step="any" 
-                    className="w-full bg-transparent"
-                    value={step.rf_mhz ?? ""} 
-                    onChange={(e) => updateStep(index, "rf_mhz", e.target.value ? Number(e.target.value) : null)}
-                  />
-                </td>
-                <td className="px-2 py-1">
-                  <input 
-                    type="number" step="any" 
-                    className="w-full bg-transparent"
-                    value={step.pri_us ?? ""} 
-                    onChange={(e) => updateStep(index, "pri_us", e.target.value ? Number(e.target.value) : null)}
-                  />
-                </td>
-                <td className="px-2 py-1">
-                  <input 
-                    type="number" step="any" 
-                    className="w-full bg-transparent"
-                    value={step.pw_us ?? ""} 
-                    onChange={(e) => updateStep(index, "pw_us", e.target.value ? Number(e.target.value) : null)}
-                  />
-                </td>
-                <td className="px-2 py-1">
-                  <input 
-                    type="number" step="any" 
-                    className="w-full bg-transparent"
-                    value={step.dwell_s ?? ""} 
-                    onChange={(e) => updateStep(index, "dwell_s", e.target.value ? Number(e.target.value) : null)}
-                  />
-                </td>
-                <td className="px-2 py-1 text-center">
-                  <button 
-                    type="button" 
+              <tr key={index}>
+                <td className="num hint-text">{step.order + 1}</td>
+                {cell(index, "rf_mhz", "RF", true)}
+                {cell(index, "pri_us", "PRI")}
+                {cell(index, "pw_us", "PW")}
+                {cell(index, "dwell_s", "dwell")}
+                <td>
+                  <button
+                    type="button"
+                    className="el-delete"
                     onClick={() => removeStep(index)}
-                    className="text-red-500 hover:text-red-700 font-bold"
+                    disabled={steps.length === 1}
+                    aria-label={`Remove step ${index + 1}`}
                   >
-                    ×
+                    ✕
                   </button>
                 </td>
               </tr>
@@ -149,26 +155,11 @@ export function SequenceForm({ emitterId, sourceId, canEdit }: { emitterId: stri
           </tbody>
         </table>
       </div>
-
-      <div className="flex justify-between items-center mt-4" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
-        <div className="flex items-center gap-2">
-          <button 
-            type="button" 
-            onClick={addStep} 
-            className="text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-3 py-1 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-          >
-            + Add step
-          </button>
-          {error && <div className="error-text">{error}</div>}
-        </div>
-        <button
-          type="submit"
-          disabled={createSequence.isPending || !canEdit}
-          title={canEdit ? undefined : "Start editing this Emitter first"}
-          className="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700 disabled:opacity-50"
-        >
-          {createSequence.isPending ? "Adding…" : "Add sequence"}
+      <div className="seq-form-foot">
+        <button type="button" className="button secondary small" onClick={addStep}>
+          + Add step
         </button>
+        {error && <span className="error-text">{error}</span>}
       </div>
     </form>
   );

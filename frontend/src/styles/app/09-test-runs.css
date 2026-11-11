@@ -281,9 +281,20 @@ a.link-as-button.accent-button:hover {
 .column-menu-item:hover {
   background: var(--hover-bg);
 }
+.column-menu-hint {
+  margin-left: auto;
+  padding-left: 1rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
 .column-menu-item.locked {
   cursor: default;
   opacity: 0.6;
+}
+.column-menu-actions {
+  display: flex;
+  gap: 1rem;
+  margin: 0.35rem 0.75rem 0.15rem;
 }
 .column-menu-reset {
   margin: 0.35rem 0.75rem 0.15rem;

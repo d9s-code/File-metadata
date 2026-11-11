@@ -174,3 +174,469 @@
   margin: 0;
   padding: 0;
 }
+
+/* ── The Source window's Elements, Sequences and Generate Modes tabs ──
+   Elements and Generate Modes fill the window: their lists sit side by
+   side, each scrolling on its own, with the add / Generate bar pinned
+   under them — no scrolling the whole window to reach the button. */
+.source-overlay-body.fill {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: 0.75rem;
+}
+.source-overlay-body.fill > * {
+  flex: 1;
+  min-height: 0;
+}
+
+/* A dense table for pick lists. ":root" and the doubled class outweigh the
+   global field height and the Workbench and
+   Instrument styles' cell padding; text stays at the 12px floor and
+   fields at a 24px hit area. */
+:root .data-table.compact.compact :is(th, td) {
+  padding: 0.28rem 0.5rem;
+}
+:root .data-table.compact.compact td {
+  font-size: max(0.86rem, 12px);
+}
+:root .data-table.compact.compact :is(input:not([type="checkbox"]):not([type="radio"]), select) {
+  min-height: 24px;
+  padding: 0.1rem 0.35rem;
+  font-size: max(0.86rem, 12px);
+}
+
+.el-panel,
+.gen-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-height: 0;
+}
+.el-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.el-order {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+  font-weight: normal;
+}
+.el-order select {
+  padding: 0.2rem 0.4rem;
+  font-size: max(0.86rem, 12px);
+}
+
+/* Four (Elements) or three (Generate) lists side by side. */
+.el-board,
+.gen-board {
+  flex: 1;
+  min-height: 9rem;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.gen-board {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.el-col,
+.gen-col {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card-bg);
+  overflow: hidden;
+}
+.el-col-head,
+.gen-col-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.el-col-head .hint-text,
+.gen-col-head .hint-text {
+  font-size: 0.8rem;
+}
+.el-col-add {
+  margin-left: auto;
+  padding: 0 0.5rem;
+  line-height: 1.5;
+}
+.el-col-empty,
+.gen-col-empty {
+  margin: 0.6rem;
+}
+
+.el-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+.el-row {
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.el-row:last-child {
+  border-bottom: none;
+}
+.el-row:hover {
+  background: var(--hover-bg);
+}
+.el-row-value {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 0.92rem;
+}
+.el-row-value .hint-text {
+  font-size: max(0.86rem, 12px);
+}
+.el-member {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  margin-top: 0.15rem;
+  font-size: max(0.86rem, 12px);
+}
+.el-member-label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.el-member-label.muted {
+  font-weight: normal;
+  font-style: italic;
+  color: var(--muted);
+}
+.el-member-notes {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+/* A small ✕ that shows its danger only when pointed at. */
+.el-delete {
+  margin-left: auto;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--muted);
+  padding: 0 0.3rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  border-radius: var(--radius-sm);
+  opacity: 0.55;
+}
+.el-row:hover .el-delete,
+tr:hover .el-delete,
+.el-delete:focus-visible {
+  opacity: 1;
+}
+.el-delete:hover:not(:disabled) {
+  color: var(--error);
+  background: var(--hover-bg);
+}
+
+/* The add bar: one line under the lists. */
+.el-add-wrap {
+  flex: none !important;
+}
+.el-add {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.55rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+.el-add > select,
+.el-add input {
+  padding: 0.25rem 0.45rem;
+  font-size: 0.86rem;
+  width: auto;
+}
+.el-add-values {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.el-add-values input {
+  width: 6.5rem;
+}
+.el-add-values input.el-add-steps {
+  width: 14rem;
+}
+.el-add-values input.el-add-frame {
+  width: 4.5rem;
+}
+.el-add-label {
+  width: 8rem !important;
+}
+.el-add-notes {
+  flex: 1;
+  min-width: 8rem;
+}
+
+/* Sequences tab. */
+.seq-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.seq-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.seq-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.4rem 0.6rem;
+  background: var(--bg);
+}
+.seq-card > .long-list-scroll {
+  border: none;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+}
+.seq-card-delete {
+  margin-left: auto;
+}
+.seq-deltas {
+  display: inline-flex;
+  gap: 0.6rem;
+}
+.seq-delta {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: normal;
+  color: var(--muted);
+}
+.seq-delta input {
+  width: 4.5rem;
+  padding: 0.15rem 0.35rem;
+  font-size: max(0.86rem, 12px);
+}
+.seq-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+.seq-form-head {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+.seq-form-head label {
+  flex: 1;
+  max-width: 22rem;
+}
+.seq-form-head .button:first-of-type {
+  margin-left: auto;
+}
+.seq-form-table input {
+  width: 100%;
+}
+.seq-form-foot {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Generate Modes. */
+.gen-panel {
+  height: 100%;
+}
+.gen-intro {
+  margin: 0;
+  flex-shrink: 0;
+}
+.gen-picked {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--primary);
+}
+.gen-col-head input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+.gen-pri-type {
+  padding: 0.1rem 0.35rem;
+  font-size: max(0.86rem, 12px);
+  width: auto;
+}
+.gen-rm {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: auto;
+  font-size: 0.8rem;
+  font-weight: normal;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.gen-rm input {
+  width: auto;
+  margin: 0;
+}
+.gen-col-note {
+  margin: 0;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.8rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.gen-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.gen-list .data-table {
+  margin: 0;
+}
+.gen-list .data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--card-bg);
+}
+.gen-table td:first-child,
+.gen-table th:first-child {
+  width: 1%;
+  padding-right: 0.15rem;
+}
+.gen-table input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+.gen-row {
+  cursor: pointer;
+}
+.data-table tr.gen-row.on > td {
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+.gen-value {
+  white-space: nowrap;
+}
+.gen-raw {
+  display: block;
+  font-size: max(0.86rem, 12px);
+  color: var(--muted);
+}
+.gen-names {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+}
+.gen-names .hint-text {
+  font-size: 0.8rem;
+}
+th.gen-delta-col,
+td.gen-delta-col {
+  width: 1%;
+  text-align: right;
+  white-space: nowrap;
+}
+.gen-delta-col input,
+.gen-delta-input {
+  width: 4.5rem;
+  text-align: right;
+}
+
+.gen-sequences {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.gen-sequences.open {
+  max-height: 40%;
+  overflow: auto;
+}
+.gen-sequences-toggle {
+  font-weight: 600;
+}
+.gen-sequences-body {
+  flex-basis: 100%;
+}
+.gen-sequences-body .sequence-step-group-header input {
+  width: auto;
+  margin: 0;
+}
+
+/* The Generate bar, pinned under the lists. */
+.gen-foot {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding: 0.55rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+.gen-foot label {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: max(0.86rem, 12px);
+  font-weight: normal;
+  color: var(--muted);
+}
+.gen-foot select,
+.gen-foot input {
+  padding: 0.25rem 0.45rem;
+  font-size: 0.86rem;
+  width: auto;
+}
+.gen-prefix {
+  width: 8rem !important;
+}
+.gen-note {
+  flex: 1;
+  min-width: 10rem;
+}
+.gen-count {
+  margin-left: auto;
+  font-size: 0.86rem;
+}
+.gen-message {
+  flex-shrink: 0;
+  margin-top: -0.25rem;
+}

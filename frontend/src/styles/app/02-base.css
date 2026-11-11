@@ -243,6 +243,12 @@ button.start-editing-button:hover:not(:disabled),
   color: var(--muted);
   margin-left: 0.25rem;
 }
+/* A filtered column: a small accent dot after its name. */
+.th-marked {
+  color: var(--primary);
+  font-size: 0.6rem;
+  line-height: 1;
+}
 
 .sortable-th-trigger {
   cursor: pointer;

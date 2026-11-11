@@ -268,7 +268,12 @@ export function HelpPage() {
           were correct in the latest run that included them, out of all of them (e.g. 4 / 5) — and{" "}
           <strong>Tasks</strong>: its open tasks (☑ 2; with none, the chip shows when you point at the row), which open
           its task list to read, tick off or add one. <strong>Columns ▾</strong> (or right-clicking the header) picks
-          which columns show — Scan is off until you turn it on. Every column but Tasks is sortable. Above the table:
+          which columns show — Scan is off until you turn it on. Every column but Tasks is sortable; the list opens
+          sorted by <strong>Status</strong>, first to last in the Admins&apos; order (then by name).{" "}
+          <strong>Right-click the Status header</strong> (or pick <em>Choose statuses to show…</em> under it) to untick
+          statuses you don&apos;t want to see — each shows how many Emitters have it. The choice is remembered in this
+          browser; while some are hidden, the header has a dot and <strong>Statuses: n of m ▾</strong> shows above the
+          table, and <strong>Reset</strong> brings them all back. Above the table:
           a search on name or designation, a <strong>Platform</strong> search (part of a Platform&apos;s name, picked
           from a list as you type, or &ldquo;none&rdquo; for Emitters on no Platform), who it&apos;s assigned to, and <strong>RF / PRI / PW / Scan ▾</strong> for
           range filters. A row&apos;s <strong>⋯</strong> menu compares it with another Emitter or deletes it. <strong>+ Add Emitter</strong> opens a small form as an overlay rather
@@ -752,11 +757,25 @@ export function HelpPage() {
               Sources appearing at once with the same document behind them is expected, not a duplicate.
             </p>
             <p className="hint-text">
-              Also here: <strong>Cartesian Product</strong>, which combines chosen RF/PRI/PW Elements (and
-              individually-selected Parameter Sequence steps) into every possible Mode in one step, instead of
-              typing each Mode's line by hand. Each selected item gets a <strong>Delta</strong> field that
-              starts at 0 — that&rsquo;s exactly the delta the generated Modes get unless you type another
-              value. Each of its RF/PRI/PW columns sorts independently.
+              A Source opens over the page with tabs. <strong>Elements</strong> shows RF, PRI, PW and Scan side by
+              side, each list filling the window and scrolling on its own; Elements with the same values share a
+              row, each with its variant, label, notes and a ✕ to delete it. The bar under the lists adds one: pick
+              the type (or a list&apos;s <strong>+</strong>), the variant, a label and the values — leave max empty
+              for a single value; a PRI can be a range with jitter or <em>Stagger steps</em> with a frame-time ±
+              (empty uses the Admins&apos; default). The type and variant stay for the next one.{" "}
+              <strong>Sequences</strong> lists the Parameter Sequences, each on one line with its steps, range and
+              RF/PRI/PW deltas, and <strong>+ Add sequence</strong> adds one.
+            </p>
+            <p className="hint-text">
+              <strong>Generate Modes</strong> (the Cartesian Product) combines ticked RF/PRI/PW Elements (or
+              individually-ticked Parameter Sequence steps) into every possible Mode in one step, instead of typing
+              each Mode&apos;s line by hand. The three lists fill the window; tick a row anywhere on it, or the box in
+              a list&apos;s header for all of it, which also holds that parameter&apos;s <strong>Range matching</strong>.
+              Each ticked item gets a <strong>±</strong> field that starts at 0 — that&rsquo;s exactly the delta the
+              generated Modes get unless you type another value. Each list sorts on its own (value or label).
+              Sequence steps fold away under the lists until you open them. The bar at the bottom stays in view: the
+              EW Group, the name prefix, a note, and how many Modes it will make (e.g. 2 RF × 3 PRI × 1 PW = 6
+              Modes) on the <strong>Generate</strong> button.
             </p>
             <p className="hint-text">
               <strong>PRI type</strong> (Fixed by default) beside the PRI column: <strong>Stagger</strong> makes one

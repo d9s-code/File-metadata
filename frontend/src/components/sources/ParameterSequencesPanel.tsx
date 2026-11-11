@@ -10,6 +10,8 @@ import { useConfirmDialog } from "../common/ConfirmDialog";
 import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 import { sequenceRangeSummary, stepHas, stepValueText, type StepParam } from "./sequenceStep";
+import { SequenceForm } from "./SequenceForm";
+import { useHasRole } from "../../auth/RequireAuth";
 
 
 const STEP_COLUMNS: { param: StepParam; label: string }[] = [
@@ -46,48 +48,28 @@ function SequenceDeltaEditor({
     updateSequence.mutate({ sequenceId: sequence.id, input: { [field]: value } });
   }
 
+  const field = (name: string, unit: string, value: string, set: (v: string) => void, key: "rf_delta" | "pw_delta" | "pri_delta") => (
+    <label className="seq-delta" title={`${name} delta (±${unit}) for the Modes made from this sequence`}>
+      {name} ±
+      <input
+        type="number"
+        step="any"
+        min="0"
+        value={value}
+        placeholder="0"
+        aria-label={`${name} delta (±${unit})`}
+        disabled={!canEdit}
+        onChange={(e) => set(e.target.value)}
+        onBlur={() => commit(key, value)}
+      />
+    </label>
+  );
   return (
-    <div className="form-row" style={{ marginTop: "0.5rem" }}>
-      <label>
-        RF delta (±MHz)
-        <input
-          type="number"
-          step="any"
-          min="0"
-          value={rfDelta}
-          disabled={!canEdit}
-          title={canEdit ? undefined : "Start editing this Emitter first"}
-          onChange={(e) => setRfDelta(e.target.value)}
-          onBlur={() => commit("rf_delta", rfDelta)}
-        />
-      </label>
-      <label>
-        PRI delta (±µs)
-        <input
-          type="number"
-          step="any"
-          min="0"
-          value={priDelta}
-          disabled={!canEdit}
-          title={canEdit ? undefined : "Start editing this Emitter first"}
-          onChange={(e) => setPriDelta(e.target.value)}
-          onBlur={() => commit("pri_delta", priDelta)}
-        />
-      </label>
-      <label>
-        PW delta (±µs)
-        <input
-          type="number"
-          step="any"
-          min="0"
-          value={pwDelta}
-          disabled={!canEdit}
-          title={canEdit ? undefined : "Start editing this Emitter first"}
-          onChange={(e) => setPwDelta(e.target.value)}
-          onBlur={() => commit("pw_delta", pwDelta)}
-        />
-      </label>
-    </div>
+    <span className="seq-deltas">
+      {field("RF", "MHz", rfDelta, setRfDelta, "rf_delta")}
+      {field("PRI", "µs", priDelta, setPriDelta, "pri_delta")}
+      {field("PW", "µs", pwDelta, setPwDelta, "pw_delta")}
+    </span>
   );
 }
 
@@ -105,61 +87,97 @@ function SequenceSteps({
   deleting: boolean;
   onDeleteStep: (order: number) => void;
 }) {
-  const [open, setOpen] = useState(steps.length <= STEPS_OPEN_LIMIT);
   return (
-    <>
-      <p className="sequence-summary hint-text">
-        {steps.length} step{steps.length === 1 ? "" : "s"} · {sequenceRangeSummary(steps) || "no values"}
-        {steps.length > STEPS_OPEN_LIMIT && (
-          <>
-            {" "}
-            <button type="button" className="link-button" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
-              {open ? "Hide steps" : "Show steps"}
-            </button>
-          </>
-        )}
-      </p>
-      {open && (
-        <div className="long-list-scroll">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Order</th>
-                {STEP_COLUMNS.map((c) => (
-                  <th key={c.param}>{c.label}</th>
-                ))}
-                <th>Dwell (pulses)</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {steps.map((step) => (
-                <tr key={step.order}>
-                  <td>{step.order}</td>
-                  {STEP_COLUMNS.map((c) => (
-                    <td key={c.param}>{stepValueText(step, c.param) ?? "—"}</td>
-                  ))}
-                  <td>{step.dwell_s ?? "—"}</td>
-                  <td>
-                    <button
-                      className="link-button link-button-danger"
-                      onClick={() => onDeleteStep(step.order)}
-                      disabled={deleting || !canEdit}
-                      title={canEdit ? undefined : "Start editing this Emitter first"}
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
+    <div className="long-list-scroll">
+      <table className="data-table compact">
+        <thead>
+          <tr>
+            <th className="num">Step</th>
+            {STEP_COLUMNS.map((c) => (
+              <th key={c.param}>{c.label}</th>
+            ))}
+            <th>Dwell (pulses)</th>
+            <th aria-label="Delete" />
+          </tr>
+        </thead>
+        <tbody>
+          {steps.map((step) => (
+            <tr key={step.order}>
+              <td className="num hint-text">{step.order}</td>
+              {STEP_COLUMNS.map((c) => (
+                <td key={c.param} className="figure">
+                  {stepValueText(step, c.param) ?? "—"}
+                </td>
               ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </>
+              <td className="figure">{step.dwell_s ?? "—"}</td>
+              <td>
+                <button
+                  type="button"
+                  className="el-delete"
+                  onClick={() => onDeleteStep(step.order)}
+                  disabled={deleting || !canEdit}
+                  title={canEdit ? `Delete step ${step.order}` : "Start editing this Emitter first"}
+                  aria-label={`Delete step ${step.order}`}
+                >
+                  ✕
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
+/** One sequence: a line with its name, size, range and deltas, and its steps
+ * under it (folded away when there are many). */
+function SequenceCard({
+  emitterId,
+  sourceId,
+  seq,
+  canEdit,
+  deletingStep,
+  onDelete,
+  onDeleteStep,
+}: {
+  emitterId: string;
+  sourceId: string;
+  seq: ParameterSequence;
+  canEdit: boolean;
+  deletingStep: boolean;
+  onDelete: () => void;
+  onDeleteStep: (order: number) => void;
+}) {
+  const [open, setOpen] = useState(seq.steps.length <= STEPS_OPEN_LIMIT);
+  return (
+    <section className="seq-card" aria-label={`Sequence ${seq.label || "unnamed"}`}>
+      <header className="seq-card-head">
+        <button type="button" className="link-button seq-card-toggle" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+          {open ? "▾" : "▸"} <strong>{seq.label || "Sequence"}</strong>
+        </button>
+        {seq.variant && <span className="hint-text">{seq.variant.replace("_", " ")}</span>}
+        <span className="hint-text">
+          {seq.steps.length} step{seq.steps.length === 1 ? "" : "s"} · {sequenceRangeSummary(seq.steps) || "no values"}
+        </span>
+        {!isPriOnlySequence(seq) && <SequenceDeltaEditor emitterId={emitterId} sourceId={sourceId} sequence={seq} canEdit={canEdit} />}
+        <button
+          type="button"
+          className="link-button link-button-danger seq-card-delete"
+          onClick={onDelete}
+          disabled={!canEdit}
+          title={canEdit ? undefined : "Start editing this Emitter first"}
+        >
+          Delete…
+        </button>
+      </header>
+      {open && <SequenceSteps steps={seq.steps} canEdit={canEdit} deleting={deletingStep} onDeleteStep={onDeleteStep} />}
+    </section>
+  );
+}
+
+/** A Source's Parameter Sequences: each a set of steps (an RF, PRI and PW
+ * per step) that Generate Modes can use. Added here too. */
 export function ParameterSequencesPanel({ emitterId, sourceId }: { emitterId: string; sourceId: string }) {
   const { data: sequences } = useParameterSequences(emitterId, sourceId);
   const deleteSequence = useDeleteParameterSequence(emitterId, sourceId);
@@ -167,10 +185,9 @@ export function ParameterSequencesPanel({ emitterId, sourceId }: { emitterId: st
   const { confirmDelete, dialog } = useConfirmDialog();
   const { data: emitter } = useEmitter(emitterId);
   const { canEdit } = useEmitterCheckoutState(emitter);
-
-  if (!sequences || sequences.length === 0) {
-    return <p className="hint-text">None.</p>;
-  }
+  const canWrite = useHasRole("editor");
+  const [adding, setAdding] = useState(false);
+  const list = sequences ?? [];
 
   async function handleDeleteSequence(seqId: string, label: string) {
     if (await confirmDelete(`Delete sequence '${label}'?`)) {
@@ -185,33 +202,51 @@ export function ParameterSequencesPanel({ emitterId, sourceId }: { emitterId: st
   }
 
   return (
-    <div>
-      {sequences.map((seq) => (
-        <div key={seq.id} className="element-group">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h3 className="as-h5" style={{ margin: 0 }}>
-              {seq.label || "Sequence"}
-              {seq.variant && <span className="hint-text"> [{seq.variant.replace("_", " ")}]</span>}
-            </h3>
-            <button
-              className="link-button link-button-danger"
-              onClick={() => void handleDeleteSequence(seq.id, seq.label || "unnamed")}
-              disabled={deleteSequence.isPending || !canEdit}
-              title={canEdit ? undefined : "Start editing this Emitter first"}
-            >
-              Delete Sequence
-            </button>
-          </div>
-          {!isPriOnlySequence(seq) && (
-            <SequenceDeltaEditor emitterId={emitterId} sourceId={sourceId} sequence={seq} canEdit={canEdit} />
-          )}
-          <SequenceSteps
-            steps={seq.steps}
+    <div className="seq-panel">
+      <div className="el-toolbar">
+        <span className="hint-text">
+          {list.length} sequence{list.length === 1 ? "" : "s"}
+        </span>
+        {canWrite && !adding && (
+          <button
+            type="button"
+            className="button secondary small"
+            onClick={() => setAdding(true)}
+            disabled={!canEdit}
+            title={canEdit ? undefined : "Start editing this Emitter first"}
+          >
+            + Add sequence
+          </button>
+        )}
+      </div>
+      {canWrite && adding && (
+        <fieldset className="edit-lock" disabled={!canEdit}>
+          <SequenceForm
+            emitterId={emitterId}
+            sourceId={sourceId}
             canEdit={canEdit}
-            deleting={deleteStep.isPending}
-            onDeleteStep={(order) => void handleDeleteStep(seq.id, order)}
+            onCancel={() => setAdding(false)}
+            onAdded={() => setAdding(false)}
           />
-        </div>
+        </fieldset>
+      )}
+      {sequences && list.length === 0 && !adding && (
+        <p className="hint-text">
+          None yet. A sequence is a list of steps, each with an RF, PRI and/or PW — Generate Modes can use its steps
+          (e.g. as one stagger).
+        </p>
+      )}
+      {list.map((seq) => (
+        <SequenceCard
+          key={seq.id}
+          emitterId={emitterId}
+          sourceId={sourceId}
+          seq={seq}
+          canEdit={canEdit}
+          deletingStep={deleteStep.isPending}
+          onDelete={() => void handleDeleteSequence(seq.id, seq.label || "unnamed")}
+          onDeleteStep={(order) => void handleDeleteStep(seq.id, order)}
+        />
       ))}
       {dialog}
     </div>

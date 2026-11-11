@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import type { EwGroup, ElementVariant, ParameterSequenceStep } from "../../types/domain";
 import { useCartesianProduct, useElements } from "../../state/hooks/useElements";
 import { ApiRequestError } from "../../api/client";
@@ -12,229 +12,195 @@ import { useSortableTable } from "../common/useSortableTable";
 import { compareNullable, compareStrings } from "../common/sortUtils";
 import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
+import { VARIANT_ORDER, VariantTag } from "./elementDisplay";
 
 const DEFAULT_DELTA = "0";
 
-type CheckboxItem = { id: string; label: string; variants?: (ElementVariant | undefined)[]; sortValue?: number | null };
+type CheckboxItem = {
+  id: string;
+  /** The values the Modes get (engineered), e.g. "2899–2921". */
+  label: string;
+  /** The values as typed, when engineering changed them. */
+  raw?: string;
+  /** The Elements' own labels. */
+  names?: string[];
+  variants?: (ElementVariant | undefined)[];
+  sortValue?: number | null;
+};
 type ItemSortKey = "label" | "value";
 
 function compareItems(a: CheckboxItem, b: CheckboxItem, key: ItemSortKey, dir: "asc" | "desc"): number {
   switch (key) {
     case "label":
-      return compareStrings(a.label, b.label, dir);
+      return compareStrings(a.names?.join(", ") || null, b.names?.join(", ") || null, dir);
     case "value":
       return compareNullable(a.sortValue, b.sortValue, dir);
   }
 }
 
-const VARIANT_STYLES: Record<string, { label: string; bg: string; fg: string; border: string }> = {
-  typical: { label: "typical", bg: "var(--badge-blue-bg)", fg: "var(--badge-blue-fg)", border: "var(--badge-blue-fg)" },
-  discrete: { label: "discrete", bg: "var(--badge-green-bg)", fg: "var(--badge-green-fg)", border: "var(--badge-green-fg)" },
-  most_probable: { label: "most-probable", bg: "#7c2d12", fg: "#fed7aa", border: "#ea580c" },
-  extreme: { label: "extreme", bg: "var(--badge-red-bg)", fg: "var(--badge-red-fg)", border: "var(--badge-red-fg)" },
-  intercept: { label: "intercept", bg: "#0f766e", fg: "#ccfbf1", border: "#14b8a6" },
-  analysis: { label: "analysis", bg: "#4c1d95", fg: "#ddd6fe", border: "#7c3aed" },
-  other: { label: "other", bg: "#4b5563", fg: "#f3f4f6", border: "#374151" },
-};
-
-const VARIANT_ORDER: Record<string, number> = {
-  typical: 0,
-  discrete: 1,
-  most_probable: 2,
-  extreme: 3,
-};
-
-/** "3 of 60 selected · Select all · Clear" above a long pick list. */
-function SelectionBar({
-  total,
-  selected,
-  onAll,
-  onNone,
-}: {
-  total: number;
-  selected: number;
-  onAll: () => void;
-  onNone: () => void;
-}) {
+/** A header checkbox for a whole list: ticked, unticked, or part-way. */
+function AllCheckbox({ total, picked, onAll, onNone, label }: { total: number; picked: number; onAll: () => void; onNone: () => void; label: string }) {
+  const ref = useRef<HTMLInputElement>(null);
+  useLayoutEffect(() => {
+    if (ref.current) ref.current.indeterminate = picked > 0 && picked < total;
+  }, [picked, total]);
   return (
-    <div className="selection-bar">
-      <span className="hint-text">
-        {selected} of {total} selected
-      </span>
-      <button type="button" className="link-button" onClick={onAll} disabled={selected === total}>
-        Select all
-      </button>
-      <button type="button" className="link-button" onClick={onNone} disabled={selected === 0}>
-        Clear
-      </button>
-    </div>
+    <input
+      ref={ref}
+      type="checkbox"
+      aria-label={label}
+      checked={total > 0 && picked === total}
+      disabled={total === 0}
+      onChange={() => (picked === total ? onNone() : onAll())}
+    />
   );
 }
 
-function CheckboxList({
+/** A click anywhere on a row but its inputs ticks it. */
+function rowClick(onToggle: () => void) {
+  return (e: ReactMouseEvent<HTMLTableRowElement>) => {
+    if ((e.target as HTMLElement).closest("input, button, select, a, label")) return;
+    onToggle();
+  };
+}
+
+/** One parameter's Elements to pick from: a column that fills the height,
+ * its header holding the select-all box, the count and range matching. */
+function PickColumn({
+  title,
+  unit,
   items,
   selected,
   onToggle,
-  showVariant = false,
+  onSetSelected,
   deltaOverrides,
   onDeltaChange,
   firingOrder,
-  sortKey,
-  sortDir,
-  onSort,
-  onClear,
-  onSetSelected,
+  rangeMatching,
+  onRangeMatching,
+  headExtra,
+  note,
+  sort,
 }: {
+  title: string;
+  unit: string;
   items: CheckboxItem[];
   selected: Set<string>;
   onToggle: (id: string) => void;
-  /** Replaces the whole selection — drives the "Select all" / "Clear" bar. */
-  onSetSelected?: (ids: Set<string>) => void;
-  showVariant?: boolean;
-  /** Per-element delta for this run, keyed by element id — only rendered when both this and onDeltaChange are given. */
-  deltaOverrides?: Record<string, string>;
-  onDeltaChange?: (id: string, value: string) => void;
+  onSetSelected: (ids: Set<string>) => void;
+  deltaOverrides: Record<string, string>;
+  onDeltaChange: (id: string, value: string) => void;
   /** Stagger: each picked item's place in the firing order, instead of a delta. */
   firingOrder?: { values: Record<string, string>; onChange: (id: string, value: string) => void };
-  sortKey?: ItemSortKey | null;
-  sortDir?: "asc" | "desc";
-  onSort?: (key: ItemSortKey, dir: "asc" | "desc") => void;
-  onClear?: () => void;
+  rangeMatching: boolean;
+  onRangeMatching: (v: boolean) => void;
+  headExtra?: React.ReactNode;
+  note?: React.ReactNode;
+  sort: { sortKey: ItemSortKey | null; sortDir: "asc" | "desc"; onSort: (k: ItemSortKey, d: "asc" | "desc") => void; onClear: () => void };
 }) {
-  if (items.length === 0) return <p className="hint-text">No items available.</p>;
-  const showDelta = !firingOrder && !!(deltaOverrides && onDeltaChange);
-  const selectedHere = items.filter((i) => selected.has(i.id)).length;
-  const selectionBar = onSetSelected && items.length > 1 && (
-    <SelectionBar
-      total={items.length}
-      selected={selectedHere}
-      onAll={() => onSetSelected(new Set([...selected, ...items.map((i) => i.id)]))}
-      onNone={() => onSetSelected(new Set([...selected].filter((id) => !items.some((i) => i.id === id))))}
-    />
-  );
-
-  if (showVariant) {
-    return (
-      <>
-      {selectionBar}
-      <div className="long-list-scroll">
-        <table className="data-table">
-          <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 text-xs uppercase font-medium">
-            <tr>
-              <th className="px-2 py-1 w-24">Variant</th>
-              {onSort && onClear ? (
+  const picked = items.filter((i) => selected.has(i.id)).length;
+  return (
+    <section className="gen-col" aria-label={`${title} Elements to combine`}>
+      <header className="gen-col-head">
+        <AllCheckbox
+          label={`All ${title}`}
+          total={items.length}
+          picked={picked}
+          onAll={() => onSetSelected(new Set([...selected, ...items.map((i) => i.id)]))}
+          onNone={() => onSetSelected(new Set([...selected].filter((id) => !items.some((i) => i.id === id))))}
+        />
+        <strong>{title}</strong>
+        <span className={picked ? "gen-picked" : "hint-text"}>
+          {picked} of {items.length}
+        </span>
+        {headExtra}
+        <label className="gen-rm" title={`Range matching on the ${title} of every Mode made`}>
+          <input type="checkbox" checked={rangeMatching} onChange={(e) => onRangeMatching(e.target.checked)} />
+          Range matching
+        </label>
+      </header>
+      {note}
+      {items.length === 0 ? (
+        <p className="hint-text gen-col-empty">No {title} Elements in this Source.</p>
+      ) : (
+        <div className="gen-list">
+          <table className="data-table compact gen-table">
+            <thead>
+              <tr>
+                <th aria-label="Pick" />
+                <SortableColumnHeader
+                  label={`Value (${unit})`}
+                  columnKey="value"
+                  columnType="number"
+                  activeKey={sort.sortKey}
+                  activeDir={sort.sortDir}
+                  onSort={sort.onSort}
+                  onClear={sort.onClear}
+                />
                 <SortableColumnHeader
                   label="Label"
                   columnKey="label"
-                  activeKey={sortKey ?? null}
-                  activeDir={sortDir ?? "asc"}
-                  onSort={onSort}
-                  onClear={onClear}
+                  activeKey={sort.sortKey}
+                  activeDir={sort.sortDir}
+                  onSort={sort.onSort}
+                  onClear={sort.onClear}
                 />
-              ) : (
-                <th className="px-2 py-1">Label</th>
-              )}
-              {showDelta && <th className="px-2 py-1 w-28">Delta</th>}
-              {firingOrder && <th className="px-2 py-1 w-28">Firing order</th>}
-              <th className="px-2 py-1 w-10"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {items.map((item) => (
-              <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                <td className="px-2 py-1 align-middle whitespace-nowrap">
-                  {item.variants && item.variants.some(Boolean) ? (
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "4px" }}>
-                      {item.variants.filter(Boolean).map((variant, i) => {
-                        const rawVariant = (variant as string).trim().toLowerCase();
-                        const variantKey = rawVariant.replace(/-/g, "_") as keyof typeof VARIANT_STYLES;
-                        const style = VARIANT_STYLES[variantKey] || {
-                          label: rawVariant.replace(/_/g, " "),
-                          bg: "#fef3c7",
-                          fg: "#92400e",
-                          border: "#fcd34d",
-                        };
-                        return (
-                          <span
-                            key={i}
-                            style={{
-                              display: "inline-block",
-                              padding: "1px 6px",
-                              borderRadius: "4px",
-                              border: `1px solid ${style.border}`,
-                              fontSize: "10px",
-                              fontWeight: 700,
-                              textTransform: "uppercase",
-                              backgroundColor: style.bg,
-                              color: style.fg,
-                            }}
-                          >
-                            {style.label}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <span className="text-gray-400">—</span>
-                  )}
-                </td>
-                <td className="px-2 py-1 align-middle">
-                  <label className="checkbox-label flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={selected.has(item.id)} onChange={() => onToggle(item.id)} />
-                    {item.label}
-                  </label>
-                </td>
-                {showDelta && (
-                  <td className="px-2 py-1 align-middle">
-                    {selected.has(item.id) && (
-                      <input
-                        type="number"
-                        min="0"
-                        step="any"
-                        style={{ width: "5.5rem" }}
-                        value={deltaOverrides?.[item.id] ?? DEFAULT_DELTA}
-                        onChange={(e) => onDeltaChange?.(item.id, e.target.value)}
-                        title="± delta applied to the generated Modes (0 = none)"
-                      />
-                    )}
-                  </td>
-                )}
-                {firingOrder && (
-                  <td className="px-2 py-1 align-middle">
-                    {selected.has(item.id) && (
-                      <input
-                        inputMode="numeric"
-                        style={{ width: "5.5rem" }}
-                        value={firingOrder.values[item.id] ?? ""}
-                        onChange={(e) => firingOrder.onChange(item.id, e.target.value)}
-                        placeholder="e.g. 1"
-                        title="Its place in the stagger, from 1 — e.g. 1, 3 fires it first and third"
-                        aria-label={`Firing order of ${item.label}`}
-                      />
-                    )}
-                  </td>
-                )}
-                <td className="px-2 py-1 w-6"></td>
+                <th className="gen-delta-col" title={firingOrder ? "Its place in the stagger, from 1" : `± delta on the Modes made (${unit}, 0 = none)`}>
+                  {firingOrder ? "Order" : "±"}
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      </>
-    );
-  }
-
-  return (
-    <ul className="checkbox-list">
-      {items.map((item) => (
-        <li key={item.id}>
-          <label className="checkbox-label">
-            <input type="checkbox" checked={selected.has(item.id)} onChange={() => onToggle(item.id)} />
-            {item.label}
-          </label>
-        </li>
-      ))}
-    </ul>
+            </thead>
+            <tbody>
+              {items.map((item) => {
+                const on = selected.has(item.id);
+                return (
+                  <tr key={item.id} className={on ? "gen-row on" : "gen-row"} onClick={rowClick(() => onToggle(item.id))}>
+                    <td>
+                      <input type="checkbox" checked={on} onChange={() => onToggle(item.id)} aria-label={`${title} ${item.label}`} />
+                    </td>
+                    <td className="gen-value" title={item.raw ? `As entered: ${item.raw} ${unit}` : undefined}>
+                      <span className="figure">{item.label}</span>
+                      {item.raw && <span className="gen-raw">raw {item.raw}</span>}
+                    </td>
+                    <td>
+                      <span className="gen-names">
+                        {(item.variants ?? []).filter(Boolean).map((v, i) => (
+                          <VariantTag key={i} variant={v} />
+                        ))}
+                        {item.names && item.names.length > 0 && <span className="hint-text">{item.names.join(", ")}</span>}
+                      </span>
+                    </td>
+                    <td className="gen-delta-col">
+                      {on &&
+                        (firingOrder ? (
+                          <input
+                            inputMode="numeric"
+                            value={firingOrder.values[item.id] ?? ""}
+                            onChange={(e) => firingOrder.onChange(item.id, e.target.value)}
+                            placeholder="1"
+                            title="Its place in the stagger, from 1 — e.g. 1, 3 fires it first and third"
+                            aria-label={`Firing order of ${item.label}`}
+                          />
+                        ) : (
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            value={deltaOverrides[item.id] ?? DEFAULT_DELTA}
+                            onChange={(e) => onDeltaChange(item.id, e.target.value)}
+                            title={`± delta on the Modes made (${unit}, 0 = none)`}
+                            aria-label={`${title} delta for ${item.label}`}
+                          />
+                        ))}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -271,7 +237,7 @@ function DeltaInput({
       type="number"
       min="0"
       step="any"
-      style={{ width: "5.5rem" }}
+      className="gen-delta-input"
       value={value}
       onChange={(e) => onChange(e.target.value)}
       title={`± ${param} delta applied to the generated Modes (0 = none)`}
@@ -321,22 +287,23 @@ function SequenceStepGroup({
   return (
     <div className="sequence-step-group">
       <div className="sequence-step-group-header">
-        <button type="button" className="link-button" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
-          {open ? "▾" : "▸"} {label}
-        </button>
-        <span className="hint-text">
-          {rows.length} step{rows.length === 1 ? "" : "s"}
-        </span>
-        <SelectionBar
+        <AllCheckbox
+          label={`All steps of ${label}`}
           total={rows.length}
-          selected={selectedHere}
+          picked={selectedHere}
           onAll={() => onSetSelected(new Set([...selected, ...rows.map((r) => r.id)]))}
           onNone={() => onSetSelected(new Set([...selected].filter((id) => !rows.some((r) => r.id === id))))}
         />
+        <button type="button" className="link-button" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+          {open ? "▾" : "▸"} {label}
+        </button>
+        <span className={selectedHere ? "gen-picked" : "hint-text"}>
+          {selectedHere} of {rows.length} step{rows.length === 1 ? "" : "s"}
+        </span>
       </div>
       {open && (
         <div className="long-list-scroll">
-          <table className="data-table">
+          <table className="data-table compact">
             <thead>
               <tr>
                 <th>Step</th>
@@ -349,12 +316,10 @@ function SequenceStepGroup({
               {rows.map((row) => {
                 const isSelected = selected.has(row.id);
                 return (
-                  <tr key={row.id}>
+                  <tr key={row.id} className={isSelected ? "gen-row on" : "gen-row"} onClick={rowClick(() => toggleRow(row.id))}>
                     <td>
-                      <label className="checkbox-label">
-                        <input type="checkbox" checked={isSelected} onChange={() => toggleRow(row.id)} />
-                        {row.label}
-                      </label>
+                      <input type="checkbox" checked={isSelected} onChange={() => toggleRow(row.id)} aria-label={row.label} />{" "}
+                      <span className="figure">{row.label}</span>
                     </td>
                     <td>
                       {isSelected && row.hasRf && (
@@ -470,11 +435,10 @@ export function CartesianProductButton({
     pruneStepOverrides(setSequencePriDeltaOverrides);
   }, [sequences]);
 
-  function rangeLabel(min: number | null, max: number | null, engMin: number | null, engMax: number | null, unit: string) {
-    if (engMin !== min || engMax !== max) {
-      return `${engMin}–${engMax} ${unit} (raw ${min}–${max})`;
-    }
-    return `${min}–${max} ${unit}`;
+  const span = (lo: number | null, hi: number | null) => (lo === hi || hi == null ? `${lo}` : `${lo}–${hi}`);
+  /** The values the Modes get, and the typed ones when engineering changed them. */
+  function rangeLabel(min: number | null, max: number | null, engMin: number | null, engMax: number | null) {
+    return { label: span(engMin, engMax), raw: engMin !== min || engMax !== max ? span(min, max) : undefined };
   }
 
   function defaultVariantSort(items: CheckboxItem[]): CheckboxItem[] {
@@ -496,7 +460,8 @@ export function CartesianProductButton({
     const rep = elementById[g.representativeId];
     return {
       id: g.representativeId,
-      label: rangeLabel(g.value_min, g.value_max, rep?.engineered_min ?? g.value_min, rep?.engineered_max ?? g.value_max, "MHz"),
+      ...rangeLabel(g.value_min, g.value_max, rep?.engineered_min ?? g.value_min, rep?.engineered_max ?? g.value_max),
+      names: g.members.map((m) => m.label).filter((n): n is string => !!n),
       variants: g.members.map((m) => m.variant ?? undefined),
       sortValue: g.value_min,
     };
@@ -505,7 +470,8 @@ export function CartesianProductButton({
     const rep = elementById[g.representativeId];
     return {
       id: g.representativeId,
-      label: rangeLabel(g.value_min, g.value_max, rep?.engineered_min ?? g.value_min, rep?.engineered_max ?? g.value_max, "µs"),
+      ...rangeLabel(g.value_min, g.value_max, rep?.engineered_min ?? g.value_min, rep?.engineered_max ?? g.value_max),
+      names: g.members.map((m) => m.label).filter((n): n is string => !!n),
       variants: g.members.map((m) => m.variant ?? undefined),
       sortValue: g.value_min,
     };
@@ -514,9 +480,10 @@ export function CartesianProductButton({
     const rep = elementById[g.representativeId];
     return {
       id: g.representativeId,
-      label: g.stagger_values
-        ? `stagger [${g.stagger_values.join(", ")}]`
-        : rangeLabel(g.value_min, g.value_max, rep?.engineered_min ?? g.value_min, rep?.engineered_max ?? g.value_max, "µs"),
+      ...(g.stagger_values
+        ? { label: `stagger [${g.stagger_values.join(", ")}]` }
+        : rangeLabel(g.value_min, g.value_max, rep?.engineered_min ?? g.value_min, rep?.engineered_max ?? g.value_max)),
+      names: g.members.map((m) => m.label).filter((n): n is string => !!n),
       variants: g.members.map((m) => m.variant ?? undefined),
       sortValue: g.value_min,
     };
@@ -634,7 +601,6 @@ export function CartesianProductButton({
         pri_delta: row?.hasPri ? deltaFor(sequencePriDeltaOverrides, id) : undefined,
       };
     });
-    const stagger = priType === "stagger";
     const badStep = steps.some(
       (st) => st.rf_delta === null || st.pw_delta === null || (!stagger && st.pri_delta === null),
     );
@@ -686,114 +652,130 @@ export function CartesianProductButton({
         pri_type: priType,
         pri_firing_order: order,
       });
-      setResult(`Created ${res.count} mode(s).`);
+      setResult(`Made ${res.count} Mode${res.count === 1 ? "" : "s"} — see the Generation log tab, or the Modes tab.`);
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : "Cartesian product failed");
     }
   }
 
+  // How many Modes the run makes, as the backend counts them.
+  const stagger = priType === "stagger";
+  const pickedSteps = sequenceStepRows.filter((r) => sequenceSelected.has(r.id));
+  const staggerTrains = pickedSteps.length
+    ? new Set(pickedSteps.filter((r) => r.hasPri).map((r) => r.sequenceId)).size
+    : priSelected.size > 0
+      ? 1
+      : 0;
+  const priCount = stagger ? staggerTrains : pickedSteps.length || priSelected.size;
+  const total = priCount * Math.max(rfSelected.size, 1) * Math.max(pwSelected.size, 1);
+  const formula = [
+    rfSelected.size ? `${rfSelected.size} RF` : null,
+    stagger
+      ? `${priCount} stagger${priCount === 1 ? "" : "s"}`
+      : pickedSteps.length
+        ? `${pickedSteps.length} step${pickedSteps.length === 1 ? "" : "s"}`
+        : `${priSelected.size} PRI`,
+    pwSelected.size ? `${pwSelected.size} PW` : null,
+  ]
+    .filter(Boolean)
+    .join(" × ");
+  const stepsReplacePri = !stagger && pickedSteps.length > 0 && priSelected.size > 0;
+  const [showSequences, setShowSequences] = useState(false);
+  const sequencesOpen = showSequences || pickedSteps.length > 0;
+  const withSteps = (sequences ?? []).filter((seq) => seq.steps.length > 0);
+
   return (
-    <div className="card cartesian-panel">
-      <h3 className="as-h5">Cartesian Product</h3>
-      <p className="hint-text">
-        Choose RF, PRI, and PW elements to combine — every combination becomes a new Mode.
+    <fieldset className="edit-lock gen-panel" disabled={!canEdit} title={canEdit ? undefined : "Start editing this Emitter first"}>
+      <p className="hint-text gen-intro">
+        Tick RF, PRI and PW Elements — every combination becomes a new Mode.
         {!canEdit && " Start editing this Emitter to use it."}
       </p>
-      <fieldset
-        className="edit-lock"
-        disabled={!canEdit}
-        title={canEdit ? undefined : "Start editing this Emitter first"}
-      >
-        <div className="cartesian-columns">
-          <div>
-            <strong>RF</strong> <label className="checkbox-label" style={{ display: "inline-flex", width: "auto" }}>
-              <input type="checkbox" checked={rfRangeMatching} onChange={(e) => setRfRangeMatching(e.target.checked)} />
-              Range matching
-            </label>
-            <CheckboxList
-              items={rfItems}
-              selected={rfSelected}
-              onToggle={(id) => setRfSelected((s) => toggle(s, id))}
-              onSetSelected={setRfSelected}
-              showVariant={true}
-              deltaOverrides={rfDeltaOverrides}
-              onDeltaChange={(id, value) => setRfDeltaOverrides((prev) => ({ ...prev, [id]: value }))}
-              sortKey={rfSort.sortKey}
-              sortDir={rfSort.sortDir}
-              onSort={rfSort.onSort}
-              onClear={rfSort.onClear}
-            />
-          </div>
-          <div>
-            <strong>PRI</strong>{" "}
+      <div className="gen-board">
+        <PickColumn
+          title="RF"
+          unit="MHz"
+          items={rfItems}
+          selected={rfSelected}
+          onToggle={(id) => setRfSelected((s) => toggle(s, id))}
+          onSetSelected={setRfSelected}
+          deltaOverrides={rfDeltaOverrides}
+          onDeltaChange={(id, value) => setRfDeltaOverrides((prev) => ({ ...prev, [id]: value }))}
+          rangeMatching={rfRangeMatching}
+          onRangeMatching={setRfRangeMatching}
+          sort={rfSort}
+        />
+        <PickColumn
+          title="PRI"
+          unit="µs"
+          items={priItems}
+          selected={priSelected}
+          onToggle={togglePri}
+          onSetSelected={setPriSelection}
+          deltaOverrides={priDeltaOverrides}
+          onDeltaChange={(id, value) => setPriDeltaOverrides((prev) => ({ ...prev, [id]: value }))}
+          firingOrder={
+            stagger ? { values: firingOrder, onChange: (id, v) => setFiringOrder((prev) => ({ ...prev, [id]: v })) } : undefined
+          }
+          rangeMatching={priRangeMatching}
+          onRangeMatching={setPriRangeMatching}
+          headExtra={
             <select
-              className="pri-type-select"
+              className="gen-pri-type"
               value={priType}
               onChange={(e) => changePriType(e.target.value as "fixed" | "stagger")}
               aria-label="PRI type of the Modes made"
             >
               <option value="fixed">Fixed</option>
               <option value="stagger">Stagger</option>
-            </select>{" "}
-            <label className="checkbox-label" style={{ display: "inline-flex", width: "auto" }}>
-              <input type="checkbox" checked={priRangeMatching} onChange={(e) => setPriRangeMatching(e.target.checked)} />
-              Range matching
-            </label>
-            {priType === "stagger" && (
-              <p className="hint-text">
-                One stagger from the picked PRIs, in their firing order (a range fires at its mean) — or pick Sequence
-                steps below instead; they fire in their step order.
+            </select>
+          }
+          note={
+            stagger ? (
+              <p className="hint-text gen-col-note">
+                One stagger from the ticked PRIs in their firing order (a range fires at its mean) — or tick Sequence steps
+                instead; they fire in step order.
               </p>
-            )}
-            <CheckboxList
-              items={priItems}
-              selected={priSelected}
-              onToggle={togglePri}
-              onSetSelected={setPriSelection}
-              showVariant={true}
-              deltaOverrides={priDeltaOverrides}
-              onDeltaChange={(id, value) => setPriDeltaOverrides((prev) => ({ ...prev, [id]: value }))}
-              firingOrder={
-                priType === "stagger"
-                  ? { values: firingOrder, onChange: (id, v) => setFiringOrder((prev) => ({ ...prev, [id]: v })) }
-                  : undefined
-              }
-              sortKey={priSort.sortKey}
-              sortDir={priSort.sortDir}
-              onSort={priSort.onSort}
-              onClear={priSort.onClear}
-            />
-          </div>
-          <div>
-            <strong>PW</strong> <label className="checkbox-label" style={{ display: "inline-flex", width: "auto" }}>
-              <input type="checkbox" checked={pwRangeMatching} onChange={(e) => setPwRangeMatching(e.target.checked)} />
-              Range matching
-            </label>
-            <CheckboxList
-              items={pwItems}
-              selected={pwSelected}
-              onToggle={(id) => setPwSelected((s) => toggle(s, id))}
-              onSetSelected={setPwSelected}
-              showVariant={true}
-              deltaOverrides={pwDeltaOverrides}
-              onDeltaChange={(id, value) => setPwDeltaOverrides((prev) => ({ ...prev, [id]: value }))}
-              sortKey={pwSort.sortKey}
-              sortDir={pwSort.sortDir}
-              onSort={pwSort.onSort}
-              onClear={pwSort.onClear}
-            />
-          </div>
-        </div>
-        <div className="cartesian-sequences">
-          <strong>Sequences</strong>
-          {isSeqLoading ? (
-            <p className="hint-text">Loading sequences…</p>
-          ) : sequenceStepRows.length === 0 ? (
-            <p className="hint-text">No items available.</p>
-          ) : (
-            (sequences ?? [])
-              .filter((seq) => seq.steps.length > 0)
-              .map((seq) => (
+            ) : undefined
+          }
+          sort={priSort}
+        />
+        <PickColumn
+          title="PW"
+          unit="µs"
+          items={pwItems}
+          selected={pwSelected}
+          onToggle={(id) => setPwSelected((s) => toggle(s, id))}
+          onSetSelected={setPwSelected}
+          deltaOverrides={pwDeltaOverrides}
+          onDeltaChange={(id, value) => setPwDeltaOverrides((prev) => ({ ...prev, [id]: value }))}
+          rangeMatching={pwRangeMatching}
+          onRangeMatching={setPwRangeMatching}
+          sort={pwSort}
+        />
+      </div>
+
+      {isSeqLoading ? (
+        <p className="hint-text">Loading sequences…</p>
+      ) : withSteps.length > 0 ? (
+        <section className={sequencesOpen ? "gen-sequences open" : "gen-sequences"} aria-label="Sequence steps">
+          <button
+            type="button"
+            className="link-button gen-sequences-toggle"
+            onClick={() => setShowSequences((v) => !v)}
+            aria-expanded={sequencesOpen}
+            disabled={pickedSteps.length > 0}
+            title={pickedSteps.length > 0 ? "Untick the steps to fold this away" : undefined}
+          >
+            {sequencesOpen ? "▾" : "▸"} Sequence steps
+          </button>
+          <span className={pickedSteps.length ? "gen-picked" : "hint-text"}>
+            {pickedSteps.length
+              ? `${pickedSteps.length} ticked`
+              : `${withSteps.length} sequence${withSteps.length === 1 ? "" : "s"} · used in place of PRI Elements`}
+          </span>
+          {sequencesOpen && (
+            <div className="gen-sequences-body">
+              {withSteps.map((seq) => (
                 <SequenceStepGroup
                   key={seq.id}
                   label={seq.label ?? "Sequence"}
@@ -806,15 +788,20 @@ export function CartesianProductButton({
                   onRfDelta={(id, v) => setSequenceRfDeltaOverrides((prev) => ({ ...prev, [id]: v }))}
                   onPriDelta={(id, v) => setSequencePriDeltaOverrides((prev) => ({ ...prev, [id]: v }))}
                   onPwDelta={(id, v) => setSequencePwDeltaOverrides((prev) => ({ ...prev, [id]: v }))}
-                  stagger={priType === "stagger"}
+                  stagger={stagger}
                 />
-              ))
+              ))}
+            </div>
           )}
-        </div>
-        <div className="form-row">
-          <select value={ewGroupId} onChange={(e) => setEwGroupId(e.target.value)}>
+        </section>
+      ) : null}
+
+      <div className="gen-foot">
+        <label>
+          Into
+          <select value={ewGroupId} onChange={(e) => setEwGroupId(e.target.value)} aria-label="Target EW Group">
             <option value="" disabled>
-              Target EW Group…
+              EW Group…
             </option>
             {ewGroups.map((g) => (
               <option key={g.id} value={g.id}>
@@ -822,24 +809,45 @@ export function CartesianProductButton({
               </option>
             ))}
           </select>
-          <input placeholder="Name prefix" value={namePrefix} onChange={(e) => setNamePrefix(e.target.value)} />
-          <textarea
-            placeholder="Batch note (optional)..."
-            value={batchNote}
-            onChange={(e) => setBatchNote(e.target.value)}
-            rows={2}
-          />
-          <button
-            onClick={() => void handleRun()}
-            disabled={cartesianProduct.isPending || !canEdit}
-            title={canEdit ? undefined : "Start editing this Emitter first"}
-          >
-            Generate Modes
-          </button>
+        </label>
+        <label>
+          Named
+          <input className="gen-prefix" placeholder="Name prefix" aria-label="Name prefix" value={namePrefix} onChange={(e) => setNamePrefix(e.target.value)} />
+        </label>
+        <input
+          className="gen-note"
+          placeholder="Batch note (optional)"
+          aria-label="Batch note"
+          value={batchNote}
+          onChange={(e) => setBatchNote(e.target.value)}
+        />
+        <span className="gen-count" aria-live="polite">
+          {total > 0 ? (
+            <>
+              {formula} = <strong>{total}</strong> Mode{total === 1 ? "" : "s"}
+            </>
+          ) : stagger ? (
+            "Tick PRIs (or Sequence steps) for the stagger"
+          ) : (
+            "Tick at least one PRI (or Sequence step)"
+          )}
+          {stepsReplacePri && <span className="hint-text"> · steps replace the ticked PRIs</span>}
+        </span>
+        <button
+          type="button"
+          className="button primary"
+          onClick={() => void handleRun()}
+          disabled={cartesianProduct.isPending || !canEdit || total === 0}
+        >
+          {cartesianProduct.isPending ? "Generating…" : `Generate ${total || ""} Mode${total === 1 ? "" : "s"}`.replace("  ", " ")}
+        </button>
+      </div>
+      {(result || error) && (
+        <div className="gen-message">
+          {result && <span className="hint-text" role="status">{result}</span>}
+          {error && <span className="error-text">{error}</span>}
         </div>
-      </fieldset>
-      {result && <p className="hint-text">{result}</p>}
-      {error && <div className="error-text">{error}</div>}
-    </div>
+      )}
+    </fieldset>
   );
 }

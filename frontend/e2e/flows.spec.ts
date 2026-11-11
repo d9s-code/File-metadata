@@ -108,3 +108,25 @@ test("threat priorities: set one in the overview, and it's on the Emitter", asyn
   expect(group.threat_priority).toBe(7);
   await removeEmitter(page, emitter.id);
 });
+
+test("Emitters list: sorted by status, and a status hidden from the Status column's right-click menu", async ({ page }) => {
+  const emitter = await makeEmitter(page);
+  await page.goto("/emitters");
+  const statusHeader = page.locator(".emitters-table th", { hasText: /^Status/ });
+  await expect(statusHeader).toContainText("▲");
+  await page.getByLabel("Filter by name or designation").fill(emitter.name);
+  const row = page.getByRole("row", { name: new RegExp(emitter.name) });
+  const status = (await row.locator(".status-badge").innerText()).trim();
+
+  await statusHeader.click({ button: "right" });
+  const menu = page.getByRole("menu", { name: "Choose statuses to show" });
+  await menu.getByRole("menuitemcheckbox", { name: new RegExp(`^${status}`) }).uncheck();
+  await expect(row).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("button", { name: /^Statuses: \d+ of \d+/ })).toBeVisible();
+
+  await page.getByRole("button", { name: "Reset" }).click();
+  await page.getByLabel("Filter by name or designation").fill(emitter.name);
+  await expect(row).toHaveCount(1);
+  await removeEmitter(page, emitter.id);
+});

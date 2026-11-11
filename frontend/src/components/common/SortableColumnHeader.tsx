@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useFloatingPosition } from "./useFloatingPosition";
 import type { SortDirection } from "./sortUtils";
@@ -36,7 +36,20 @@ export function SortableColumnHeader<K extends string>({
   rowSpan,
   className,
   title,
+  sortLabels,
+  onContextMenu,
+  menuExtra,
+  marked,
 }: {
+  /** Wording for the two directions when A→Z doesn't fit, e.g. a status
+   * column sorted in its workflow order. */
+  sortLabels?: { asc: string; desc: string };
+  /** A right-click on the header, e.g. to filter the column. */
+  onContextMenu?: (e: ReactMouseEvent<HTMLTableCellElement>) => void;
+  /** More items under the sort options; each closes the menu when picked. */
+  menuExtra?: { label: string; onSelect: (anchor: { x: number; y: number }) => void }[];
+  /** A dot on the header, e.g. while the column is filtered. */
+  marked?: { title: string };
   /** For a two-row header: a column with no group above it spans both rows. */
   rowSpan?: number;
   className?: string;
@@ -90,7 +103,7 @@ export function SortableColumnHeader<K extends string>({
   }
 
   return (
-    <th rowSpan={rowSpan} className={className} title={title}>
+    <th rowSpan={rowSpan} className={className} title={title} onContextMenu={onContextMenu}>
       <button
         ref={triggerRef}
         type="button"
@@ -98,6 +111,11 @@ export function SortableColumnHeader<K extends string>({
         onClick={() => setOpen((v) => !v)}
       >
         {label}
+        {marked && (
+          <span className="th-marked" title={marked.title} aria-label={marked.title}>
+            ●
+          </span>
+        )}
         {active && <span className="sort-indicator">{activeDir === "asc" ? "▲" : "▼"}</span>}
         <span className="sortable-th-caret">▾</span>
       </button>
@@ -106,10 +124,10 @@ export function SortableColumnHeader<K extends string>({
         createPortal(
           <div ref={contentRef} className="sortable-th-menu" role="menu" style={{ top: pos.top, left: pos.left }}>
             <button type="button" className={active && activeDir === "asc" ? "active" : undefined} onClick={() => pick("asc")}>
-              {ASCENDING_LABEL[columnType]}
+              {sortLabels?.asc ?? ASCENDING_LABEL[columnType]}
             </button>
             <button type="button" className={active && activeDir === "desc" ? "active" : undefined} onClick={() => pick("desc")}>
-              {DESCENDING_LABEL[columnType]}
+              {sortLabels?.desc ?? DESCENDING_LABEL[columnType]}
             </button>
             {active && onClear && (
               <>
@@ -117,6 +135,24 @@ export function SortableColumnHeader<K extends string>({
                 <button type="button" onClick={clear}>
                   Clear sort
                 </button>
+              </>
+            )}
+            {menuExtra && menuExtra.length > 0 && (
+              <>
+                <div className="sortable-th-menu-divider" />
+                {menuExtra.map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={() => {
+                      const r = triggerRef.current?.getBoundingClientRect();
+                      setOpen(false);
+                      item.onSelect({ x: r?.left ?? 0, y: (r?.bottom ?? 0) + 4 });
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
               </>
             )}
           </div>,

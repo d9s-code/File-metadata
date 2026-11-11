@@ -49,6 +49,8 @@ export interface StatusLookup {
   color: (key: string | null | undefined) => string;
   /** Whether `key` is `ref` or comes after it in the type's order. */
   atOrAfter: (key: string | null | undefined, ref: string) => boolean;
+  /** A status's place in the type's order, from 0; unknown keys last. */
+  rank: (key: string | null | undefined) => number;
 }
 
 /** One type's statuses in order, and their names and colours by key. */
@@ -57,6 +59,12 @@ export function useStatuses(entityType: StatusEntityType): StatusLookup {
   return useMemo(() => {
     const list = (data ?? []).filter((s) => s.entity_type === entityType);
     const byKey = Object.fromEntries(list.map((s) => [s.key, s]));
+    // Before the list has loaded, the built-in order.
+    const order = list.length ? list.map((s) => s.key) : Object.keys(FALLBACK[entityType]);
+    const rank = (key: string | null | undefined) => {
+      const i = key ? order.indexOf(key) : -1;
+      return i >= 0 ? i : order.length;
+    };
     return {
       list,
       byKey,
@@ -64,12 +72,11 @@ export function useStatuses(entityType: StatusEntityType): StatusLookup {
         !key ? "—" : (byKey[key]?.label ?? FALLBACK[entityType][key] ?? key.replace(/_/g, " ")),
       color: (key) => (key && byKey[key]?.color) || "grey",
       atOrAfter: (key, ref) => {
-        // Before the list has loaded, the built-in order.
-        const order = list.length ? list.map((s) => s.key) : Object.keys(FALLBACK[entityType]);
         const i = key ? order.indexOf(key) : -1;
         const j = order.indexOf(ref);
         return i >= 0 && j >= 0 && i >= j;
       },
+      rank,
     };
   }, [data, entityType]);
 }

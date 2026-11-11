@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useState, type MouseEvent } from "react";
+import { CheckMenu } from "./CheckMenu";
 
 export interface ToggleableColumn<Id extends string> {
   id: Id;
@@ -9,8 +9,6 @@ export interface ToggleableColumn<Id extends string> {
   /** Starts hidden until someone ticks it. */
   defaultHidden?: boolean;
 }
-
-const VIEWPORT_MARGIN = 8;
 
 /** Stored choices: column id -> shown. Older versions stored an array of
  * hidden ids, which still reads correctly. */
@@ -78,8 +76,9 @@ export function useColumnVisibilityMenu<Id extends string>(visibility: ColumnVis
     title: "Right-click to choose which columns to show",
   };
 
+  const close = useCallback(() => setAnchor(null), []);
   const menu = anchor ? (
-    <ColumnMenu visibility={visibility} anchor={anchor} onClose={() => setAnchor(null)} />
+    <ColumnMenu visibility={visibility} anchor={anchor} onClose={close} />
   ) : null;
 
   /** Open it under a "Columns" button. */
@@ -100,70 +99,25 @@ function ColumnMenu<Id extends string>({
   anchor: { x: number; y: number };
   onClose: () => void;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-
-  // Open at the pointer, nudged back inside the viewport if it would overflow.
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const { width, height } = el.getBoundingClientRect();
-    setPos({
-      left: Math.max(VIEWPORT_MARGIN, Math.min(anchor.x, window.innerWidth - width - VIEWPORT_MARGIN)),
-      top: Math.max(VIEWPORT_MARGIN, Math.min(anchor.y, window.innerHeight - height - VIEWPORT_MARGIN)),
-    });
-  }, [anchor]);
-
-  useEffect(() => {
-    function onMouseDown(e: globalThis.MouseEvent) {
-      if (!ref.current?.contains(e.target as Node)) onClose();
-    }
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("mousedown", onMouseDown);
-    document.addEventListener("keydown", onKeyDown);
-    window.addEventListener("scroll", onClose, true);
-    window.addEventListener("resize", onClose);
-    return () => {
-      document.removeEventListener("mousedown", onMouseDown);
-      document.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("scroll", onClose, true);
-      window.removeEventListener("resize", onClose);
-    };
-  }, [onClose]);
-
   const allShown = visibility.visibleCount === visibility.columns.length;
-
-  return createPortal(
-    <div
-      ref={ref}
-      role="menu"
-      aria-label="Choose columns"
-      className="column-menu"
-      style={pos ?? { top: anchor.y, left: anchor.x, visibility: "hidden" }}
-      onContextMenu={(e) => e.preventDefault()}
-    >
-      <div className="column-menu-title">Columns</div>
-      {visibility.columns.map((c) => {
-        const locked = c.hideable === false;
-        return (
-          <label key={c.id} className={locked ? "column-menu-item locked" : "column-menu-item"}>
-            <input
-              type="checkbox"
-              role="menuitemcheckbox"
-              checked={visibility.isVisible(c.id)}
-              disabled={locked}
-              onChange={() => visibility.toggle(c.id)}
-            />
-            {c.label}
-          </label>
-        );
-      })}
-      <button type="button" className="link-button column-menu-reset" disabled={allShown} onClick={visibility.showAll}>
-        Show all columns
-      </button>
-    </div>,
-    document.body,
+  return (
+    <CheckMenu
+      title="Columns"
+      ariaLabel="Choose columns"
+      anchor={anchor}
+      onClose={onClose}
+      items={visibility.columns.map((c) => ({
+        id: c.id,
+        label: c.label,
+        checked: visibility.isVisible(c.id),
+        disabled: c.hideable === false,
+      }))}
+      onToggle={(id) => visibility.toggle(id as Id)}
+      footer={
+        <button type="button" className="link-button column-menu-reset" disabled={allShown} onClick={visibility.showAll}>
+          Show all columns
+        </button>
+      }
+    />
   );
 }

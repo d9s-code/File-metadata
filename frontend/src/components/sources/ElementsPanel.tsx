@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { frameTimeFromText } from "../common/frameTime";
 import type { ElementType, ElementVariant, ModeElement } from "../../types/domain";
 import { useCreateElement, useDeleteElement, useElements } from "../../state/hooks/useElements";
@@ -6,40 +6,63 @@ import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 import { FrametimeBadge } from "./FrametimeBadge";
 import { ApiRequestError } from "../../api/client";
-import { RequireRole } from "../../auth/RequireAuth";
+import { useHasRole } from "../../auth/RequireAuth";
 import { useConfirmDialog } from "../common/ConfirmDialog";
-import { SequenceForm } from "./SequenceForm";
 import { groupElements, type MergedElementGroup } from "./elementMerge";
-import { SortableColumnHeader } from "../common/SortableColumnHeader";
-import { useSortableTable } from "../common/useSortableTable";
-import { compareNullable, compareStrings } from "../common/sortUtils";
-
-type ElementSortKey = "label" | "value";
-
-function compareGroups(a: MergedElementGroup, b: MergedElementGroup, key: ElementSortKey, dir: "asc" | "desc"): number {
-  switch (key) {
-    case "label":
-      return compareStrings(a.members[0].label, b.members[0].label, dir);
-    case "value":
-      return compareNullable(a.value_min, b.value_min, dir);
-  }
-}
+import { VARIANT_ORDER, VariantTag } from "./elementDisplay";
+import { useSessionState } from "../common/useSessionState";
+import { useModeDefaults } from "../../state/hooks/useDwells";
 
 const ELEMENT_TYPES: ElementType[] = ["rf", "pri", "pw", "scan"];
+const TYPE_NAME: Record<ElementType, string> = { rf: "RF", pri: "PRI", pw: "PW", scan: "Scan" };
+export const ELEMENT_UNIT: Record<ElementType, string> = { rf: "MHz", pri: "µs", pw: "µs", scan: "s" };
+const VARIANTS: { value: ElementVariant; label: string }[] = [
+  { value: "typical", label: "typical" },
+  { value: "discrete", label: "discrete" },
+  { value: "most_probable", label: "most-probable" },
+  { value: "extreme", label: "extreme" },
+  { value: "intercept", label: "intercept" },
+  { value: "analysis", label: "analysis" },
+  { value: "other", label: "other" },
+];
 
-export const VARIANT_STYLES: Record<string, { label: string; bg: string; fg: string; border: string }> = {
-  typical: { label: "typical", bg: "var(--badge-blue-bg)", fg: "var(--badge-blue-fg)", border: "var(--badge-blue-fg)" },
-  discrete: { label: "discrete", bg: "var(--badge-green-bg)", fg: "var(--badge-green-fg)", border: "var(--badge-green-fg)" },
-  most_probable: { label: "most-probable", bg: "#7c2d12", fg: "#fed7aa", border: "#ea580c" },
-  extreme: { label: "extreme", bg: "var(--badge-red-bg)", fg: "var(--badge-red-fg)", border: "var(--badge-red-fg)" },
-  intercept: { label: "intercept", bg: "#0f766e", fg: "#ccfbf1", border: "#14b8a6" },
-  analysis: { label: "analysis", bg: "#4c1d95", fg: "#ddd6fe", border: "#7c3aed" },
-  other: { label: "other", bg: "#4b5563", fg: "#f3f4f6", border: "#374151" },
-};
+type ElementOrder = "value" | "value-desc" | "label";
 
-function ElementForm({ emitterId, sourceId, canEdit }: { emitterId: string; sourceId: string; canEdit: boolean }) {
+/** Typical first, then the other variants, each low to high — or as picked. */
+function orderGroups(groups: MergedElementGroup[], order: ElementOrder): MergedElementGroup[] {
+  const variantRank = (g: MergedElementGroup) => (g.members[0].variant ? (VARIANT_ORDER[g.members[0].variant] ?? 99) : 99);
+  const low = (g: MergedElementGroup) => g.value_min ?? g.stagger_values?.[0] ?? Infinity;
+  const label = (g: MergedElementGroup) => g.members.find((m) => m.label)?.label ?? "￿";
+  return [...groups].sort((a, b) => {
+    if (order === "label") return label(a).localeCompare(label(b), undefined, { numeric: true }) || low(a) - low(b);
+    if (order === "value-desc") return low(b) - low(a);
+    return variantRank(a) - variantRank(b) || low(a) - low(b);
+  });
+}
+
+function rangeText(min: number | null, max: number | null): string {
+  if (min == null && max == null) return "—";
+  return min === max || max == null ? `${min}` : `${min}–${max}`;
+}
+
+/** The add bar under the lists: one row, its type picked by the segmented
+ * control or by a list's "+". */
+function ElementForm({
+  emitterId,
+  sourceId,
+  canEdit,
+  elementType,
+  onType,
+  minRef,
+}: {
+  emitterId: string;
+  sourceId: string;
+  canEdit: boolean;
+  elementType: ElementType;
+  onType: (t: ElementType) => void;
+  minRef: React.RefObject<HTMLInputElement | null>;
+}) {
   const createElement = useCreateElement(emitterId, sourceId);
-  const [elementType, setElementType] = useState<ElementType>("rf");
   const [variant, setVariant] = useState<ElementVariant>("typical");
   const [priShape, setPriShape] = useState<"range" | "stagger">("range");
   const [valueMin, setValueMin] = useState("");
@@ -47,24 +70,32 @@ function ElementForm({ emitterId, sourceId, canEdit }: { emitterId: string; sour
   const [jitterMin, setJitterMin] = useState("0");
   const [jitterMax, setJitterMax] = useState("1");
   const [staggerValues, setStaggerValues] = useState("");
+  // A stagger's frame-time delta; empty uses the Admins' default.
+  const [frameDelta, setFrameDelta] = useState("");
+  const { defaults } = useModeDefaults();
   const [label, setLabel] = useState("");
   const [details, setDetails] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [added, setAdded] = useState<string | null>(null);
 
   const usesStagger = elementType === "pri" && priShape === "stagger";
   const suggestedFrameTimeUs = frameTimeFromText(staggerValues);
+  const unit = ELEMENT_UNIT[elementType];
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setAdded(null);
     try {
       await createElement.mutateAsync({
         element_type: elementType,
         variant,
         label: label || undefined,
         details: details || undefined,
+        delta: usesStagger ? Number(frameDelta.trim() === "" ? defaults.frame_time_delta_us : frameDelta) : undefined,
         value_min: usesStagger ? undefined : Number(valueMin),
-        value_max: usesStagger ? undefined : Number(valueMax),
+        // A single value is a range of one.
+        value_max: usesStagger ? undefined : Number(valueMax.trim() === "" ? valueMin : valueMax),
         jitter_min: elementType === "pri" && !usesStagger && jitterMin ? Number(jitterMin) : undefined,
         jitter_max: elementType === "pri" && !usesStagger && jitterMax ? Number(jitterMax) : undefined,
         stagger_values: usesStagger
@@ -75,373 +106,280 @@ function ElementForm({ emitterId, sourceId, canEdit }: { emitterId: string; sour
               .map(Number)
           : undefined,
       });
+      setAdded(`Added ${TYPE_NAME[elementType]} ${usesStagger ? staggerValues : rangeText(Number(valueMin), Number(valueMax || valueMin))} ${unit}`);
+      // Values clear for the next one; type, variant and shape stay.
       setValueMin("");
       setValueMax("");
-      setJitterMin("0");
-      setJitterMax("1");
       setStaggerValues("");
       setLabel("");
       setDetails("");
-      setVariant("typical");
+      minRef.current?.focus();
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : "Failed to create element");
     }
   }
 
   return (
-    <form className="card inline-form flex-wrap gap-2" onSubmit={handleSubmit}>
-      <select value={elementType} onChange={(e) => setElementType(e.target.value as ElementType)}>
+    <form className="el-add" onSubmit={handleSubmit} aria-label="Add an Element">
+      <div className="seg-toggle" role="radiogroup" aria-label="Element type">
         {ELEMENT_TYPES.map((t) => (
-          <option key={t} value={t}>
-            {t.toUpperCase()}
+          <button
+            key={t}
+            type="button"
+            role="radio"
+            aria-checked={elementType === t}
+            className={elementType === t ? "on" : undefined}
+            onClick={() => onType(t)}
+          >
+            {TYPE_NAME[t]}
+          </button>
+        ))}
+      </div>
+      <select value={variant} onChange={(e) => setVariant(e.target.value as ElementVariant)} aria-label="Variant">
+        {VARIANTS.map((v) => (
+          <option key={v.value} value={v.value}>
+            {v.label}
           </option>
         ))}
       </select>
-      <select value={variant} onChange={(e) => setVariant(e.target.value as ElementVariant)}>
-        <option value="typical">typical</option>
-        <option value="discrete">discrete</option>
-        <option value="most_probable">most-probable</option>
-        <option value="extreme">extreme</option>
-        <option value="intercept">intercept</option>
-        <option value="analysis">analysis</option>
-        <option value="other">other</option>
-      </select>
       {elementType === "pri" && (
-        <select value={priShape} onChange={(e) => setPriShape(e.target.value as "range" | "stagger")}>
-          <option value="range">Fixed-style range</option>
-          <option value="stagger">Stagger sequence</option>
+        <select value={priShape} onChange={(e) => setPriShape(e.target.value as "range" | "stagger")} aria-label="PRI shape">
+          <option value="range">Range</option>
+          <option value="stagger">Stagger steps</option>
         </select>
       )}
-      <input placeholder="Label (optional)" value={label} onChange={(e) => setLabel(e.target.value)} />
-
-      {(elementType !== "pri" || priShape === "range") && (
-        <>
-          <input placeholder="min" type="number" step="any" value={valueMin} onChange={(e) => setValueMin(e.target.value)} required />
-          <input placeholder="max" type="number" step="any" value={valueMax} onChange={(e) => setValueMax(e.target.value)} required />
-        </>
-      )}
-      {elementType === "pri" && priShape === "range" && (
-        <>
-          <input placeholder="jitter min" type="number" step="any" value={jitterMin} onChange={(e) => setJitterMin(e.target.value)} />
-          <input placeholder="jitter max" type="number" step="any" value={jitterMax} onChange={(e) => setJitterMax(e.target.value)} />
-        </>
-      )}
-      {elementType === "pri" && priShape === "stagger" && (
-        <>
+      <input className="el-add-label" placeholder="Label" aria-label="Label" value={label} onChange={(e) => setLabel(e.target.value)} />
+      {usesStagger ? (
+        <span className="el-add-values">
           <input
+            ref={minRef}
+            className="el-add-steps"
             placeholder="800, 850, 900, 780"
+            aria-label="Stagger steps (µs)"
             value={staggerValues}
             onChange={(e) => setStaggerValues(e.target.value)}
             required
           />
-          {suggestedFrameTimeUs > 0 && (
-            <span className="hint-text">Suggested frame time: {suggestedFrameTimeUs} µs</span>
-          )}
-        </>
+          <span className="hint-text">µs</span>
+          {suggestedFrameTimeUs > 0 && <span className="hint-text">frame {suggestedFrameTimeUs} µs</span>}
+          <span className="hint-text">±</span>
+          <input
+            className="el-add-frame"
+            type="number"
+            step="any"
+            min="0"
+            placeholder={String(defaults.frame_time_delta_us)}
+            aria-label="Frame time delta (± µs)"
+            title="Frame time delta (± µs) — empty uses the default"
+            value={frameDelta}
+            onChange={(e) => setFrameDelta(e.target.value)}
+          />
+        </span>
+      ) : (
+        <span className="el-add-values">
+          <input
+            ref={minRef}
+            placeholder="min"
+            aria-label={`${TYPE_NAME[elementType]} min (${unit})`}
+            type="number"
+            step="any"
+            value={valueMin}
+            onChange={(e) => setValueMin(e.target.value)}
+            required
+          />
+          <span aria-hidden="true">–</span>
+          <input
+            placeholder="max"
+            aria-label={`${TYPE_NAME[elementType]} max (${unit})`}
+            title="Leave empty for a single value"
+            type="number"
+            step="any"
+            value={valueMax}
+            onChange={(e) => setValueMax(e.target.value)}
+          />
+          <span className="hint-text">{unit}</span>
+        </span>
+      )}
+      {elementType === "pri" && !usesStagger && (
+        <span className="el-add-values" title="Jitter (µs)">
+          <span className="hint-text">jitter</span>
+          <input type="number" step="any" aria-label="Jitter min (µs)" value={jitterMin} onChange={(e) => setJitterMin(e.target.value)} />
+          <span aria-hidden="true">–</span>
+          <input type="number" step="any" aria-label="Jitter max (µs)" value={jitterMax} onChange={(e) => setJitterMax(e.target.value)} />
+        </span>
       )}
       <input
-        placeholder={variant === "analysis" ? "Notes (required — how was this derived?)" : "Notes"}
+        className="el-add-notes"
+        placeholder={variant === "analysis" ? "Notes (required: how was it derived?)" : "Notes"}
+        aria-label="Notes"
         value={details}
         onChange={(e) => setDetails(e.target.value)}
         required={variant === "analysis"}
-        title={variant === "analysis" ? "The 'analysis' variant requires a note explaining how this value was derived" : undefined}
+        title={variant === "analysis" ? "The 'analysis' variant needs a note explaining how this value was derived" : undefined}
       />
-      <button
-        type="submit"
-        disabled={createElement.isPending || !canEdit}
-        title={canEdit ? undefined : "Start editing this Emitter first"}
-      >
-        Add Element
+      <button type="submit" className="button primary small" disabled={createElement.isPending || !canEdit}>
+        Add {TYPE_NAME[elementType]}
       </button>
-      {error && <div className="error-text">{error}</div>}
+      {error && <span className="error-text">{error}</span>}
+      {!error && added && <span className="hint-text" role="status">{added}</span>}
     </form>
   );
 }
 
-export function ElementsPanel({ 
-  emitterId, 
-  sourceId, 
-  isCollapsed: isPanelCollapsed = false 
-}: { 
-  emitterId: string; 
-  sourceId: string; 
-  isCollapsed?: boolean; 
+/** One type's Elements as a list that fills its column's height. Elements
+ * with the same values share a row, each with its own variant, label and ✕. */
+function ElementColumn({
+  type,
+  groups,
+  canEdit,
+  canWrite,
+  onAdd,
+  onDelete,
+}: {
+  type: ElementType;
+  groups: MergedElementGroup[];
+  canEdit: boolean;
+  canWrite: boolean;
+  onAdd: () => void;
+  onDelete: (el: ModeElement) => void;
 }) {
+  const unit = ELEMENT_UNIT[type];
+  return (
+    <section className="el-col" aria-label={`${TYPE_NAME[type]} Elements`}>
+      <header className="el-col-head">
+        <strong>{TYPE_NAME[type]}</strong>
+        <span className="hint-text">
+          {groups.length} · {unit}
+        </span>
+        {canWrite && (
+          <button
+            type="button"
+            className="icon-button el-col-add"
+            onClick={onAdd}
+            disabled={!canEdit}
+            title={canEdit ? `Add a ${TYPE_NAME[type]} Element` : "Start editing this Emitter first"}
+            aria-label={`Add a ${TYPE_NAME[type]} Element`}
+          >
+            +
+          </button>
+        )}
+      </header>
+      {groups.length === 0 ? (
+        <p className="hint-text el-col-empty">None yet.</p>
+      ) : (
+        <ul className="el-list">
+          {groups.map((g) => {
+            const first = g.members[0];
+            const extras: string[] = [];
+            if (first.jitter_min != null) extras.push(`jitter ${rangeText(first.jitter_min, first.jitter_max)}`);
+            if (first.delta != null && first.delta !== 0) extras.push(`±${first.delta}`);
+            return (
+              <li key={g.representativeId} className="el-row">
+                <div className="el-row-value">
+                  {g.stagger_values ? (
+                    <>
+                      <span className="figure">[{g.stagger_values.join(", ")}]</span>
+                      <FrametimeBadge staggerValues={g.stagger_values} />
+                    </>
+                  ) : (
+                    <span className="figure">{rangeText(g.value_min, g.value_max)}</span>
+                  )}
+                  {extras.length > 0 && <span className="hint-text">{extras.join(" · ")}</span>}
+                </div>
+                {g.members.map((el) => (
+                  <div key={el.id} className="el-member">
+                    <VariantTag variant={el.variant} />
+                    <span className={el.label ? "el-member-label" : "el-member-label muted"}>{el.label || "unnamed"}</span>
+                    {el.details && (
+                      <span className="el-member-notes" title={el.details}>
+                        {el.details}
+                      </span>
+                    )}
+                    {canWrite && (
+                      <button
+                        type="button"
+                        className="el-delete"
+                        disabled={!canEdit}
+                        title={canEdit ? "Delete this Element" : "Start editing this Emitter first"}
+                        aria-label={`Delete ${TYPE_NAME[type]} ${el.label || rangeText(g.value_min, g.value_max)}`}
+                        onClick={() => onDelete(el)}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/** A Source's Elements: RF, PRI, PW and Scan side by side, each filling the
+ * height and scrolling on its own, with one add bar under them. */
+export function ElementsPanel({ emitterId, sourceId }: { emitterId: string; sourceId: string }) {
   const { data: elements } = useElements(emitterId, sourceId);
   const deleteElement = useDeleteElement(emitterId, sourceId);
   const { data: emitter } = useEmitter(emitterId);
   const { canEdit } = useEmitterCheckoutState(emitter);
+  const canWrite = useHasRole("editor");
   const { confirmDelete, dialog } = useConfirmDialog();
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  const [hoveredGroups, setHoveredGroups] = useState<Set<string>>(new Set());
+  const [order, setOrder] = useSessionState<ElementOrder>("sourceElements.order", "value");
+  const [addType, setAddType] = useState<ElementType>("rf");
+  const minRef = useRef<HTMLInputElement>(null);
 
-  const toggleGroup = (type: string) => {
-    setCollapsedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(type)) {
-        next.delete(type);
-      } else {
-        next.add(type);
-      }
-      return next;
-    });
-  };
-
-  const handleMouseEnter = (type: string) => {
-    setHoveredGroups((prev) => new Set(prev).add(type));
-  };
-
-  const handleMouseLeave = (type: string) => {
-    setHoveredGroups((prev) => {
-      const next = new Set(prev);
-      next.delete(type);
-      return next;
-    });
-  };
-
-  async function handleDelete(elementId: string) {
-    if (await confirmDelete("Delete this element? Modes already generated from it are not affected.")) {
-      await deleteElement.mutateAsync(elementId);
+  async function handleDelete(el: ModeElement) {
+    if (await confirmDelete("Delete this Element? Modes already generated from it are not affected.")) {
+      await deleteElement.mutateAsync(el.id);
     }
   }
 
-  const VARIANT_ORDER: Record<string, number> = {
-    typical: 0,
-    discrete: 1,
-    most_probable: 2,
-    extreme: 3,
-  };
-
-  const { sortKey, sortDir, onSort, onClear } = useSortableTable<MergedElementGroup, ElementSortKey>(
-    [],
-    compareGroups,
-    "sourceElements",
-  );
-
-  const grouped = ELEMENT_TYPES.map((t) => {
-    const groups = groupElements((elements ?? []).filter((e) => e.element_type === t));
-    const sorted = sortKey
-      ? [...groups].sort((a, b) => compareGroups(a, b, sortKey, sortDir))
-      : [...groups].sort((a, b) => {
-          const orderA = a.members[0].variant ? VARIANT_ORDER[a.members[0].variant] ?? 99 : 99;
-          const orderB = b.members[0].variant ? VARIANT_ORDER[b.members[0].variant] ?? 99 : 99;
-          // Then by value, so a long list reads low to high.
-          return orderA - orderB || (a.value_min ?? Infinity) - (b.value_min ?? Infinity);
-        });
-    return { type: t, groups: sorted };
-  });
-
-  function renderVariantBadge(el: ModeElement) {
-    if (!el.variant) return <span className="text-gray-400">—</span>;
-    const rawVariant = el.variant.trim().toLowerCase();
-    const variantKey = rawVariant.replace(/-/g, "_") as keyof typeof VARIANT_STYLES;
-    const style = VARIANT_STYLES[variantKey] || {
-      label: rawVariant.replace(/_/g, " "),
-      bg: "#fef3c7",
-      fg: "#92400e",
-      border: "#fcd34d",
-    };
-    const meta: string[] = [];
-    if (el.jitter_min != null) meta.push(`jitter ${el.jitter_min}–${el.jitter_max}`);
-    if (el.delta != null) meta.push(`±${el.delta} delta`);
-    return (
-      <span
-        style={{
-          display: "inline-block",
-          padding: "1px 6px",
-          borderRadius: "4px",
-          border: `1px solid ${style.border}`,
-          fontSize: "10px",
-          fontWeight: 700,
-          textTransform: "uppercase",
-          backgroundColor: style.bg,
-          color: style.fg,
-        }}
-        title={meta.length ? `${el.variant} (${meta.join(", ")})` : el.variant}
-      >
-        {style.label}
-      </span>
-    );
+  function startAdding(t: ElementType) {
+    setAddType(t);
+    // After the form has re-rendered for the type.
+    requestAnimationFrame(() => minRef.current?.focus());
   }
 
-  const [creationMode, setCreationMode] = useState<"element" | "sequence">("element");
-
   return (
-    <div className="space-y-4">
-      {!isPanelCollapsed && (
-        <>
-          <div className="cartesian-columns grid grid-cols-4 gap-4 my-3 overflow-x-auto pb-4">
-            {grouped.map(({ type, groups }) => {
-              const isCollapsed = collapsedGroups.has(type);
-              return (
-                <div key={type} className="element-group flex flex-col">
-                  <div 
-                    className="flex items-center gap-2 cursor-pointer transition-colors group w-full py-1 px-3 rounded-full"
-                    onClick={() => toggleGroup(type)}
-                    onMouseEnter={() => handleMouseEnter(type)}
-                    onMouseLeave={() => handleMouseLeave(type)}
-                    style={{ 
-                      cursor: 'pointer', 
-                      display: 'flex', 
-                      flexDirection: 'row',
-                      backgroundColor: hoveredGroups.has(type) ? (document.documentElement.getAttribute('data-theme') === 'dark' ? 'rgba(110, 168, 254, 0.25)' : 'rgba(110, 168, 254, 0.2)') : 'transparent'
-                    }}
-                  >
-                    <h3 className={`as-h5 uppercase text-sm font-semibold pointer-events-none ${hoveredGroups.has(type) ? 'text-blue-700 dark:text-blue-300' : 'text-gray-500'}`}>
-                      {type.toUpperCase()} elements
-                    </h3>
-                    <svg 
-                      className={`transition-transform duration-200 pointer-events-none ${isCollapsed ? "-rotate-90" : ""}`} 
-                      style={{ width: '12px', height: '12px' }}
-                      fill="none" 
-                      viewBox="0 0 24 24" 
-                      stroke="currentColor"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
-
-                  {!isCollapsed && (
-                    <div className="mt-1">
-                      {groups.length === 0 ? (
-                        <p className="hint-text">None yet.</p>
-                      ) : (
-                        <div className="long-list-scroll">
-                          <table className="data-table">
-                            <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 text-xs uppercase font-medium">
-                              <tr>
-                                <th className="px-2 py-0 w-24">Variant</th>
-                                <SortableColumnHeader
-                                  label="Label"
-                                  columnKey="label"
-                                  activeKey={sortKey}
-                                  activeDir={sortDir}
-                                  onSort={onSort}
-                                  onClear={onClear}
-                                />
-                                <SortableColumnHeader
-                                  label="Values"
-                                  columnKey="value"
-                                  columnType="number"
-                                  activeKey={sortKey}
-                                  activeDir={sortDir}
-                                  onSort={onSort}
-                                  onClear={onClear}
-                                />
-                                <th className="px-2 py-0">Notes</th>
-                                <th className="px-2 py-0 text-right">Actions</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200">
-                              {groups.map((g) => (
-                                <tr key={g.representativeId} className="hover:bg-gray-50 transition-colors">
-                                  <td className="px-2 py-1 align-middle">
-                                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "4px" }}>
-                                      {g.members.map((el) => (
-                                        <span key={el.id}>{renderVariantBadge(el)}</span>
-                                      ))}
-                                    </div>
-                                  </td>
-                                  <td className="px-2 py-1 align-middle">
-                                    {g.members.some((el) => el.label) ? (
-                                      <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                                        {g.members
-                                          .filter((el) => el.label)
-                                          .map((el) => (
-                                            <span key={el.id} style={{ fontWeight: 700 }}>
-                                              {el.label}
-                                            </span>
-                                          ))}
-                                      </div>
-                                    ) : (
-                                      <span className="text-gray-400 italic">unnamed</span>
-                                    )}
-                                  </td>
-                                  <td className="px-2 py-0 align-middle whitespace-nowrap">
-                                    {g.stagger_values ? (
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-mono">[{g.stagger_values.join(", ")}] µs</span>
-                                        <FrametimeBadge staggerValues={g.stagger_values} />
-                                      </div>
-                                    ) : (
-                                      <div className="font-mono">
-                                        {g.value_min}–{g.value_max}
-                                      </div>
-                                    )}
-                                  </td>
-                                  <td className="px-2 py-0 align-middle text-xs text-gray-500">
-                                    {g.members
-                                      .map((el) => el.details)
-                                      .filter(Boolean)
-                                      .join(" · ")}
-                                  </td>
-                                  <td className="px-2 py-0 align-middle text-right">
-                                    <RequireRole minimum="editor">
-                                      {g.memberIds.map((id) => (
-                                        <button
-                                          key={id}
-                                          className="text-red-600 hover:text-red-800 text-xs font-medium ml-2"
-                                          disabled={!canEdit}
-                                          title={canEdit ? undefined : "Start editing this Emitter first"}
-                                          onClick={() => void handleDelete(id)}
-                                        >
-                                          Delete
-                                        </button>
-                                      ))}
-                                    </RequireRole>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          <fieldset
-            className="pt-2 border-t border-gray-200 edit-lock"
-            disabled={!canEdit}
-            title={canEdit ? undefined : "Start editing this Emitter first"}
-          >
-            <div className="flex items-center justify-between mb-2 px-1">
-              <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg" style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  type="button"
-                  onClick={() => setCreationMode("element")}
-                  className={`px-6 py-1 text-xs font-bold rounded-md transition-colors ${
-                    creationMode === "element"
-                      ? "bg-blue-600 text-white shadow-sm"
-                      : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                  }`}
-                >
-                  Single Element
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCreationMode("sequence")}
-                  className={`px-6 py-1 text-xs font-bold rounded-md transition-colors ${
-                    creationMode === "sequence"
-                      ? "bg-blue-600 text-white shadow-sm"
-                      : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                  }`}
-                >
-                  Sequence
-                </button>
-              </div>
-            </div>
-            <RequireRole minimum="editor">
-              {creationMode === "element" ? (
-                <ElementForm emitterId={emitterId} sourceId={sourceId} canEdit={canEdit} />
-              ) : (
-                <SequenceForm emitterId={emitterId} sourceId={sourceId} canEdit={canEdit} />
-              )}
-            </RequireRole>
-          </fieldset>
-        </>
+    <div className="el-panel">
+      <div className="el-toolbar">
+        <span className="hint-text">{(elements ?? []).length} Elements</span>
+        <label className="el-order">
+          <span className="hint-text">Order</span>
+          <select value={order} onChange={(e) => setOrder(e.target.value as ElementOrder)} aria-label="Order the Elements">
+            <option value="value">Typical first, low → high</option>
+            <option value="value-desc">High → low</option>
+            <option value="label">By label</option>
+          </select>
+        </label>
+      </div>
+      <div className="el-board">
+        {ELEMENT_TYPES.map((t) => (
+          <ElementColumn
+            key={t}
+            type={t}
+            groups={orderGroups(groupElements((elements ?? []).filter((e) => e.element_type === t)), order)}
+            canEdit={canEdit}
+            canWrite={canWrite}
+            onAdd={() => startAdding(t)}
+            onDelete={(el) => void handleDelete(el)}
+          />
+        ))}
+      </div>
+      {canWrite && (
+        <fieldset className="edit-lock el-add-wrap" disabled={!canEdit} title={canEdit ? undefined : "Start editing this Emitter first"}>
+          <ElementForm
+            emitterId={emitterId}
+            sourceId={sourceId}
+            canEdit={canEdit}
+            elementType={addType}
+            onType={setAddType}
+            minRef={minRef}
+          />
+        </fieldset>
       )}
       {dialog}
     </div>

@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useMemo, useState, type FormEvent } from "react";
+import { CheckMenu } from "../components/common/CheckMenu";
 import { EMITTERS_SECTION, InfoTip, PageHeader } from "../components/common/PageHeader";
 import { MenuButton } from "../components/common/MenuButton";
 import { DuplicateEmitterModal } from "../components/emitters/DuplicateEmitterModal";
@@ -25,7 +26,7 @@ import { EmitterBulkBar } from "../components/emitters/EmitterBulkBar";
 import { useHasRole } from "../auth/RequireAuth";
 import { StatusBadge } from "../components/status/StatusBadge";
 import { useStatuses } from "../state/hooks/useStatuses";
-import { useSessionState } from "../components/common/useSessionState";
+import { useLocalState, useSessionState } from "../components/common/useSessionState";
 import { formatDate } from "../components/common/dates";
 import { exportEmitterXml } from "../components/emitters/exportXml";
 
@@ -57,13 +58,14 @@ function simShare(e: Emitter): number | null {
   return e.summary.sim_lines ? e.summary.sim_lines_correct / e.summary.sim_lines : null;
 }
 
-/** `statusLabel` gives a status's name as shown, so Status sorts A–Z by it. */
+/** `statusRank` gives a status's place in the Admins' order, so Status sorts
+ * along the workflow (In progress → … → Operational), then by name. */
 function compareEmitters(
   a: Emitter,
   b: Emitter,
   key: EmitterSortKey,
   dir: "asc" | "desc",
-  statusLabel: (key: string) => string,
+  statusRank: (key: string) => number,
   /** A function code's place in the Admins' order (null: none). */
   codeOrder: (id: string | null) => number | null,
 ): number {
@@ -73,7 +75,7 @@ function compareEmitters(
     case "designation":
       return compareStrings(a.designation, b.designation, dir);
     case "status":
-      return compareStrings(statusLabel(a.status), statusLabel(b.status), dir);
+      return (dir === "asc" ? 1 : -1) * (statusRank(a.status) - statusRank(b.status)) || compareStrings(a.name, b.name, "asc");
     case "rf_min":
       return compareNullable(a.summary.rf_min_mhz, b.summary.rf_min_mhz, dir);
     case "rf_max":
@@ -185,6 +187,11 @@ export function EmittersListPage() {
   const [assignedFilter, setAssignedFilter] = useSessionState("emitters.assignedFilter", "");
   // A function code's id, or "none" for Emitters without one.
   const [codeFilter, setCodeFilter] = useSessionState("emitters.codeFilter", "");
+  // Statuses left out of the list — chosen by right-clicking the Status
+  // column, and remembered in this browser.
+  const [hiddenStatuses, setHiddenStatuses] = useLocalState<string[]>("emitters.hiddenStatuses", []);
+  const [statusMenu, setStatusMenu] = useState<{ x: number; y: number } | null>(null);
+  const closeStatusMenu = useCallback(() => setStatusMenu(null), []);
   const { user } = useAuth();
   const { data: people } = usePeople();
   const canWrite = useHasRole("editor");
@@ -214,20 +221,43 @@ export function EmittersListPage() {
     if (assignedFilter === "me" && e.assignee_id !== user?.id) return false;
     if (assignedFilter && !["me", "none"].includes(assignedFilter) && e.assignee_id !== assignedFilter) return false;
     if (codeFilter && (codeFilter === "none" ? e.function_code_id != null : e.function_code_id !== codeFilter)) return false;
+    if (hiddenStatuses.includes(e.status)) return false;
     return true;
   });
 
   const statuses = useStatuses("emitter");
   const comparator = useCallback(
     (a: Emitter, b: Emitter, key: EmitterSortKey, dir: "asc" | "desc") =>
-      compareEmitters(a, b, key, dir, statuses.label, (id) => (id ? (codeIndex.get(id) ?? null) : null)),
+      compareEmitters(a, b, key, dir, statuses.rank, (id) => (id ? (codeIndex.get(id) ?? null) : null)),
     [statuses, codeIndex],
   );
-  // Z–A by name until someone sorts it otherwise (kept for the tab's session).
-  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable<Emitter, EmitterSortKey>(filtered, comparator, "emitters", {
-    key: "name",
-    dir: "desc",
-  });
+  // By status, first to last in the Admins' order, until someone sorts it
+  // otherwise (kept for the tab's session).
+  const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable<Emitter, EmitterSortKey>(
+    filtered,
+    comparator,
+    "emitters-by-status",
+    { key: "status", dir: "asc" },
+  );
+
+  // Every status, in order, with how many Emitters have it — the defined
+  // ones plus any key an Emitter has that isn't defined any more.
+  const statusOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const e of emitters ?? []) counts.set(e.status, (counts.get(e.status) ?? 0) + 1);
+    const keys = [...statuses.list.map((st) => st.key)];
+    for (const k of counts.keys()) if (!keys.includes(k)) keys.push(k);
+    return keys.map((key) => ({ key, count: counts.get(key) ?? 0 }));
+  }, [emitters, statuses]);
+  const hiddenShown = hiddenStatuses.filter((k) => statusOptions.some((o) => o.key === k));
+  function toggleStatus(key: string) {
+    setHiddenStatuses((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  }
+  const openStatusMenu = (e: { preventDefault: () => void; stopPropagation: () => void; clientX: number; clientY: number }) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setStatusMenu({ x: e.clientX, y: e.clientY });
+  };
   const columns = useColumnVisibility("emitters-list-columns", COLUMNS);
   const columnMenu = useColumnVisibilityMenu(columns);
   const show = columns.isVisible;
@@ -269,7 +299,7 @@ export function EmittersListPage() {
           : [e.summary.scan_min, e.summary.scan_max];
 
   const rangesSet = [rfMin, rfMax, pwMin, pwMax, priMin, priMax, scanMin, scanMax].some(Boolean);
-  const filtering = !!nameFilter || !!platformFilter || !!assignedFilter || !!codeFilter || rangesSet;
+  const filtering = !!nameFilter || !!platformFilter || !!assignedFilter || !!codeFilter || rangesSet || hiddenShown.length > 0;
   // Every Platform some Emitter is on, for the Platform search's suggestions.
   const platformOptions = [...new Set((emitters ?? []).flatMap((e) => (e.platforms ?? []).map((p) => p.name)))].sort(
     (a, b) => a.localeCompare(b),
@@ -288,6 +318,7 @@ export function EmittersListPage() {
     setScanMax("");
     setAssignedFilter("");
     setCodeFilter("");
+    setHiddenStatuses([]);
   }
 
   async function handleDelete(emitter: Emitter) {
@@ -448,6 +479,19 @@ export function EmittersListPage() {
               </option>
             ))}
         </select>
+        {hiddenShown.length > 0 && (
+          <button
+            type="button"
+            className="button secondary small filter-toggle active"
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              setStatusMenu({ x: r.left, y: r.bottom + 4 });
+            }}
+            title={`Not shown: ${hiddenShown.map((k) => statuses.label(k)).join(", ")} — click to change`}
+          >
+            Statuses: {statusOptions.length - hiddenShown.length} of {statusOptions.length} ▾
+          </button>
+        )}
         <button
           type="button"
           className={rangesSet ? "button secondary small filter-toggle active" : "button secondary small filter-toggle"}
@@ -514,7 +558,26 @@ export function EmittersListPage() {
               )}
               {show("designation") && header("Designation", "designation")}
               {header("Name", "name", undefined, { rowSpan: 2, className: "emitters-name-col" })}
-              {show("status") && header("Status", "status")}
+              {show("status") && (
+                <SortableColumnHeader
+                  label="Status"
+                  columnKey="status"
+                  activeKey={sortKey}
+                  activeDir={sortDir}
+                  onSort={onSort}
+                  onClear={onClear}
+                  rowSpan={2}
+                  title="Right-click to choose which statuses to show"
+                  sortLabels={{ asc: "Sort first → last status", desc: "Sort last → first status" }}
+                  onContextMenu={openStatusMenu}
+                  menuExtra={[{ label: "Choose statuses to show…", onSelect: setStatusMenu }]}
+                  marked={
+                    hiddenShown.length
+                      ? { title: `Hiding ${hiddenShown.length} status${hiddenShown.length === 1 ? "" : "es"}` }
+                      : undefined
+                  }
+                />
+              )}
               {show("function_code") && header("Function code", "function_code")}
               {show("assignee") && header("Assigned to", "assignee")}
               {show("platforms") && header("Platforms", "platforms")}
@@ -662,6 +725,36 @@ export function EmittersListPage() {
         </>
       )}
       {columnMenu.menu}
+      {statusMenu && (
+        <CheckMenu
+          title="Statuses to show"
+          ariaLabel="Choose statuses to show"
+          anchor={statusMenu}
+          onClose={closeStatusMenu}
+          items={statusOptions.map((o) => ({
+            id: o.key,
+            label: <StatusBadge type="emitter" status={o.key} />,
+            checked: !hiddenStatuses.includes(o.key),
+            hint: o.count,
+          }))}
+          onToggle={toggleStatus}
+          footer={
+            <div className="column-menu-actions">
+              <button type="button" className="link-button" disabled={hiddenShown.length === 0} onClick={() => setHiddenStatuses([])}>
+                Show all
+              </button>
+              <button
+                type="button"
+                className="link-button"
+                disabled={hiddenShown.length === statusOptions.length}
+                onClick={() => setHiddenStatuses(statusOptions.map((o) => o.key))}
+              >
+                Show none
+              </button>
+            </div>
+          }
+        />
+      )}
       {dialog}
       {duplicating && (
         <DuplicateEmitterModal emitterId={duplicating.id} emitterName={duplicating.name} onClose={() => setDuplicating(null)} />

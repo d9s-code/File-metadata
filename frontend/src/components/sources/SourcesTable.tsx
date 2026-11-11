@@ -139,7 +139,9 @@ function SourceDetailTabs({
           </button>
         ))}
       </div>
-      <div className="source-overlay-body">
+      {/* Elements and Generate Modes fill the window: their lists scroll on
+          their own and the add bar / Generate bar stay in view. */}
+      <div className={tab === "elements" || tab === "generate" ? "source-overlay-body fill" : "source-overlay-body"}>
       {tab === "elements" && <ElementsPanel emitterId={emitterId} sourceId={source.id} />}
       {tab === "sequences" && <ParameterSequencesPanel emitterId={emitterId} sourceId={source.id} />}
       {tab === "generate" && (
