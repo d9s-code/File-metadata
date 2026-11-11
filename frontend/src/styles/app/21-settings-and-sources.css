@@ -683,3 +683,15 @@ td.gen-delta-col {
 .coverage-guessed {
   margin: 0.25rem 0 0.5rem;
 }
+
+/* JSON import: what in the file was left out. */
+.json-import-done {
+  padding: 0.25rem 0.25rem 0;
+}
+.json-import-skipped {
+  max-height: 16rem;
+  overflow: auto;
+  margin: 0 0 0.75rem;
+  padding-left: 1.2rem;
+  font-size: max(0.86rem, 12px);
+}

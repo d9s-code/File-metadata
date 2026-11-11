@@ -57,9 +57,17 @@ export const emittersApi = {
     formData.append("file", file);
     if (sourceDate) formData.append("source_date", sourceDate);
     if (groupId) formData.append("group_id", groupId);
-    return api.post<void>(`/emitters/${emitterId}/imports/json-import`, formData);
+    return api.post<JsonImportResult>(`/emitters/${emitterId}/imports/json-import`, formData);
   },
 };
+
+/** What a JSON import made, and what in the file couldn't be read and was left out. */
+export interface JsonImportResult {
+  source_count: number;
+  element_count: number;
+  sequence_count: number;
+  skipped: string[];
+}
 
 export interface EmitterCheckout {
   emitter_id: string;

@@ -37,8 +37,8 @@ class ParameterSequence(UUIDPkMixin, Base):
     # — shape validated at the Pydantic layer (ParameterSequenceStepIn), not the DB.
     steps: Mapped[list[dict]] = mapped_column(JSONB, nullable=False)
     # A stagger (its PRI steps are one train) or a dwell & switch (each step
-    # a Fixed Mode), set by hand or by an import's "sequence-type"; None
-    # until then, and `guessed_kind` stands in (app.services.sequence_kind).
+    # a Fixed Mode), set by hand; None until then (imports leave it so), and
+    # `guessed_kind` stands in (app.services.sequence_kind).
     kind: Mapped[str | None] = mapped_column(String(16), nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     # Symmetric +/- tolerance margin applied to whichever of a selected step's

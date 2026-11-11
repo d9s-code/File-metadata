@@ -1,3 +1,4 @@
+import math
 from datetime import datetime, date
 from typing import Any, Dict, List
 
@@ -5,7 +6,6 @@ from app.schemas.import_batch import ImportPayload, ParametricSetImport
 from app.schemas.mode_element import ModeElementCreate, ElementType
 from app.schemas.parameter_sequence import ParameterSequenceCreate, ParameterSequenceStepIn
 from app.core.enums import ElementType as CoreElementType
-from app.services.sequence_kind import has_pri, parse_kind
 
 
 def _parse_date_last_updated(raw: str | None) -> date | None:
@@ -29,15 +29,31 @@ _STEP_JSON_KEYS: dict[str, tuple[str, str, str]] = {
 }
 
 
+def _number(raw) -> float | None:
+    """A value as a finite float; None when it's missing or isn't a number
+    (e.g. "N/A", "", "inf")."""
+    if raw is None or isinstance(raw, bool):
+        return None
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return None
+    return value if math.isfinite(value) else None
+
+
 def _json_range(step: dict, key: str) -> tuple[float, float] | None:
-    """A step's {"min", "max"} for one parameter, as floats. PW may come in
-    as "pd-value" (pulse duration)."""
+    """A step's {"min", "max"} for one parameter, as floats, low to high. PW
+    may come in as "pd-value" (pulse duration). None when it's missing or
+    either end isn't a number — the step then just doesn't set it."""
     value = step.get(key)
     if value is None and key == "pw-value":
         value = step.get("pd-value")
     if not isinstance(value, dict) or "min" not in value or "max" not in value:
         return None
-    return float(value["min"]), float(value["max"])
+    lo, hi = _number(value["min"]), _number(value["max"])
+    if lo is None or hi is None:
+        return None
+    return min(lo, hi), max(lo, hi)
 
 
 def _step_number(step: dict) -> int | None:
@@ -77,6 +93,21 @@ def _number_steps(entries: list[tuple[dict, dict]]) -> list[tuple[int, dict]]:
     return [(position, params) for position, (_, params) in enumerate(entries, start=1)]
 
 
+# A group's "kind" as it's said in a note.
+_KIND_NAME = {"rf": "RF", "pri": "PRI", "pw_pd": "PW"}
+
+
+def _reason(exc: Exception) -> str:
+    """An error in a line, without pydantic's links and repeated headers."""
+    errors = getattr(exc, "errors", None)
+    if callable(errors):
+        messages = [str(e.get("msg")) for e in errors() if isinstance(e, dict) and e.get("msg")]
+        if messages:
+            return "; ".join(messages)
+    text = str(exc)
+    return text.splitlines()[0] if text else exc.__class__.__name__
+
+
 def _sequence_steps(raw_steps: list[dict]) -> list[ParameterSequenceStepIn]:
     entries = [(raw, {key: rng for key in _STEP_JSON_KEYS if (rng := _json_range(raw, key))}) for raw in raw_steps]
     # A row with no RF/PRI/PW value carries nothing to import.
@@ -105,16 +136,11 @@ def _sequence_steps(raw_steps: list[dict]) -> list[ParameterSequenceStepIn]:
     return steps
 
 
-def _set_kind_for(kind: str | None, steps: list[ParameterSequenceStepIn]) -> str | None:
-    """The set's sequence type for one of its sequences: a sequence without
-    PRI can't be a stagger, so it's left to be guessed instead."""
-    if kind == "stagger" and not has_pri([s.model_dump() for s in steps]):
-        return None
-    return kind
-
-
 def transform_json_to_payload(
-    json_data: List[Dict[str, Any]], *, override_source_date: date | None = None
+    json_data: List[Dict[str, Any]],
+    *,
+    override_source_date: date | None = None,
+    skipped: list[str] | None = None,
 ) -> ImportPayload:
     """
     Transforms the JSON format into our internal ImportPayload.
@@ -127,9 +153,8 @@ def transform_json_to_payload(
             {
                 "set_name": str,
                 "date_last_updated": str (DD-MM-YYYY HH:MM:SS GMT),
-                "sequence-type": "stagger" | "dwell-switch" (optional, for its sequences),
                 "groups": [
-                    {"type": "sequence", "name": str, "sequence-type": ... (optional), "steps": [...]},
+                    {"type": "sequence", "name": str, "steps": [...]},
                     {"type": "independent", "kind": "rf", "values": [...]}
                 ]
             }
@@ -140,7 +165,14 @@ def transform_json_to_payload(
     whole — read per-set below, not once for the whole file. If a set has no
     parseable date of its own, `override_source_date` (typed in manually at
     import time) is used; failing that, today's date is the last resort.
+
+    What can't be read is left out instead of failing the whole file, and
+    said in `skipped` (when given): a sequence with no step that has an RF,
+    PRI or PW; an element whose value isn't a number (or is otherwise
+    invalid); a parametric set left with nothing. A step value that isn't a
+    number is dropped from its step, and a min above its max is swapped.
     """
+    notes: list[str] = skipped if skipped is not None else []
     if not json_data:
         raise ValueError("JSON data is empty")
 
@@ -153,12 +185,11 @@ def transform_json_to_payload(
         elements = []
         sequences = []
         source_description = pset_json.get("signal-type")
-        # "sequence-type" (stagger / dwell-switch), beside the set's other
-        # metadata, applies to its sequences; a sequence's own wins. Empty:
-        # guessed from the steps.
-        set_sequence_kind = parse_kind(pset_json.get("sequence-type"))
+        set_name = pset_json.get("set_id")
         
         for group in pset_json.get("groups", []):
+            if not isinstance(group, dict):
+                continue
             if group.get("type") == "sequence":
                 # Map to ParameterSequenceCreate
                 steps = []
@@ -171,14 +202,19 @@ def transform_json_to_payload(
                 else:
                     steps_to_process = []
 
-                steps = _sequence_steps([step for step in steps_to_process if isinstance(step, dict)])
-
-                sequences.append(ParameterSequenceCreate(
-                    label=group.get("name"),
-                    steps=steps,
-                    kind=parse_kind(group.get("sequence-type")) or _set_kind_for(set_sequence_kind, steps),
-                    sort_order=group.get("index", 0)
-                ))
+                where = f"Sequence '{group.get('name') or 'unnamed'}' in '{set_name}'"
+                try:
+                    steps = _sequence_steps([step for step in steps_to_process if isinstance(step, dict)])
+                    if not steps:
+                        notes.append(f"{where}: no step has an RF, PRI or PW — left out")
+                        continue
+                    sequences.append(ParameterSequenceCreate(
+                        label=group.get("name"),
+                        steps=steps,
+                        sort_order=group.get("index", 0)
+                    ))
+                except (ValueError, TypeError) as exc:
+                    notes.append(f"{where}: couldn't be read ({_reason(exc)}) — left out")
 
             elif group.get("type") == "independent":
                 kind = group.get("kind")
@@ -191,91 +227,101 @@ def transform_json_to_payload(
                 
                 if target_type:
                     for val_obj in values:
-                        sub_kind = val_obj.get("sub_kind")
-                        val = val_obj.get("value")
+                        try:
+                            sub_kind = val_obj.get("sub_kind")
+                            val = val_obj.get("value")
                         
-                        if not val: continue
+                            if not val: continue
 
-                        if sub_kind in ["rf-legacy-term", "pri-legacy-term"]:
-                            if not source_description or source_description == pset_json.get("signal-type"):
-                                source_description = str(val)
-                            continue
+                            if sub_kind in ["rf-legacy-term", "pri-legacy-term"]:
+                                if not source_description or source_description == pset_json.get("signal-type"):
+                                    source_description = str(val)
+                                continue
 
-                        if sub_kind in ["prf-typical", "prf-most-prob-values", "prf-extreme"]:
-                            continue
+                            if sub_kind in ["prf-typical", "prf-most-prob-values", "prf-extreme"]:
+                                continue
 
-                        # Override target type if sub_kind implies a different element type
-                        # e.g. scan-primary-typical -> scan
-                        effective_target_type = target_type
-                        if "scan" in sub_kind:
-                            effective_target_type = CoreElementType.scan
+                            # Override target type if sub_kind implies a different element type
+                            # e.g. scan-primary-typical -> scan
+                            effective_target_type = target_type
+                            if "scan" in sub_kind:
+                                effective_target_type = CoreElementType.scan
 
-                        # Mapping subtype to variant
-                        variant = "discrete"
-                        if sub_kind:
-                            sub_kind_lower = sub_kind.lower()
-                            if any(x in sub_kind_lower for x in ["most-prob-values", "most_probable", "most-prob"]):
-                                variant = "most_probable"
-                            elif "extreme" in sub_kind_lower:
-                                variant = "extreme"
-                            elif "typical" in sub_kind_lower:
-                                variant = "typical"
-                            elif "discrete" in sub_kind_lower:
-                                variant = "discrete"
+                            # Mapping subtype to variant
+                            variant = "discrete"
+                            if sub_kind:
+                                sub_kind_lower = sub_kind.lower()
+                                if any(x in sub_kind_lower for x in ["most-prob-values", "most_probable", "most-prob"]):
+                                    variant = "most_probable"
+                                elif "extreme" in sub_kind_lower:
+                                    variant = "extreme"
+                                elif "typical" in sub_kind_lower:
+                                    variant = "typical"
+                                elif "discrete" in sub_kind_lower:
+                                    variant = "discrete"
 
-                        if isinstance(val, dict):
-                            actual_val = val
-                            if "value" in val and isinstance(val["value"], dict):
-                                actual_val = val["value"]
+                            if isinstance(val, dict):
+                                actual_val = val
+                                if "value" in val and isinstance(val["value"], dict):
+                                    actual_val = val["value"]
                                 
-                            # Case 1: The value is a list of items (like pri-values)
-                            if "value" in val and isinstance(val["value"], list):
-                                for item in val["value"]:
-                                    item_min = float(item.get("min", 0))
-                                    item_max = float(item.get("max", 0))
+                                # Case 1: The value is a list of items (like pri-values)
+                                if "value" in val and isinstance(val["value"], list):
+                                    for item in val["value"]:
+                                        item_min = float(item.get("min", 0))
+                                        item_max = float(item.get("max", 0))
                                     
+                                        el = ModeElementCreate(
+                                            element_type=effective_target_type,
+                                            value_min=item_min,
+                                            value_max=item_max,
+                                            variant=variant,
+                                            label=sub_kind if sub_kind not in ["rf-typical", "rf-most-prob-values", "pri-typical", "pri-values", "pd-typical", "pd-most-prob-values"] else None
+                                        )
+                                        elements.append(el)
+                                # Case 2: The value is a single range/dict
+                                else:
+                                    v_min = float(actual_val.get("min", 0))
+                                    v_max = float(actual_val.get("max", 0))
+
                                     el = ModeElementCreate(
                                         element_type=effective_target_type,
-                                        value_min=item_min,
-                                        value_max=item_max,
+                                        value_min=v_min,
+                                        value_max=v_max,
                                         variant=variant,
                                         label=sub_kind if sub_kind not in ["rf-typical", "rf-most-prob-values", "pri-typical", "pri-values", "pd-typical", "pd-most-prob-values"] else None
                                     )
                                     elements.append(el)
-                            # Case 2: The value is a single range/dict
-                            else:
-                                v_min = float(actual_val.get("min", 0))
-                                v_max = float(actual_val.get("max", 0))
-
-                                el = ModeElementCreate(
-                                    element_type=effective_target_type,
-                                    value_min=v_min,
-                                    value_max=v_max,
-                                    variant=variant,
-                                    label=sub_kind if sub_kind not in ["rf-typical", "rf-most-prob-values", "pri-typical", "pri-values", "pd-typical", "pd-most-prob-values"] else None
-                                )
-                                elements.append(el)
-                        elif isinstance(val, (int, float, str)):
-                            # This handles single value scalars if they appear
-                            try:
-                                v_val = float(val)
-                                el = ModeElementCreate(
-                                    element_type=effective_target_type,
-                                    value_min=v_val,
-                                    value_max=v_val,
-                                    variant=variant,
-                                    label=sub_kind if sub_kind not in ["rf-typical", "rf-most-prob-values", "pri-typical", "pri-values", "pd-typical", "pd-most-prob-values"] else None
-                                )
-                                elements.append(el)
-                            except (ValueError, TypeError):
-                                # Skip non-numeric values as they cannot be ModeElements
-                                continue
+                            elif isinstance(val, (int, float, str)):
+                                # This handles single value scalars if they appear
+                                try:
+                                    v_val = float(val)
+                                    el = ModeElementCreate(
+                                        element_type=effective_target_type,
+                                        value_min=v_val,
+                                        value_max=v_val,
+                                        variant=variant,
+                                        label=sub_kind if sub_kind not in ["rf-typical", "rf-most-prob-values", "pri-typical", "pri-values", "pd-typical", "pd-most-prob-values"] else None
+                                    )
+                                    elements.append(el)
+                                except (ValueError, TypeError):
+                                    # Skip non-numeric values as they cannot be ModeElements
+                                    continue
+                        except (ValueError, TypeError, AttributeError) as exc:
+                            what = val_obj.get("sub_kind") if isinstance(val_obj, dict) else None
+                            notes.append(
+                                f"An {_KIND_NAME.get(kind, str(kind))} element{f' ({what})' if what else ''} in '{set_name}': "
+                                f"couldn't be read ({_reason(exc)}) — left out"
+                            )
 
         source_date = (
             override_source_date
             or _parse_date_last_updated(pset_json.get("date_last_updated"))
             or date.today()
         )
+        if not elements and not sequences:
+            notes.append(f"Parametric set '{set_name}': nothing in it could be read — left out")
+            continue
         parametric_sets.append(ParametricSetImport(
             source_name=pset_json.get("set_id"),
             source_description=source_description,

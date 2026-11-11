@@ -75,3 +75,5 @@ class ImportCommitResult(BaseModel):
     source_count: int
     element_count: int
     sequence_count: int
+    # What a JSON file had that couldn't be read and was left out, in words.
+    skipped: list[str] = Field(default_factory=list)

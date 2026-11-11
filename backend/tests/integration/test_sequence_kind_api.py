@@ -1,13 +1,11 @@
 """A Parameter Sequence's kind — a stagger or a dwell & switch: guessed from
-its steps until set (by hand, or by an import's "sequence-type"), and what
-Element coverage checks it against."""
+its steps until set by hand, and what Element coverage checks it against."""
 
 import json
 
 import pytest
 
-from app.services.json_import.transformer import transform_json_to_payload
-from app.services.sequence_kind import guess_kind, parse_kind
+from app.services.sequence_kind import guess_kind
 
 
 def _steps(*steps):
@@ -33,50 +31,18 @@ def test_the_guess(steps, kind):
     assert guess_kind(steps) == kind
 
 
-@pytest.mark.parametrize(
-    ("raw", "kind"),
-    [("Stagger", "stagger"), ("dwell-switch", "dwell_switch"), ("Dwell & Switch", "dwell_switch"),
-     ("dwell_and_switch", "dwell_switch"), ("", None), (None, None)],
-)
-def test_import_spellings(raw, kind):
-    assert parse_kind(raw) == kind
-
-
-def test_an_unknown_import_spelling_is_an_error():
-    with pytest.raises(ValueError, match="Unknown sequence type 'burst'"):
-        parse_kind("burst")
-
-
-def _json(groups, **set_meta):
-    return [{"file": "f.xml", "notation": "N", "parametric_sets": [
-        {"set_id": "SET", "date_last_updated": "10-06-2015 17:19:28 GMT", **set_meta, "groups": groups}
-    ]}]
-
-
-def _seq(name, steps, **extra):
-    return {"type": "sequence", "name": name, "steps": steps, **extra}
-
-
-PRI_STEPS = [{"step-num": "1", "pri-value": {"min": "800", "max": "800"}}, {"step-num": "2", "pri-value": {"min": "900", "max": "900"}}]
-RF_STEPS = [{"step-num": "1", "rf-value": {"min": "9000", "max": "9000"}}, {"step-num": "2", "rf-value": {"min": "9100", "max": "9100"}}]
-
-
-def test_json_import_reads_the_sequence_type():
-    payload = transform_json_to_payload(_json(
-        [_seq("A", PRI_STEPS, **{"sequence-type": "dwell-switch"}), _seq("B", PRI_STEPS), _seq("C", RF_STEPS)],
-        **{"sequence-type": "Stagger"},
-    ))
-    kinds = {s.label: s.kind for s in payload.parametric_sets[0].sequences}
-    # The sequence's own wins; the set's applies to the rest — but not to one
-    # without PRI, which can't be a stagger and is left to be guessed.
-    assert kinds == {"A": "dwell_switch", "B": "stagger", "C": None}
-
-
-def test_json_import_without_a_type_leaves_it_guessed(editor_client):
+def test_json_import_leaves_the_kind_guessed(editor_client):
     eid = editor_client.post("/emitters", json={"name": "Kinds"}).json()["id"]
+    file = [{"file": "f.xml", "notation": "N", "parametric_sets": [{
+        "set_id": "SET", "date_last_updated": "10-06-2015 17:19:28 GMT",
+        "groups": [{"type": "sequence", "name": "A", "steps": [
+            {"step-num": "1", "pri-value": {"min": "800", "max": "800"}},
+            {"step-num": "2", "pri-value": {"min": "900", "max": "900"}},
+        ]}],
+    }]}]
     resp = editor_client.post(
         f"/emitters/{eid}/imports/json-import",
-        files={"file": ("k.json", json.dumps(_json([_seq("A", PRI_STEPS)])).encode(), "application/json")},
+        files={"file": ("k.json", json.dumps(file).encode(), "application/json")},
         data={"source_date": "2026-03-01"},
     )
     assert resp.status_code == 201, resp.text
@@ -84,17 +50,6 @@ def test_json_import_without_a_type_leaves_it_guessed(editor_client):
     [seq] = editor_client.get(f"/emitters/{eid}/sources/{source['id']}/parameter-sequences").json()
     assert seq["kind"] is None
     assert seq["guessed_kind"] == "stagger"
-
-
-def test_json_import_with_an_unknown_type_is_refused(editor_client):
-    eid = editor_client.post("/emitters", json={"name": "Kinds"}).json()["id"]
-    resp = editor_client.post(
-        f"/emitters/{eid}/imports/json-import",
-        files={"file": ("k.json", json.dumps(_json([_seq("A", PRI_STEPS, **{"sequence-type": "burst"})])).encode(), "application/json")},
-        data={"source_date": "2026-03-01"},
-    )
-    assert resp.status_code == 422
-    assert "Unknown sequence type 'burst'" in resp.text
 
 
 def _coverage_setup(client):

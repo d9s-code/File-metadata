@@ -6,7 +6,7 @@
   dwells on one RF/PRI/PW, then switches to the next.
 
 The steps alone can't tell them apart reliably, so the kind is set by hand
-(on the Sources tab, or by an import's "sequence-type"). Until it is, it's
+on the Source's Sequences tab (imports leave it unset). Until it is, it's
 guessed from the steps and shown as guessed:
 
 - only PRI in every step → a stagger;
@@ -61,33 +61,3 @@ def guess_kind(steps: list[dict]) -> SequenceKind:
 
 def effective_kind(kind: str | None, steps: list[dict]) -> SequenceKind:
     return kind if kind in SEQUENCE_KINDS else guess_kind(steps)  # type: ignore[return-value]
-
-
-_IMPORT_WORDS = {
-    "stagger": "stagger",
-    "staggered": "stagger",
-    "dwell_switch": "dwell_switch",
-    "dwell switch": "dwell_switch",
-    "dwell and switch": "dwell_switch",
-    "dwell & switch": "dwell_switch",
-    "dwell/switch": "dwell_switch",
-    "dwell switcher": "dwell_switch",
-    "dwell and switcher": "dwell_switch",
-    "dwell & switcher": "dwell_switch",
-    "d&s": "dwell_switch",
-    "ds": "dwell_switch",
-}
-
-
-def parse_kind(raw) -> SequenceKind | None:
-    """An import file's sequence type, in any of its usual spellings; None
-    when it's blank. Anything else is an error rather than a silent guess."""
-    if raw is None:
-        return None
-    text = " ".join(str(raw).strip().lower().replace("-", " ").replace("_", " ").split())
-    if not text:
-        return None
-    kind = _IMPORT_WORDS.get(text) or _IMPORT_WORDS.get(text.replace(" ", "_"))
-    if kind is None:
-        raise ValueError(f"Unknown sequence type '{raw}' — use 'stagger' or 'dwell-switch' (or leave it empty to guess)")
-    return kind  # type: ignore[return-value]

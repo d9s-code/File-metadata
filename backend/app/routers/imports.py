@@ -97,12 +97,16 @@ def commit_json_import(
         json_data = json.loads(_read_upload(file))
     except (json.JSONDecodeError, UnicodeDecodeError) as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Not a valid JSON file: {exc}") from exc
+    # What the file has that can't be read is left out and listed here.
+    skipped: list[str] = []
     try:
-        payload = transform_json_to_payload(json_data, override_source_date=source_date)
+        payload = transform_json_to_payload(json_data, override_source_date=source_date, skipped=skipped)
     except (ValueError, TypeError, KeyError, IndexError, AttributeError) as exc:
         # ValueError includes pydantic's ValidationError from the payload models.
+        left_out = f" Left out: {'; '.join(skipped)}." if skipped else ""
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_CONTENT, f"JSON file doesn't match the expected import format: {exc}"
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            f"JSON file doesn't match the expected import format: {exc}{left_out}",
         ) from exc
 
     if group_id is not None and db.get(SourceGroup, group_id) is None:
@@ -127,6 +131,7 @@ def commit_json_import(
             "document_name": payload.document_name,
             "document_reference": payload.document_reference,
             "source_count": len(sources),
+            **({"left_out": skipped} if skipped else {}),
         },
         emitter_id=emitter_id,
     )
@@ -141,6 +146,7 @@ def commit_json_import(
         source_count=len(sources),
         element_count=sum(len(s.elements) for s in sources),
         sequence_count=sum(len(s.parameter_sequences) for s in sources),
+        skipped=skipped,
     )
 
 

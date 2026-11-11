@@ -749,10 +749,14 @@ export function HelpPage() {
               is a dwell &amp; switch; otherwise a stagger. A sequence without PRI can&apos;t be a stagger. The kind decides
               how <strong>Element coverage</strong> checks it (a stagger against the Stagger Modes; a dwell &amp; switch
               step by step, each needing one Fixed Mode that holds its RF, PRI and PW together), and ticking a
-              sequence&apos;s steps in <strong>Generate Modes</strong> sets the PRI type to match. A JSON import sets it
-              from <code>&quot;sequence-type&quot;</code> (<code>stagger</code> or <code>dwell-switch</code>) — on a
-              sequence, or on the parametric set beside <code>set_id</code> and <code>date_last_updated</code> for all
-              of its sequences; left out, it&apos;s guessed. It&apos;s saved in versions and the audit trail.
+              sequence&apos;s steps in <strong>Generate Modes</strong> sets the PRI type to match. Imported sequences
+              start guessed. It&apos;s saved in versions and the audit trail.
+            </p>
+            <p className="hint-text">
+              <strong>Import JSON</strong> leaves out what it can&apos;t read instead of failing the whole file, and
+              lists it when it&apos;s done: a sequence with no step that has an RF, PRI or PW, an element whose value
+              isn&apos;t a number, or a set left with nothing. A step value that isn&apos;t a number is dropped from its
+              step, and a min above its max is swapped.
             </p>
             <p>
               <strong>Batch add</strong> adds Elements (or a Sequence) to several Sources at once. Tick the Sources
