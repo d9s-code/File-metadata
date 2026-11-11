@@ -17,6 +17,7 @@ import { InfoTip } from "../common/PageHeader";
 import { buildScale, num } from "../dwells/DwellChart";
 import { useWidth } from "../intercepts/charts/Histogram";
 import { elementValues } from "./elementDisplay";
+import { SequenceKindTag } from "./SequenceKind";
 import { useElementCoverage } from "../../state/hooks/useElements";
 import { useEmitterModes } from "../../state/hooks/useModes";
 import { useEwGroups } from "../../state/hooks/useEwGroups";
@@ -60,8 +61,20 @@ const elementKey = (r: ElementCoverageRow) => r.occurrences[0].element_id;
 /** An Element's values, or a sequence's steps, in words. */
 function rowValues(r: ElementCoverageRow, unit: string): string {
   if (!r.sequence) return elementValues(r);
-  const what = r.element_type === "pri" ? "stagger" : `${r.element_type.toUpperCase()} steps`;
-  return `Sequence '${r.sequence.label}' — ${what} ${(r.stagger_values ?? []).map(num).join(", ")} ${unit}`;
+  const what =
+    r.element_type !== "pri"
+      ? `${r.element_type.toUpperCase()} steps`
+      : r.sequence.kind === "dwell_switch"
+        ? "dwell & switch, PRI per step"
+        : "stagger";
+  const guessed = r.element_type === "pri" && r.sequence.kind_guessed ? " (kind guessed)" : "";
+  return `Sequence '${r.sequence.label}' — ${what} ${(r.stagger_values ?? []).map(num).join(", ")} ${unit}${guessed}`;
+}
+
+/** A PRI sequence's kind beside its values — the coverage check depends on it. */
+function KindOf({ r }: { r: ElementCoverageRow }) {
+  if (!r.sequence || r.element_type !== "pri") return null;
+  return <SequenceKindTag kind={r.sequence.kind} guessed={r.sequence.kind_guessed} />;
 }
 
 /** Greedy rows: each item goes in the first row it fits without touching. */
@@ -164,6 +177,12 @@ function CoverageChart({
         <div>
           <strong>{rowValues(r, type.unit)}</strong>
         </div>
+        {r.sequence && r.element_type === "pri" && (
+          <div className="hint-text">
+            Checked as a {r.sequence.kind === "dwell_switch" ? "dwell & switch (a Fixed Mode per step)" : "stagger (one Stagger Mode)"}
+            {r.sequence.kind_guessed && " — a guess; set it on the Sequences tab"}
+          </div>
+        )}
         <div>
           <span className={`viz-swatch ${st.cls}`} /> {st.icon} {st.label}
           {r.coverage === "covered" && r.covered_by.length > 0 && ` by ${r.covered_by.map((c) => c.name).join(", ")}`}
@@ -317,9 +336,10 @@ function CoverageChart({
 }
 
 /** An uncovered Element (or a sequence's stagger) as the value to add to the
- * Modes; null for what can't be added that way (scan, a sequence of RF hops). */
+ * Modes; null for what can't be added that way (scan, a sequence of RF hops,
+ * a dwell & switch — a Fixed Mode per step). */
 function seedOf(r: ElementCoverageRow): ValueSeed | null {
-  if (r.element_type === "scan" || (r.sequence && r.element_type !== "pri")) return null;
+  if (r.element_type === "scan" || (r.sequence && (r.element_type !== "pri" || r.sequence.kind === "dwell_switch"))) return null;
   const margin = r.occurrences.find((o) => o.delta != null)?.delta ?? 0;
   if (r.stagger_values?.length) return { parameter: "pri", priType: "stagger", steps: r.stagger_values, margin };
   return {
@@ -362,6 +382,8 @@ export function ElementCoverage({ emitterId }: { emitterId: string }) {
   const rows = all.filter((r) => included.has(r.element_type));
   const count = (c: Coverage) => rows.filter((r) => r.coverage === c).length;
   const gaps = rows.filter((r) => r.coverage !== "covered");
+  // PRI sequences whose stagger / dwell & switch nobody has set yet.
+  const guessedSequences = all.filter((r) => r.sequence?.kind_guessed && r.element_type === "pri");
   const types = present.filter((t) => included.has(t.key));
 
   return (
@@ -380,9 +402,12 @@ export function ElementCoverage({ emitterId }: { emitterId: string }) {
           <InfoTip label="About Element coverage">
             Whether each Element in this Emitter&apos;s Sources is covered by a Mode: its RF, PRI or PW inside a
             Mode&apos;s range (with the Mode&apos;s delta), a PRI used as a step of a Stagger Mode, a scan inside an
-            EW Group&apos;s scan range. A stagger — a stagger Element, or a Source&apos;s sequence with PRI steps (in
-            step order, a range at its middle) — is checked against the Stagger Modes in order: covered by one with the
-            same steps in the same order (from any step), and a sequence&apos;s RF and PW must fit that Mode too. A
+            EW Group&apos;s scan range. A stagger — a stagger Element, or a Source&apos;s sequence of the stagger
+            kind (its PRI steps in step order, a range at its middle) — is checked against the Stagger Modes in order:
+            covered by one with the same steps in the same order (from any step), and a sequence&apos;s RF and PW must
+            fit that Mode too. A <strong>dwell &amp; switch</strong> sequence is a Fixed Mode per step: each step is
+            covered when one non-Stagger Mode holds its RF, PRI and PW together. A sequence&apos;s kind is set on its
+            Source&apos;s Sequences tab; until then it&apos;s guessed from its steps and marked <em>guessed</em>. A
             sequence without PRI has each step&apos;s RF and PW checked. <strong>Partly</strong> means only some of it
             is; the note says how. Hover a mark to see what covers it; hover a Mode to see what it covers.
           </InfoTip>
@@ -425,6 +450,21 @@ export function ElementCoverage({ emitterId }: { emitterId: string }) {
               </span>
               <span>● Element · ■ A Source&apos;s sequence (each step)</span>
             </div>
+            {guessedSequences.length > 0 && (
+              <p className="hint-text coverage-guessed">
+                <span className="seq-kind-guessed">
+                  {guessedSequences.length} sequence{guessedSequences.length === 1 ? "" : "s"} checked by a guessed kind
+                </span>{" "}
+                — stagger or dwell &amp; switch, set on each Source&apos;s Sequences tab:{" "}
+                {guessedSequences.map((r, i) => (
+                  <span key={r.sequence!.id}>
+                    {i > 0 && ", "}
+                    <Link to={`/emitters/${emitterId}?tab=setup&source=${r.sequence!.source_id}`}>{r.sequence!.label}</Link>{" "}
+                    <span className="hint-text">({r.sequence!.kind === "stagger" ? "stagger?" : "dwell & switch?"})</span>
+                  </span>
+                ))}
+              </p>
+            )}
             <div className="coverage-charts">
               {types.map((t) => {
                 const own = rows.filter((r) => r.element_type === t.key);
@@ -478,7 +518,10 @@ export function ElementCoverage({ emitterId }: { emitterId: string }) {
                             <span className={`viz-swatch ${st.cls}`} /> {st.icon} {st.label}
                           </td>
                           <td>{TYPES.find((t) => t.key === r.element_type)?.label}</td>
-                          <td>{rowValues(r, TYPES.find((t) => t.key === r.element_type)?.unit ?? "")}</td>
+                          <td>
+                            {rowValues(r, TYPES.find((t) => t.key === r.element_type)?.unit ?? "").replace(" (kind guessed)", "")}{" "}
+                            <KindOf r={r} />
+                          </td>
                           <td>
                             {sources.map(([id, name], i) => (
                               <span key={id}>

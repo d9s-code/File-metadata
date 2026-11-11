@@ -1,6 +1,7 @@
 import { useState, type FormEvent, useRef, useEffect } from "react";
 import { useCreateParameterSequence } from "../../state/hooks/useParameterSequences";
 import { ApiRequestError } from "../../api/client";
+import { SEQUENCE_KIND_LABEL, type SequenceKind } from "../../types/domain";
 
 interface StepState {
   order: number;
@@ -26,6 +27,8 @@ export function SequenceForm({
 }) {
   const createSequence = useCreateParameterSequence(emitterId, sourceId);
   const [label, setLabel] = useState("");
+  // "": guessed from the steps.
+  const [kind, setKind] = useState<"" | SequenceKind>("");
   const [steps, setSteps] = useState<StepState[]>([{
     order: 0,
     rf_mhz: undefined,
@@ -73,6 +76,7 @@ export function SequenceForm({
     try {
       await createSequence.mutateAsync({
         label: label || undefined,
+        kind: kind || undefined,
         steps: steps.map(s => ({
           order: s.order,
           rf_mhz: s.rf_mhz ?? undefined,
@@ -83,6 +87,7 @@ export function SequenceForm({
         })),
       });
       setLabel("");
+      setKind("");
       setSteps([{ order: 0, rf_mhz: undefined, pw_us: undefined, pri_us: undefined, scan_value: undefined, dwell_s: undefined }]);
       onAdded?.();
     } catch (err) {
@@ -109,6 +114,14 @@ export function SequenceForm({
         <label>
           Label
           <input placeholder="e.g. Burst A" value={label} onChange={(e) => setLabel(e.target.value)} />
+        </label>
+        <label className="seq-form-kind">
+          Kind
+          <select value={kind} onChange={(e) => setKind(e.target.value as "" | SequenceKind)}>
+            <option value="">Guess from the steps</option>
+            <option value="stagger">{SEQUENCE_KIND_LABEL.stagger}</option>
+            <option value="dwell_switch">{SEQUENCE_KIND_LABEL.dwell_switch}</option>
+          </select>
         </label>
         {onCancel && (
           <button type="button" className="button secondary small" onClick={onCancel}>

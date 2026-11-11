@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { parameterSequencesApi } from "../../api/parameterSequences";
+import { parameterSequencesApi, type ParameterSequenceUpdate } from "../../api/parameterSequences";
+import { elementOverviewKey } from "./useElements";
 
 export function parameterSequencesKey(emitterId: string, sourceId: string) {
   return ["parameterSequences", emitterId, sourceId] as const;
@@ -57,10 +58,13 @@ export function useUpdateParameterSequence(emitterId: string, sourceId: string) 
       input,
     }: {
       sequenceId: string;
-      input: { rf_delta?: number | null; pw_delta?: number | null; pri_delta?: number | null };
+      input: ParameterSequenceUpdate;
     }) => parameterSequencesApi.update(emitterId, sourceId, sequenceId, input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: parameterSequencesKey(emitterId, sourceId) });
+      // Generate Modes' copy, and Element coverage (keyed under the overview).
+      queryClient.invalidateQueries({ queryKey: ["sequences", emitterId, sourceId] });
+      queryClient.invalidateQueries({ queryKey: elementOverviewKey(emitterId) });
     },
   });
 }

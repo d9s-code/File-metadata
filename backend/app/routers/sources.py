@@ -34,6 +34,7 @@ from app.schemas.source import SourceCreate, SourceOut, SourceUpdate
 from app.schemas.source_note import SourceNoteCreate, SourceNoteOut
 from app.services.cartesian_log import modes_remaining, record_cartesian_run
 from app.services.mode_sources import set_mode_sources
+from app.services.sequence_kind import KIND_LABELS, has_pri
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.cartesian_service import CartesianProductError, run_cartesian_product
 from app.services.combined_source import MergedPool, batch_source, resolve_selection
@@ -320,14 +321,26 @@ def update_parameter_sequence(
     if sequence is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Sequence not found")
 
-    changes = apply_and_diff(sequence, payload.model_dump(exclude_unset=True))
+    update = payload.model_dump(exclude_unset=True)
+    if update.get("kind") == "stagger" and not has_pri(sequence.steps or []):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "This sequence has no PRI steps, so it can't be a stagger"
+        )
+    changes = apply_and_diff(sequence, update)
+    summary = f"Updated Parameter Sequence '{sequence.label}'"
+    if "kind" in update and set(update) == {"kind"}:
+        summary = (
+            f"Marked Parameter Sequence '{sequence.label}' as {KIND_LABELS[sequence.kind]}"
+            if sequence.kind
+            else f"Parameter Sequence '{sequence.label}' back to a guessed kind"
+        )
     record_audit(
         db,
         actor_id=user.id,
         action=AuditAction.update,
         entity_type="parameter_sequence",
         entity_id=sequence.id,
-        summary=f"Updated Parameter Sequence '{sequence.label}'",
+        summary=summary,
         changes=changes,
         emitter_id=emitter_id,
     )

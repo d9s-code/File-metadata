@@ -5,6 +5,7 @@ from app.schemas.import_batch import ImportPayload, ParametricSetImport
 from app.schemas.mode_element import ModeElementCreate, ElementType
 from app.schemas.parameter_sequence import ParameterSequenceCreate, ParameterSequenceStepIn
 from app.core.enums import ElementType as CoreElementType
+from app.services.sequence_kind import has_pri, parse_kind
 
 
 def _parse_date_last_updated(raw: str | None) -> date | None:
@@ -104,6 +105,14 @@ def _sequence_steps(raw_steps: list[dict]) -> list[ParameterSequenceStepIn]:
     return steps
 
 
+def _set_kind_for(kind: str | None, steps: list[ParameterSequenceStepIn]) -> str | None:
+    """The set's sequence type for one of its sequences: a sequence without
+    PRI can't be a stagger, so it's left to be guessed instead."""
+    if kind == "stagger" and not has_pri([s.model_dump() for s in steps]):
+        return None
+    return kind
+
+
 def transform_json_to_payload(
     json_data: List[Dict[str, Any]], *, override_source_date: date | None = None
 ) -> ImportPayload:
@@ -118,8 +127,9 @@ def transform_json_to_payload(
             {
                 "set_name": str,
                 "date_last_updated": str (DD-MM-YYYY HH:MM:SS GMT),
+                "sequence-type": "stagger" | "dwell-switch" (optional, for its sequences),
                 "groups": [
-                    {"type": "sequence", "name": str, "steps": [...]},
+                    {"type": "sequence", "name": str, "sequence-type": ... (optional), "steps": [...]},
                     {"type": "independent", "kind": "rf", "values": [...]}
                 ]
             }
@@ -143,6 +153,10 @@ def transform_json_to_payload(
         elements = []
         sequences = []
         source_description = pset_json.get("signal-type")
+        # "sequence-type" (stagger / dwell-switch), beside the set's other
+        # metadata, applies to its sequences; a sequence's own wins. Empty:
+        # guessed from the steps.
+        set_sequence_kind = parse_kind(pset_json.get("sequence-type"))
         
         for group in pset_json.get("groups", []):
             if group.get("type") == "sequence":
@@ -162,6 +176,7 @@ def transform_json_to_payload(
                 sequences.append(ParameterSequenceCreate(
                     label=group.get("name"),
                     steps=steps,
+                    kind=parse_kind(group.get("sequence-type")) or _set_kind_for(set_sequence_kind, steps),
                     sort_order=group.get("index", 0)
                 ))
 

@@ -7,14 +7,20 @@ with the margin) for its parameter:
 - RF and PW: the Modes' RF / PW ranges.
 - PRI: a fixed or jittered PRI against the Modes' PRI ranges, and against a
   Stagger Mode's steps (a PRI used as one of its steps is covered by it).
-- A stagger — a stagger Element, or a sequence with PRI steps (its PRI steps
-  in step order, a range at its mean, as generating Modes from it makes the
-  train) — against the Stagger Modes' trains, in order: covered by a Stagger
-  Mode with the same steps in the same order (starting at any step — a train
-  repeats); partly when one has all its steps in another order or among
-  others, or some of them. A sequence's RF and PW must also sit in that
-  Mode's RF and PW.
+- A stagger — a stagger Element, or a sequence of the stagger kind (its PRI
+  steps in step order, a range at its mean, as generating Modes from it
+  makes the train) — against the Stagger Modes' trains, in order: covered by
+  a Stagger Mode with the same steps in the same order (starting at any step
+  — a train repeats); partly when one has all its steps in another order or
+  among others, or some of them. A sequence's RF and PW must also sit in
+  that Mode's RF and PW.
+- A dwell & switch sequence with PRI steps: each step is a Fixed Mode of its
+  own, so a step is covered when one non-Stagger Mode holds its RF, PRI and
+  PW together; covered when every step is, partly when some are.
 - A sequence without PRI steps: each step's RF and PW against the Modes'.
+
+A sequence's kind is as set, or guessed from its steps while it isn't
+(app.services.sequence_kind) — its row says which.
 - Scan: the EW Groups' scan ranges.
 
 An Element is covered when the ranges together hold all of it, partly
@@ -33,6 +39,7 @@ from app.models.parameter_sequence import ParameterSequence
 from app.models.source import Source
 from app.services.cartesian_service import _span, _step_range
 from app.services.element_overview import element_overview
+from app.services.sequence_kind import effective_kind
 
 # Floating-point slack when comparing values written with up to 4 decimals.
 EPS = 1e-6
@@ -141,6 +148,8 @@ def element_coverage(db: Session, emitter_id: UUID) -> dict:
 
     ranges: dict[str, list[dict]] = {"rf": [], "pri": [], "pw": [], "scan": []}
     staggers: list[dict] = []
+    # Every other Mode with its ranges together, for a dwell & switch's steps.
+    fixed: list[dict] = []
     for mode in modes:
         line = mode.line
         if line is None:
@@ -163,6 +172,7 @@ def element_coverage(db: Session, emitter_id: UUID) -> dict:
             pri = _with_margin(line.pri_min_us, line.pri_max_us, line.pri_delta)
             if pri:
                 ranges["pri"].append({**base, "min": pri[0], "max": pri[1]})
+            fixed.append({**base, "rf": rf, "pw": pw, "pri": pri})
     for group in groups:
         scan = _with_margin(group.scan_min, group.scan_max, group.scan_delta)
         if scan:
@@ -198,7 +208,7 @@ def element_coverage(db: Session, emitter_id: UUID) -> dict:
                 note = "Runs past the " + ("EW Groups' scan ranges" if kind == "scan" else "Modes' ranges")
         rows.append({**row, "coverage": status, "covered_by": covered_by, "note": note, "sequence": None})
 
-    rows += _sequence_rows(db, emitter_id, ranges, staggers)
+    rows += _sequence_rows(db, emitter_id, ranges, staggers, fixed)
 
     summary = {
         kind: {
@@ -211,9 +221,38 @@ def element_coverage(db: Session, emitter_id: UUID) -> dict:
     return {"elements": rows, "ranges": ranges, "summary": summary}
 
 
-def _sequence_rows(db: Session, emitter_id: UUID, ranges: dict, staggers: list[dict]) -> list[dict]:
-    """The Sources' sequences: one with PRI steps as a stagger train (one PRI
-    row); one without, a row per parameter its steps set (RF, PW)."""
+def _dwell_switch_cover(steps: list[dict], fixed: list[dict]) -> tuple[str, list[dict], str | None]:
+    """Each step against the non-Stagger Modes: covered by one that holds the
+    step's RF, PRI and PW (those it sets) together."""
+    by: list[dict] = []
+    missing: list[int] = []
+    for i, st in enumerate(steps, start=1):
+        rf = _step_range(st, "rf_mhz", "rf_min_mhz", "rf_max_mhz")
+        pri = _step_range(st, "pri_us", "pri_min_us", "pri_max_us")
+        pw = _step_range(st, "pw_us", "pw_min_us", "pw_max_us")
+        holding = [m for m in fixed if _fits(rf, m["rf"]) and _fits(pri, m["pri"]) and _fits(pw, m["pw"])]
+        if holding:
+            by += holding
+        else:
+            missing.append(i)
+    if not missing:
+        return "covered", by, None
+    if len(missing) == len(steps):
+        return "not_covered", [], "No Fixed Mode holds any step's RF, PRI and PW together"
+    which = ", ".join(map(str, missing))
+    return "partial", by, (
+        f"{len(steps) - len(missing)} of its {len(steps)} steps are covered — "
+        f"step{'s' if len(missing) > 1 else ''} {which} {'have' if len(missing) > 1 else 'has'} "
+        "no Fixed Mode holding its RF, PRI and PW together"
+    )
+
+
+def _sequence_rows(
+    db: Session, emitter_id: UUID, ranges: dict, staggers: list[dict], fixed: list[dict]
+) -> list[dict]:
+    """The Sources' sequences: one with PRI steps as one PRI row — a stagger
+    train, or a dwell & switch's steps each as a Fixed Mode; one without, a
+    row per parameter its steps set (RF, PW)."""
     out = []
     sequences = (
         db.query(ParameterSequence, Source)
@@ -242,11 +281,21 @@ def _sequence_rows(db: Session, emitter_id: UUID, ranges: dict, staggers: list[d
                  "variant": seq.variant.value if seq.variant else None, "label": seq.label,
                  "delta": None}
             ],
-            "sequence": {"id": str(seq.id), "label": seq.label or "Sequence", "steps": len(steps)},
+            "sequence": {
+                "id": str(seq.id),
+                "source_id": str(source.id),
+                "label": seq.label or "Sequence",
+                "steps": len(steps),
+                "kind": effective_kind(seq.kind, steps),
+                "kind_guessed": seq.kind is None,
+            },
         }
         if pri:
             train = [(lo + hi) / 2 for lo, hi in pri]
-            status, by, note = _stagger_cover(train, staggers, rf=_span(rf), pw=_span(pw))
+            if base["sequence"]["kind"] == "dwell_switch":
+                status, by, note = _dwell_switch_cover(steps, fixed)
+            else:
+                status, by, note = _stagger_cover(train, staggers, rf=_span(rf), pw=_span(pw))
             out.append({**base, "element_type": "pri", "stagger_values": train, "coverage": status,
                         "covered_by": _who(by), "note": note})
             continue

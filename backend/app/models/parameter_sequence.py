@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Integer, Numeric, String, func
+from sqlalchemy import CheckConstraint, DateTime, Integer, Numeric, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -20,6 +20,9 @@ class ParameterSequence(UUIDPkMixin, Base):
     """
 
     __tablename__ = "parameter_sequences"
+    __table_args__ = (
+        CheckConstraint("kind IN ('stagger', 'dwell_switch')", name="ck_parameter_sequences_kind"),
+    )
 
     # Not a foreign key: kept when the Source goes (deleted, or a revert to a
     # version without it) and shown again when a revert or discard brings it
@@ -33,6 +36,10 @@ class ParameterSequence(UUIDPkMixin, Base):
     # [{"order": 0, "rf_mhz": 9500, "pri_us": 800, "dwell_s": 0.1}, {"order": 1, "rf_mhz": 9520}]
     # — shape validated at the Pydantic layer (ParameterSequenceStepIn), not the DB.
     steps: Mapped[list[dict]] = mapped_column(JSONB, nullable=False)
+    # A stagger (its PRI steps are one train) or a dwell & switch (each step
+    # a Fixed Mode), set by hand or by an import's "sequence-type"; None
+    # until then, and `guessed_kind` stands in (app.services.sequence_kind).
+    kind: Mapped[str | None] = mapped_column(String(16), nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     # Symmetric +/- tolerance margin applied to whichever of a selected step's
     # rf_mhz/pw_us/pri_us gets used when generating a Mode from this sequence
@@ -43,6 +50,12 @@ class ParameterSequence(UUIDPkMixin, Base):
     pw_delta: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
     pri_delta: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    @property
+    def guessed_kind(self) -> str:
+        from app.services.sequence_kind import guess_kind
+
+        return guess_kind(self.steps or [])
 
     source: Mapped["Source | None"] = relationship(  # noqa: F821
         primaryjoin="foreign(ParameterSequence.source_id) == Source.id", viewonly=True

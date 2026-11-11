@@ -42,6 +42,7 @@ def _sequence_dict(sequence: ParameterSequence) -> dict:
         "label": sequence.label,
         "variant": sequence.variant.value if sequence.variant else None,
         "steps": sequence.steps,
+        "kind": sequence.kind,
         "sort_order": sequence.sort_order,
         "rf_delta": _num(sequence.rf_delta),
         "pw_delta": _num(sequence.pw_delta),

@@ -640,3 +640,46 @@ td.gen-delta-col {
   flex-shrink: 0;
   margin-top: -0.25rem;
 }
+
+/* A sequence's kind: stagger or dwell & switch. A guessed one is dashed and
+   amber so it reads as "not set yet", and a set one is solid. */
+.seq-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.seq-kind-toggle button {
+  padding: 0.12rem 0.55rem;
+  font-size: max(0.86rem, 12px);
+}
+.seq-kind-toggle button.guessed {
+  background: var(--badge-amber-bg);
+  color: var(--badge-amber-fg);
+  outline: 1px dashed var(--badge-amber-fg);
+  outline-offset: -3px;
+}
+.seq-kind-guessed {
+  color: var(--badge-amber-fg);
+  font-size: max(0.86rem, 12px);
+}
+.seq-kind-tag {
+  display: inline-block;
+  padding: 0 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: max(0.86rem, 12px);
+  white-space: nowrap;
+}
+.seq-kind-tag.guessed {
+  border-style: dashed;
+  border-color: var(--badge-amber-fg);
+}
+.seq-form-kind {
+  flex: 0 0 auto !important;
+}
+.gen-kind-warning {
+  color: var(--badge-amber-fg);
+}
+.coverage-guessed {
+  margin: 0.25rem 0 0.5rem;
+}

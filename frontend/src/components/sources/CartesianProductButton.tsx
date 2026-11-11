@@ -13,6 +13,7 @@ import { compareNullable, compareStrings } from "../common/sortUtils";
 import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 import { VARIANT_ORDER, VariantTag } from "./elementDisplay";
+import { SequenceKindTag } from "./SequenceKind";
 
 const DEFAULT_DELTA = "0";
 
@@ -260,8 +261,11 @@ function SequenceStepGroup({
   onPriDelta,
   onPwDelta,
   stagger = false,
+  kindTag,
 }: {
   label: string;
+  /** The sequence's kind (stagger or dwell & switch), shown by its name. */
+  kindTag?: React.ReactNode;
   rows: SequenceStepRow[];
   selected: Set<string>;
   onSetSelected: (ids: Set<string>) => void;
@@ -297,6 +301,7 @@ function SequenceStepGroup({
         <button type="button" className="link-button" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
           {open ? "▾" : "▸"} {label}
         </button>
+        {kindTag}
         <span className={selectedHere ? "gen-picked" : "hint-text"}>
           {selectedHere} of {rows.length} step{rows.length === 1 ? "" : "s"}
         </span>
@@ -680,6 +685,25 @@ export function CartesianProductButton({
     .filter(Boolean)
     .join(" × ");
   const stepsReplacePri = !stagger && pickedSteps.length > 0 && priSelected.size > 0;
+  const kindOf = (sequenceId: string) => {
+    const seq = (sequences ?? []).find((q) => q.id === sequenceId);
+    return seq ? (seq.kind ?? seq.guessed_kind) : null;
+  };
+  const pickedKinds = new Set(pickedSteps.filter((r) => r.hasPri).map((r) => kindOf(r.sequenceId)));
+  // Ticked steps of a kind the PRI type doesn't make: worth a word.
+  const kindMismatch = stagger ? pickedKinds.has("dwell_switch") : pickedKinds.has("stagger");
+
+  /** Ticking a sequence's first steps sets the PRI type from its kind: a
+   * stagger makes a Stagger Mode, a dwell & switch a Fixed Mode per step. */
+  function pickSteps(ids: Set<string>) {
+    const before = sequenceSelected.size;
+    setSequenceSelected(ids);
+    if (before > 0 || ids.size === 0) return;
+    const kinds = new Set(
+      sequenceStepRows.filter((r) => ids.has(r.id) && r.hasPri).map((r) => kindOf(r.sequenceId)),
+    );
+    if (kinds.size === 1) changePriType(kinds.has("stagger") ? "stagger" : "fixed");
+  }
   const [showSequences, setShowSequences] = useState(false);
   const sequencesOpen = showSequences || pickedSteps.length > 0;
   const withSteps = (sequences ?? []).filter((seq) => seq.steps.length > 0);
@@ -779,9 +803,10 @@ export function CartesianProductButton({
                 <SequenceStepGroup
                   key={seq.id}
                   label={seq.label ?? "Sequence"}
+                  kindTag={<SequenceKindTag kind={seq.kind ?? seq.guessed_kind} guessed={seq.kind == null} />}
                   rows={sequenceStepRows.filter((r) => r.sequenceId === seq.id)}
                   selected={sequenceSelected}
-                  onSetSelected={setSequenceSelected}
+                  onSetSelected={pickSteps}
                   rfDeltas={sequenceRfDeltaOverrides}
                   priDeltas={sequencePriDeltaOverrides}
                   pwDeltas={sequencePwDeltaOverrides}
@@ -832,6 +857,12 @@ export function CartesianProductButton({
             "Tick at least one PRI (or Sequence step)"
           )}
           {stepsReplacePri && <span className="hint-text"> · steps replace the ticked PRIs</span>}
+          {kindMismatch && (
+            <span className="gen-kind-warning">
+              {" "}
+              · {stagger ? "dwell & switch steps ticked — each is usually a Fixed Mode" : "stagger steps ticked — usually one Stagger Mode"}
+            </span>
+          )}
         </span>
         <button
           type="button"

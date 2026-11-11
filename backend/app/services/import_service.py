@@ -98,6 +98,7 @@ def commit_import_payload(
                     label=seq.label,
                     variant=seq.variant,
                     steps=[step.model_dump() for step in seq.steps],
+                    kind=seq.kind,
                     sort_order=seq.sort_order,
                 )
             )

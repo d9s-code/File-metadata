@@ -1,5 +1,5 @@
 import { api } from "./client";
-import type { ElementType, ElementVariant, ModeElement } from "../types/domain";
+import type { ElementType, ElementVariant, ModeElement, SequenceKind } from "../types/domain";
 
 export interface ModeElementInput {
   element_type: ElementType;
@@ -82,7 +82,15 @@ export interface ElementCoverageRow extends ElementOverviewRow {
   note: string | null;
   /** Set when the row is one of a Source's sequences: its steps are in
    * stagger_values (a PRI sequence's stagger train, else its steps' RF or PW). */
-  sequence: { id: string; label: string; steps: number } | null;
+  sequence: {
+    id: string;
+    source_id: string;
+    label: string;
+    steps: number;
+    /** As set, or guessed from the steps while `kind_guessed`. */
+    kind: SequenceKind;
+    kind_guessed: boolean;
+  } | null;
 }
 
 /** A Mode's (or EW Group's) range with its margin; `step` is one step of a Stagger Mode. */

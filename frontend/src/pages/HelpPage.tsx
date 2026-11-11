@@ -736,9 +736,23 @@ export function HelpPage() {
             </p>
             <p>
               A <strong>Parameter Sequence</strong> is a further step beyond a single Element: an ordered,
-              multi-parameter "dwell & switcher" pattern where each step can set any combination of
-              RF/PRI/PW/Scan (and how long to dwell there), shown as a small table per sequence with a
-              blank cell wherever that step didn't set that parameter.
+              multi-parameter pattern where each step can set any combination of RF/PRI/PW/Scan (and how long
+              to dwell there), shown as a small table per sequence with a blank cell wherever that step didn&apos;t
+              set that parameter.
+            </p>
+            <p>
+              Each sequence is one of two <strong>kinds</strong>, picked on its line on the Sequences tab:{" "}
+              <strong>Stagger</strong> — its PRI steps, in order, are one stagger train (one Stagger Mode), even if the
+              steps also carry an RF or PW — or <strong>Dwell &amp; switch</strong> — each step is a Fixed Mode of its own.
+              The steps can&apos;t always tell which, so until someone picks one it&apos;s <em>guessed</em> and shown dashed
+              in amber: only PRI in every step is a stagger; no PRI, an RF that changes between steps, or a dwell time
+              is a dwell &amp; switch; otherwise a stagger. A sequence without PRI can&apos;t be a stagger. The kind decides
+              how <strong>Element coverage</strong> checks it (a stagger against the Stagger Modes; a dwell &amp; switch
+              step by step, each needing one Fixed Mode that holds its RF, PRI and PW together), and ticking a
+              sequence&apos;s steps in <strong>Generate Modes</strong> sets the PRI type to match. A JSON import sets it
+              from <code>&quot;sequence-type&quot;</code> (<code>stagger</code> or <code>dwell-switch</code>) — on a
+              sequence, or on the parametric set beside <code>set_id</code> and <code>date_last_updated</code> for all
+              of its sequences; left out, it&apos;s guessed. It&apos;s saved in versions and the audit trail.
             </p>
             <p>
               <strong>Batch add</strong> adds Elements (or a Sequence) to several Sources at once. Tick the Sources

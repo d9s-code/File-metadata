@@ -193,8 +193,13 @@ class CoverageSequence(BaseModel):
     """The Source's sequence a coverage row stands for."""
 
     id: str
+    source_id: str
     label: str
     steps: int
+    # "stagger" or "dwell_switch": as set, or guessed from the steps.
+    kind: str
+    # True while nobody has set it.
+    kind_guessed: bool
 
 
 class ElementCoverageRow(ElementOverviewRow):

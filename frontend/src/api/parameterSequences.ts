@@ -1,5 +1,13 @@
 import { api } from "./client";
-import type { ParameterSequence } from "../types/domain";
+import type { ParameterSequence, SequenceKind } from "../types/domain";
+
+export interface ParameterSequenceUpdate {
+  rf_delta?: number | null;
+  pw_delta?: number | null;
+  pri_delta?: number | null;
+  /** null: back to guessed. */
+  kind?: SequenceKind | null;
+}
 
 export const parameterSequencesApi = {
   list: (emitterId: string, sourceId: string) =>
@@ -31,7 +39,7 @@ export const parameterSequencesApi = {
     emitterId: string,
     sourceId: string,
     sequenceId: string,
-    input: { rf_delta?: number | null; pw_delta?: number | null; pri_delta?: number | null },
+    input: ParameterSequenceUpdate,
   ) =>
     api.patch<ParameterSequence>(
       `/emitters/${emitterId}/sources/${sourceId}/parameter-sequences/${sequenceId}`,

@@ -11,6 +11,7 @@ import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 import { sequenceRangeSummary, stepHas, stepValueText, type StepParam } from "./sequenceStep";
 import { SequenceForm } from "./SequenceForm";
+import { SequenceKindControl } from "./SequenceKind";
 import { useHasRole } from "../../auth/RequireAuth";
 
 
@@ -150,6 +151,7 @@ function SequenceCard({
   onDeleteStep: (order: number) => void;
 }) {
   const [open, setOpen] = useState(seq.steps.length <= STEPS_OPEN_LIMIT);
+  const updateSequence = useUpdateParameterSequence(emitterId, sourceId);
   return (
     <section className="seq-card" aria-label={`Sequence ${seq.label || "unnamed"}`}>
       <header className="seq-card-head">
@@ -157,6 +159,13 @@ function SequenceCard({
           {open ? "▾" : "▸"} <strong>{seq.label || "Sequence"}</strong>
         </button>
         {seq.variant && <span className="hint-text">{seq.variant.replace("_", " ")}</span>}
+        <SequenceKindControl
+          kind={seq.kind}
+          guessedKind={seq.guessed_kind}
+          hasPri={seq.steps.some((st) => stepHas(st, "pri"))}
+          disabled={!canEdit || updateSequence.isPending}
+          onChange={(kind) => updateSequence.mutate({ sequenceId: seq.id, input: { kind } })}
+        />
         <span className="hint-text">
           {seq.steps.length} step{seq.steps.length === 1 ? "" : "s"} · {sequenceRangeSummary(seq.steps) || "no values"}
         </span>
@@ -188,6 +197,7 @@ export function ParameterSequencesPanel({ emitterId, sourceId }: { emitterId: st
   const canWrite = useHasRole("editor");
   const [adding, setAdding] = useState(false);
   const list = sequences ?? [];
+  const guessed = list.filter((q) => q.kind == null).length;
 
   async function handleDeleteSequence(seqId: string, label: string) {
     if (await confirmDelete(`Delete sequence '${label}'?`)) {
@@ -206,6 +216,13 @@ export function ParameterSequencesPanel({ emitterId, sourceId }: { emitterId: st
       <div className="el-toolbar">
         <span className="hint-text">
           {list.length} sequence{list.length === 1 ? "" : "s"}
+          {guessed > 0 && (
+            <>
+              {" "}
+              · <span className="seq-kind-guessed">{guessed} with a guessed kind</span> — pick Stagger or Dwell &amp; switch
+              on each to set it
+            </>
+          )}
         </span>
         {canWrite && !adding && (
           <button

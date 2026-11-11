@@ -442,7 +442,14 @@ export interface ParameterSequence {
   rf_delta: number | null;
   pw_delta: number | null;
   pri_delta: number | null;
+  /** A stagger (its PRI steps are one train) or a dwell & switch (each step a
+   * Fixed Mode); null until someone sets it — then `guessed_kind` stands in. */
+  kind: SequenceKind | null;
+  guessed_kind: SequenceKind;
 }
+
+export type SequenceKind = "stagger" | "dwell_switch";
+export const SEQUENCE_KIND_LABEL: Record<SequenceKind, string> = { stagger: "Stagger", dwell_switch: "Dwell & switch" };
 
 export interface SequenceStepSelection {
   sequence_id: string;

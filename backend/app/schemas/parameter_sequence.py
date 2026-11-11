@@ -4,6 +4,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from app.core.enums import ElementVariant
+from app.services.sequence_kind import SequenceKind, has_pri
 
 _STEP_VALUE_FIELDS = ("rf_mhz", "pw_us", "pri_us", "scan_value")
 # A step can carry a range per parameter instead of a single value (a JSON
@@ -52,6 +53,8 @@ class ParameterSequenceCreate(BaseModel):
     label: str | None = None
     variant: ElementVariant | None = None
     steps: list[ParameterSequenceStepIn]
+    # Stagger or dwell & switch; None: guessed from the steps.
+    kind: SequenceKind | None = None
     sort_order: int = 0
     rf_delta: float | None = None
     pw_delta: float | None = None
@@ -68,6 +71,9 @@ class ParameterSequenceCreate(BaseModel):
             raise ValueError(
                 f"{label} has more than one step numbered {', '.join(map(str, repeated))} — step numbers must be unique"
             )
+        if self.kind == "stagger" and not has_pri([s.model_dump() for s in self.steps]):
+            label = f"Sequence '{self.label}'" if self.label else "A sequence"
+            raise ValueError(f"{label} has no PRI steps, so it can't be a stagger")
         return self
 
 
@@ -75,6 +81,8 @@ class ParameterSequenceUpdate(BaseModel):
     rf_delta: float | None = None
     pw_delta: float | None = None
     pri_delta: float | None = None
+    # Sent as null: back to guessed.
+    kind: SequenceKind | None = None
 
 
 class ParameterSequenceOut(ParameterSequenceCreate):
@@ -83,3 +91,5 @@ class ParameterSequenceOut(ParameterSequenceCreate):
     id: UUID
     source_id: UUID
     created_at: datetime
+    # What the steps suggest — used while `kind` isn't set.
+    guessed_kind: SequenceKind

@@ -200,6 +200,9 @@ def _reconcile_sequences(db: Session, source: Source, sequence_snaps: list[dict]
         sequence.label = q_snap.get("label")
         sequence.variant = _variant(q_snap.get("variant"))
         sequence.steps = q_snap["steps"]
+        # A version saved before kinds were kept leaves it as it is.
+        if "kind" in q_snap:
+            sequence.kind = q_snap["kind"]
         sequence.sort_order = q_snap.get("sort_order", 0)
         sequence.rf_delta = _num(q_snap.get("rf_delta"))
         sequence.pw_delta = _num(q_snap.get("pw_delta"))
@@ -361,6 +364,7 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
                     label=q_snap.get("label"),
                     variant=_variant(q_snap.get("variant")),
                     steps=q_snap["steps"],
+                    kind=q_snap.get("kind"),
                     sort_order=q_snap.get("sort_order", 0),
                     rf_delta=_num(q_snap.get("rf_delta")),
                     pw_delta=_num(q_snap.get("pw_delta")),
