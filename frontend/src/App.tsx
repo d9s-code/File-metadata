@@ -29,6 +29,7 @@ import { MdfsListPage } from "./pages/MdfsListPage";
 import { MdfBuilderPage } from "./pages/MdfBuilderPage";
 import { MdfVersionHistoryPage } from "./pages/MdfVersionHistoryPage";
 import { MdfComparePage } from "./pages/MdfComparePage";
+import { PlatformConfidencePage } from "./pages/PlatformConfidencePage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { SourceGroupsPage } from "./pages/SourceGroupsPage";
 import { CustomersPage } from "./pages/CustomersPage";
@@ -186,6 +187,14 @@ export default function App() {
                 element={
                   <RequireAuth>
                     <MdfsListPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/platform-confidence"
+                element={
+                  <RequireAuth>
+                    <PlatformConfidencePage />
                   </RequireAuth>
                 }
               />

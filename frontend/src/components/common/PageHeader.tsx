@@ -34,6 +34,7 @@ export const MDFS_SECTION: SectionLink[] = [
   { to: "/mdfs", label: "MDFs" },
   { to: "/mdfs/compare", label: "Compare" },
   { to: "/customers", label: "Customers" },
+  { to: "/platform-confidence", label: "Platform confidence" },
 ];
 
 export function SectionTabs({ links }: { links: SectionLink[] }) {

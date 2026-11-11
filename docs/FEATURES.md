@@ -304,6 +304,18 @@ Beyond typing a DSL line or building Elements by hand, a Source's Elements and P
 
 **XML import — not yet built.** The Elements panel has an "Import from XML" entry point ("coming soon") that will eventually parse an uploaded XML datasheet into this same JSON shape rather than requiring it hand-typed. See **[docs/XML_IMPORT_BRIEF.md](XML_IMPORT_BRIEF.md)** for the full field-mapping reference and open design questions before that work starts.
 
+### Platform confidence (experimental)
+
+**MDFs → Platform confidence** (`/platform-confidence?mdf=…`, its own tab, marked *Experimental*) shows what in an MDF tells its Platforms apart — the building blocks for confidence rules (PCL 1–3, a later step). Nothing on it is saved or exported. It reads the MDF's latest saved version (the Platform versions it pins and the Emitter versions those pin) and compares with the ambiguity check's own overlap rules — each range with its ± delta, a Fixed Mode's jitter, a Stagger's steps (± the step tolerance) or frame time, a different PRI type telling two Modes apart outright (`GET /pcl/mdfs/{id}/uniqueness`, `app/services/platform_uniqueness.py`):
+
+- an Emitter is **unique** when only this Platform pins it, **shared** otherwise (whatever versions they pin);
+- a unique Emitter's Mode has a **unique parameter set** when no Mode on another Platform could be taken for it (overlapping RF, PW and PRI — and jitter — at once, same PRI type);
+- its **unique parameters** (RF, PRI, PW, Scan) are those no other Platform's Mode overlaps on their own — a Mode can have a unique set with none, the combination being what's unique;
+- a **unique pair** is two shared Emitters no other Platform in the MDF has together;
+- a Platform whose every Emitter another Platform also has is flagged — hearing its Emitters can't tell it from that one.
+
+One row per Platform: its Emitters, unique Emitters, unique Modes, unique pairs and a standing (*Has unique Modes*, *Unique Emitter, no unique Mode*, *Only unique pairs*, *Nothing unique*); a row opens to its unique Emitters with their Modes (unique set, or the Mode it's like; unique parameters), its shared Emitters and where else they are, and its unique pairs.
+
 ---
 
 ## 5. Versioning & Diffs

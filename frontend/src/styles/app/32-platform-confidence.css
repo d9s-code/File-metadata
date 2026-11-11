@@ -1,0 +1,74 @@
+/* Platform confidence (experimental): its own page under MDFs. */
+.pcl-experimental {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.5rem;
+  border: 1px dashed var(--badge-amber-fg);
+  border-radius: 999px;
+  color: var(--badge-amber-fg);
+  font-size: max(0.78rem, 12px);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.pcl-flag {
+  display: inline-block;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: max(0.86rem, 12px);
+  white-space: nowrap;
+}
+.pcl-strong {
+  background: var(--badge-green-bg);
+  color: var(--badge-green-fg);
+  border-color: transparent;
+}
+.pcl-some {
+  background: var(--badge-amber-bg);
+  color: var(--badge-amber-fg);
+  border-color: transparent;
+}
+.pcl-none {
+  color: var(--muted);
+}
+.pcl-param {
+  display: inline-block;
+  margin-right: 0.3rem;
+  padding: 0 0.4rem;
+  border: 1px solid var(--badge-green-fg);
+  border-radius: var(--radius-sm);
+  color: var(--badge-green-fg);
+  font-size: max(0.86rem, 12px);
+}
+.pcl-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.25rem 0 0.5rem;
+}
+.pcl-detail h3 {
+  margin: 0 0 0.35rem;
+}
+.pcl-warn {
+  margin: 0;
+  color: var(--badge-amber-fg);
+}
+.pcl-emitter + .pcl-emitter {
+  margin-top: 0.6rem;
+}
+.pcl-emitter-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.3rem;
+}
+.pcl-modes {
+  margin: 0;
+  max-width: 60rem;
+}
+.pcl-shared {
+  margin: 0;
+  padding-left: 1.1rem;
+}
