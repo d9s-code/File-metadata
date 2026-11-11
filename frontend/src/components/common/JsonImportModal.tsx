@@ -49,6 +49,12 @@ function PreviewRow({ set }: { set: PreviewSet }) {
         <td>
           <strong>{set.source_name}</strong>
           {set.name_taken && <span className="json-preview-warn"> · name already on this Emitter</span>}
+          {set.left_out.length > 0 && (
+            <span className="json-preview-warn" title={set.left_out.join("\n")}>
+              {" "}
+              · {set.left_out.length} left out
+            </span>
+          )}
           {set.source_description && <div className="hint-text">{set.source_description}</div>}
         </td>
         <td className="nowrap">{formatDate(set.source_date)}</td>
@@ -63,6 +69,13 @@ function PreviewRow({ set }: { set: PreviewSet }) {
         <tr className="row-detail">
           <td />
           <td colSpan={4}>
+            {set.left_out.length > 0 && (
+              <ul className="json-preview-warn json-preview-row-left-out">
+                {set.left_out.map((s, i) => (
+                  <li key={i}>{s}</li>
+                ))}
+              </ul>
+            )}
             <div className="json-preview-detail">
               {TYPES.map(([t, name, unit]) => {
                 const els = set.elements.filter((e) => e.element_type === t);
@@ -124,6 +137,8 @@ export function JsonImportModal({ emitterId, onSuccess, onClose }: JsonImportMod
     setError(null);
     try {
       setPreview(await emittersApi.previewJson(emitterId, f, date || undefined));
+      setFind("");
+      setOnlyFlagged(false);
     } catch (err) {
       setPreview(null);
       setError(err instanceof ApiRequestError ? err.message : "Couldn't read the file");
@@ -152,6 +167,17 @@ export function JsonImportModal({ emitterId, onSuccess, onClose }: JsonImportMod
   const warnings = preview?.issues.filter((i) => i.severity !== "error") ?? [];
   const busy = previewing || isImporting;
   const n = preview?.sets.length ?? 0;
+  // A long file: find a Source, or just those with something to look at.
+  const [find, setFind] = useState("");
+  const [onlyFlagged, setOnlyFlagged] = useState(false);
+  const flagged = (s: PreviewSet) => s.name_taken || s.left_out.length > 0;
+  const flaggedCount = preview?.sets.filter(flagged).length ?? 0;
+  const shownSets = (preview?.sets ?? []).filter(
+    (s) => (!onlyFlagged || flagged(s)) && s.source_name.toLowerCase().includes(find.trim().toLowerCase()),
+  );
+  // Warnings that are only "this name is already here" read as one line.
+  const takenNames = preview?.sets.filter((s) => s.name_taken).map((s) => s.source_name) ?? [];
+  const otherWarnings = warnings.filter((i) => !/is already on this Emitter/.test(i.message));
 
   return (
     <Modal title="Import JSON" onClose={onClose} wide>
@@ -239,21 +265,38 @@ export function JsonImportModal({ emitterId, onSuccess, onClose }: JsonImportMod
                 {preview.sequence_count === 1 ? "" : "s"}. Nothing is saved until you import.
               </p>
               {errors.length > 0 && (
-                <div className="error-text">
-                  Can&apos;t be imported:
-                  <ul>
+                <details className="error-text json-preview-list" open={errors.length <= 5}>
+                  <summary>
+                    Can&apos;t be imported — {errors.length} problem{errors.length === 1 ? "" : "s"}
+                  </summary>
+                  <ul className="json-import-skipped">
                     {errors.map((i, k) => (
                       <li key={k}>{i.message}</li>
                     ))}
                   </ul>
-                </div>
+                </details>
               )}
-              {warnings.length > 0 && (
-                <ul className="json-preview-warn">
-                  {warnings.map((i, k) => (
-                    <li key={k}>{i.message}</li>
-                  ))}
-                </ul>
+              {takenNames.length > 0 && (
+                <details className="json-preview-warn json-preview-list">
+                  <summary>
+                    {takenNames.length === n ? (n === 1 ? "Its name is" : `All ${n} names are`) : `${takenNames.length} of the names are`}{" "}
+                    already on this Emitter — importing adds {takenNames.length === 1 ? "another Source" : "more Sources"} of the same
+                    name
+                  </summary>
+                  <p className="hint-text">{takenNames.join(", ")}</p>
+                </details>
+              )}
+              {otherWarnings.length > 0 && (
+                <details className="json-preview-warn json-preview-list" open={otherWarnings.length <= 5}>
+                  <summary>
+                    {otherWarnings.length} warning{otherWarnings.length === 1 ? "" : "s"}
+                  </summary>
+                  <ul className="json-import-skipped">
+                    {otherWarnings.map((i, k) => (
+                      <li key={k}>{i.message}</li>
+                    ))}
+                  </ul>
+                </details>
               )}
               {preview.skipped.length > 0 && (
                 <details className="json-preview-skipped" open={preview.skipped.length <= 5}>
@@ -267,6 +310,24 @@ export function JsonImportModal({ emitterId, onSuccess, onClose }: JsonImportMod
                   </ul>
                 </details>
               )}
+              {n > 10 && (
+                <div className="json-preview-filter">
+                  <input
+                    type="search"
+                    placeholder="Find a Source…"
+                    aria-label="Find a Source in the preview"
+                    value={find}
+                    onChange={(e) => setFind(e.target.value)}
+                  />
+                  <label>
+                    <input type="checkbox" checked={onlyFlagged} disabled={flaggedCount === 0} onChange={(e) => setOnlyFlagged(e.target.checked)} />
+                    Only those with something to check ({flaggedCount})
+                  </label>
+                  <span className="hint-text">
+                    {shownSets.length} of {n}
+                  </span>
+                </div>
+              )}
               <div className="json-preview-table">
                 <table className="data-table compact">
                   <thead>
@@ -279,11 +340,18 @@ export function JsonImportModal({ emitterId, onSuccess, onClose }: JsonImportMod
                     </tr>
                   </thead>
                   <tbody>
-                    {preview.sets.map((set, i) => (
-                      <Fragment key={i}>
+                    {shownSets.map((set, i) => (
+                      <Fragment key={`${set.source_name}-${i}`}>
                         <PreviewRow set={set} />
                       </Fragment>
                     ))}
+                    {shownSets.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="hint-text">
+                          No Source matches.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>

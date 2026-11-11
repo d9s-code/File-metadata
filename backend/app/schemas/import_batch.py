@@ -104,6 +104,8 @@ class JsonPreviewSet(BaseModel):
     sequences: list[JsonPreviewSequence]
     # A Source of this name is already on the Emitter (the import adds another).
     name_taken: bool = False
+    # What in this set can't be read and would be left out.
+    left_out: list[str] = Field(default_factory=list)
 
 
 class JsonImportPreview(BaseModel):

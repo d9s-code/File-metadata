@@ -737,7 +737,8 @@ ul.json-preview-warn {
   color: var(--badge-amber-fg);
 }
 .json-preview-table {
-  max-height: 22rem;
+  /* Bounded to the screen, so the Import button stays in view. */
+  max-height: min(22rem, 38vh);
   overflow: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -758,5 +759,37 @@ ul.json-preview-warn {
 }
 .json-preview-detail ul {
   margin: 0.2rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.json-preview-list summary {
+  cursor: pointer;
+}
+.json-preview-list p {
+  margin: 0.25rem 0 0 1rem;
+  max-height: 6rem;
+  overflow: auto;
+}
+.json-preview-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.json-preview-filter input[type="search"] {
+  width: 14rem;
+}
+.json-preview-filter label {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: normal;
+}
+.json-preview-filter label input {
+  width: auto;
+  margin: 0;
+}
+.json-preview-row-left-out {
+  margin: 0 0 0.4rem;
   padding-left: 1.1rem;
 }

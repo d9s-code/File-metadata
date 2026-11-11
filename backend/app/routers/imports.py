@@ -227,6 +227,7 @@ def preview_json_import(
                 ],
                 sequences=sequences,
                 name_taken=p.source_name in taken,
+                left_out=[note for note in skipped if f"in '{p.source_name}'" in note],
             )
         )
     return JsonImportPreview(

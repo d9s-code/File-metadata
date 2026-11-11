@@ -79,6 +79,8 @@ export interface JsonImportPreview {
     sequences: { label: string | null; steps: number; parameters: string[]; guessed_kind: "stagger" | "dwell_switch" }[];
     /** A Source of this name is already on the Emitter. */
     name_taken: boolean;
+    /** What in this set can't be read and would be left out. */
+    left_out: string[];
   }[];
   element_count: number;
   sequence_count: number;

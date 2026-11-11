@@ -163,6 +163,8 @@ def test_preview_shows_what_would_be_imported_and_saves_nothing(editor_client):
     assert second["sequences"][0]["guessed_kind"] == "dwell_switch"
     assert body["skipped"] == ["Sequence 'Scan only' in 'SET-1': no step has an RF, PRI or PW — left out"]
     assert (body["element_count"], body["sequence_count"]) == (1, 2)
+    # Each set says what of it is left out.
+    assert first["left_out"] == body["skipped"] and second["left_out"] == []
     # Nothing was saved.
     assert editor_client.get(f"/emitters/{eid}/sources").json() == []
 
