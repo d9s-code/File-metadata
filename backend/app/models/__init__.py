@@ -9,6 +9,7 @@ from app.models.app_setting import AppSetting  # noqa: F401
 from app.models.audit_log import AuditLog  # noqa: F401
 from app.models.customer import Customer  # noqa: F401
 from app.models.function_code import FunctionCode  # noqa: F401
+from app.models.pcl_rule import PclRule  # noqa: F401
 from app.models.dwell import (  # noqa: F401
     DwellFile,
     DwellFileStrategy,

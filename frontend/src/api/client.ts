@@ -8,8 +8,9 @@ export const SESSION_EXPIRED_EVENT = "auth:session-expired";
  * screen can refresh (see AutoRefresh). */
 export const DATA_CHANGED_EVENT = "api:data-changed";
 
-/** Writes that only read: previews, dry runs, comparisons, signing in. */
-const READ_ONLY_WRITE = /(?:[/-]preview(?:[/?]|$)|[?&]dry_run=true|\/compare(?:[/?]|$)|^\/auth\/)/;
+/** Writes that only read: previews, dry runs, comparisons, checks, what-ifs, signing in. */
+const READ_ONLY_WRITE =
+  /(?:[/-]preview(?:[/?]|$)|[?&]dry_run=true|\/compare(?:[/?]|$)|^\/auth\/|^\/pcl\/check$|\/what-if$)/;
 
 export function changesData(method: string, path: string): boolean {
   return !["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase()) && !READ_ONLY_WRITE.test(path);

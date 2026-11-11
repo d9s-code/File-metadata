@@ -18,6 +18,10 @@ describe("changesData — which requests make pages refresh", () => {
     expect(changesData("PUT", "/intercepts/4/grouping?dry_run=true")).toBe(false);
     expect(changesData("POST", "/reports/mdfs/5/compare")).toBe(false);
     expect(changesData("POST", "/auth/login")).toBe(false);
+    expect(changesData("POST", "/pcl/check")).toBe(false);
+    expect(changesData("POST", "/pcl/mdfs/7/what-if")).toBe(false);
+    // Saving a confidence rule does.
+    expect(changesData("POST", "/pcl/platforms/3/rules")).toBe(true);
     // A real regroup does.
     expect(changesData("PUT", "/intercepts/4/grouping?dry_run=false")).toBe(true);
   });

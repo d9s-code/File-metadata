@@ -5,7 +5,9 @@ import { InfoTip, MDFS_SECTION, PageHeader } from "../components/common/PageHead
 import { LoadingState } from "../components/common/LoadingState";
 import { EmptyState } from "../components/common/EmptyState";
 import { ApiRequestError } from "../api/client";
-import { pclApi, type UniquenessEmitter, type UniquenessPlatform } from "../api/pcl";
+import { pclApi, pclRulesApi, type PclPlatformRules, type UniquenessEmitter, type UniquenessPlatform } from "../api/pcl";
+import { LevelBadge, PclRulesSection } from "../components/pcl/PclRules";
+import { PclWhatIf } from "../components/pcl/PclWhatIf";
 import { useMdfs } from "../state/hooks/useMdfs";
 
 const PARAM_LABEL: Record<string, string> = { rf: "RF", pri: "PRI", pw: "PW", scan: "Scan" };
@@ -84,11 +86,12 @@ function UniqueEmitterModes({ e }: { e: UniquenessEmitter }) {
 
 /** One Platform opened: its Emitters (unique ones with their Modes), its
  * unique pairs, and who has everything it has. */
-function PlatformDetail({ p }: { p: UniquenessPlatform }) {
+function PlatformDetail({ p, mdfId, rules }: { p: UniquenessPlatform; mdfId: string; rules: PclPlatformRules | undefined }) {
   const unique = p.emitters.filter((e) => e.unique);
   const shared = p.emitters.filter((e) => !e.unique);
   return (
     <div className="pcl-detail">
+      <PclRulesSection mdfId={mdfId} platform={p} rules={rules} />
       {p.covered_by.length > 0 && (
         <p className="pcl-warn">
           Everything it has, {p.covered_by.map((c) => c.platform_name).join(", ")} {p.covered_by.length === 1 ? "has" : "have"} too —
@@ -148,6 +151,25 @@ function PlatformDetail({ p }: { p: UniquenessPlatform }) {
   );
 }
 
+/** "PCL 3 · PCL 2 ×2", and how many rules have a warning. */
+function RulesSummary({ rules }: { rules: PclPlatformRules | undefined }) {
+  if (!rules) return null;
+  if (rules.rules.length === 0) return <span className="hint-text">—</span>;
+  const counts = [3, 2, 1].map((l) => [l, rules.rules.filter((r) => r.level === l).length] as const).filter(([, n]) => n);
+  const flagged = rules.rules.filter((r) => (r.check?.warnings.length ?? 0) > 0).length;
+  return (
+    <span className="pcl-rules-summary">
+      {counts.map(([l, n]) => (
+        <span key={l}>
+          <LevelBadge level={l} />
+          {n > 1 && <span className="hint-text">×{n}</span>}
+        </span>
+      ))}
+      {flagged > 0 && <span className="pcl-warn-count" title="Rules with something to look at">⚠ {flagged}</span>}
+    </span>
+  );
+}
+
 /** Platform confidence (experimental): what in an MDF tells its Platforms
  * apart — the building blocks for confidence rules. Read-only for now. */
 export function PlatformConfidencePage() {
@@ -162,6 +184,13 @@ export function PlatformConfidencePage() {
     enabled: !!mdfId,
     retry: false,
   });
+  const { data: rulesData } = useQuery({
+    queryKey: ["pcl", "rules", mdfId],
+    queryFn: () => pclRulesApi.forMdf(mdfId),
+    enabled: !!mdfId && !!data,
+    retry: false,
+  });
+  const rulesOf = (id: string) => rulesData?.platforms.find((r) => r.platform_id === id);
 
   const shown = (data?.platforms ?? []).filter((p) => p.platform_name.toLowerCase().includes(find.trim().toLowerCase()));
   const toggle = (id: string) =>
@@ -220,6 +249,8 @@ export function PlatformConfidencePage() {
       ) : data && data.platforms.length === 0 ? (
         <EmptyState icon="◇" title="No Platforms" message="This MDF's saved version pins no Platforms." />
       ) : data ? (
+        <>
+        <PclWhatIf data={data} />
         <div className="card table-card">
           <table className="data-table pcl-table">
             <thead>
@@ -231,6 +262,7 @@ export function PlatformConfidencePage() {
                 <th className="num" title="Modes of its unique Emitters no other Platform's Mode could be taken for">Unique Modes</th>
                 <th className="num" title="Pairs of shared Emitters no other Platform has together">Unique pairs</th>
                 <th>Standing</th>
+                <th title="Its confidence rules: how many at each level, and how many have something to look at">Rules</th>
               </tr>
             </thead>
             <tbody>
@@ -267,12 +299,15 @@ export function PlatformConfidencePage() {
                           <span className="hint-text"> · all also on {p.covered_by.map((c) => c.platform_name).join(", ")}</span>
                         )}
                       </td>
+                      <td className="nowrap">
+                        <RulesSummary rules={rulesOf(p.platform_id)} />
+                      </td>
                     </tr>
                     {isOpen && (
                       <tr className="row-detail">
                         <td />
-                        <td colSpan={6}>
-                          <PlatformDetail p={p} />
+                        <td colSpan={7}>
+                          <PlatformDetail p={p} mdfId={mdfId} rules={rulesOf(p.platform_id)} />
                         </td>
                       </tr>
                     )}
@@ -282,6 +317,7 @@ export function PlatformConfidencePage() {
             </tbody>
           </table>
         </div>
+        </>
       ) : null}
     </div>
   );
