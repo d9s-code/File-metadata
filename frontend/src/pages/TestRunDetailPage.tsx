@@ -355,13 +355,14 @@ export function TestRunDetailPage() {
       {record.lines.length > 0 && (
         <div className="card">
           <h2 className="as-h4">SIM Test Line results ({record.lines.length})</h2>
-          <table className="data-table">
+          <div className="table-scroll">
+          <table className="data-table run-results-table">
             <thead>
               <tr>
                 <th>SIM Test Line</th>
                 <th>Outcome</th>
                 <th>Intercepted as</th>
-                <th>Intercepted parameters</th>
+                <th className="col-params">Intercepted parameters</th>
                 <th>Notes</th>
               </tr>
             </thead>
@@ -388,27 +389,30 @@ export function TestRunDetailPage() {
                       : "—"}
                   </td>
                   <td>
-                    <ObservedValuesTable sets={l.observed_values} />
+                    <ObservedValuesTable sets={l.observed_values} empty="" />
+                    {nonEmptySets(l.observed_values).length === 0 && <span className="hint-text">Nothing logged</span>}
                   </td>
-                  <td className="pre-wrap">{l.notes ?? "—"}</td>
+                  <td className="run-notes-cell">{l.notes ?? <span className="hint-text">—</span>}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
       {exercised.length > 0 && (
         <div className="card">
           <h2 className="as-h4">Mode results ({exercised.length})</h2>
-          <table className="data-table">
+          <div className="table-scroll">
+          <table className="data-table run-results-table">
             <thead>
               <tr>
                 <th>Mode</th>
                 <th className="num" title="In the version tested, deltas applied">RF Min [MHz]</th>
                 <th className="num" title="In the version tested, deltas applied">RF Max [MHz]</th>
                 <th>Result</th>
-                <th>Intercepted parameters</th>
+                <th className="col-params">Intercepted parameters</th>
                 <th>Notes</th>
               </tr>
             </thead>
@@ -442,14 +446,16 @@ export function TestRunDetailPage() {
                     )}
                   </td>
                   <td>
-                    <ObservedValuesTable sets={m.observed_values} />
+                    <ObservedValuesTable sets={m.observed_values} empty="" />
+                    {nonEmptySets(m.observed_values).length === 0 && <span className="hint-text">Nothing logged</span>}
                   </td>
-                  <td className="pre-wrap">{m.notes ?? "—"}</td>
+                  <td className="run-notes-cell">{m.notes ?? <span className="hint-text">—</span>}</td>
                 </tr>
                 );
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
@@ -462,8 +468,25 @@ export function TestRunDetailPage() {
         </div>
       )}
 
-      {record.lines.length === 0 && exercised.length === 0 && (
-        <p className="hint-text">No per-line or per-Mode results were logged — only the overall result above.</p>
+      {record.lines.length === 0 && exercised.length === 0 && !(record.signals?.length) && derivedModes.length === 0 && (
+        <div className="card run-empty">
+          <h2 className="as-h4">Only the overall result was logged</h2>
+          <p className="hint-text">
+            This run has no SIM Test Line or Mode results and no intercepted parameters — just its result,{" "}
+            {testResultLabel(record.result).toLowerCase()}
+            {record.notes ? ", and the session notes above" : ""}.
+          </p>
+          <RequireRole minimum="editor">
+            <div className="form-row">
+              <Link className="button secondary" to={`/emitters/${emitterId}/tests/new?retest=${record.id}`}>
+                Log it again with results
+              </Link>
+              <button type="button" className="button secondary" onClick={() => setChangingResult(true)}>
+                Change the result…
+              </button>
+            </div>
+          </RequireRole>
+        </div>
       )}
         </>
       )}

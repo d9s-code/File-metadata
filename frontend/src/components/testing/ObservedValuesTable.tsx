@@ -1,86 +1,102 @@
+import { useState } from "react";
 import type { ObservedValues } from "../../api/testRecords";
-import { jitterUs, nonEmptySets, staggerUs } from "./testFormat";
+import { jitterUs, nonEmptySets } from "./testFormat";
 
 function range(min: number | undefined, max: number | undefined): string | null {
   return min != null || max != null ? `${min ?? "?"}–${max ?? "?"}` : null;
 }
 
-interface Row {
-  rf: string | null;
-  pri: string | null;
-  jitter: string | null;
-  stagger: string | null;
-  frame: string | null;
-  pw: string | null;
-  power: string | null;
-}
+type Value = { label: string; value: string; unit: string };
 
-function row(v: ObservedValues): Row {
-  const rf = v.rf_mean_mhz ?? range(v.rf_min_mhz, v.rf_max_mhz);
-  const pw = v.pw_mean_us ?? range(v.pw_min_us, v.pw_max_us);
-  let pri: string | null = null;
-  let jitter: string | null = null;
-  let frame: string | null = null;
-  let stagger: string | null = null;
-  if (v.pri_type === "fixed") {
-    const p = v.pri_mean_us ?? range(v.pri_min_us, v.pri_max_us);
-    pri = p != null ? String(p) : null;
-    jitter = jitterUs(v);
-  } else if (v.pri_type === "stagger") {
-    stagger = staggerUs(v);
-    frame = v.frame_time_us != null ? String(v.frame_time_us) : null;
-  } else if (v.pri_type === "cw" || v.pri_type === "xlet") {
-    pri = v.pri_type === "cw" ? "CW" : "X-let";
-  }
-  return {
-    rf: rf != null ? String(rf) : null,
-    pri,
-    jitter,
-    stagger,
-    frame,
-    pw: pw != null ? String(pw) : null,
-    power: v.received_power_dbfs != null ? String(v.received_power_dbfs) : null,
+/** A set's single values, in reading order: RF, PRI (or CW / X-let), jitter, frame time, PW, power. */
+export function observedValueList(v: ObservedValues): Value[] {
+  const out: Value[] = [];
+  const add = (label: string, value: string | number | null | undefined, unit = "") => {
+    if (value != null) out.push({ label, value: String(value), unit });
   };
+  add("RF", v.rf_mean_mhz ?? range(v.rf_min_mhz, v.rf_max_mhz), "MHz");
+  if (v.pri_type === "fixed") {
+    add("PRI", v.pri_mean_us ?? range(v.pri_min_us, v.pri_max_us), "µs");
+    add("Jitter", jitterUs(v), "µs");
+  } else if (v.pri_type === "stagger") {
+    add("Frame time", v.frame_time_us, "µs");
+  } else if (v.pri_type === "cw") {
+    add("PRI", "CW");
+  } else if (v.pri_type === "xlet") {
+    add("PRI", "X-let");
+  }
+  add("PW", v.pw_mean_us ?? range(v.pw_min_us, v.pw_max_us), "µs");
+  add("Power", v.received_power_dbfs, "dBFS");
+  return out;
 }
 
-const COLUMNS: { key: keyof Row; label: string }[] = [
-  { key: "rf", label: "RF (MHz)" },
-  { key: "pri", label: "PRI (µs)" },
-  { key: "stagger", label: "Stagger (µs)" },
-  { key: "frame", label: "Frame time (µs)" },
-  { key: "pw", label: "PW (µs)" },
-  { key: "jitter", label: "Jitter (µs)" },
-  { key: "power", label: "Power (dBFS)" },
-];
+/** Steps shown before "Show all" — a long stagger stays a few rows high. */
+const STEPS_SHOWN = 12;
 
-/** Intercepted parameters as a small table inside a cell: one row per set,
- * the units in the small headings and the values plain to read. Only the
- * columns some set has are shown. Each value carries its label and unit
- * (data-label, data-unit), so a style can set a set on one line instead. */
-export function ObservedValuesTable({ sets, empty = "—" }: { sets: ObservedValues[] | null | undefined; empty?: string }) {
-  const rows = nonEmptySets(sets).map(row);
-  const shown = COLUMNS.filter((c) => rows.some((r) => r[c.key] != null));
-  if (rows.length === 0 || shown.length === 0) return <>{empty}</>;
+/** A stagger's steps as numbered cells of one width, wrapping to fit the
+ * column (never spilling out of it), the first few until asked for all. */
+function StaggerSteps({ steps }: { steps: number[] }) {
+  const [all, setAll] = useState(false);
+  // Hiding one or two steps behind a button saves nothing.
+  const folds = steps.length > STEPS_SHOWN + 2;
+  const shown = folds && !all ? steps.slice(0, STEPS_SHOWN) : steps;
   return (
-    <table className="observed-values">
-      <thead>
-        <tr>
-          {shown.map((c) => (
-            <th key={c.key}>{c.label}</th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((r, i) => (
-          <tr key={i}>
-            {shown.map((c) => (
-              <td key={c.key} data-label={c.label.replace(/\s*\(.*\)$/, "")} data-unit={c.label.match(/\((.*)\)$/)?.[1] ?? ""}>
-                {r[c.key] ?? "—"}
-              </td>
-            ))}
-          </tr>
+    <div className="obs-stagger">
+      <div className="obs-stagger-head">
+        <span className="obs-label">Stagger</span> {steps.length} step{steps.length === 1 ? "" : "s"},{" "}
+        <span className="obs-num">
+          {Math.min(...steps)}–{Math.max(...steps)}
+        </span>{" "}
+        <span className="obs-unit">µs</span>
+      </div>
+      <ol className="obs-steps">
+        {shown.map((s, i) => (
+          <li key={i}>
+            <span className="obs-step-n">{i + 1}</span>
+            <span className="obs-num">{s}</span>
+          </li>
         ))}
-      </tbody>
-    </table>
+      </ol>
+      {folds && (
+        <button type="button" className="link-button obs-more" aria-expanded={all} onClick={() => setAll(!all)}>
+          {all ? "Show fewer" : `Show all ${steps.length} steps`}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Intercepted parameters inside a table cell: each set on its own lines
+ * (numbered when there are several), each value with its label and unit,
+ * wrapping to the column's width. */
+export function ObservedValuesTable({ sets, empty = "—" }: { sets: ObservedValues[] | null | undefined; empty?: string }) {
+  const list = nonEmptySets(sets);
+  if (list.length === 0) return <>{empty}</>;
+  return (
+    <div className="obs-sets">
+      {list.map((v, i) => {
+        const values = observedValueList(v);
+        const steps = v.pri_type === "stagger" ? (v.pri_stagger_values_us ?? []) : [];
+        return (
+          <div key={i} className="obs-set">
+            {list.length > 1 && <span className="obs-set-n">Set {i + 1}</span>}
+            {values.length > 0 && (
+              <dl className="obs-values">
+                {values.map((x) => (
+                  <div key={x.label}>
+                    <dt className="obs-label">{x.label}</dt>
+                    <dd>
+                      <span className="obs-num">{x.value}</span>
+                      {x.unit && <span className="obs-unit"> {x.unit}</span>}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+            {steps.length > 0 && <StaggerSteps steps={steps} />}
+          </div>
+        );
+      })}
+    </div>
   );
 }

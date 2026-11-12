@@ -87,31 +87,86 @@ a.link-as-button.accent-button:hover {
 .params-editor-row td {
   background: var(--active-bg);
 }
-/* Intercepted parameters inside a table cell: small unit headings, the
-   values in plain text, wrapping rather than spilling out of the column. */
-.observed-values {
-  border-collapse: collapse;
-  font-size: 0.82rem;
-  margin: 0 0 0.2rem;
-  max-width: 100%;
+/* Intercepted parameters inside a table cell: each set on its own lines,
+   label + value + unit, wrapping to the column's width — never spilling out. */
+.obs-sets {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 14rem;
+  white-space: normal;
 }
-.observed-values th {
-  font-size: 0.68rem;
+.obs-set + .obs-set {
+  border-top: 1px dashed var(--border);
+  padding-top: 0.4rem;
+}
+.obs-set-n {
+  display: block;
+  font-size: max(0.72rem, 12px);
   font-weight: 600;
   color: var(--muted);
-  text-align: left;
-  padding: 0 0.6rem 0.1rem 0;
-  border: none;
+  margin-bottom: 0.1rem;
+}
+.obs-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 1.1rem;
+  margin: 0;
+}
+.obs-values > div {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
   white-space: nowrap;
 }
-.observed-values td {
-  padding: 0.05rem 0.6rem 0.05rem 0;
-  border: none;
+.obs-values dd { margin: 0; }
+.obs-label {
+  font-size: max(0.72rem, 12px);
+  font-weight: 600;
+  color: var(--muted);
+}
+.obs-num {
+  font-family: var(--mono);
+  font-size: 0.84rem;
   font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
   color: var(--text);
 }
-.observed-values tr + tr td { border-top: 1px dotted var(--border); }
+.obs-unit {
+  font-size: max(0.72rem, 12px);
+  color: var(--muted);
+}
+.obs-stagger { margin-top: 0.25rem; }
+.obs-stagger-head { margin-bottom: 0.2rem; }
+/* Steps as cells of one width, so wrapped rows line up like a grid. */
+.obs-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.obs-steps li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.3rem;
+  min-width: 5.6rem;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+}
+.obs-step-n {
+  font-size: max(0.68rem, 12px);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.obs-more { margin-top: 0.2rem; font-size: max(0.78rem, 12px); }
+/* A test run's results tables: the parameters get the room, notes wrap. */
+.run-results-table th.col-params { width: 46%; }
+.run-results-table td.run-notes-cell { min-width: 10rem; max-width: 22rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.run-results-table td { vertical-align: top; }
 .data-table td.pre-wrap { white-space: pre-wrap; }
 /* Notes in a test run: grow with what's written, wrap inside the column. */
 .notes-field {

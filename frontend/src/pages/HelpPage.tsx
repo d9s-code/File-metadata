@@ -626,6 +626,10 @@ export function HelpPage() {
                 Each run has its own page with the full per-line and per-Mode detail. Its actions sit top right:{" "}
                 <strong>+ From this test ▾</strong>, <strong>Redo test</strong> on a failed or partial run (a new run
                 pre-filled as a retest of it), and <strong>⋯</strong> to change the result or delete the run.
+                Intercepted parameters read set by set (numbered when there are several), each value with its label and
+                unit; a stagger&apos;s steps are numbered cells that wrap inside the column, the first 12 shown until{" "}
+                <strong>Show all N steps</strong>. A line with nothing logged says so, and a run logged with only its
+                overall result says that too, with a way to log it again with results.
               </li>
               <li>
                 <strong>Against the Modes now</strong>, a tab beside <strong>Results</strong> on the run&apos;s page

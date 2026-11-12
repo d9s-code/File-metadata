@@ -212,3 +212,47 @@ test("a collapsed generation batch shows its lowest and highest RF, PRI and PW",
 
   await removeEmitter(page, emitter.id);
 });
+
+test("test run results: a long stagger wraps inside its cell, folds, and a bare run says so", async ({ page }) => {
+  const emitter = await makeEmitter(page);
+  const [mode] = await api<{ id: string }[]>(page, "GET", `/emitters/${emitter.id}/modes`);
+  const steps = Array.from({ length: 30 }, (_, i) => 100 + i * 11.25);
+  const run = await api<{ id: string }>(page, "POST", `/emitters/${emitter.id}/test-records`, {
+    test_type: "simulation",
+    simulation_created_date: "2026-10-01",
+    title: "Long stagger",
+    test_date: "2026-11-01",
+    received_power_dbfs: -40,
+    mode_results: [
+      {
+        mode_id: mode.id,
+        result: "partial",
+        notes: "A note long enough to need the column to itself, so it shows whether the steps run into it.",
+        observed_values: [{ rf_mean_mhz: 3000, pw_mean_us: 0.7, pri_type: "stagger", pri_stagger_values_us: steps, frame_time_us: 7893.75 }],
+      },
+    ],
+  });
+  await page.goto(`/emitters/${emitter.id}/tests/${run.id}`);
+  const cell = page.locator(".run-results-table td").filter({ has: page.locator(".obs-steps") });
+  await expect(cell.locator(".obs-steps li")).toHaveCount(12);
+  await cell.getByRole("button", { name: "Show all 30 steps" }).click();
+  await expect(cell.locator(".obs-steps li")).toHaveCount(30);
+  // Every step stays inside the parameters cell — none runs into Notes.
+  const box = (await cell.boundingBox())!;
+  for (const li of await cell.locator(".obs-steps li").all()) {
+    const b = (await li.boundingBox())!;
+    expect(b.x + b.width).toBeLessThanOrEqual(box.x + box.width + 1);
+  }
+
+  const bare = await api<{ id: string }>(page, "POST", `/emitters/${emitter.id}/test-records`, {
+    test_type: "simulation",
+    simulation_created_date: "2026-10-01",
+    title: "Result only",
+    test_date: "2026-11-01",
+    received_power_dbfs: -40,
+    result: "pass",
+  });
+  await page.goto(`/emitters/${emitter.id}/tests/${bare.id}`);
+  await expect(page.getByRole("heading", { name: "Only the overall result was logged" })).toBeVisible();
+  await removeEmitter(page, emitter.id);
+});

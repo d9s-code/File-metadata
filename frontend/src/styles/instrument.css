@@ -141,12 +141,6 @@
   & .data-table tbody tr:has(> td > .test-result-fail) > td:first-child { box-shadow: inset 3px 0 0 var(--badge-red-fg); }
   & .data-table tbody tr:has(> td > .test-result-partial) > td:first-child { box-shadow: inset 3px 0 0 var(--badge-amber-fg); }
   & .data-table tbody tr:has(> td > .test-result-pass) > td:first-child { box-shadow: inset 3px 0 0 var(--badge-green-fg); }
-  & .observed-values { border: none; background: none; margin: 0; }
-  & .observed-values thead { display: none; }
-  & .observed-values :is(tbody, tr) { display: block; background: none; border: none; }
-  & .observed-values td { display: inline; padding: 0 14px 0 0; border: none; font-family: var(--mono); font-size: 0.8rem; white-space: nowrap; text-align: left; }
-  & .observed-values td::before { content: attr(data-label) " "; font-size: 0.66rem; color: var(--muted); letter-spacing: 0.06em; }
-  & .observed-values td::after { content: " " attr(data-unit); color: var(--muted); font-size: 0.66rem; }
 
   /* Controls: squarer. */
   & :is(button, a.button, .button, .link-button, input, select, textarea) { border-radius: 3px; }

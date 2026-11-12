@@ -210,6 +210,8 @@ A manually-created or manually-edited Stagger Mode Line carries its own `frame_t
 
 When logging intercepted parameters during a test, a Stagger set can also record the measured frame time.
 
+On a run's page the intercepted parameters read set by set (numbered when there are several): each value with its label and unit, wrapping to the column, and a stagger's steps as numbered cells of one width that wrap inside it — the first 12 until **Show all N steps** — so a long stagger never runs into the Notes column. A line with nothing logged says *Nothing logged*; a run with only its overall result (no line or Mode results, signals or derived Modes) says so, with **Log it again with results** and **Change the result…**.
+
 ### Confirmation quality & quantity
 
 Every Mode carries a **Confirmation quality** (0–100, default 100) and a **Confirmation quantity** (1 or more, default 2). Both are set in the Mode form, editable per Mode or with Batch edit, recorded in the audit trail and version history, and written to the PRS export's `ConfirmationQuality` / `ConfirmationQuantity` elements (which used to be fixed placeholders of 100 and 2).
