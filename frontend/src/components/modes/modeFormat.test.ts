@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { EwGroup, Mode, ModeLine, Source } from "../../types/domain";
 import {
+  batchSpan,
   compareModes,
   groupModesForDisplay,
   jitterOrFrameTimeDisplay,
@@ -8,6 +9,7 @@ import {
   rangeMatchingTags,
   rangeOverlaps,
   rfDisplay,
+  spanText,
 } from "./modeFormat";
 
 const mode = (over: Omit<Partial<Mode>, "line"> & { line?: Partial<ModeLine> }): Mode =>
@@ -88,5 +90,24 @@ describe("compareModes", () => {
     ];
     expect(sort(list, "pri_min", "asc")).toEqual(["C", "A", "B", "S"]);
     expect(sort(list, "pri_min", "desc")).toEqual(["A", "B", "C", "S"]);
+  });
+});
+
+describe("batchSpan", () => {
+  it("gives the lowest and highest of each parameter across a batch, stagger steps in PRI", () => {
+    const modes = [
+      mode({ name: "A", line: { rf_min_mhz: 9000, rf_max_mhz: 9100, pri_min_us: 200, pri_max_us: 210, pw_min_us: 1, pw_max_us: 1.5, rf_delta: 5 } }),
+      mode({ name: "B", line: { rf_min_mhz: 9400, rf_max_mhz: 9500, pri_min_us: 300, pri_max_us: 310, pw_min_us: 0.5, pw_max_us: 1, rf_delta: 10 } }),
+      mode({ name: "C", pri_type: "stagger", line: { rf_min_mhz: 9200, rf_max_mhz: 9300, pri_stagger_values_us: [150, 400], pw_min_us: 2, pw_max_us: 2 } }),
+    ];
+    const s = batchSpan(modes, false);
+    expect(s.rf).toEqual([9000, 9500]);
+    expect(s.pri).toEqual([150, 400]);
+    expect(s.pw).toEqual([0.5, 2]);
+    expect(s.rfDelta).toEqual([5, 10]);
+    expect(s.priTypes).toEqual(["Fixed", "Stagger"]);
+    expect(spanText(s.rf, "MHz")).toBe("9000–9500 MHz");
+    expect(spanText([3, 3])).toBe("3");
+    expect(spanText(batchSpan([mode({ name: "D", pri_type: "cw", line: {} })], false).pri)).toBe("—");
   });
 });

@@ -474,7 +474,10 @@ export function HelpPage() {
               Discard brings them back until you save). <strong>View ▾</strong> switches between engineered and raw
               values and has <strong>Collapse batches</strong>, which folds every
               Mode a single Cartesian Product run created into one expandable summary row, so a run that
-              produced 20+ Modes doesn't clutter the table.
+              produced 20+ Modes doesn't clutter the table. The summary row shows what the batch spans: the lowest RF,
+              PRI and PW under the min columns and the highest under the max columns (a stagger&apos;s steps count as
+              PRI), and the lowest to highest delta, jitter, frame time and confirmation in theirs; the card view lists
+              RF, PRI and PW the same way.
             </p>
           </div>
 

@@ -199,6 +199,62 @@ function sortValue(
   }
 }
 
+/** Lowest and highest of some values (nulls left out); both null when there are none. */
+export type Span = [number | null, number | null];
+
+function span(values: (number | null | undefined)[]): Span {
+  const nums = values.filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+  return nums.length ? [Math.min(...nums), Math.max(...nums)] : [null, null];
+}
+
+export interface BatchSpan {
+  rf: Span;
+  /** A Fixed Mode's PRI range and a Stagger's steps together. */
+  pri: Span;
+  pw: Span;
+  rfDelta: Span;
+  /** PRI delta for Fixed, frame-time delta for Stagger (as the PRI Δ column shows). */
+  priDelta: Span;
+  pwDelta: Span;
+  jitter: Span;
+  frameTime: Span;
+  quality: Span;
+  quantity: Span;
+  priTypes: string[];
+  ewGroupIds: string[];
+}
+
+/** What a collapsed generation batch spans: for each parameter, the lowest
+ * and highest across its Modes, as the table shows them (raw or programmed). */
+export function batchSpan(modes: Mode[], engineered: boolean): BatchSpan {
+  const rf = modes.map((m) => rfDisplay(m, engineered));
+  const pw = modes.map((m) => pwDisplay(m, engineered));
+  const pri = modes.map((m) => priDisplay(m, engineered));
+  const jft = modes.map((m) => jitterOrFrameTimeDisplay(m, engineered));
+  const steps = modes.flatMap((m) => (m.pri_type === "stagger" ? (m.line?.pri_stagger_values_us ?? []) : []));
+  return {
+    rf: span(rf.flatMap((d) => [d.min, d.max])),
+    pri: span([...pri.flatMap((d) => [d.min, d.max]), ...steps]),
+    pw: span(pw.flatMap((d) => [d.min, d.max])),
+    rfDelta: span(modes.map((m) => m.line?.rf_delta)),
+    priDelta: span(modes.map((m) => (m.pri_type === "stagger" ? m.line?.frame_time_delta_us : m.line?.pri_delta))),
+    pwDelta: span(modes.map((m) => m.line?.pw_delta)),
+    jitter: span(jft.filter((d) => d.label === "jitter").flatMap((d) => [d.min, d.max])),
+    frameTime: span(jft.filter((d) => d.label === "frametime").flatMap((d) => [d.min, d.max])),
+    quality: span(modes.map((m) => m.confirmation_quality)),
+    quantity: span(modes.map((m) => m.confirmation_quantity)),
+    priTypes: [...new Set(modes.map((m) => priTypeLabel(m.pri_type)))],
+    ewGroupIds: [...new Set(modes.map((m) => m.ew_group_id))],
+  };
+}
+
+/** A span as text: "9000–9500", one value when they're the same, "—" when empty. */
+export function spanText([lo, hi]: Span, unit = ""): string {
+  if (lo == null || hi == null) return "—";
+  const u = unit ? ` ${unit}` : "";
+  return lo === hi ? `${lo}${u}` : `${lo}–${hi}${u}`;
+}
+
 export type DisplayRow = { type: "mode"; mode: Mode } | { type: "batch"; batchId: string; modes: Mode[] };
 
 /** Groups a (already sorted/filtered) Modes list for display — when

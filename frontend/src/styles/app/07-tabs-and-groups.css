@@ -323,3 +323,18 @@ span.test-derived-badge {
 }
 
 /* A test report's details under its title: labelled fields, divided. */
+
+/* A collapsed generation batch: each value column holds the batch's lowest
+   or highest value, set lighter than the batch's name. */
+.batch-summary-row td.batch-span {
+  font-weight: 400;
+  color: var(--muted);
+}
+.batch-span-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  padding: 0.25rem 0 0 1.75rem;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}

@@ -8,6 +8,7 @@ import { useFitToViewport } from "../common/useFitToViewport";
 import { SortableColumnHeader, type ColumnType } from "../common/SortableColumnHeader";
 import { useColumnVisibility, useColumnVisibilityMenu, type ToggleableColumn } from "../common/ColumnVisibilityMenu";
 import {
+  batchSpan,
   groupModesForDisplay,
   jitterOrFrameTimeDisplay,
   priDisplay,
@@ -15,6 +16,7 @@ import {
   pwDisplay,
   rangeMatchingTags,
   rfDisplay,
+  spanText,
   type ModeSortKey,
   type SortDir,
 } from "./modeFormat";
@@ -146,8 +148,6 @@ export function ModesTable({
   const columns = useColumnVisibility("modesTable.hiddenColumns", MODE_COLUMNS);
   const columnMenu = useColumnVisibilityMenu(columns);
   const visibleColumns = MODE_COLUMNS.filter((c) => columns.isVisible(c.id));
-  // Checkbox + visible data columns + actions.
-  const fullSpan = columns.visibleCount + 2;
 
   function toggleExpandBatch(batchId: string) {
     setExpandedBatchIds((prev) => {
@@ -348,6 +348,54 @@ export function ModesTable({
     );
   }
 
+  /** A collapsed batch's row: its name in the Name column, and in each
+   * value column the lowest and highest across its Modes. */
+  function renderBatchCells(batchId: string, batchModes: Mode[], isExpanded: boolean) {
+    const s = batchSpan(batchModes, showEngineered);
+    const n = batchModes.length;
+    const value = (column: ModeColumnId, text: string, title: string) => (
+      <td key={column} className={NUMBER_COLUMNS.has(column) ? "batch-span num" : "batch-span"} title={`${title} — across the batch's ${n} Modes`}>
+        {text === "—" ? <span className="hint-text">—</span> : text}
+      </td>
+    );
+    const groupNames = s.ewGroupIds.map((id) => ewGroupsById[id]?.name).filter(Boolean);
+    const cells: Record<ModeColumnId, () => ReactNode> = {
+      name: () => (
+        <td key="name">
+          <button
+            type="button"
+            className="link-button"
+            aria-expanded={isExpanded}
+            onClick={() => toggleExpandBatch(batchId)}
+          >
+            {isExpanded ? "▼" : "▶"} {batchNameById[batchId] ?? "Generation batch"} — {n} Modes
+          </button>
+        </td>
+      ),
+      rf_min: () => value("rf_min", spanText([s.rf[0], s.rf[0]]), "Lowest RF"),
+      rf_max: () => value("rf_max", spanText([s.rf[1], s.rf[1]]), "Highest RF"),
+      rf_delta: () => value("rf_delta", spanText(s.rfDelta), "RF Δ, lowest to highest"),
+      pri_type: () => value("pri_type", s.priTypes.join(", "), "PRI types"),
+      pri_min: () => value("pri_min", spanText([s.pri[0], s.pri[0]]), "Lowest PRI (stagger steps included)"),
+      pri_max: () => value("pri_max", spanText([s.pri[1], s.pri[1]]), "Highest PRI (stagger steps included)"),
+      pri_delta: () => value("pri_delta", spanText(s.priDelta), "PRI Δ, lowest to highest"),
+      jitter: () => value("jitter", spanText(s.jitter), "Jitter, lowest to highest"),
+      frame_time: () => value("frame_time", spanText(s.frameTime), "Frame time, lowest to highest"),
+      pw_min: () => value("pw_min", spanText([s.pw[0], s.pw[0]]), "Lowest PW"),
+      pw_max: () => value("pw_max", spanText([s.pw[1], s.pw[1]]), "Highest PW"),
+      pw_delta: () => value("pw_delta", spanText(s.pwDelta), "PW Δ, lowest to highest"),
+      range_matching: () => <td key="range_matching" className="batch-span" />,
+      confirmation_quality: () =>
+        value("confirmation_quality", s.quality[0] == null ? "—" : `${spanText(s.quality)}%`, "Confirmation quality, lowest to highest"),
+      confirmation_quantity: () => value("confirmation_quantity", spanText(s.quantity), "Confirmation quantity, lowest to highest"),
+      ew_group: () =>
+        value("ew_group", groupNames.length === 1 ? groupNames[0]! : `${s.ewGroupIds.length} EW Groups`, "EW Group"),
+      source: () => <td key="source" className="batch-span" />,
+      last_tested: () => <td key="last_tested" className="batch-span" />,
+    };
+    return visibleColumns.map((c) => cells[c.id]());
+  }
+
   const displayRows = groupModesForDisplay(modes, collapseBatches);
   const editingMode = modes.find((m) => m.id === editingModeId);
   const duplicatingMode = modes.find((m) => m.id === duplicatingModeId);
@@ -404,11 +452,8 @@ export function ModesTable({
                       aria-label={`Select all Modes in batch ${batchNameById[row.batchId] ?? row.batchId}`}
                     />
                   </td>
-                  <td colSpan={fullSpan - 1}>
-                    <button type="button" className="link-button" onClick={() => toggleExpandBatch(row.batchId)}>
-                      {isExpanded ? "▼" : "▶"} {batchNameById[row.batchId] ?? "Generation batch"} — {row.modes.length} Modes
-                    </button>
-                  </td>
+                  {renderBatchCells(row.batchId, row.modes, isExpanded)}
+                  <td className="sticky-end row-actions"></td>
                 </tr>
                 {isExpanded && row.modes.map((m) => renderModeRow(m))}
               </Fragment>

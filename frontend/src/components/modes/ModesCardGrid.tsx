@@ -17,6 +17,7 @@ import { ModeDuplicateDialog, ModeEditDialog } from "./ModeDialogs";
 import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 import {
+  batchSpan,
   groupModesForDisplay,
   jitterOrFrameTimeDisplay,
   priDisplay,
@@ -24,6 +25,7 @@ import {
   pwDisplay,
   rangeMatchingTags,
   rfDisplay,
+  spanText,
 } from "./modeFormat";
 
 function span(min: number | null, max: number | null): string {
@@ -224,6 +226,7 @@ export function ModesCardGrid({
                   {isExpanded ? "▼" : "▶"} {batchNameById[row.batchId] ?? "Generation batch"} — {row.modes.length} Modes
                 </button>
               </div>
+              <BatchSpanLine modes={row.modes} engineered={showEngineered} />
             </div>
             {isExpanded && row.modes.map((m) => renderModeCard(m))}
           </div>
@@ -246,6 +249,26 @@ export function ModesCardGrid({
           onClose={() => setDuplicatingModeId(null)}
         />
       )}
+    </div>
+  );
+}
+
+/** A collapsed batch's lowest and highest RF, PRI and PW across its Modes. */
+function BatchSpanLine({ modes, engineered }: { modes: Mode[]; engineered: boolean }) {
+  const s = batchSpan(modes, engineered);
+  const parts = [
+    ["RF", spanText(s.rf, "MHz")],
+    ["PRI", spanText(s.pri, "µs")],
+    ["PW", spanText(s.pw, "µs")],
+  ].filter(([, v]) => v !== "—");
+  if (!parts.length) return null;
+  return (
+    <div className="batch-span-line" title={`Lowest to highest across the batch's ${modes.length} Modes`}>
+      {parts.map(([k, v]) => (
+        <span key={k}>
+          <span className="hint-text">{k}</span> {v}
+        </span>
+      ))}
     </div>
   );
 }

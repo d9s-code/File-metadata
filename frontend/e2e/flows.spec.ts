@@ -186,3 +186,29 @@ test("Import JSON shows a preview first, and imports only when asked", async ({ 
   await expect(page.getByRole("button", { name: "E2E-SET", exact: true })).toBeVisible();
   await removeEmitter(page, emitter.id);
 });
+
+test("a collapsed generation batch shows its lowest and highest RF, PRI and PW", async ({ page }) => {
+  const emitter = await makeEmitter(page, []);
+  const [group] = await api<{ id: string }[]>(page, "GET", `/emitters/${emitter.id}/ew-groups`);
+  const [source] = await api<{ id: string }[]>(page, "GET", `/emitters/${emitter.id}/sources`);
+  const add = (body: object) => api<{ id: string }>(page, "POST", `/emitters/${emitter.id}/sources/${source.id}/elements`, body);
+  const rf = [await add({ element_type: "rf", value_min: 9000, value_max: 9100 }), await add({ element_type: "rf", value_min: 9400, value_max: 9500 })];
+  const pw = [await add({ element_type: "pw", value_min: 0.5, value_max: 1.5 })];
+  const pri = [await add({ element_type: "pri", value_min: 200, value_max: 210 }), await add({ element_type: "pri", value_min: 300, value_max: 320 })];
+  await api(page, "POST", `/emitters/${emitter.id}/sources/${source.id}/elements/cartesian-product`, {
+    ew_group_id: group.id,
+    rf_element_ids: rf.map((e) => e.id),
+    pw_element_ids: pw.map((e) => e.id),
+    pri_element_ids: pri.map((e) => e.id),
+    name_prefix: "Sweep",
+  });
+  await page.evaluate(() => localStorage.setItem("modesCollapseBatches", "true"));
+  await page.goto(`/emitters/${emitter.id}`);
+
+  const row = page.locator("tr.batch-summary-row").filter({ hasText: "Sweep — 4 Modes" });
+  await expect(row).toBeVisible();
+  const cells = await row.locator("td.batch-span").allTextContents();
+  for (const v of ["9000", "9500", "200", "320", "0.5", "1.5"]) expect(cells).toContain(v);
+
+  await removeEmitter(page, emitter.id);
+});
