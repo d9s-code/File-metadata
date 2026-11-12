@@ -82,7 +82,7 @@ function CodeRow({
       <td>{fc.name}</td>
       <td className="hint-text">{fc.description ?? "—"}</td>
       <td className="num">
-        {fc.emitter_count ? <Link to="/threat-priorities">{fc.emitter_count}</Link> : <span className="hint-text">0</span>}
+        {fc.emitter_count ? <Link to="/priorities">{fc.emitter_count}</Link> : <span className="hint-text">0</span>}
       </td>
       <td className="fc-actions">
         <button
@@ -107,7 +107,7 @@ function CodeRow({
 }
 
 /** Admin → Function codes: the kinds of emitter an Emitter can be. Every new
- * Emitter picks one, and the threat priority overview groups by them. */
+ * Emitter picks one, and the priority overview groups by them. */
 export function AdminFunctionCodesPage() {
   const { data: codes, isLoading } = useFunctionCodes();
   const { create, update, remove } = useFunctionCodeMutations();
@@ -157,7 +157,7 @@ export function AdminFunctionCodesPage() {
         <h2 className="as-h4">Function codes</h2>
         <p className="hint-text">
           What kind of emitter an Emitter is — fire control, search, navigation… Every new Emitter picks one, and{" "}
-          <Link to="/threat-priorities">Threat priorities</Link> groups by them. They aren&apos;t part of an Emitter&apos;s
+          <Link to="/priorities">Priorities</Link> groups by them. They aren&apos;t part of an Emitter&apos;s
           saved versions or its export. The order here is the order everywhere.
         </p>
         <form className="fc-add" onSubmit={handleAdd}>

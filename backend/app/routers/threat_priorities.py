@@ -149,7 +149,7 @@ def change_threat_priorities(
                 action=AuditAction.checkout,
                 entity_type=AuditEntityType.emitter.value,
                 entity_id=e.id,
-                summary=f"Started editing Emitter '{e.name}' (to change threat priorities)",
+                summary=f"Started editing Emitter '{e.name}' (to change priorities)",
                 emitter_id=e.id,
             )
     updated = 0
@@ -164,7 +164,7 @@ def change_threat_priorities(
             action=AuditAction.update,
             entity_type=AuditEntityType.ew_group.value,
             entity_id=g.id,
-            summary=f"Updated EW Group '{g.name}' (threat priority, from the overview)",
+            summary=f"Updated EW Group '{g.name}' (priority, from the overview)",
             changes=changes,
             emitter_id=g.emitter_id,
         )

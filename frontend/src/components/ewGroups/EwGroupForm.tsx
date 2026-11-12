@@ -105,9 +105,9 @@ export function EwGroupForm({ emitterId, initialData, prefill, onClose }: EwGrou
         />
       </label>
       <label className="inline-field">
-        Threat priority
+        Priority
         <input
-          placeholder="Threat priority"
+          placeholder="Priority"
           type="number"
           value={threatPriority}
           onChange={(e) => setThreatPriority(e.target.value)}

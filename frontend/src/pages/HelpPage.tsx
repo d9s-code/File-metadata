@@ -25,7 +25,7 @@ const TOC: TocNode[] = [
           { id: "emitter-audit-tab", title: "Audit tab" },
         ],
       },
-      { id: "emitter-threats", title: "Threat priorities" },
+      { id: "emitter-priorities", title: "Priorities" },
       { id: "emitter-versions", title: "Version history" },
       { id: "emitter-ambiguity", title: "Ambiguity check" },
     ],
@@ -36,7 +36,7 @@ const TOC: TocNode[] = [
     children: [
       { id: "platform-detail", title: "Platform detail" },
       { id: "platform-versions", title: "Version history" },
-      { id: "platform-traits", title: "Hostility, base and speed" },
+      { id: "platform-traits", title: "Affiliation, base and speed" },
       { id: "platform-ambiguity", title: "Ambiguity check" },
     ],
   },
@@ -136,11 +136,11 @@ export function HelpPage() {
           <div className="card" id="overview">
         <h2>Overview</h2>
         <p>
-          This app tracks RF emitter profiles for EW (electronic warfare) use — the RF/PRI/PW parameters
-          that let a receiver recognize a given radar. The core object is a <strong>Mode</strong>: one
+          This app tracks RF emitter profiles for signal processing — the RF/PRI/PW parameters
+          that let a receiver recognize a given emitter. The core object is a <strong>Mode</strong>: one
           named signal (e.g. "Search Wide", "Track Lock") with a frequency range, pulse width, and PRI
           behavior. Modes are grouped into <strong>EW Groups</strong> under an <strong>Emitter</strong>{" "}
-          (a physical radar/system). Emitters are referenced by <strong>Platforms</strong> (the vehicle or
+          (a physical emitter/system). Emitters are referenced by <strong>Platforms</strong> (the vehicle or
           site carrying them), and Platforms are bundled into an <strong>MDF</strong> (Mission Data File)
           for a specific mission or exercise.
         </p>
@@ -686,7 +686,7 @@ export function HelpPage() {
           <div className="help-subsection" id="emitter-sources">
             <h2 className="as-h4">EW Groups & Sources tab</h2>
             <p>
-              <strong>EW Groups</strong> are the operational buckets (scan range + threat priority) Modes
+              <strong>EW Groups</strong> are the operational buckets (scan range + priority) Modes
               are organized under. While an Emitter has none and its Sources have scan Elements, a{" "}
               <strong>Suggested</strong> scan range shows under the empty EW Groups card — the shortest to the longest
               scan time among them — and <strong>Use it for a new EW Group</strong> opens the form with it filled in.{" "}
@@ -818,14 +818,14 @@ export function HelpPage() {
           </div>
         </div>
 
-        <div className="help-subsection" id="emitter-threats">
-          <h3>Threat priorities</h3>
+        <div className="help-subsection" id="emitter-priorities">
+          <h3>Priorities</h3>
           <p>
-            <strong>Emitters → Threat priorities</strong> lists every EW Group of every Emitter with its function code
-            (set there for the whole Emitter, no edit lock needed) and threat priority,
-            the Platforms the Emitter is on (and their hostility) and who&apos;s editing it. Group it by function code (to
+            <strong>Emitters → Priorities</strong> lists every EW Group of every Emitter with its function code
+            (set there for the whole Emitter, no edit lock needed) and priority,
+            the Platforms the Emitter is on (and their affiliation) and who&apos;s editing it. Group it by function code (to
             start), priority, Emitter,
-            Platform or hostility, sort and filter it. Type a priority into its cell to change it (empty clears it), or
+            Platform or affiliation, sort and filter it. Type a priority into its cell to change it (empty clears it), or
             tick rows and set them together. An Emitter nobody is editing is checked out to you on the way; then{" "}
             <strong>Save versions…</strong> saves the Emitters you changed as new versions in one go.
           </p>
@@ -1078,9 +1078,9 @@ export function HelpPage() {
         </div>
 
         <div className="help-subsection" id="platform-traits">
-          <h3>Hostility, base and speed</h3>
+          <h3>Affiliation, base and speed</h3>
           <p>
-            Beside a Platform&apos;s status, in caps as the PRS XML writes them: its hostility — <strong>UNKNOWN</strong>,{" "}
+            Beside a Platform&apos;s status, in caps as the PRS XML writes them: its affiliation — <strong>UNKNOWN</strong>,{" "}
             <strong>FRIEND</strong>, <strong>HOSTILE</strong> or <strong>NEUTRAL</strong> — and its base —{" "}
             <strong>SEA</strong>, <strong>GROUND</strong>, <strong>SUBSURFACE</strong>, <strong>UNKNOWN</strong> or{" "}
             <strong>AIR</strong>; click either to change it. The speed is a range (lowest and highest) in km/h or knots,
@@ -1175,7 +1175,7 @@ export function HelpPage() {
             <strong>Summarize…</strong> (in the Release notes card) gives the <strong>change notes</strong> between two
             saved versions, by default since the last release. They list only major changes: Platforms, Emitters and
             dwell files added or removed. They also list Emitters updated: Modes added or removed, and Modes whose
-            exported name, PRI type, RF, PW, PRI, jitter, stagger, threat priority or ageout changed (deltas included).
+            exported name, PRI type, RF, PW, PRI, jitter, stagger, priority or ageout changed (deltas included).
             The release notes you wrote for those versions are shown with them. Version bumps with nothing exported
             changed, notes, confirmation, scan period and range matching don&apos;t appear, unless an Admin changes
             what counts on <strong>Admin › Defaults</strong>, where a preview shows how an MDF&apos;s change notes would
@@ -1557,7 +1557,7 @@ export function HelpPage() {
             one-off remarks go under <strong>Comments</strong>, the tab on the right edge.
           </p>
           <p>
-            <strong>Notes on each entry.</strong> Write what you think an entry is — &ldquo;Search radar, mode
+            <strong>Notes on each entry.</strong> Write what you think an entry is — &ldquo;Search, mode
             2?&rdquo; — in its <strong>Notes</strong>, first in the table: click, type, Enter (or click away) saves,
             Esc cancels. Sort by them to see the entries with the same notes together. The column is in the grouping
             table too, when importing or regrouping, so you can label the groups straight after clustering; a group
@@ -1714,7 +1714,7 @@ export function HelpPage() {
           every item has before each status. Built-in statuses can be renamed but not deleted; an added one can be
           deleted once nothing is in it. <strong>Function codes</strong>: the kinds of emitter (code, name,
           description, order) every new Emitter must pick one of, changed later from the chip in the Emitter&apos;s
-          header or in Threat priorities, which groups by them; one in use is
+          header or in Priorities, which groups by them; one in use is
           deleted by moving its Emitters to another. <strong>Defaults</strong>: what a new Mode starts with — confirmation
           quality and quantity, and the RF, PRI, PW and frame-time deltas (frame time ±3 µs to start; it widens a
           stagger&apos;s frame time, the sum of its steps, not each step). The Add Mode form and the Intercept planning

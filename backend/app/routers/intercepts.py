@@ -656,7 +656,7 @@ def set_entry_hypothesis(
     db: Session = Depends(get_db),
     user=Depends(require_role(Role.editor)),
 ) -> InterceptEntryOut:
-    """The analyst's notes on one entry — what they think it is, "Search radar,
+    """The analyst's notes on one entry — what they think it is, "Search,
     mode 2?" — saved on their own, so labelling the groups doesn't mean editing
     their values. (Shown as "Notes"; stored as `hypothesis`, apart from the
     entry's `notes`, which on an import say where it came from.)"""

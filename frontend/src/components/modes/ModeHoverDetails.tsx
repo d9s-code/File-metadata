@@ -45,7 +45,7 @@ export function EwGroupHoverDetail({ ewGroup }: { ewGroup: EwGroup }) {
         {ewGroup.scan_delta != null &&
           ` (engineered: ${ewGroup.engineered_scan_min}–${ewGroup.engineered_scan_max})`}
       </dd>
-      <dt>Threat priority</dt>
+      <dt>Priority</dt>
       <dd>{ewGroup.threat_priority ?? "—"}</dd>
       <dt>Ageout</dt>
       <dd>{ewGroup.ageout != null ? `${ewGroup.ageout} s` : "—"}</dd>

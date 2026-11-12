@@ -26,7 +26,7 @@ export interface SectionLink {
 /** The pages under one top-menu item, as tabs under the title (e.g. Emitters · Source Groups). */
 export const EMITTERS_SECTION: SectionLink[] = [
   { to: "/emitters", label: "Emitters" },
-  { to: "/threat-priorities", label: "Threat priorities" },
+  { to: "/priorities", label: "Priorities" },
   { to: "/source-groups", label: "Source Groups" },
   { to: "/reports", label: "Report" },
 ];

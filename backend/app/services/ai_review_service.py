@@ -40,7 +40,7 @@ SUMMARY_FINDINGS = 40
 SEVERITY_LABELS = {"exact_overlap": "exact overlap", "high": "high", "medium": "medium", "low": "low"}
 SEVERITY_ORDER = {"exact_overlap": 0, "high": 1, "medium": 2, "low": 3}
 
-SYSTEM_BASE = """You help analysts maintain a library of radar emitter Modes. Each Mode is a box in \
+SYSTEM_BASE = """You help analysts maintain a library of emitter Modes. Each Mode is a box in \
 RF (MHz) × PRI (µs) × PW (µs). Two Modes are ambiguous when an intercepted signal could match both.
 
 Rules:

@@ -132,7 +132,7 @@ class FinalStep(BaseModel):
     answer: str = Field(description="The reply to the user")
 
 
-SYSTEM = """You are the assistant in an app where analysts maintain a library of radar emitters for a \
+SYSTEM = """You are the assistant in an app where analysts maintain a library of emitters for a \
 sensor. The library: Platforms (vehicles or sites) carry Emitters; an Emitter has EW groups of Modes; a Mode \
 is a box in RF (MHz) × PRI (µs) × PW (µs), with a PRI type: fixed (a PRI range, with jitter), stagger (a \
 sequence of PRIs repeating in a frame), CW (no pulses) or X-let. Each value has a ± delta the sensor matches \

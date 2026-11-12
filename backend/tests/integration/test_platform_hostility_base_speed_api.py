@@ -37,7 +37,7 @@ def test_set_on_create_and_in_the_xml(editor_client):
     # Unsaved until a version is saved: the XML of v1 is unchanged.
     unsaved = editor_client.get(f"/platforms/{pid}/unsaved").json()
     labels = {e["label"]: (e["old_value"], e["new_value"]) for e in unsaved["entries"]}
-    assert labels["Hostility"] == ("UNKNOWN", "HOSTILE")
+    assert labels["Affiliation"] == ("UNKNOWN", "HOSTILE")
     assert labels["Base"] == ("UNKNOWN", "SEA")
     assert labels["Highest speed"] == (None, 30.0)
     assert labels["Speed unit"] == ("km/h", "knots")

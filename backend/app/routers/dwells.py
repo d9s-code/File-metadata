@@ -1064,7 +1064,7 @@ _COUNT_LABELS = {
     "pri": "PRI",
     "jitter": "jitter",
     "stagger": "stagger",
-    "threat_priority": "threat priority",
+    "threat_priority": "priority",
     "ageout": "ageout",
     "confirmation": "confirmation",
     "scan_period": "scan period",

@@ -18,7 +18,7 @@ gets pinned into an MDF, and why readiness warnings never hard-block release).
   for someone, or up for grabs), optionally about an Emitter, Platform or MDF, with due
   dates; "My work" on the dashboard.
 - **Emitters, Groups & Sources** — Modes are grouped two ways at once: operationally
-  by Group (scan range + threat priority) and by data provenance by Source.
+  by Group (scan range + priority) and by data provenance by Source.
 - **Typed DSL + editorial tools** — write mode lines as text (`RF 2900-3100 PRI FIXED
   800-1200 JITTER 5-15 PW 0.5-1.2`), or build a pool of RF/PW/PRI elements per Source and
   generate a whole batch of Modes via cartesian product, with frame-time computation.

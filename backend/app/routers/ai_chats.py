@@ -185,7 +185,7 @@ def _turns(messages: list[dict]) -> list[dict]:
     return turns
 
 
-COMPACT_SYSTEM = """You summarise a conversation between an analyst and the assistant of an app for a radar \
+COMPACT_SYSTEM = """You summarise a conversation between an analyst and the assistant of an app for an \
 emitter library, so it can go on without the full transcript. Keep everything a follow-up could need: what was \
 asked, the Emitters, Platforms, Modes and values found (names, numbers with units, exactly), conclusions, open \
 questions, and any Modes proposed and whether they were added. Leave out pleasantries. Plain text, short \

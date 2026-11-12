@@ -10,14 +10,14 @@ OWN_FIELD_LABELS = {
     "description": "Description",
     "status": "Status",
     # A Platform's — in its PRS XML.
-    "hostility": "Hostility",
+    "hostility": "Affiliation",
     "base": "Base",
     "speed_min": "Lowest speed",
     "speed_max": "Highest speed",
     "speed_unit": "Speed unit",
 }
 # What goes into a Platform's PRS XML: a change is unsaved until a version is saved.
-EXPORTED_OWN_FIELDS = {"Hostility", "Base", "Lowest speed", "Highest speed", "Speed unit"}
+EXPORTED_OWN_FIELDS = {"Affiliation", "Base", "Lowest speed", "Highest speed", "Speed unit"}
 # What a Platform snapshot from before these fields means by not having them.
 _PLATFORM_FIELD_DEFAULTS = {"hostility": "UNKNOWN", "base": "UNKNOWN", "speed_min": None, "speed_max": None, "speed_unit": "kmh"}
 _VALUE_LABELS = {"speed_unit": {"kmh": "km/h", "knots": "knots"}}

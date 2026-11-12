@@ -38,7 +38,7 @@ def test_a_bulk_change_checks_out_free_emitters_and_is_audited(editor_client):
     assert rows[ga["id"]]["threat_priority"] == 9
     assert rows[ga["id"]]["checked_out_by_id"] is not None
     audit = editor_client.get("/audit-log", params={"emitter_id": a["id"]}).json()["items"]
-    assert any("threat priority" in x["summary"] for x in audit)
+    assert any("priority" in x["summary"] for x in audit)
     assert any(x["summary"].startswith("Started editing Emitter 'TP Radar Two'") for x in audit)
     # Clearing it.
     resp = editor_client.post("/threat-priorities", json={"changes": [{"ew_group_id": ga["id"], "threat_priority": None}]})

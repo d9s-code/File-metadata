@@ -234,7 +234,7 @@ export function PlatformBuilderPage() {
             </label>
             <div className="platform-trait-fields">
               <label>
-                Hostility
+                Affiliation
                 <select value={editHostility} onChange={(e) => setEditHostility(e.target.value as Hostility)}>
                   {HOSTILITIES.map((h) => (
                     <option key={h} value={h}>
@@ -285,7 +285,7 @@ export function PlatformBuilderPage() {
                 </select>
               </label>
               <span className="hint-text">
-                Changing the unit converts the numbers (1 knot = 1.852 km/h). Either end can be left empty. Hostility,
+                Changing the unit converts the numbers (1 knot = 1.852 km/h). Either end can be left empty. Affiliation,
                 base and speed go into the PRS XML (Hostility, Base, Speed) from the next saved version.
               </span>
             </fieldset>

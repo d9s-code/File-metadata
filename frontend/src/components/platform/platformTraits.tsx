@@ -85,7 +85,7 @@ export function HostilityChip({
       values={HOSTILITIES}
       onChange={onChange}
       disabled={disabled}
-      title="Hostility — written to the PRS XML once a version is saved"
+      title="Affiliation — written to the PRS XML (as Hostility) once a version is saved"
     />
   );
 }

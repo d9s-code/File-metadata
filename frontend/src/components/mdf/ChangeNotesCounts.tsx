@@ -31,7 +31,7 @@ export const CHANGE_NOTE_RULES: { title: string; rules: Rule[] }[] = [
       { key: "pri", label: "PRI" },
       { key: "jitter", label: "Jitter" },
       { key: "stagger", label: "Stagger", hint: "steps and frame time" },
-      { key: "threat_priority", label: "Threat priority" },
+      { key: "threat_priority", label: "Priority" },
       { key: "ageout", label: "Ageout" },
       { key: "confirmation", label: "Confirmation" },
       { key: "scan_period", label: "Scan period" },

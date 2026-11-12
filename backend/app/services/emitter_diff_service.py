@@ -24,7 +24,7 @@ EW_GROUP_FIELD_LABELS = {
     "scan_min": "Scan Min",
     "scan_max": "Scan Max",
     "scan_delta": "Scan Delta",
-    "threat_priority": "Threat Priority",
+    "threat_priority": "Priority",
     "ageout": "Ageout (s)",
 }
 
@@ -179,7 +179,7 @@ def _mode_summary(m: dict) -> str:
 
 def _group_summary(g: dict) -> str:
     scan = _span(g.get("scan_min"), g.get("scan_max"), "s")
-    parts = [f"scan {scan}" if scan else None, f"threat priority {g['threat_priority']}" if g.get("threat_priority") is not None else None]
+    parts = [f"scan {scan}" if scan else None, f"priority {g['threat_priority']}" if g.get("threat_priority") is not None else None]
     modes = len(g.get("modes", []))
     parts.append(f"{modes} Mode{'' if modes == 1 else 's'}")
     return " · ".join(p for p in parts if p)

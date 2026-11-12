@@ -57,7 +57,7 @@ type ColumnId =
 const COLUMNS: ToggleableColumn<ColumnId>[] = [
   { id: "description", label: "Description" },
   { id: "status", label: "Platform status" },
-  { id: "hostility", label: "Hostility" },
+  { id: "hostility", label: "Affiliation" },
   { id: "base", label: "Base" },
   { id: "speed", label: "Speed" },
   { id: "emitters", label: "Emitters" },
@@ -254,7 +254,7 @@ export function PlatformsListPage() {
                 {header("Name", "name")}
                 {show("description") && header("Description", "description")}
                 {show("status") && header("Platform status", "own_status", "The Platform's own status")}
-                {show("hostility") && header("Hostility", "hostility", "UNKNOWN, FRIEND, HOSTILE or NEUTRAL — the PRS XML's Hostility")}
+                {show("hostility") && header("Affiliation", "hostility", "UNKNOWN, FRIEND, HOSTILE or NEUTRAL — the PRS XML's Hostility")}
                 {show("base") && header("Base", "base", "SEA, GROUND, SUBSURFACE, UNKNOWN or AIR — the PRS XML's Base")}
                 {show("speed") && header("Speed", "speed", "Its speed range, in km/h or knots (sorted by the highest, in km/h)", "number")}
                 {show("emitters") && header("Emitters", "emitters", "Emitters pinned on the Platform", "number")}

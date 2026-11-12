@@ -417,7 +417,7 @@ export function SimTestLinesPanel({ emitterId, lines }: { emitterId: string; lin
                     />
                   </label>
                   <label>
-                    Batch label (optional) — e.g. a filename or "2026-09 threat table"
+                    Batch label (optional) — e.g. a filename or "2026-09 signal table"
                     <input
                       value={batchLabel}
                       onChange={(e) => {
@@ -442,7 +442,7 @@ export function SimTestLinesPanel({ emitterId, lines }: { emitterId: string; lin
                   Paste rows — select cells in Excel/Sheets and paste directly (tab-separated), or type one label per
                   line. Column 1 of each row is the label; any other columns are kept as reference detail.
                   <textarea
-                    placeholder={"Threat 3, high-PRF search\nThreat 3, low-PRF search"}
+                    placeholder={"Emitter 3, high-PRF search\nEmitter 3, low-PRF search"}
                     value={pasteText}
                     onChange={(e) => {
                       setPasteText(e.target.value);

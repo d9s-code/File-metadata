@@ -28,10 +28,10 @@ type SortKey = "emitter" | "code" | "group" | "priority" | "modes" | "platforms"
 const GROUP_BY: { key: GroupBy; label: string }[] = [
   { key: "none", label: "No grouping" },
   { key: "code", label: "Function code" },
-  { key: "priority", label: "Threat priority" },
+  { key: "priority", label: "Priority" },
   { key: "emitter", label: "Emitter" },
   { key: "platform", label: "Platform" },
-  { key: "hostility", label: "Hostility" },
+  { key: "hostility", label: "Affiliation" },
 ];
 
 /** Every key a row is filed under for a grouping — a row on two Platforms is in both. */
@@ -54,8 +54,8 @@ function groupKeys(
       return [{ key: r.emitter_id, label: r.designation ? `${r.designation} — ${r.emitter_name}` : r.emitter_name, order: r.emitter_name.toLowerCase() }];
     case "priority":
       return r.threat_priority == null
-        ? [{ key: "none", label: "No threat priority", order: "~" }]
-        : [{ key: String(r.threat_priority), label: `Threat priority ${r.threat_priority}`, order: String(r.threat_priority).padStart(9, "0") }];
+        ? [{ key: "none", label: "No priority", order: "~" }]
+        : [{ key: String(r.threat_priority), label: `Priority ${r.threat_priority}`, order: String(r.threat_priority).padStart(9, "0") }];
     case "platform":
       return r.platforms.length
         ? r.platforms.map((p) => ({ key: p.id, label: p.name, order: p.name.toLowerCase() }))
@@ -82,7 +82,7 @@ function priorityRange(values: (number | null)[]): string {
   return `priority ${lo === hi ? lo : `${lo}–${hi}`}${values.includes(null) ? ", some none" : ""}`;
 }
 
-/** One threat priority cell: type a number, Enter or leaving the cell saves it; empty clears it. */
+/** One priority cell: type a number, Enter or leaving the cell saves it; empty clears it. */
 function PriorityCell({
   row,
   disabled,
@@ -115,7 +115,7 @@ function PriorityCell({
       placeholder="—"
       disabled={disabled}
       title={title}
-      aria-label={`Threat priority of ${row.emitter_name} › ${row.ew_group_name}`}
+      aria-label={`Priority of ${row.emitter_name} › ${row.ew_group_name}`}
       onChange={(e) => setText(e.target.value)}
       onBlur={commit}
       onKeyDown={(e) => {
@@ -129,7 +129,7 @@ function PriorityCell({
   );
 }
 
-/** Threat priorities across every Emitter — one row per EW Group, where the
+/** Priorities across every Emitter — one row per EW Group, where the
  * priority lives — editable in place or in bulk, filtered, sorted and grouped
  * by function code, priority, Emitter, Platform or the Platforms' hostility. */
 export function ThreatPriorities() {
@@ -248,13 +248,13 @@ export function ThreatPriorities() {
     return m;
   }, [rows, user?.id]);
   const [saveOpen, setSaveOpen] = useState(false);
-  const [summary, setSummary] = useState("Threat priorities");
+  const [summary, setSummary] = useState("Priorities");
   const [toSave, setToSave] = useState<Set<string>>(new Set());
   const [saveResults, setSaveResults] = useState<string[]>([]);
 
-  if (isLoading) return <LoadingState label="Loading threat priorities…" />;
+  if (isLoading) return <LoadingState label="Loading priorities…" />;
   if (error) return <p className="error-text">{(error as Error).message}</p>;
-  if (!rows?.length) return <EmptyState icon="◇" title="No EW Groups yet" message="Threat priorities are set on each Emitter's EW Groups." />;
+  if (!rows?.length) return <EmptyState icon="◇" title="No EW Groups yet" message="Priorities are set on each Emitter's EW Groups." />;
 
   const lockOf = (r: ThreatPriorityRow) =>
     r.checked_out_by_id && r.checked_out_by_id !== user?.id ? `${r.checked_out_by_username ?? "Someone"} is editing ${r.emitter_name}` : null;
@@ -281,7 +281,7 @@ export function ThreatPriorities() {
     for (const id of toSave) {
       const name = mine.get(id) ?? id;
       try {
-        await emitterVersionsApi.commit(id, summary.trim() || "Threat priorities");
+        await emitterVersionsApi.commit(id, summary.trim() || "Priorities");
         await emittersApi.checkin(id);
         out.push(`✓ ${name} saved`);
       } catch (err) {
@@ -328,9 +328,9 @@ export function ThreatPriorities() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <select value={only} onChange={(e) => setOnly(e.target.value as typeof only)} aria-label="Threat priority set or not">
-          <option value="">Any threat priority</option>
-          <option value="set">With a threat priority</option>
+        <select value={only} onChange={(e) => setOnly(e.target.value as typeof only)} aria-label="Priority set or not">
+          <option value="">Any priority</option>
+          <option value="set">With a priority</option>
           <option value="unset">Without one</option>
         </select>
         <select value={codeFilter} onChange={(e) => setCodeFilter(e.target.value)} aria-label="Function code">
@@ -342,8 +342,8 @@ export function ThreatPriorities() {
           ))}
           <option value="none">No function code</option>
         </select>
-        <select value={hostility} onChange={(e) => setHostility(e.target.value as typeof hostility)} aria-label="Platform hostility">
-          <option value="">Any hostility</option>
+        <select value={hostility} onChange={(e) => setHostility(e.target.value as typeof hostility)} aria-label="Platform affiliation">
+          <option value="">Any affiliation</option>
           {HOSTILITIES.map((h) => (
             <option key={h} value={h}>
               On a {h} Platform
@@ -377,7 +377,7 @@ export function ThreatPriorities() {
           <div className="emitter-bulk-row">
             <strong>{ticked.size} ticked</strong>
             <label className="tp-bulk-set">
-              Threat priority
+              Priority
               <input type="number" min={0} step={1} value={bulk} onChange={(e) => setBulk(e.target.value)} placeholder="—" />
             </label>
             <button
@@ -425,7 +425,7 @@ export function ThreatPriorities() {
               {header("Emitter", "emitter")}
               {header("Function code", "code")}
               {header("EW Group", "group")}
-              {header("Threat priority", "priority", "number")}
+              {header("Priority", "priority", "number")}
               {header("Modes", "modes", "number")}
               {header("Platforms", "platforms")}
               <th>Editing</th>

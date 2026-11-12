@@ -222,8 +222,9 @@ export default function App() {
                   </RequireAuth>
                 }
               />
+              <Route path="/threat-priorities" element={<Navigate to="/priorities" replace />} />
               <Route
-                path="/threat-priorities"
+                path="/priorities"
                 element={
                   <RequireAuth>
                     <ThreatPrioritiesPage />

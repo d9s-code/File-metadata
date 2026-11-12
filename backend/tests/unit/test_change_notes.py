@@ -63,13 +63,13 @@ def test_mode_values_that_count():
     assert emitter["name"] == "SS-1 — Sea Search"
     assert emitter["modes_added"] == ["Acquire"] and emitter["modes_removed"] == []
     assert emitter["modes_changed"] == [
-        {"mode": "Search", "fields": ["RF", "Threat priority"]},
-        {"mode": "Track → Track Fine", "fields": ["Name", "Threat priority"]},
+        {"mode": "Search", "fields": ["RF", "Priority"]},
+        {"mode": "Track → Track Fine", "fields": ["Name", "Priority"]},
     ]
     assert emitter["items"] == [
         "1 Mode added: Acquire",
-        "Search: RF, Threat priority changed",
-        "Track → Track Fine: Name, Threat priority changed",
+        "Search: RF, Priority changed",
+        "Track → Track Fine: Name, Priority changed",
     ]
 
 

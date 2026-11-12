@@ -75,7 +75,7 @@ export function EwGroupsTable({ emitterId, ewGroups }: { emitterId: string; ewGr
             compact
             icon="◇"
             title="No EW Groups yet"
-            message="An EW Group is an operational bucket (scan range + threat priority) that Modes are organized under."
+            message="An EW Group is an operational bucket (scan range + priority) that Modes are organized under."
           />
           {suggestion && !showForm && (
             <div className="ew-group-suggestion">
@@ -120,7 +120,7 @@ export function EwGroupsTable({ emitterId, ewGroups }: { emitterId: string; ewGr
                 onClear={onClear}
               />
               <SortableColumnHeader
-                label="Threat priority"
+                label="Priority"
                 columnKey="threat_priority"
                 columnType="number"
                 activeKey={sortKey}
