@@ -16,6 +16,47 @@ function kindOf(path: string, rules: Record<string, string>, fallback: string): 
   return fallback;
 }
 
+/** A row of the page tree: a copied page, or a place above some (a
+ * collection, or a page with no text of its own) that isn't copied itself. */
+export interface OutlineNode {
+  path: string;
+  depth: number;
+  page: DocumentationPage | null;
+  /** How many rows are under it, at any depth. */
+  under: number;
+}
+
+/** Every page with every place above it, parents before their children
+ * (siblings in the order the pages came), so each level can be opened. */
+export function outlineTree(pages: DocumentationPage[]): OutlineNode[] {
+  const byPath = new Map(pages.map((p) => [p.path, p]));
+  const children = new Map<string, string[]>();
+  const known = new Set<string>();
+  const roots: string[] = [];
+  const add = (path: string) => {
+    if (known.has(path)) return;
+    known.add(path);
+    const parts = path.split(SEP);
+    if (parts.length === 1) {
+      roots.push(path);
+      return;
+    }
+    const parent = parts.slice(0, -1).join(SEP);
+    add(parent);
+    children.set(parent, [...(children.get(parent) ?? []), path]);
+  };
+  for (const p of pages) add(p.path);
+  const out: OutlineNode[] = [];
+  const walk = (path: string, depth: number): number => {
+    const node: OutlineNode = { path, depth, page: byPath.get(path) ?? null, under: 0 };
+    out.push(node);
+    for (const c of children.get(path) ?? []) node.under += 1 + walk(c, depth + 1);
+    return node.under;
+  };
+  for (const r of roots) walk(r, 0);
+  return out;
+}
+
 /** What lives where in Outline: for each copied page (its sub-pages
  * following), whether it's documentation, a test result, analysis — or left
  * out. The AI is told which each section is, so it doesn't take one test
@@ -47,14 +88,13 @@ export function DocumentationKinds() {
   const { kinds, default: fallback } = pages.data;
   const label = (key: string) => kinds.find((k) => k.key === key)?.label ?? key;
   const words = filter.toLowerCase().split(/\s+/).filter(Boolean);
-  const all = pages.data.pages;
-  const parents = new Set(all.flatMap((p) => p.path.split(SEP).slice(0, -1).map((_, i, parts) => parts.slice(0, i + 1).join(SEP))));
-  const subPages = (path: string) => all.filter((p) => p.path.startsWith(path + SEP)).length;
-  // Searching shows every match; otherwise a page shows when every page above it is expanded.
+  const all = outlineTree(pages.data.pages);
+  const parents = new Set(all.filter((n) => n.under > 0).map((n) => n.path));
+  // Searching shows every match; otherwise a row shows when every level above it is open.
   const shown = words.length
-    ? all.filter((p) => words.every((w) => p.path.toLowerCase().includes(w)))
-    : all.filter((p) => {
-        const parts = p.path.split(SEP);
+    ? all.filter((n) => words.every((w) => n.path.toLowerCase().includes(w)))
+    : all.filter((n) => {
+        const parts = n.path.split(SEP);
         return parts.slice(0, -1).every((_, i) => expanded.has(parts.slice(0, i + 1).join(SEP)));
       });
   const toggle = (path: string) => {
@@ -75,8 +115,8 @@ export function DocumentationKinds() {
     }
   }
 
-  const row = (p: DocumentationPage) => {
-    const depth = p.path.split(SEP).length - 1;
+  const row = (p: OutlineNode) => {
+    const depth = p.depth;
     const own = p.path in edits ? edits[p.path] : (saved[p.path] ?? null);
     const parent = p.path.split(SEP).slice(0, -1).join(SEP);
     const inherited = parent ? kindOf(parent, rules, fallback) : fallback;
@@ -99,10 +139,12 @@ export function DocumentationKinds() {
           )}
           {p.path.split(SEP).pop()}
           {parents.has(p.path) && !expanded.has(p.path) && !words.length && (
-            <span className="hint-text"> · {subPages(p.path)} under it</span>
+            <span className="hint-text"> · {p.under} under it</span>
           )}
         </td>
-        <td className="num hint-text">{p.sections}</td>
+        <td className="num hint-text" title={p.page ? undefined : "No text of its own — what you set here applies to the pages under it"}>
+          {p.page ? p.page.sections : "—"}
+        </td>
         <td>
           <select
             aria-label={`What ${p.path} holds`}
