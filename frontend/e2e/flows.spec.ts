@@ -256,3 +256,26 @@ test("test run results: a long stagger wraps inside its cell, folds, and a bare 
   await expect(page.getByRole("heading", { name: "Only the overall result was logged" })).toBeVisible();
   await removeEmitter(page, emitter.id);
 });
+
+test("statuses: quick ↑/↓ clicks show at once and are saved as one order", async ({ page }) => {
+  type Def = { id: string; label: string; entity_type: string };
+  const before = (await api<Def[]>(page, "GET", "/statuses")).filter((s) => s.entity_type === "emitter");
+  await page.goto("/admin/statuses");
+  const rows = page.locator(".admin-statuses tbody tr");
+  await expect(rows).toHaveCount(before.length);
+  let saves = 0;
+  page.on("request", (r) => {
+    if (r.method() === "POST" && r.url().endsWith("/statuses/reorder")) saves++;
+  });
+  // The first status down three places, quickly.
+  for (let i = 0; i < 3; i++) await rows.nth(i).locator('button[aria-label$=" down"]').click();
+  await expect(rows.nth(3)).toContainText(before[0].label);
+  await expect.poll(() => saves, { timeout: 5000 }).toBe(1);
+  await expect
+    .poll(async () => (await api<Def[]>(page, "GET", "/statuses")).filter((s) => s.entity_type === "emitter")[3].id)
+    .toBe(before[0].id);
+  await page.waitForTimeout(800);
+  expect(saves).toBe(1);
+  // Put it back as it was.
+  await api(page, "POST", "/statuses/reorder", { entity_type: "emitter", ids: before.map((s) => s.id) });
+});

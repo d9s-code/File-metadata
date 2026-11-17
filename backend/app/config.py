@@ -20,6 +20,15 @@ class Settings(BaseSettings):
     app_env: str = "production"
 
     database_url: str = "postgresql+psycopg2://rf_app:rf_app_dev_pw@localhost:5432/rf_emitter_db"
+    # Database connections the API keeps open, and how many more it may open
+    # at a busy moment. Together they cover every request the API runs at once
+    # (40) plus background work, so a burst of requests never queues for a
+    # connection ("QueuePool limit … reached"). Keep the sum under the
+    # database's max_connections (100 by default).
+    db_pool_size: int = 10
+    db_max_overflow: int = 40
+    # Seconds a request waits for a free connection before it fails.
+    db_pool_timeout: int = 30
     jwt_secret: str = _DEFAULT_JWT_SECRET
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 480

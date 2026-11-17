@@ -89,6 +89,7 @@ defines the `backend`, `frontend` and `backup` services. Before running it:
 - Edit `DATABASE_URL` in `docker-compose.yml` to point at a role/database created on that
   Postgres 15 instance (see below), and add the backend to whatever Docker network reaches
   it (the `# TODO` comments in the file mark exactly where).
+- The backend opens up to 50 connections to that Postgres at a busy moment (10 kept, 40 more when needed: `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`). With the default `max_connections` of 100 that leaves room; if the instance is shared or set lower, lower `DB_MAX_OVERFLOW`, keeping the two at 40 or more together so a burst of requests doesn't run out.
 - Replace `JWT_SECRET` and `ADMIN_PASSWORD` with real values (`openssl rand -hex 32` for the
   former) — don't ship the placeholders.
 - Make sure the external `web` Docker network (the one Traefik itself watches) already

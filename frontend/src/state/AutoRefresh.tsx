@@ -19,12 +19,28 @@ export function AutoRefresh() {
   const queryClient = useQueryClient();
   useEffect(() => {
     let timer: number | undefined;
+    // A change while this tab was out of sight: refresh once it's shown again.
+    let missed = false;
     const refresh = () => {
       window.clearTimeout(timer);
       timer = window.setTimeout(() => {
-        void queryClient.invalidateQueries({ predicate: refreshable });
+        if (document.visibilityState === "hidden") {
+          // Out of sight: mark it all stale, fetch nothing until it's looked at.
+          missed = true;
+          void queryClient.invalidateQueries({ predicate: refreshable, refetchType: "none" });
+          return;
+        }
+        // A fetch still under way is left to finish, not sent again: quick
+        // changes in a row must not pile requests up on the server.
+        void queryClient.invalidateQueries({ predicate: refreshable }, { cancelRefetch: false });
       }, SETTLE_MS);
     };
+    const onVisible = () => {
+      if (document.visibilityState !== "visible" || !missed) return;
+      missed = false;
+      void queryClient.refetchQueries({ predicate: refreshable, type: "active", stale: true }, { cancelRefetch: false });
+    };
+    document.addEventListener("visibilitychange", onVisible);
     const channel = typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel(CHANNEL);
     const onLocal = () => {
       refresh();
@@ -34,6 +50,7 @@ export function AutoRefresh() {
     if (channel) channel.onmessage = refresh;
     return () => {
       window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener(DATA_CHANGED_EVENT, onLocal);
       channel?.close();
     };

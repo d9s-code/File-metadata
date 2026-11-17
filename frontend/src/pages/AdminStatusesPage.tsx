@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { useQueuedReorder } from "../components/common/useQueuedReorder";
 import { AdminNav } from "../components/common/AdminNav";
 import { InfoTip } from "../components/common/PageHeader";
 import { MenuButton } from "../components/common/MenuButton";
@@ -74,17 +75,19 @@ function StatusesSection({ type }: { type: StatusEntityType }) {
   const [error, setError] = useState<string | null>(null);
   const { confirmDelete, dialog } = useConfirmDialog();
 
-  async function move(index: number, by: -1 | 1) {
-    const ids = list.map((s) => s.id);
-    const j = index + by;
-    if (j < 0 || j >= ids.length) return;
-    [ids[index], ids[j]] = [ids[j], ids[index]];
+  // Quick ↑/↓ clicks show at once and are saved as one order once they stop.
+  const reorder = useQueuedReorder(
+    (_key, ids) => admin.reorder.mutateAsync([type, ids]),
+    (err) => setError(errorText(err, "Couldn't reorder")),
+  );
+  const serverIds = list.map((s) => s.id);
+  const serverKey = serverIds.join(",");
+  useEffect(() => reorder.settle(type, serverKey ? serverKey.split(",") : []), [serverKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const byId = new Map(list.map((s) => [s.id, s]));
+  const shown = reorder.orderOf(type, serverIds).map((id) => byId.get(id)!).filter(Boolean);
+  function move(index: number, by: -1 | 1) {
     setError(null);
-    try {
-      await admin.reorder.mutateAsync([type, ids]);
-    } catch (err) {
-      setError(errorText(err, "Couldn't reorder"));
-    }
+    reorder.move(type, serverIds, index, by);
   }
 
   async function remove(s: StatusDefinition) {
@@ -125,17 +128,17 @@ function StatusesSection({ type }: { type: StatusEntityType }) {
           </tr>
         </thead>
         <tbody>
-          {list.map((s, i) => (
+          {shown.map((s, i) => (
             <tr key={s.id}>
               <td className="nowrap">
-                <button type="button" className="link-button" disabled={i === 0} onClick={() => void move(i, -1)} aria-label={`Move ${s.label} up`}>
+                <button type="button" className="link-button" disabled={i === 0} onClick={() => move(i, -1)} aria-label={`Move ${s.label} up`}>
                   ↑
                 </button>
                 <button
                   type="button"
                   className="link-button"
-                  disabled={i === list.length - 1}
-                  onClick={() => void move(i, 1)}
+                  disabled={i === shown.length - 1}
+                  onClick={() => move(i, 1)}
                   aria-label={`Move ${s.label} down`}
                 >
                   ↓
@@ -376,12 +379,18 @@ function MilestonesSection({ type }: { type: StatusEntityType }) {
     }
   }
 
-  async function move(group: MilestoneDefinition[], index: number, by: -1 | 1) {
-    const ids = group.map((m) => m.id);
-    const j = index + by;
-    if (j < 0 || j >= ids.length) return;
-    [ids[index], ids[j]] = [ids[j], ids[index]];
-    await admin.reorder.mutateAsync(ids);
+  // Per status: quick ↑/↓ clicks show at once and are saved as one order.
+  const reorder = useQueuedReorder(
+    (_key, ids) => admin.reorder.mutateAsync(ids),
+    (err) => setError(errorText(err, "Couldn't reorder")),
+  );
+  const milestoneKey = (milestones ?? []).map((m) => `${m.status_key}:${m.id}`).join(",");
+  useEffect(() => {
+    for (const s of statuses) reorder.settle(s.key, (milestones ?? []).filter((m) => m.status_key === s.key).map((m) => m.id));
+  }, [milestoneKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  function move(statusKey: string, group: MilestoneDefinition[], index: number, by: -1 | 1) {
+    setError(null);
+    reorder.move(statusKey, group.map((m) => m.id), index, by);
   }
 
   async function remove(m: MilestoneDefinition) {
@@ -391,7 +400,11 @@ function MilestonesSection({ type }: { type: StatusEntityType }) {
   }
 
   const groups = statuses
-    .map((s) => ({ s, items: (milestones ?? []).filter((m) => m.status_key === s.key) }))
+    .map((s) => {
+      const own = (milestones ?? []).filter((m) => m.status_key === s.key);
+      const byId = new Map(own.map((m) => [m.id, m]));
+      return { s, own, items: reorder.orderOf(s.key, own.map((m) => m.id)).map((id) => byId.get(id)!).filter(Boolean) };
+    })
     .filter((g) => g.items.length > 0);
 
   return (
@@ -407,7 +420,7 @@ function MilestonesSection({ type }: { type: StatusEntityType }) {
         </h2>
       </div>
       {groups.length === 0 && <p className="hint-text">None yet — add one below.</p>}
-      {groups.map(({ s, items }) => (
+      {groups.map(({ s, own, items }) => (
         <div key={s.key} className="milestone-group">
           <h3 className="as-h5">
             Before <StatusBadge type={type} status={s.key} />
@@ -416,14 +429,14 @@ function MilestonesSection({ type }: { type: StatusEntityType }) {
             {items.map((m, i) => (
               <li key={m.id} className="milestone">
                 <span className="milestone-order">
-                  <button type="button" className="link-button" disabled={i === 0} onClick={() => void move(items, i, -1)} aria-label="Up">
+                  <button type="button" className="link-button" disabled={i === 0} onClick={() => move(s.key, own, i, -1)} aria-label="Up">
                     ↑
                   </button>
                   <button
                     type="button"
                     className="link-button"
                     disabled={i === items.length - 1}
-                    onClick={() => void move(items, i, 1)}
+                    onClick={() => move(s.key, own, i, 1)}
                     aria-label="Down"
                   >
                     ↓
