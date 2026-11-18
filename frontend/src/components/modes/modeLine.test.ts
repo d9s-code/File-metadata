@@ -64,7 +64,7 @@ describe("linePayload", () => {
 
 describe("blankLine", () => {
   it("starts from the admin's default deltas", () => {
-    const line = blankLine({ confirmation_quality: 100, confirmation_quantity: 2, frame_time_delta_us: 3, rf_delta: 1, pri_delta: 2, pw_delta: 0.05, stagger_step_delta_us: 1 });
+    const line = blankLine({ confirmation_quality: 100, confirmation_quantity: 2, frame_time_delta_us: 3, rf_delta: 1, pri_delta: 2, pw_delta: 0.05, stagger_step_delta_us: 1, jitter_delta: 0, near_miss_pct: 5 });
     expect([line.rfDelta, line.priDelta, line.pwDelta, line.frameTimeDelta]).toEqual(["1", "2", "0.05", "3"]);
   });
 });
