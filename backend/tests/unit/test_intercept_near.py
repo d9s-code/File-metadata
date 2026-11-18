@@ -27,3 +27,25 @@ def test_two_values_off_is_not():
 
 def test_a_match_is_a_match():
     assert entry_status(_entry(PriType.stagger, 9050, 450, 1, [100, 150, 200]), [STAGGER]) == "match"
+
+
+def test_one_value_off_counts_only_when_close():
+    # RF 9244 against a Mode up to 9240: 4 MHz, 0.04% off — near.
+    assert entry_status(_entry(PriType.fixed, 9244, 210, 1), [FIXED], near_pct=5) == "near"
+    # 500 MHz above 9240 (5.4% off): not near, nothing nearby.
+    assert entry_status(_entry(PriType.fixed, 9740, 210, 1), [FIXED], near_pct=5) == "none"
+    assert entry_status(_entry(PriType.fixed, 9740, 210, 1), [FIXED], near_pct=10) == "near"
+    # PW 1.6 against up to 1.5: 6.7% of the bound (the width, 1.0, is smaller).
+    assert entry_status(_entry(PriType.fixed, 9100, 210, 1.6), [FIXED], near_pct=5) == "none"
+    assert entry_status(_entry(PriType.fixed, 9100, 210, 1.55), [FIXED], near_pct=5) == "near"
+    # A step count that differs counts whatever the limit.
+    assert entry_status(_entry(PriType.stagger, 9050, 450, 1, [100, 150]), [STAGGER], near_pct=0) == "near"
+
+
+def test_distance_is_against_the_bound_or_the_width():
+    from app.services.intercept_match_service import near_distance_pct
+
+    assert near_distance_pct(110, (90, 100)) == 10
+    assert near_distance_pct(85, (90, 100)) == 5 / 90 * 100
+    # Near zero, the range's width, not the bound: 2 off a 0–40 range is 5%.
+    assert near_distance_pct(-2, (0, 40)) == 5

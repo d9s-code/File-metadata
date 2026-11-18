@@ -318,17 +318,24 @@ test("Batch edit marks the selected Modes test-derived", async ({ page }) => {
   await page.getByLabel("Select all").check();
   await page.getByRole("button", { name: "Batch edit" }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByRole("checkbox", { name: /Range day 5/ }).check();
-  await expect(dialog.getByText("Test-derived — 1 test run picked")).toBeVisible();
+  await dialog.getByRole("combobox", { name: "Test-derived from Range day 5" }).selectOption("add");
+  await expect(dialog.getByText("Test-derived — marking from 1 run")).toBeVisible();
   await dialog.getByRole("button", { name: "Apply to 2 Modes" }).click();
   await expect(dialog).toBeHidden();
-  await expect
-    .poll(async () =>
-      (await api<{ derived_from_test_records: { title: string }[] }[]>(page, "GET", `/emitters/${emitter.id}/modes`)).map((m) =>
-        m.derived_from_test_records.map((r) => r.title),
-      ),
-    )
-    .toEqual([["Range day 5"], ["Range day 5"]]);
+  const derived = async () =>
+    (await api<{ derived_from_test_records: { title: string }[] }[]>(page, "GET", `/emitters/${emitter.id}/modes`)).map((m) =>
+      m.derived_from_test_records.map((r) => r.title),
+    );
+  await expect.poll(derived).toEqual([["Range day 5"], ["Range day 5"]]);
+
+  // And unmarked again: the run says both are linked, Remove takes the links off.
+  await page.getByLabel("Select all").check();
+  await page.getByRole("button", { name: "Batch edit" }).click();
+  await expect(dialog.getByText("2 of 2 linked")).toBeVisible();
+  await dialog.getByRole("combobox", { name: "Test-derived from Range day 5" }).selectOption("remove");
+  await dialog.getByRole("button", { name: "Apply to 2 Modes" }).click();
+  await expect(dialog).toBeHidden();
+  await expect.poll(derived).toEqual([[], []]);
   await removeEmitter(page, emitter.id);
 });
 

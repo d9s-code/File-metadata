@@ -145,6 +145,7 @@ export const BUILT_IN_MODE_DEFAULTS: ModeDefaults = {
   pri_delta: 0,
   pw_delta: 0,
   stagger_step_delta_us: 1,
+  near_miss_pct: 5,
 };
 
 /** The admin's Mode defaults — the built-in ones until they've loaded. */

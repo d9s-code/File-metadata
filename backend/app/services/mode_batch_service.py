@@ -185,30 +185,38 @@ def plan_batch_edit(
     return planned, errors
 
 
+def _own_runs(db: Session, ids: list[UUID], emitter_id: UUID) -> list[TestRecord]:
+    """These test runs, oldest first — each one of this Emitter's own (only
+    its own runs can explain its Modes' values)."""
+    if not ids:
+        return []
+    wanted = list(dict.fromkeys(ids))
+    runs = db.query(TestRecord).filter(TestRecord.id.in_(wanted)).order_by(TestRecord.test_date).all()
+    missing = set(wanted) - {r.id for r in runs}
+    if missing:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Unknown test record id(s): {missing}")
+    foreign = [r.title for r in runs if r.scope_type != TestScopeType.emitter or r.scope_id != emitter_id]
+    if foreign:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            f"Not a test run of this Emitter: {', '.join(repr(t) for t in foreign)}",
+        )
+    return runs
+
+
 def apply_batch_edit(
     db: Session,
     *,
     planned: list[PlannedModeEdit],
     derived_from_test_record_ids: list[UUID],
     derived_from_intercept_entry_ids: list[UUID] = [],
+    remove_derived_from_test_record_ids: list[UUID] = [],
     actor_id: UUID | None,
     emitter_id: UUID,
     shift_reason: str | None = None,
 ) -> list[UUID]:
-    derived_runs: list[TestRecord] = []
-    if derived_from_test_record_ids:
-        wanted = list(dict.fromkeys(derived_from_test_record_ids))
-        derived_runs = db.query(TestRecord).filter(TestRecord.id.in_(wanted)).order_by(TestRecord.test_date).all()
-        missing = set(wanted) - {r.id for r in derived_runs}
-        if missing:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, f"Unknown test record id(s): {missing}")
-        # Only this Emitter's own runs can explain its Modes' values.
-        foreign = [r.title for r in derived_runs if r.scope_type != TestScopeType.emitter or r.scope_id != emitter_id]
-        if foreign:
-            raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_CONTENT,
-                f"Not a test run of this Emitter: {', '.join(repr(t) for t in foreign)}",
-            )
+    derived_runs = _own_runs(db, derived_from_test_record_ids, emitter_id)
+    removed_runs = _own_runs(db, remove_derived_from_test_record_ids, emitter_id)
     if derived_from_intercept_entry_ids:
         found_ids = {
             e.id
@@ -254,12 +262,23 @@ def apply_batch_edit(
             )
         if linked:
             changes["derived_from_tests"] = {"old": None, "new": ", ".join(r.title for r in linked)}
+        # No longer test-derived from these runs: their links go.
+        unlinked = [r for r in removed_runs if r.id in already]
+        if unlinked:
+            db.query(TestRecordMode).filter(
+                TestRecordMode.mode_id == mode.id,
+                TestRecordMode.link_type == TestRecordModeLinkType.derived,
+                TestRecordMode.test_record_id.in_([r.id for r in unlinked]),
+            ).delete(synchronize_session=False)
+            changes["derived_from_tests_removed"] = {"old": ", ".join(r.title for r in unlinked), "new": None}
         for intercept_entry_id in derived_from_intercept_entry_ids:
             db.add(InterceptEntryMode(intercept_entry_id=intercept_entry_id, mode_id=mode.id))
 
         summary = f"Batch-updated Mode '{mode.name}'"
         if linked:
             summary += f" (test-derived: {', '.join(repr(r.title) for r in linked)})"
+        if unlinked:
+            summary += f" (no longer test-derived: {', '.join(repr(r.title) for r in unlinked)})"
         if shift_reason:
             summary += f" — {shift_reason}"
         record_audit(

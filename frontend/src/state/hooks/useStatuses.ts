@@ -160,3 +160,15 @@ export function useItemMilestoneActions(entityType: StatusEntityType, entityId: 
     }),
   };
 }
+
+/** Each Emitter status's share of the way to Operational, in %, in the
+ * statuses' order — as the server weighs a Platform's Emitter progress
+ * (statuses.emitter_progress_weights): the first status 0, Operational 100,
+ * those between evenly; Needs rework 0; a status placed after Operational 100. */
+export function emitterProgressWeights(keys: string[]): { key: string; pct: number }[] {
+  const steps = keys.filter((k) => k !== "deprecated");
+  const doneAt = steps.indexOf("validated");
+  const weight = (i: number) => (doneAt < 0 ? 0 : doneAt === 0 ? 100 : Math.round(Math.min(i / doneAt, 1) * 100));
+  const out = steps.map((key, i) => ({ key, pct: weight(i) }));
+  return keys.includes("deprecated") ? [...out, { key: "deprecated", pct: 0 }] : out;
+}

@@ -29,6 +29,7 @@ from app.models.user import User
 from app.models.test_line import TestLine
 from app.models.test_record import TestRecord, TestRecordLine
 from app.schemas.audit_log import AuditLogOut
+from app.services.app_settings import mode_defaults
 from app.services.emitter_validation_service import get_last_validation
 from app.services.intercept_match_service import entry_status, mode_ranges
 from app.services.readiness_service import compute_mdf_readiness_warnings
@@ -139,8 +140,9 @@ def _uncovered_intercepts(db: Session) -> list[dict]:
         .all()
     )
     uncovered: dict = {}
+    near_pct = float(mode_defaults(db)["near_miss_pct"])
     for entry, intercept_id, intercept_name, emitter_id, emitter_name in rows:
-        if entry_status(entry, ranges.get(emitter_id, [])) == "none":
+        if entry_status(entry, ranges.get(emitter_id, []), near_pct) == "none":
             key = (intercept_id, intercept_name, emitter_name)
             uncovered[key] = uncovered.get(key, 0) + 1
     return [

@@ -1,3 +1,4 @@
+import { NearMissLimitSync } from "./components/intercepts/NearMissLimitSync";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { MutationCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "./auth/AuthContext";
@@ -80,6 +81,7 @@ export default function App() {
             <NavBar />
             <BackupWarning />
             <CheckoutReminder />
+            <NearMissLimitSync />
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               {STANDALONE && (

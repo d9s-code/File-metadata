@@ -7,7 +7,9 @@ PW all fall within the Mode's engineered range (the plain min/max when a
 Mode has no deltas). Only Modes of the same PRI type are compared. A near
 miss is exactly one value off — RF, PRI (frame time), PW, or a stagger's
 number of steps, each on its own — counted only when nothing matches fully,
-and never for CW — compared on RF alone, "one off" would be every CW Mode.
+and never for CW — compared on RF alone, "one off" would be every CW Mode —
+and only when the value is close: within the admin's near-miss limit (5% by
+default) of the bound it misses (a step count that differs always counts).
 Jitter isn't compared.
 """
 
@@ -77,33 +79,47 @@ def _outside(value: float | None, r: Range) -> bool:
     return value is not None and r is not None and not (r[0] <= value <= r[1])
 
 
-def _misses(entry: InterceptEntry, mode: ModeRanges) -> int | None:
-    """How many values are off: RF, PRI and PW outside the Mode, and a
+def near_distance_pct(value: float, r: tuple[float, float]) -> float:
+    """How far a value is outside a range, as a % of the bound it misses (of
+    the range's width, when that's larger) — as interceptMatch.ts's nearDistancePct."""
+    lo, hi = r
+    bound, d = (hi, value - hi) if value > hi else (lo, lo - value)
+    return abs(d) / max(abs(bound), hi - lo, 1e-9) * 100
+
+
+def _misses(entry: InterceptEntry, mode: ModeRanges) -> list[float] | None:
+    """The values that are off — RF, PRI and PW outside the Mode, and a
     stagger's number of steps (its own value, apart from the frame time) —
-    or None when the two can't be compared (a different PRI type)."""
+    each as how far off it is (near_distance_pct; 0 for the steps), or None
+    when the two can't be compared (a different PRI type)."""
     if mode.pri_type != entry.pri_type:
         return None
-    rf = float(entry.rf_mean_mhz)
-    misses = int(_outside(rf, mode.rf))
+    off: list[float] = []
+
+    def check(value: float | None, r: Range) -> None:
+        if value is not None and r is not None and _outside(value, r):
+            off.append(near_distance_pct(value, r))
+
+    check(float(entry.rf_mean_mhz), mode.rf)
     if entry.pri_type == PriType.cw:
-        return misses
-    pri = None if entry.pri_mean_us is None else float(entry.pri_mean_us)
-    pw = None if entry.pw_mean_us is None else float(entry.pw_mean_us)
-    misses += int(_outside(pri, mode.pri))
+        return off
+    check(None if entry.pri_mean_us is None else float(entry.pri_mean_us), mode.pri)
     if entry.pri_type == PriType.stagger:
         positions = len(entry.stagger_values or [])
-        misses += int(positions > 0 and mode.positions > 0 and positions != mode.positions)
-    return misses + int(_outside(pw, mode.pw))
+        if positions > 0 and mode.positions > 0 and positions != mode.positions:
+            off.append(0.0)
+    check(None if entry.pw_mean_us is None else float(entry.pw_mean_us), mode.pw)
+    return off
 
 
-def entry_status(entry: InterceptEntry, modes: list[ModeRanges]) -> Status:
+def entry_status(entry: InterceptEntry, modes: list[ModeRanges], near_pct: float = 5.0) -> Status:
     near = False
     for mode in modes:
         misses = _misses(entry, mode)
         if misses is None:
             continue
-        if misses == 0:
+        if not misses:
             return "match"
-        if misses == 1 and entry.pri_type != PriType.cw:
+        if len(misses) == 1 and entry.pri_type != PriType.cw and misses[0] <= near_pct + 1e-9:
             near = True
     return "near" if near else "none"

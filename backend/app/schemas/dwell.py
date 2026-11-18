@@ -288,6 +288,9 @@ class ModeDefaults(BaseModel):
     # Each stagger step's ± buffer when steps are compared: the ambiguity
     # check (two steps overlap within twice it) and a test run's logged steps.
     stagger_step_delta_us: float = Field(default=1.0, ge=0, le=1_000)
+    # How close one value off must be for a near miss: within this % of the
+    # Mode's bound it misses (intercept_match_service.near_distance_pct).
+    near_miss_pct: float = Field(default=5.0, ge=0, le=1_000)
 
 
 class SettingsOut(BaseModel):

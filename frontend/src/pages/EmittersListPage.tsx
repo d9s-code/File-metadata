@@ -231,14 +231,26 @@ export function EmittersListPage() {
       compareEmitters(a, b, key, dir, statuses.rank, (id) => (id ? (codeIndex.get(id) ?? null) : null)),
     [statuses, codeIndex],
   );
-  // By status, first to last in the Admins' order, until someone sorts it
-  // otherwise (kept for the tab's session).
+  // The order the list opens in — by default by status, first to last in the
+  // Admins' order; each person can pick another (remembered in this browser),
+  // so it needn't follow how the Admin statuses are ordered. Sorting by a
+  // column header still holds for the tab's session.
+  const [defaultOrder, setDefaultOrder] = useLocalState<{ key: EmitterSortKey; dir: "asc" | "desc" }>("emitters-default-order", {
+    key: "status",
+    dir: "asc",
+  });
   const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable<Emitter, EmitterSortKey>(
     filtered,
     comparator,
     "emitters-by-status",
-    { key: "status", dir: "asc" },
+    defaultOrder,
   );
+  const DEFAULT_ORDERS: { label: string; key: EmitterSortKey; dir: "asc" | "desc" }[] = [
+    { label: "Status, in the Admin order", key: "status", dir: "asc" },
+    { label: "Status, the Admin order reversed", key: "status", dir: "desc" },
+    { label: "Name, A–Z", key: "name", dir: "asc" },
+    { label: "Name, Z–A", key: "name", dir: "desc" },
+  ];
 
   // Every status, in order, with how many Emitters have it — the defined
   // ones plus any key an Emitter has that isn't defined any more.
@@ -430,9 +442,23 @@ export function EmittersListPage() {
         onReset={resetFilters}
         count={emitters ? shownCount(sorted.length, emitters.length, "Emitter") : null}
         end={
-          <button type="button" className="button secondary small" onClick={columnMenu.openFrom}>
-            Columns ▾
-          </button>
+          <>
+            <MenuButton
+              label="Default order ▾"
+              className="button secondary small"
+              title="The order this list opens in, for you in this browser"
+              items={DEFAULT_ORDERS.map((o) => ({
+                label: `${o.key === defaultOrder.key && o.dir === defaultOrder.dir ? "✓ " : ""}${o.label}`,
+                onSelect: () => {
+                  setDefaultOrder({ key: o.key, dir: o.dir });
+                  onSort(o.key, o.dir);
+                },
+              }))}
+            />
+            <button type="button" className="button secondary small" onClick={columnMenu.openFrom}>
+              Columns ▾
+            </button>
+          </>
         }
       >
         <input

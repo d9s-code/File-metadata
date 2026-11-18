@@ -4,44 +4,22 @@ Backlog notes for features under consideration but not yet built. Unlike [FEATUR
 
 ---
 
-## Audit Trail
-(Shipped)
+## Shipped since this list was started
 
-## Batch Mode Editing
-Implement a "Bulk Update" modal for selected Modes, allowing users to change multiple parameters (e.g., EW Group, Source, or specific Mode Line fields) across many Modes in a single transaction. This will follow the existing propose/approve workflow.
+Kept here only so the history of the list reads; each is documented in [FEATURES.md](FEATURES.md).
 
-**What it would be:** an append-only log of who changed what, when — across Emitters, Platforms, and MDFs at minimum, possibly extending to EW Groups/Sources/Modes. Each entry would record the actor, the action (create / update / delete / status change), the entity affected, and a summary of what changed.
-
-**Why it's on the roadmap:** this app currently has no record of *who* made a given change or *when*, only the committed-version snapshots themselves (see [Versioning & Diffs](FEATURES.md#5-versioning--diffs)). A version diff shows *what* changed between two commits, but not who made the edits that led there, or what happened on the live draft between commits.
-
-**Scope, deliberately kept light:** a single `AuditLog` table —
-
-```
-AuditLog(id, actor_id, action, entity_type, entity_id, changes JSONB, created_at)
-```
-
-— written from the existing service-layer functions that already handle commit/update/status-transition for Emitter/Platform/MDF, surfaced as a simple chronological feed (global "Recent Activity" list, per-entity, or both — left open for whenever this is actually scoped).
-
-This is intentionally *not* modeled after heavier prior art: a sibling project's `AuditEvent` design additionally guards against bulk ORM writes bypassing the log (blocking `QuerySet.update()`/`delete()` at the manager level, not just instance `save()`/`delete()`) and enforces immutability at the database layer. That's real protection, but it's also exactly the kind of stacked governance machinery that made that project hard for one person to maintain. This app doesn't have that machinery today and shouldn't grow it just to support an audit log — a plain table with writes on the existing code paths gets most of the value (who changed what, when) without it.
-
-**Explicitly out of scope for this entry:**
-- Any bulk-write immutability guard
-- Any UI beyond a simple chronological list
-- Retroactive backfill of history for existing data
+- **Audit trail** — every change, who and when, with per-Mode revert.
+- **Batch Mode editing** — fields, deltas, jitter, range shifts, Sources, and marking or unmarking Modes test-derived.
+- **Platform and MDF tests** — the Emitters on the air together (all, some or one), detection with time to detect and the dwell that caught it, what each was reported as (mix-ups, down to the Modes), three verdicts; an MDF test across Platforms, with which Platform each was intercepted as and the confidence today's rules give for what was heard.
+- **Platform confidence (experimental)** — what in an MDF tells its Platforms apart, and PCL 1–3 rules with checks and what-if.
 
 ---
 
 ## XML Import
 
-**Status:** Not yet started — implementation work is about to begin (by a
-separate agent/session), briefed via
-[docs/XML_IMPORT_BRIEF.md](XML_IMPORT_BRIEF.md) rather than this entry.
+**Status:** Partly open. Dwell files import from XML already (**Import XML** under Dwell files). Emitter data from XML isn't built: the Elements panel's "Import from XML" is still "coming soon". The brief is [docs/XML_IMPORT_BRIEF.md](XML_IMPORT_BRIEF.md).
 
-**Why it's here:** flagging that it's imminent, and that the brief document
-identifies an open fork in the design (datasheet/parametric import at the
-Source/Element level vs. a full MDF round-trip import mirroring XML export)
-that hasn't been resolved yet — resolve it before treating either direction
-as "the" XML import feature.
+**Open fork:** the brief leaves undecided whether this means a datasheet/parametric import at the Source/Element level or a full MDF round trip mirroring the XML export. Settle that before building either.
 
 ---
 

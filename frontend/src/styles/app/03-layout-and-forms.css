@@ -507,5 +507,10 @@
   cursor: pointer;
 }
 .batch-edit-form .batch-edit-runs label:hover { background: var(--hover-bg); }
+.batch-edit-runs li { display: flex; align-items: center; gap: 0.6rem; padding: 0.3rem 0.6rem; }
+.batch-edit-runs li select { width: auto; flex: none; }
+.batch-edit-run-linked { min-width: 5.5rem; text-align: right; white-space: nowrap; }
+.batch-edit-runs li.batch-edit-run-add { background: color-mix(in srgb, var(--badge-green-bg) 60%, transparent); }
+.batch-edit-runs li.batch-edit-run-remove { background: color-mix(in srgb, var(--badge-red-bg) 60%, transparent); }
 .batch-edit-run-title { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .batch-edit-run-filter { max-width: 20rem; }

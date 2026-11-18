@@ -574,13 +574,14 @@ def test_match_counts_per_intercept(editor_client, emitter_ctx):
     url = f"/intercepts/{intercept['id']}/entries"
     editor_client.post(url, json=FIXED_ENTRY)  # inside on RF, PRI and PW
     editor_client.post(url, json={**FIXED_ENTRY, "rf_mean_mhz": 3100.5})  # inside the engineered RF (± 1)
-    editor_client.post(url, json={**FIXED_ENTRY, "rf_mean_mhz": 5000})  # outside on RF only: near
-    editor_client.post(url, json={**FIXED_ENTRY, "rf_mean_mhz": 5000, "pw_mean_us": 9})  # two off: none
+    editor_client.post(url, json={**FIXED_ENTRY, "rf_mean_mhz": 3150})  # outside on RF only, close by: near
+    editor_client.post(url, json={**FIXED_ENTRY, "rf_mean_mhz": 3150, "pw_mean_us": 9})  # two off: none
     editor_client.post(url, json=STAGGER_ENTRY)  # no stagger Mode: none
+    editor_client.post(url, json={**FIXED_ENTRY, "rf_mean_mhz": 5000})  # RF only, but far off (over 5%): none
 
     counts = editor_client.get("/intercepts/match-counts", params={"emitter_id": emitter_ctx["emitter"]["id"]}).json()
-    assert counts["total"] == {"match": 2, "near": 1, "none": 2, "left_out": 0}
-    assert counts["by_intercept"][intercept["id"]] == {"match": 2, "near": 1, "none": 2, "left_out": 0}
+    assert counts["total"] == {"match": 2, "near": 1, "none": 3, "left_out": 0}
+    assert counts["by_intercept"][intercept["id"]] == {"match": 2, "near": 1, "none": 3, "left_out": 0}
 
 
 def test_intercepts_of_a_deleted_emitter_are_read_only_and_hidden(editor_client, emitter_ctx):
@@ -871,7 +872,8 @@ def test_intercept_mode_plan_creates_and_widens(editor_client, emitter_ctx):
     unmatched = editor_client.post(url, json={**FIXED_ENTRY, "rf_mean_mhz": 5000}).json()
     new_line = {**MODE_LINE, "rf_min_mhz": 4990, "rf_max_mhz": 5010}
     counts = editor_client.get("/intercepts/match-counts", params={"emitter_id": emitter_ctx["emitter"]["id"]}).json()
-    assert counts["by_intercept"][intercept["id"]] == {"match": 0, "near": 2, "none": 0, "left_out": 0}
+    # Each one value off, but far off (PW 67%, RF 61% past the Mode): not near.
+    assert counts["by_intercept"][intercept["id"]] == {"match": 0, "near": 0, "none": 2, "left_out": 0}
 
     resp = _plan(
         editor_client,

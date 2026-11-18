@@ -36,17 +36,24 @@ export function BatchEditModal({
   const batchEdit = useBatchEditModes(emitterId);
   // Test-derived: the Emitter's own test runs whose findings explain these values.
   const { data: runs } = useEmitterTestRecords(emitterId);
-  const [derivedFrom, setDerivedFrom] = useState<Set<string>>(new Set());
+  // Per run: mark the selected Modes derived from it, or remove that link.
+  const [derivedAction, setDerivedAction] = useState<Map<string, "add" | "remove">>(new Map());
   const [runFilter, setRunFilter] = useState("");
   const sortedRuns = [...(runs ?? [])].sort((a, b) => b.test_date.localeCompare(a.test_date) || a.title.localeCompare(b.title));
   const shownRuns = runFilter.trim()
-    ? sortedRuns.filter((r) => r.title.toLowerCase().includes(runFilter.trim().toLowerCase()) || derivedFrom.has(r.id))
+    ? sortedRuns.filter((r) => r.title.toLowerCase().includes(runFilter.trim().toLowerCase()) || derivedAction.has(r.id))
     : sortedRuns;
-  function toggleRun(id: string) {
-    setDerivedFrom((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+  const selected = new Set(modeIds);
+  /** How many of the selected Modes are derived from this run already. */
+  const linkedCount = (r: NonNullable<typeof runs>[number]) =>
+    r.modes.filter((m) => m.link_type === "derived" && m.mode_id && selected.has(m.mode_id)).length;
+  const toAdd = [...derivedAction].filter(([, a]) => a === "add").map(([id]) => id);
+  const toRemove = [...derivedAction].filter(([, a]) => a === "remove").map(([id]) => id);
+  function setRunAction(id: string, action: "" | "add" | "remove") {
+    setDerivedAction((prev) => {
+      const next = new Map(prev);
+      if (action) next.set(id, action);
+      else next.delete(id);
       return next;
     });
   }
@@ -134,8 +141,8 @@ export function BatchEditModal({
     setErrors(null);
     setGenericError(null);
     const fields = buildFields();
-    if (Object.keys(fields).length === 0 && derivedFrom.size === 0) {
-      setGenericError("Set at least one field, or pick a test run they're derived from.");
+    if (Object.keys(fields).length === 0 && derivedAction.size === 0) {
+      setGenericError("Set at least one field, or mark or unmark them test-derived.");
       return;
     }
     if (hasShift && shiftReason.trim() === "") {
@@ -147,7 +154,8 @@ export function BatchEditModal({
         mode_ids: modeIds,
         fields,
         shift_reason: hasShift ? shiftReason.trim() : undefined,
-        derived_from_test_record_ids: derivedFrom.size ? [...derivedFrom] : undefined,
+        derived_from_test_record_ids: toAdd.length ? toAdd : undefined,
+        remove_derived_from_test_record_ids: toRemove.length ? toRemove : undefined,
       });
       onDone();
     } catch (err) {
@@ -357,12 +365,15 @@ export function BatchEditModal({
 
         <div className="batch-edit-section">
           <span className="batch-edit-section-label">
-            Test-derived{derivedFrom.size > 0 && ` — ${derivedFrom.size} test run${derivedFrom.size === 1 ? "" : "s"} picked`}
+            Test-derived
+            {toAdd.length > 0 && ` — marking from ${toAdd.length} run${toAdd.length === 1 ? "" : "s"}`}
+            {toRemove.length > 0 && `${toAdd.length ? "," : " —"} removing ${toRemove.length}`}
           </span>
           <p className="hint-text">
             Mark the selected Modes as derived from test runs: their values come from what those runs found, not from a
             Source. Each gets the Test-derived badge and is listed under the run&apos;s &ldquo;Modes derived from this
-            run&rdquo;. A Mode already linked to a run is left as it is.
+            run&rdquo;. A Mode already linked to a run is left as it is. <strong>Remove</strong> takes the link to that run
+            off the selected Modes that have it.
           </p>
           {!runs ? (
             <p className="hint-text">Loading the test runs…</p>
@@ -381,18 +392,35 @@ export function BatchEditModal({
                 />
               )}
               <ul className="batch-edit-runs" aria-label="Test runs">
-                {shownRuns.map((r) => (
-                  <li key={r.id}>
-                    <label>
-                      <input type="checkbox" checked={derivedFrom.has(r.id)} onChange={() => toggleRun(r.id)} />
+                {shownRuns.map((r) => {
+                  const linked = linkedCount(r);
+                  const action = derivedAction.get(r.id) ?? "";
+                  return (
+                    <li key={r.id} className={action ? `batch-edit-run-${action}` : undefined}>
                       <span className="batch-edit-run-title">{r.title}</span>
                       <span className="hint-text">
                         {formatDate(r.test_date)} · {testTypeLabel(r.test_type)}
                       </span>
                       <span className={`test-result-badge test-result-${r.result}`}>{testResultLabel(r.result)}</span>
-                    </label>
-                  </li>
-                ))}
+                      <span className="hint-text batch-edit-run-linked" title="Selected Modes already derived from this run">
+                        {linked ? `${linked} of ${modeIds.length} linked` : ""}
+                      </span>
+                      <select
+                        aria-label={`Test-derived from ${r.title}`}
+                        value={action}
+                        onChange={(e) => setRunAction(r.id, e.target.value as "" | "add" | "remove")}
+                      >
+                        <option value="">Leave</option>
+                        <option value="add" disabled={linked === modeIds.length}>
+                          Mark derived
+                        </option>
+                        <option value="remove" disabled={linked === 0}>
+                          Remove
+                        </option>
+                      </select>
+                    </li>
+                  );
+                })}
                 {shownRuns.length === 0 && <li className="hint-text">No test run matches.</li>}
               </ul>
             </>

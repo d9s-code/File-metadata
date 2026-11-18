@@ -246,6 +246,8 @@ export interface ModeDefaults {
   /** Each stagger step's ± buffer when steps are compared (ambiguity check,
    * a test run's logged steps) — not a Mode field. */
   stagger_step_delta_us: number;
+  /** A near miss counts only within this % of the bound it misses — not a Mode field. */
+  near_miss_pct: number;
 }
 
 export interface AppSettings {

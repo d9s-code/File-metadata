@@ -9,7 +9,7 @@ import type { EwGroup, Source } from "../../types/domain";
 import { useDeleteSource, useUpdateSource } from "../../state/hooks/useSources";
 import { useCreateSourceNote, useDeleteSourceNote, useSourceNotes } from "../../state/hooks/useSourceNotes";
 import { useSourceGroups } from "../../state/hooks/useSourceGroups";
-import { useElements } from "../../state/hooks/useElements";
+import { useElementOverview } from "../../state/hooks/useElements";
 import { useEmitterModes } from "../../state/hooks/useModes";
 import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
@@ -48,11 +48,13 @@ function compareSources(a: Source, b: Source, key: SourceSortKey, dir: "asc" | "
   }
 }
 
+/** A Source's Elements by kind — counted from the Emitter's Element overview,
+ * so the table makes one request for every Source, not one each. */
 function ElementCounts({ emitterId, sourceId }: { emitterId: string; sourceId: string }) {
-  const { data: elements } = useElements(emitterId, sourceId);
-  if (!elements) return <span className="hint-text">—</span>;
+  const { data: overview } = useElementOverview(emitterId);
+  if (!overview) return <span className="hint-text">—</span>;
   const counts = { rf: 0, pw: 0, pri: 0, scan: 0 };
-  for (const el of elements) counts[el.element_type]++;
+  for (const row of overview) for (const o of row.occurrences) if (o.source_id === sourceId) counts[row.element_type]++;
   return (
     <span className="hint-text">
       {counts.rf} RF · {counts.pri} PRI · {counts.pw} PW · {counts.scan} Scan

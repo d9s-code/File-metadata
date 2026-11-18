@@ -65,6 +65,8 @@ export interface ModeBatchEditInput {
   fields: BatchModeFieldEdit;
   derived_from_test_record_ids?: string[];
   derived_from_intercept_entry_ids?: string[];
+  /** Test runs the Modes are no longer derived from. */
+  remove_derived_from_test_record_ids?: string[];
   shift_reason?: string;
 }
 

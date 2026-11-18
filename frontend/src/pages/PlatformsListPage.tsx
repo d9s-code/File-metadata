@@ -16,7 +16,7 @@ import { useSortableTable } from "../components/common/useSortableTable";
 import { compareNullable, compareStrings } from "../components/common/sortUtils";
 import { useConfirmDialog } from "../components/common/ConfirmDialog";
 import { StatusBadge } from "../components/status/StatusBadge";
-import { useStatuses } from "../state/hooks/useStatuses";
+import { emitterProgressWeights, useStatuses } from "../state/hooks/useStatuses";
 import { TasksButton } from "../components/tasks/TasksButton";
 import { useTasks } from "../state/hooks/useTasks";
 import { useColumnVisibility, useColumnVisibilityMenu, type ToggleableColumn } from "../components/common/ColumnVisibilityMenu";
@@ -262,7 +262,11 @@ export function PlatformsListPage() {
                   header(
                   "Emitter progress",
                   "progress",
-                  "How far the pinned Emitters are towards Operational, on average: In progress 0%, Testing 33%, Partially operational 67%, Operational 100%, Needs rework 0%. Hover a row for how many are in each status.",
+                  `How far the pinned Emitters are towards Operational, on average, by their status (in the Admin status order): ${emitterProgressWeights(
+                    emitterStatuses.list.length ? emitterStatuses.list.map((st) => st.key) : ["draft", "in_review", "partially_operational", "validated", "deprecated"],
+                  )
+                    .map((w) => `${emitterStatuses.label(w.key)} ${w.pct}%`)
+                    .join(", ")}. Hover a row for how many are in each status.`,
                   "number",
                 )}
                 {show("outdated") && header("Outdated pins", "outdated", "Pinned Emitters with a newer saved version", "number")}

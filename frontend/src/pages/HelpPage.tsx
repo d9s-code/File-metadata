@@ -267,7 +267,8 @@ export function HelpPage() {
           ranges across its Modes, the <strong>Platforms</strong> it&apos;s pinned on (each a link) — a <strong>min</strong> and a <strong>max</strong> column for each, each sortable, <strong>SIM correct</strong> — how many of its SIM Test Lines
           were correct in the latest run that included them, out of all of them (e.g. 4 / 5) — and{" "}
           <strong>Tasks</strong>: its open tasks (☑ 2; with none, the chip shows when you point at the row), which open
-          its task list to read, tick off or add one. <strong>Columns ▾</strong> (or right-clicking the header) picks
+          its task list to read, tick off or add one. <strong>Default order ▾</strong> picks the order the list opens
+          in for you (status in the Admin order or reversed, or by name). <strong>Columns ▾</strong> (or right-clicking the header) picks
           which columns show — Scan is off until you turn it on. Every column but Tasks is sortable; the list opens
           sorted by <strong>Status</strong>, first to last in the Admins&apos; order (then by name).{" "}
           <strong>Right-click the Status header</strong> (or pick <em>Choose statuses to show…</em> under it) to untick
@@ -456,8 +457,9 @@ export function HelpPage() {
             <p>
               Tick a Mode's checkbox (or several) and a bar appears at the bottom of the window with{" "}
               <strong>Batch edit</strong>, for applying the same field, delta, jitter (Fixed Modes only) or
-              range-shift change to all of them at once — and to mark them <strong>test-derived</strong>: tick the
-              Emitter&apos;s test runs whose findings their values come from (on its own or with other changes; a Mode
+              range-shift change to all of them at once — and to mark them <strong>test-derived</strong> or unmark
+              them: beside each of the Emitter&apos;s test runs (saying how many of them are linked to it already),
+              pick <strong>Mark derived</strong> or <strong>Remove</strong> (on its own or with other changes; a Mode
               already linked to a run is left as it is). The <strong>▾</strong> beside <strong>+ Add Mode</strong>{" "}
               holds the rarer ways to add Modes: <strong>Add a value across Modes…</strong> adds one RF, PRI or PW value — a
               stray PRI from a test, say — to every combination of the other two among your Modes: tick the
@@ -642,7 +644,8 @@ export function HelpPage() {
                 frame time alone (± the frame-time delta); off — by its steps, as many as the Mode&apos;s and in the
                 same order (starting at any step, each within ± the step tolerance, 1 µs unless an Admin set another under Mode defaults). Each row is{" "}
                 <strong>✓ would match</strong> (which Modes),{" "}
-                <strong>≈ near</strong> (exactly one value off — RF, PRI or frame time, jitter, PW and a stagger&apos;s
+                <strong>≈ near</strong> (exactly one value off, and close — within the near-miss limit of the Mode, 5%
+                of its bound unless an Admin set another under Defaults; RF, PRI or frame time, jitter, PW and a stagger&apos;s
                 steps each count on their own, so two off isn&apos;t near — listed closest first with which value and how
                 far, e.g. &ldquo;PW 0.15 µs above&rdquo;, the first two then <strong>+N more</strong>; with{" "}
                 <strong>Edit…</strong> while you&apos;re editing the Emitter: the Mode opens widened to cover what was

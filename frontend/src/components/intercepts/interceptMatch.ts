@@ -24,6 +24,28 @@ export interface MatchChecks {
   rangeMatching?: boolean;
   /** Each stagger step's ± buffer, µs (the admin's Mode default; 1 µs). */
   stepDelta?: number;
+  /** How close one value off must be to count as a near miss, % of the
+   * bound it misses — the admin's near-miss limit unless given. */
+  nearPct?: number;
+}
+
+/** The near-miss limit when none is given: the admin's (5% until it loads). */
+let defaultNearPct = 5;
+/** Set from the admin's Mode defaults once they load (NearMissLimitSync). */
+export function setNearMissPct(pct: number) {
+  if (Number.isFinite(pct) && pct >= 0) defaultNearPct = pct;
+}
+
+/** How far a miss is off, as a % of the Mode's bound it misses (of the
+ * range's width when that's larger; for jitter, of 1 µs at least) — the
+ * server's intercept_match_service.near_distance_pct. A stagger's step count
+ * or order isn't a distance: 0. */
+export function nearDistancePct(miss: ParamMiss): number {
+  if (miss.positions || miss.sequence) return 0;
+  const above = miss.value > miss.max;
+  const bound = above ? miss.max : miss.min;
+  const d = Math.abs(above ? miss.value - miss.max : miss.min - miss.value);
+  return (d / Math.max(Math.abs(bound), miss.max - miss.min, miss.label === "Jitter" ? 1 : 1e-9)) * 100;
 }
 
 /** A stagger step's ± buffer when none is given: 1 µs. */
@@ -63,8 +85,9 @@ export interface EntryMatch {
   /** Modes the entry falls inside on RF, PRI and PW. */
   matches: Mode[];
   /** Modes it misses on exactly one value (RF, PRI or frame time, jitter,
-   * PW, or a stagger's steps) — only listed when nothing matches fully, and
-   * never for CW (compared on RF alone, so "one off" would be every CW Mode). */
+   * PW, or a stagger's steps), close by (within the near-miss limit of the
+   * bound) — only listed when nothing matches fully, and never for CW
+   * (compared on RF alone, so "one off" would be every CW Mode). */
   near: ModeMatch[];
 }
 
@@ -209,14 +232,15 @@ export function compareEntryToMode(entry: MatchableEntry, mode: Mode, checks: Ma
 export function matchEntry(entry: MatchableEntry, modes: Mode[], checks: MatchChecks = {}): EntryMatch {
   const matches: Mode[] = [];
   const near: ModeMatch[] = [];
+  const limit = checks.nearPct ?? defaultNearPct;
   for (const mode of modes) {
     const misses = compareEntryToMode(entry, mode, checks);
     if (misses == null) continue;
     if (misses.length === 0) matches.push(mode);
     // Near: exactly one value off — RF, PRI (or frame time), jitter, PW, or a
     // stagger's steps each count on their own, so a PRI and its jitter both
-    // off is two, not one.
-    else if (misses.length === 1 && entry.pri_type !== "cw") near.push({ mode, misses });
+    // off is two, not one. And only when close: 500 MHz away isn't "nearly".
+    else if (misses.length === 1 && entry.pri_type !== "cw" && nearDistancePct(misses[0]) <= limit + 1e-9) near.push({ mode, misses });
   }
   if (matches.length > 0) return { status: "match", matches, near: [] };
   return { status: near.length > 0 ? "near" : "none", matches, near };

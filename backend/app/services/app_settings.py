@@ -29,6 +29,9 @@ MODE_DEFAULT_VALUES: dict[str, float] = {
     "pw_delta": 0.0,
     # Each stagger step's ± buffer when steps are compared (not a Mode field).
     "stagger_step_delta_us": 1.0,
+    # A near miss (one value off) counts only this close to the Mode: within
+    # this % of the bound it misses (not a Mode field).
+    "near_miss_pct": 5.0,
 }
 
 # What counts in change notes (see change_notes.COUNTS_DEFAULT): each list

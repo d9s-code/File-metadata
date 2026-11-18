@@ -79,3 +79,30 @@ def test_another_emitters_run_is_refused(editor_client):
     assert resp.status_code == 422
     assert "Someone else's run" in resp.json()["detail"]
     assert _derived(editor_client, eid)["Mode 1"] == []
+
+
+def test_batch_edit_removes_test_derived_links(editor_client):
+    eid, _modes, _source, one, two = _build(editor_client)
+    first, second = _run(editor_client, eid, "Range day 5"), _run(editor_client, eid, "Range day 6")
+    url = f"/emitters/{eid}/modes/batch-edit"
+    editor_client.post(url, json={"mode_ids": [one["id"], two["id"]], "fields": {}, "derived_from_test_record_ids": [first["id"], second["id"]]})
+    # Mode 2 is no longer derived from the first run; Mode 1 isn't selected and keeps both.
+    resp = editor_client.post(url, json={"mode_ids": [two["id"]], "fields": {}, "remove_derived_from_test_record_ids": [first["id"]]})
+    assert resp.status_code == 200, resp.text
+    derived = _derived(editor_client, eid)
+    assert sorted(derived["Mode 1"]) == ["Range day 5", "Range day 6"]
+    assert derived["Mode 2"] == ["Range day 6"]
+    summaries = [e["summary"] for e in _trail(editor_client, eid, entity_type="mode", action="update")]
+    assert "Batch-updated Mode 'Mode 2' (no longer test-derived: 'Range day 5')" in summaries
+    record = next(r for r in editor_client.get(f"/emitters/{eid}/test-records").json() if r["id"] == first["id"])
+    assert [m["mode_name"] for m in record["modes"] if m["link_type"] == "derived"] == ["Mode 1"]
+
+
+def test_removing_and_adding_the_same_run_is_refused(editor_client):
+    eid, _modes, _source, one, _two = _build(editor_client)
+    run = _run(editor_client, eid, "Range day 5")
+    resp = editor_client.post(
+        f"/emitters/{eid}/modes/batch-edit",
+        json={"mode_ids": [one["id"]], "fields": {}, "derived_from_test_record_ids": [run["id"]], "remove_derived_from_test_record_ids": [run["id"]]},
+    )
+    assert resp.status_code == 422

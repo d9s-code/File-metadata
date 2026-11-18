@@ -50,6 +50,7 @@ from app.schemas.intercept import (
     MatchCounts,
     SourceFileImport,
 )
+from app.services.app_settings import mode_defaults
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.intercept_match_service import entry_status, mode_ranges
 
@@ -258,8 +259,9 @@ def emitter_match_counts(
     )
     total = MatchCounts()
     by_intercept: dict[UUID, MatchCounts] = {}
+    near_pct = float(mode_defaults(db)["near_miss_pct"])
     for entry in entries:
-        result = "left_out" if entry.left_out else entry_status(entry, modes)
+        result = "left_out" if entry.left_out else entry_status(entry, modes, near_pct)
         counts = by_intercept.setdefault(entry.intercept_id, MatchCounts())
         setattr(counts, result, getattr(counts, result) + 1)
         setattr(total, result, getattr(total, result) + 1)

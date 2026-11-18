@@ -92,3 +92,21 @@ describe("near: exactly one value off", () => {
     expect(matchEntry({ ...logged([100, 150]), pri_mean_us: 250 }, [mode], both).status).toBe("none");
   });
 });
+
+describe("near misses only when close", () => {
+  it("counts one value off within the limit of the bound it misses", async () => {
+    const { nearDistancePct } = await import("./interceptMatch");
+    expect(nearDistancePct({ param: "RF", value: 9600, min: 9000, max: 9100, unit: "MHz", label: "RF" })).toBeCloseTo((500 / 9100) * 100);
+    // Near zero: the range's width.
+    expect(nearDistancePct({ param: "PW", value: -2, min: 0, max: 40, unit: "µs", label: "PW" })).toBe(5);
+    // Jitter against none: of 1 µs.
+    expect(nearDistancePct({ param: "PRI", value: 0.03, min: 0, max: 0, unit: "µs", label: "Jitter" })).toBeCloseTo(3);
+    expect(nearDistancePct({ param: "PRI", value: 0, min: 0, max: 0, unit: "µs", label: "Steps", positions: { entry: 2, mode: 3 } })).toBe(0);
+  });
+
+  it("500 MHz away isn't a near miss; 4 MHz is; the limit can be given", () => {
+    expect(matchEntry(fixedLogged({ rf_mean_mhz: 9740 }), [fixed], TEST_CHECKS).status).toBe("none");
+    expect(matchEntry(fixedLogged({ rf_mean_mhz: 9244 }), [fixed], TEST_CHECKS).status).toBe("near");
+    expect(matchEntry(fixedLogged({ rf_mean_mhz: 9740 }), [fixed], { ...TEST_CHECKS, nearPct: 10 }).status).toBe("near");
+  });
+});

@@ -371,11 +371,16 @@ class ModeBatchEditRequest(BaseModel):
     # every affected Mode, same meaning as ModeUpdate.derived_from_test_record_ids.
     derived_from_test_record_ids: list[UUID] = []
     derived_from_intercept_entry_ids: list[UUID] = []
+    # Test runs the Modes are no longer derived from: their links are removed
+    # (a Mode not linked to one is left as it is).
+    remove_derived_from_test_record_ids: list[UUID] = []
 
     @model_validator(mode="after")
     def check_non_empty(self) -> "ModeBatchEditRequest":
         if not self.mode_ids:
             raise ValueError("mode_ids must not be empty")
+        if set(self.derived_from_test_record_ids) & set(self.remove_derived_from_test_record_ids):
+            raise ValueError("A test run can't be both added and removed as test-derived")
         if self.fields.has_shift() and not (self.shift_reason or "").strip():
             raise ValueError("shift_reason is required when shifting an existing value")
         return self

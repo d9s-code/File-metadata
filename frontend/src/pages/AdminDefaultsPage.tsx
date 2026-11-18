@@ -29,6 +29,13 @@ const FIELDS: { key: Key; label: string; unit: string; hint: string; whole?: boo
     hint: "each step's buffer when steps are compared — the ambiguity check and a test run's logged steps",
     min: 0,
   },
+  {
+    key: "near_miss_pct",
+    label: "Near-miss limit",
+    unit: "% of the bound",
+    hint: "one value off counts as a near miss only this close to the Mode — e.g. 5%: RF 9550 is near a Mode up to 9100, 9600 isn't",
+    min: 0,
+  },
 ];
 
 const textsOf = (d: ModeDefaults): Texts =>
