@@ -120,3 +120,5 @@ class PlatformLinkOut(BaseModel):
     # The pinned version's frequency range, deltas applied (filled in by list_links).
     rf_min_mhz: float | None = None
     rf_max_mhz: float | None = None
+    # The pinned version's Mode names (filled in by list_links) — for a test's mix-ups.
+    pinned_mode_names: list[str] = []

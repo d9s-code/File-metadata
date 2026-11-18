@@ -465,3 +465,35 @@ fieldset.edit-lock:disabled * {
 .run-mode-tag.deleted { background: transparent; border: 1px dashed var(--border); color: var(--muted); }
 .near-miss { margin-top: 0.25rem; font-size: max(0.82rem, 12px); }
 .run-results-table td.run-item-name { white-space: nowrap; }
+/* Platform and MDF tests: what was observed with the Emitters on the air. */
+.verdicts { display: inline-flex; flex-wrap: wrap; gap: 0.35rem 0.9rem; vertical-align: middle; }
+.verdict { white-space: nowrap; }
+.verdict-label { font-weight: 600; }
+.observed-detection { display: flex; flex-direction: column; gap: 0.25rem; }
+.observed-detection-more { display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
+.observed-time { width: 4.5rem; }
+select.detected-yes { border-color: var(--badge-green-fg); }
+select.detected-no { border-color: var(--badge-red-fg); }
+.observed-reported { display: flex; flex-direction: column; gap: 0.3rem; min-width: 14rem; }
+.observed-reported-flags { display: flex; align-items: center; flex-wrap: wrap; gap: 0.3rem 0.8rem; }
+.inline-check { display: inline-flex; align-items: center; gap: 0.3rem; font-weight: 400; white-space: nowrap; }
+.observed-mixup { display: flex; align-items: center; flex-wrap: wrap; gap: 0.3rem; }
+.observed-mixup select { max-width: 10rem; }
+/* A mix-up: amber, apart from a Mode reported right (purple). */
+.run-mode-tag.mixup { background: var(--badge-amber-bg); color: var(--badge-amber-fg); }
+.detected-tag {
+  display: inline-block;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  background: var(--badge-green-bg);
+  color: var(--badge-green-fg);
+  font-size: max(0.8rem, 12px);
+  font-weight: 500;
+}
+.detected-tag.missed { background: var(--badge-red-bg); color: var(--badge-red-fg); }
+.platform-test-pin { margin-top: 0.1rem; font-size: max(0.78rem, 12px); }
+.mixups-list { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.3rem; }
+/* Platform test form: room for what was reported, notes kept narrow. */
+.platform-test-table td.platform-test-notes textarea { min-width: 0; width: 100%; }
+.platform-test-table .platform-test-last { display: block; margin-top: 0.15rem; font-size: max(0.78rem, 12px); }
+.platform-test-table .observed-reported, .platform-test-table .observed-reported-hint { min-width: 14rem; display: inline-block; }

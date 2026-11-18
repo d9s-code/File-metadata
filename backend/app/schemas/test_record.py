@@ -351,9 +351,94 @@ class TestResultChange(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
 
 
-class PlatformTestEmitterIn(BaseModel):
+class ScenarioReportIn(BaseModel):
+    """A mix-up: the Emitter on the air reported as another one, optionally
+    with which of its Modes was taken for which of the other's."""
+
+    reported_emitter_id: UUID
+    # In an MDF test: the Platform the reported Emitter is on (it may be on several).
+    reported_platform_id: UUID | None = None
+    expected_mode: str | None = Field(default=None, max_length=200)
+    reported_mode: str | None = Field(default=None, max_length=200)
+
+
+class ScenarioObservedIn(BaseModel):
+    """What was observed of one Emitter on the air in a Platform or MDF test.
+    All optional: a Platform test logged as before leaves them out."""
+
+    # Null: not recorded.
+    detected: bool | None = None
+    time_to_detect_s: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    # The dwell of the run's Strategy version that caught it: 1 for the first.
+    dwell_index: int | None = Field(default=None, ge=1)
+    # Reported as itself; as Default Unknown; as other Emitters (mix-ups).
+    reported_self: bool | None = None
+    reported_unknown: bool = False
+    reports: list[ScenarioReportIn] = Field(default=[], max_length=50)
+
+    @model_validator(mode="after")
+    def check_detected(self) -> "ScenarioObservedIn":
+        if self.detected is False and (self.reported_self or self.reported_unknown or self.reports):
+            raise ValueError("A missed Emitter can't have been reported as anything")
+        if self.detected is not True and (self.time_to_detect_s is not None or self.dwell_index is not None):
+            raise ValueError("Time to detect and the dwell that caught it are for a detected Emitter")
+        return self
+
+    def observed(self) -> bool:
+        return self.detected is not None
+
+
+class ScenarioEmitterOut(BaseModel):
+    """One Emitter on the air in a Platform or MDF test, as it was observed."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    emitter_id: UUID
+    emitter_name: str
+    platform_id: UUID | None = None
+    platform_name: str | None = None
+    detected: bool | None = None
+    time_to_detect_s: float | None = None
+    dwell_index: int | None = None
+    dwell_label: str | None = None
+    reported_self: bool | None = None
+    reported_unknown: bool = False
+    result: str | None = None
+    notes: str | None = None
+    reports: list["ScenarioReportOut"] = []
+
+
+class ScenarioReportOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    reported_emitter_id: UUID
+    reported_emitter_name: str
+    reported_platform_id: UUID | None = None
+    reported_platform_name: str | None = None
+    expected_mode: str | None = None
+    reported_mode: str | None = None
+
+
+ScenarioEmitterOut.model_rebuild()
+
+
+class ScenarioVerdictsOut(BaseModel):
+    """Three answers for a run, each a result: were they detected (Detection),
+    reported as themselves (Identification), and taken for each other (Mix-ups)."""
+
+    detection: str | None = None
+    identification: str | None = None
+    mixups: str | None = None
+    detected: int = 0
+    observed: int = 0
+    identified: int = 0
+    mixup_count: int = 0
+
+
+class PlatformTestEmitterIn(ScenarioObservedIn):
     """One pinned Emitter's part of a Platform test — what TestRecordCreate
-    takes for a single Emitter's run, minus what the whole run shares."""
+    takes for a single Emitter's run, minus what the whole run shares — and
+    what was observed of it with the rest on the air."""
 
     emitter_id: UUID
     line_results: list[TestRecordLineResultIn] = []
@@ -430,6 +515,8 @@ class PlatformTestEmitterOut(BaseModel):
     notes: str | None = None
     # When its simulation was built (or, for an Intercept Test, the intercept date).
     simulation_created_date: date | None = None
+    # What was observed of it with the rest on the air (None on older runs).
+    observed: ScenarioEmitterOut | None = None
 
 
 class PlatformTestOut(BaseModel):
@@ -452,3 +539,5 @@ class PlatformTestOut(BaseModel):
     # The worst of the Emitters' results.
     result: TestResult
     emitters: list[PlatformTestEmitterOut]
+    # Detection, Identification and Mix-ups — when the run recorded what was observed.
+    verdicts: ScenarioVerdictsOut | None = None

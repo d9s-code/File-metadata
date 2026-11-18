@@ -109,8 +109,8 @@
 
 /* A Platform test: a section per pinned Emitter. */
 .platform-test-table .platform-test-notes {
-  min-width: 18rem;
-  width: 45%;
+  min-width: 12rem;
+  width: 18%;
 }
 .platform-test-table .platform-test-notes textarea {
   width: 100%;

@@ -10,6 +10,7 @@ import { LoadingState } from "../components/common/LoadingState";
 import { PageHeader } from "../components/common/PageHeader";
 import { lineOutcomeLabel, mhz, TEST_RESULTS, testResultLabel, testTypeLabel } from "../components/testing/testFormat";
 import type { TestResult } from "../types/domain";
+import { MixupsList, ObservedDetection, ObservedReported, VerdictsLine } from "../components/testing/ObservedEmitter";
 
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -48,6 +49,8 @@ export function PlatformTestDetailPage() {
       </div>
     );
   const detailed = test.emitters.some((e) => e.lines || e.modes || e.signals);
+  // What was observed with the Emitters on the air together (newer runs).
+  const observed = test.emitters.map((e) => e.observed).filter((o) => !!o);
 
   return (
     <div className="page">
@@ -63,11 +66,16 @@ export function PlatformTestDetailPage() {
       <dl className="run-facts">
         <Fact label="Result">
           <span className={`test-result-badge test-result-${test.result}`}>{testResultLabel(test.result)}</span>
-          <span className="run-fact-sub">worst of the Emitters&apos;</span>
+          <span className="run-fact-sub">worst of the Emitters&apos;{test.verdicts ? " and the verdicts" : ""}</span>
         </Fact>
+        {test.verdicts && (
+          <Fact label="Verdicts">
+            <VerdictsLine v={test.verdicts} />
+          </Fact>
+        )}
         <Fact label="Type">{testTypeLabel(test.test_type)}</Fact>
         <Fact label="Tested">{formatDate(test.test_date)}</Fact>
-        <Fact label="Emitters">{test.emitters.length}</Fact>
+        <Fact label="Transmitting">{test.emitters.length}</Fact>
         {test.dwell_strategy_id && (
           <Fact label="Dwell">
             <Link to={`/dwells/strategies/${test.dwell_strategy_id}`}>{test.dwell_strategy_name}</Link> v
@@ -93,7 +101,7 @@ export function PlatformTestDetailPage() {
 
       <div className="card">
         <h2 className="as-h4">Emitters ({test.emitters.length})</h2>
-        <table className="data-table">
+        <table className="data-table run-results-table">
           <thead>
             <tr>
               <th>Emitter</th>
@@ -101,6 +109,8 @@ export function PlatformTestDetailPage() {
               <th className="num" title="In the version tested, deltas applied">RF Min [MHz]</th>
               <th className="num" title="In the version tested, deltas applied">RF Max [MHz]</th>
               {test.test_type !== "intercept" && <th>Simulation created</th>}
+              {observed.length > 0 && <th>Detected</th>}
+              {observed.length > 0 && <th>Reported as</th>}
               <th>Result</th>
               {detailed && <th>Detail</th>}
               <th>Notes</th>
@@ -109,7 +119,7 @@ export function PlatformTestDetailPage() {
           <tbody>
             {test.emitters.map((e) => (
               <tr key={e.test_record_id}>
-                <td>
+                <td className="run-item-name">
                   <Link to={`/emitters/${e.emitter_id}/tests/${e.test_record_id}`} title="Open this Emitter's test record">
                     {e.designation ? `${e.designation} — ${e.emitter_name}` : e.emitter_name}
                   </Link>
@@ -124,6 +134,16 @@ export function PlatformTestDetailPage() {
                 <td className="num">{mhz(e.rf_min_mhz)}</td>
                 <td className="num">{mhz(e.rf_max_mhz)}</td>
                 {test.test_type !== "intercept" && <td className="nowrap">{formatDate(e.simulation_created_date)}</td>}
+                {observed.length > 0 && (
+                  <td className="nowrap">
+                    <ObservedDetection o={e.observed} />
+                  </td>
+                )}
+                {observed.length > 0 && (
+                  <td>
+                    <ObservedReported o={e.observed} />
+                  </td>
+                )}
                 <td className="nowrap">
                   <span className={`test-result-badge test-result-${e.result}`}>{testResultLabel(e.result)}</span>
                   {e.computed_result && (
@@ -143,6 +163,14 @@ export function PlatformTestDetailPage() {
           </tbody>
         </table>
       </div>
+      {observed.length > 0 && (
+        <div className="card">
+          <h2 className="as-h4">
+            Mix-ups <span className="hint-text">{test.verdicts?.mixup_count ?? 0}</span>
+          </h2>
+          <MixupsList rows={observed} />
+        </div>
+      )}
     </div>
   );
 }

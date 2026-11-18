@@ -62,6 +62,8 @@ export interface PlatformLink {
   /** The pinned version's frequency range, deltas applied. */
   rf_min_mhz?: number | null;
   rf_max_mhz?: number | null;
+  /** The pinned version's Mode names — for a test's mix-ups. */
+  pinned_mode_names?: string[];
 }
 
 /** True when the Emitter has a newer saved version than the one pinned. */

@@ -1064,13 +1064,18 @@ export function HelpPage() {
             to see everything again. <strong>Ambiguities</strong> hatches in red where Modes of different Emitters
             overlap, from the latest ambiguity check — hover a mark to see which. <strong>Ambiguity check</strong>{" "}
             runs on the latest saved Platform version.{" "}
-            <strong>Tests</strong> holds <strong>Platform tests</strong> — every pinned Emitter tested in one run.{" "}
-            <strong>+ Add Platform test</strong> opens a page with the run&apos;s details and a row per pinned Emitter: a{" "}
-            <strong>result</strong> and <strong>notes</strong> (untick <strong>In this run</strong> to leave one out). In a
+            <strong>Tests</strong> holds <strong>Platform tests</strong> — the Platform&apos;s Emitters on the air together:
+            all, some, or one (tick <strong>Transmitting</strong>; <strong>Only this one</strong> leaves the rest out).{" "}
+            <strong>+ Add Platform test</strong> opens a page with the run&apos;s details and a row per pinned Emitter:
+            whether it was <strong>Detected</strong> or <strong>Missed</strong> (how soon, and by which dwell of the run&apos;s
+            Strategy), what it was <strong>Reported as</strong> — itself, Default Unknown, and <strong>+ Mix-up</strong> for
+            another of the Platform&apos;s Emitters, optionally Mode for Mode — a <strong>result</strong>, worked out from that
+            unless you pick one, and <strong>notes</strong>. The run gets three verdicts — Detection, Identification and
+            Mix-ups — and its result is the worst of the Emitters&apos; and the verdicts. In a
             Simulation Test each Emitter also has its own <strong>Simulation created</strong> date, filled in from the
             newest of its SIM Test Lines&apos; created dates (change it if that&apos;s wrong; one with no lines needs it
             typed).
-            Results start blank — every Emitter in the run needs one picked before it can be logged. It&apos;s saved as you fill it in and can be continued from the Tests tab. Logging it writes a test record
+            Every Emitter in the run needs detection or a result before it can be logged. It&apos;s saved as you fill it in and can be continued from the Tests tab. Logging it writes a test record
             for each Emitter in the run, against the version the Platform pins, so each also shows in that
             Emitter&apos;s Test History, linked back to the Platform test. Each Platform test has its own page — an Emitter&apos;s name there opens its own record — <strong>Redo test</strong> starts a retest
             of the same Emitters, and the <strong>Trend</strong> grid shows each Emitter&apos;s result across the latest

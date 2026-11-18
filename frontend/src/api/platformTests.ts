@@ -23,6 +23,59 @@ export interface PlatformTestEmitterInput {
   simulation_created_date?: string;
   /** When this redoes an earlier Platform test: the Emitter's record in it. */
   retests_test_record_id?: string;
+  /** What was observed with the rest on the air; left out, nothing was recorded. */
+  detected?: boolean;
+  time_to_detect_s?: number;
+  /** The dwell of the run's Strategy version that caught it: 1 for the first. */
+  dwell_index?: number;
+  reported_self?: boolean;
+  reported_unknown?: boolean;
+  reports?: ScenarioReportInput[];
+}
+
+/** A mix-up: reported as another Emitter, optionally Mode for Mode. */
+export interface ScenarioReportInput {
+  reported_emitter_id: string;
+  reported_platform_id?: string;
+  expected_mode?: string;
+  reported_mode?: string;
+}
+
+export interface ScenarioReport {
+  reported_emitter_id: string;
+  reported_emitter_name: string;
+  reported_platform_id: string | null;
+  reported_platform_name: string | null;
+  expected_mode: string | null;
+  reported_mode: string | null;
+}
+
+/** One Emitter on the air in a Platform or MDF test, as observed. */
+export interface ScenarioEmitter {
+  emitter_id: string;
+  emitter_name: string;
+  platform_id: string | null;
+  platform_name: string | null;
+  detected: boolean | null;
+  time_to_detect_s: number | null;
+  dwell_index: number | null;
+  dwell_label: string | null;
+  reported_self: boolean | null;
+  reported_unknown: boolean;
+  result: TestResult | null;
+  notes: string | null;
+  reports: ScenarioReport[];
+}
+
+/** Detection, Identification and Mix-ups — each a result — and the counts behind them. */
+export interface ScenarioVerdicts {
+  detection: TestResult | null;
+  identification: TestResult | null;
+  mixups: TestResult | null;
+  detected: number;
+  observed: number;
+  identified: number;
+  mixup_count: number;
 }
 
 export interface PlatformTestInput {
@@ -63,6 +116,8 @@ export interface PlatformTestEmitter {
   notes: string | null;
   /** When its simulation was built (an Intercept Test: the intercept date). */
   simulation_created_date: string | null;
+  /** What was observed of it with the rest on the air (null on older runs). */
+  observed?: ScenarioEmitter | null;
 }
 
 export interface PlatformTest {
@@ -86,6 +141,8 @@ export interface PlatformTest {
   /** The worst of the Emitters' results. */
   result: TestResult;
   emitters: PlatformTestEmitter[];
+  /** Detection, Identification and Mix-ups — when the run recorded what was observed. */
+  verdicts?: ScenarioVerdicts | null;
 }
 
 export const platformTestsApi = {

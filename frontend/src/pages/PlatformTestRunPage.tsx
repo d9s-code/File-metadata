@@ -29,6 +29,18 @@ import { computeOverallResult } from "../components/testing/modeResultAggregate"
 import { mhz, TEST_RESULTS, testResultLabel, testTypeLabel } from "../components/testing/testFormat";
 import { DwellInput, MANUAL_DWELL } from "../components/testing/DwellInput";
 import { ReceivedPowerInput, receivedPowerError } from "../components/testing/ReceivedPowerInput";
+import {
+  blankObserved,
+  DetectionCell,
+  observedInput,
+  previewVerdicts,
+  ReportedAsCell,
+  timeError,
+  useStrategyDwells,
+  VerdictsLine,
+  workedOut,
+  type ObservedRun,
+} from "../components/testing/ObservedEmitter";
 
 /** One pinned Emitter's part of the run: whether it's in it, its result and
  * notes. (Per-line and per-Mode detail stays on each Emitter's own runs.) */
@@ -43,6 +55,9 @@ interface EmitterRun {
   /** When redoing an earlier Platform test: the Emitter's record in it, and its result then. */
   retestsRecordId?: string;
   previousResult?: TestResult;
+  /** What was observed with the others on the air: detected, how soon, by
+   * which dwell, and what it was reported as. */
+  observed?: ObservedRun;
 }
 
 /** Everything saved as the run is filled in — the draft's `state`. */
@@ -76,7 +91,11 @@ const SAVE_DELAY_MS = 800;
  * does, nothing is saved, so opening the page and leaving doesn't leave an
  * empty run behind on the Platform's Tests tab. */
 function worthKeeping(s: PlatformRunState): boolean {
-  return !!s.title.trim() || !!s.notes.trim() || Object.values(s.emitters).some((e) => !!e.result || !!e.notes.trim());
+  return (
+    !!s.title.trim() ||
+    !!s.notes.trim() ||
+    Object.values(s.emitters).some((e) => !!e.result || !!e.notes.trim() || !!e.observed?.detected)
+  );
 }
 
 function blankRun(): EmitterRun {
@@ -94,6 +113,7 @@ function fromDraft(saved: Partial<EmitterRun> & { manualResult?: TestResult }): 
     simCreatedDate: saved.simCreatedDate,
     retestsRecordId: saved.retestsRecordId,
     previousResult: saved.previousResult,
+    observed: saved.observed ? { ...blankObserved(), ...saved.observed } : undefined,
   };
 }
 
@@ -182,6 +202,12 @@ export function PlatformTestRunPage() {
   const simDateFor = (emitterId: string) =>
     runFor(emitterId).simCreatedDate ?? derivedSimDate.get(emitterId) ?? state.simCreatedDate ?? "";
   const included = pins.filter((l) => runFor(l.emitter_id).included);
+  const dwells = useStrategyDwells(platformId, state.dwellStrategyVersionId);
+  /** An Emitter's result: the one picked, else what was observed gives. */
+  const resultFor = (emitterId: string): TestResult | null => {
+    const run = runFor(emitterId);
+    return run.result || workedOut(run.observed);
+  };
 
   // --- Saved as it's filled in (as an Emitter's test run is) -------------
   const [ready, setReady] = useState(false);
@@ -224,6 +250,13 @@ export function PlatformTestRunPage() {
             ...s,
             title: `Retest: ${test.title}`,
             testType: test.test_type,
+            // The same dwell Strategy version, so "caught by dwell" reads the same dwells.
+            ...(test.dwell_strategy_version_id
+              ? {
+                  dwellStrategyVersionId: test.dwell_strategy_version_id,
+                  dwell: `${test.dwell_strategy_name ?? "Strategy"} v${test.dwell_strategy_version_number ?? ""}`,
+                }
+              : {}),
             // Every Emitter the earlier test had, linked to its record there; the rest left out.
             emitters: Object.fromEntries(
               (links ?? []).map((l) => {
@@ -344,10 +377,22 @@ export function PlatformTestRunPage() {
     );
   if (!platform || !links || !allEmitters || !ready) return <LoadingState label="Loading Platform test…" />;
 
-  const unset = included.filter((l) => !runFor(l.emitter_id).result);
+  const unset = included.filter((l) => !resultFor(l.emitter_id));
+  const verdicts = previewVerdicts(included.map((l) => runFor(l.emitter_id).observed));
   const overall = unset.length
     ? null
-    : computeOverallResult(included.map((l) => runFor(l.emitter_id).result as TestResult));
+    : computeOverallResult([
+        ...included.map((l) => resultFor(l.emitter_id) as TestResult),
+        ...(verdicts ? [verdicts.detection, verdicts.identification, verdicts.mixups].filter((v): v is TestResult => !!v) : []),
+      ]);
+  /** Only this Emitter on the air — the rest left out of the run. */
+  const onlyThis = (emitterId: string) =>
+    setState((s) => ({
+      ...s,
+      emitters: Object.fromEntries(
+        pins.map((l) => [l.emitter_id, { ...(s.emitters[l.emitter_id] ?? blankRun()), included: l.emitter_id === emitterId }]),
+      ),
+    }));
 
   async function handleDiscard() {
     if (!(await confirmDelete("Discard this Platform test? What's been filled in is lost.", { confirmLabel: "Discard", danger: true })))
@@ -366,7 +411,12 @@ export function PlatformTestRunPage() {
     }
     if (unset.length) {
       const names = unset.map((l) => emitterLabel(emittersById.get(l.emitter_id), l.emitter_id));
-      setError(`Pick a result for ${names.join(", ")}.`);
+      setError(`Say whether ${names.join(", ")} ${names.length === 1 ? "was" : "were"} detected, or pick a result.`);
+      return;
+    }
+    const badTime = included.find((l) => timeError(runFor(l.emitter_id).observed));
+    if (badTime) {
+      setError(`${emitterLabel(emittersById.get(badTime.emitter_id), badTime.emitter_id)}: ${timeError(runFor(badTime.emitter_id).observed)}.`);
       return;
     }
     const undated = isSimulation ? included.filter((l) => !simDateFor(l.emitter_id)) : [];
@@ -384,7 +434,9 @@ export function PlatformTestRunPage() {
       const run = runFor(link.emitter_id);
       return {
         emitter_id: link.emitter_id,
-        result: run.result as TestResult,
+        // Left out, the server works it out from what was observed.
+        result: run.result || undefined,
+        ...observedInput(run.observed),
         notes: run.notes.trim() || undefined,
         simulation_created_date: isSimulation ? simDateFor(link.emitter_id) : undefined,
         retests_test_record_id: run.retestsRecordId,
@@ -419,7 +471,7 @@ export function PlatformTestRunPage() {
       <BackLink to={back}>{platform.name} · Tests</BackLink>
       <PageHeader
         title={`${draftId.current ? "Platform test in progress" : "New Platform test"} — ${platform.name}`}
-        info="Every Emitter pinned on the Platform, tested in one run: a result and notes for each. Logging it writes a test record for each Emitter in the run — against the version the Platform pins — so each also shows in that Emitter's Test History."
+        info="The Platform's Emitters on the air together — all of them, some, or one: tick which were transmitting. For each, whether it was detected (how soon, by which dwell) and what it was reported as — itself, Default Unknown, or another of the Platform's Emitters (a mix-up). Its result is worked out from that unless you pick one, and the run gets three verdicts: Detection, Identification and Mix-ups. Logging it writes a test record for each Emitter in the run — against the version the Platform pins — so each also shows in that Emitter's Test History."
       />
       {canWrite && <SaveLine status={saveStatus} hasDraft={!!draftId.current} onRetry={() => void saveNow()} />}
       {dialog}
@@ -470,18 +522,24 @@ export function PlatformTestRunPage() {
             <textarea value={state.notes} onChange={(e) => patch({ notes: e.target.value })} rows={2} />
           </label>
           <p className="test-run-overall">
-            {included.length} of {pins.length} pinned Emitter{pins.length === 1 ? "" : "s"} in the run
+            {included.length} of {pins.length} pinned Emitter{pins.length === 1 ? "" : "s"} transmitting
             {unset.length > 0 && (
               <span className="hint-text">
                 {" "}
-                · {unset.length} still need{unset.length === 1 ? "s" : ""} a result
+                · {unset.length} still need{unset.length === 1 ? "s" : ""} detection or a result
               </span>
+            )}
+            {verdicts && (
+              <>
+                {" "}
+                · <VerdictsLine v={verdicts} />
+              </>
             )}
             {overall && (
               <>
                 {" "}
                 · overall <span className={`test-result-badge test-result-${overall}`}>{testResultLabel(overall)}</span>{" "}
-                <span className="hint-text">(the worst of the Emitters&apos;)</span>
+                <span className="hint-text">(the worst of the Emitters&apos; and the verdicts)</span>
               </>
             )}
           </p>
@@ -494,16 +552,15 @@ export function PlatformTestRunPage() {
             <table className="data-table platform-test-table">
               <thead>
                 <tr>
-                  <th>In run</th>
+                  <th title="Which of the Platform's Emitters were on the air in this run">Transmitting</th>
                   <th>Emitter</th>
-                  <th>Pinned version</th>
-                  <th className="num" title="In the pinned version, deltas applied">RF Min [MHz]</th>
-                  <th className="num" title="In the pinned version, deltas applied">RF Max [MHz]</th>
                   {isSimulation && (
                     <th title="Each Emitter's simulation date — the newest of its SIM Test Lines' created dates, unless changed here">
                       Simulation created
                     </th>
                   )}
+                  <th title="Detected or missed; how soon (seconds) and by which dwell of the Strategy picked above">Detected</th>
+                  <th title="What the system reported it as: itself, Default Unknown, and/or another Emitter (a mix-up)">Reported as</th>
                   <th>Result</th>
                   <th>Notes</th>
                 </tr>
@@ -523,16 +580,28 @@ export function PlatformTestRunPage() {
                         />
                       </td>
                       <td>
-                        <Link to={`/emitters/${link.emitter_id}`}>{label}</Link>
+                        <Link to={`/emitters/${link.emitter_id}`} className="run-item-name">
+                          {label}
+                        </Link>
+                        <div className="hint-text platform-test-pin">
+                          v{link.pinned_version_number ?? "?"}
+                          {isOutdatedPin(link) && <> (v{link.latest_version_number} saved since)</>} · {mhz(link.rf_min_mhz)}–
+                          {mhz(link.rf_max_mhz)} MHz
+                          {pins.length > 1 && (
+                            <>
+                              {" · "}
+                              <button
+                                type="button"
+                                className="link-button"
+                                title="Only this Emitter transmitting — the others left out of the run"
+                                onClick={() => onlyThis(link.emitter_id)}
+                              >
+                                Only this one
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </td>
-                      <td className="nowrap">
-                        v{link.pinned_version_number ?? "?"}
-                        {isOutdatedPin(link) && (
-                          <span className="hint-text"> · v{link.latest_version_number} saved since</span>
-                        )}
-                      </td>
-                      <td className="num">{mhz(link.rf_min_mhz)}</td>
-                      <td className="num">{mhz(link.rf_max_mhz)}</td>
                       {isSimulation && (
                         <td className="nowrap">
                           <DateInput
@@ -548,16 +617,42 @@ export function PlatformTestRunPage() {
                           />
                         </td>
                       )}
+                      <td>
+                        <DetectionCell
+                          value={run.observed ?? blankObserved()}
+                          onChange={(observed) => patchEmitter(link.emitter_id, { observed })}
+                          dwells={dwells}
+                          disabled={!run.included}
+                          label={label}
+                        />
+                      </td>
+                      <td>
+                        <ReportedAsCell
+                          value={run.observed ?? blankObserved()}
+                          onChange={(observed) => patchEmitter(link.emitter_id, { observed })}
+                          ownModes={link.pinned_mode_names ?? []}
+                          options={pins
+                            .filter((l) => l.emitter_id !== link.emitter_id)
+                            .map((l) => ({
+                              emitterId: l.emitter_id,
+                              label: emitterLabel(emittersById.get(l.emitter_id), l.emitter_id),
+                              modes: l.pinned_mode_names ?? [],
+                            }))}
+                          disabled={!run.included}
+                          label={label}
+                        />
+                      </td>
                       <td className="nowrap">
                         <select
-                          className={`outcome-select${run.result ? ` test-result-${run.result}` : ""}`}
+                          className={`outcome-select${resultFor(link.emitter_id) ? ` test-result-${resultFor(link.emitter_id)}` : ""}`}
                           value={run.result}
                           disabled={!run.included}
-                          onChange={(e) => patchEmitter(link.emitter_id, { result: e.target.value as TestResult })}
+                          onChange={(e) => patchEmitter(link.emitter_id, { result: e.target.value as TestResult | "" })}
                           aria-label={`${label} result`}
+                          title={workedOut(run.observed) ? "Worked out from what was observed, unless you pick one" : undefined}
                         >
-                          <option value="" disabled>
-                            Choose…
+                          <option value="" disabled={!workedOut(run.observed)}>
+                            {workedOut(run.observed) ? `Worked out: ${testResultLabel(workedOut(run.observed)!)}` : "Choose…"}
                           </option>
                           {TEST_RESULTS.map((r) => (
                             <option key={r} value={r}>
@@ -566,7 +661,7 @@ export function PlatformTestRunPage() {
                           ))}
                         </select>
                         {run.previousResult && (
-                          <span className="hint-text"> last time: {testResultLabel(run.previousResult)}</span>
+                          <span className="hint-text platform-test-last">last time: {testResultLabel(run.previousResult)}</span>
                         )}
                       </td>
                       <td className="platform-test-notes">

@@ -331,3 +331,63 @@ test("Batch edit marks the selected Modes test-derived", async ({ page }) => {
     .toEqual([["Range day 5"], ["Range day 5"]]);
   await removeEmitter(page, emitter.id);
 });
+
+test("Platform test: some Emitters transmitting, detection, a mix-up, verdicts", async ({ page }) => {
+  // Three Emitters pinned; Alpha and Bravo transmit under the Strategy's dwells, Charlie doesn't.
+  const made = [];
+  for (const name of ["Alpha", "Bravo", "Charlie"]) {
+    const e = await makeEmitter(page, [`${name} search`]);
+    await api(page, "POST", `/emitters/${e.id}/versions`, { change_summary: "v1" });
+    made.push({ ...e, short: name });
+  }
+  const platform = await api<{ id: string }>(page, "POST", "/platforms", { name: `PT ${Date.now()}` });
+  const versions = await Promise.all(made.map((e) => api<{ id: string }[]>(page, "GET", `/emitters/${e.id}/versions`)));
+  for (const [i, e] of made.entries()) {
+    await api(page, "POST", `/platforms/${platform.id}/links`, { emitter_id: e.id, emitter_version_id: versions[i][0].id });
+  }
+  await api(page, "POST", `/platforms/${platform.id}/versions`, { change_summary: "pins" });
+  const strategy = await api<{ id: string }>(page, "POST", "/dwell-strategies", { name: "Patrol", platform_id: platform.id });
+  await api(page, "PATCH", `/dwell-strategies/${strategy.id}`, {
+    dwells: [{ freq_mhz: 2900, dwell_time_ms: 100 }, { freq_mhz: 3000, dwell_time_ms: 120 }],
+    save_version: true,
+    change_summary: "dwells",
+  });
+
+  await page.goto(`/platforms/${platform.id}/tests/new`);
+  // The reminder of Emitters being edited sits over the table's first column.
+  await page.getByRole("button", { name: "Fold away" }).click({ timeout: 5000 }).catch(() => undefined);
+  await page.getByLabel("Title").fill("Two on the air");
+  await page.getByLabel(/Received Power/).fill("-40");
+  await page.getByLabel("Dwell type").selectOption("strategy");
+  const patrol = await page.getByLabel("Dwell Strategy").locator("option", { hasText: "Patrol" }).first().getAttribute("value");
+  await page.getByLabel("Dwell Strategy").selectOption(patrol!);
+
+  const row = (name: string) => page.locator("tr").filter({ has: page.getByRole("link", { name: new RegExp(name) }) });
+  await row(made[2].name).getByRole("checkbox", { name: /in this run/ }).uncheck();
+  for (const e of made.slice(0, 2)) await row(e.name).getByRole("textbox", { name: /simulation created/ }).fill("01.10.2026");
+  await row(made[0].name).getByLabel(/detected$/).selectOption("yes");
+  await row(made[0].name).getByLabel(/caught by dwell/).selectOption("2");
+  await row(made[0].name).getByLabel(/time to detect/).fill("1.5");
+  await row(made[1].name).getByLabel(/detected$/).selectOption("yes");
+  await row(made[1].name).getByRole("checkbox", { name: "Itself" }).uncheck();
+  await row(made[1].name).getByRole("button", { name: /reported as another Emitter/ }).click();
+  await page.getByRole("menuitem", { name: new RegExp(made[0].name) }).click();
+  await row(made[1].name).getByLabel(/reported as which Mode of/).selectOption("Alpha search");
+  await expect(page.locator(".test-run-overall")).toContainText("2 of 3 pinned Emitters transmitting");
+  await expect(row(made[1].name).getByLabel(/result$/)).toContainText("Worked out: Fail");
+
+  await page.getByRole("button", { name: /Log Platform test \(2 Emitters\)/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/platforms/${platform.id}\\?tab=tests`));
+  const [test] = await api<{ id: string; verdicts: { detection: string; mixup_count: number }; emitters: unknown[] }[]>(
+    page,
+    "GET",
+    `/platforms/${platform.id}/tests`,
+  );
+  expect(test.emitters).toHaveLength(2);
+  expect(test.verdicts).toMatchObject({ detection: "pass", mixup_count: 1 });
+
+  await page.goto(`/platforms/${platform.id}/tests/${test.id}`);
+  await expect(page.locator(".mixups-list")).toContainText(`${made[1].name} reported as ${made[0].name} — its ? as Alpha search`);
+  await expect(page.getByText("Dwell 2 · 3000 MHz")).toBeVisible();
+  for (const e of made) await removeEmitter(page, e.id);
+});

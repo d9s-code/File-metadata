@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from app.core.enums import AuditAction, AuditEntityType, Role, TestScopeType
+from app.core.enums import AuditAction, AuditEntityType, Role, TestResult, TestScopeType
 from app.core.csrf import verify_csrf
 from app.database import get_db
 from app.deps import require_role
@@ -17,10 +17,12 @@ from app.models.dwell import DwellStrategyVersion
 from app.models.emitter import Emitter
 from app.models.emitter_version import EmitterVersion
 from app.models.platform import Platform, PlatformEmitterLink, PlatformVersion
+from app.models.scenario import ScenarioEmitter
 from app.models.test_record import PlatformTest, TestRecord, TestRunDraft
 from app.models.user import User
 from app.routers.test_records import _create_test_record
 from app.schemas.test_record import PlatformTestCreate, PlatformTestEmitterOut, PlatformTestOut
+from app.services import scenario_service
 from app.services.audit_service import record_audit
 from app.services.rf_range import emitter_rf_range
 from app.services.test_result_service import compute_overall_result
@@ -79,12 +81,23 @@ def _out(db: Session, tests: list[PlatformTest]) -> list[PlatformTestOut]:
     by_test: dict[UUID, list[TestRecord]] = {}
     for r in records:
         by_test.setdefault(r.platform_test_id, []).append(r)
+    # What was observed of each Emitter with the rest on the air (newer runs).
+    observed: dict[UUID, list[ScenarioEmitter]] = {}
+    for row in (
+        db.query(ScenarioEmitter)
+        .filter(ScenarioEmitter.platform_test_id.in_([t.id for t in tests]))
+        .order_by(ScenarioEmitter.sort_order)
+        .all()
+    ):
+        observed.setdefault(row.platform_test_id, []).append(row)
 
     out = []
     for t in tests:
         rows = []
+        seen_rows = {row.emitter_id: row for row in observed.get(t.id, [])}
         for r in by_test.get(t.id, []):
             emitter = emitters.get(r.scope_id)
+            seen = seen_rows.get(r.scope_id)
             rows.append(
                 PlatformTestEmitterOut(
                     test_record_id=r.id,
@@ -103,10 +116,12 @@ def _out(db: Session, tests: list[PlatformTest]) -> list[PlatformTestOut]:
                     mode_counts=dict(Counter(m.result.value for m in r.modes if m.result is not None)),
                     notes=r.notes if r.notes and r.notes != t.notes else None,
                     simulation_created_date=r.simulation_created_date,
+                    observed=scenario_service.out(seen) if seen else None,
                 )
             )
         # As the Emitters read: "designation — name", or the name alone.
         rows.sort(key=lambda row: f"{row.designation} — {row.emitter_name}".lower() if row.designation else row.emitter_name.lower())
+        verdict = scenario_service.verdicts(observed.get(t.id, []))
         out.append(
             PlatformTestOut(
                 id=t.id,
@@ -121,8 +136,11 @@ def _out(db: Session, tests: list[PlatformTest]) -> list[PlatformTestOut]:
                 created_at=t.created_at,
                 received_power_dbfs=t.received_power_dbfs,
                 **_dwell_of(db, t.dwell_strategy_version_id),
-                result=compute_overall_result([row.result for row in rows]),
+                result=scenario_service.overall(verdict, [row.result for row in rows])
+                if rows
+                else compute_overall_result([TestResult.inconclusive]),
                 emitters=rows,
+                verdicts=verdict,
             )
         )
     return out
@@ -171,12 +189,19 @@ def log_platform_test(
     }
     seen: set[UUID] = set()
     records = []
+    observed = []
     for entry in payload.emitters:
         if entry.emitter_id not in pins:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Emitter {entry.emitter_id} isn't pinned on this Platform")
         if entry.emitter_id in seen:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Emitter {entry.emitter_id} is in the run twice")
         seen.add(entry.emitter_id)
+        # What was observed with the rest on the air gives the result, unless
+        # one was set or the Emitter's own lines and Modes give it.
+        if entry.observed():
+            observed.append(entry)
+            if entry.result is None and not entry.line_results and not entry.mode_results:
+                entry = entry.model_copy(update={"result": scenario_service.worked_out(entry)})
         try:
             records.append((entry.emitter_id, payload.record_for(entry)))
         except ValidationError as exc:
@@ -192,6 +217,7 @@ def log_platform_test(
         .order_by(PlatformVersion.version_number.desc())
         .first()
     )
+    dwell_version = None
     if payload.dwell_strategy_version_id is not None:
         dwell_version = db.get(DwellStrategyVersion, payload.dwell_strategy_version_id)
         if dwell_version is None:
@@ -199,6 +225,8 @@ def log_platform_test(
         # One covering this Platform, or a default dwell.
         if not dwell_version.strategy.is_default and platform_id not in dwell_version.strategy.platform_ids:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "That Dwell Strategy doesn't cover this Platform")
+    # Checked before anything is written: a run that doesn't fit is refused whole.
+    observed_rows = _observe(db, platform, pins, observed, records, dwell_version) if observed else []
     test = PlatformTest(
         platform_id=platform_id,
         platform_version_id=latest_version.id if latest_version else None,
@@ -225,6 +253,9 @@ def log_platform_test(
             platform_test_id=test.id,
             commit=False,
         )
+    for row in observed_rows:
+        row.platform_test_id = test.id
+        db.add(row)
     if payload.draft_id is not None:
         db.query(TestRunDraft).filter(
             TestRunDraft.id == payload.draft_id, TestRunDraft.platform_id == platform_id
@@ -235,8 +266,60 @@ def log_platform_test(
         action=AuditAction.create,
         entity_type=AuditEntityType.platform.value,
         entity_id=platform.id,
-        summary=f"Logged a Platform test '{payload.title}' over {len(records)} Emitter{'s' if len(records) != 1 else ''}",
+        summary=f"Logged a Platform test '{payload.title}' over {len(records)} Emitter{'s' if len(records) != 1 else ''}"
+        + _observed_note(observed),
     )
     db.commit()
     [out] = _out(db, [test])
     return out
+
+
+def _observed_note(observed) -> str:
+    """" — 3 of 4 detected, 1 mix-up" for the audit entry."""
+    if not observed:
+        return ""
+    detected = sum(1 for o in observed if o.detected)
+    mixups = sum(len(o.reports) for o in observed)
+    return f" — {detected} of {len(observed)} detected, {mixups} mix-up{'s' if mixups != 1 else ''}"
+
+
+def _observe(db: Session, platform: Platform, pins: dict, observed, records, dwell_version) -> list[ScenarioEmitter]:
+    """Keep what was observed of each Emitter, checked against the run: a
+    mix-up names another of the Platform's Emitters, Modes are of the
+    pinned versions, the dwell is one of the Strategy version's."""
+    versions = {
+        v.id: v
+        for v in db.query(EmitterVersion).filter(EmitterVersion.id.in_([link.emitter_version_id for link in pins.values()]))
+    }
+    names = dict(db.query(Emitter.id, Emitter.name).filter(Emitter.id.in_(list(pins))).all())
+    candidates = {
+        emitter_id: [
+            scenario_service.Candidate(
+                emitter_id=emitter_id,
+                name=names.get(emitter_id) or (versions[link.emitter_version_id].snapshot or {}).get("name", "(Emitter)"),
+                platform_id=platform.id,
+                platform_name=platform.name,
+                modes=scenario_service.mode_names(versions[link.emitter_version_id].snapshot if link.emitter_version_id in versions else None),
+            )
+        ]
+        for emitter_id, link in pins.items()
+    }
+    results = {emitter_id: record.result_override or record.result for emitter_id, record in records}
+    dwells = (dwell_version.snapshot or {}).get("dwells") or [] if dwell_version else None
+    rows = []
+    for i, entry in enumerate(observed):
+        try:
+            rows.append(
+                scenario_service.build(
+                    entry,
+                    emitter=candidates[entry.emitter_id][0],
+                    candidates=candidates,
+                    dwells=dwells,
+                    result=results.get(entry.emitter_id) or scenario_service.worked_out(entry),
+                    notes=entry.notes,
+                    sort_order=i,
+                )
+            )
+        except scenario_service.ScenarioError as exc:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    return rows
