@@ -210,7 +210,7 @@ A manually-created or manually-edited Stagger Mode Line carries its own `frame_t
 
 When logging intercepted parameters during a test, a Stagger set can also record the measured frame time.
 
-On a run's page the intercepted parameters read set by set (numbered when there are several): each value with its label and unit, wrapping to the column, and a stagger's steps as numbered cells of one width that wrap inside it — the first 12 until **Show all N steps** — so a long stagger never runs into the Notes column. A line with nothing logged says *Nothing logged*; a run with only its overall result (no line or Mode results, signals or derived Modes) says so, with **Log it again with results** and **Change the result…**.
+On a run's page the intercepted parameters read set by set (a small numbered marker on each when there are several): each value a small tile — the parameter's name in the accent colour, the value in figures, the unit muted — wrapping to the column, and a stagger's steps as numbered cells of one width that wrap inside it — the first 12 until **Show all N steps** — so a long stagger never runs into the Notes column. The Modes a SIM line was reported as are purple tags (*Default Unknown* grey, a deleted Mode dashed), the line or Mode name is bold, a Mode result's RF in the version tested is one range ("9023–9045 MHz"), and a missed result that was close to its Mode says so in one line — "Close · PW 0.08–0.12 µs above, 2 sets · Edit…", the full detail on hover. A line with nothing logged says *Nothing logged*; a run with only its overall result (no line or Mode results, signals or derived Modes) says so, with **Log it again with results** and **Change the result…**.
 
 ### Confirmation quality & quantity
 

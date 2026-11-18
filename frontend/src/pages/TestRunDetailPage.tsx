@@ -369,7 +369,7 @@ export function TestRunDetailPage() {
             <tbody>
               {[...record.lines].sort((a, b) => compareLineLabels(a.test_line_label, b.test_line_label)).map((l) => (
                 <tr key={l.test_line_id}>
-                  <td>{l.test_line_label}</td>
+                  <td className="run-item-name">{l.test_line_label}</td>
                   <td>
                     <span className={`test-result-badge test-result-${l.outcome}`}>{lineOutcomeLabel(l.outcome)}</span>
                     {l.outcome !== "pass" && (
@@ -384,9 +384,23 @@ export function TestRunDetailPage() {
                     )}
                   </td>
                   <td>
-                    {l.intercepted_as_unknown || l.intercepted_modes.length
-                      ? [...(l.intercepted_as_unknown ? ["Default Unknown"] : []), ...l.intercepted_modes.map((m) => (m.mode_exists ? m.mode_name : `${m.mode_name} (deleted)`))].join(", ")
-                      : "—"}
+                    {l.intercepted_as_unknown || l.intercepted_modes.length ? (
+                      <span className="run-mode-tags">
+                        {l.intercepted_as_unknown && <span className="run-mode-tag unknown">Default Unknown</span>}
+                        {l.intercepted_modes.map((m) => (
+                          <span
+                            key={m.mode_id}
+                            className={m.mode_exists ? "run-mode-tag" : "run-mode-tag deleted"}
+                            title={m.mode_exists ? undefined : "No longer in the Emitter"}
+                          >
+                            {m.mode_name}
+                            {!m.mode_exists && " (deleted)"}
+                          </span>
+                        ))}
+                      </span>
+                    ) : (
+                      <span className="hint-text">Not reported</span>
+                    )}
                   </td>
                   <td>
                     <ObservedValuesTable sets={l.observed_values} empty="" />
@@ -409,8 +423,7 @@ export function TestRunDetailPage() {
             <thead>
               <tr>
                 <th>Mode</th>
-                <th className="num" title="In the version tested, deltas applied">RF Min [MHz]</th>
-                <th className="num" title="In the version tested, deltas applied">RF Max [MHz]</th>
+                <th title="The Mode's RF in the version tested, deltas applied">RF tested</th>
                 <th>Result</th>
                 <th className="col-params">Intercepted parameters</th>
                 <th>Notes</th>
@@ -421,7 +434,7 @@ export function TestRunDetailPage() {
                 const [lo, hi] = record.mode_rf_mhz?.[m.mode_id] ?? modeRf(modesById.get(m.mode_id));
                 return (
                 <tr key={m.mode_id}>
-                  <td>
+                  <td className="run-item-name">
                     {m.mode_name}
                     {!m.mode_exists && (
                       <span className="hint-text" title="No longer in the Emitter — the result is kept">
@@ -430,8 +443,18 @@ export function TestRunDetailPage() {
                       </span>
                     )}
                   </td>
-                  <td className="num">{mhz(lo)}</td>
-                  <td className="num">{mhz(hi)}</td>
+                  <td className="run-rf-range">
+                    {lo == null && hi == null ? (
+                      <span className="hint-text">—</span>
+                    ) : (
+                      <>
+                        <span className="obs-num">
+                          {mhz(lo)}–{mhz(hi)}
+                        </span>{" "}
+                        <span className="obs-unit">MHz</span>
+                      </>
+                    )}
+                  </td>
                   <td>
                     {m.result && <span className={`test-result-badge test-result-${m.result}`}>{testResultLabel(m.result)}</span>}
                     {m.result !== "pass" && (

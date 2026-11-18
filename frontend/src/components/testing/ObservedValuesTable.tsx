@@ -82,7 +82,11 @@ export function ObservedValuesTable({ sets, empty = "—" }: { sets: ObservedVal
         const steps = v.pri_type === "stagger" ? (v.pri_stagger_values_us ?? []) : [];
         return (
           <div key={i} className="obs-set">
-            {list.length > 1 && <span className="obs-set-n">Set {i + 1}</span>}
+            {list.length > 1 && (
+              <span className="obs-set-n" title={`Set ${i + 1} of ${list.length}`} aria-label={`Set ${i + 1}`}>
+                {i + 1}
+              </span>
+            )}
             {values.length > 0 && (
               <dl className="obs-values">
                 {values.map((x) => (
