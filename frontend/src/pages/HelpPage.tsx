@@ -237,6 +237,13 @@ export function HelpPage() {
           The landing page after login: one row per subject, the cards in a row the same height. Each card loads on
           its own.
         </p>
+        <p>
+          <strong>Weekly update…</strong> (top right) makes the week&apos;s progress into one 16:9 slide for the morning
+          brief: pick the week ending (the 7 days up to it), which sections go on it — the current MDF&apos;s progress
+          and the Emitter work to start, testing and next up to add — a title and an optional headline. The preview is
+          the slide itself; <strong>Download PNG</strong> (1920 × 1080, fills a slide) or <strong>Copy image</strong> to
+          paste it straight into PowerPoint.
+        </p>
         <ul>
           <li>
             <strong>Your work</strong> — your open tasks, the Emitters assigned to you, and the ones you&apos;re

@@ -15,6 +15,7 @@ from app.core.downloads import attachment_disposition
 from app.models.mdf import Mdf
 from app.services.emitter_report_service import ReportError, build_mdf_report, build_report
 from app.services.report_compare import WorkbookError, compare_workbooks, read_workbook
+from app.services.weekly_update_service import weekly_update
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -122,3 +123,15 @@ def compare_mdf_report(
         "difference_count": len(differences),
         "differences": differences[:MAX_DIFFERENCES],
     }
+
+
+@router.get("/weekly")
+def weekly_progress_update(
+    end: date | None = None,
+    db: Session = Depends(get_db),
+    _=Depends(require_role(Role.viewer)),
+) -> dict:
+    """The weekly progress update: the 7 days up to `end` (today when left
+    out) — the current MDF, the Emitter work, the testing and what's next.
+    The app draws it as a slide; this is its numbers."""
+    return weekly_update(db, end or date.today())

@@ -398,3 +398,25 @@ test("Platform test: some Emitters transmitting, detection, a mix-up, verdicts",
   await expect(page.getByText("Dwell 2 · 3000 MHz")).toBeVisible();
   for (const e of made) await removeEmitter(page, e.id);
 });
+
+test("Weekly update: pick what's on the slide, see it, download it as a 16:9 PNG", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Weekly update…" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("checkbox", { name: /Current MDF progress/ })).toBeChecked();
+  await expect(dialog.getByRole("checkbox", { name: /Testing this week/ })).not.toBeChecked();
+  await dialog.getByRole("checkbox", { name: /Testing this week/ }).check();
+  await dialog.getByLabel("Headline (optional)").fill("All on track.");
+  const preview = dialog.locator(".weekly-preview img");
+  await expect(preview).toBeVisible();
+  // The preview is the slide itself: it carries what was picked and typed.
+  await expect.poll(async () => decodeURIComponent((await preview.getAttribute("src")) ?? "")).toContain("All on track.");
+  expect(decodeURIComponent((await preview.getAttribute("src")) ?? "")).toContain("Testing this week");
+  const [download] = await Promise.all([page.waitForEvent("download"), dialog.getByRole("button", { name: "Download PNG" }).click()]);
+  expect(download.suggestedFilename()).toMatch(/^Weekly progress \d{4}-\d{2}-\d{2} to \d{4}-\d{2}-\d{2}\.png$/);
+  const png = await (await download.createReadStream()).toArray();
+  const bytes = Buffer.concat(png);
+  // PNG header, then the size: 1920 × 1080.
+  expect(bytes.subarray(1, 4).toString()).toBe("PNG");
+  expect([bytes.readUInt32BE(16), bytes.readUInt32BE(20)]).toEqual([1920, 1080]);
+});

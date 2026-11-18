@@ -589,6 +589,14 @@ A test record automatically pins to whichever version of the Emitter or MDF was 
 
 The **Dashboard** is the landing page after login. It has one row per subject, and the cards in a row are the same height. Each card loads on its own, so a slow one never holds up the rest.
 
+**Weekly update…** (top right, for anyone signed in) makes the week's progress into one 16:9 slide for a section's morning brief. Pick the **week ending** (today to start; the slide covers the 7 days up to it, e.g. "12 – 18 Nov 2026"), what's **on the slide** — **Current MDF progress** and **Emitter work this week** to start, **Testing this week** and **Next up and blockers** to add — a **title** and an optional **headline** (the week in a sentence, under the title). The preview beside it is the slide itself. **Download PNG** saves it at 1920 × 1080, which fills a 16:9 PowerPoint slide; **Copy image** (where the browser allows it — over HTTPS or on this machine) puts it on the clipboard to paste straight into the slide. The slide is light, like a slide, whatever the app's theme, and in the app's font. What each section says:
+- **Current MDF progress** — the current MDF (as the Dashboard's Current MDF card has it): its status and due date, Emitters Operational out of all and the change this week, how many aren't done, SIM Test Lines correct; Emitters by status and SIM Test Lines by latest outcome as bars; the week's progress-log entries.
+- **Emitter work this week** — across all Emitters: status moves (how many to Operational) and each move, Modes added (changed, removed), versions saved and on how many Emitters, the Emitters with the most Mode changes, the versions saved.
+- **Testing this week** — Emitter test runs (pass, fail), Platform tests, MDF tests and mix-ups found, with all their results as a bar.
+- **Next up and blockers** — open, overdue and unassigned tasks, Emitters needing rework, and the current MDF's Next up (the Emitters furthest from done, each with its main reason).
+
+One section fills the slide, two or three sit side by side, four make a 2 × 2 grid; a list longer than its card ends in "+N more". The numbers come from the audit trail and the records (`GET /reports/weekly?end=YYYY-MM-DD`); nothing is saved.
+
 **Your work.** One line: your open tasks (and how many are up for grabs), the Emitters assigned to you, and the Emitters you're editing, with how long you've held the oldest. Clicking **You're editing** lists them with how long each has been held. A note says how many you've held over 8 hours. See [Tasks & Assignment](#15-tasks--assignment).
 
 **Current release.** The MDF being worked towards, and its changelog.

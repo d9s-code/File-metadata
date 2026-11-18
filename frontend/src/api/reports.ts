@@ -43,3 +43,48 @@ export const reportsApi = {
     return api.post<ReportComparison>(`/reports/mdfs/${mdfId}/compare`, form);
   },
 };
+
+/** The weekly progress update's numbers: the 7 days up to `end` (GET /reports/weekly). */
+export interface WeeklyUpdate {
+  start: string;
+  end: string;
+  mdf: {
+    name: string;
+    status: string;
+    customer: string | null;
+    due_date: string | null;
+    days_left: number | null;
+    emitters: number;
+    operational: number;
+    operational_week_ago: number;
+    by_status: { key: string; label: string; color: string; count: number }[];
+    sim: { pass?: number; partial?: number; fail?: number; untested?: number };
+    not_done: number;
+    next_up: { name: string; reason: string; more: number; assignee: string | null }[];
+    log: { date: string; kind: string; body: string; author: string | null }[];
+  } | null;
+  emitters: {
+    status_moves: { emitter: string; from: string; to: string; to_key: string | null; date: string }[];
+    to_operational: number;
+    to_rework: number;
+    modes: { added: number; changed: number; removed: number };
+    emitters_touched: number;
+    busiest: { emitter: string; added: number; changed: number; removed: number }[];
+    versions: { emitter: string; version: number; date: string }[];
+    needs_rework: number;
+  };
+  testing: {
+    emitter_runs: number;
+    emitter_results: Record<"pass" | "partial" | "fail" | "inconclusive", number>;
+    platform_tests: number;
+    platform_results: Record<"pass" | "partial" | "fail" | "inconclusive", number>;
+    mdf_tests: number;
+    mdf_results: Record<"pass" | "partial" | "fail" | "inconclusive", number>;
+    mixups: number;
+  };
+  outlook: { open_tasks: number; overdue_tasks: number; unassigned_tasks: number };
+}
+
+export const weeklyApi = {
+  get: (end: string) => api.get<WeeklyUpdate>(`/reports/weekly?end=${encodeURIComponent(end)}`),
+};

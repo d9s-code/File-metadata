@@ -157,3 +157,19 @@ a.health-tile:hover { background: var(--hover-bg); text-decoration: none; }
 
 /* Backup, compact: the actions at the bottom of the card. */
 .dashboard-row .backup-card .backup-card-next.compact { margin-top: auto; }
+/* Weekly progress update: options beside the slide's preview. */
+.modal-dialog.weekly-dialog { width: min(1320px, 96vw); max-width: 96vw; }
+.weekly-layout { display: grid; grid-template-columns: 20rem 1fr; gap: 1.25rem; align-items: start; }
+.weekly-options { display: flex; flex-direction: column; gap: 0.8rem; }
+.weekly-options > label { display: flex; flex-direction: column; gap: 0.25rem; font-weight: 600; }
+.weekly-options textarea { resize: vertical; }
+.weekly-sections { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.5rem 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.weekly-sections legend { font-weight: 600; padding: 0 0.3rem; }
+.weekly-section { align-items: flex-start; white-space: normal; }
+.weekly-section > span { display: flex; flex-direction: column; gap: 0.1rem; }
+.weekly-section input { margin-top: 0.2rem; }
+.weekly-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.weekly-message { color: var(--text); }
+.weekly-preview { border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; background: #fff; aspect-ratio: 16 / 9; }
+.weekly-preview img { display: block; width: 100%; height: auto; }
+.weekly-preview-empty { display: grid; place-items: center; height: 100%; background: var(--card-bg, transparent); }

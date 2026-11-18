@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { PageHeader } from "../components/common/PageHeader";
 import { LoadingState } from "../components/common/LoadingState";
 import { BackupCard } from "../components/dashboard/BackupCard";
@@ -7,6 +7,7 @@ import { CustomerChangesCard } from "../components/dashboard/CustomerChangesCard
 import { HealthCard } from "../components/dashboard/HealthCard";
 import { LatestRunsCard, NeedsRedoCard } from "../components/dashboard/TestRunCards";
 import { YourWorkRow } from "../components/dashboard/YourWorkRow";
+import { WeeklyUpdateDialog } from "../components/dashboard/WeeklyUpdateDialog";
 import { useDashboardHealth, useDashboardRelease, useDashboardTestRuns } from "../state/hooks/useDashboard";
 
 /** One row per subject; in a row, the cards are the same height. */
@@ -34,10 +35,16 @@ export function DashboardPage() {
   const release = useDashboardRelease();
   const testRuns = useDashboardTestRuns();
   const health = useDashboardHealth();
+  const [weekly, setWeekly] = useState(false);
 
   return (
     <div className="page dashboard-page">
-      <PageHeader title="Dashboard" />
+      <PageHeader title="Dashboard">
+        <button type="button" className="button secondary" onClick={() => setWeekly(true)} title="The week's progress as a slide for the morning brief">
+          Weekly update…
+        </button>
+      </PageHeader>
+      {weekly && <WeeklyUpdateDialog onClose={() => setWeekly(false)} />}
       <Row title="Your work" wide>
         <YourWorkRow />
       </Row>
