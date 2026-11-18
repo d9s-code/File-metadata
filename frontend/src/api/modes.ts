@@ -52,6 +52,8 @@ export interface BatchModeFieldEdit {
   /** A Fixed PRI's jitter (µs) — set on the selected Fixed Modes only. */
   jitter_min_us?: number;
   jitter_max_us?: number;
+  /** ± on the jitter range, Fixed Modes only. */
+  jitter_delta?: number;
   rf_min_shift?: number;
   rf_max_shift?: number;
   pw_min_shift?: number;

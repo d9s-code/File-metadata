@@ -80,7 +80,7 @@ def line_for(mode: Mode, item: PlannedPrsMode) -> tuple[ModeLineFields, list[str
     notes: list[str] = []
     old = mode.line
     if old is not None:
-        removed = [label for key, label in (("rf_delta", "RF"), ("pw_delta", "PW"), ("pri_delta", "PRI")) if float(getattr(old, key) or 0)]
+        removed = [label for key, label in (("rf_delta", "RF"), ("pw_delta", "PW"), ("pri_delta", "PRI"), ("jitter_delta", "Jitter")) if float(getattr(old, key) or 0)]
         if removed:
             notes.append(f"{', '.join(removed)} delta{'s' if len(removed) > 1 else ''} removed — the file's values already include them")
         if old.type_data and item.parsed.pri_type == mode.pri_type:

@@ -61,7 +61,7 @@ OTHER_FIELDS: dict[str, tuple[str, str]] = {
     "confirmation_quantity": ("Confirmation quantity", ""),
 }
 # The values only one PRI type has.
-_FIXED_ONLY = ("pri_min_us", "pri_max_us", "pri_delta", "jitter_min_us", "jitter_max_us")
+_FIXED_ONLY = ("pri_min_us", "pri_max_us", "pri_delta", "jitter_min_us", "jitter_max_us", "jitter_delta")
 _STAGGER_ONLY = ("pri_stagger_values_us", "frame_time_delta_us", "explicit_frame_time_us")
 
 

@@ -71,6 +71,7 @@ export function BatchEditModal({
   const [frameTimeDelta, setFrameTimeDelta] = useState("");
   const [jitterMin, setJitterMin] = useState("");
   const [jitterMax, setJitterMax] = useState("");
+  const [jitterDelta, setJitterDelta] = useState("");
   const [confirmationQuality, setConfirmationQuality] = useState("");
   const [confirmationQuantity, setConfirmationQuantity] = useState("");
 
@@ -121,6 +122,8 @@ export function BatchEditModal({
     if (jMin !== undefined) fields.jitter_min_us = jMin;
     const jMax = numOrUndefined(jitterMax);
     if (jMax !== undefined) fields.jitter_max_us = jMax;
+    const jD = numOrUndefined(jitterDelta);
+    if (jD !== undefined) fields.jitter_delta = jD;
     const rfMinS = numOrUndefined(rfMinShift);
     if (rfMinS !== undefined) fields.rf_min_shift = rfMinS;
     const rfMaxS = numOrUndefined(rfMaxShift);
@@ -287,6 +290,10 @@ export function BatchEditModal({
             <label>
               Jitter max (µs)
               <input type="number" step="any" min="0" value={jitterMax} onChange={(e) => setJitterMax(e.target.value)} />
+            </label>
+            <label>
+              Jitter ± delta (µs)
+              <input type="number" step="any" min="0" value={jitterDelta} onChange={(e) => setJitterDelta(e.target.value)} />
             </label>
           </div>
         </div>

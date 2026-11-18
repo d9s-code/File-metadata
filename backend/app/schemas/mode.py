@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validat
 from app.core.enums import PriType, TestResult, TestType
 from app.models.mode import DEFAULT_CONFIRMATION_QUALITY, DEFAULT_CONFIRMATION_QUANTITY
 from app.schemas.intercept import InterceptEntryBrief
-from app.services.delta import apply_delta
+from app.services.delta import apply_delta, apply_jitter_delta
 from app.services.frametime_service import FRAME_TIME_DECIMALS, effective_frametime_us
 
 
@@ -28,6 +28,7 @@ NON_DSL_LINE_FIELDS = {
     "rf_delta",
     "pw_delta",
     "pri_delta",
+    "jitter_delta",
     "frame_time_delta_us",
     "explicit_frame_time_us",
     "rf_range_matching",
@@ -54,6 +55,8 @@ class ModeLineFields(BaseModel):
     pri_max_us: float | None = None
     jitter_min_us: float | None = None
     jitter_max_us: float | None = None
+    # Fixed only, optional: ± on the jitter range (none — the range as typed).
+    jitter_delta: float | None = None
     pri_stagger_values_us: list[float] | None = None
     frame_time_delta_us: float | None = None
     # Stagger only — overrides the sum of pri_stagger_values_us when set.
@@ -63,6 +66,7 @@ class ModeLineFields(BaseModel):
     _validate_rf_delta = field_validator("rf_delta")(_validate_delta)
     _validate_pw_delta = field_validator("pw_delta")(_validate_delta)
     _validate_pri_delta = field_validator("pri_delta")(_validate_delta)
+    _validate_jitter_delta = field_validator("jitter_delta")(_validate_delta)
     _validate_frame_time_delta = field_validator("frame_time_delta_us")(_validate_delta)
 
     @field_validator("explicit_frame_time_us")
@@ -113,6 +117,8 @@ def validate_pri_type_fields(pri_type: PriType, fields: ModeLineFields) -> None:
             raise ValueError("Stagger PRI must not set jitter_min_us/jitter_max_us")
         if fields.pri_delta is not None:
             raise ValueError("Stagger PRI must not set pri_delta")
+        if fields.jitter_delta is not None:
+            raise ValueError("Stagger PRI must not set jitter_delta")
         if fields.frame_time_delta_us is None:
             raise ValueError("Stagger PRI requires frame_time_delta_us")
     elif pri_type == PriType.cw:
@@ -123,6 +129,8 @@ def validate_pri_type_fields(pri_type: PriType, fields: ModeLineFields) -> None:
             raise ValueError("CW PRI carries no PRI/Jitter value")
         if fields.pri_delta is not None:
             raise ValueError("CW PRI must not set pri_delta")
+        if fields.jitter_delta is not None:
+            raise ValueError("CW PRI must not set jitter_delta")
         if fields.frame_time_delta_us is not None:
             raise ValueError("CW PRI must not set frame_time_delta_us")
         if fields.explicit_frame_time_us is not None:
@@ -135,6 +143,8 @@ def validate_pri_type_fields(pri_type: PriType, fields: ModeLineFields) -> None:
             raise ValueError("Xlet PRI has no fields defined yet")
         if fields.pri_delta is not None:
             raise ValueError("Xlet PRI must not set pri_delta")
+        if fields.jitter_delta is not None:
+            raise ValueError("Xlet PRI must not set jitter_delta")
         if fields.frame_time_delta_us is not None:
             raise ValueError("Xlet PRI must not set frame_time_delta_us")
         if fields.explicit_frame_time_us is not None:
@@ -321,6 +331,8 @@ class BatchModeFieldEdit(BaseModel):
     pw_delta: float | None = None
     pri_delta: float | None = None
     frame_time_delta_us: float | None = None
+    # ± on a Fixed PRI's jitter range, set on the selected Fixed Modes (others are left as they are).
+    jitter_delta: float | None = None
     # A Fixed PRI's jitter range, set on the selected Fixed Modes (either bound
     # alone keeps the other); Modes of other PRI types have none and are left
     # as they are. One jitter across many Modes is common — unlike RF or PRI.
@@ -343,6 +355,7 @@ class BatchModeFieldEdit(BaseModel):
     _validate_rf_delta = field_validator("rf_delta")(_validate_delta)
     _validate_pw_delta = field_validator("pw_delta")(_validate_delta)
     _validate_pri_delta = field_validator("pri_delta")(_validate_delta)
+    _validate_jitter_delta = field_validator("jitter_delta")(_validate_delta)
     _validate_frame_time_delta = field_validator("frame_time_delta_us")(_validate_delta)
 
     def has_shift(self) -> bool:
@@ -503,6 +516,16 @@ class ModeLineOut(ModeLineFields):
     @property
     def engineered_pri_max_us(self) -> float | None:
         return apply_delta(self.pri_min_us, self.pri_max_us, self.pri_delta)[1]
+
+    @computed_field
+    @property
+    def engineered_jitter_min_us(self) -> float | None:
+        return apply_jitter_delta(self.jitter_min_us, self.jitter_max_us, self.jitter_delta)[0]
+
+    @computed_field
+    @property
+    def engineered_jitter_max_us(self) -> float | None:
+        return apply_jitter_delta(self.jitter_min_us, self.jitter_max_us, self.jitter_delta)[1]
 
     @computed_field
     @property

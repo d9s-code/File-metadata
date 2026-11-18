@@ -21,11 +21,15 @@ def render_mode_line(
     jitter_min_us: float | None = None,
     jitter_max_us: float | None = None,
     pri_stagger_values_us: list[float] | None = None,
+    jitter_delta: float | None = None,
 ) -> str:
     """The inverse of parser.parse_mode_line — renders canonical DSL text so
     elements/cartesian-product output can always be shown as a mode line,
-    proven consistent with parsing via round-trip tests.
+    proven consistent with parsing via round-trip tests. Like every delta,
+    the jitter delta isn't part of the text (accepted here only so the many
+    callers passing a whole line needn't each leave it out).
     """
+    del jitter_delta
     rf = f"RF {_fmt(rf_min_mhz)}-{_fmt(rf_max_mhz)}"
     pw = f"PW {_fmt(pw_min_us)}-{_fmt(pw_max_us)}"
 

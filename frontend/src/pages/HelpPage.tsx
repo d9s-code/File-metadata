@@ -424,7 +424,8 @@ export function HelpPage() {
               suggested name (the next free &ldquo;EW Group n&rdquo;), the EW Group and Source, then one row each for
               RF, PRI (with its type) and PW. For a single value, fill in <em>min</em> and leave <em>max</em> blank.
               Under each row you see what it will match once its ± delta is added (&ldquo;Matches 2,999 – 3,001
-              MHz&rdquo;), or, for a stagger, its steps and frame time. A mistake is pointed out under its row once
+              MHz&rdquo;), or, for a stagger, its steps and frame time. A Fixed PRI&apos;s jitter has its own ± delta
+              too (it never takes the jitter below 0 µs), applied in the export and in matching like the others. A mistake is pointed out under its row once
               you move on, in plain words, and the form won&apos;t save until it&apos;s fixed.{" "}
               <strong>Start from</strong> fills everything in from an existing Mode. <strong>Add &amp; next</strong>{" "}
               saves this one and starts the next with the same EW Group, Source, PRI type and deltas, and the next
@@ -456,7 +457,7 @@ export function HelpPage() {
             </p>
             <p>
               Tick a Mode's checkbox (or several) and a bar appears at the bottom of the window with{" "}
-              <strong>Batch edit</strong>, for applying the same field, delta, jitter (Fixed Modes only) or
+              <strong>Batch edit</strong>, for applying the same field, delta, jitter and jitter ± delta (Fixed Modes only) or
               range-shift change to all of them at once — and to mark them <strong>test-derived</strong> or unmark
               them: beside each of the Emitter&apos;s test runs (saying how many of them are linked to it already),
               pick <strong>Mark derived</strong> or <strong>Remove</strong> (on its own or with other changes; a Mode

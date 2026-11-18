@@ -12,7 +12,7 @@ export function formatPri(mode: Mode): string {
   if (!line) return "—";
   switch (mode.pri_type) {
     case "fixed":
-      return `${line.pri_min_us}–${line.pri_max_us} µs (jitter ${line.jitter_min_us}–${line.jitter_max_us})`;
+      return `${line.pri_min_us}–${line.pri_max_us} µs (jitter ${line.jitter_min_us}–${line.jitter_max_us}${line.jitter_delta ? ` ±${line.jitter_delta}` : ""})`;
     case "stagger":
       return `[${(line.pri_stagger_values_us ?? []).join(", ")}] µs`;
     case "cw":
@@ -75,7 +75,15 @@ export function jitterOrFrameTimeDisplay(mode: Mode, engineered: boolean): Jitte
   const line = mode.line;
   if (!line) return { min: null, max: null, label: null, delta: null };
   if (mode.pri_type === "fixed") {
-    return { min: line.jitter_min_us ?? null, max: line.jitter_max_us ?? null, label: "jitter", delta: null };
+    if (engineered) {
+      return {
+        min: line.engineered_jitter_min_us ?? line.jitter_min_us ?? null,
+        max: line.engineered_jitter_max_us ?? line.jitter_max_us ?? null,
+        label: "jitter",
+        delta: null,
+      };
+    }
+    return { min: line.jitter_min_us ?? null, max: line.jitter_max_us ?? null, label: "jitter", delta: line.jitter_delta || null };
   }
   if (mode.pri_type === "stagger") {
     if (engineered) {

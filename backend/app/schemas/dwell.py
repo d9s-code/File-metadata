@@ -285,6 +285,8 @@ class ModeDefaults(BaseModel):
     rf_delta: float = Field(ge=0)
     pri_delta: float = Field(ge=0)
     pw_delta: float = Field(ge=0)
+    # A Fixed Mode's ± on its jitter range (added after the others: has a default).
+    jitter_delta: float = Field(default=0.0, ge=0)
     # Each stagger step's ± buffer when steps are compared: the ambiguity
     # check (two steps overlap within twice it) and a test run's logged steps.
     stagger_step_delta_us: float = Field(default=1.0, ge=0, le=1_000)

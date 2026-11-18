@@ -1049,6 +1049,7 @@ _MODE_DEFAULT_LABELS = {
     "rf_delta": ("RF delta", " MHz"),
     "pri_delta": ("PRI delta", " µs"),
     "pw_delta": ("PW delta", " µs"),
+    "jitter_delta": ("jitter delta", " µs"),
 }
 
 

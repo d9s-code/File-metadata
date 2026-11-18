@@ -43,6 +43,7 @@ _NON_DSL_LINE_FIELDS = {
     "rf_delta",
     "pw_delta",
     "pri_delta",
+    "jitter_delta",
     "frame_time_delta_us",
     "explicit_frame_time_us",
     "rf_range_matching",
@@ -80,7 +81,7 @@ _SHIFT_TARGET_FIELDS = {
     "pri_max_shift": "pri_max_us",
 }
 # Set on Fixed Modes only — no other PRI type has a jitter.
-_JITTER_KEYS = {"jitter_min_us", "jitter_max_us"}
+_JITTER_KEYS = {"jitter_min_us", "jitter_max_us", "jitter_delta"}
 
 
 @dataclass
@@ -109,6 +110,7 @@ def _current_line_values(mode: Mode) -> dict[str, Any]:
         "pri_max_us": float(line.pri_max_us) if line.pri_max_us is not None else None,
         "jitter_min_us": float(line.jitter_min_us) if line.jitter_min_us is not None else None,
         "jitter_max_us": float(line.jitter_max_us) if line.jitter_max_us is not None else None,
+        "jitter_delta": float(line.jitter_delta) if line.jitter_delta is not None else None,
         "pri_stagger_values_us": [float(v) for v in line.pri_stagger_values_us] if line.pri_stagger_values_us else None,
         "frame_time_delta_us": float(line.frame_time_delta_us) if line.frame_time_delta_us is not None else None,
         "explicit_frame_time_us": (

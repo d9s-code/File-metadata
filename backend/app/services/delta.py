@@ -12,3 +12,12 @@ def apply_delta(
     if value_min is None or value_max is None or not delta:
         return value_min, value_max
     return round(value_min - delta, 4), round(value_max + delta, 4)
+
+
+def apply_jitter_delta(
+    jitter_min: float | None, jitter_max: float | None, delta: float | None
+) -> tuple[float | None, float | None]:
+    """A jitter range widened by its delta, like apply_delta — but never below
+    0 µs: there's no negative jitter."""
+    lo, hi = apply_delta(jitter_min, jitter_max, delta)
+    return (max(lo, 0.0) if lo is not None else None), hi

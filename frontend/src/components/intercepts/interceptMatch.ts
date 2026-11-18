@@ -209,7 +209,8 @@ export function compareEntryToMode(entry: MatchableEntry, mode: Mode, checks: Ma
     );
     // The jitter measured against the Mode's jitter range.
     if (checks.jitter && entry.pri_type === "fixed" && entry.jitter_mean_us != null) {
-      const j = range(line.jitter_min_us, line.jitter_max_us);
+      // With its ± delta (never below 0), as the sensor matches it.
+      const j = range(line.engineered_jitter_min_us ?? line.jitter_min_us, line.engineered_jitter_max_us ?? line.jitter_max_us);
       if (j && (entry.jitter_mean_us < j.min - 1e-9 || entry.jitter_mean_us > j.max + 1e-9)) {
         misses.push({ param: "PRI", value: entry.jitter_mean_us, min: j.min, max: j.max, unit: "µs", label: "Jitter" });
       }

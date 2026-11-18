@@ -27,6 +27,7 @@ MODE_DEFAULT_VALUES: dict[str, float] = {
     "rf_delta": 0.0,
     "pri_delta": 0.0,
     "pw_delta": 0.0,
+    "jitter_delta": 0.0,
     # Each stagger step's ± buffer when steps are compared (not a Mode field).
     "stagger_step_delta_us": 1.0,
     # A near miss (one value off) counts only this close to the Mode: within

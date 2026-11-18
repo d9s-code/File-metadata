@@ -144,6 +144,7 @@ export const BUILT_IN_MODE_DEFAULTS: ModeDefaults = {
   rf_delta: 0,
   pri_delta: 0,
   pw_delta: 0,
+  jitter_delta: 0,
   stagger_step_delta_us: 1,
   near_miss_pct: 5,
 };

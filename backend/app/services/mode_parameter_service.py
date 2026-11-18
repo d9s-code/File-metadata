@@ -28,6 +28,7 @@ PARAM_FIELDS = {
         "pri_max_us",
         "jitter_min_us",
         "jitter_max_us",
+        "jitter_delta",
         "pri_delta",
         "pri_stagger_values_us",
         "frame_time_delta_us",
@@ -109,7 +110,7 @@ def _new_line(parameter: str, base: dict, values: dict, pri_type: PriType | None
         else:
             line[f] = None
     if parameter == "pri" and pri_type == PriType.stagger:
-        for f in ("pri_min_us", "pri_max_us", "jitter_min_us", "jitter_max_us", "pri_delta"):
+        for f in ("pri_min_us", "pri_max_us", "jitter_min_us", "jitter_max_us", "jitter_delta", "pri_delta"):
             line[f] = None
     if parameter == "pri" and pri_type == PriType.fixed:
         for f in ("pri_stagger_values_us", "frame_time_delta_us", "explicit_frame_time_us"):

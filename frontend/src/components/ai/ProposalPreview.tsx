@@ -19,7 +19,7 @@ function margin(v: LineValue): string {
 /** A proposal's PRI in words: a Fixed range with its jitter, a stagger's steps, or CW. */
 function pri(p: ModeProposal): string {
   const l = p.line;
-  if (p.pri_type === "fixed") return `${span(l.pri_min_us, l.pri_max_us)}${margin(l.pri_delta)} µs · jitter ${span(l.jitter_min_us, l.jitter_max_us)}`;
+  if (p.pri_type === "fixed") return `${span(l.pri_min_us, l.pri_max_us)}${margin(l.pri_delta)} µs · jitter ${span(l.jitter_min_us, l.jitter_max_us)}${margin(l.jitter_delta)}`;
   if (p.pri_type === "stagger") {
     const steps = Array.isArray(l.pri_stagger_values_us) ? l.pri_stagger_values_us.join(", ") : "—";
     const frame = typeof l.explicit_frame_time_us === "number" ? ` · frame ${l.explicit_frame_time_us} µs` : "";

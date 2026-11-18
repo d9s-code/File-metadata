@@ -16,6 +16,7 @@ export interface LineValues {
   priRange: boolean;
   jitterMin: string;
   jitterMax: string;
+  jitterDelta: string;
   stagger: string;
   frameTimeDelta: string;
   pwMin: string;
@@ -37,6 +38,7 @@ export const BLANK_LINE: LineValues = {
   priRange: false,
   jitterMin: "0",
   jitterMax: "1",
+  jitterDelta: "0",
   stagger: "",
   frameTimeDelta: "0",
   pwMin: "",
@@ -51,6 +53,7 @@ export function blankLine(defaults: ModeDefaults): LineValues {
     ...BLANK_LINE,
     rfDelta: String(defaults.rf_delta),
     priDelta: String(defaults.pri_delta),
+    jitterDelta: String(defaults.jitter_delta ?? 0),
     pwDelta: String(defaults.pw_delta),
     frameTimeDelta: String(defaults.frame_time_delta_us),
   };
@@ -81,6 +84,7 @@ export function lineValuesFrom(
     priRange: line.pri_range_matching,
     jitterMin: str(line.jitter_min_us, "0"),
     jitterMax: str(line.jitter_max_us, "1"),
+    jitterDelta: str(line.jitter_delta, "0"),
     stagger: line.pri_stagger_values_us?.join(", ") ?? "",
     frameTimeDelta: str(line.frame_time_delta_us, String(frameTimeDefault)),
     pwMin: str(line.pw_min_us),
@@ -142,6 +146,11 @@ export function lineProblems(v: LineValues, explicitFrameTime: number | null): P
     if (!Number.isFinite(jMin)) out.jitter = { message: "Enter jitter min (0 for none)", box: "min" };
     else if (!Number.isFinite(jMax)) out.jitter = { message: "Enter jitter max (0 for none)", box: "max" };
     else if (jMax < jMin) out.jitter = { message: `Jitter max (${fmt(jMax)} µs) is below min (${fmt(jMin)} µs)`, box: "max" };
+    else {
+      const jDelta = v.jitterDelta.trim() === "" ? 0 : num(v.jitterDelta);
+      if (!Number.isFinite(jDelta)) out.jitter = { message: "The jitter ± delta isn't a number (0 for none)", box: "delta" };
+      else if (jDelta < 0) out.jitter = { message: "The jitter ± delta can't be negative", box: "delta" };
+    }
   } else if (v.priType === "stagger") {
     const { values, bad } = parseStagger(v.stagger);
     const delta = num(v.frameTimeDelta);
@@ -181,6 +190,7 @@ export function linePayload(v: LineValues, explicitFrameTime: number | null) {
     pri_delta: fixed ? Number(v.priDelta) : undefined,
     jitter_min_us: fixed ? Number(v.jitterMin) : undefined,
     jitter_max_us: fixed ? Number(v.jitterMax) : undefined,
+    jitter_delta: fixed ? Number(v.jitterDelta.trim() === "" ? 0 : v.jitterDelta) : undefined,
     pri_stagger_values_us: stagger ? parseStagger(v.stagger).values : undefined,
     frame_time_delta_us: stagger ? Number(v.frameTimeDelta) : undefined,
     explicit_frame_time_us: stagger ? explicitFrameTime : undefined,
@@ -202,6 +212,18 @@ export function rangePreview(minText: string, maxText: string, deltaText: string
   const lo = Math.round((min - delta) * 1e4) / 1e4;
   const hi = Math.round((max + delta) * 1e4) / 1e4;
   return lo === hi ? `Matches exactly ${fmt(lo)} ${unit}` : `Matches ${fmt(lo)} – ${fmt(hi)} ${unit}`;
+}
+
+/** The jitter the sensor matches: its range ± its delta, never below 0 µs —
+ * "Matches 0 – 5.5 µs", or null while there's no delta to show. */
+export function jitterPreview(minText: string, maxText: string, deltaText: string): string | null {
+  const min = num(minText);
+  const max = num(maxText);
+  const delta = deltaText.trim() === "" ? 0 : num(deltaText);
+  if (!Number.isFinite(min) || !Number.isFinite(max) || !Number.isFinite(delta) || max < min || !(delta > 0)) return null;
+  const lo = Math.max(0, Math.round((min - delta) * 1e4) / 1e4);
+  const hi = Math.round((max + delta) * 1e4) / 1e4;
+  return `Matches ${fmt(lo)} – ${fmt(hi)} µs`;
 }
 
 /** "4 steps · frame 3,330 µs · matches 3,320 – 3,340 µs". */

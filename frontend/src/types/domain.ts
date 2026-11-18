@@ -52,6 +52,9 @@ export interface EmitterSummary {
   engineered_pw_max_us: number | null;
   engineered_pri_min_us: number | null;
   engineered_pri_max_us: number | null;
+  /** A Fixed line's jitter widened by its delta (never below 0). */
+  engineered_jitter_min_us?: number | null;
+  engineered_jitter_max_us?: number | null;
   scan_min: number | null;
   scan_max: number | null;
   mode_count: number;
@@ -200,6 +203,8 @@ export interface ModeLineFields {
   pri_max_us?: number | null;
   jitter_min_us?: number | null;
   jitter_max_us?: number | null;
+  /** Fixed only: ± on the jitter range (null — none). */
+  jitter_delta?: number | null;
   pri_stagger_values_us?: number[] | null;
   frame_time_delta_us?: number | null;
   /** Stagger only — a frame time written in by hand, overriding the sum of
@@ -219,6 +224,9 @@ export interface ModeLine extends ModeLineFields {
   engineered_pw_max_us: number | null;
   engineered_pri_min_us: number | null;
   engineered_pri_max_us: number | null;
+  /** A Fixed line's jitter widened by its delta (never below 0). */
+  engineered_jitter_min_us?: number | null;
+  engineered_jitter_max_us?: number | null;
   frame_time_us: number | null;
   engineered_frame_time_min_us: number | null;
   engineered_frame_time_max_us: number | null;

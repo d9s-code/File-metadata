@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from itertools import combinations
 from typing import Any
 
-from app.services.delta import apply_delta
+from app.services.delta import apply_delta, apply_jitter_delta
 from app.services.frametime_service import effective_frametime_us
 from app.services.mode_sources import mode_source_ids
 
@@ -185,6 +185,10 @@ def compared_line(line: dict, apply_margins: bool) -> dict:
         ("pri_min_us", "pri_max_us", "pri_delta"),
     ):
         out[lo], out[hi] = apply_delta(line.get(lo), line.get(hi), line.get(delta))
+    # A Fixed PRI's jitter, by its own delta (never below 0 µs).
+    out["jitter_min_us"], out["jitter_max_us"] = apply_jitter_delta(
+        line.get("jitter_min_us"), line.get("jitter_max_us"), line.get("jitter_delta")
+    )
     return out
 
 
@@ -224,7 +228,7 @@ def _pri_and_jitter(a: FlatModeLine, b: FlatModeLine, la: dict, lb: dict, apply_
     t = a.pri_type
     if t == "fixed":
         pri_pct = _range_overlap_pct(la["pri_min_us"], la["pri_max_us"], lb["pri_min_us"], lb["pri_max_us"])
-        jitter_pct = _range_overlap_pct(*jitter_span(a.line), *jitter_span(b.line))
+        jitter_pct = _range_overlap_pct(*jitter_span(la), *jitter_span(lb))
         return pri_pct, jitter_pct, "range", None
     if t == "stagger":
         ra, rb = bool(a.line.get("pri_range_matching")), bool(b.line.get("pri_range_matching"))

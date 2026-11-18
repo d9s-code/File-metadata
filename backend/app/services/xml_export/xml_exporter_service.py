@@ -11,7 +11,7 @@ from app.models.emitter import Emitter
 from app.models.mode import Mode, ModeLine
 from app.models.ew_group import EwGroup
 from app.models.source import Source
-from app.services.delta import apply_delta
+from app.services.delta import apply_delta, apply_jitter_delta
 from app.services.frametime_service import effective_frametime_us
 from app.services.prs_export.serializer import base_value, hostility_value, sanitize_filename, speed_attrs
 
@@ -186,8 +186,9 @@ class XMLExporterService:
                 if mode.pri_type == PriType.fixed:
                     pri_min, pri_max = apply_delta(line.pri_min_us, line.pri_max_us, line.pri_delta)
                     etree.SubElement(pri_el, "SimplePRI", Min=str(pri_min), Max=str(pri_max), Units="us")
-                    jitter_min = str(line.jitter_min_us) if line.jitter_min_us is not None else "0"
-                    jitter_max = str(line.jitter_max_us) if line.jitter_max_us is not None else "0"
+                    j_min, j_max = apply_jitter_delta(line.jitter_min_us, line.jitter_max_us, line.jitter_delta)
+                    jitter_min = str(j_min) if j_min is not None else "0"
+                    jitter_max = str(j_max) if j_max is not None else "0"
                     etree.SubElement(pri_el, "Jitter", Min=jitter_min, Max=jitter_max, Units="us")
                     etree.SubElement(pri_el, "IntrapulseData", Name="default")
                 elif mode.pri_type == PriType.stagger and line.pri_stagger_values_us:

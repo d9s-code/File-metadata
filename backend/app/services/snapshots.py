@@ -77,6 +77,7 @@ def _mode_dict(mode: Mode) -> dict:
             "pri_max_us": _num(line.pri_max_us),
             "jitter_min_us": _num(line.jitter_min_us),
             "jitter_max_us": _num(line.jitter_max_us),
+            "jitter_delta": _num(line.jitter_delta),
             "pri_stagger_values_us": _num_list(line.pri_stagger_values_us),
             "rf_delta": _num(line.rf_delta),
             "pw_delta": _num(line.pw_delta),

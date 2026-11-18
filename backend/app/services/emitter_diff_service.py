@@ -83,6 +83,7 @@ MODE_LINE_FIELD_LABELS = {
     "rf_delta": "RF Delta (±MHz)",
     "pw_delta": "PW Delta (±µs)",
     "pri_delta": "PRI Delta (±µs)",
+    "jitter_delta": "Jitter Delta (±µs)",
     "frame_time_delta_us": "Frame Time Delta (±µs)",
     "explicit_frame_time_us": "Frame Time (µs, written in)",
     "rf_range_matching": "RF Range Matching",

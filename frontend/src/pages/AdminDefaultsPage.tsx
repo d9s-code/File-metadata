@@ -15,6 +15,7 @@ const FIELDS: { key: Key; label: string; unit: string; hint: string; whole?: boo
   { key: "rf_delta", label: "RF delta", unit: "± MHz", hint: "", min: 0 },
   { key: "pri_delta", label: "PRI delta (Fixed)", unit: "± µs", hint: "", min: 0 },
   { key: "pw_delta", label: "PW delta", unit: "± µs", hint: "", min: 0 },
+  { key: "jitter_delta", label: "Jitter delta (Fixed)", unit: "± µs", hint: "", min: 0 },
   {
     key: "frame_time_delta_us",
     label: "Frame-time delta (Stagger)",

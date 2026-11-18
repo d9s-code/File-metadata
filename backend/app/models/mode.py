@@ -120,6 +120,8 @@ class ModeLine(UUIDPkMixin, Base):
     pri_max_us: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
     jitter_min_us: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
     jitter_max_us: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
+    # ± on the jitter range, like pri_delta on the PRI (never below 0 µs once applied).
+    jitter_delta: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
 
     # Stagger only (ordered)
     pri_stagger_values_us: Mapped[list[float] | None] = mapped_column(ARRAY(Numeric(14, 4)), nullable=True)

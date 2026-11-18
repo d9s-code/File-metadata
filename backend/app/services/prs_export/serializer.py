@@ -13,7 +13,7 @@ import uuid
 from lxml import etree
 
 from app.models.mode import DEFAULT_CONFIRMATION_QUALITY, DEFAULT_CONFIRMATION_QUANTITY
-from app.services.delta import apply_delta
+from app.services.delta import apply_delta, apply_jitter_delta
 from app.services.frametime_service import effective_frametime_us
 
 PRS_NAMESPACE = "urn:com:bae:prs:pfm:library"
@@ -137,9 +137,9 @@ def _append_mode_element(parent: etree._Element, mode: dict, *, scan_name: str) 
     if pri_type == "fixed":
         pri_min, pri_max = apply_delta(line.get("pri_min_us"), line.get("pri_max_us"), line.get("pri_delta"))
         etree.SubElement(pri_el, "SimplePRI", Min=_num_attr(pri_min), Max=_num_attr(pri_max), Units="us")
-        etree.SubElement(
-            pri_el, "Jitter", Min=_num_attr(line.get("jitter_min_us")), Max=_num_attr(line.get("jitter_max_us")), Units="us"
-        )
+        # Its jitter delta applied too, like the PRI's (never below 0 µs).
+        jitter_min, jitter_max = apply_jitter_delta(line.get("jitter_min_us"), line.get("jitter_max_us"), line.get("jitter_delta"))
+        etree.SubElement(pri_el, "Jitter", Min=_num_attr(jitter_min), Max=_num_attr(jitter_max), Units="us")
         etree.SubElement(pri_el, "IntrapulseData", Name="default")
     elif pri_type == "stagger":
         values = line.get("pri_stagger_values_us") or []

@@ -164,7 +164,12 @@ export function separationChange(
 ): Partial<LineValues> | null {
   if (s.param === "pri" && f.details.pri_basis && f.details.pri_basis !== "range") return null;
   const round = (v: number) => String(Math.round(v * 1e6) / 1e6);
-  if (s.param === "jitter") return { [s.edge === "min" ? "jitterMin" : "jitterMax"]: round(s.target) } as Partial<LineValues>;
+  if (s.param === "jitter") {
+    // Like the other ranges: the typed value is the target less the Mode's jitter ± delta (a max) or plus it (a min).
+    const jd = f.details.margins_applied !== false ? Number(line?.jitter_delta ?? 0) || 0 : 0;
+    const typed = s.edge === "max" ? s.target - jd : Math.max(0, s.target + jd);
+    return { [s.edge === "min" ? "jitterMin" : "jitterMax"]: round(typed) } as Partial<LineValues>;
+  }
   const fields = TYPED_FIELD[s.param];
   const margins = f.details.margins_applied !== false;
   const delta = margins ? Number(line?.[fields.delta] ?? 0) || 0 : 0;
@@ -354,6 +359,7 @@ const LINE_KEYS = [
   "pri_delta",
   "jitter_min_us",
   "jitter_max_us",
+  "jitter_delta",
   "pri_stagger_values_us",
   "frame_time_delta_us",
   "explicit_frame_time_us",

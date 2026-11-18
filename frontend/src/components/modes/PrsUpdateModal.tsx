@@ -19,6 +19,7 @@ const FIELD: Record<string, string> = {
   pri_min_us: "PRI min",
   pri_max_us: "PRI max",
   pri_delta: "PRI ±",
+  jitter_delta: "Jitter ±",
   jitter_min_us: "Jitter min",
   jitter_max_us: "Jitter max",
   pri_stagger_values_us: "Steps",

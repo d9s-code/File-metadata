@@ -5,6 +5,7 @@ import {
   lineProblems,
   linePayload,
   parseStagger,
+  jitterPreview,
   rangePreview,
   staggerPreview,
   type LineBox,
@@ -268,12 +269,15 @@ export function ModeLineFields({ line }: { line: ModeLineState }) {
       </Row>
 
       {v.priType === "fixed" && (
-        <Row row="jitter" name="Jitter" unit="µs" line={line}>
+        <Row row="jitter" name="Jitter" unit="µs" line={line} preview={jitterPreview(v.jitterMin, v.jitterMax, v.jitterDelta)}>
           <Field label="min">
             <NumberInput value={v.jitterMin} onChange={(x) => line.set("jitterMin", x)} aria="Jitter min (µs)" min={0} invalid={line.wrong("jitter", "min")} />
           </Field>
           <Field label="max">
             <NumberInput value={v.jitterMax} onChange={(x) => line.set("jitterMax", x)} aria="Jitter max (µs)" min={0} invalid={line.wrong("jitter", "max")} />
+          </Field>
+          <Field label="± delta" hint="Widens min and max by this much each way (never below 0 µs)">
+            <NumberInput value={v.jitterDelta} onChange={(x) => line.set("jitterDelta", x)} aria="Jitter delta (µs)" min={0} invalid={line.wrong("jitter", "delta")} />
           </Field>
         </Row>
       )}
@@ -309,7 +313,7 @@ export function friendlyServerError(message: string): string {
     [/pri_stagger_values_us/g, "stagger sequence"],
     [/explicit_frame_time_us/g, "frame time"],
     [/frame_time_delta_us/g, "frame time delta"],
-    [/rf_delta|pw_delta|pri_delta/g, "delta"],
+    [/rf_delta|pw_delta|pri_delta|jitter_delta/g, "delta"],
   ];
   let out = message.replace(/Value error,\s*/g, "");
   for (const [re, label] of names) out = out.replace(re, label);

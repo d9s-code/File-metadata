@@ -14,7 +14,7 @@ from app.services.audit_service import record_audit
 # A Mode's line, as its own create and update entries name the fields.
 _LINE_FIELDS = (
     "rf_min_mhz", "rf_max_mhz", "rf_delta", "rf_range_matching",
-    "pri_min_us", "pri_max_us", "pri_delta", "jitter_min_us", "jitter_max_us",
+    "pri_min_us", "pri_max_us", "pri_delta", "jitter_min_us", "jitter_max_us", "jitter_delta",
     "pri_stagger_values_us", "frame_time_delta_us", "explicit_frame_time_us", "pri_range_matching",
     "pw_min_us", "pw_max_us", "pw_delta", "pw_range_matching", "type_data",
 )  # fmt: skip

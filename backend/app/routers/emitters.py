@@ -857,7 +857,7 @@ def delete_generation_batch(
                     "rf_min_mhz", "rf_max_mhz", "pw_min_us", "pw_max_us",
                     "rf_range_matching", "pw_range_matching", "pri_range_matching",
                     "rf_delta", "pw_delta", "pri_delta",
-                    "pri_min_us", "pri_max_us", "jitter_min_us", "jitter_max_us",
+                    "pri_min_us", "pri_max_us", "jitter_min_us", "jitter_max_us", "jitter_delta",
                     "pri_stagger_values_us", "frame_time_delta_us", "explicit_frame_time_us", "type_data",
                 ],
             )

@@ -20,7 +20,7 @@ the lists and Mode values above can be switched off, confirmation, scan
 period and range matching switched on, and values compared as typed rather
 than with their deltas applied. COUNTS_DEFAULT is what counts until then."""
 
-from app.services.delta import apply_delta
+from app.services.delta import apply_delta, apply_jitter_delta
 from app.services.dwell_xml import build_dwell_xml
 from app.services.frametime_service import effective_frametime_us
 from app.services.mdf_compare import _collect
@@ -101,7 +101,8 @@ def exported_values(mode: dict, group: dict, counts: dict[str, bool] | None = No
     }
     if pri_type == "fixed":
         values["PRI"] = _pair(*delta(line.get("pri_min_us"), line.get("pri_max_us"), line.get("pri_delta")))
-        values["Jitter"] = _pair(line.get("jitter_min_us"), line.get("jitter_max_us"))
+        jitter = (lambda lo, hi, d: apply_jitter_delta(lo, hi, d)) if counts["deltas"] else (lambda lo, hi, d: (lo, hi))
+        values["Jitter"] = _pair(*jitter(line.get("jitter_min_us"), line.get("jitter_max_us"), line.get("jitter_delta")))
     elif pri_type == "stagger":
         steps = [_n(v) for v in line.get("pri_stagger_values_us") or []]
         frame = effective_frametime_us(line.get("pri_stagger_values_us") or [], line.get("explicit_frame_time_us"))

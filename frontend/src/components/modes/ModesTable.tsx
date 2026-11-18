@@ -246,7 +246,18 @@ export function ModesTable({
       pw_min: () => td("pw_min", pw.min ?? "—"),
       pw_max: () => td("pw_max", pw.max ?? "—"),
       pw_delta: () => td("pw_delta", deltaText(m.line?.pw_delta)),
-      jitter: () => td("jitter", jft.label === "jitter" ? rangeText(jft.min, jft.max) : <span className="hint-text">—</span>),
+      jitter: () =>
+        td(
+          "jitter",
+          jft.label === "jitter" ? (
+            <>
+              {rangeText(jft.min, jft.max)}
+              {jft.delta ? <span className="hint-text"> ±{jft.delta}</span> : null}
+            </>
+          ) : (
+            <span className="hint-text">—</span>
+          ),
+        ),
       frame_time: () => (
         <td className="num">{jft.label === "frametime" ? rangeText(jft.min, jft.max) : <span className="hint-text">—</span>}</td>
       ),

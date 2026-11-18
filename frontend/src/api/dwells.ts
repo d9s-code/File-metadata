@@ -243,6 +243,8 @@ export interface ModeDefaults {
   rf_delta: number;
   pri_delta: number;
   pw_delta: number;
+  /** A Fixed Mode's ± on its jitter range. */
+  jitter_delta: number;
   /** Each stagger step's ± buffer when steps are compared (ambiguity check,
    * a test run's logged steps) — not a Mode field. */
   stagger_step_delta_us: number;

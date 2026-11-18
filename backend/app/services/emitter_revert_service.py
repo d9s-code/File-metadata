@@ -267,6 +267,7 @@ def _reconcile_mode_line(db: Session, mode: Mode, line_snap: dict | None) -> Non
     line.pri_max_us = _num(line_snap.get("pri_max_us"))
     line.jitter_min_us = _num(line_snap.get("jitter_min_us"))
     line.jitter_max_us = _num(line_snap.get("jitter_max_us"))
+    line.jitter_delta = _num(line_snap.get("jitter_delta"))
     line.pri_stagger_values_us = line_snap.get("pri_stagger_values_us")
     line.rf_delta = _num(line_snap.get("rf_delta"))
     line.pw_delta = _num(line_snap.get("pw_delta"))
@@ -417,6 +418,7 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
                         pri_max_us=_num(line_snap.get("pri_max_us")),
                         jitter_min_us=_num(line_snap.get("jitter_min_us")),
                         jitter_max_us=_num(line_snap.get("jitter_max_us")),
+                        jitter_delta=_num(line_snap.get("jitter_delta")),
                         pri_stagger_values_us=line_snap.get("pri_stagger_values_us"),
                         rf_delta=_num(line_snap.get("rf_delta")),
                         pw_delta=_num(line_snap.get("pw_delta")),
