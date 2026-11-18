@@ -62,8 +62,8 @@ export interface EntryMatch {
   status: EntryMatchStatus;
   /** Modes the entry falls inside on RF, PRI and PW. */
   matches: Mode[];
-  /** Modes it misses on exactly one parameter (a stagger's frame time and
-   * steps are both its PRI) — only listed when nothing matches fully, and
+  /** Modes it misses on exactly one value (RF, PRI or frame time, jitter,
+   * PW, or a stagger's steps) — only listed when nothing matches fully, and
    * never for CW (compared on RF alone, so "one off" would be every CW Mode). */
   near: ModeMatch[];
 }
@@ -155,42 +155,26 @@ export function compareEntryToMode(entry: MatchableEntry, mode: Mode, checks: Ma
     const frameTime =
       range(line.engineered_frame_time_min_us, line.engineered_frame_time_max_us) ??
       (line.frame_time_us != null ? { min: line.frame_time_us, max: line.frame_time_us } : null);
-    let pri = check("PRI", entry.pri_mean_us, frameTime, "µs");
-    const entryPositions = entry.stagger_values?.length ?? 0;
-    const modePositions = line.pri_stagger_values_us?.length ?? 0;
-    if (entryPositions > 0 && modePositions > 0 && entryPositions !== modePositions) {
-      pri = {
-        ...(pri ?? {
-          param: "PRI",
-          value: entry.pri_mean_us ?? 0,
-          min: frameTime?.min ?? 0,
-          max: frameTime?.max ?? 0,
-          unit: "µs",
-          label: "Frame time",
-        }),
-        positions: { entry: entryPositions, mode: modePositions },
-      };
-    }
-    // The steps themselves, in order, when there's the same number of them.
+    // The frame time and the steps are two values: each off counts on its own.
+    const frame = check("PRI", entry.pri_mean_us, frameTime, "µs");
+    misses.push(frame && { ...frame, label: "Frame time" });
+    const stepsMiss: ParamMiss = {
+      param: "PRI",
+      value: entry.pri_mean_us ?? 0,
+      min: frameTime?.min ?? 0,
+      max: frameTime?.max ?? 0,
+      unit: "µs",
+      label: "Steps",
+    };
     const steps = entry.stagger_values ?? [];
     const modeSteps = line.pri_stagger_values_us ?? [];
-    if (checks.sequence && steps.length > 0 && steps.length === modeSteps.length) {
+    if (steps.length > 0 && modeSteps.length > 0 && steps.length !== modeSteps.length) {
+      misses.push({ ...stepsMiss, positions: { entry: steps.length, mode: modeSteps.length } });
+    } else if (checks.sequence && steps.length > 0 && steps.length === modeSteps.length) {
+      // The steps themselves, in order, when there's the same number of them.
       const tol = () => stepTolerance(checks);
-      if (!sameSequence(steps, modeSteps, tol)) {
-        pri = {
-          ...(pri ?? {
-            param: "PRI",
-            value: entry.pri_mean_us ?? 0,
-            min: frameTime?.min ?? 0,
-            max: frameTime?.max ?? 0,
-            unit: "µs",
-            label: "Steps",
-          }),
-          sequence: { entry: steps, mode: modeSteps, tol: tol() },
-        };
-      }
+      if (!sameSequence(steps, modeSteps, tol)) misses.push({ ...stepsMiss, sequence: { entry: steps, mode: modeSteps, tol: tol() } });
     }
-    misses.push(pri && { ...pri, label: pri.label === "Steps" ? "Steps" : "Frame time" });
   } else {
     misses.push(
       check(
@@ -229,7 +213,10 @@ export function matchEntry(entry: MatchableEntry, modes: Mode[], checks: MatchCh
     const misses = compareEntryToMode(entry, mode, checks);
     if (misses == null) continue;
     if (misses.length === 0) matches.push(mode);
-    else if (new Set(misses.map((m) => m.param)).size === 1 && entry.pri_type !== "cw") near.push({ mode, misses });
+    // Near: exactly one value off — RF, PRI (or frame time), jitter, PW, or a
+    // stagger's steps each count on their own, so a PRI and its jitter both
+    // off is two, not one.
+    else if (misses.length === 1 && entry.pri_type !== "cw") near.push({ mode, misses });
   }
   if (matches.length > 0) return { status: "match", matches, near: [] };
   return { status: near.length > 0 ? "near" : "none", matches, near };
@@ -237,21 +224,43 @@ export function matchEntry(entry: MatchableEntry, modes: Mode[], checks: MatchCh
 
 const steps = (v: number[]) => v.map((x) => Number(x.toPrecision(10))).join(", ");
 
-/** e.g. "RF 9244 MHz — Mode covers 9060–9240". */
+/** A number as it reads: no floating-point tail (1.6500000000000001 → 1.65). */
+const num = (x: number) => Number(x.toPrecision(10));
+
+/** How far off a miss is, relative to the Mode's range (its width, or 1% of
+ * the value for a single value) — to list the closest Modes first. A
+ * stagger's step count or order counts as one full range off. */
+export function missCloseness(miss: ParamMiss): number {
+  if (miss.positions || miss.sequence) return 1;
+  const d = miss.value > miss.max ? miss.value - miss.max : miss.min - miss.value;
+  return Math.abs(d) / Math.max(miss.max - miss.min, Math.abs(miss.value) * 0.01, 1e-9);
+}
+
+/** A miss in a few words, e.g. "PW 0.15 µs above" — the full text is describeMiss. */
+export function shortMiss(miss: ParamMiss): string {
+  if (miss.positions) return `${miss.positions.entry} steps, Mode has ${miss.positions.mode}`;
+  if (miss.sequence) return "Steps differ";
+  return `${miss.label} ${missDistance(miss)}`;
+}
+
+/** How far a value is outside a range, e.g. "4 above" (rounded to read). */
+export function missDistance(miss: ParamMiss): string {
+  const d = miss.value > miss.max ? miss.value - miss.max : miss.min - miss.value;
+  return `${Number(Math.abs(d).toPrecision(3))} ${miss.unit} ${miss.value > miss.max ? "above" : "below"}`;
+}
+
+/** e.g. "RF 9244 MHz — 4 MHz above the Mode's 9060–9240". */
 export function describeMiss(miss: ParamMiss): string {
   if (miss.positions) {
     return `${miss.positions.entry}-position stagger — Mode has ${miss.positions.mode}`;
   }
-  const frame = `${miss.label === "Steps" ? "Frame time" : miss.label} ${miss.value} ${miss.unit} — Mode covers ${miss.min}–${miss.max}`;
   if (miss.sequence) {
     const { entry, mode, tol } = miss.sequence;
     // The same steps in another order, or steps the Mode doesn't have.
     const reordered = sameSequence([...entry].sort((a, b) => a - b), [...mode].sort((a, b) => a - b), () => tol);
-    const order = `Steps ${steps(entry)} µs — Mode has ${steps(mode)} (± ${Number(tol.toPrecision(3))})${reordered ? ", not in this order" : ""}`;
-    // The frame time too, if it's also outside.
-    return miss.label === "Steps" ? order : `${order}; ${frame}`;
+    return `Steps ${steps(entry)} µs — Mode has ${steps(mode)} (± ${Number(tol.toPrecision(3))})${reordered ? ", not in this order" : ""}`;
   }
-  return frame;
+  return `${miss.label} ${num(miss.value)} ${miss.unit} — ${missDistance(miss)} the Mode's ${num(miss.min)}–${num(miss.max)}`;
 }
 
 export function countMatches(entries: MatchableEntry[], modes: Mode[]) {

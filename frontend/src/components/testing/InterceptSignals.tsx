@@ -2,11 +2,11 @@ import { useState } from "react";
 import type { ObservedValues, TestRecordSignal } from "../../api/testRecords";
 import type { Mode, Source } from "../../types/domain";
 import { AutoGrowTextarea } from "../common/AutoGrowTextarea";
-import { describeMiss } from "../intercepts/interceptMatch";
 import { ModeEditDialog } from "../modes/ModeDialogs";
 import type { LineValues } from "../modes/modeLine";
 import { AddSignalToSource } from "./AddSignalToSource";
 import { widened } from "./nearMiss";
+import { NearModes } from "./NearModes";
 import { ObservedValuesEditor } from "./ObservedValuesEditor";
 import { ObservedValuesTable } from "./ObservedValuesTable";
 import { signalCoverage } from "./signalCoverage";
@@ -42,11 +42,7 @@ function Coverage({ sets, modes }: { sets: ObservedValues[]; modes: Mode[] }) {
     return (
       <>
         <span className="status-badge status-pending_review">Close — one value off</span>
-        {c.near.map((n) => (
-          <div key={n.mode.id} className="hint-text">
-            {n.mode.name}: {n.misses.map(describeMiss).join("; ")}
-          </div>
-        ))}
+        <NearModes near={c.near} />
       </>
     );
   return (

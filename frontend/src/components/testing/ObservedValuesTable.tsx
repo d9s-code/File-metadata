@@ -2,8 +2,10 @@ import { useState } from "react";
 import type { ObservedValues } from "../../api/testRecords";
 import { jitterUs, nonEmptySets } from "./testFormat";
 
+const n = (x: number | undefined) => (x == null ? "?" : String(Number(x.toPrecision(10))));
+
 function range(min: number | undefined, max: number | undefined): string | null {
-  return min != null || max != null ? `${min ?? "?"}–${max ?? "?"}` : null;
+  return min != null || max != null ? `${n(min)}–${n(max)}` : null;
 }
 
 type Value = { label: string; value: string; unit: string };
@@ -12,7 +14,8 @@ type Value = { label: string; value: string; unit: string };
 export function observedValueList(v: ObservedValues): Value[] {
   const out: Value[] = [];
   const add = (label: string, value: string | number | null | undefined, unit = "") => {
-    if (value != null) out.push({ label, value: String(value), unit });
+    // No floating-point tail (1.6500000000000001 → 1.65).
+    if (value != null) out.push({ label, value: typeof value === "number" ? String(Number(value.toPrecision(10))) : value, unit });
   };
   add("RF", v.rf_mean_mhz ?? range(v.rf_min_mhz, v.rf_max_mhz), "MHz");
   if (v.pri_type === "fixed") {

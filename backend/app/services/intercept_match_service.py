@@ -5,9 +5,10 @@ the counts without downloading every entry. Keep the two in step.
 An entry matches a Mode when its mean RF, PRI (frame time for a stagger) and
 PW all fall within the Mode's engineered range (the plain min/max when a
 Mode has no deltas). Only Modes of the same PRI type are compared. A near
-miss is outside on exactly one of the three, counted only when nothing
-matches fully, and never for CW — compared on RF alone, "one off" would be
-every CW Mode. Jitter isn't compared.
+miss is exactly one value off — RF, PRI (frame time), PW, or a stagger's
+number of steps, each on its own — counted only when nothing matches fully,
+and never for CW — compared on RF alone, "one off" would be every CW Mode.
+Jitter isn't compared.
 """
 
 from dataclasses import dataclass
@@ -77,8 +78,9 @@ def _outside(value: float | None, r: Range) -> bool:
 
 
 def _misses(entry: InterceptEntry, mode: ModeRanges) -> int | None:
-    """How many of RF, PRI and PW fall outside the Mode, or None when the two
-    can't be compared (a different PRI type)."""
+    """How many values are off: RF, PRI and PW outside the Mode, and a
+    stagger's number of steps (its own value, apart from the frame time) —
+    or None when the two can't be compared (a different PRI type)."""
     if mode.pri_type != entry.pri_type:
         return None
     rf = float(entry.rf_mean_mhz)
@@ -87,12 +89,11 @@ def _misses(entry: InterceptEntry, mode: ModeRanges) -> int | None:
         return misses
     pri = None if entry.pri_mean_us is None else float(entry.pri_mean_us)
     pw = None if entry.pw_mean_us is None else float(entry.pw_mean_us)
-    pri_off = _outside(pri, mode.pri)
+    misses += int(_outside(pri, mode.pri))
     if entry.pri_type == PriType.stagger:
         positions = len(entry.stagger_values or [])
-        if positions > 0 and mode.positions > 0 and positions != mode.positions:
-            pri_off = True
-    return misses + int(pri_off) + int(_outside(pw, mode.pw))
+        misses += int(positions > 0 and mode.positions > 0 and positions != mode.positions)
+    return misses + int(_outside(pw, mode.pw))
 
 
 def entry_status(entry: InterceptEntry, modes: list[ModeRanges]) -> Status:

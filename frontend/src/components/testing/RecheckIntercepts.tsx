@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { InfoTip } from "../common/PageHeader";
-import { describeMiss, matchEntry, TEST_CHECKS, type EntryMatch, type MatchableEntry } from "../intercepts/interceptMatch";
+import { matchEntry, TEST_CHECKS, type EntryMatch, type MatchableEntry } from "../intercepts/interceptMatch";
 import { asEntry } from "./signalCoverage";
 import { RecheckChart, type RecheckPoint } from "./RecheckChart";
 import { formatObservedValueSet, nonEmptySets, compareLineLabels } from "./testFormat";
@@ -13,6 +13,8 @@ import type { Mode } from "../../types/domain";
 import { ModeEditDialog } from "../modes/ModeDialogs";
 import type { LineValues } from "../modes/modeLine";
 import { widened } from "./nearMiss";
+import { NearModes } from "./NearModes";
+import { ObservedValuesTable } from "./ObservedValuesTable";
 import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
 import { useSources } from "../../state/hooks/useSources";
@@ -155,7 +157,8 @@ export function RecheckIntercepts({
     );
   }
   for (const m of record.modes.filter((m) => m.link_type === "exercised"))
-    add(`Mode ${m.mode_name}`, m.observed_values, `Tested as ${m.mode_name}`, [m.mode_id], null, `mode-${m.mode_id}`);
+    // "Mode Search 1", but not "Mode Mode 9".
+    add(/^mode\b/i.test(m.mode_name) ? m.mode_name : `Mode ${m.mode_name}`, m.observed_values, `Tested as ${m.mode_name}`, [m.mode_id], null, `mode-${m.mode_id}`);
   (record.signals ?? []).forEach((s, i) =>
     add(`Signal ${i + 1}`, s.observed_values, s.reported_as_unknown ? "Default Unknown" : "Not reported", [], null, `signal-${i}`),
   );
@@ -273,7 +276,9 @@ export function RecheckIntercepts({
                   onClick={() => setPicked(r.key === picked ? null : r.key)}
                 >
                   <td>{r.where}</td>
-                  <td>{formatObservedValueSet(r.set) ?? "—"}</td>
+                  <td>
+                    <ObservedValuesTable sets={[r.set]} />
+                  </td>
                   <td>{r.reported}</td>
                   <td className="recheck-state">
                     <span className={`viz-swatch ${st.cls}`} /> {st.icon} {st.label}
@@ -295,30 +300,18 @@ export function RecheckIntercepts({
                         ))}
                       </span>
                     )}
-                    {r.match?.status === "near" &&
-                      r.match.near.map((n) => (
-                        <div key={n.mode.id} className="hint-text">
-                          {n.mode.name}: {n.misses.map(describeMiss).join("; ")}
-                          {canWrite && (
-                            <>
-                              {" · "}
-                              <button
-                                type="button"
-                                className="link-button"
-                                disabled={!editingEmitter}
-                                title={
-                                  editingEmitter
-                                    ? "Opens the Mode widened to cover what was logged; saved as derived from this test"
-                                    : "Start editing this Emitter first"
-                                }
-                                onClick={() => setEditing({ mode: n.mode, change: widened(n.mode, n.misses) })}
-                              >
-                                Edit {n.mode.name}…
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      ))}
+                    {r.match?.status === "near" && (
+                      <NearModes
+                        near={r.match.near}
+                        onEdit={canWrite ? (n) => setEditing({ mode: n.mode, change: widened(n.mode, n.misses) }) : undefined}
+                        editDisabled={!editingEmitter}
+                        editTitle={
+                          editingEmitter
+                            ? "Opens the Mode widened to cover what was logged; saved as derived from this test"
+                            : "Start editing this Emitter first"
+                        }
+                      />
+                    )}
                     {r.now === "none" && <span className="hint-text">Outside every Mode of its PRI type</span>}
                     {r.now === "unknown" && <span className="hint-text">Needs an RF and a PRI to compare</span>}
                     {canWrite && (r.now === "near" || r.now === "none") && (

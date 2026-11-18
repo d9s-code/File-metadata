@@ -421,3 +421,12 @@ fieldset.edit-lock:disabled * {
 .dwell-input input {
   width: 8rem;
 }
+/* Modes a logged set nearly matches: one short line each, closest first. */
+.near-modes {
+  list-style: none;
+  margin: 0.15rem 0 0;
+  padding: 0;
+  font-size: max(0.82rem, 12px);
+}
+.near-modes li { line-height: 1.45; }
+.near-mode-name { font-weight: 500; }

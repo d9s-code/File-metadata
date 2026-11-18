@@ -642,9 +642,11 @@ export function HelpPage() {
                 frame time alone (± the frame-time delta); off — by its steps, as many as the Mode&apos;s and in the
                 same order (starting at any step, each within ± the step tolerance, 1 µs unless an Admin set another under Mode defaults). Each row is{" "}
                 <strong>✓ would match</strong> (which Modes),{" "}
-                <strong>≈ near</strong> (one value off, and which — with <strong>Edit ‹Mode›…</strong> while you&apos;re
-                editing the Emitter: the Mode opens widened to cover what was logged, and saving records it as derived
-                from this run), <strong>✕ no Mode</strong>, or can&apos;t compare
+                <strong>≈ near</strong> (exactly one value off — RF, PRI or frame time, jitter, PW and a stagger&apos;s
+                steps each count on their own, so two off isn&apos;t near — listed closest first with which value and how
+                far, e.g. &ldquo;PW 0.15 µs above&rdquo;, the first two then <strong>+N more</strong>; with{" "}
+                <strong>Edit…</strong> while you&apos;re editing the Emitter: the Mode opens widened to cover what was
+                logged, and saving records it as derived from this run), <strong>✕ no Mode</strong>, or can&apos;t compare
                 (no RF or PRI logged). Beside it is what the system reported in the test; rows where it differs (the Modes it
                 would match now aren&apos;t the ones reported) are marked <strong>Changed since test</strong> (tick to see
                 only those), and a SIM line says whether its expected Mode
