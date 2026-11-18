@@ -78,8 +78,9 @@
 
   /* Base rem unit for the whole app's type scale — every font-size below is
      in rem, so this one change scales body text, headings, and labels
-     together while keeping their relative proportions. */
-  font-size: 87.5%;
+     together while keeping their relative proportions. --ui-scale is the
+     person's Size setting (Settings…; src/theme/uiScale.ts), 1 unless set. */
+  font-size: calc(87.5% * var(--ui-scale, 1));
   /* Inter: one neutral typeface for the whole app, bundled (no network needed). */
   font-family: "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-optical-sizing: auto;

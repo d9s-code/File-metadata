@@ -733,6 +733,8 @@ Each person's own settings (their name, top right → **Settings…**), kept wit
 
 Workbench and Instrument set figures in a monospace face (JetBrains Mono, bundled), right-aligned in table columns. On a test run, each result row has a coloured edge for its outcome, and the intercepted values sit on one line (RF 9387.1 MHz · PRI 1228.3 µs …) instead of a small table in each row. The two styles are stylesheets on top of Classic (`frontend/src/styles/`), applied by `data-style` on the page; `public/theme-init.js` sets it before the first paint, so a reload doesn't flash the default.
 
+**Size.** Settings… also has **Size** — 80%, 90%, 100% (the default), 110% or 125% — for more (or less) on screen: it scales the root text size every size in the app is measured from, so text, spacing and controls shrink or grow together (at 80% the Emitters list shows about a fifth more rows). Like the style, it's kept in this browser and applied before the page first draws. Small print has a 12 px floor, so it stays readable at 80%.
+
 ---
 
 ## 11. XML Export (PRS Format)

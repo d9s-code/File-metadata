@@ -11,6 +11,12 @@
 .style-choice:hover { background: var(--hover-bg); }
 .style-choice.active { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, transparent); }
 .style-choice input { width: auto; flex: none; margin: 0.2rem 0 0; }
+/* Size: a row of choices, the one in use marked like a picked style. */
+.size-choices { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.3rem; }
+.size-choice { display: inline-flex; flex-direction: row; align-items: center; gap: 0.35rem; padding: 0.3rem 0.65rem; border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; font-variant-numeric: tabular-nums; }
+.size-choice:hover { background: var(--hover-bg); }
+.size-choice.active { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, transparent); font-weight: 600; }
+.size-choice input { width: auto; flex: none; margin: 0; }
 .style-choice > span { display: flex; flex-direction: column; gap: 0.1rem; }
 .style-choice strong { font-size: 0.93rem; }
 .settings-row > span { display: flex; flex-direction: column; gap: 0.1rem; }

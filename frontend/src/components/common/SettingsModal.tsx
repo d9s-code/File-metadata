@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ApiRequestError } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import { useAiStatus } from "../../state/hooks/useAmbiguity";
+import { UI_SCALES, useUiScale } from "../../theme/uiScale";
 import { UI_STYLES, useUiStyle } from "../../theme/uiStyle";
 import type { UserPreferences } from "../../types/domain";
 import { Modal } from "./Modal";
@@ -33,6 +34,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [saving, setSaving] = useState<keyof UserPreferences | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [style, setStyle] = useUiStyle();
+  const [scale, setScale] = useUiScale();
   if (!user) return null;
   const prefs = user.preferences;
 
@@ -61,6 +63,20 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                 <strong>{s.label}</strong>
                 <span className="hint-text">{s.hint}</span>
               </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <fieldset className="settings-group">
+        <legend>Size</legend>
+        <p className="hint-text">
+          How big everything is drawn — text, spacing and controls together — for more or less on screen. For this browser.
+        </p>
+        <div className="size-choices" role="radiogroup" aria-label="Size">
+          {UI_SCALES.map((s) => (
+            <label key={s.value} className={scale === s.value ? "size-choice active" : "size-choice"}>
+              <input type="radio" name="ui-scale" checked={scale === s.value} onChange={() => setScale(s.value)} />
+              {s.label}
             </label>
           ))}
         </div>

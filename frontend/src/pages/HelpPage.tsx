@@ -1022,7 +1022,9 @@ export function HelpPage() {
             It&apos;s also where you pick the app&apos;s <strong>Style</strong>: <strong>Workbench</strong> (roomy, key
             numbers as readouts, the Mode editor sliding in from the right), <strong>Instrument</strong> (compact and
             dense, like a console) or <strong>Classic</strong> (the original look). Each has a light and a dark version,
-            and the choice is kept in this browser, like light and dark.
+            and the choice is kept in this browser, like light and dark. <strong>Size</strong> (80% to 125%) draws
+            everything smaller or larger — text, spacing and controls together — for more or less on screen, also kept
+            in this browser.
           </p>
         </div>
       </div>
