@@ -456,7 +456,9 @@ export function HelpPage() {
             <p>
               Tick a Mode's checkbox (or several) and a bar appears at the bottom of the window with{" "}
               <strong>Batch edit</strong>, for applying the same field, delta, jitter (Fixed Modes only) or
-              range-shift change to all of them at once. The <strong>▾</strong> beside <strong>+ Add Mode</strong>{" "}
+              range-shift change to all of them at once — and to mark them <strong>test-derived</strong>: tick the
+              Emitter&apos;s test runs whose findings their values come from (on its own or with other changes; a Mode
+              already linked to a run is left as it is). The <strong>▾</strong> beside <strong>+ Add Mode</strong>{" "}
               holds the rarer ways to add Modes: <strong>Add a value across Modes…</strong> adds one RF, PRI or PW value — a
               stray PRI from a test, say — to every combination of the other two among your Modes: tick the
               combinations it applies to and it makes one new Mode for each, a copy with only that value changed, as

@@ -303,3 +303,31 @@ test("Emitter page: a hidden tab isn't refetched after a change, and is fresh wh
   await expect(page.getByRole("row", { name: /Updated Mode 'Search 1' Notes changed/ })).toBeVisible();
   await removeEmitter(page, emitter.id);
 });
+
+test("Batch edit marks the selected Modes test-derived", async ({ page }) => {
+  const emitter = await makeEmitter(page, ["Search 1", "Search 2"]);
+  await api(page, "POST", `/emitters/${emitter.id}/test-records`, {
+    test_type: "simulation",
+    title: "Range day 5",
+    test_date: "2026-10-28",
+    simulation_created_date: "2026-10-01",
+    received_power_dbfs: -40,
+    result: "partial",
+  });
+  await page.goto(`/emitters/${emitter.id}`);
+  await page.getByLabel("Select all").check();
+  await page.getByRole("button", { name: "Batch edit" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("checkbox", { name: /Range day 5/ }).check();
+  await expect(dialog.getByText("Test-derived — 1 test run picked")).toBeVisible();
+  await dialog.getByRole("button", { name: "Apply to 2 Modes" }).click();
+  await expect(dialog).toBeHidden();
+  await expect
+    .poll(async () =>
+      (await api<{ derived_from_test_records: { title: string }[] }[]>(page, "GET", `/emitters/${emitter.id}/modes`)).map((m) =>
+        m.derived_from_test_records.map((r) => r.title),
+      ),
+    )
+    .toEqual([["Range day 5"], ["Range day 5"]]);
+  await removeEmitter(page, emitter.id);
+});

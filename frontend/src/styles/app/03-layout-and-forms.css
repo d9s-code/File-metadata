@@ -486,3 +486,26 @@
   color: var(--muted);
   font-weight: normal;
 }
+/* Batch Edit → Test-derived: the Emitter's test runs to tick, newest first. */
+.batch-edit-runs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 12rem;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.batch-edit-runs li + li { border-top: 1px solid var(--border); }
+.batch-edit-form .batch-edit-runs label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  font-weight: 400;
+  gap: 0.6rem;
+  padding: 0.35rem 0.6rem;
+  cursor: pointer;
+}
+.batch-edit-form .batch-edit-runs label:hover { background: var(--hover-bg); }
+.batch-edit-run-title { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.batch-edit-run-filter { max-width: 20rem; }

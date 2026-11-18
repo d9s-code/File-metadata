@@ -13,7 +13,13 @@ from fastapi import HTTPException, status
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from app.core.enums import AuditAction, AuditEntityType, PriType, TestRecordModeLinkType
+from app.core.enums import (
+    AuditAction,
+    AuditEntityType,
+    PriType,
+    TestRecordModeLinkType,
+    TestScopeType,
+)
 from app.dsl.exceptions import DslSyntaxError
 from app.dsl.renderer import render_mode_line
 from app.models.ew_group import EwGroup
@@ -189,11 +195,20 @@ def apply_batch_edit(
     emitter_id: UUID,
     shift_reason: str | None = None,
 ) -> list[UUID]:
+    derived_runs: list[TestRecord] = []
     if derived_from_test_record_ids:
-        found_ids = {r.id for r in db.query(TestRecord.id).filter(TestRecord.id.in_(derived_from_test_record_ids)).all()}
-        missing = set(derived_from_test_record_ids) - found_ids
+        wanted = list(dict.fromkeys(derived_from_test_record_ids))
+        derived_runs = db.query(TestRecord).filter(TestRecord.id.in_(wanted)).order_by(TestRecord.test_date).all()
+        missing = set(wanted) - {r.id for r in derived_runs}
         if missing:
             raise HTTPException(status.HTTP_404_NOT_FOUND, f"Unknown test record id(s): {missing}")
+        # Only this Emitter's own runs can explain its Modes' values.
+        foreign = [r.title for r in derived_runs if r.scope_type != TestScopeType.emitter or r.scope_id != emitter_id]
+        if foreign:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                f"Not a test run of this Emitter: {', '.join(repr(t) for t in foreign)}",
+            )
     if derived_from_intercept_entry_ids:
         found_ids = {
             e.id
@@ -223,14 +238,28 @@ def apply_batch_edit(
         except DslSyntaxError:
             mode.line.dsl_text = None
 
-        for test_record_id in derived_from_test_record_ids:
-            db.add(
-                TestRecordMode(test_record_id=test_record_id, mode_id=mode.id, link_type=TestRecordModeLinkType.derived)
+        # Test-derived: linked to each run it isn't linked to already.
+        already = {
+            r.test_record_id
+            for r in db.query(TestRecordMode.test_record_id).filter(
+                TestRecordMode.mode_id == mode.id, TestRecordMode.link_type == TestRecordModeLinkType.derived
             )
+        }
+        linked = [r for r in derived_runs if r.id not in already]
+        for run in linked:
+            db.add(
+                TestRecordMode(
+                    test_record_id=run.id, mode_id=mode.id, mode_name=mode.name, link_type=TestRecordModeLinkType.derived
+                )
+            )
+        if linked:
+            changes["derived_from_tests"] = {"old": None, "new": ", ".join(r.title for r in linked)}
         for intercept_entry_id in derived_from_intercept_entry_ids:
             db.add(InterceptEntryMode(intercept_entry_id=intercept_entry_id, mode_id=mode.id))
 
         summary = f"Batch-updated Mode '{mode.name}'"
+        if linked:
+            summary += f" (test-derived: {', '.join(repr(r.title) for r in linked)})"
         if shift_reason:
             summary += f" — {shift_reason}"
         record_audit(

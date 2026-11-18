@@ -1,5 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { Modal } from "../common/Modal";
+import { formatDate } from "../common/dates";
+import { useEmitterTestRecords } from "../../state/hooks/useTestRecords";
+import { testResultLabel, testTypeLabel } from "../testing/testFormat";
 import { useBatchEditModes } from "../../state/hooks/useModes";
 import { ApiRequestError } from "../../api/client";
 import type { EwGroup, Source } from "../../types/domain";
@@ -31,6 +34,22 @@ export function BatchEditModal({
   onDone: () => void;
 }) {
   const batchEdit = useBatchEditModes(emitterId);
+  // Test-derived: the Emitter's own test runs whose findings explain these values.
+  const { data: runs } = useEmitterTestRecords(emitterId);
+  const [derivedFrom, setDerivedFrom] = useState<Set<string>>(new Set());
+  const [runFilter, setRunFilter] = useState("");
+  const sortedRuns = [...(runs ?? [])].sort((a, b) => b.test_date.localeCompare(a.test_date) || a.title.localeCompare(b.title));
+  const shownRuns = runFilter.trim()
+    ? sortedRuns.filter((r) => r.title.toLowerCase().includes(runFilter.trim().toLowerCase()) || derivedFrom.has(r.id))
+    : sortedRuns;
+  function toggleRun(id: string) {
+    setDerivedFrom((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   const [ewGroupId, setEwGroupId] = useState("");
   // "add:<id>" adds that Source to each Mode; "set:<id>" makes it each one's only Source.
@@ -115,8 +134,8 @@ export function BatchEditModal({
     setErrors(null);
     setGenericError(null);
     const fields = buildFields();
-    if (Object.keys(fields).length === 0) {
-      setGenericError("Set at least one field.");
+    if (Object.keys(fields).length === 0 && derivedFrom.size === 0) {
+      setGenericError("Set at least one field, or pick a test run they're derived from.");
       return;
     }
     if (hasShift && shiftReason.trim() === "") {
@@ -128,6 +147,7 @@ export function BatchEditModal({
         mode_ids: modeIds,
         fields,
         shift_reason: hasShift ? shiftReason.trim() : undefined,
+        derived_from_test_record_ids: derivedFrom.size ? [...derivedFrom] : undefined,
       });
       onDone();
     } catch (err) {
@@ -332,6 +352,50 @@ export function BatchEditModal({
                 required
               />
             </label>
+          )}
+        </div>
+
+        <div className="batch-edit-section">
+          <span className="batch-edit-section-label">
+            Test-derived{derivedFrom.size > 0 && ` — ${derivedFrom.size} test run${derivedFrom.size === 1 ? "" : "s"} picked`}
+          </span>
+          <p className="hint-text">
+            Mark the selected Modes as derived from test runs: their values come from what those runs found, not from a
+            Source. Each gets the Test-derived badge and is listed under the run&apos;s &ldquo;Modes derived from this
+            run&rdquo;. A Mode already linked to a run is left as it is.
+          </p>
+          {!runs ? (
+            <p className="hint-text">Loading the test runs…</p>
+          ) : runs.length === 0 ? (
+            <p className="hint-text">This Emitter has no test runs yet.</p>
+          ) : (
+            <>
+              {runs.length > 8 && (
+                <input
+                  type="search"
+                  className="batch-edit-run-filter"
+                  placeholder="Find a test run…"
+                  aria-label="Find a test run"
+                  value={runFilter}
+                  onChange={(e) => setRunFilter(e.target.value)}
+                />
+              )}
+              <ul className="batch-edit-runs" aria-label="Test runs">
+                {shownRuns.map((r) => (
+                  <li key={r.id}>
+                    <label>
+                      <input type="checkbox" checked={derivedFrom.has(r.id)} onChange={() => toggleRun(r.id)} />
+                      <span className="batch-edit-run-title">{r.title}</span>
+                      <span className="hint-text">
+                        {formatDate(r.test_date)} · {testTypeLabel(r.test_type)}
+                      </span>
+                      <span className={`test-result-badge test-result-${r.result}`}>{testResultLabel(r.result)}</span>
+                    </label>
+                  </li>
+                ))}
+                {shownRuns.length === 0 && <li className="hint-text">No test run matches.</li>}
+              </ul>
+            </>
           )}
         </div>
 
