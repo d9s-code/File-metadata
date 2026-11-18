@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Activity, Fragment, useEffect, useRef, useState } from "react";
 import { Icon } from "../components/common/Icon";
 import { BackLink } from "../components/common/BackLink";
 import { useParams, useSearchParams } from "react-router-dom";
@@ -327,11 +327,15 @@ export function EmitterEditorPage() {
         </button>
       </div>
 
-      {/* All tabs stay mounted — only visibility toggles (`hidden`, not a JSX
-          conditional) — so switching tabs never unmounts/resets a Mode search
-          filter or an in-progress "New Test" form the user hasn't saved yet. */}
+      {/* Each tab keeps its state while hidden (<Activity>, not a JSX
+          conditional) — so switching tabs never resets a Mode search filter or
+          a form the user hasn't saved yet — but a hidden tab's data isn't
+          live: it isn't fetched until the tab is first shown, nor refetched
+          after every change while it's out of sight (a big Emitter's page
+          otherwise sent every tab's requests after each action). */}
       <Fragment key={contentVersion}>
-      <div hidden={tab !== "modes"}>
+      <Activity mode={tab === "modes" ? "visible" : "hidden"}>
+      <div>
         <ModesSection
           emitterId={emitter.id}
           ewGroups={ewGroups ?? []}
@@ -339,8 +343,10 @@ export function EmitterEditorPage() {
           linkedModeName={searchParams.get("mode") ?? undefined}
         />
       </div>
+      </Activity>
 
-      <div hidden={tab !== "setup"}>
+      <Activity mode={tab === "setup" ? "visible" : "hidden"}>
+      <div>
         <EwGroupsTable emitterId={emitter.id} ewGroups={ewGroups ?? []} />
         <SourcesTable
           emitterId={emitter.id}
@@ -351,14 +357,19 @@ export function EmitterEditorPage() {
         <ElementOverview emitterId={emitter.id} ewGroups={ewGroups ?? []} />
         <ElementCoverage emitterId={emitter.id} />
       </div>
+      </Activity>
 
-      <div hidden={tab !== "intercepts"}>
+      <Activity mode={tab === "intercepts" ? "visible" : "hidden"}>
+      <div>
         <EmitterIntercepts emitterId={emitter.id} />
       </div>
+      </Activity>
 
-      <div hidden={tab !== "tests"}>
+      <Activity mode={tab === "tests" ? "visible" : "hidden"}>
+      <div>
         <EmitterTestHistory emitterId={emitter.id} highlightTestRecordId={highlightTestRecordId} />
       </div>
+      </Activity>
       {/* Only while shown: pasting a file anywhere on the page adds it. */}
       {tab === "files" && (
         <FilesPanel
@@ -369,9 +380,11 @@ export function EmitterEditorPage() {
           readOnlyReason={emitter.deleted_at ? "In the Trash — restore it to change its files." : undefined}
         />
       )}
-      <div hidden={tab !== "audit"}>
+      <Activity mode={tab === "audit" ? "visible" : "hidden"}>
+      <div>
         <EntityAuditTrail entityType="emitter" entityId={emitter.id} emitterId={emitter.id} />
       </div>
+      </Activity>
       </Fragment>
 
     </div>

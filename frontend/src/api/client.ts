@@ -39,7 +39,68 @@ interface RequestOptions extends RequestInit {
   responseType?: "json" | "blob";
 }
 
+/** At most this many requests in flight from one tab; the rest wait their
+ * turn. Over HTTP/2 a browser sends every request at once, and a page that
+ * refreshes a few dozen queries after a change would otherwise land them all
+ * on the server together, each holding a database connection while it waits. */
+const MAX_IN_FLIGHT = 6;
+const SLOT_TIMEOUT_MS = 30_000;
+let inFlight = 0;
+const waiting: { write: boolean; go: () => void }[] = [];
+
+function nextTurn(write: boolean, signal?: AbortSignal | null): Promise<void> {
+  if (inFlight < MAX_IN_FLIGHT) {
+    inFlight++;
+    return Promise.resolve();
+  }
+  return new Promise((resolve, reject) => {
+    const entry = {
+      write,
+      go: () => {
+        signal?.removeEventListener("abort", onAbort);
+        inFlight++;
+        resolve();
+      },
+    };
+    const onAbort = () => {
+      // Cancelled while waiting (e.g. a refetch superseded): never sent.
+      const i = waiting.indexOf(entry);
+      if (i >= 0) waiting.splice(i, 1);
+      reject(signal?.reason ?? new DOMException("Aborted", "AbortError"));
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+    // A change someone just made goes before the refreshes queued up.
+    const firstRead = write ? waiting.findIndex((w) => !w.write) : -1;
+    waiting.splice(firstRead < 0 ? waiting.length : firstRead, 0, entry);
+  });
+}
+
+function turnDone() {
+  inFlight--;
+  waiting.shift()?.go();
+}
+
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const write = !["GET", "HEAD", "OPTIONS"].includes((options.method ?? "GET").toUpperCase());
+  await nextTurn(write, options.signal);
+  // A request that hangs mustn't hold its turn for good: after a while the
+  // next one goes anyway (this one carries on).
+  let released = false;
+  const release = () => {
+    if (released) return;
+    released = true;
+    turnDone();
+  };
+  const timer = setTimeout(release, SLOT_TIMEOUT_MS);
+  try {
+    return await send<T>(path, options);
+  } finally {
+    clearTimeout(timer);
+    release();
+  }
+}
+
+async function send<T>(path: string, options: RequestOptions): Promise<T> {
   const responseType = options.responseType ?? "json";
   const { method = "GET", body, headers: providedHeaders, ...fetchOptions } = options;
   const headers = new Headers(providedHeaders);

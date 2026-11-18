@@ -58,13 +58,11 @@ import { NotFoundPage } from "./pages/NotFoundPage";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
-  // Every mutation in the app is a candidate for a new audit-log entry, and
-  // the Audit tab stays mounted across tab switches (see EmitterEditorPage's
-  // `hidden`-attribute tabs) rather than remounting, so it won't naturally
-  // refetch on its own. A single global hook here keeps it current after any
-  // mutation, instead of every mutation hook remembering to invalidate it
-  // individually — easy to forget (and to silently drop, e.g. via a batch
-  // edit, since audit entries are the one thing every mutation writes).
+  // Every mutation in the app is a candidate for a new audit-log entry. A
+  // single global hook here marks the audit log stale after any mutation —
+  // refetched at once where it's on screen, and when shown again where it's
+  // in a hidden tab (EmitterEditorPage's <Activity> tabs) — instead of every
+  // mutation hook remembering to invalidate it individually.
   mutationCache: new MutationCache({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["auditLog"] });

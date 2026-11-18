@@ -279,3 +279,27 @@ test("statuses: quick ↑/↓ clicks show at once and are saved as one order", a
   // Put it back as it was.
   await api(page, "POST", "/statuses/reorder", { entity_type: "emitter", ids: before.map((s) => s.id) });
 });
+
+test("Emitter page: a hidden tab isn't refetched after a change, and is fresh when shown", async ({ page }) => {
+  const emitter = await makeEmitter(page);
+  const [mode] = await api<{ id: string; ew_group_id: string }[]>(page, "GET", `/emitters/${emitter.id}/modes`);
+  await page.goto(`/emitters/${emitter.id}?tab=audit`);
+  await expect(page.getByRole("button", { name: "Audit", exact: true })).toHaveClass(/active/);
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: /^Modes/ }).click();
+
+  let auditFetches = 0;
+  page.on("request", (r) => {
+    if (r.url().includes("/audit-log?")) auditFetches++;
+  });
+  const note = `hidden-tab check ${Date.now()}`;
+  await api(page, "PATCH", `/ew-groups/${mode.ew_group_id}/modes/${mode.id}`, { notes: note });
+  await page.evaluate(() => window.dispatchEvent(new Event("api:data-changed")));
+  await page.waitForTimeout(800);
+  expect(auditFetches).toBe(0);
+
+  await page.getByRole("button", { name: "Audit", exact: true }).click();
+  await expect.poll(() => auditFetches).toBeGreaterThan(0);
+  await expect(page.getByRole("row", { name: /Updated Mode 'Search 1' Notes changed/ })).toBeVisible();
+  await removeEmitter(page, emitter.id);
+});
