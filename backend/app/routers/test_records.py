@@ -23,6 +23,7 @@ from app.models.test_record import (
     TestRunDraft,
 )
 from app.schemas.test_record import TestDwellStrategyChange, TestRecordCreate, TestRecordOut, TestResultChange
+from app.services import mdf_scenario_service, scenario_service
 from app.services.audit_service import record_audit
 from app.services.test_result_service import compute_overall_result
 
@@ -269,6 +270,32 @@ def list_mdf_test_records(
     )
 
 
+@mdf_router.get("/scenario-options")
+def mdf_scenario_options(mdf_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))) -> dict:
+    """What an MDF test can present: the latest saved version's Platforms, each
+    with its Emitters and their Modes' names."""
+    if db.get(Mdf, mdf_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "MDF not found")
+    version = db.query(MdfVersion).filter(MdfVersion.mdf_id == mdf_id).order_by(MdfVersion.version_number.desc()).first()
+    if version is None:
+        return {"version_number": None, "platforms": []}
+    platforms = mdf_scenario_service.mdf_platforms(version.snapshot or {})
+    return {
+        "version_number": version.version_number,
+        "platforms": [
+            {
+                "platform_id": str(pid),
+                "platform_name": p["name"],
+                "emitters": [
+                    {"emitter_id": str(eid), "emitter_name": e["name"], "modes": list(e["modes"].values())}
+                    for eid, e in sorted(p["emitters"].items(), key=lambda kv: kv[1]["name"].lower())
+                ],
+            }
+            for pid, p in sorted(platforms.items(), key=lambda kv: kv[1]["name"].lower())
+        ],
+    }
+
+
 @mdf_router.post(
     "", response_model=TestRecordOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(verify_csrf)]
 )
@@ -280,14 +307,46 @@ def create_mdf_test_record(
 ) -> TestRecord:
     if db.get(Mdf, mdf_id) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "MDF not found")
-    return _create_test_record(
+    if payload.mdf_scenario is None:
+        return _create_test_record(
+            db,
+            scope_type=TestScopeType.mdf,
+            scope_id=mdf_id,
+            emitter_version_id=None,
+            mdf_version_id=_latest_mdf_version_id(db, mdf_id),
+            payload=payload,
+            tested_by=user.id,
+        )
+    # What was observed, checked against the MDF's latest saved version before
+    # anything is written; the result is worked out from it unless given.
+    version = db.query(MdfVersion).filter(MdfVersion.mdf_id == mdf_id).order_by(MdfVersion.version_number.desc()).first()
+    if version is None:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Save a version of this MDF first — the test reads its Platforms")
+    dwell_version = db.get(DwellStrategyVersion, payload.dwell_strategy_version_id) if payload.dwell_strategy_version_id else None
+    try:
+        platforms, emitters = mdf_scenario_service.plan(version.snapshot or {}, payload.mdf_scenario, dwell_version)
+    except scenario_service.ScenarioError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    result = payload.result or mdf_scenario_service.result_of(emitters)
+    record = _create_test_record(
         db,
         scope_type=TestScopeType.mdf,
         scope_id=mdf_id,
         emitter_version_id=None,
-        mdf_version_id=_latest_mdf_version_id(db, mdf_id),
-        payload=payload,
+        mdf_version_id=version.id,
+        payload=payload.model_copy(update={"result": result, "mdf_scenario": None}),
         tested_by=user.id,
+        commit=False,
+    )
+    for row in [*platforms, *emitters]:
+        row.mdf_test_record_id = record.id
+        db.add(row)
+    db.commit()
+    return (
+        db.query(TestRecord)
+        .options(_MODES_EAGER_LOAD, _LINES_EAGER_LOAD, selectinload(TestRecord.signals), selectinload(TestRecord.emitter_version))
+        .filter(TestRecord.id == record.id)
+        .one()
     )
 
 

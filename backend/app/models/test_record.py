@@ -127,6 +127,26 @@ class TestRecord(UUIDPkMixin, TimestampMixin, Base):
     signals: Mapped[list["TestRecordSignal"]] = relationship(
         back_populates="test_record", cascade="all, delete-orphan", order_by="TestRecordSignal.sort_order"
     )
+    # An MDF test: what was observed, Platform by Platform (see models/scenario.py).
+    scenario_emitters: Mapped[list["ScenarioEmitter"]] = relationship(
+        foreign_keys="ScenarioEmitter.mdf_test_record_id",
+        cascade="all, delete-orphan",
+        order_by="ScenarioEmitter.sort_order",
+        lazy="selectin",
+    )
+    mdf_test_platforms: Mapped[list["MdfTestPlatform"]] = relationship(
+        foreign_keys="MdfTestPlatform.mdf_test_record_id",
+        cascade="all, delete-orphan",
+        order_by="MdfTestPlatform.sort_order",
+        lazy="selectin",
+    )
+
+    @property
+    def scenario_verdicts(self):
+        """Detection, Identification and Mix-ups, when an MDF test recorded what was observed."""
+        from app.services.scenario_service import verdicts
+
+        return verdicts(self.scenario_emitters) if self.scenario_emitters else None
 
 
 class TestRecordMode(UUIDPkMixin, Base):

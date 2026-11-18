@@ -1,5 +1,7 @@
 import { api } from "./client";
 import type { PriType, TestResult, TestType } from "../types/domain";
+import type { PclWhatIf } from "./pcl";
+import type { ScenarioEmitter, ScenarioReportInput, ScenarioVerdicts } from "./platformTests";
 
 /** One set of intercepted parameters. Logged as means; the min/max keys are
  * only on sets logged before that. */
@@ -108,6 +110,59 @@ export interface TestRecord {
   modes: TestRecordModeLink[];
   lines: TestRecordLineResult[];
   signals: TestRecordSignal[];
+  /** An MDF test's scenario: the Platforms presented, and the Emitters on the air with them. */
+  mdf_test_platforms?: MdfTestPlatform[];
+  scenario_emitters?: ScenarioEmitter[];
+  scenario_verdicts?: ScenarioVerdicts | null;
+}
+
+/** A Platform presented in an MDF test, and which Platform it was intercepted as. */
+export interface MdfTestPlatform {
+  platform_id: string;
+  platform_name: string;
+  intercepted_as_platform_id: string | null;
+  intercepted_as_name: string | null;
+  intercepted_unknown: boolean;
+  notes: string | null;
+}
+
+export interface MdfScenarioInput {
+  platforms: {
+    platform_id: string;
+    intercepted_as_platform_id?: string;
+    intercepted_unknown?: boolean;
+    notes?: string;
+    emitters: {
+      emitter_id: string;
+      detected?: boolean;
+      time_to_detect_s?: number;
+      dwell_index?: number;
+      reported_self?: boolean;
+      reported_unknown?: boolean;
+      reports?: ScenarioReportInput[];
+      notes?: string;
+    }[];
+  }[];
+}
+
+/** What an MDF test can present: the saved version's Platforms, their Emitters and Modes. */
+export interface MdfScenarioOptions {
+  version_number: number;
+  platforms: { platform_id: string; platform_name: string; emitters: { emitter_id: string; emitter_name: string; modes: string[] }[] }[];
+}
+
+/** Per Platform presented: what was reported, and the level today's rules give each Platform for it. */
+export interface MdfTestConfidence {
+  platforms: {
+    platform_id: string;
+    platform_name: string;
+    intercepted_as_platform_id: string | null;
+    intercepted_as_name: string | null;
+    intercepted_unknown: boolean;
+    heard: string[];
+    levels: PclWhatIf["platforms"];
+  }[];
+  rule_count: number;
 }
 
 export interface TestRecordModeResultInput {
@@ -157,6 +212,8 @@ export interface TestRecordInput {
   result_override_note?: string;
   /** The saved Emitter version tested — the latest when left out. */
   emitter_version_id?: string;
+  /** MDF tests: what was observed. The result is worked out from it when not given. */
+  mdf_scenario?: MdfScenarioInput;
 }
 
 /** A test run being filled in, saved as it's typed. */
@@ -211,4 +268,6 @@ export const testRecordsApi = {
   listForMdf: (mdfId: string) => api.get<TestRecord[]>(`/mdfs/${mdfId}/test-records`),
   createForMdf: (mdfId: string, input: TestRecordInput) => api.post<TestRecord>(`/mdfs/${mdfId}/test-records`, input),
   deleteForMdf: (mdfId: string, id: string) => api.delete<void>(`/mdfs/${mdfId}/test-records/${id}`),
+  mdfScenarioOptions: (mdfId: string) => api.get<MdfScenarioOptions>(`/mdfs/${mdfId}/test-records/scenario-options`),
+  mdfTestConfidence: (recordId: string) => api.get<MdfTestConfidence>(`/pcl/mdf-tests/${recordId}`),
 };

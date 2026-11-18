@@ -1150,6 +1150,15 @@ export function HelpPage() {
             status now.
           </p>
           <p>
+            An <strong>MDF test</strong> (Test History, <strong>+ Add test run</strong>) can also record{" "}
+            <strong>What was observed</strong>: <strong>+ Present a Platform</strong> for each Platform in the scenario,
+            which Platform it was <strong>Intercepted as</strong>, and for each of its Emitters on the air whether it was
+            detected and what it was reported as — itself, Default Unknown, or a <strong>Mix-up</strong> with any Emitter
+            of any of the MDF&apos;s Platforms. The result is worked out from it unless you pick one, and{" "}
+            <strong>Confidence today</strong> shows the level each Platform&apos;s confidence rules give for what was
+            reported. Open a logged run (▸) to see it all again, with every mix-up listed.
+          </p>
+          <p>
             <strong>From Emitter to MDF.</strong> Save the Emitter, pin it on a Platform and save the Platform, then
             pin that Platform version on an MDF (<strong>+ Pin Platform</strong> offers its latest saved version) and
             save the MDF. When the Emitter changes and is saved again, its header says{" "}

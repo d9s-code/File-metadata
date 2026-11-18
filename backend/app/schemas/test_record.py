@@ -161,7 +161,11 @@ class TestRecordCreate(BaseModel):
     # Only used (and required) when neither line_results nor mode_results is
     # given — e.g. an MDF-scoped test, or an Emitter test not tied to any
     # specific Mode/Line — where there's nothing to derive an overall result from.
+    # An MDF test with mdf_scenario works it out from what was observed unless given.
     result: TestResult | None = None
+    # MDF tests only: the Platforms presented, the Emitters on the air with
+    # each, what was observed of them, and which Platform each was intercepted as.
+    mdf_scenario: "MdfScenarioIn | None" = None
     # Optional pointer to an earlier test record this one re-runs, e.g. after a
     # fix — must belong to the same scope (checked in the router).
     retests_test_record_id: UUID | None = None
@@ -212,7 +216,7 @@ class TestRecordCreate(BaseModel):
 
     @model_validator(mode="after")
     def check_result(self) -> "TestRecordCreate":
-        if not self.line_results and not self.mode_results and self.result is None:
+        if not self.line_results and not self.mode_results and self.result is None and self.mdf_scenario is None:
             raise ValueError("result is required when no per-Line or per-Mode results are given")
         return self
 
@@ -304,6 +308,10 @@ class TestRecordOut(BaseModel):
     modes: list[TestRecordModeOut] = []
     lines: list[TestRecordLineOut] = []
     signals: list[TestRecordSignalOut] = []
+    # An MDF test: the Platforms presented, the Emitters observed, and the verdicts.
+    mdf_test_platforms: list["MdfTestPlatformOut"] = []
+    scenario_emitters: list["ScenarioEmitterOut"] = []
+    scenario_verdicts: "ScenarioVerdictsOut | None" = None
 
 
 class TestRunDraftSave(BaseModel):
@@ -541,3 +549,47 @@ class PlatformTestOut(BaseModel):
     emitters: list[PlatformTestEmitterOut]
     # Detection, Identification and Mix-ups — when the run recorded what was observed.
     verdicts: ScenarioVerdictsOut | None = None
+
+
+class MdfScenarioEmitterIn(ScenarioObservedIn):
+    """One Emitter of a presented Platform, on the air in an MDF test."""
+
+    emitter_id: UUID
+    notes: str | None = Field(default=None, max_length=4000)
+
+
+class MdfScenarioPlatformIn(BaseModel):
+    """A Platform presented in an MDF test: its Emitters on the air (any of
+    them), and which Platform it was intercepted as, when recorded."""
+
+    platform_id: UUID
+    intercepted_as_platform_id: UUID | None = None
+    # Intercepted, but not as any of the MDF's Platforms.
+    intercepted_unknown: bool = False
+    notes: str | None = Field(default=None, max_length=4000)
+    emitters: list[MdfScenarioEmitterIn] = Field(default=[], max_length=200)
+
+    @model_validator(mode="after")
+    def check_intercepted(self) -> "MdfScenarioPlatformIn":
+        if self.intercepted_unknown and self.intercepted_as_platform_id is not None:
+            raise ValueError("Intercepted as a Platform, or as none — not both")
+        return self
+
+
+class MdfScenarioIn(BaseModel):
+    platforms: list[MdfScenarioPlatformIn] = Field(min_length=1, max_length=200)
+
+
+class MdfTestPlatformOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    platform_id: UUID
+    platform_name: str
+    intercepted_as_platform_id: UUID | None = None
+    intercepted_as_name: str | None = None
+    intercepted_unknown: bool = False
+    notes: str | None = None
+
+
+TestRecordCreate.model_rebuild()
+TestRecordOut.model_rebuild()

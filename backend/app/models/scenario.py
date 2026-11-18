@@ -61,7 +61,7 @@ class ScenarioEmitter(UUIDPkMixin, Base):
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
 
     reports: Mapped[list["ScenarioReport"]] = relationship(
-        back_populates="scenario_emitter", cascade="all, delete-orphan", order_by="ScenarioReport.sort_order"
+        back_populates="scenario_emitter", cascade="all, delete-orphan", order_by="ScenarioReport.sort_order", lazy="selectin"
     )
 
 

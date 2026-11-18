@@ -497,3 +497,22 @@ select.detected-no { border-color: var(--badge-red-fg); }
 .platform-test-table td.platform-test-notes textarea { min-width: 0; width: 100%; }
 .platform-test-table .platform-test-last { display: block; margin-top: 0.15rem; font-size: max(0.78rem, 12px); }
 .platform-test-table .observed-reported, .platform-test-table .observed-reported-hint { min-width: 14rem; display: inline-block; }
+/* MDF test: the Platforms presented, each a card with its Emitters on the air. */
+.mdf-scenario { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.6rem 0.8rem; margin: 0.6rem 0; display: flex; flex-direction: column; gap: 0.6rem; }
+.mdf-scenario legend { font-weight: 600; padding: 0 0.3rem; }
+.mdf-scenario > .hint-text { margin: 0; }
+.mdf-scenario-platform { margin: 0; padding: 0.6rem 0.8rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.mdf-scenario-platform-head { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem 0.8rem; }
+.mdf-scenario-platform-head > strong { font-size: 1.02rem; }
+.mdf-scenario-platform-head .link-button:last-child { margin-left: auto; }
+.mdf-scenario-table { width: 100%; }
+.mdf-scenario-table td { vertical-align: top; }
+.mdf-scenario-table tr.row-muted td { color: var(--muted); }
+.mdf-scenario-pcl { display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem 0.5rem; }
+.mdf-scenario-level { min-width: 0; padding: 0.05rem 0.5rem; }
+.mdf-scenario-level.own { outline: 2px solid var(--focus-ring, var(--badge-blue-fg)); outline-offset: 1px; }
+.mdf-scenario-view { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.4rem 0.2rem; }
+.mdf-scenario-subhead { margin: 0.2rem 0 0; font-size: 0.95rem; }
+.record-expand { text-align: left; font-weight: 500; }
+.record-detail-row > td { background: var(--hover-bg); padding: 0.6rem 0.8rem; }
+.mdf-scenario-table .observed-detection select { max-width: 11rem; }

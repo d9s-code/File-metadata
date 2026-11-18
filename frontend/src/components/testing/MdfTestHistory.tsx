@@ -9,13 +9,15 @@ import { ApiRequestError } from "../../api/client";
 import { RequireRole } from "../../auth/RequireAuth";
 import { TestRecordsTable } from "./TestRecordsTable";
 import { TEST_RESULTS, testResultLabel, testTypeLabel } from "./testFormat";
+import { MdfScenarioSection, MdfScenarioView, scenarioError, scenarioInput, scenarioResult, useMdfScenarioOptions, type PresentedDraft } from "./MdfScenario";
 
 function todayDate(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-/** MDF-scoped tests have no SIM Test Lines or Modes of their own, so a run
- * is just its overall result. */
+/** MDF-scoped tests have no SIM Test Lines or Modes of their own: a run is
+ * its overall result — and, optionally, what was observed: the Platforms
+ * presented, the Emitters on the air, what each was reported as. */
 export function MdfTestHistory({ mdfId, highlightTestRecordId }: { mdfId: string; highlightTestRecordId?: string }) {
   const { data: records } = useMdfTestRecords(mdfId);
   const create = useCreateMdfTestRecord(mdfId);
@@ -27,7 +29,11 @@ export function MdfTestHistory({ mdfId, highlightTestRecordId }: { mdfId: string
   const [simCreatedDate, setSimCreatedDate] = useState("");
   const [dwell, setDwell] = useState(MANUAL_DWELL);
   const [receivedPower, setReceivedPower] = useState("");
-  const [result, setResult] = useState<TestResult>("pass");
+  /** "" — worked out from what was observed. */
+  const [result, setResult] = useState<TestResult | "">("pass");
+  const [presented, setPresented] = useState<PresentedDraft[]>([]);
+  const { data: options, error: optionsError } = useMdfScenarioOptions(mdfId, showForm);
+  const worked = scenarioResult(presented);
   const [retestsId, setRetestsId] = useState("");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +46,15 @@ export function MdfTestHistory({ mdfId, highlightTestRecordId }: { mdfId: string
       setError(powerProblem);
       return;
     }
+    const scenarioProblem = scenarioError(presented);
+    if (scenarioProblem) {
+      setError(scenarioProblem);
+      return;
+    }
+    if (!result && !presented.length) {
+      setError("Pick a result, or present a Platform to work it out from");
+      return;
+    }
     try {
       await create.mutateAsync({
         test_type: testType,
@@ -48,7 +63,8 @@ export function MdfTestHistory({ mdfId, highlightTestRecordId }: { mdfId: string
         simulation_created_date: simCreatedDate || undefined,
         received_power_dbfs: Number(receivedPower),
         dwell: dwell.trim() || undefined,
-        result,
+        result: result || undefined,
+        mdf_scenario: scenarioInput(presented),
         notes: notes.trim() || undefined,
         retests_test_record_id: retestsId || undefined,
       });
@@ -60,7 +76,16 @@ export function MdfTestHistory({ mdfId, highlightTestRecordId }: { mdfId: string
     setNotes("");
     setReceivedPower("");
     setRetestsId("");
+    setPresented([]);
+    setResult("pass");
     setShowForm(false);
+  }
+
+  function changePresented(next: PresentedDraft[]) {
+    // Presenting the first Platform: let the result be worked out from it.
+    if (!presented.length && next.length && result === "pass") setResult("");
+    if (presented.length && !next.length && result === "") setResult("pass");
+    setPresented(next);
   }
 
   function handleRedo(id: string, retestTitle: string) {
@@ -76,6 +101,7 @@ export function MdfTestHistory({ mdfId, highlightTestRecordId }: { mdfId: string
         onDelete={(id) => del.mutateAsync(id)}
         onRedo={(r) => handleRedo(r.id, r.title)}
         highlightId={highlightTestRecordId}
+        renderDetail={(r) => ((r.mdf_test_platforms ?? []).length ? <MdfScenarioView record={r} /> : null)}
       />
       <RequireRole minimum="editor">
         {!showForm ? (
@@ -112,7 +138,12 @@ export function MdfTestHistory({ mdfId, highlightTestRecordId }: { mdfId: string
               <ReceivedPowerInput value={receivedPower} onChange={setReceivedPower} />
               <label className="inline-date-label">
                 Result
-                <select value={result} onChange={(e) => setResult(e.target.value as TestResult)}>
+                <select
+                  value={result}
+                  className={result || worked ? `outcome-select test-result-${result || worked}` : undefined}
+                  onChange={(e) => setResult(e.target.value as TestResult | "")}
+                >
+                  {presented.length > 0 && <option value="">Worked out: {worked ? testResultLabel(worked) : "—"}</option>}
                   {TEST_RESULTS.map((r) => (
                     <option key={r} value={r}>
                       {testResultLabel(r)}
@@ -134,6 +165,11 @@ export function MdfTestHistory({ mdfId, highlightTestRecordId }: { mdfId: string
                 </select>
               </label>
             </div>
+            {options ? (
+              <MdfScenarioSection mdfId={mdfId} options={options} value={presented} onChange={changePresented} />
+            ) : optionsError ? (
+              <p className="hint-text">Save a version of this MDF to record which Platforms were presented and what was heard.</p>
+            ) : null}
             <label className="test-notes-field">
               Notes (optional)
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />

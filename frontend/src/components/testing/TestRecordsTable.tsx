@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { Icon } from "../common/Icon";
 import { formatDate } from "../common/dates";
 import { MenuButton } from "../common/MenuButton";
@@ -64,13 +64,24 @@ export function TestRecordsTable({
   onDelete,
   onRedo,
   highlightId,
+  renderDetail,
 }: {
   records: TestRecord[];
   emitterId?: string;
   onDelete: (id: string) => Promise<unknown>;
   onRedo?: (record: TestRecord) => void;
   highlightId?: string;
+  /** More about a run, shown under its row when opened (e.g. an MDF test's scenario); null — nothing more. */
+  renderDetail?: (record: TestRecord) => ReactNode;
 }) {
+  const [open, setOpen] = useState<Set<string>>(() => new Set(highlightId ? [highlightId] : []));
+  const toggle = (id: string) =>
+    setOpen((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
   const { confirmDelete, dialog } = useConfirmDialog();
   const highlightedRowRef = useRef<HTMLTableRowElement>(null);
   const { sorted, sortKey, sortDir, onSort, onClear } = useSortableTable(records, compareRecords, "testRecords");
@@ -120,9 +131,11 @@ export function TestRecordsTable({
             const retested = r.retests_test_record_id ? records.find((x) => x.id === r.retests_test_record_id) : null;
             const exercised = r.modes.filter((m) => m.link_type === "exercised");
             const derived = r.modes.length - exercised.length;
+            const detail = renderDetail?.(r) ?? null;
+            const isOpen = !!detail && open.has(r.id);
             return (
+              <Fragment key={r.id}>
               <tr
-                key={r.id}
                 ref={r.id === highlightId ? highlightedRowRef : undefined}
                 className={r.id === highlightId ? "highlighted-row" : undefined}
               >
@@ -157,7 +170,27 @@ export function TestRecordsTable({
                   </span>
                 </td>
                 <td>
-                  {emitterId ? <Link to={`/emitters/${emitterId}/tests/${r.id}`}>{r.title}</Link> : r.title}
+                  {emitterId ? (
+                    <Link to={`/emitters/${emitterId}/tests/${r.id}`}>{r.title}</Link>
+                  ) : detail ? (
+                    <button
+                      type="button"
+                      className="link-button record-expand"
+                      aria-expanded={isOpen}
+                      title={isOpen ? "Hide what was observed" : "Show what was observed"}
+                      onClick={() => toggle(r.id)}
+                    >
+                      {isOpen ? "▾" : "▸"} {r.title}
+                    </button>
+                  ) : (
+                    r.title
+                  )}
+                  {r.scenario_verdicts && (
+                    <span className="jitter-subline">
+                      {r.scenario_verdicts.detected}/{r.scenario_verdicts.observed} detected · {r.scenario_verdicts.identified} identified ·{" "}
+                      {r.scenario_verdicts.mixup_count} mix-up{r.scenario_verdicts.mixup_count === 1 ? "" : "s"}
+                    </span>
+                  )}
                   {retested && <span className="jitter-subline">Retest of: {retested.title}</span>}
                   {r.platform_test_id && (
                     <span className="jitter-subline">
@@ -197,6 +230,12 @@ export function TestRecordsTable({
                   </RequireRole>
                 </td>
               </tr>
+              {isOpen && (
+                <tr className="record-detail-row">
+                  <td colSpan={emitterId ? 11 : 10}>{detail}</td>
+                </tr>
+              )}
+              </Fragment>
             );
           })}
         </tbody>

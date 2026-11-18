@@ -9,12 +9,13 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.csrf import verify_csrf
-from app.core.enums import AuditAction, AuditEntityType, Role
+from app.core.enums import AuditAction, AuditEntityType, Role, TestScopeType
 from app.database import get_db
 from app.deps import require_role
 from app.models.mdf import Mdf, MdfVersion
 from app.models.pcl_rule import PclRule
 from app.models.platform import Platform
+from app.models.test_record import TestRecord
 from app.services.ambiguity_service import DEFAULT_TOLERANCE
 from app.services.app_settings import mode_defaults
 from app.services.audit_service import record_audit
@@ -284,3 +285,48 @@ def mdf_what_if(mdf_id: UUID, payload: HeardIn, db: Session = Depends(get_db), _
             emitters.add(eid)
     rules = rules_by_platform(db, [p.id for p in ctx.platforms])
     return {"platforms": what_if(ctx, Heard(frozenset(emitters), frozenset(modes)), rules)}
+
+
+@router.get("/mdf-tests/{record_id}")
+def mdf_test_confidence(record_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))) -> dict:
+    """For each Platform an MDF test presented: what the system reported
+    (the Emitters, and Modes where the mix-ups say which), and the level
+    today's rules give each Platform for that — beside which Platform it was
+    intercepted as. Read against the MDF version the test ran on."""
+    record = db.get(TestRecord, record_id)
+    if record is None or record.scope_type != TestScopeType.mdf:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "MDF test not found")
+    version = db.get(MdfVersion, record.mdf_version_id) if record.mdf_version_id else None
+    if version is None:
+        _mdf, version = _latest(db, record.scope_id)
+    ctx = _context(db, version)
+    rules = rules_by_platform(db, [p.id for p in ctx.platforms])
+    out = []
+    for presented in record.mdf_test_platforms:
+        emitters: set[str] = set()
+        modes: set[tuple[str, str]] = set()
+        names: list[str] = []
+        for row in record.scenario_emitters:
+            if row.platform_id != presented.platform_id or not row.detected:
+                continue
+            if row.reported_self:
+                emitters.add(str(row.emitter_id))
+                names.append(row.emitter_name)
+            for rep in row.reports:
+                emitters.add(str(rep.reported_emitter_id))
+                names.append(rep.reported_emitter_name + (f" · {rep.reported_mode}" if rep.reported_mode else ""))
+                if rep.reported_mode:
+                    modes.add((str(rep.reported_emitter_id), rep.reported_mode.lower()))
+        levels = what_if(ctx, Heard(frozenset(emitters), frozenset(modes)), rules)
+        out.append(
+            {
+                "platform_id": str(presented.platform_id),
+                "platform_name": presented.platform_name,
+                "intercepted_as_platform_id": str(presented.intercepted_as_platform_id) if presented.intercepted_as_platform_id else None,
+                "intercepted_as_name": presented.intercepted_as_name,
+                "intercepted_unknown": presented.intercepted_unknown,
+                "heard": sorted(set(names), key=str.lower),
+                "levels": [lv for lv in levels if lv["level"] > 0],
+            }
+        )
+    return {"platforms": out, "rule_count": sum(len(v) for v in rules.values())}

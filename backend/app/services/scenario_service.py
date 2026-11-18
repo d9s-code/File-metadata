@@ -119,7 +119,12 @@ def build(
         if pick is None:
             if rep.reported_platform_id is not None:
                 raise ScenarioError(f"{emitter.name}: {options[0].name} isn't on that Platform")
-            pick = options[0]
+            # No Platform said: the one that isn't the Emitter itself (an Emitter
+            # on two Platforms can be taken for its copy on the other).
+            pick = next(
+                (c for c in options if not (c.emitter_id == emitter.emitter_id and c.platform_id == emitter.platform_id)),
+                options[0],
+            )
         if pick.emitter_id == emitter.emitter_id and pick.platform_id == emitter.platform_id:
             raise ScenarioError(f"{emitter.name}: reported as itself is 'Reported as itself', not a mix-up")
         expected = _mode(rep.expected_mode, emitter.modes, emitter.name)
