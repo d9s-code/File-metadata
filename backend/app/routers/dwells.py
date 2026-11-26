@@ -341,11 +341,41 @@ def get_strategy(strategy_id: UUID, db: Session = Depends(get_db), _=Depends(req
     return _strategy_out(db, _strategy_or_404(db, strategy_id))
 
 
+def _fmt_ms(v: float) -> str:
+    return f"{v:g}"
+
+
+def _check_whole_collects(dwells) -> None:
+    """Each dwell time is a whole number of its collect time (the receiver
+    collects in whole steps). A dwell with no collect time is left alone.
+    Checked when dwells are saved, not on import: a file is taken as it is."""
+    wrong = []
+    for i, d in enumerate(dwells, start=1):
+        c = d.collect_time_ms
+        if c and c > 0:
+            n = d.dwell_time_ms / c
+            if abs(n - round(n)) > 1e-6:
+                lo, hi = int(n) * c, (int(n) + 1) * c
+                around = f"{_fmt_ms(lo)} or {_fmt_ms(hi)} ms" if lo > 0 else f"{_fmt_ms(hi)} ms"
+                wrong.append(
+                    f"dwell {i} ({_fmt_ms(d.freq_mhz)} MHz): {_fmt_ms(d.dwell_time_ms)} ms isn't a whole number of its "
+                    f"{_fmt_ms(c)} ms collect time — make it {around}"
+                )
+    if wrong:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "Each dwell time must be a whole number of its collect time: " + "; ".join(wrong[:10])
+            + (f"; and {len(wrong) - 10} more" if len(wrong) > 10 else ""),
+        )
+
+
 @router.patch("/dwell-strategies/{strategy_id}", response_model=DwellStrategyOut, dependencies=[Depends(verify_csrf)])
 def update_strategy(
     strategy_id: UUID, payload: DwellStrategyUpdate, db: Session = Depends(get_db), user=Depends(require_role(Role.editor))
 ) -> DwellStrategyOut:
     strategy = _strategy_or_404(db, strategy_id)
+    if payload.dwells is not None:
+        _check_whole_collects(payload.dwells)
     fields = payload.model_dump(exclude_unset=True, exclude={"save_version", "change_summary", "platform_ids"})
     if "description" in fields:
         fields["description"] = (fields["description"] or "").strip() or None

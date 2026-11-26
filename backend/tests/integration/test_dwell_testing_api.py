@@ -67,10 +67,10 @@ def test_each_pinned_emitter_is_tested_stale_untested_or_not_covered(editor_clie
     }
 
     # Changing the X-band dwell doesn't touch the S-band test…
-    v3 = _save(editor_client, sid, [dwells[0], {**dwells[1], "dwell_time_ms": 120}])
+    v3 = _save(editor_client, sid, [dwells[0], {**dwells[1], "dwell_time_ms": 150}])
     assert _states(editor_client, sid)["S-band"] == ("tested", None)
     # …changing the collect time of the dwell covering it does.
-    _save(editor_client, sid, [{**dwells[0], "collect_time_ms": 60}, {**dwells[1], "dwell_time_ms": 120}])
+    _save(editor_client, sid, [{**dwells[0], "collect_time_ms": 25}, {**dwells[1], "dwell_time_ms": 150}])
     assert _states(editor_client, sid)["S-band"] == ("stale", "the dwells covering it changed since")
 
     # A run logged without the Strategy, linked afterwards.

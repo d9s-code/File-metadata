@@ -1323,7 +1323,23 @@ export function HelpPage() {
             one and <strong>Add several…</strong> takes a list of frequencies at once. <strong>Save as vN</strong> saves
             them as a new version straight away; until then they&apos;re kept in your browser, so leaving the page
             doesn&apos;t lose them. Name, Platforms, description and manual collect time are under ⋯ → Details…, and
-            the Notes panel keeps running notes.
+            the Notes panel keeps running notes. A dwell time must be a <strong>whole number of its collects</strong>{" "}
+            (150 ms of 50 ms collects, not 120): one that isn&apos;t is outlined, can&apos;t be saved, and{" "}
+            <strong>Round up</strong> fixes them all.
+          </p>
+          <p>
+            The <strong>Planner</strong>, under the table and chart (Strategies with a Platform), works out as you edit
+            how likely each of the Platforms&apos; Modes is to be intercepted: how much of its RF the dwells reach, the
+            time it needs on frequency to see the <strong>pulses to detect</strong> (its longest PRI with jitter, or a
+            stagger&apos;s longest step and two frames), how often a long-enough look comes round, how long a scanning
+            radar&apos;s beam is on the Platform each scan (from the <strong>beamwidth</strong> you give), and the share
+            of starting moments it&apos;s caught <strong>within</strong> the time you give, with the median time. Modes
+            with problems come first: <strong>Not reached</strong>, <strong>Dwell too short</strong>,{" "}
+            <strong>Beam too short</strong> (no dwell can fix it), <strong>Synchronism</strong> (the cycle keeps missing
+            its scan — some starting moments are never caught), <strong>Partly reached</strong>, <strong>Slow</strong>.
+            Its buttons change the unsaved dwells for you to check and save: round dwell times up to whole collects,
+            lengthen short dwells, add dwells for RF nothing reaches, and <strong>Break the synchronism</strong> (tries
+            one collect more on each dwell and keeps the one that helps most).
           </p>
           <p>
             The <strong>Cycle</strong> badge at the top of the chart says how long one pass through all the dwells

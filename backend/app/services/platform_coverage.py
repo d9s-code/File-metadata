@@ -22,7 +22,40 @@ def _span(lo, hi):
     return [min(lo, hi), max(lo, hi)]
 
 
-def _mode_ranges(mode: dict) -> dict | None:
+def _planner(mode: dict, line: dict, group: dict | None) -> dict:
+    """What the dwell planner needs to know of a Mode: the longest gap
+    between its pulses (µs — a Fixed PRI's longest, with its delta and
+    jitter; a stagger's longest step), a stagger's steps and longest frame
+    time, its EW Group's scan period (s, with its delta), priority, and how
+    many intercepts it takes to confirm."""
+    pri_type = mode.get("pri_type")
+    longest = frame = None
+    steps = 0
+    if pri_type == "fixed":
+        hi = apply_delta(line.get("pri_min_us"), line.get("pri_max_us"), line.get("pri_delta"))[1]
+        if hi is not None:
+            longest = float(hi) + float(line.get("jitter_max_us") or 0) + float(line.get("jitter_delta") or 0)
+    elif pri_type == "stagger":
+        values = [float(v) for v in line.get("pri_stagger_values_us") or []]
+        steps = len(values)
+        longest = max(values) if values else None
+        ft = effective_frametime_us(line.get("pri_stagger_values_us"), line.get("explicit_frame_time_us"))
+        if ft is not None:
+            frame = float(apply_delta(ft, ft, line.get("frame_time_delta_us"))[1])
+    group = group or {}
+    scan = _span(*apply_delta(group.get("scan_min"), group.get("scan_max"), group.get("scan_delta")))
+    return {
+        "longest_interval_us": longest,
+        "stagger_steps": steps,
+        "frame_us": frame,
+        "scan_s": [max(scan[0], 0.0), scan[1]] if scan else None,
+        "priority": group.get("threat_priority"),
+        "confirmation_quantity": mode.get("confirmation_quantity"),
+        "group_name": group.get("name"),
+    }
+
+
+def _mode_ranges(mode: dict, group: dict | None = None) -> dict | None:
     line = mode.get("line")
     if not line:
         return None
@@ -40,6 +73,7 @@ def _mode_ranges(mode: dict) -> dict | None:
         "pri": None,
         "pw_raw": None,
         "pw": None,
+        "planner": _planner(mode, line, group),
     }
     if pri_type != "cw":
         pw_raw = _span(line.get("pw_min_us"), line.get("pw_max_us"))
@@ -65,7 +99,7 @@ def emitter_coverage(snapshot: dict, *, emitter_id, emitter_name: str, designati
         ranges
         for group in snapshot.get("ew_groups", [])
         for mode in group.get("modes", [])
-        if (ranges := _mode_ranges(mode)) is not None
+        if (ranges := _mode_ranges(mode, group)) is not None
     ]
     return {
         "emitter_id": emitter_id,

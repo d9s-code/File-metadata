@@ -90,7 +90,7 @@ def test_a_strategy_is_edited_saved_and_repinned(editor_client):
 
     edited = editor_client.patch(
         f"/dwell-strategies/{sid}",
-        json={"dwells": [{"freq_mhz": 9400, "dwell_time_ms": 100}, {"freq_mhz": 2950.5, "dwell_time_ms": 40}]},
+        json={"dwells": [{"freq_mhz": 9400, "dwell_time_ms": 100}, {"freq_mhz": 2950.5, "dwell_time_ms": 50}]},
     ).json()
     assert edited["dwells"][0] == {"freq_mhz": 9400, "dwell_time_ms": 100, "collect_time_ms": 50}
     assert edited["unsaved"] is True
@@ -394,3 +394,23 @@ def test_default_dwells_and_strategies_for_several_platforms(editor_client):
     # And a Strategy in it can take on a Platform another one there covers.
     resp = editor_client.patch(f"/dwell-strategies/{other['id']}", json={"platform_ids": [south["id"], north["id"]]})
     assert resp.status_code == 200, resp.text
+
+
+def test_a_dwell_time_is_a_whole_number_of_its_collect_time(editor_client):
+    sid = editor_client.post("/dwell-strategies", json={"name": "Whole collects"}).json()["id"]
+    url = f"/dwell-strategies/{sid}"
+    ok = editor_client.patch(url, json={"dwells": [
+        {"freq_mhz": 3000, "dwell_time_ms": 150, "collect_time_ms": 50},
+        {"freq_mhz": 9400, "dwell_time_ms": 70, "collect_time_ms": 0},  # no collect time: left alone
+    ]})  # fmt: skip
+    assert ok.status_code == 200, ok.text
+    bad = editor_client.patch(url, json={"dwells": [
+        {"freq_mhz": 3000, "dwell_time_ms": 120, "collect_time_ms": 50},
+        {"freq_mhz": 9400, "dwell_time_ms": 30, "collect_time_ms": 50},
+    ]})  # fmt: skip
+    assert bad.status_code == 422
+    detail = bad.json()["detail"]
+    assert "dwell 1 (3000 MHz): 120 ms isn't a whole number of its 50 ms collect time — make it 100 or 150 ms" in detail
+    assert "dwell 2 (9400 MHz): 30 ms" in detail and "make it 50 ms" in detail
+    # Nothing was saved.
+    assert [d["dwell_time_ms"] for d in editor_client.get(url).json()["dwells"]] == [150, 70]

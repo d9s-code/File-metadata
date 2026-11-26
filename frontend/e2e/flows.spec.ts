@@ -355,7 +355,7 @@ test("Platform test: some Emitters transmitting, detection, a mix-up, verdicts",
   await api(page, "POST", `/platforms/${platform.id}/versions`, { change_summary: "pins" });
   const strategy = await api<{ id: string }>(page, "POST", "/dwell-strategies", { name: "Patrol", platform_id: platform.id });
   await api(page, "PATCH", `/dwell-strategies/${strategy.id}`, {
-    dwells: [{ freq_mhz: 2900, dwell_time_ms: 100 }, { freq_mhz: 3000, dwell_time_ms: 120 }],
+    dwells: [{ freq_mhz: 2900, dwell_time_ms: 100 }, { freq_mhz: 3000, dwell_time_ms: 150 }],
     save_version: true,
     change_summary: "dwells",
   });
@@ -419,4 +419,46 @@ test("Weekly update: pick what's on the slide, see it, download it as a 16:9 PNG
   // PNG header, then the size: 1920 × 1080.
   expect(bytes.subarray(1, 4).toString()).toBe("PNG");
   expect([bytes.readUInt32BE(16), bytes.readUInt32BE(20)]).toEqual([1920, 1080]);
+});
+
+test("Dwell planner: finds the cycle in step with a scan, one click breaks it; dwell times stay whole collects", async ({ page }) => {
+  const name = `E2E Planner ${Date.now()}`;
+  const e = await api<{ id: string }>(page, "POST", "/emitters", { name });
+  const g = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/ew-groups`, { name: "Search", scan_min: 2, scan_max: 2 });
+  const s = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/sources`, { name: "S", source_date: "2026-01-01" });
+  await api(page, "POST", `/ew-groups/${g.id}/modes`, { source_id: s.id, name: "Search 1", pri_type: "fixed", line: FIXED_LINE });
+  const v = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/versions`, { change_summary: "v1" });
+  const p = await api<{ id: string }>(page, "POST", "/platforms", { name: `E2E Planner Platform ${Date.now()}` });
+  await api(page, "POST", `/platforms/${p.id}/links`, { emitter_id: e.id, emitter_version_id: v.id });
+  const st = await api<{ id: string }>(page, "POST", "/dwell-strategies", { name: "Planner", platform_ids: [p.id] });
+  // A 1 s cycle against its 2 s scan: the same moments every time.
+  await api(page, "PATCH", `/dwell-strategies/${st.id}`, {
+    bandwidth_mhz: 200,
+    dwells: [
+      { freq_mhz: 3000, dwell_time_ms: 100, collect_time_ms: 50 },
+      { freq_mhz: 5600, dwell_time_ms: 900, collect_time_ms: 50 },
+    ],
+    save_version: true,
+  });
+
+  await page.goto(`/dwells/strategies/${st.id}`);
+  const planner = page.getByRole("region", { name: "Planner" });
+  const row = planner.locator("tr", { hasText: name });
+  await expect(row).toContainText("Synchronism");
+  await planner.getByRole("button", { name: "Break the synchronism" }).click();
+  await expect(planner.locator(".planner-message")).toContainText("check the dwells above, then save");
+  await expect(row).not.toContainText("Synchronism");
+  // The change is a whole collect more on one dwell — unsaved, in the table.
+  const times = [await page.getByLabel("Dwell 1 dwell time (ms)").inputValue(), await page.getByLabel("Dwell 2 dwell time (ms)").inputValue()];
+  expect(times.map(Number).reduce((a, b) => a + b)).toBe(1050);
+
+  // A dwell time that isn't whole collects can't be saved until it's rounded.
+  await page.getByLabel("Dwell 1 dwell time (ms)").fill("120");
+  await expect(page.locator(".dwell-save-state")).toContainText("isn't a whole number of its 50 ms collects");
+  await expect(page.getByRole("button", { name: /^Save as v/ })).toBeDisabled();
+  await page.getByRole("button", { name: /Round it up/ }).click();
+  await expect(page.getByLabel("Dwell 1 dwell time (ms)")).toHaveValue("150");
+  await expect(page.getByRole("button", { name: /^Save as v/ })).toBeEnabled();
+  await page.getByRole("button", { name: "Discard" }).click();
+  await removeEmitter(page, e.id);
 });

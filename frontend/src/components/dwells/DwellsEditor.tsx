@@ -6,6 +6,8 @@ import { MenuButton } from "../common/MenuButton";
 import { Modal } from "../common/Modal";
 import { DwellChart, num } from "./DwellChart";
 import { overlayTitle, usePlatformsEmitterOverlay } from "./platformOverlay";
+import { DwellPlanner } from "./DwellPlanner";
+import { isWholeCollects, wholeCollects } from "./dwellPlanner";
 
 const DEFAULT_MS = 50;
 
@@ -14,6 +16,14 @@ interface Row {
   freq: string;
   dwell: string;
   collect: string;
+}
+
+/** Whether a row's dwell time is a whole number of its collects (or can't be told yet). */
+function rowWhole(r: Row): boolean {
+  const dwell = Number(r.dwell);
+  const collect = r.collect.trim() === "" ? DEFAULT_MS : Number(r.collect);
+  if (!(dwell > 0) || !(collect > 0)) return true;
+  return isWholeCollects({ freq_mhz: 1, dwell_time_ms: dwell, collect_time_ms: collect });
 }
 
 const toRow = (d: Dwell): Row => ({ freq: num(d.freq_mhz), dwell: num(d.dwell_time_ms), collect: num(d.collect_time_ms) });
@@ -81,6 +91,8 @@ function parse(rows: Row[]): { dwells: Dwell[]; problem: string | null } {
     if (!r.freq.trim() || !(freq > 0)) problem = `Dwell ${i + 1}: give a frequency above 0 MHz.`;
     else if (!(dwell > 0)) problem = `Dwell ${i + 1}: the dwell time must be above 0 ms.`;
     else if (!(collect >= 0)) problem = `Dwell ${i + 1}: the collect time can't be negative.`;
+    else if (!isWholeCollects({ freq_mhz: freq, dwell_time_ms: dwell, collect_time_ms: collect }))
+      problem = `Dwell ${i + 1}: ${num(dwell)} ms isn't a whole number of its ${num(collect)} ms collects — make it ${num(wholeCollects(dwell, collect))} ms (or ${num(Math.max(collect, wholeCollects(dwell, collect) - collect))} ms).`;
   }
   return { dwells, problem };
 }
@@ -151,6 +163,11 @@ export function DwellsEditor({
   }, [focusRow]);
 
   const { dwells, problem } = parse(rows);
+  const notWhole = rows.filter((r) => !rowWhole(r)).length;
+  /** Every dwell time rounded up to whole collects. */
+  function roundUp() {
+    setRows(rows.map((r) => (rowWhole(r) ? r : { ...r, dwell: num(wholeCollects(Number(r.dwell), Number(r.collect.trim() === "" ? DEFAULT_MS : r.collect))) })));
+  }
   const bandwidth = strategy.bandwidth_mhz ?? defaultBandwidth;
   const nextVersion = (strategy.latest_version_number ?? 0) + 1;
 
@@ -203,6 +220,8 @@ export function DwellsEditor({
       disabled={!canEdit}
       placeholder={extra?.placeholder}
       aria-label={`Dwell ${i + 1} ${label}`}
+      aria-invalid={field === "dwell" && !rowWhole(rows[i]) ? true : undefined}
+      title={field === "dwell" && !rowWhole(rows[i]) ? "Not a whole number of its collects" : undefined}
       data-dwell-freq={extra?.first ? i : undefined}
       onChange={(e) => setRow(i, { [field]: e.target.value })}
       onFocus={() => setHover(i)}
@@ -217,6 +236,7 @@ export function DwellsEditor({
   );
 
   return (
+    <>
     <div className={wide ? "dwell-editor wide" : "dwell-editor"}>
       <section className="card dwell-editor-table">
         {notice && dirty && (
@@ -301,6 +321,11 @@ export function DwellsEditor({
           <div className="dwell-save-bar" role="status">
             <span className="dwell-save-state">
               {problem ?? "Unsaved — kept in this browser until you save or discard."}
+              {notWhole > 0 && (
+                <button type="button" className="link-button" onClick={roundUp}>
+                  {" "}Round {notWhole === 1 ? "it" : `all ${notWhole}`} up
+                </button>
+              )}
             </span>
             <input
               aria-label="What changed? (optional)"
@@ -369,6 +394,17 @@ export function DwellsEditor({
         />
       )}
     </div>
+    {!strategy.is_default && (
+      <DwellPlanner
+        dwells={dwells}
+        bandwidth={bandwidth}
+        platformIds={strategy.platform_ids}
+        title={overlayTitle(strategy.platform_names)}
+        canEdit={canEdit}
+        onApply={(next) => setRows(next.map(toRow))}
+      />
+    )}
+    </>
   );
 }
 

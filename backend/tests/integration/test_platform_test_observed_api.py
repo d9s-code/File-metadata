@@ -12,7 +12,7 @@ def _strategy(client, platform_id):
     client.patch(
         f"/dwell-strategies/{own['id']}",
         json={
-            "dwells": [{"freq_mhz": 2900, "dwell_time_ms": 100}, {"freq_mhz": 3000, "dwell_time_ms": 120}],
+            "dwells": [{"freq_mhz": 2900, "dwell_time_ms": 100}, {"freq_mhz": 3000, "dwell_time_ms": 150}],
             "save_version": True,
             "change_summary": "dwells",
         },

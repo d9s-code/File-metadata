@@ -137,6 +137,19 @@ export interface CoverageMode {
   pri_raw: [number, number] | null;
   pw: [number, number] | null;
   pw_raw: [number, number] | null;
+  /** What the dwell planner needs of it (missing on an MDF version's old snapshot read). */
+  planner?: {
+    /** Longest gap between its pulses, µs: a Fixed PRI's longest with its jitter, a stagger's longest step. */
+    longest_interval_us: number | null;
+    stagger_steps: number;
+    /** A stagger's longest frame time, µs. */
+    frame_us: number | null;
+    /** Its EW Group's scan period, s (with the delta); null — not scanning. */
+    scan_s: [number, number] | null;
+    priority: number | null;
+    confirmation_quantity: number | null;
+    group_name: string | null;
+  };
 }
 
 /** What one pinned Emitter version covers. */

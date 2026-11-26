@@ -200,3 +200,38 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
 .plain-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: inherit; }
 .dwell-version-main { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
 .dwell-version-main .version-panel { margin: 0; }
+/* The dwell planner, under the editor. */
+.dwell-planner { margin-top: 1rem; display: flex; flex-direction: column; gap: 0.7rem; }
+.planner-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+.planner-head .hint-text { margin: 0.15rem 0 0; }
+.planner-settings { display: flex; flex-wrap: wrap; gap: 0.5rem 0.9rem; align-items: center; }
+.planner-setting { display: inline-flex; flex-direction: row; align-items: center; gap: 0.35rem; font-weight: 500; white-space: nowrap; }
+.planner-setting input { width: 4.5rem; }
+.planner-setting select { width: auto; }
+.planner-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; }
+.planner-summary .inline-check { margin-left: auto; }
+.planner-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.planner-message { margin: 0; color: var(--text); }
+.planner-issue {
+  display: inline-block;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  font-size: max(0.8rem, 12px);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.planner-issue.bad { background: var(--badge-red-bg); color: var(--badge-red-fg); }
+.planner-issue.warn { background: var(--badge-amber-bg); color: var(--badge-amber-fg); }
+.planner-issue.good { background: var(--badge-green-bg); color: var(--badge-green-fg); }
+.planner-table td { vertical-align: top; }
+.planner-table .planner-advice { display: block; margin-top: 0.2rem; max-width: 34rem; font-size: max(0.85rem, 12px); color: var(--muted); }
+.planner-p { font-weight: 700; font-variant-numeric: tabular-nums; }
+.planner-p.good { color: var(--badge-green-fg); }
+.planner-p.warn { color: var(--badge-amber-fg); }
+.planner-p.bad { color: var(--badge-red-fg); }
+.planner-row.bad > td:first-child { box-shadow: inset 3px 0 0 var(--badge-red-fg); }
+.planner-row.warn > td:first-child { box-shadow: inset 3px 0 0 var(--badge-amber-fg); }
+.planner-model { font-size: max(0.85rem, 12px); color: var(--muted); }
+.planner-model summary { cursor: pointer; font-weight: 600; }
+.planner-model ul { margin: 0.4rem 0 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: 0.25rem; }
+.dwell-table input[aria-invalid="true"] { border-color: var(--badge-red-fg); }
