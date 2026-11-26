@@ -210,7 +210,7 @@ function StrategyView({ strategy }: { strategy: DwellStrategy }) {
 function testHref(t: StrategyTestUse): string {
   if (t.kind === "platform") return `/platforms/${t.owner_id}/tests/${t.id}`;
   if (t.kind === "emitter") return `/emitters/${t.owner_id}/tests/${t.id}`;
-  return `/mdfs/${t.owner_id}`;
+  return `/mdfs/${t.owner_id}?tab=tests&testRecord=${t.id}`;
 }
 
 /** The dwell files that pin the Strategy, and the test runs that used it. */
@@ -269,6 +269,7 @@ function UsedIn({ strategy }: { strategy: DwellStrategy }) {
                   <td>
                     <Link to={testHref(t)}>{t.title}</Link>
                     {t.kind === "platform" && <span className="hint-text"> · Platform test</span>}
+                    {t.kind === "mdf" && <span className="hint-text"> · MDF test</span>}
                   </td>
                   <td className="nowrap">{formatDate(t.test_date)}</td>
                   <td>v{t.version_number}</td>

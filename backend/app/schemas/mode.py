@@ -165,6 +165,17 @@ def require_manual_deltas(pri_type: PriType, fields: ModeLineFields) -> None:
         raise ValueError("pri_delta is required for Fixed PRI")
 
 
+# A Mode's own scan period box (s), inside its EW Group's scan range.
+ScanSeconds = Annotated[float, Field(ge=0, le=1_000_000)]
+
+
+def check_scan_box(scan_min_s: float | None, scan_max_s: float | None) -> None:
+    if (scan_min_s is None) != (scan_max_s is None):
+        raise ValueError("A Mode's scan period needs both a min and a max, or neither")
+    if scan_min_s is not None and scan_max_s is not None and scan_min_s > scan_max_s:
+        raise ValueError("A Mode's scan period min can't be above its max")
+
+
 class ModeCreate(BaseModel):
     # Every Source the Mode comes from (one or more), or just source_id for one.
     source_id: UUID | None = None
@@ -175,6 +186,8 @@ class ModeCreate(BaseModel):
     sort_order: int = 0
     confirmation_quality: ConfirmationQuality = DEFAULT_CONFIRMATION_QUALITY
     confirmation_quantity: ConfirmationQuantity = DEFAULT_CONFIRMATION_QUANTITY
+    scan_min_s: ScanSeconds | None = None
+    scan_max_s: ScanSeconds | None = None
     line: ModeLineFields
     # Test Record(s) whose findings explain this Mode's values, for a Mode
     # that didn't come from the Source's data (see TestRecordModeLinkType).
@@ -187,6 +200,7 @@ class ModeCreate(BaseModel):
     def check_pri_type(self) -> "ModeCreate":
         if not self.all_source_ids():
             raise ValueError("A Mode needs at least one Source")
+        check_scan_box(self.scan_min_s, self.scan_max_s)
         validate_pri_type_fields(self.pri_type, self.line)
         require_manual_deltas(self.pri_type, self.line)
         return self
@@ -290,6 +304,9 @@ class ModeUpdate(BaseModel):
     sort_order: int | None = None
     confirmation_quality: ConfirmationQuality | None = None
     confirmation_quantity: ConfirmationQuantity | None = None
+    # Both together, or both null to clear it (checked against each other on save).
+    scan_min_s: ScanSeconds | None = None
+    scan_max_s: ScanSeconds | None = None
     ew_group_id: UUID | None = None
     # Replaces the Mode's Sources: all of them (one or more), or source_id for just one.
     source_id: UUID | None = None
@@ -559,6 +576,8 @@ class ModeOut(BaseModel):
     sort_order: int
     confirmation_quality: int
     confirmation_quantity: int
+    scan_min_s: float | None = None
+    scan_max_s: float | None = None
     generation_batch_id: UUID | None = None
     created_at: datetime
     updated_at: datetime

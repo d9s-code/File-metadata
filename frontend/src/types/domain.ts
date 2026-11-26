@@ -96,6 +96,9 @@ export interface Emitter {
   id: string;
   name: string;
   designation: string | null;
+  /** How long its beam lights up a Platform each scan (ms) — for the dwell
+   * planner only. Null: worked out from the planner's beamwidth setting. */
+  illumination_time_ms?: number | null;
   description: string | null;
   status: EmitterStatus;
   /** Set from the required note when moving Operational -> Needs rework;
@@ -368,6 +371,10 @@ export interface Mode {
   confirmation_quality: number;
   /** 1 or more, default 2 — written to the PRS export's ConfirmationQuantity. */
   confirmation_quantity: number;
+  /** The scan period (s) of this Mode's function, a box inside its EW
+   * Group's range — for the dwell planner only. Null: the EW Group's applies. */
+  scan_min_s?: number | null;
+  scan_max_s?: number | null;
   generation_batch_id: string | null;
   created_at: string;
   updated_at: string;

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, text, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Numeric, String, text, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -21,6 +21,10 @@ class Emitter(UUIDPkMixin, TimestampMixin, Base):
 
     name: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
     designation: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # How long its beam lights up a Platform each scan (ms) — for the dwell
+    # planner only, not exported. Null: the planner works it out from its
+    # beamwidth setting and the scan period.
+    illumination_time_ms: Mapped[float | None] = mapped_column(Numeric(12, 4), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     # A status_definitions key (EmitterStatus names the built-in ones).
     status: Mapped[str] = mapped_column(String(64), nullable=False, default=EmitterStatus.draft.value)

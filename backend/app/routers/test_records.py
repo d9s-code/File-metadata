@@ -350,6 +350,52 @@ def create_mdf_test_record(
     )
 
 
+def _set_dwell_strategy(db: Session, record: TestRecord, payload: TestDwellStrategyChange, actor_id: UUID) -> None:
+    """Records which saved Dwell Strategy version a logged run used (or none);
+    its dwell text follows ("Patrol v2"). The caller commits."""
+    version = None
+    if payload.dwell_strategy_version_id is not None:
+        version = db.get(DwellStrategyVersion, payload.dwell_strategy_version_id)
+        if version is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Dwell Strategy version not found")
+    if version is not None and version.id == record.dwell_strategy_version_id:
+        return
+    # An MDF test's observations may name the dwell that caught each Emitter —
+    # dwells of the Strategy it was logged with, which another wouldn't have.
+    if any(row.dwell_index is not None for row in record.scenario_emitters):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Its observations name the dwells that caught them, from the Strategy it was logged with — "
+            "log it again to use another",
+        )
+    old_label = record.dwell
+    record.dwell_strategy_version_id = version.id if version else None
+    if version is not None:
+        record.dwell = f"{version.snapshot.get('name')} v{version.version_number}"
+        summary = f"Recorded test '{record.title}' as using Dwell Strategy {record.dwell}"
+    else:
+        summary = f"Recorded test '{record.title}' as using no Dwell Strategy"
+    record_audit(
+        db,
+        actor_id=actor_id,
+        action=AuditAction.update,
+        entity_type=AuditEntityType.test_record.value,
+        entity_id=record.id,
+        summary=summary,
+        changes={"dwell": {"old": old_label, "new": record.dwell}},
+        emitter_id=record.scope_id if record.scope_type == TestScopeType.emitter else None,
+    )
+
+
+def _reloaded(db: Session, record: TestRecord) -> TestRecord:
+    return (
+        db.query(TestRecord)
+        .options(_MODES_EAGER_LOAD, _LINES_EAGER_LOAD, selectinload(TestRecord.signals), selectinload(TestRecord.emitter_version))
+        .filter(TestRecord.id == record.id)
+        .one()
+    )
+
+
 @emitter_router.patch("/{test_record_id}/dwell-strategy", response_model=TestRecordOut, dependencies=[Depends(verify_csrf)])
 def change_emitter_test_dwell_strategy(
     emitter_id: UUID,
@@ -366,35 +412,26 @@ def change_emitter_test_dwell_strategy(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Test record not found")
     if record.platform_test_id is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, "This run is part of a Platform test — its dwell is the Platform test's")
-    version = None
-    if payload.dwell_strategy_version_id is not None:
-        version = db.get(DwellStrategyVersion, payload.dwell_strategy_version_id)
-        if version is None:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Dwell Strategy version not found")
-    old_label = record.dwell
-    record.dwell_strategy_version_id = version.id if version else None
-    if version is not None:
-        record.dwell = f"{version.snapshot.get('name')} v{version.version_number}"
-        summary = f"Recorded test '{record.title}' as using Dwell Strategy {record.dwell}"
-    else:
-        summary = f"Recorded test '{record.title}' as using no Dwell Strategy"
-    record_audit(
-        db,
-        actor_id=user.id,
-        action=AuditAction.update,
-        entity_type=AuditEntityType.test_record.value,
-        entity_id=record.id,
-        summary=summary,
-        changes={"dwell": {"old": old_label, "new": record.dwell}},
-        emitter_id=emitter_id,
-    )
+    _set_dwell_strategy(db, record, payload, user.id)
     db.commit()
-    return (
-        db.query(TestRecord)
-        .options(_MODES_EAGER_LOAD, _LINES_EAGER_LOAD, selectinload(TestRecord.signals), selectinload(TestRecord.emitter_version))
-        .filter(TestRecord.id == record.id)
-        .one()
-    )
+    return _reloaded(db, record)
+
+
+@mdf_router.patch("/{test_record_id}/dwell-strategy", response_model=TestRecordOut, dependencies=[Depends(verify_csrf)])
+def change_mdf_test_dwell_strategy(
+    mdf_id: UUID,
+    test_record_id: UUID,
+    payload: TestDwellStrategyChange,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.editor)),
+) -> TestRecord:
+    """The same for an MDF test: the Dwell Strategy version it ran with, or none."""
+    record = db.get(TestRecord, test_record_id)
+    if record is None or record.scope_type != TestScopeType.mdf or record.scope_id != mdf_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Test record not found")
+    _set_dwell_strategy(db, record, payload, user.id)
+    db.commit()
+    return _reloaded(db, record)
 
 
 @emitter_router.patch("/{test_record_id}/result", response_model=TestRecordOut, dependencies=[Depends(verify_csrf)])

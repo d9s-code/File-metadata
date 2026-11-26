@@ -4,6 +4,7 @@ import type { Emitter } from "../types/domain";
 export interface EmitterCreateInput {
   name: string;
   designation?: string;
+  illumination_time_ms?: number | null;
   description?: string;
   /** What kind of emitter it is — the Add Emitter form requires one. */
   function_code_id?: string;

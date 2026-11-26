@@ -43,12 +43,23 @@ def _planner(mode: dict, line: dict, group: dict | None) -> dict:
         if ft is not None:
             frame = float(apply_delta(ft, ft, line.get("frame_time_delta_us"))[1])
     group = group or {}
-    scan = _span(*apply_delta(group.get("scan_min"), group.get("scan_max"), group.get("scan_delta")))
+    delta = group.get("scan_delta")
+    group_scan = _span(*apply_delta(group.get("scan_min"), group.get("scan_max"), delta))
+    # The Mode's own scan box (its function's, inside the EW Group's overall
+    # range) when it has one, with the EW Group's delta; else the EW Group's.
+    mode_scan = _span(*apply_delta(mode.get("scan_min_s"), mode.get("scan_max_s"), delta))
+    scan = mode_scan or group_scan
+
+    def clamp(span):
+        return [max(span[0], 0.0), span[1]] if span else None
+
     return {
         "longest_interval_us": longest,
         "stagger_steps": steps,
         "frame_us": frame,
-        "scan_s": [max(scan[0], 0.0), scan[1]] if scan else None,
+        "scan_s": clamp(scan),
+        "scan_from": "mode" if mode_scan else ("group" if group_scan else None),
+        "group_scan_s": clamp(group_scan),
         "priority": group.get("threat_priority"),
         "confirmation_quantity": mode.get("confirmation_quantity"),
         "group_name": group.get("name"),
@@ -106,6 +117,8 @@ def emitter_coverage(snapshot: dict, *, emitter_id, emitter_name: str, designati
         "emitter_name": emitter_name,
         "designation": designation,
         "version_number": version_number,
+        # For the dwell planner: how long its beam lights up a Platform (ms), if set.
+        "illumination_time_ms": snapshot.get("illumination_time_ms"),
         "modes": modes,
     }
 

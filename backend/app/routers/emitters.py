@@ -204,6 +204,7 @@ def create_emitter(
     emitter = Emitter(
         name=payload.name,
         designation=payload.designation,
+        illumination_time_ms=payload.illumination_time_ms,
         description=payload.description,
         function_code_id=payload.function_code_id,
         created_by=user.id,

@@ -53,6 +53,9 @@ function usePlannerModes(platformIds: string[]): PlannerMode[] | undefined {
             longestIntervalUs: m.planner?.longest_interval_us ?? null,
             frameUs: m.planner?.frame_us ?? null,
             scanS: m.planner?.scan_s ?? null,
+            scanFrom: m.planner?.scan_from ?? null,
+            groupScanS: m.planner?.group_scan_s ?? null,
+            illuminationTimeMs: e.illumination_time_ms ?? null,
             priority: m.planner?.priority ?? null,
             confirmationQuantity: m.planner?.confirmation_quantity ?? null,
           });
@@ -61,6 +64,28 @@ function usePlannerModes(platformIds: string[]): PlannerMode[] | undefined {
     // results' data is what matters; the array itself is new every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [platformIds.join(), ...results.map((r) => r.dataUpdatedAt)]);
+}
+
+const secs = (r: [number, number]) => (r[1] - r[0] < 1e-9 ? `${num(r[0])} s` : `${num(r[0])}–${num(r[1])} s`);
+
+/** Which scan period it was played at: the Mode's own box, or its EW Group's range. */
+function ScanNote({ mode }: { mode: PlannerMode }) {
+  if (!mode.scanS) return null;
+  const outside =
+    mode.scanFrom === "mode" && mode.groupScanS && (mode.scanS[0] < mode.groupScanS[0] - 1e-9 || mode.scanS[1] > mode.groupScanS[1] + 1e-9);
+  return (
+    <span
+      className={outside ? "jitter-subline planner-scan-outside" : "jitter-subline"}
+      title={
+        mode.scanFrom === "mode"
+          ? `The Mode's own scan period${mode.groupScanS ? `, inside its EW Group's ${secs(mode.groupScanS)}` : ""}${outside ? " — but it reaches outside it" : ""}`
+          : "Its EW Group's scan period — give the Mode its own box under More options to narrow it"
+      }
+    >
+      {mode.scanFrom === "mode" ? "Mode's" : "EW Group's"} {secs(mode.scanS)}
+      {outside && " ⚠"}
+    </span>
+  );
 }
 
 /** "16.7 ms", "1.05 s", "11.2 s", "42 s". */
@@ -293,7 +318,7 @@ export function DwellPlanner({
                   </th>
                   <th
                     className="num"
-                    title={`Illumination time: how long its main beam is on the Platform each scan — scan period × ${num(settings.beamwidthDeg)}° ÷ 360°; — : not scanning, illuminated all the time`}
+                    title={`Illumination time: how long its main beam is on the Platform each scan — its Emitter's own where set, else scan period × ${num(settings.beamwidthDeg)}° ÷ 360°; — : not scanning, illuminated all the time`}
                   >
                     Illumination time
                   </th>
@@ -322,7 +347,15 @@ export function DwellPlanner({
                     </td>
                     <td>{p.covering.length ? p.covering.map((i) => i + 1).join(", ") : "—"}</td>
                     <td className="num">{ms(p.revisitMs)}</td>
-                    <td className="num">{p.illuminationMs == null ? "—" : ms(p.illuminationMs)}</td>
+                    <td className="num">
+                      {p.illuminationMs == null ? "—" : ms(p.illuminationMs)}
+                      {p.illuminationFrom && (
+                        <span className="jitter-subline" title={p.illuminationFrom === "emitter" ? "Its Emitter's illumination time" : `Scan period × ${num(settings.beamwidthDeg)}° ÷ 360°`}>
+                          {p.illuminationFrom === "emitter" ? "Emitter's" : `${num(settings.beamwidthDeg)}° beam`}
+                        </span>
+                      )}
+                      {p.mode.scanS && <ScanNote mode={p.mode} />}
+                    </td>
                     <td className="num">
                       <span className={`planner-p ${p.pWithin >= 0.9 ? "good" : p.pWithin >= 0.5 ? "warn" : "bad"}`}>{pct(p.pWithin)}</span>
                       {(p.mode.confirmationQuantity ?? 1) > 1 && (
@@ -351,8 +384,11 @@ export function DwellPlanner({
               </li>
               <li>A dwell reaches the frequencies in its band (its frequency ± half the bandwidth); a Mode&apos;s RF counts with its delta, each part by its width.</li>
               <li>
-                A Mode with a scan period (its EW Group&apos;s) illuminates the Platform for {num(settings.beamwidthDeg)}° ÷ 360° of each scan — its illumination time; one without is illuminating
-                the Platform all the time. Scan periods given as a range are tried at both ends and the middle; the worst counts.
+                A Mode&apos;s scan period is its own box — its function&apos;s, set under the Mode&apos;s More options — where it has one, else its
+                EW Group&apos;s overall range. Scanning, it illuminates the Platform once each scan for its illumination time: its Emitter&apos;s own
+                where that&apos;s set (Edit details on the Emitter), else {num(settings.beamwidthDeg)}° ÷ 360° of the scan. One without a scan
+                period is illuminating the Platform all the time. Scan periods given as a range are tried at both ends and the middle; the
+                worst counts.
               </li>
               <li>
                 The cycle repeats; the scan may start at any moment. Each Mode is played from {72} starting moments: the share intercepted within{" "}

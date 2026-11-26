@@ -1,15 +1,19 @@
 from datetime import date, datetime
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.enums import TestResult
 
+# How long a beam lights up a Platform each scan, for the dwell planner (ms).
+IlluminationTimeMs = Annotated[float, Field(gt=0, le=3_600_000)]
+
 
 class EmitterCreate(BaseModel):
     name: str
     designation: str | None = None
+    illumination_time_ms: IlluminationTimeMs | None = None
     description: str | None = None
     # The app's Add Emitter form always sends one; scripts and imports may not.
     function_code_id: UUID | None = None
@@ -18,6 +22,7 @@ class EmitterCreate(BaseModel):
 class EmitterUpdate(BaseModel):
     name: str | None = None
     designation: str | None = None
+    illumination_time_ms: IlluminationTimeMs | None = None
     description: str | None = None
 
 
@@ -76,6 +81,7 @@ class EmitterOut(BaseModel):
     id: UUID
     name: str
     designation: str | None = None
+    illumination_time_ms: float | None = None
     description: str | None = None
     status: str
     rework_note: str | None = None

@@ -177,3 +177,18 @@
 .prs-update-changes ul { margin: 0; padding-left: 1rem; font-size: 0.85rem; }
 .prs-update-note { font-size: 0.8rem; color: var(--badge-amber-fg); margin-top: 0.2rem; }
 .prs-update-skip td { opacity: 0.65; }
+
+/* A Mode's own scan period box, inside its EW Group's range. */
+.mode-scan-box {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem 0.25rem;
+  margin: 0;
+  min-width: 0;
+}
+.mode-scan-box legend {
+  padding: 0 0.25rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.mode-scan-box p { margin: 0.25rem 0; }

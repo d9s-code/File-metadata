@@ -60,6 +60,8 @@ def _mode_dict(mode: Mode) -> dict:
         "sort_order": mode.sort_order,
         "confirmation_quality": mode.confirmation_quality,
         "confirmation_quantity": mode.confirmation_quantity,
+        "scan_min_s": float(mode.scan_min_s) if mode.scan_min_s is not None else None,
+        "scan_max_s": float(mode.scan_max_s) if mode.scan_max_s is not None else None,
         # The first Source as before; the rest (a Mode can have several) after it.
         "source_id": str(mode.source_id),
         "source_name": mode.source.name,
@@ -114,6 +116,7 @@ def build_emitter_snapshot(emitter: Emitter) -> dict:
         "id": str(emitter.id),
         "name": emitter.name,
         "designation": emitter.designation,
+        "illumination_time_ms": float(emitter.illumination_time_ms) if emitter.illumination_time_ms is not None else None,
         "description": emitter.description,
         "status": emitter.status,
         "ew_groups": [

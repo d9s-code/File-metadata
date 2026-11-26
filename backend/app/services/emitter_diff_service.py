@@ -15,9 +15,12 @@ from app.services.dates import day_text
 EMITTER_FIELD_LABELS = {
     "name": "Name",
     "designation": "Designation",
+    "illumination_time_ms": "Illumination time (ms)",
     "description": "Description",
     "status": "Status",
 }
+
+EMITTER_FIELDS_ADDED_LATER = frozenset({"illumination_time_ms"})
 
 EW_GROUP_FIELD_LABELS = {
     "name": "Name",
@@ -56,9 +59,11 @@ MODE_FIELD_LABELS = {
     "notes": "Notes",
     "confirmation_quality": "Confirmation Quality (%)",
     "confirmation_quantity": "Confirmation Quantity",
+    "scan_min_s": "Scan period min (s)",
+    "scan_max_s": "Scan period max (s)",
 }
 
-MODE_FIELDS_ADDED_LATER = frozenset({"confirmation_quality", "confirmation_quantity"})
+MODE_FIELDS_ADDED_LATER = frozenset({"confirmation_quality", "confirmation_quantity", "scan_min_s", "scan_max_s"})
 
 # Kept in a Mode's snapshot but not one of its parameters: its id, its place
 # in the list, the generation batch it came from, and its Sources (compared
@@ -268,6 +273,7 @@ def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict, status_labels: 
         old_snapshot,
         new_snapshot,
         EMITTER_FIELD_LABELS,
+        EMITTER_FIELDS_ADDED_LATER,
         value_labels={"status": status_labels or {}},
     )
 

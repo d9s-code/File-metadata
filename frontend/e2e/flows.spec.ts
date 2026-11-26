@@ -462,3 +462,54 @@ test("Dwell planner: finds the cycle in step with a scan, one click breaks it; d
   await page.getByRole("button", { name: "Discard" }).click();
   await removeEmitter(page, e.id);
 });
+
+test("MDF test with a Dwell Strategy: logged with it, listed on the Strategy; the planner plays a Mode at its own scan box", async ({ page }) => {
+  const n = Date.now();
+  const e = await api<{ id: string }>(page, "POST", "/emitters", { name: `E2E MFR ${n}`, illumination_time_ms: 30 });
+  const g = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/ew-groups`, { name: "MFR", scan_min: 1, scan_max: 10 });
+  const s = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/sources`, { name: "S", source_date: "2026-01-01" });
+  await api(page, "POST", `/ew-groups/${g.id}/modes`, { source_id: s.id, name: "Horizon", pri_type: "fixed", line: FIXED_LINE, scan_min_s: 1, scan_max_s: 2 });
+  const v = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/versions`, { change_summary: "v1" });
+  const p = await api<{ id: string }>(page, "POST", "/platforms", { name: `E2E MFR Platform ${n}` });
+  await api(page, "POST", `/platforms/${p.id}/links`, { emitter_id: e.id, emitter_version_id: v.id });
+  const pv = await api<{ id: string }>(page, "POST", `/platforms/${p.id}/versions`, { change_summary: "v1" });
+  const strategy = `E2E Sweep ${n}`;
+  const st = await api<{ id: string }>(page, "POST", "/dwell-strategies", { name: strategy, platform_ids: [p.id] });
+  await api(page, "PATCH", `/dwell-strategies/${st.id}`, {
+    bandwidth_mhz: 200,
+    dwells: [{ freq_mhz: 3000, dwell_time_ms: 100, collect_time_ms: 50 }],
+    save_version: true,
+  });
+  const mdf = await api<{ id: string }>(page, "POST", "/mdfs", { name: `E2E Fleet ${n}` });
+  await api(page, "POST", `/mdfs/${mdf.id}/links`, { platform_id: p.id, platform_version_id: pv.id });
+  await api(page, "POST", `/mdfs/${mdf.id}/versions`, { change_summary: "v1" });
+
+  // The planner: the Mode's own 1–2 s box, and the Emitter's illumination time.
+  await page.goto(`/dwells/strategies/${st.id}`);
+  const row = page.getByRole("region", { name: "Planner" }).locator("tr", { hasText: `E2E MFR ${n}` });
+  await expect(row).toContainText("Mode's 1–2 s");
+  await expect(row).toContainText("Emitter's");
+
+  // The MDF test, logged with the Strategy.
+  await page.goto(`/mdfs/${mdf.id}?tab=tests`);
+  await page.getByRole("button", { name: "+ Add test run" }).click();
+  const form = page.locator("form.card");
+  await form.getByPlaceholder("Title").fill("Sweep run");
+  await form.getByLabel(/Simulation created/).fill("2026-11-20");
+  await form.getByLabel(/Received power/i).fill("-40");
+  const kind = form.locator("select").filter({ has: page.locator("option", { hasText: "Strategy…" }) });
+  await kind.selectOption({ label: "Strategy…" });
+  const pick = form.locator("select").filter({ has: page.locator("option", { hasText: strategy }) });
+  await pick.selectOption({ label: (await pick.locator("option", { hasText: strategy }).innerText()).trim() });
+  await page.getByRole("button", { name: "Log Test" }).click();
+  await expect(page.getByRole("link", { name: strategy })).toBeVisible();
+
+  // …and on the Strategy's page, back to the run.
+  await page.goto(`/dwells/strategies/${st.id}`);
+  await page.getByRole("button", { name: /^Used in/ }).click();
+  await expect(page.getByRole("link", { name: "Sweep run" })).toBeVisible();
+  await expect(page.getByText("· MDF test")).toBeVisible();
+  await page.getByRole("link", { name: "Sweep run" }).click();
+  await expect(page).toHaveURL(/tab=tests&testRecord=/);
+  await removeEmitter(page, e.id);
+});

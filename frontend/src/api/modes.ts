@@ -11,6 +11,8 @@ export interface ModeCreateInput {
   sort_order?: number;
   confirmation_quality?: number;
   confirmation_quantity?: number;
+  scan_min_s?: number | null;
+  scan_max_s?: number | null;
   line: ModeLineFields;
   derived_from_test_record_ids?: string[];
   derived_from_intercept_entry_ids?: string[];
@@ -22,6 +24,9 @@ export interface ModeUpdateInput {
   sort_order?: number;
   confirmation_quality?: number;
   confirmation_quantity?: number;
+  /** Both together, or both null to clear it. */
+  scan_min_s?: number | null;
+  scan_max_s?: number | null;
   ew_group_id?: string;
   /** Replaces the Mode's Sources (one or more). */
   source_ids?: string[];

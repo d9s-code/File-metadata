@@ -26,6 +26,7 @@ from app.schemas.mode import (
     ModeOut,
     ModeUpdate,
     NON_DSL_LINE_FIELDS,
+    check_scan_box,
     require_manual_deltas,
     validate_pri_type_fields,
 )
@@ -131,6 +132,8 @@ def create_mode_record(
         sort_order=payload.sort_order,
         confirmation_quality=payload.confirmation_quality,
         confirmation_quantity=payload.confirmation_quantity,
+        scan_min_s=payload.scan_min_s,
+        scan_max_s=payload.scan_max_s,
         generation_batch_id=generation_batch_id,
     )
     set_mode_sources(mode, sources)
@@ -284,6 +287,11 @@ def update_mode_record(db: Session, mode: Mode, payload: ModeUpdate, actor_id: U
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT, "Changing pri_type requires a new line in the same request"
         )
+    if "scan_min_s" in data or "scan_max_s" in data:
+        try:
+            check_scan_box(data.get("scan_min_s", mode.scan_min_s), data.get("scan_max_s", mode.scan_max_s))
+        except ValueError as exc:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc))
     changes = apply_and_diff(mode, data)
     if new_sources is not None and [s.id for s in new_sources] != mode.source_ids:
         old_names = mode.source_names

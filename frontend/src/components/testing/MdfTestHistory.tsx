@@ -9,6 +9,8 @@ import { ApiRequestError } from "../../api/client";
 import { RequireRole } from "../../auth/RequireAuth";
 import { TestRecordsTable } from "./TestRecordsTable";
 import { TEST_RESULTS, testResultLabel, testTypeLabel } from "./testFormat";
+import { RunDwellStrategy } from "./RunDwellStrategy";
+import { useStrategyDwells } from "./ObservedEmitter";
 import { MdfScenarioSection, MdfScenarioView, scenarioError, scenarioInput, scenarioResult, useMdfScenarioOptions, type PresentedDraft } from "./MdfScenario";
 
 function todayDate(): string {
@@ -28,6 +30,9 @@ export function MdfTestHistory({ mdfId, highlightTestRecordId }: { mdfId: string
   const [testDate, setTestDate] = useState(todayDate());
   const [simCreatedDate, setSimCreatedDate] = useState("");
   const [dwell, setDwell] = useState(MANUAL_DWELL);
+  /** The saved Dwell Strategy version it ran with ("" — none). */
+  const [dwellStrategyVersionId, setDwellStrategyVersionId] = useState("");
+  const strategyDwells = useStrategyDwells(undefined, dwellStrategyVersionId || undefined);
   const [receivedPower, setReceivedPower] = useState("");
   /** "" — worked out from what was observed. */
   const [result, setResult] = useState<TestResult | "">("pass");
@@ -63,6 +68,7 @@ export function MdfTestHistory({ mdfId, highlightTestRecordId }: { mdfId: string
         simulation_created_date: simCreatedDate || undefined,
         received_power_dbfs: Number(receivedPower),
         dwell: dwell.trim() || undefined,
+        dwell_strategy_version_id: dwellStrategyVersionId || undefined,
         result: result || undefined,
         mdf_scenario: scenarioInput(presented),
         notes: notes.trim() || undefined,
@@ -92,6 +98,21 @@ export function MdfTestHistory({ mdfId, highlightTestRecordId }: { mdfId: string
     setShowForm(true);
     setRetestsId(id);
     setTitle(`Retest: ${retestTitle}`);
+    // A retest runs with the same dwells, unless changed.
+    const previous = (records ?? []).find((r) => r.id === id);
+    if (previous?.dwell_strategy_version_id) {
+      setDwellStrategyVersionId(previous.dwell_strategy_version_id);
+      setDwell(previous.dwell ?? "");
+    }
+  }
+
+  function pickStrategy(id: string, label: string) {
+    setDwellStrategyVersionId(id);
+    if (id) setDwell(label);
+    // The dwells that caught each Emitter were the previous Strategy's.
+    setPresented((ps) =>
+      ps.map((p) => ({ ...p, emitters: Object.fromEntries(Object.entries(p.emitters).map(([k, o]) => [k, { ...o, dwellIndex: "" }])) })),
+    );
   }
 
   return (
@@ -102,6 +123,7 @@ export function MdfTestHistory({ mdfId, highlightTestRecordId }: { mdfId: string
         onRedo={(r) => handleRedo(r.id, r.title)}
         highlightId={highlightTestRecordId}
         renderDetail={(r) => ((r.mdf_test_platforms ?? []).length ? <MdfScenarioView record={r} /> : null)}
+        renderDwell={(r) => <RunDwellStrategy mdfId={mdfId} record={r} />}
       />
       <RequireRole minimum="editor">
         {!showForm ? (
@@ -134,7 +156,7 @@ export function MdfTestHistory({ mdfId, highlightTestRecordId }: { mdfId: string
                   required={testType === "simulation"}
                 />
               </label>
-              <DwellInput value={dwell} onChange={setDwell} />
+              <DwellInput value={dwell} onChange={setDwell} strategyVersionId={dwellStrategyVersionId} onStrategy={pickStrategy} />
               <ReceivedPowerInput value={receivedPower} onChange={setReceivedPower} />
               <label className="inline-date-label">
                 Result
@@ -166,7 +188,7 @@ export function MdfTestHistory({ mdfId, highlightTestRecordId }: { mdfId: string
               </label>
             </div>
             {options ? (
-              <MdfScenarioSection mdfId={mdfId} options={options} value={presented} onChange={changePresented} />
+              <MdfScenarioSection mdfId={mdfId} options={options} value={presented} onChange={changePresented} dwells={strategyDwells} />
             ) : optionsError ? (
               <p className="hint-text">Save a version of this MDF to record which Platforms were presented and what was heard.</p>
             ) : null}

@@ -1169,7 +1169,10 @@ export function HelpPage() {
             detected and what it was reported as — itself, Default Unknown, or a <strong>Mix-up</strong> with any Emitter
             of any of the MDF&apos;s Platforms. The result is worked out from it unless you pick one, and{" "}
             <strong>Confidence today</strong> shows the level each Platform&apos;s confidence rules give for what was
-            reported. Open a logged run (▸) to see it all again, with every mix-up listed.
+            reported. Open a logged run (▸) to see it all again, with every mix-up listed. Its{" "}
+            <strong>Dwell</strong> can be a <strong>Strategy</strong>: the test then counts on that Strategy&apos;s page,
+            and each detected Emitter can say which of its dwells caught it. A test logged without one gets it from{" "}
+            <strong>Set Strategy…</strong> in its Dwell column.
           </p>
           <p>
             <strong>From Emitter to MDF.</strong> Save the Emitter, pin it on a Platform and save the Platform, then
@@ -1332,8 +1335,9 @@ export function HelpPage() {
             how likely each of the Platforms&apos; Modes is to be intercepted: how much of its RF the dwells reach, the
             time it needs on frequency to see the <strong>pulses to detect</strong> (its longest PRI with jitter, or a
             stagger&apos;s longest step and two frames), how often a long-enough look comes round, a scanning
-            radar&apos;s <strong>illumination time</strong> — how long its main beam is on the Platform each scan (from the{" "}
-            <strong>beamwidth</strong> you give), and the share
+            radar&apos;s <strong>illumination time</strong> — how long its main beam is on the Platform each scan (its
+            Emitter&apos;s own, set under Edit details, or else from the <strong>beamwidth</strong> you give) at its scan
+            period (the Mode&apos;s own box under More options, or else its EW Group&apos;s range), and the share
             of starting moments it&apos;s caught <strong>within</strong> the time you give, with the median time. Modes
             with problems come first: <strong>Not reached</strong>, <strong>Dwell too short</strong>,{" "}
             <strong>Illumination too short</strong> (no dwell can fix it), <strong>Synchronism</strong> (the cycle keeps missing

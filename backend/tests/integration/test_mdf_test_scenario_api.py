@@ -148,3 +148,49 @@ def test_an_mdf_test_without_a_scenario_is_as_before(editor_client):
     assert resp.status_code == 201, resp.text
     body = resp.json()
     assert body["result"] == "pass" and body["mdf_test_platforms"] == [] and body["scenario_verdicts"] is None
+
+
+def test_an_mdf_test_runs_with_a_dwell_strategy_and_shows_on_it(editor_client):
+    """Logged with a Strategy version, or set afterwards: the test names it, and
+    the Strategy lists the test. The dwell that caught an Emitter is one of its
+    dwells — so a test whose observations name one keeps its Strategy."""
+    mdf = _setup(editor_client)
+    platforms, emitters = _options(editor_client, mdf)
+    frigate, fire = platforms["Frigate"], emitters[("Frigate", "Fire Control")]
+    sid = editor_client.post("/dwell-strategies", json={"name": "Fleet sweep"}).json()["id"]
+    dwells = [{"freq_mhz": 3000, "dwell_time_ms": 100, "collect_time_ms": 50}, {"freq_mhz": 9400, "dwell_time_ms": 100, "collect_time_ms": 50}]
+    editor_client.patch(f"/dwell-strategies/{sid}", json={"dwells": dwells})
+    v1 = editor_client.post(f"/dwell-strategies/{sid}/versions", json={"change_summary": "dwells"}).json()
+    label = f"Fleet sweep v{v1['version_number']}"
+
+    caught = _log(
+        editor_client,
+        mdf,
+        [{"platform_id": frigate["platform_id"], "emitters": [{"emitter_id": fire["emitter_id"], "detected": True, "dwell_index": 2}]}],
+        dwell_strategy_version_id=v1["id"],
+        dwell=label,
+    )
+    assert caught.status_code == 201, caught.text
+    body = caught.json()
+    assert (body["dwell_strategy_id"], body["dwell_strategy_name"], body["dwell_strategy_version_number"]) == (sid, "Fleet sweep", v1["version_number"])
+
+    plain = editor_client.post(
+        f"/mdfs/{mdf['id']}/test-records",
+        json={"test_type": "simulation", "title": "Plain", "test_date": "2026-11-13", "simulation_created_date": "2026-11-01", "received_power_dbfs": -40, "result": "pass"},
+    ).json()  # fmt: skip
+    r = editor_client.patch(f"/mdfs/{mdf['id']}/test-records/{plain['id']}/dwell-strategy", json={"dwell_strategy_version_id": v1["id"]})
+    assert r.status_code == 200, r.text
+    assert (r.json()["dwell_strategy_id"], r.json()["dwell"]) == (sid, label)
+
+    tests = editor_client.get(f"/dwell-strategies/{sid}").json()["tests"]
+    assert sorted((t["kind"], t["owner_id"], t["title"]) for t in tests) == [("mdf", mdf["id"], "Fleet scenario"), ("mdf", mdf["id"], "Plain")]
+
+    # Its observations name dwell 2 of that version: it keeps its Strategy.
+    r = editor_client.patch(f"/mdfs/{mdf['id']}/test-records/{caught.json()['id']}/dwell-strategy", json={"dwell_strategy_version_id": None})
+    assert r.status_code == 409, r.text
+    # Cleared on the plain one; and not reachable through another MDF.
+    r = editor_client.patch(f"/mdfs/{mdf['id']}/test-records/{plain['id']}/dwell-strategy", json={"dwell_strategy_version_id": None})
+    assert r.status_code == 200 and r.json()["dwell_strategy_id"] is None
+    other = editor_client.post("/mdfs", json={"name": "Other MDF"}).json()
+    r = editor_client.patch(f"/mdfs/{other['id']}/test-records/{plain['id']}/dwell-strategy", json={"dwell_strategy_version_id": v1["id"]})
+    assert r.status_code == 404

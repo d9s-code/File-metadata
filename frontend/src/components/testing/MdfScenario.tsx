@@ -151,11 +151,14 @@ export function MdfScenarioSection({
   options,
   value,
   onChange,
+  dwells = [],
 }: {
   mdfId: string;
   options: MdfScenarioOptions;
   value: PresentedDraft[];
   onChange: (v: PresentedDraft[]) => void;
+  /** The dwells of the Strategy version it ran with, for "caught by dwell". */
+  dwells?: { freq_mhz?: number }[];
 }) {
   const nameOf = (platformId: string) => options.platforms.find((p) => p.platform_id === platformId)?.platform_name ?? "(gone)";
   const addable = options.platforms.filter((p) => !value.some((d) => d.platformId === p.platform_id));
@@ -241,7 +244,7 @@ export function MdfScenarioSection({
                         </td>
                         <td>
                           {o.on ? (
-                            <DetectionCell value={o} onChange={(n) => set({ ...n, on: true })} dwells={[]} label={e.emitter_name} />
+                            <DetectionCell value={o} onChange={(n) => set({ ...n, on: true })} dwells={dwells} label={e.emitter_name} />
                           ) : (
                             <span className="hint-text">Not on the air</span>
                           )}

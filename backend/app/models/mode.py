@@ -34,6 +34,11 @@ class Mode(UUIDPkMixin, TimestampMixin, Base):
     confirmation_quantity: Mapped[int] = mapped_column(
         Integer, nullable=False, default=DEFAULT_CONFIRMATION_QUANTITY, server_default=str(DEFAULT_CONFIRMATION_QUANTITY)
     )
+    # The scan period (s) of this Mode's function, a box inside its EW Group's
+    # overall scan range — for the dwell planner only, not exported. Null: the
+    # EW Group's range applies.
+    scan_min_s: Mapped[float | None] = mapped_column(Numeric(12, 4), nullable=True)
+    scan_max_s: Mapped[float | None] = mapped_column(Numeric(12, 4), nullable=True)
     # Which cartesian-product run (if any) generated this Mode. Nullable — modes created
     # manually or via a typed DSL line have no batch. SET NULL on batch delete since the
     # batch-delete endpoint removes the Modes explicitly rather than relying on cascade.

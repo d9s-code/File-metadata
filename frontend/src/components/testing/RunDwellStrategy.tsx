@@ -4,20 +4,25 @@ import type { TestRecord } from "../../api/testRecords";
 import { ApiRequestError } from "../../api/client";
 import { useHasRole } from "../../auth/RequireAuth";
 import { useDwellStrategies, useDwellVersions } from "../../state/hooks/useDwells";
-import { useChangeTestDwellStrategy } from "../../state/hooks/useTestRecords";
+import { useChangeMdfTestDwellStrategy, useChangeTestDwellStrategy } from "../../state/hooks/useTestRecords";
 
 /** A run's dwell, and — for an editor, on a run of its own (not a Platform
  * test's) — setting which saved Strategy version it used afterwards, so it
- * counts towards that Strategy's testing. */
-export function RunDwellStrategy({ emitterId, record }: { emitterId: string; record: TestRecord }) {
-  const canEdit = useHasRole("editor") && !record.platform_test_id;
+ * counts towards that Strategy's testing. An Emitter's run (`emitterId`) or
+ * an MDF test (`mdfId`). */
+export function RunDwellStrategy({ emitterId, mdfId, record }: { emitterId?: string; mdfId?: string; record: TestRecord }) {
+  // An MDF test whose observations name the dwells that caught them keeps the Strategy they're from.
+  const namesDwells = (record.scenario_emitters ?? []).some((e) => e.dwell_index != null);
+  const canEdit = useHasRole("editor") && !record.platform_test_id && !namesDwells;
   const [open, setOpen] = useState(false);
   const [strategyId, setStrategyId] = useState(record.dwell_strategy_id ?? "");
   const [versionId, setVersionId] = useState(record.dwell_strategy_version_id ?? "");
   const [error, setError] = useState<string | null>(null);
   const { data: strategies } = useDwellStrategies(undefined, true);
   const { data: versions } = useDwellVersions("strategies", strategyId);
-  const change = useChangeTestDwellStrategy(emitterId);
+  const changeForEmitter = useChangeTestDwellStrategy(emitterId ?? "");
+  const changeForMdf = useChangeMdfTestDwellStrategy(mdfId ?? "");
+  const change = mdfId ? changeForMdf : changeForEmitter;
 
   const shown = record.dwell_strategy_id ? (
     <>

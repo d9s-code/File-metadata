@@ -144,8 +144,12 @@ export interface CoverageMode {
     stagger_steps: number;
     /** A stagger's longest frame time, µs. */
     frame_us: number | null;
-    /** Its EW Group's scan period, s (with the delta); null — not scanning. */
+    /** Its scan period, s (with the EW Group's delta): the Mode's own box, else its EW Group's; null — not scanning. */
     scan_s: [number, number] | null;
+    /** Where scan_s comes from (missing on coverage read before Modes had their own box). */
+    scan_from?: "mode" | "group" | null;
+    /** Its EW Group's overall scan range, s (with the delta). */
+    group_scan_s?: [number, number] | null;
     priority: number | null;
     confirmation_quantity: number | null;
     group_name: string | null;
@@ -158,6 +162,8 @@ export interface EmitterCoverage {
   emitter_name: string;
   designation: string | null;
   version_number: number;
+  /** For the dwell planner: how long its beam lights up a Platform each scan, ms, where set. */
+  illumination_time_ms?: number | null;
   modes: CoverageMode[];
   /** On an MDF's coverage: the Emitter's status now and its latest saved version. */
   status?: string | null;

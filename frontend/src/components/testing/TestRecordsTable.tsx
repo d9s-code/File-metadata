@@ -65,6 +65,7 @@ export function TestRecordsTable({
   onRedo,
   highlightId,
   renderDetail,
+  renderDwell,
 }: {
   records: TestRecord[];
   emitterId?: string;
@@ -73,6 +74,8 @@ export function TestRecordsTable({
   highlightId?: string;
   /** More about a run, shown under its row when opened (e.g. an MDF test's scenario); null — nothing more. */
   renderDetail?: (record: TestRecord) => ReactNode;
+  /** The Dwell cell, in place of the run's dwell text (e.g. with its Strategy, and changing it). */
+  renderDwell?: (record: TestRecord) => ReactNode;
 }) {
   const [open, setOpen] = useState<Set<string>>(() => new Set(highlightId ? [highlightId] : []));
   const toggle = (id: string) =>
@@ -152,7 +155,7 @@ export function TestRecordsTable({
                   </td>
                 )}
                 <td>{formatDate(r.simulation_created_date)}</td>
-                <td>{r.dwell ?? "—"}</td>
+                <td>{renderDwell ? renderDwell(r) : (r.dwell ?? "—")}</td>
                 <td>{r.received_power_dbfs ?? "—"}</td>
                 <td>{testTypeLabel(r.test_type)}</td>
                 <td>

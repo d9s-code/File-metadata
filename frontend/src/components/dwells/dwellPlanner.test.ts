@@ -142,4 +142,25 @@ describe("intercept in time", () => {
     const plans = plan([mode({ key: "a", modeName: "Fine" }), mode({ key: "b", modeName: "Missing", rf: [5000, 5000] })], [dwell(9400, 100), dwell(3000, 900)], 10, S);
     expect(plans.map((p) => p.issue)).toEqual(["not_covered", "ok"]);
   });
+
+  it("its Emitter's illumination time, where set, instead of the beamwidth's", () => {
+    const dwells = [dwell(9400, 100), dwell(3000, 900)];
+    // A 1 s scan with a 3° beam: ~8 ms — too short for 8 × 5 ms.
+    const m = mode({ longestIntervalUs: 5000, scanS: [1, 1] });
+    expect(planMode(m, dwells, 10, S).illuminationFrom).toBe("beamwidth");
+    // Its Emitter says 60 ms: long enough.
+    const p = planMode({ ...m, illuminationTimeMs: 60 }, dwells, 10, S);
+    expect(p.illuminationMs).toBe(60);
+    expect(p.illuminationFrom).toBe("emitter");
+    expect(p.issue).not.toBe("illumination_too_short");
+    // Not scanning: no illumination time, whatever the Emitter says.
+    expect(planMode({ ...m, scanS: null, illuminationTimeMs: 60 }, dwells, 10, S).illuminationFrom).toBeNull();
+  });
+
+  it("a Mode's own scan box is what it's played at, not its EW Group's whole range", () => {
+    const dwells = [dwell(9400, 100), dwell(3000, 900)];
+    // The group scans anywhere from 2 to 10 s; this function only at 2 s — locked out.
+    const boxed = mode({ scanS: [2, 2], scanFrom: "mode", groupScanS: [2, 10] });
+    expect(planMode(boxed, dwells, 10, S).issue).toBe("synchronism");
+  });
 });

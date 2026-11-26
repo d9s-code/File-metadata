@@ -10,7 +10,7 @@ import type { ModeDefaults } from "../../api/dwells";
 import { modeSourceIds } from "./modeFormat";
 import { SourcesPicker } from "./SourcesPicker";
 import { ModeLineFields, friendlyServerError, useModeLine } from "./ModeLineFields";
-import { ModeMoreOptions, confirmationProblem, type MoreOptionsValues } from "./ModeMoreOptions";
+import { ModeMoreOptions, optionsProblem as findOptionsProblem, scanPayload, type MoreOptionsValues } from "./ModeMoreOptions";
 
 /** A new Mode's options: the admin's default confirmation. */
 const defaultOptions = (defaults: ModeDefaults): MoreOptionsValues => ({
@@ -136,6 +136,8 @@ export function ModeForm({
       quantity: String(mode.confirmation_quantity),
       notes: mode.notes ?? "",
       derivedFrom: new Set(),
+      scanMin: mode.scan_min_s != null ? String(mode.scan_min_s) : "",
+      scanMax: mode.scan_max_s != null ? String(mode.scan_max_s) : "",
     });
   }
 
@@ -204,7 +206,7 @@ export function ModeForm({
       source: sourceIds.length ? undefined : "Pick a Source — add one under Groups & Sources first",
     };
     setProblems(found);
-    const optionsProblem = confirmationProblem(options.quality, options.quantity);
+    const optionsProblem = findOptionsProblem(options);
     setOptionsForced(!!optionsProblem);
     if (found.name || found.ewGroup || found.source || !line.valid || optionsProblem) {
       focusFirstProblem();
@@ -218,6 +220,7 @@ export function ModeForm({
       notes: options.notes.trim() || undefined,
       confirmation_quality: Number(options.quality),
       confirmation_quantity: Number(options.quantity),
+      ...scanPayload(options),
       line: line.payload(),
     };
     if (onStage) {
@@ -368,6 +371,10 @@ export function ModeForm({
         emitterId={emitterId}
         showDerived={!fixedOrigin && !onStage}
         forceOpen={optionsForced}
+        groupScan={(() => {
+          const g = ewGroups.find((x) => x.id === ewGroupId);
+          return g && { min: g.scan_min, max: g.scan_max };
+        })()}
       />
 
       {added && <p className="mode-form-added">✓ Added &ldquo;{added}&rdquo; — the next one goes in below.</p>}

@@ -7,7 +7,8 @@ import { useModeDefaults } from "../../state/hooks/useDwells";
 import { modeSourceIds } from "./modeFormat";
 import { SourcesPicker } from "./SourcesPicker";
 import { ModeLineFields, friendlyServerError, useModeLine } from "./ModeLineFields";
-import { ModeMoreOptions, confirmationProblem, type MoreOptionsValues } from "./ModeMoreOptions";
+import { ModeMoreOptions, optionsProblem as findOptionsProblem, scanPayload, type MoreOptionsValues } from "./ModeMoreOptions";
+import { useEwGroups } from "../../state/hooks/useEwGroups";
 
 /** Edits an existing Mode's line in place, including its PRI type — changing
  * type always submits a full new line for it (the old type's fields, e.g.
@@ -50,7 +51,11 @@ export function ModeEditForm({
     quantity: String(mode.confirmation_quantity),
     notes: mode.notes ?? "",
     derivedFrom: new Set(),
+    scanMin: mode.scan_min_s != null ? String(mode.scan_min_s) : "",
+    scanMax: mode.scan_max_s != null ? String(mode.scan_max_s) : "",
   });
+  const { data: ewGroups } = useEwGroups(emitterId);
+  const group = ewGroups?.find((g) => g.id === mode.ew_group_id);
   const [optionsForced, setOptionsForced] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -65,7 +70,7 @@ export function ModeEditForm({
     e.preventDefault();
     setError(null);
     line.reveal();
-    const optionsProblem = confirmationProblem(options.quality, options.quantity);
+    const optionsProblem = findOptionsProblem(options);
     setOptionsForced(!!optionsProblem);
     const badName = !name.trim() ? "Give the Mode a name" : clash ? "Another Mode in this EW Group already has this name" : null;
     setNameProblem(badName);
@@ -85,6 +90,7 @@ export function ModeEditForm({
           pri_type: priType !== mode.pri_type ? priType : undefined,
           confirmation_quality: Number(options.quality),
           confirmation_quantity: Number(options.quantity),
+          ...scanPayload(options),
           line: line.payload(),
           derived_from_test_record_ids: [
             ...new Set([...options.derivedFrom, ...(derivedFromTestRecord ? [derivedFromTestRecord.id] : [])]),
@@ -147,6 +153,7 @@ export function ModeEditForm({
         emitterId={emitterId}
         showDerived
         forceOpen={optionsForced}
+        groupScan={group && { min: group.scan_min, max: group.scan_max }}
       />
 
       {error && (

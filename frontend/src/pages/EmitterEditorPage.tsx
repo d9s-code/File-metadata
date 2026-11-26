@@ -74,6 +74,7 @@ export function EmitterEditorPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
   const [editDesignation, setEditDesignation] = useState("");
+  const [editIllumination, setEditIllumination] = useState("");
   const [editDescription, setEditDescription] = useState("");
   // Bumped after "Discard changes" to remount every tab, so open edit forms
   // and other local state holding discarded values are thrown away too.
@@ -107,9 +108,13 @@ export function EmitterEditorPage() {
   const modeCount = emitter.summary.mode_count;
   const setupIncomplete = sourceCount === 0 || ewGroupCount === 0 || modeCount === 0;
 
+  const illuminationProblem =
+    editIllumination.trim() && !(Number(editIllumination) > 0) ? "A number of milliseconds above 0, or leave it empty" : null;
+
   const handleStartEdit = () => {
     setEditName(emitter.name);
     setEditDesignation(emitter.designation ?? "");
+    setEditIllumination(emitter.illumination_time_ms != null ? String(emitter.illumination_time_ms) : "");
     setEditDescription(emitter.description ?? "");
     setIsEditing(true);
   };
@@ -131,7 +136,12 @@ export function EmitterEditorPage() {
     updateEmitter(
       {
         id: emitter.id,
-        input: { name: editName, designation: editDesignation || undefined, description: editDescription || undefined },
+        input: {
+          name: editName,
+          designation: editDesignation || undefined,
+          illumination_time_ms: editIllumination.trim() ? Number(editIllumination) : null,
+          description: editDescription || undefined,
+        },
       },
       {
         onSuccess: () => setIsEditing(false),
@@ -231,6 +241,27 @@ export function EmitterEditorPage() {
               />
             </label>
             <label>
+              Illumination time (ms)
+              <input
+                type="number"
+                step="any"
+                min="0"
+                value={editIllumination}
+                onChange={(e) => setEditIllumination(e.target.value)}
+                placeholder="From the planner's beamwidth"
+                className="edit-input"
+                aria-invalid={!!illuminationProblem || undefined}
+              />
+              {illuminationProblem ? (
+                <span className="line-row-problem">{illuminationProblem}</span>
+              ) : (
+                <span className="hint-text">
+                  How long its beam lights up a Platform each scan — for the dwell planner. Empty: worked out from the
+                  planner&apos;s beamwidth and the scan period. Not exported.
+                </span>
+              )}
+            </label>
+            <label>
               Description
               <textarea
                 value={editDescription}
@@ -245,7 +276,7 @@ export function EmitterEditorPage() {
             <button className="button secondary" onClick={handleCancelEdit} disabled={isUpdating}>
               Cancel
             </button>
-            <button className="button primary" onClick={handleSaveEdit} disabled={isUpdating}>
+            <button className="button primary" onClick={handleSaveEdit} disabled={isUpdating || !!illuminationProblem}>
               {isUpdating ? "Saving…" : "Save"}
             </button>
           </div>

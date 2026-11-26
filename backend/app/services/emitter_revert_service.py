@@ -74,6 +74,7 @@ def _variant(value: str | None) -> ElementVariant | None:
 def reconcile_emitter_to_snapshot(db: Session, emitter: Emitter, snapshot: dict) -> None:
     emitter.name = snapshot["name"]
     emitter.designation = snapshot.get("designation")
+    emitter.illumination_time_ms = _num(snapshot.get("illumination_time_ms"))
     emitter.description = snapshot.get("description")
     # Status (and its rework note) is where the Emitter stands, not part of
     # its content: a revert or discard leaves it as it is.
@@ -238,6 +239,8 @@ def _reconcile_modes(db: Session, group: EwGroup, *, mode_snaps: list[dict]) -> 
         if "confirmation_quality" in m_snap:
             mode.confirmation_quality = m_snap["confirmation_quality"]
             mode.confirmation_quantity = m_snap["confirmation_quantity"]
+        mode.scan_min_s = _num(m_snap.get("scan_min_s"))
+        mode.scan_max_s = _num(m_snap.get("scan_max_s"))
         mode.extra_source_links = _extra_source_links(m_snap.get("extra_source_ids", []))
         if "generation_batch_id" in m_snap:
             mode.generation_batch_id = _existing(db, ModeGenerationBatch, m_snap["generation_batch_id"])
@@ -319,6 +322,7 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
     new_emitter = Emitter(
         name=new_name,
         designation=source_snapshot.get("designation"),
+        illumination_time_ms=_num(source_snapshot.get("illumination_time_ms")),
         description=source_snapshot.get("description"),
         status=EmitterStatus.draft,
         created_by=created_by,
@@ -397,6 +401,8 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
                 sort_order=m_snap.get("sort_order", 0),
                 confirmation_quality=m_snap.get("confirmation_quality", DEFAULT_CONFIRMATION_QUALITY),
                 confirmation_quantity=m_snap.get("confirmation_quantity", DEFAULT_CONFIRMATION_QUANTITY),
+                scan_min_s=_num(m_snap.get("scan_min_s")),
+                scan_max_s=_num(m_snap.get("scan_max_s")),
             )
             new_mode.extra_source_links = [
                 ModeExtraSource(source_id=source_id_map[sid], sort_order=i)

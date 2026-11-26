@@ -235,3 +235,4 @@ label.dwell-bandwidth { display: inline-flex; flex-direction: row; align-items: 
 .planner-model summary { cursor: pointer; font-weight: 600; }
 .planner-model ul { margin: 0.4rem 0 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: 0.25rem; }
 .dwell-table input[aria-invalid="true"] { border-color: var(--badge-red-fg); }
+.planner-scan-outside { color: var(--badge-amber-fg); }

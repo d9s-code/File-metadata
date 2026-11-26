@@ -93,6 +93,19 @@ export function useMdfTestRecords(mdfId: string) {
   });
 }
 
+/** Which saved Dwell Strategy version an MDF test ran with (null: none). */
+export function useChangeMdfTestDwellStrategy(mdfId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, versionId }: { id: string; versionId: string | null }) =>
+      testRecordsApi.changeMdfDwellStrategy(mdfId, id, versionId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: testRecordsKey("mdf", mdfId) });
+      void qc.invalidateQueries({ queryKey: ["dwell-strategies"] });
+    },
+  });
+}
+
 export function useCreateMdfTestRecord(mdfId: string) {
   const qc = useQueryClient();
   return useMutation({
@@ -100,6 +113,8 @@ export function useCreateMdfTestRecord(mdfId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: testRecordsKey("mdf", mdfId) });
       qc.invalidateQueries({ queryKey: mdfReadinessKey(mdfId) });
+      // A Strategy lists the tests that ran with it.
+      void qc.invalidateQueries({ queryKey: ["dwell-strategies"] });
     },
   });
 }
