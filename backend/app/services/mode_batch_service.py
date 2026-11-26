@@ -131,7 +131,11 @@ def plan_batch_edit(
     emitter_id: UUID,
     mode_ids: list[UUID],
     fields: BatchModeFieldEdit,
+    line_values: dict[str, Any] | None = None,
 ) -> tuple[list[PlannedModeEdit], list[ModeBatchEditError]]:
+    """`line_values`: line fields set to these values on every Mode (an
+    operational mode's shared values, set on all the Modes under it) — a PRI
+    range or jitter only on Fixed ones, any other Mode an error."""
     modes = (
         db.query(Mode)
         .join(EwGroup, Mode.ew_group_id == EwGroup.id)
@@ -166,6 +170,11 @@ def plan_batch_edit(
     for mode in modes:
         try:
             values = _current_line_values(mode)
+            if line_values:
+                fixed_only = [k for k in line_values if k.startswith(("pri_min", "pri_max", "jitter_"))]
+                if fixed_only and mode.pri_type != PriType.fixed:
+                    raise ValueError(f"its PRI is {mode.pri_type.value}, so it has no PRI range or jitter to set")
+                values.update(line_values)
             for key, value in field_data.items():
                 if key in _LINE_FIELD_KEYS:
                     values[key] = value

@@ -10,7 +10,7 @@ import { FilesPanel } from "../components/files/FilesPanel";
 import { useEwGroups } from "../state/hooks/useEwGroups";
 import { useSources } from "../state/hooks/useSources";
 import { useCreateEmitterNote, useDeleteEmitterNote, useEmitterNotes } from "../state/hooks/useEmitterNotes";
-import { OperationalModesTable } from "../components/operationalModes/OperationalModesTable";
+import { OperationalModesTree } from "../components/operationalModes/OperationalModesTree";
 import { EwGroupsTable } from "../components/ewGroups/EwGroupsTable";
 import { ElementOverview } from "../components/sources/ElementOverview";
 import { ElementCoverage } from "../components/sources/ElementCoverage";
@@ -38,8 +38,8 @@ import { EmitterPinsChip } from "../components/emitters/EmitterPinsChip";
 import { LatestVersion } from "../components/versioning/SaveVersionButton";
 import { useEmitterVersions } from "../state/hooks/useEmitterVersions";
 
-type Tab = "modes" | "setup" | "intercepts" | "tests" | "files" | "audit";
-const TABS: readonly Tab[] = ["modes", "setup", "intercepts", "tests", "files", "audit"];
+type Tab = "modes" | "operational" | "setup" | "intercepts" | "tests" | "files" | "audit";
+const TABS: readonly Tab[] = ["modes", "operational", "setup", "intercepts", "tests", "files", "audit"];
 
 /** The tab a link asks for with ?tab=…, if it names one. */
 function linkedTab(params: URLSearchParams): Tab | null {
@@ -342,6 +342,9 @@ export function EmitterEditorPage() {
         <button className={tab === "modes" ? "tab active" : "tab"} onClick={() => setTab("modes")}>
           Modes <span className="tab-count">{modeCount}</span>
         </button>
+        <button className={tab === "operational" ? "tab active" : "tab"} onClick={() => setTab("operational")}>
+          Operational modes
+        </button>
         <button className={tab === "setup" ? "tab active" : "tab"} onClick={() => setTab("setup")}>
           Groups & Sources
         </button>
@@ -377,10 +380,15 @@ export function EmitterEditorPage() {
       </div>
       </Activity>
 
+      <Activity mode={tab === "operational" ? "visible" : "hidden"}>
+      <div>
+        <OperationalModesTree emitterId={emitter.id} />
+      </div>
+      </Activity>
+
       <Activity mode={tab === "setup" ? "visible" : "hidden"}>
       <div>
         <EwGroupsTable emitterId={emitter.id} ewGroups={ewGroups ?? []} />
-        <OperationalModesTable emitterId={emitter.id} />
         <SourcesTable
           emitterId={emitter.id}
           sources={sources ?? []}

@@ -156,6 +156,8 @@ export interface CoverageMode {
     /** The radar's operational mode it's transmitted in, and that mode's illumination time (ms), if set. */
     operational_mode?: string | null;
     illumination_time_ms?: number | null;
+    /** The operational mode that illumination time is set on (it, or one above it). */
+    illumination_from?: string | null;
   };
 }
 

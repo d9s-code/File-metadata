@@ -522,14 +522,15 @@ test("Operational modes: add one, link a Mode to it, and the planner takes its i
   const s = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/sources`, { name: "S", source_date: "2026-01-01" });
   await api(page, "POST", `/ew-groups/${g.id}/modes`, { source_id: s.id, name: "Search 1", pri_type: "fixed", line: FIXED_LINE });
 
-  await page.goto(`/emitters/${e.id}?tab=setup`);
+  await page.goto(`/emitters/${e.id}?tab=operational`);
   const start = page.getByRole("button", { name: /Start editing/ });
   if (await start.isVisible()) await start.click();
   const card = page.getByRole("region", { name: "Operational modes" });
   await card.getByRole("button", { name: "+ Add operational mode" }).click();
-  await card.getByLabel("Name").fill("Volume search");
-  await card.getByLabel("Illumination time (ms)").fill("45");
-  await card.getByRole("button", { name: "Add operational mode", exact: true }).click();
+  const add = page.getByRole("dialog");
+  await add.getByLabel("Name").fill("Volume search");
+  await add.getByLabel("Illumination time (ms)").fill("45");
+  await add.getByRole("button", { name: "Add", exact: true }).click();
   await expect(card.locator("tr", { hasText: "Volume search" })).toContainText("45 ms");
 
   // Linked from the Mode's More options.
@@ -557,5 +558,53 @@ test("Operational modes: add one, link a Mode to it, and the planner takes its i
   const row = page.getByRole("region", { name: "Planner" }).locator("tr", { hasText: name });
   await expect(row).toContainText("45 ms");
   await expect(row).toContainText("Volume search");
+  await removeEmitter(page, e.id);
+});
+
+test("Operational modes as a tree: TRACK holds Track 1 and 2, shows what they share, sets it on them, takes in a Mode", async ({ page }) => {
+  const n = Date.now();
+  const e = await api<{ id: string }>(page, "POST", "/emitters", { name: `E2E Tree ${n}` });
+  const g = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/ew-groups`, { name: "All" });
+  const s = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/sources`, { name: "S", source_date: "2026-01-01" });
+  const url = `/emitters/${e.id}/operational-modes`;
+  const track = await api<{ id: string }>(page, "POST", url, { name: "TRACK", illumination_time_ms: 30 });
+  const t1 = await api<{ id: string }>(page, "POST", url, { name: "Track 1", parent_id: track.id });
+  const line = (pri: number) => ({ ...FIXED_LINE, rf_min_mhz: 9400, rf_max_mhz: 9450, pri_min_us: pri, pri_max_us: pri });
+  await api(page, "POST", `/ew-groups/${g.id}/modes`, { source_id: s.id, name: "T1", pri_type: "fixed", line: line(100), operational_mode_id: t1.id });
+  await api(page, "POST", `/ew-groups/${g.id}/modes`, { source_id: s.id, name: "T2", pri_type: "fixed", line: line(120) });
+
+  await page.goto(`/emitters/${e.id}?tab=operational`);
+  const start = page.getByRole("button", { name: /Start editing/ });
+  if (await start.isVisible()) await start.click();
+  const card = page.getByRole("region", { name: "Operational modes" });
+
+  // Track 2, added under TRACK from its menu.
+  await card.getByRole("button", { name: "Actions for TRACK", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Add under it…" }).click();
+  const add = page.getByRole("dialog");
+  await add.getByLabel("Name").fill("Track 2");
+  await add.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(add).toBeHidden();
+
+  // T2 isn't in one yet: moved under Track 2.
+  // (Clicked as such: the floating "Editing n Emitters" box may sit over the table's corner.)
+  await card.getByLabel("Select T2").dispatchEvent("click");
+  await expect(card.getByLabel("Select T2")).toBeChecked();
+  await card.locator(".op-move-bar select").selectOption({ label: "\u2003Track 2" });
+  await card.getByRole("button", { name: "Move", exact: true }).click();
+  const trackRow = card.locator("tr", { has: page.getByText("TRACK", { exact: true }) });
+  // The RF range both share shows once, on TRACK; their PRIs on Track 1 and 2.
+  await expect(trackRow).toContainText("9400–9450 MHz");
+  await expect(card.locator("tr", { has: page.getByText("Track 2", { exact: true }) })).toContainText("120 µs");
+  await expect(card.locator("tr", { has: page.getByText("Track 2", { exact: true }) })).toContainText("from TRACK");
+
+  // Set on both from TRACK: a new RF max.
+  await card.getByRole("button", { name: "Actions for TRACK", exact: true }).click();
+  await page.getByRole("menuitem", { name: /Set on its 2 Modes/ }).click();
+  const set = page.getByRole("dialog");
+  await set.getByLabel("RF max").fill("9460");
+  await set.getByRole("button", { name: "Set 1 value" }).click();
+  await expect(set).toBeHidden();
+  await expect(trackRow).toContainText("9400–9460 MHz");
   await removeEmitter(page, e.id);
 });

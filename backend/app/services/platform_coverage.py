@@ -63,9 +63,12 @@ def _planner(mode: dict, line: dict, group: dict | None, operational: dict | Non
         "priority": group.get("threat_priority"),
         "confirmation_quantity": mode.get("confirmation_quantity"),
         "group_name": group.get("name"),
-        # The radar's operational mode it's transmitted in, and that mode's illumination time (ms), if set.
-        "operational_mode": (operational or {}).get("name"),
+        # The radar's operational mode it's transmitted in ("TRACK › Track 2"), the
+        # illumination time (ms) it takes — its own or the nearest above it with
+        # one — and which one that is.
+        "operational_mode": (operational or {}).get("path"),
         "illumination_time_ms": (operational or {}).get("illumination_time_ms"),
+        "illumination_from": (operational or {}).get("illumination_from"),
     }
 
 
@@ -107,9 +110,32 @@ def _mode_ranges(mode: dict, group: dict | None = None, operational: dict | None
     return out
 
 
+def _operational_effective(rows: list[dict]) -> dict[str, dict]:
+    """Each operational mode with its path ("TRACK › Track 2") and the
+    illumination time it gives its Modes: its own, else the nearest one above
+    it with one (and that one's name)."""
+    by_id = {o["id"]: o for o in rows}
+    out = {}
+    for op_id in by_id:
+        names, illumination, source, current, seen = [], None, None, op_id, set()
+        while current and current in by_id and current not in seen:
+            seen.add(current)
+            row = by_id[current]
+            names.append(row["name"])
+            if illumination is None and row.get("illumination_time_ms") is not None:
+                illumination, source = row["illumination_time_ms"], row["name"]
+            current = row.get("parent_id")
+        out[op_id] = {
+            "path": " › ".join(reversed(names)),
+            "illumination_time_ms": illumination,
+            "illumination_from": source,
+        }
+    return out
+
+
 def emitter_coverage(snapshot: dict, *, emitter_id, emitter_name: str, designation, version_number: int) -> dict:
     """One Emitter version's coverage from its snapshot."""
-    operational = {o["id"]: o for o in snapshot.get("operational_modes", [])}
+    operational = _operational_effective(snapshot.get("operational_modes", []))
     modes = [
         ranges
         for group in snapshot.get("ew_groups", [])

@@ -279,6 +279,16 @@ def _diff_mode(
     _diff_fields(entries, scope, old_line, new_line, labels, MODE_LINE_FIELDS_ADDED_LATER | later)
 
 
+def _path(operational: dict[str, dict], op_id: str | None) -> str | None:
+    """"TRACK › Track 2": its name under its parents'; None at the top."""
+    names, seen = [], set()
+    while op_id and op_id in operational and op_id not in seen:
+        seen.add(op_id)
+        names.append(operational[op_id]["name"])
+        op_id = operational[op_id].get("parent_id")
+    return " › ".join(reversed(names)) or None
+
+
 def _operational_summary(o: dict) -> str:
     ms = o.get("illumination_time_ms")
     return o["name"] + (f" (illumination {ms:g} ms)" if ms is not None else "")
@@ -327,14 +337,25 @@ def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict, status_labels: 
                 entries.append(_entry(scope, "Added", "added", new_value=_operational_summary(o)))
             else:
                 _diff_fields(entries, scope, old_operational[o_id], o, OPERATIONAL_MODE_FIELD_LABELS)
+                before, after = old_operational[o_id], o
+                if "parent_id" in before and "parent_id" in after and before["parent_id"] != after["parent_id"]:
+                    entries.append(
+                        _entry(
+                            scope,
+                            "Under",
+                            "changed",
+                            old_value=_path(old_operational, before["parent_id"]),
+                            new_value=_path(new_operational, after["parent_id"]),
+                        )
+                    )
         for o_id, o in old_operational.items():
             if o_id not in new_operational:
                 entries.append(
                     _entry(f"Operational mode '{o['name']}'", "Removed", "removed", old_value=_operational_summary(o))
                 )
     operational_names = (
-        {k: o["name"] for k, o in old_operational.items()},
-        {k: o["name"] for k, o in new_operational.items()},
+        {k: _path(old_operational, k) for k in old_operational},
+        {k: _path(new_operational, k) for k in new_operational},
     )
 
     old_groups = {g["id"]: g for g in old_snapshot.get("ew_groups", [])}

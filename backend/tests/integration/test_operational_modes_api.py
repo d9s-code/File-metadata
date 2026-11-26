@@ -108,3 +108,77 @@ def test_versions_compare_revert_and_duplicate_them(editor_client):
     [copy_group] = editor_client.get(f"/emitters/{copy_id}/ew-groups").json()
     [copy_mode] = editor_client.get(f"/ew-groups/{copy_group['id']}/modes").json()
     assert copy_mode["operational_mode_id"] == copied["A"]["id"]
+
+
+def test_a_tree_track_holds_track_1_2_3(editor_client):
+    """TRACK holds Track 1, 2, 3; names are unique among siblings; nothing can
+    go under itself; deleting one moves what was under it up."""
+    e, g, s = _emitter(editor_client)
+    url = f"/emitters/{e['id']}/operational-modes"
+    track = editor_client.post(url, json={"name": "TRACK", "illumination_time_ms": 30}).json()
+    search = editor_client.post(url, json={"name": "SEARCH"}).json()
+    kids = [editor_client.post(url, json={"name": f"Track {i}", "parent_id": track["id"]}).json() for i in (1, 2, 3)]
+    assert all(k["parent_id"] == track["id"] for k in kids)
+    # The same name under another parent is fine; twice under one isn't.
+    assert editor_client.post(url, json={"name": "Track 1", "parent_id": search["id"]}).status_code == 201
+    assert editor_client.post(url, json={"name": "Track 1", "parent_id": track["id"]}).status_code == 409
+    # Not under itself, nor under one of its own.
+    assert editor_client.patch(f"{url}/{track['id']}", json={"parent_id": track["id"]}).status_code == 422
+    assert editor_client.patch(f"{url}/{track['id']}", json={"parent_id": kids[0]["id"]}).status_code == 422
+
+    # Modes under Track 1–3, a stagger under Track 3.
+    fixed = {**LINE, "pri_min_us": 990, "pri_max_us": 1000}
+    m1 = _mode(editor_client, g, s, "T1", operational_mode_id=kids[0]["id"])
+    m2 = _mode(editor_client, g, s, "T2", operational_mode_id=kids[1]["id"], line={**fixed, "pri_min_us": 500, "pri_max_us": 500})
+    # The RF range they share, set once on TRACK: on every Mode under it.
+    r = editor_client.post(f"{url}/{track['id']}/set-values", json={"rf_min_mhz": 9400, "rf_max_mhz": 9450})
+    assert r.status_code == 200 and r.json()["count"] == 2, r.text
+    lines = {m["name"]: m["line"] for m in editor_client.get(f"/ew-groups/{g['id']}/modes").json()}
+    assert (lines["T1"]["rf_min_mhz"], lines["T2"]["rf_max_mhz"]) == (9400, 9450)
+    assert (lines["T1"]["pri_max_us"], lines["T2"]["pri_max_us"]) == (1000, 500)  # their own PRI, untouched
+    stagger = {k: v for k, v in LINE.items() if not k.startswith(("pri_", "jitter_"))} | {
+        "pri_range_matching": False, "pri_stagger_values_us": [300, 400], "frame_time_delta_us": 0}  # fmt: skip
+    editor_client.post(
+        f"/ew-groups/{g['id']}/modes",
+        json={"source_id": s["id"], "name": "T3", "pri_type": "stagger", "line": stagger, "operational_mode_id": kids[2]["id"]},
+    )
+    # A PRI range doesn't suit the stagger: nothing is set, and it says which.
+    r = editor_client.post(f"{url}/{track['id']}/set-values", json={"pri_min_us": 100, "pri_max_us": 100})
+    assert r.status_code == 422 and [x["mode_name"] for x in r.json()["detail"]] == ["T3"], r.text
+    assert editor_client.post(f"{url}/{track['id']}/set-values", json={}).status_code == 422
+
+    # The planner: Track 2 takes TRACK's 30 ms, its path named.
+    v = editor_client.post(f"/emitters/{e['id']}/versions", json={"change_summary": "v1"}).json()
+    p = editor_client.post("/platforms", json={"name": "Tree Platform"}).json()
+    editor_client.post(f"/platforms/{p['id']}/links", json={"emitter_id": e["id"], "emitter_version_id": v["id"]})
+    [cov] = editor_client.get(f"/platforms/{p['id']}/coverage").json()
+    t2 = next(m["planner"] for m in cov["modes"] if m["name"] == "T2")
+    assert (t2["operational_mode"], t2["illumination_time_ms"], t2["illumination_from"]) == ("TRACK › Track 2", 30, "TRACK")
+
+    # Deleting Track 1 moves its Mode up to TRACK.
+    assert editor_client.delete(f"{url}/{kids[0]['id']}").status_code == 204
+    t1 = next(m for m in editor_client.get(f"/ew-groups/{g['id']}/modes").json() if m["id"] == m1["id"])
+    assert t1["operational_mode_id"] == track["id"]
+    # Deleting TRACK moves Track 2 and 3 to the top.
+    assert editor_client.delete(f"{url}/{track['id']}").status_code == 204
+    tops = {o["name"]: o["parent_id"] for o in editor_client.get(url).json()}
+    assert tops["Track 2"] is None and tops["Track 3"] is None
+    assert m2["operational_mode_id"] == kids[1]["id"]
+
+
+def test_the_tree_is_versioned_reverted_and_duplicated(editor_client):
+    e, _g, _s = _emitter(editor_client)
+    url = f"/emitters/{e['id']}/operational-modes"
+    track = editor_client.post(url, json={"name": "TRACK"}).json()
+    search = editor_client.post(url, json={"name": "SEARCH"}).json()
+    t1 = editor_client.post(url, json={"name": "Track 1", "parent_id": track["id"]}).json()
+    v1 = editor_client.post(f"/emitters/{e['id']}/versions", json={"change_summary": "v1"}).json()
+    editor_client.patch(f"{url}/{t1['id']}", json={"parent_id": search["id"]})
+    v2 = editor_client.post(f"/emitters/{e['id']}/versions", json={"change_summary": "v2"}).json()
+    diff = editor_client.get(f"/emitters/{e['id']}/versions/{v2['version_number']}/diff").json()["entries"]
+    assert any(d["label"] == "Under" and (d["old_value"], d["new_value"]) == ("TRACK", "SEARCH") for d in diff)
+    assert editor_client.post(f"/emitters/{e['id']}/versions/{v1['version_number']}/revert").status_code == 200
+    assert {o["name"]: o["parent_id"] for o in editor_client.get(url).json()}["Track 1"] == track["id"]
+    copy = editor_client.post(f"/emitters/{e['id']}/duplicate", json={"new_name": "Tree copy"}).json()
+    rows = {o["name"]: o for o in editor_client.get(f"/emitters/{copy['id']}/operational-modes").json()}
+    assert rows["Track 1"]["parent_id"] == rows["TRACK"]["id"] != track["id"]

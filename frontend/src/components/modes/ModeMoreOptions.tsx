@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { DerivedFromPicker } from "./DerivedFromPicker";
 import type { OperationalMode } from "../../api/operationalModes";
+import { buildTree, flatten } from "../operationalModes/opTree";
 
 /** Written to the PRS export — 100 % and 2 unless a Mode says otherwise. */
 export const DEFAULT_CONFIRMATION_QUALITY = 100;
@@ -103,15 +104,16 @@ export function ModeMoreOptions({
     groupScan && (groupScan.min != null || groupScan.max != null)
       ? `${groupScan.min != null ? secondsText(groupScan.min) : "?"} – ${groupScan.max != null ? secondsText(groupScan.max) : "?"}`
       : null;
-  const linked = operationalModes?.find((o) => o.id === values.operationalModeId);
+  const tree = flatten(buildTree(operationalModes ?? [], []).roots);
+  const linkedNode = tree.find((x) => x.op.id === values.operationalModeId);
   const illumination =
-    linked?.illumination_time_ms != null
-      ? `${Number(linked.illumination_time_ms.toFixed(3))} ms, from ${linked.name}`
+    linkedNode?.illuminationMs != null
+      ? `${Number(linkedNode.illuminationMs.toFixed(3))} ms, from ${linkedNode.illuminationFrom}`
       : emitterIlluminationMs != null
         ? `${Number(emitterIlluminationMs.toFixed(3))} ms, the Emitter's`
         : "worked out from the planner's beamwidth";
   const summary = [
-    linked && linked.name,
+    linkedNode && linkedNode.path,
     `Confirmation ${values.quality || "?"} % × ${values.quantity || "?"}`,
     hasBox && `scan ${values.scanMin}–${values.scanMax} s`,
     values.notes.trim() ? "has notes" : "no notes",
@@ -163,10 +165,11 @@ export function ModeMoreOptions({
               Operational mode
               <select value={values.operationalModeId ?? ""} onChange={(e) => onChange({ operationalModeId: e.target.value })}>
                 <option value="">— None —</option>
-                {operationalModes.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.name}
-                    {o.illumination_time_ms != null ? ` (${Number(o.illumination_time_ms.toFixed(3))} ms)` : ""}
+                {tree.map((x) => (
+                  <option key={x.op.id} value={x.op.id}>
+                    {"\u2003".repeat(x.depth)}
+                    {x.op.name}
+                    {x.op.illumination_time_ms != null ? ` (${Number(x.op.illumination_time_ms.toFixed(3))} ms)` : ""}
                   </option>
                 ))}
               </select>

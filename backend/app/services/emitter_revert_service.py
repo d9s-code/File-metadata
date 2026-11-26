@@ -193,6 +193,12 @@ def _reconcile_operational_modes(db: Session, emitter: Emitter, snaps: list[dict
         row.illumination_time_ms = _num(o_snap.get("illumination_time_ms"))
         row.sort_order = o_snap.get("sort_order", 0)
     db.flush()
+    # Parents once every one of them exists.
+    rows = {str(o.id): o for o in db.query(OperationalMode).filter(OperationalMode.emitter_id == emitter.id)}
+    for o_snap in snaps:
+        parent = o_snap.get("parent_id")
+        rows[o_snap["id"]].parent_id = uuid.UUID(parent) if parent and parent in rows else None
+    db.flush()
 
 
 def _reconcile_elements(db: Session, source: Source, element_snaps: list[dict]) -> None:
@@ -379,6 +385,11 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
         db.add(row)
         db.flush()
         operational_id_map[o_snap["id"]] = row.id
+    for o_snap in source_snapshot.get("operational_modes", []):
+        parent = o_snap.get("parent_id")
+        if parent and parent in operational_id_map:
+            db.get(OperationalMode, operational_id_map[o_snap["id"]]).parent_id = operational_id_map[parent]
+    db.flush()
 
     source_id_map: dict[str, uuid.UUID] = {}
     for s_snap in source_snapshot.get("sources", []):

@@ -334,8 +334,9 @@ export function HelpPage() {
         <div className="help-subsection" id="emitter-detail">
           <h3>Emitter detail</h3>
           <p>
-            An Emitter's page has five tabs — <strong>Modes</strong>, <strong>EW Groups &amp; Sources</strong>,{" "}
-            <strong>Intercepts</strong>, <strong>Test History</strong>, and <strong>Audit</strong> — plus
+            An Emitter's page has its tabs — <strong>Modes</strong>, <strong>Operational modes</strong>,{" "}
+            <strong>EW Groups &amp; Sources</strong>, <strong>Intercepts</strong>, <strong>Test History</strong>,{" "}
+            <strong>Files</strong> and <strong>Audit</strong> — plus
             links to its <strong>Version history</strong> and <strong>Ambiguity check</strong> above them.
             Below the title, a summary line repeats the same RF/PRI/PW/Scan ranges shown on the list page,
             for this one Emitter, with its Modes and SIM results. On first load, a brand-new Emitter with no EW
@@ -718,11 +719,14 @@ export function HelpPage() {
               <strong>delta</strong>, or a stagger sequence for PRI).
             </p>
             <p>
-              <strong>Operational modes</strong> are the radar&apos;s own modes — volume search, horizon search, track —
-              each with an optional <strong>illumination time</strong>. Link each Mode to the one it&apos;s transmitted in,
-              under its <strong>More options</strong> or several at once with <strong>Batch edit</strong>; the dwell planner
-              then gives it that illumination time (or, with none set there, the Emitter&apos;s). Saved with the
-              Emitter&apos;s versions; not exported.
+              <strong>Operational modes</strong> have their own tab: the radar as a tree — <strong>TRACK</strong> holding Track
+              1, 2 and 3, <strong>SEARCH</strong> holding volume and horizon search — with each Mode under the one it&apos;s
+              transmitted in. A value every Mode below agrees on shows once, on the highest level where they do (the RF
+              range Track 1–3 share, on TRACK); what differs shows lower down (the PRI of Track 2 and of Track 3). Each
+              row&apos;s <strong>⋯</strong> adds one under it, edits or deletes it, and <strong>Set on its Modes</strong>{" "}
+              writes RF, PW, PRI or jitter to every Mode under it at once. Tick Modes to <strong>Move</strong> them to another.
+              An operational mode&apos;s <strong>illumination time</strong> goes to its Modes in the dwell planner, and to the
+              ones below it that have none. The Modes stay what&apos;s exported; saved with the Emitter&apos;s versions.
             </p>
             <p>
               A Source&apos;s <strong>Generation log</strong> tab lists every run of <em>Generate Modes</em> on it,

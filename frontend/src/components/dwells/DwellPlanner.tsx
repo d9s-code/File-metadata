@@ -58,6 +58,7 @@ function usePlannerModes(platformIds: string[]): PlannerMode[] | undefined {
             illuminationTimeMs: e.illumination_time_ms ?? null,
             operationalMode: m.planner?.operational_mode ?? null,
             operationalIlluminationMs: m.planner?.illumination_time_ms ?? null,
+            operationalIlluminationFrom: m.planner?.illumination_from ?? null,
             priority: m.planner?.priority ?? null,
             confirmationQuantity: m.planner?.confirmation_quantity ?? null,
           });
@@ -356,14 +357,14 @@ export function DwellPlanner({
                           className="jitter-subline"
                           title={
                             p.illuminationFrom === "operational"
-                              ? `The illumination time of its operational mode, ${p.mode.operationalMode}`
+                              ? `Its operational mode is ${p.mode.operationalMode}; the illumination time is set on ${p.mode.operationalIlluminationFrom ?? p.mode.operationalMode}`
                               : p.illuminationFrom === "emitter"
                                 ? `Its Emitter's illumination time${p.mode.operationalMode ? ` (its operational mode, ${p.mode.operationalMode}, has none)` : ""}`
                                 : `Scan period × ${num(settings.beamwidthDeg)}° ÷ 360°`
                           }
                         >
                           {p.illuminationFrom === "operational"
-                            ? p.mode.operationalMode
+                            ? (p.mode.operationalIlluminationFrom ?? p.mode.operationalMode)
                             : p.illuminationFrom === "emitter"
                               ? "Emitter's"
                               : `${num(settings.beamwidthDeg)}° beam`}

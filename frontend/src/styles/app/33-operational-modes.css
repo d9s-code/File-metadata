@@ -1,0 +1,44 @@
+/* The radar as a tree: operational modes, the Modes under them, and the
+   parameters each level shares. */
+.op-intro { margin: 0 0 0.75rem; max-width: 70rem; }
+.op-tree td { vertical-align: top; }
+.op-tree .op-select { width: 2rem; }
+.op-node-row > td { background: var(--hover-bg); }
+.op-node-row.depth-1 > td,
+.op-node-row.depth-2 > td,
+.op-node-row.depth-3 > td { background: transparent; border-top: 1px solid var(--border); }
+.op-unlinked > td { border-top: 1px solid var(--border); }
+.op-toggle {
+  background: none;
+  border: none;
+  padding: 0 0.35rem 0 0;
+  color: inherit;
+  cursor: pointer;
+  box-shadow: none;
+  font-size: 0.85rem;
+}
+.op-params { display: flex; flex-wrap: wrap; gap: 0.3rem 0.4rem; }
+.op-param {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.05rem 0.4rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+.op-param-label { color: var(--muted); font-size: 0.75rem; }
+.op-mode-row .op-param { border-style: dashed; }
+.op-move-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.op-move-bar label { display: flex; align-items: center; gap: 0.4rem; flex-direction: row; }
+.op-set-table input { width: 8rem; }
+.op-set-table th[scope="row"] { white-space: nowrap; }
+.op-set-values ul { margin: 0.25rem 0 0; }

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { operationalModesApi, type OperationalModeInput } from "../../api/operationalModes";
+import { operationalModesApi, type OperationalModeInput, type SetValuesInput } from "../../api/operationalModes";
 import { emitterVersionsKey } from "./useEmitterVersions";
 
 export function operationalModesKey(emitterId: string) {
@@ -37,6 +37,15 @@ export function useUpdateOperationalMode(emitterId: string) {
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: Partial<OperationalModeInput> }) =>
       operationalModesApi.update(emitterId, id, input),
+    onSuccess: invalidate,
+  });
+}
+
+/** Sets values on every Mode under an operational mode. */
+export function useSetValuesBelow(emitterId: string) {
+  const invalidate = useInvalidate(emitterId);
+  return useMutation({
+    mutationFn: ({ id, values }: { id: string; values: SetValuesInput }) => operationalModesApi.setValues(emitterId, id, values),
     onSuccess: invalidate,
   });
 }

@@ -1,5 +1,6 @@
 import { useOperationalModes } from "../../state/hooks/useOperationalModes";
-import { Fragment, useRef, useState, type ReactNode } from "react";
+import { buildTree } from "../operationalModes/opTree";
+import { Fragment, useMemo, useRef, useState, type ReactNode } from "react";
 import type { EwGroup, Mode, ModeGenerationBatch, Source } from "../../types/domain";
 import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
@@ -140,7 +141,10 @@ export function ModesTable({
   const [expandedBatchIds, setExpandedBatchIds] = useState<Set<string>>(new Set());
   const { data: emitter } = useEmitter(emitterId);
   const { data: operationalModes } = useOperationalModes(emitterId);
-  const operationalById = new Map((operationalModes ?? []).map((o) => [o.id, o]));
+  const operationalById = useMemo(() => {
+    const { byId } = buildTree(operationalModes ?? [], []);
+    return new Map([...byId].map(([id, n]) => [id, { name: n.path, illumination_time_ms: n.illuminationMs }]));
+  }, [operationalModes]);
   const { canEdit } = useEmitterCheckoutState(emitter);
   const editTitle = canEdit ? undefined : "Start editing this Emitter first";
   // A value being changed in its cell (double-click to start).

@@ -53,6 +53,8 @@ export interface PlannerMode {
   /** The radar's operational mode it's transmitted in, and that mode's illumination time, ms (ahead of the Emitter's). */
   operationalMode?: string | null;
   operationalIlluminationMs?: number | null;
+  /** Which operational mode that illumination time is set on — its own, or one above it. */
+  operationalIlluminationFrom?: string | null;
   priority: number | null;
   confirmationQuantity: number | null;
 }

@@ -124,6 +124,7 @@ def build_emitter_snapshot(emitter: Emitter) -> dict:
         "operational_modes": [
             {
                 "id": str(o.id),
+                "parent_id": str(o.parent_id) if o.parent_id else None,
                 "name": o.name,
                 "description": o.description,
                 "illumination_time_ms": float(o.illumination_time_ms) if o.illumination_time_ms is not None else None,

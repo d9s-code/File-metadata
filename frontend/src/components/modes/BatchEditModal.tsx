@@ -8,6 +8,7 @@ import { ApiRequestError } from "../../api/client";
 import type { EwGroup, Source } from "../../types/domain";
 import type { BatchModeFieldEdit, ModeBatchEditError } from "../../api/modes";
 import { useOperationalModes } from "../../state/hooks/useOperationalModes";
+import { buildTree, flatten } from "../operationalModes/opTree";
 
 type TriState = "" | "true" | "false";
 
@@ -203,10 +204,11 @@ export function BatchEditModal({
                 <select value={operationalModeId} onChange={(e) => setOperationalModeId(e.target.value)}>
                   <option value="">— leave unchanged —</option>
                   <option value="none">None (unlink)</option>
-                  {operationalModes.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.name}
-                      {o.illumination_time_ms != null ? ` (${Number(o.illumination_time_ms.toFixed(3))} ms)` : ""}
+                  {flatten(buildTree(operationalModes, []).roots).map((x) => (
+                    <option key={x.op.id} value={x.op.id}>
+                      {"\u2003".repeat(x.depth)}
+                      {x.op.name}
+                      {x.op.illumination_time_ms != null ? ` (${Number(x.op.illumination_time_ms.toFixed(3))} ms)` : ""}
                     </option>
                   ))}
                 </select>
