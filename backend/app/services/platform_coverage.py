@@ -22,7 +22,7 @@ def _span(lo, hi):
     return [min(lo, hi), max(lo, hi)]
 
 
-def _planner(mode: dict, line: dict, group: dict | None) -> dict:
+def _planner(mode: dict, line: dict, group: dict | None, operational: dict | None = None) -> dict:
     """What the dwell planner needs to know of a Mode: the longest gap
     between its pulses (µs — a Fixed PRI's longest, with its delta and
     jitter; a stagger's longest step), a stagger's steps and longest frame
@@ -63,10 +63,13 @@ def _planner(mode: dict, line: dict, group: dict | None) -> dict:
         "priority": group.get("threat_priority"),
         "confirmation_quantity": mode.get("confirmation_quantity"),
         "group_name": group.get("name"),
+        # The radar's operational mode it's transmitted in, and that mode's illumination time (ms), if set.
+        "operational_mode": (operational or {}).get("name"),
+        "illumination_time_ms": (operational or {}).get("illumination_time_ms"),
     }
 
 
-def _mode_ranges(mode: dict, group: dict | None = None) -> dict | None:
+def _mode_ranges(mode: dict, group: dict | None = None, operational: dict | None = None) -> dict | None:
     line = mode.get("line")
     if not line:
         return None
@@ -84,7 +87,7 @@ def _mode_ranges(mode: dict, group: dict | None = None) -> dict | None:
         "pri": None,
         "pw_raw": None,
         "pw": None,
-        "planner": _planner(mode, line, group),
+        "planner": _planner(mode, line, group, operational),
     }
     if pri_type != "cw":
         pw_raw = _span(line.get("pw_min_us"), line.get("pw_max_us"))
@@ -106,11 +109,12 @@ def _mode_ranges(mode: dict, group: dict | None = None) -> dict | None:
 
 def emitter_coverage(snapshot: dict, *, emitter_id, emitter_name: str, designation, version_number: int) -> dict:
     """One Emitter version's coverage from its snapshot."""
+    operational = {o["id"]: o for o in snapshot.get("operational_modes", [])}
     modes = [
         ranges
         for group in snapshot.get("ew_groups", [])
         for mode in group.get("modes", [])
-        if (ranges := _mode_ranges(mode, group)) is not None
+        if (ranges := _mode_ranges(mode, group, operational.get(mode.get("operational_mode_id") or ""))) is not None
     ]
     return {
         "emitter_id": emitter_id,

@@ -375,6 +375,8 @@ export interface Mode {
    * Group's range — for the dwell planner only. Null: the EW Group's applies. */
   scan_min_s?: number | null;
   scan_max_s?: number | null;
+  /** The radar's operational mode it's transmitted in (one of its Emitter's). */
+  operational_mode_id?: string | null;
   generation_batch_id: string | null;
   created_at: string;
   updated_at: string;

@@ -188,6 +188,8 @@ class ModeCreate(BaseModel):
     confirmation_quantity: ConfirmationQuantity = DEFAULT_CONFIRMATION_QUANTITY
     scan_min_s: ScanSeconds | None = None
     scan_max_s: ScanSeconds | None = None
+    # One of its Emitter's operational modes — the one it's transmitted in.
+    operational_mode_id: UUID | None = None
     line: ModeLineFields
     # Test Record(s) whose findings explain this Mode's values, for a Mode
     # that didn't come from the Source's data (see TestRecordModeLinkType).
@@ -307,6 +309,8 @@ class ModeUpdate(BaseModel):
     # Both together, or both null to clear it (checked against each other on save).
     scan_min_s: ScanSeconds | None = None
     scan_max_s: ScanSeconds | None = None
+    # Null unlinks it.
+    operational_mode_id: UUID | None = None
     ew_group_id: UUID | None = None
     # Replaces the Mode's Sources: all of them (one or more), or source_id for just one.
     source_id: UUID | None = None
@@ -368,6 +372,8 @@ class BatchModeFieldEdit(BaseModel):
     pw_max_shift: float | None = None
     pri_min_shift: float | None = None
     pri_max_shift: float | None = None
+    # Links the selected Modes to one of the Emitter's operational modes (null: to none).
+    operational_mode_id: UUID | None = None
 
     _validate_rf_delta = field_validator("rf_delta")(_validate_delta)
     _validate_pw_delta = field_validator("pw_delta")(_validate_delta)
@@ -578,6 +584,7 @@ class ModeOut(BaseModel):
     confirmation_quantity: int
     scan_min_s: float | None = None
     scan_max_s: float | None = None
+    operational_mode_id: UUID | None = None
     generation_batch_id: UUID | None = None
     created_at: datetime
     updated_at: datetime

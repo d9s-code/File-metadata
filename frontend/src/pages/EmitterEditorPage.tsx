@@ -10,6 +10,7 @@ import { FilesPanel } from "../components/files/FilesPanel";
 import { useEwGroups } from "../state/hooks/useEwGroups";
 import { useSources } from "../state/hooks/useSources";
 import { useCreateEmitterNote, useDeleteEmitterNote, useEmitterNotes } from "../state/hooks/useEmitterNotes";
+import { OperationalModesTable } from "../components/operationalModes/OperationalModesTable";
 import { EwGroupsTable } from "../components/ewGroups/EwGroupsTable";
 import { ElementOverview } from "../components/sources/ElementOverview";
 import { ElementCoverage } from "../components/sources/ElementCoverage";
@@ -379,6 +380,7 @@ export function EmitterEditorPage() {
       <Activity mode={tab === "setup" ? "visible" : "hidden"}>
       <div>
         <EwGroupsTable emitterId={emitter.id} ewGroups={ewGroups ?? []} />
+        <OperationalModesTable emitterId={emitter.id} />
         <SourcesTable
           emitterId={emitter.id}
           sources={sources ?? []}

@@ -39,6 +39,11 @@ class Mode(UUIDPkMixin, TimestampMixin, Base):
     # EW Group's range applies.
     scan_min_s: Mapped[float | None] = mapped_column(Numeric(12, 4), nullable=True)
     scan_max_s: Mapped[float | None] = mapped_column(Numeric(12, 4), nullable=True)
+    # The radar's operational mode it's transmitted in (one of its Emitter's) —
+    # its illumination time comes from there. Not exported.
+    operational_mode_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("operational_modes.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     # Which cartesian-product run (if any) generated this Mode. Nullable — modes created
     # manually or via a typed DSL line have no batch. SET NULL on batch delete since the
     # batch-delete endpoint removes the Modes explicitly rather than relying on cascade.
@@ -52,6 +57,7 @@ class Mode(UUIDPkMixin, TimestampMixin, Base):
         back_populates="mode", cascade="all, delete-orphan", uselist=False
     )
     generation_batch: Mapped["ModeGenerationBatch | None"] = relationship(back_populates="modes")
+    operational_mode: Mapped["OperationalMode | None"] = relationship(viewonly=True)  # noqa: F821
     # A Mode can come from more than one Source: source_id is the first, these
     # are the rest, in order. Use source_ids / set_mode_sources, not these rows.
     extra_source_links: Mapped[list["ModeExtraSource"]] = relationship(

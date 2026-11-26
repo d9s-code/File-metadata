@@ -513,3 +513,49 @@ test("MDF test with a Dwell Strategy: logged with it, listed on the Strategy; th
   await expect(page).toHaveURL(/tab=tests&testRecord=/);
   await removeEmitter(page, e.id);
 });
+
+test("Operational modes: add one, link a Mode to it, and the planner takes its illumination time", async ({ page }) => {
+  const n = Date.now();
+  const name = `E2E Radar ${n}`;
+  const e = await api<{ id: string }>(page, "POST", "/emitters", { name, illumination_time_ms: 20 });
+  const g = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/ew-groups`, { name: "All", scan_min: 2, scan_max: 2 });
+  const s = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/sources`, { name: "S", source_date: "2026-01-01" });
+  await api(page, "POST", `/ew-groups/${g.id}/modes`, { source_id: s.id, name: "Search 1", pri_type: "fixed", line: FIXED_LINE });
+
+  await page.goto(`/emitters/${e.id}?tab=setup`);
+  const start = page.getByRole("button", { name: /Start editing/ });
+  if (await start.isVisible()) await start.click();
+  const card = page.getByRole("region", { name: "Operational modes" });
+  await card.getByRole("button", { name: "+ Add operational mode" }).click();
+  await card.getByLabel("Name").fill("Volume search");
+  await card.getByLabel("Illumination time (ms)").fill("45");
+  await card.getByRole("button", { name: "Add operational mode", exact: true }).click();
+  await expect(card.locator("tr", { hasText: "Volume search" })).toContainText("45 ms");
+
+  // Linked from the Mode's More options.
+  await page.goto(`/emitters/${e.id}?tab=modes`);
+  await page.getByRole("button", { name: "Actions for Search 1" }).click();
+  await page.getByRole("menuitem", { name: "Edit" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: /More options/ }).click();
+  await dialog.getByLabel("Operational mode").selectOption({ label: "Volume search (45 ms)" });
+  await expect(dialog).toContainText("Illumination time: 45 ms, from Volume search");
+  await dialog.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(dialog).toBeHidden();
+
+  // Saved and pinned, the planner gives the Mode its operational mode's 45 ms.
+  const v = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/versions`, { change_summary: "v1" });
+  const p = await api<{ id: string }>(page, "POST", "/platforms", { name: `E2E Radar Platform ${n}` });
+  await api(page, "POST", `/platforms/${p.id}/links`, { emitter_id: e.id, emitter_version_id: v.id });
+  const st = await api<{ id: string }>(page, "POST", "/dwell-strategies", { name: `E2E OM ${n}`, platform_ids: [p.id] });
+  await api(page, "PATCH", `/dwell-strategies/${st.id}`, {
+    bandwidth_mhz: 200,
+    dwells: [{ freq_mhz: 3000, dwell_time_ms: 100, collect_time_ms: 50 }],
+    save_version: true,
+  });
+  await page.goto(`/dwells/strategies/${st.id}`);
+  const row = page.getByRole("region", { name: "Planner" }).locator("tr", { hasText: name });
+  await expect(row).toContainText("45 ms");
+  await expect(row).toContainText("Volume search");
+  await removeEmitter(page, e.id);
+});

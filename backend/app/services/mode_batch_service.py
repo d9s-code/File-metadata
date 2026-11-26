@@ -35,6 +35,10 @@ from app.schemas.mode import (
 )
 from app.services.audit_service import apply_and_diff, record_audit
 from app.services.mode_sources import add_mode_sources, set_mode_sources, sources_label
+from app.services.operational_mode_service import (
+    check_operational_mode,
+    name_the_change,
+)
 
 # ModeLineFields columns that aren't part of the rendered DSL line text —
 # kept in sync with the same set in app/routers/modes.py.
@@ -66,6 +70,7 @@ _METADATA_FIELD_KEYS = {
     "notes",
     "confirmation_quality",
     "confirmation_quantity",
+    "operational_mode_id",
 }
 
 # Each *_shift field is applied to exactly one bound, independently of its
@@ -144,6 +149,9 @@ def plan_batch_edit(
         target = db.get(EwGroup, field_data["ew_group_id"])
         if target is None or target.emitter_id != emitter_id:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Target EW Group not found in this Emitter")
+
+    if "operational_mode_id" in field_data:
+        check_operational_mode(db, emitter_id, field_data["operational_mode_id"])
 
     for key in ("source_id", "add_source_id"):
         if field_data.get(key) is not None:
@@ -231,7 +239,7 @@ def apply_batch_edit(
     updated_ids: list[UUID] = []
     for item in planned:
         mode = item.mode
-        changes = apply_and_diff(mode, item.metadata_changes)
+        changes = name_the_change(db, apply_and_diff(mode, item.metadata_changes))
         old_names = mode.source_names
         if item.source_id is not None:
             set_mode_sources(mode, [db.get(Source, item.source_id)])

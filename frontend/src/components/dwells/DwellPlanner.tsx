@@ -56,6 +56,8 @@ function usePlannerModes(platformIds: string[]): PlannerMode[] | undefined {
             scanFrom: m.planner?.scan_from ?? null,
             groupScanS: m.planner?.group_scan_s ?? null,
             illuminationTimeMs: e.illumination_time_ms ?? null,
+            operationalMode: m.planner?.operational_mode ?? null,
+            operationalIlluminationMs: m.planner?.illumination_time_ms ?? null,
             priority: m.planner?.priority ?? null,
             confirmationQuantity: m.planner?.confirmation_quantity ?? null,
           });
@@ -318,7 +320,7 @@ export function DwellPlanner({
                   </th>
                   <th
                     className="num"
-                    title={`Illumination time: how long its main beam is on the Platform each scan — its Emitter's own where set, else scan period × ${num(settings.beamwidthDeg)}° ÷ 360°; — : not scanning, illuminated all the time`}
+                    title={`Illumination time: how long its main beam is on the Platform each scan — its operational mode's where set, else its Emitter's, else scan period × ${num(settings.beamwidthDeg)}° ÷ 360°; — : not scanning, illuminated all the time`}
                   >
                     Illumination time
                   </th>
@@ -350,8 +352,21 @@ export function DwellPlanner({
                     <td className="num">
                       {p.illuminationMs == null ? "—" : ms(p.illuminationMs)}
                       {p.illuminationFrom && (
-                        <span className="jitter-subline" title={p.illuminationFrom === "emitter" ? "Its Emitter's illumination time" : `Scan period × ${num(settings.beamwidthDeg)}° ÷ 360°`}>
-                          {p.illuminationFrom === "emitter" ? "Emitter's" : `${num(settings.beamwidthDeg)}° beam`}
+                        <span
+                          className="jitter-subline"
+                          title={
+                            p.illuminationFrom === "operational"
+                              ? `The illumination time of its operational mode, ${p.mode.operationalMode}`
+                              : p.illuminationFrom === "emitter"
+                                ? `Its Emitter's illumination time${p.mode.operationalMode ? ` (its operational mode, ${p.mode.operationalMode}, has none)` : ""}`
+                                : `Scan period × ${num(settings.beamwidthDeg)}° ÷ 360°`
+                          }
+                        >
+                          {p.illuminationFrom === "operational"
+                            ? p.mode.operationalMode
+                            : p.illuminationFrom === "emitter"
+                              ? "Emitter's"
+                              : `${num(settings.beamwidthDeg)}° beam`}
                         </span>
                       )}
                       {p.mode.scanS && <ScanNote mode={p.mode} />}
@@ -385,8 +400,9 @@ export function DwellPlanner({
               <li>A dwell reaches the frequencies in its band (its frequency ± half the bandwidth); a Mode&apos;s RF counts with its delta, each part by its width.</li>
               <li>
                 A Mode&apos;s scan period is its own box — its function&apos;s, set under the Mode&apos;s More options — where it has one, else its
-                EW Group&apos;s overall range. Scanning, it illuminates the Platform once each scan for its illumination time: its Emitter&apos;s own
-                where that&apos;s set (Edit details on the Emitter), else {num(settings.beamwidthDeg)}° ÷ 360° of the scan. One without a scan
+                EW Group&apos;s overall range. Scanning, it illuminates the Platform once each scan for its illumination time: its operational
+                mode&apos;s (Groups &amp; Sources on the Emitter) where that&apos;s set, else its Emitter&apos;s own (Edit details), else{" "}
+                {num(settings.beamwidthDeg)}° ÷ 360° of the scan. One without a scan
                 period is illuminating the Platform all the time. Scan periods given as a range are tried at both ends and the middle; the
                 worst counts.
               </li>

@@ -14,8 +14,8 @@
  * - Its frequency is anywhere in its RF range (with its delta), so each part
  *   of that range counts by its width: a part no dwell reaches is never seen.
  * - A Mode with a scan period illuminates the Platform once each scan, for
- *   its Emitter's illumination time where that's set, else (beamwidth ÷ 360°)
- *   of the scan; one without a scan period, all the time. The scan period is
+ *   its operational mode's illumination time where that's set, else its
+ *   Emitter's, else (beamwidth ÷ 360°) of the scan; one without a scan period, all the time. The scan period is
  *   the Mode's own box (its function's) where it has one, else its EW Group's
  *   overall range.
  * - The receiver repeats the cycle; the radar's scan starts at any moment.
@@ -50,6 +50,9 @@ export interface PlannerMode {
   groupScanS?: [number, number] | null;
   /** Its Emitter's illumination time, ms, where set (else worked out from the beamwidth). */
   illuminationTimeMs?: number | null;
+  /** The radar's operational mode it's transmitted in, and that mode's illumination time, ms (ahead of the Emitter's). */
+  operationalMode?: string | null;
+  operationalIlluminationMs?: number | null;
   priority: number | null;
   confirmationQuantity: number | null;
 }
@@ -83,8 +86,8 @@ export interface ModePlan {
   revisitMs: number | null;
   /** Its illumination time: how long its main beam is on the Platform each scan, ms (null: all the time). */
   illuminationMs: number | null;
-  /** Where that comes from: its Emitter's own, or worked out from the beamwidth. */
-  illuminationFrom: "emitter" | "beamwidth" | null;
+  /** Where that comes from: its operational mode's, its Emitter's, or worked out from the beamwidth. */
+  illuminationFrom: "operational" | "emitter" | "beamwidth" | null;
   /** Share of starting phases (weighted by RF) caught within the time allowed. */
   pWithin: number;
   /** …and confirmed (its confirmation quantity of intercepts) within it. */
@@ -274,7 +277,9 @@ export function planMode(m: PlannerMode, dwells: PlannerDwell[], bw: number, s: 
   const q = Math.max(1, m.confirmationQuantity ?? 1);
   const horizon = s.horizonS * 1000;
   const ps = periods(m.scanS);
-  const own = m.illuminationTimeMs != null && m.illuminationTimeMs > 0 ? m.illuminationTimeMs : null;
+  const set = (v: number | null | undefined) => (v != null && v > 0 ? v : null);
+  const fromOperational = set(m.operationalIlluminationMs);
+  const own = fromOperational ?? set(m.illuminationTimeMs);
   // Never longer than the scan itself.
   const illuminationOf = (T: number) => Math.min(T, own ?? (T * s.beamwidthDeg) / 360);
   const recommendedMs = covering.length || coverage === 0 ? wholeCollects(need, s.within === "collect" ? 0 : collect) : null;
@@ -334,7 +339,7 @@ export function planMode(m: PlannerMode, dwells: PlannerDwell[], bw: number, s: 
     recommendedMs,
     revisitMs: w.revisit,
     illuminationMs: w.illumination,
-    illuminationFrom: w.illumination == null ? null : own != null ? "emitter" : "beamwidth",
+    illuminationFrom: w.illumination == null ? null : fromOperational != null ? "operational" : own != null ? "emitter" : "beamwidth",
     pWithin: w.pWithin,
     pConfirm: w.pConfirm,
     medianMs: w.median,

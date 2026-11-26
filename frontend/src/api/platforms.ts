@@ -153,6 +153,9 @@ export interface CoverageMode {
     priority: number | null;
     confirmation_quantity: number | null;
     group_name: string | null;
+    /** The radar's operational mode it's transmitted in, and that mode's illumination time (ms), if set. */
+    operational_mode?: string | null;
+    illumination_time_ms?: number | null;
   };
 }
 

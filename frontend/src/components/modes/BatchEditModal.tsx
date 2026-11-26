@@ -7,6 +7,7 @@ import { useBatchEditModes } from "../../state/hooks/useModes";
 import { ApiRequestError } from "../../api/client";
 import type { EwGroup, Source } from "../../types/domain";
 import type { BatchModeFieldEdit, ModeBatchEditError } from "../../api/modes";
+import { useOperationalModes } from "../../state/hooks/useOperationalModes";
 
 type TriState = "" | "true" | "false";
 
@@ -59,6 +60,9 @@ export function BatchEditModal({
   }
 
   const [ewGroupId, setEwGroupId] = useState("");
+  // "" leaves it; "none" unlinks them; else that operational mode's id.
+  const [operationalModeId, setOperationalModeId] = useState("");
+  const { data: operationalModes } = useOperationalModes(emitterId);
   // "add:<id>" adds that Source to each Mode; "set:<id>" makes it each one's only Source.
   const [sourceChange, setSourceChange] = useState("");
   const [notes, setNotes] = useState("");
@@ -97,6 +101,7 @@ export function BatchEditModal({
   function buildFields(): BatchModeFieldEdit {
     const fields: BatchModeFieldEdit = {};
     if (ewGroupId) fields.ew_group_id = ewGroupId;
+    if (operationalModeId) fields.operational_mode_id = operationalModeId === "none" ? null : operationalModeId;
     if (sourceChange.startsWith("add:")) fields.add_source_id = sourceChange.slice(4);
     if (sourceChange.startsWith("set:")) fields.source_id = sourceChange.slice(4);
     if (notes.trim() !== "") fields.notes = notes;
@@ -192,6 +197,21 @@ export function BatchEditModal({
                 ))}
               </select>
             </label>
+            {operationalModes && operationalModes.length > 0 && (
+              <label>
+                Operational mode
+                <select value={operationalModeId} onChange={(e) => setOperationalModeId(e.target.value)}>
+                  <option value="">— leave unchanged —</option>
+                  <option value="none">None (unlink)</option>
+                  {operationalModes.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.name}
+                      {o.illumination_time_ms != null ? ` (${Number(o.illumination_time_ms.toFixed(3))} ms)` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label>
               Notes (overwrites all selected)
               <input value={notes} onChange={(e) => setNotes(e.target.value)} />

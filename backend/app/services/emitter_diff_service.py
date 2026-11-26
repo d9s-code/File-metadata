@@ -69,8 +69,25 @@ MODE_FIELDS_ADDED_LATER = frozenset({"confirmation_quality", "confirmation_quant
 # in the list, the generation batch it came from, and its Sources (compared
 # on their own, by id, below).
 MODE_FIELDS_NOT_COMPARED = frozenset(
-    {"id", "line", "sort_order", "generation_batch_id", "source_id", "source_name", "extra_source_ids", "source_names"}
+    {
+        "id",
+        "line",
+        "sort_order",
+        "generation_batch_id",
+        "source_id",
+        "source_name",
+        "extra_source_ids",
+        "source_names",
+        # Compared by the operational mode's name instead (see _diff_mode).
+        "operational_mode_id",
+    }
 )
+
+OPERATIONAL_MODE_FIELD_LABELS = {
+    "name": "Name",
+    "description": "Description",
+    "illumination_time_ms": "Illumination time (ms)",
+}
 
 # dsl_text deliberately excluded — it's a rendered cache of these other
 # fields, not independent data; showing it alongside the real field that
@@ -225,11 +242,29 @@ def _details_text(details) -> str | None:
     )
 
 
-def _diff_mode(entries: list[dict], scope: str, old: dict, new: dict, old_group: dict, new_group: dict) -> None:
-    """One Mode in both versions: the EW Group it moved to, if it did, then
-    every one of its fields."""
+def _diff_mode(
+    entries: list[dict],
+    scope: str,
+    old: dict,
+    new: dict,
+    old_group: dict,
+    new_group: dict,
+    operational_names: tuple[dict, dict] = ({}, {}),
+) -> None:
+    """One Mode in both versions: the EW Group it moved to, if it did, the
+    operational mode it's linked to, then every one of its fields."""
     if old_group["id"] != new_group["id"]:
         entries.append(_entry(scope, "EW Group", "changed", old_value=old_group["name"], new_value=new_group["name"]))
+    if "operational_mode_id" in old and "operational_mode_id" in new and old["operational_mode_id"] != new["operational_mode_id"]:
+        old_names, new_names = operational_names
+        old_id, new_id = old["operational_mode_id"], new["operational_mode_id"]
+        old_label = old_names.get(old_id) if old_id else None
+        # The one it left, renamed since: said, so "A → A" never reads as no change.
+        if old_label and old_id in new_names and new_names[old_id] != old_label:
+            old_label = f"{old_label} (now '{new_names[old_id]}')"
+        entries.append(
+            _entry(scope, "Operational mode", "changed", old_value=old_label, new_value=new_names.get(new_id) if new_id else None)
+        )
     labels, later = _every_field(MODE_FIELD_LABELS, MODE_FIELDS_NOT_COMPARED, old, new)
     _diff_fields(entries, scope, old, new, labels, MODE_FIELDS_ADDED_LATER | later, {"pri_type": PRI_TYPE_NAMES})
     old_ids, new_ids = _source_ids(old), _source_ids(new)
@@ -242,6 +277,11 @@ def _diff_mode(entries: list[dict], scope: str, old: dict, new: dict, old_group:
             line["type_data"] = _details_text(line["type_data"])
     labels, later = _every_field(MODE_LINE_FIELD_LABELS, MODE_LINE_FIELDS_NOT_COMPARED, old_line, new_line)
     _diff_fields(entries, scope, old_line, new_line, labels, MODE_LINE_FIELDS_ADDED_LATER | later)
+
+
+def _operational_summary(o: dict) -> str:
+    ms = o.get("illumination_time_ms")
+    return o["name"] + (f" (illumination {ms:g} ms)" if ms is not None else "")
 
 
 def _diff_items(entries: list[dict], scope: str, label: str, old: list[dict] | None, new: list[dict] | None) -> None:
@@ -277,6 +317,26 @@ def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict, status_labels: 
         value_labels={"status": status_labels or {}},
     )
 
+    # Operational modes — only when both snapshots have them (older ones don't).
+    old_operational = {o["id"]: o for o in old_snapshot.get("operational_modes", [])}
+    new_operational = {o["id"]: o for o in new_snapshot.get("operational_modes", [])}
+    if "operational_modes" in old_snapshot and "operational_modes" in new_snapshot:
+        for o_id, o in new_operational.items():
+            scope = f"Operational mode '{o['name']}'"
+            if o_id not in old_operational:
+                entries.append(_entry(scope, "Added", "added", new_value=_operational_summary(o)))
+            else:
+                _diff_fields(entries, scope, old_operational[o_id], o, OPERATIONAL_MODE_FIELD_LABELS)
+        for o_id, o in old_operational.items():
+            if o_id not in new_operational:
+                entries.append(
+                    _entry(f"Operational mode '{o['name']}'", "Removed", "removed", old_value=_operational_summary(o))
+                )
+    operational_names = (
+        {k: o["name"] for k, o in old_operational.items()},
+        {k: o["name"] for k, o in new_operational.items()},
+    )
+
     old_groups = {g["id"]: g for g in old_snapshot.get("ew_groups", [])}
     new_groups = {g["id"]: g for g in new_snapshot.get("ew_groups", [])}
     # Modes are matched by id across EW Groups: one moved to another group
@@ -310,7 +370,7 @@ def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict, status_labels: 
         for m in g.get("modes", []):
             if m["id"] in old_modes:
                 old_mode, old_group = old_modes[m["id"]]
-                _diff_mode(entries, mode_scope(m, g), old_mode, m, old_group, g)
+                _diff_mode(entries, mode_scope(m, g), old_mode, m, old_group, g, operational_names)
             else:
                 entries.append(_entry(mode_scope(m, g), "Added", "added", new_value=_mode_summary(m)))
     for group_id, g in old_groups.items():

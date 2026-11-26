@@ -62,6 +62,7 @@ def _mode_dict(mode: Mode) -> dict:
         "confirmation_quantity": mode.confirmation_quantity,
         "scan_min_s": float(mode.scan_min_s) if mode.scan_min_s is not None else None,
         "scan_max_s": float(mode.scan_max_s) if mode.scan_max_s is not None else None,
+        "operational_mode_id": str(mode.operational_mode_id) if mode.operational_mode_id else None,
         # The first Source as before; the rest (a Mode can have several) after it.
         "source_id": str(mode.source_id),
         "source_name": mode.source.name,
@@ -119,6 +120,17 @@ def build_emitter_snapshot(emitter: Emitter) -> dict:
         "illumination_time_ms": float(emitter.illumination_time_ms) if emitter.illumination_time_ms is not None else None,
         "description": emitter.description,
         "status": emitter.status,
+        # The radar's operational modes; each Mode names its own by id.
+        "operational_modes": [
+            {
+                "id": str(o.id),
+                "name": o.name,
+                "description": o.description,
+                "illumination_time_ms": float(o.illumination_time_ms) if o.illumination_time_ms is not None else None,
+                "sort_order": o.sort_order,
+            }
+            for o in sorted(emitter.operational_modes, key=lambda o: (o.sort_order, o.name, str(o.id)))
+        ],
         "ew_groups": [
             {
                 "id": str(g.id),

@@ -1,3 +1,4 @@
+import { useOperationalModes } from "../../state/hooks/useOperationalModes";
 import { Fragment, useRef, useState, type ReactNode } from "react";
 import type { EwGroup, Mode, ModeGenerationBatch, Source } from "../../types/domain";
 import { useEmitter } from "../../state/hooks/useEmitters";
@@ -53,6 +54,7 @@ type ModeColumnId =
   | "confirmation_quality"
   | "confirmation_quantity"
   | "ew_group"
+  | "operational_mode"
   | "source"
   | "last_tested";
 
@@ -76,6 +78,7 @@ const MODE_COLUMNS: (ToggleableColumn<ModeColumnId> & { sortKey?: ModeSortKey; t
   { id: "confirmation_quality", label: "Confirmation quality", sortKey: "confirmation_quality", type: "number" },
   { id: "confirmation_quantity", label: "Confirmation quantity", sortKey: "confirmation_quantity", type: "number" },
   { id: "ew_group", label: "EW Group", sortKey: "ew_group" },
+  { id: "operational_mode", label: "Operational mode" },
   { id: "source", label: "Sources", sortKey: "source" },
   { id: "last_tested", label: "Last seen", sortKey: "last_tested", type: "date" },
 ];
@@ -136,6 +139,8 @@ export function ModesTable({
   const [duplicatingModeId, setDuplicatingModeId] = useState<string | null>(null);
   const [expandedBatchIds, setExpandedBatchIds] = useState<Set<string>>(new Set());
   const { data: emitter } = useEmitter(emitterId);
+  const { data: operationalModes } = useOperationalModes(emitterId);
+  const operationalById = new Map((operationalModes ?? []).map((o) => [o.id, o]));
   const { canEdit } = useEmitterCheckoutState(emitter);
   const editTitle = canEdit ? undefined : "Start editing this Emitter first";
   // A value being changed in its cell (double-click to start).
@@ -276,6 +281,20 @@ export function ModesTable({
       ),
       confirmation_quality: () => td("confirmation_quality", `${m.confirmation_quality}%`),
       confirmation_quantity: () => td("confirmation_quantity", m.confirmation_quantity),
+      operational_mode: () => {
+        const o = m.operational_mode_id ? operationalById.get(m.operational_mode_id) : undefined;
+        return (
+          <td key="operational_mode">
+            {o ? (
+              <span title={o.illumination_time_ms != null ? `Illumination time ${Number(o.illumination_time_ms.toFixed(3))} ms` : undefined}>
+                {o.name}
+              </span>
+            ) : (
+              <span className="hint-text">—</span>
+            )}
+          </td>
+        );
+      },
       ew_group: () => (
         <td>
           {ewGroup ? (
@@ -401,6 +420,7 @@ export function ModesTable({
       confirmation_quantity: () => value("confirmation_quantity", spanText(s.quantity), "Confirmation quantity, lowest to highest"),
       ew_group: () =>
         value("ew_group", groupNames.length === 1 ? groupNames[0]! : `${s.ewGroupIds.length} EW Groups`, "EW Group"),
+      operational_mode: () => <td key="operational_mode" className="batch-span" />,
       source: () => <td key="source" className="batch-span" />,
       last_tested: () => <td key="last_tested" className="batch-span" />,
     };

@@ -7,6 +7,8 @@ import { useModeDefaults } from "../../state/hooks/useDwells";
 import { modeSourceIds } from "./modeFormat";
 import { SourcesPicker } from "./SourcesPicker";
 import { ModeLineFields, friendlyServerError, useModeLine } from "./ModeLineFields";
+import { useOperationalModes } from "../../state/hooks/useOperationalModes";
+import { useEmitter } from "../../state/hooks/useEmitters";
 import { ModeMoreOptions, optionsProblem as findOptionsProblem, scanPayload, type MoreOptionsValues } from "./ModeMoreOptions";
 import { useEwGroups } from "../../state/hooks/useEwGroups";
 
@@ -53,7 +55,10 @@ export function ModeEditForm({
     derivedFrom: new Set(),
     scanMin: mode.scan_min_s != null ? String(mode.scan_min_s) : "",
     scanMax: mode.scan_max_s != null ? String(mode.scan_max_s) : "",
+    operationalModeId: mode.operational_mode_id ?? "",
   });
+  const { data: operationalModes } = useOperationalModes(emitterId);
+  const { data: emitter } = useEmitter(emitterId);
   const { data: ewGroups } = useEwGroups(emitterId);
   const group = ewGroups?.find((g) => g.id === mode.ew_group_id);
   const [optionsForced, setOptionsForced] = useState(false);
@@ -91,6 +96,7 @@ export function ModeEditForm({
           confirmation_quality: Number(options.quality),
           confirmation_quantity: Number(options.quantity),
           ...scanPayload(options),
+          operational_mode_id: options.operationalModeId || null,
           line: line.payload(),
           derived_from_test_record_ids: [
             ...new Set([...options.derivedFrom, ...(derivedFromTestRecord ? [derivedFromTestRecord.id] : [])]),
@@ -154,6 +160,8 @@ export function ModeEditForm({
         showDerived
         forceOpen={optionsForced}
         groupScan={group && { min: group.scan_min, max: group.scan_max }}
+        operationalModes={operationalModes}
+        emitterIlluminationMs={emitter?.illumination_time_ms}
       />
 
       {error && (

@@ -718,6 +718,13 @@ export function HelpPage() {
               <strong>delta</strong>, or a stagger sequence for PRI).
             </p>
             <p>
+              <strong>Operational modes</strong> are the radar&apos;s own modes — volume search, horizon search, track —
+              each with an optional <strong>illumination time</strong>. Link each Mode to the one it&apos;s transmitted in,
+              under its <strong>More options</strong> or several at once with <strong>Batch edit</strong>; the dwell planner
+              then gives it that illumination time (or, with none set there, the Emitter&apos;s). Saved with the
+              Emitter&apos;s versions; not exported.
+            </p>
+            <p>
               A Source&apos;s <strong>Generation log</strong> tab lists every run of <em>Generate Modes</em> on it,
               newest first: when and by whom, into which EW Group and with which name prefix and note, the Elements or
               Sequence steps combined (values, variant, the delta used — &ldquo;this run&rdquo; when it was changed
@@ -1336,7 +1343,8 @@ export function HelpPage() {
             time it needs on frequency to see the <strong>pulses to detect</strong> (its longest PRI with jitter, or a
             stagger&apos;s longest step and two frames), how often a long-enough look comes round, a scanning
             radar&apos;s <strong>illumination time</strong> — how long its main beam is on the Platform each scan (its
-            Emitter&apos;s own, set under Edit details, or else from the <strong>beamwidth</strong> you give) at its scan
+            operational mode&apos;s, else its Emitter&apos;s own set under Edit details, or else from the{" "}
+            <strong>beamwidth</strong> you give) at its scan
             period (the Mode&apos;s own box under More options, or else its EW Group&apos;s range), and the share
             of starting moments it&apos;s caught <strong>within</strong> the time you give, with the median time. Modes
             with problems come first: <strong>Not reached</strong>, <strong>Dwell too short</strong>,{" "}

@@ -81,6 +81,12 @@ class Emitter(UUIDPkMixin, TimestampMixin, Base):
     # revert_emitter_version refuses any version_number <= this.
     forked_at_version_number: Mapped[int | None] = mapped_column(nullable=True)
 
+    operational_modes: Mapped[list["OperationalMode"]] = relationship(  # noqa: F821
+        back_populates="emitter",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="OperationalMode.sort_order",
+    )
     ew_groups: Mapped[list["EwGroup"]] = relationship(
         back_populates="emitter", cascade="all, delete-orphan", order_by="EwGroup.sort_order"
     )

@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { DerivedFromPicker } from "./DerivedFromPicker";
+import type { OperationalMode } from "../../api/operationalModes";
 
 /** Written to the PRS export — 100 % and 2 unless a Mode says otherwise. */
 export const DEFAULT_CONFIRMATION_QUALITY = 100;
@@ -13,6 +14,8 @@ export interface MoreOptionsValues {
   /** The function's own scan period box (s), inside the EW Group's range — both or neither. */
   scanMin?: string;
   scanMax?: string;
+  /** The radar's operational mode it's transmitted in ("" — none). */
+  operationalModeId?: string;
 }
 
 /** The EW Group's scan range, as a box inside it is checked against. */
@@ -71,6 +74,8 @@ export function ModeMoreOptions({
   forceOpen,
   extra,
   groupScan,
+  operationalModes,
+  emitterIlluminationMs,
 }: {
   values: MoreOptionsValues;
   onChange: (part: Partial<MoreOptionsValues>) => void;
@@ -82,6 +87,10 @@ export function ModeMoreOptions({
   extra?: ReactNode;
   /** The EW Group's scan range, shown by the Mode's own box. */
   groupScan?: GroupScan;
+  /** The Emitter's operational modes, to link the Mode to one. */
+  operationalModes?: OperationalMode[];
+  /** The Emitter's own illumination time, ms — what a Mode takes without an operational mode's. */
+  emitterIlluminationMs?: number | null;
 }) {
   const [open, setOpen] = useState(false);
   const [showPicker, setShowPicker] = useState(values.derivedFrom.size > 0);
@@ -94,7 +103,15 @@ export function ModeMoreOptions({
     groupScan && (groupScan.min != null || groupScan.max != null)
       ? `${groupScan.min != null ? secondsText(groupScan.min) : "?"} – ${groupScan.max != null ? secondsText(groupScan.max) : "?"}`
       : null;
+  const linked = operationalModes?.find((o) => o.id === values.operationalModeId);
+  const illumination =
+    linked?.illumination_time_ms != null
+      ? `${Number(linked.illumination_time_ms.toFixed(3))} ms, from ${linked.name}`
+      : emitterIlluminationMs != null
+        ? `${Number(emitterIlluminationMs.toFixed(3))} ms, the Emitter's`
+        : "worked out from the planner's beamwidth";
   const summary = [
+    linked && linked.name,
     `Confirmation ${values.quality || "?"} % × ${values.quantity || "?"}`,
     hasBox && `scan ${values.scanMin}–${values.scanMax} s`,
     values.notes.trim() ? "has notes" : "no notes",
@@ -140,6 +157,21 @@ export function ModeMoreOptions({
             <p className="line-row-problem" role="alert">
               {problem}
             </p>
+          )}
+          {operationalModes && operationalModes.length > 0 && (
+            <label>
+              Operational mode
+              <select value={values.operationalModeId ?? ""} onChange={(e) => onChange({ operationalModeId: e.target.value })}>
+                <option value="">— None —</option>
+                {operationalModes.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name}
+                    {o.illumination_time_ms != null ? ` (${Number(o.illumination_time_ms.toFixed(3))} ms)` : ""}
+                  </option>
+                ))}
+              </select>
+              <span className="hint-text">The radar&apos;s mode it&apos;s transmitted in. Illumination time: {illumination}.</span>
+            </label>
           )}
           <fieldset className="mode-scan-box">
             <legend>Scan period of this Mode&apos;s function (s)</legend>

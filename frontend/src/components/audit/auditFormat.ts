@@ -7,6 +7,7 @@ import type { AuditAction } from "../../types/domain";
 const ENTITY_TYPES: Record<string, [plural: string, singular: string]> = {
   emitter: ["Emitters", "Emitter"],
   ew_group: ["EW Groups", "EW Group"],
+  operational_mode: ["Operational modes", "Operational mode"],
   source: ["Sources", "Source"],
   mode_element: ["Elements", "Element"],
   mode: ["Modes", "Mode"],
@@ -175,6 +176,7 @@ export function auditSummary(summary: string): string {
 const UNITS: [suffix: string, unit: string][] = [
   ["_mhz", " MHz"],
   ["_us", " µs"],
+  ["_ms", " ms"],
 ];
 const PLAIN_NAMES: Record<string, string> = { ew_group: "EW Group", source_ids: "Sources", sources: "Sources" };
 

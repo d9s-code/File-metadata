@@ -36,6 +36,7 @@ from app.services.dsl_mode_service import create_mode_from_dsl
 from app.services.frametime_service import FRAME_TIME_DECIMALS, compute_frametime_us
 from app.services.mode_sources import resolve_sources, set_mode_sources, sources_label
 from app.services.mode_test_status_service import attach_mode_extras
+from app.services.operational_mode_service import check_operational_mode, name_the_change
 
 router = APIRouter(prefix="/ew-groups/{ew_group_id}/modes", tags=["modes"])
 
@@ -122,6 +123,7 @@ def create_mode_record(
     Sources, the test records and Intercept entries it's derived from, and
     its Audit Log entry. The caller commits."""
     sources = resolve_sources(db, emitter_id=ew_group.emitter_id, source_ids=payload.all_source_ids())
+    check_operational_mode(db, ew_group.emitter_id, payload.operational_mode_id)
     app_settings.fill_confirmation(db, payload)
 
     mode = Mode(
@@ -134,6 +136,7 @@ def create_mode_record(
         confirmation_quantity=payload.confirmation_quantity,
         scan_min_s=payload.scan_min_s,
         scan_max_s=payload.scan_max_s,
+        operational_mode_id=payload.operational_mode_id,
         generation_batch_id=generation_batch_id,
     )
     set_mode_sources(mode, sources)
@@ -292,7 +295,9 @@ def update_mode_record(db: Session, mode: Mode, payload: ModeUpdate, actor_id: U
             check_scan_box(data.get("scan_min_s", mode.scan_min_s), data.get("scan_max_s", mode.scan_max_s))
         except ValueError as exc:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc))
-    changes = apply_and_diff(mode, data)
+    if "operational_mode_id" in data:
+        check_operational_mode(db, mode.source.emitter_id, data["operational_mode_id"])
+    changes = name_the_change(db, apply_and_diff(mode, data))
     if new_sources is not None and [s.id for s in new_sources] != mode.source_ids:
         old_names = mode.source_names
         set_mode_sources(mode, new_sources)

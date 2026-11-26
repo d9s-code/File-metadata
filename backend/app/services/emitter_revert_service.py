@@ -43,6 +43,7 @@ from app.models.mode import (
     ModeLine,
 )
 from app.models.import_batch import ImportBatch
+from app.models.operational_mode import OperationalMode
 from app.models.intercept import Intercept
 from app.models.parameter_sequence import ParameterSequence
 from app.models.source import Source
@@ -104,6 +105,11 @@ def reconcile_emitter_to_snapshot(db: Session, emitter: Emitter, snapshot: dict)
         if "parameter_sequences" in s_snap:
             _reconcile_sequences(db, source, s_snap["parameter_sequences"])
 
+    # Operational modes before the Modes that name them. A snapshot saved
+    # before they existed has none to say, and leaves them as they are.
+    if "operational_modes" in snapshot:
+        _reconcile_operational_modes(db, emitter, snapshot["operational_modes"])
+
     live_ew_groups = {str(g.id): g for g in emitter.ew_groups}
     target_ew_groups = snapshot.get("ew_groups", [])
     for g_snap in target_ew_groups:
@@ -157,6 +163,35 @@ def reconcile_emitter_to_snapshot(db: Session, emitter: Emitter, snapshot: dict)
     # flushed at this point).
     _reconcile_test_lines(db, emitter, snapshot.get("test_lines", []), valid_mode_ids=target_mode_ids)
 
+    db.flush()
+
+
+def _reconcile_operational_modes(db: Session, emitter: Emitter, snaps: list[dict]) -> None:
+    live = {str(o.id): o for o in emitter.operational_modes}
+    target_ids = {o["id"] for o in snaps}
+    # Names are unique per Emitter, so: the ones going away first (their Modes
+    # unlinked), then the rest out of the way under placeholder names, then
+    # each set as the snapshot has it — two that swapped names never clash.
+    for row_id, row in live.items():
+        if row_id not in target_ids:
+            db.query(Mode).filter(Mode.operational_mode_id == row.id).update(
+                {Mode.operational_mode_id: None}, synchronize_session=False
+            )
+            db.delete(row)
+    db.flush()
+    for row_id, row in live.items():
+        if row_id in target_ids:
+            row.name = f"~{row_id}"
+    db.flush()
+    for o_snap in snaps:
+        row = live.get(o_snap["id"])
+        if row is None:
+            row = OperationalMode(id=uuid.UUID(o_snap["id"]), emitter_id=emitter.id, name=o_snap["name"])
+            db.add(row)
+        row.name = o_snap["name"]
+        row.description = o_snap.get("description")
+        row.illumination_time_ms = _num(o_snap.get("illumination_time_ms"))
+        row.sort_order = o_snap.get("sort_order", 0)
     db.flush()
 
 
@@ -241,6 +276,8 @@ def _reconcile_modes(db: Session, group: EwGroup, *, mode_snaps: list[dict]) -> 
             mode.confirmation_quantity = m_snap["confirmation_quantity"]
         mode.scan_min_s = _num(m_snap.get("scan_min_s"))
         mode.scan_max_s = _num(m_snap.get("scan_max_s"))
+        if "operational_mode_id" in m_snap:
+            mode.operational_mode_id = _existing(db, OperationalMode, m_snap["operational_mode_id"])
         mode.extra_source_links = _extra_source_links(m_snap.get("extra_source_ids", []))
         if "generation_batch_id" in m_snap:
             mode.generation_batch_id = _existing(db, ModeGenerationBatch, m_snap["generation_batch_id"])
@@ -330,6 +367,19 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
     db.add(new_emitter)
     db.flush()
 
+    operational_id_map: dict[str, uuid.UUID] = {}
+    for o_snap in source_snapshot.get("operational_modes", []):
+        row = OperationalMode(
+            emitter_id=new_emitter.id,
+            name=o_snap["name"],
+            description=o_snap.get("description"),
+            illumination_time_ms=_num(o_snap.get("illumination_time_ms")),
+            sort_order=o_snap.get("sort_order", 0),
+        )
+        db.add(row)
+        db.flush()
+        operational_id_map[o_snap["id"]] = row.id
+
     source_id_map: dict[str, uuid.UUID] = {}
     for s_snap in source_snapshot.get("sources", []):
         new_source = Source(
@@ -403,6 +453,7 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
                 confirmation_quantity=m_snap.get("confirmation_quantity", DEFAULT_CONFIRMATION_QUANTITY),
                 scan_min_s=_num(m_snap.get("scan_min_s")),
                 scan_max_s=_num(m_snap.get("scan_max_s")),
+                operational_mode_id=operational_id_map.get(m_snap.get("operational_mode_id") or ""),
             )
             new_mode.extra_source_links = [
                 ModeExtraSource(source_id=source_id_map[sid], sort_order=i)

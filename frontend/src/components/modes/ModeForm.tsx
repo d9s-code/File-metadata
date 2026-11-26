@@ -10,6 +10,8 @@ import type { ModeDefaults } from "../../api/dwells";
 import { modeSourceIds } from "./modeFormat";
 import { SourcesPicker } from "./SourcesPicker";
 import { ModeLineFields, friendlyServerError, useModeLine } from "./ModeLineFields";
+import { useOperationalModes } from "../../state/hooks/useOperationalModes";
+import { useEmitter } from "../../state/hooks/useEmitters";
 import { ModeMoreOptions, optionsProblem as findOptionsProblem, scanPayload, type MoreOptionsValues } from "./ModeMoreOptions";
 
 /** A new Mode's options: the admin's default confirmation. */
@@ -109,6 +111,8 @@ export function ModeForm({
   const nameRef = useRef<HTMLInputElement>(null);
 
   const createMode = useCreateMode(ewGroupId, emitterId);
+  const { data: operationalModes } = useOperationalModes(emitterId);
+  const { data: emitter } = useEmitter(emitterId);
   const { data: emitterModes } = useEmitterModes(emitterId);
   const groupNames = useMemo(
     () => [...(emitterModes ?? []).filter((m) => m.ew_group_id === ewGroupId).map((m) => m.name), ...addedNames],
@@ -138,6 +142,7 @@ export function ModeForm({
       derivedFrom: new Set(),
       scanMin: mode.scan_min_s != null ? String(mode.scan_min_s) : "",
       scanMax: mode.scan_max_s != null ? String(mode.scan_max_s) : "",
+      operationalModeId: mode.operational_mode_id ?? "",
     });
   }
 
@@ -221,6 +226,7 @@ export function ModeForm({
       confirmation_quality: Number(options.quality),
       confirmation_quantity: Number(options.quantity),
       ...scanPayload(options),
+      operational_mode_id: options.operationalModeId || null,
       line: line.payload(),
     };
     if (onStage) {
@@ -371,6 +377,8 @@ export function ModeForm({
         emitterId={emitterId}
         showDerived={!fixedOrigin && !onStage}
         forceOpen={optionsForced}
+        operationalModes={operationalModes}
+        emitterIlluminationMs={emitter?.illumination_time_ms}
         groupScan={(() => {
           const g = ewGroups.find((x) => x.id === ewGroupId);
           return g && { min: g.scan_min, max: g.scan_max };
