@@ -13,8 +13,8 @@
  *   sequence repeat. A CW Mode needs one collect.
  * - Its frequency is anywhere in its RF range (with its delta), so each part
  *   of that range counts by its width: a part no dwell reaches is never seen.
- * - A Mode with a scan period lights the Platform for (beamwidth ÷ 360°) of
- *   each scan; one without is on the Platform all the time.
+ * - A Mode with a scan period illuminates the Platform for (beamwidth ÷ 360°)
+ *   of each scan — its illumination time; one without, all the time.
  * - The receiver repeats the cycle; the radar's scan starts at any moment.
  *   Each Mode is played against the cycle from many starting phases: the
  *   share caught within the time allowed, and how soon. Phases never caught
@@ -58,7 +58,7 @@ export interface PlannerSettings {
 
 export const DEFAULT_SETTINGS: PlannerSettings = { pulses: 8, within: "dwell", beamwidthDeg: 3, horizonS: 10 };
 
-export type Issue = "not_covered" | "partly_covered" | "too_short" | "beam_too_short" | "synchronism" | "slow" | "ok";
+export type Issue = "not_covered" | "partly_covered" | "too_short" | "illumination_too_short" | "synchronism" | "slow" | "ok";
 
 export interface ModePlan {
   mode: PlannerMode;
@@ -72,8 +72,8 @@ export interface ModePlan {
   recommendedMs: number | null;
   /** How often a long-enough look at it comes round, ms (the longest gap); null: never. */
   revisitMs: number | null;
-  /** How long its beam is on the Platform each scan, ms (null: all the time). */
-  beamMs: number | null;
+  /** Its illumination time: how long its main beam is on the Platform each scan, ms (null: all the time). */
+  illuminationMs: number | null;
   /** Share of starting phases (weighted by RF) caught within the time allowed. */
   pWithin: number;
   /** …and confirmed (its confirmation quantity of intercepts) within it. */
@@ -189,10 +189,10 @@ const PHASES = 72;
 
 /** From each starting phase: when the first and the q-th intercept come
  * (Infinity if not within `limit`). */
-function play(ws: Window[], cycle: number, need: number, beam: number | null, periodMs: number | null, q: number, limit: number) {
+function play(ws: Window[], cycle: number, need: number, illumination: number | null, periodMs: number | null, q: number, limit: number) {
   const first: number[] = [];
   const confirm: number[] = [];
-  if (beam == null || periodMs == null) {
+  if (illumination == null || periodMs == null) {
     // On the Platform all the time: the phase is where in the cycle we start.
     for (let j = 0; j < PHASES; j++) {
       const t0 = ((j + 0.5) / PHASES) * cycle;
@@ -214,7 +214,7 @@ function play(ws: Window[], cycle: number, need: number, beam: number | null, pe
     const hits: number[] = [];
     for (let a = phase - periodMs; a < limit && hits.length < q; a += periodMs) {
       const s = Math.max(a, 0);
-      const e = a + beam;
+      const e = a + illumination;
       if (e - s + EPS < need) continue;
       const hit = firstHit(s, e, ws, cycle, need);
       if (hit != null) hits.push(hit.t);
@@ -263,13 +263,13 @@ export function planMode(m: PlannerMode, dwells: PlannerDwell[], bw: number, s: 
   const q = Math.max(1, m.confirmationQuantity ?? 1);
   const horizon = s.horizonS * 1000;
   const ps = periods(m.scanS);
-  const beamOf = (T: number) => (T * s.beamwidthDeg) / 360;
+  const illuminationOf = (T: number) => (T * s.beamwidthDeg) / 360;
   const recommendedMs = covering.length || coverage === 0 ? wholeCollects(need, s.within === "collect" ? 0 : collect) : null;
 
   // Worst over the scan periods it may have; each scored over its RF parts.
-  let worst: { pWithin: number; pConfirm: number; median: number; lockedOut: number; revisit: number | null; beam: number | null } | null = null;
+  let worst: { pWithin: number; pConfirm: number; median: number; lockedOut: number; revisit: number | null; illumination: number | null } | null = null;
   for (const T of ps ?? [null]) {
-    const beam = T == null ? null : beamOf(T);
+    const illumination = T == null ? null : illuminationOf(T);
     const longLimit = Math.min(600_000, Math.max(horizon, 40 * Math.max(T ?? 0, cycle)));
     const samples: { t: number; w: number }[] = [];
     let pWithin = 0;
@@ -281,11 +281,11 @@ export function planMode(m: PlannerMode, dwells: PlannerDwell[], bw: number, s: 
       const ws = cycle > 0 ? windows(dwells, starts, g.covering, need, s.within) : [];
       const gap = longestGap(ws, cycle);
       if (gap != null) revisit = revisit == null ? gap : Math.max(revisit, gap);
-      if (!ws.length || (beam != null && beam + EPS < need)) {
+      if (!ws.length || (illumination != null && illumination + EPS < need)) {
         samples.push({ t: Infinity, w });
         continue;
       }
-      const { first, confirm } = play(ws, cycle, need, beam, T, q, longLimit);
+      const { first, confirm } = play(ws, cycle, need, illumination, T, q, longLimit);
       const share = w / first.length;
       const caughtAtAll = first.some((t) => Number.isFinite(t));
       for (let k = 0; k < first.length; k++) {
@@ -296,7 +296,7 @@ export function planMode(m: PlannerMode, dwells: PlannerDwell[], bw: number, s: 
       }
     }
     const median = weightedMedian(samples);
-    const r = { pWithin, pConfirm, median, lockedOut, revisit, beam };
+    const r = { pWithin, pConfirm, median, lockedOut, revisit, illumination };
     if (!worst || r.pWithin < worst.pWithin - EPS) worst = r;
   }
   const w = worst!;
@@ -308,7 +308,7 @@ export function planMode(m: PlannerMode, dwells: PlannerDwell[], bw: number, s: 
   let issue: Issue = "ok";
   if (coverage === 0) issue = "not_covered";
   else if (!anyUsable) issue = "too_short";
-  else if (w.beam != null && w.beam + EPS < need) issue = "beam_too_short";
+  else if (w.illumination != null && w.illumination + EPS < need) issue = "illumination_too_short";
   else if (w.lockedOut > 0.02) issue = "synchronism";
   else if (coverage < 1 - EPS) issue = "partly_covered";
   else if (w.pWithin < 0.9) issue = "slow";
@@ -320,7 +320,7 @@ export function planMode(m: PlannerMode, dwells: PlannerDwell[], bw: number, s: 
     needMs: need,
     recommendedMs,
     revisitMs: w.revisit,
-    beamMs: w.beam,
+    illuminationMs: w.illumination,
     pWithin: w.pWithin,
     pConfirm: w.pConfirm,
     medianMs: w.median,
@@ -329,7 +329,7 @@ export function planMode(m: PlannerMode, dwells: PlannerDwell[], bw: number, s: 
   };
 }
 
-const ISSUE_ORDER: Issue[] = ["not_covered", "too_short", "beam_too_short", "synchronism", "partly_covered", "slow", "ok"];
+const ISSUE_ORDER: Issue[] = ["not_covered", "too_short", "illumination_too_short", "synchronism", "partly_covered", "slow", "ok"];
 
 /** Every Mode against the dwells, problems first. */
 export function plan(modes: PlannerMode[], dwells: PlannerDwell[], bw: number, s: PlannerSettings): ModePlan[] {

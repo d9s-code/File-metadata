@@ -76,7 +76,7 @@ const mhz = (r: [number, number]) => (r[1] - r[0] < 1e-9 ? `${num(r[0])} MHz` : 
 const ISSUE: Record<Issue, { label: string; tone: string }> = {
   not_covered: { label: "Not reached", tone: "bad" },
   too_short: { label: "Dwell too short", tone: "bad" },
-  beam_too_short: { label: "Beam too short", tone: "bad" },
+  illumination_too_short: { label: "Illumination too short", tone: "bad" },
   synchronism: { label: "Synchronism", tone: "bad" },
   partly_covered: { label: "Partly reached", tone: "warn" },
   slow: { label: "Slow", tone: "warn" },
@@ -93,8 +93,8 @@ function advice(p: ModePlan, dwells: PlannerDwell[], s: PlannerSettings, cycle: 
       const longest = Math.max(...covering.map((d) => (s.within === "collect" ? d.collect_time_ms : d.dwell_time_ms)));
       return `The ${s.within === "collect" ? "collects" : "dwells"} reaching it are at most ${ms(longest)}; ${s.pulses} pulses take ${ms(p.needMs)} — make ${p.covering.length === 1 ? "it" : "them"} ${ms(p.recommendedMs)}.`;
     }
-    case "beam_too_short":
-      return `Its beam is on the Platform ~${ms(p.beamMs)} a scan, but ${s.pulses} pulses take ${ms(p.needMs)} — no dwell can fix that: fewer pulses to detect, or it's caught only when it stops scanning.`;
+    case "illumination_too_short":
+      return `Its illumination time is ~${ms(p.illuminationMs)} a scan, but ${s.pulses} pulses take ${ms(p.needMs)} — no dwell can fix that: fewer pulses to detect, or it's caught only when it stops scanning.`;
     case "synchronism":
       return `The ${ms(cycle)} cycle keeps missing its scan: ${pct(p.lockedOut)} of starting moments are never caught. Change the cycle by a collect or so.`;
     case "partly_covered": {
@@ -291,8 +291,11 @@ export function DwellPlanner({
                   <th className="num" title="The longest wait between looks at it long enough to see it">
                     Every
                   </th>
-                  <th className="num" title={`How long its beam is on the Platform each scan (${num(settings.beamwidthDeg)}° beam); — : not scanning`}>
-                    Beam
+                  <th
+                    className="num"
+                    title={`Illumination time: how long its main beam is on the Platform each scan — scan period × ${num(settings.beamwidthDeg)}° ÷ 360°; — : not scanning, illuminated all the time`}
+                  >
+                    Illumination time
                   </th>
                   <th className="num" title={`Share of starting moments it's intercepted within ${num(settings.horizonS)} s — and confirmed (its confirmation quantity of intercepts)`}>
                     In {num(settings.horizonS)} s
@@ -319,7 +322,7 @@ export function DwellPlanner({
                     </td>
                     <td>{p.covering.length ? p.covering.map((i) => i + 1).join(", ") : "—"}</td>
                     <td className="num">{ms(p.revisitMs)}</td>
-                    <td className="num">{p.beamMs == null ? "—" : ms(p.beamMs)}</td>
+                    <td className="num">{p.illuminationMs == null ? "—" : ms(p.illuminationMs)}</td>
                     <td className="num">
                       <span className={`planner-p ${p.pWithin >= 0.9 ? "good" : p.pWithin >= 0.5 ? "warn" : "bad"}`}>{pct(p.pWithin)}</span>
                       {(p.mode.confirmationQuantity ?? 1) > 1 && (
@@ -348,7 +351,7 @@ export function DwellPlanner({
               </li>
               <li>A dwell reaches the frequencies in its band (its frequency ± half the bandwidth); a Mode&apos;s RF counts with its delta, each part by its width.</li>
               <li>
-                A Mode with a scan period (its EW Group&apos;s) lights the Platform for {num(settings.beamwidthDeg)}° ÷ 360° of each scan; one without is on
+                A Mode with a scan period (its EW Group&apos;s) illuminates the Platform for {num(settings.beamwidthDeg)}° ÷ 360° of each scan — its illumination time; one without is illuminating
                 the Platform all the time. Scan periods given as a range are tried at both ends and the middle; the worst counts.
               </li>
               <li>

@@ -1331,11 +1331,12 @@ export function HelpPage() {
             The <strong>Planner</strong>, under the table and chart (Strategies with a Platform), works out as you edit
             how likely each of the Platforms&apos; Modes is to be intercepted: how much of its RF the dwells reach, the
             time it needs on frequency to see the <strong>pulses to detect</strong> (its longest PRI with jitter, or a
-            stagger&apos;s longest step and two frames), how often a long-enough look comes round, how long a scanning
-            radar&apos;s beam is on the Platform each scan (from the <strong>beamwidth</strong> you give), and the share
+            stagger&apos;s longest step and two frames), how often a long-enough look comes round, a scanning
+            radar&apos;s <strong>illumination time</strong> — how long its main beam is on the Platform each scan (from the{" "}
+            <strong>beamwidth</strong> you give), and the share
             of starting moments it&apos;s caught <strong>within</strong> the time you give, with the median time. Modes
             with problems come first: <strong>Not reached</strong>, <strong>Dwell too short</strong>,{" "}
-            <strong>Beam too short</strong> (no dwell can fix it), <strong>Synchronism</strong> (the cycle keeps missing
+            <strong>Illumination too short</strong> (no dwell can fix it), <strong>Synchronism</strong> (the cycle keeps missing
             its scan — some starting moments are never caught), <strong>Partly reached</strong>, <strong>Slow</strong>.
             Its buttons change the unsaved dwells for you to check and save: round dwell times up to whole collects,
             lengthen short dwells, add dwells for RF nothing reaches, and <strong>Break the synchronism</strong> (tries

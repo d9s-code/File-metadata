@@ -108,16 +108,16 @@ describe("intercept in time", () => {
     expect(p.revisitMs).toBe(1000);
   });
 
-  it("a beam too short to hold its pulses can't be caught however the dwells are set", () => {
-    // 8 × 5 ms = 40 ms, but a 3° beam on a 1 s scan is on the Platform ~8 ms.
+  it("an illumination time too short to hold its pulses can't be caught however the dwells are set", () => {
+    // 8 × 5 ms = 40 ms, but a 3° beam on a 1 s scan illuminates the Platform ~8 ms.
     const p = planMode(mode({ longestIntervalUs: 5000, scanS: [1, 1] }), [dwell(9400, 100), dwell(3000, 900)], 10, S);
-    expect(p.issue).toBe("beam_too_short");
-    expect(p.beamMs).toBeCloseTo(8.33, 1);
+    expect(p.issue).toBe("illumination_too_short");
+    expect(p.illuminationMs).toBeCloseTo(8.33, 1);
   });
 
   it("synchronism: a 1 s cycle against a 2 s scan keeps missing most starting phases", () => {
     const dwells = [dwell(9400, 100), dwell(3000, 900)];
-    const m = mode({ scanS: [2, 2] }); // beam ~16.7 ms a scan
+    const m = mode({ scanS: [2, 2] }); // illumination time ~16.7 ms a scan
     const p = planMode(m, dwells, 10, S);
     expect(p.issue).toBe("synchronism");
     expect(p.lockedOut).toBeGreaterThan(0.8);
