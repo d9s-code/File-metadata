@@ -1,6 +1,6 @@
 """How a Mode's signal behaves, beyond its RF, PRI and PW ranges: how its
 RF moves (agile, hopping over channels, swept, several at once), how a Fixed
-PRI moves inside its range (sliding, wobulated, dwell & switch, random), its
+PRI moves inside its range (sliding, dwell & switch, random), its
 PW (agile, a sequence), the modulation inside each pulse, and polarisation.
 
 App-only, for analysis and the dwell planner: never exported — the export
@@ -51,11 +51,10 @@ class RfBehaviour(BaseModel):
 
 class PriBehaviour(BaseModel):
     """How a Fixed PRI moves inside its range. steady: as it is. sliding: from
-    one end to the other over period_ms (up, down or triangle). wobulated:
-    sinusoidally over period_ms. dwell_switch: values_us in turn, dwell_pulses
+    one end to the other over period_ms (up, down or triangle). dwell_switch: values_us in turn, dwell_pulses
     each. random: anywhere in its range, pulse to pulse."""
 
-    kind: Literal["steady", "sliding", "wobulated", "dwell_switch", "random"] = "steady"
+    kind: Literal["steady", "sliding", "dwell_switch", "random"] = "steady"
     period_ms: float | None = Field(default=None, gt=0, le=3_600_000)
     shape: Literal["up", "down", "triangle"] | None = None
     values_us: _Values = Field(default_factory=list, max_length=MAX_LIST)
@@ -63,8 +62,8 @@ class PriBehaviour(BaseModel):
 
     @model_validator(mode="after")
     def check(self) -> "PriBehaviour":
-        if self.kind in ("sliding", "wobulated") and self.period_ms is None:
-            raise ValueError("A sliding or wobulated PRI needs its period")
+        if self.kind == "sliding" and self.period_ms is None:
+            raise ValueError("A sliding PRI needs its period")
         if self.kind == "dwell_switch":
             _check_values(self.values_us, "A dwell & switch PRI")
             if self.dwell_pulses is None:
@@ -136,4 +135,4 @@ class ModeSignal(BaseModel):
 def check_signal_for(pri_type: str, signal: dict | None) -> None:
     """A PRI behaviour is a Fixed PRI's (moving inside its range)."""
     if signal and signal.get("pri") and pri_type != "fixed":
-        raise ValueError("A PRI behaviour (sliding, wobulated, dwell & switch, random) is for a Fixed PRI")
+        raise ValueError("A PRI behaviour (sliding, dwell & switch, random) is for a Fixed PRI")

@@ -110,7 +110,7 @@ export function SignalEditor({
                       </option>
                     ))}
                   </select>
-                  {(draft.priKind === "sliding" || draft.priKind === "wobulated") && (
+                  {draft.priKind === "sliding" && (
                     <div className="signal-row">
                       <label>
                         Period (ms)

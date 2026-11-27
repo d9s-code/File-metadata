@@ -213,6 +213,7 @@ def signal_text(signal: dict | None) -> str | None:
         if k == "sliding":
             parts.append(f"PRI sliding {pri.get('shape') or 'up'} over {_num(pri['period_ms'])} ms")
         elif k == "wobulated":
+            # No longer offered; kept so versions saved with it still read.
             parts.append(f"PRI wobulated over {_num(pri['period_ms'])} ms")
         elif k == "dwell_switch":
             parts.append(f"PRI dwell & switch {_list(pri['values_us'], 'µs')}, {pri['dwell_pulses']} pulses each")

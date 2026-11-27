@@ -14,7 +14,7 @@ export interface RfBehaviour {
 }
 
 export interface PriBehaviour {
-  kind: "steady" | "sliding" | "wobulated" | "dwell_switch" | "random";
+  kind: "steady" | "sliding" | "dwell_switch" | "random";
   period_ms?: number | null;
   shape?: "up" | "down" | "triangle" | null;
   values_us?: number[];
@@ -59,7 +59,6 @@ export const RF_KINDS: [RfBehaviour["kind"], string][] = [
 export const PRI_KINDS: [PriBehaviour["kind"], string][] = [
   ["steady", "Steady — as its range says"],
   ["sliding", "Sliding — from one end to the other"],
-  ["wobulated", "Wobulated — sinusoidally"],
   ["dwell_switch", "Dwell & switch — values in turn"],
   ["random", "Random — anywhere in its range"],
 ];
@@ -138,7 +137,8 @@ export function signalDraftFrom(sig: ModeSignal | null | undefined): SignalDraft
     hopOrder: rf?.order ?? "sequence",
     sweepMs: s(rf?.sweep_ms),
     sweepShape: rf?.shape ?? "sawtooth",
-    priKind: pri?.kind ?? "steady",
+    // One no longer offered (wobulated, from before) reads as steady.
+    priKind: PRI_KINDS.some(([k]) => k === pri?.kind) ? pri!.kind : "steady",
     priPeriodMs: s(pri?.period_ms),
     priShape: pri?.shape ?? "up",
     priValues: list(pri?.values_us),
@@ -177,7 +177,7 @@ export function signalProblem(d: SignalDraft, fixedPri: boolean): string | null 
     return `RF: how long a hop lasts (${d.hopUnit === "pulses" ? "a whole number of pulses" : "ms"})`;
   if (d.rfKind === "swept" && !positive(d.sweepMs)) return "RF: the sweep time (ms)";
   if (fixedPri) {
-    if ((d.priKind === "sliding" || d.priKind === "wobulated") && !positive(d.priPeriodMs)) return "PRI: its period (ms)";
+    if (d.priKind === "sliding" && !positive(d.priPeriodMs)) return "PRI: its period (ms)";
     if (d.priKind === "dwell_switch") {
       const v = parseList(d.priValues);
       if (!v || v.length < 2) return "PRI: at least two values (µs)";
@@ -210,7 +210,6 @@ export function signalPayload(d: SignalDraft, fixedPri: boolean): ModeSignal | n
   if (d.rfKind === "diverse") out.rf = { kind: "diverse", channels_mhz: parseList(d.channels) ?? [] };
   if (fixedPri) {
     if (d.priKind === "sliding") out.pri = { kind: "sliding", period_ms: Number(d.priPeriodMs), shape: d.priShape };
-    if (d.priKind === "wobulated") out.pri = { kind: "wobulated", period_ms: Number(d.priPeriodMs) };
     if (d.priKind === "dwell_switch") out.pri = { kind: "dwell_switch", values_us: parseList(d.priValues) ?? [], dwell_pulses: Number(d.priDwell) };
     if (d.priKind === "random") out.pri = { kind: "random" };
   }
@@ -240,7 +239,6 @@ export function signalShort(sig: ModeSignal | null | undefined): string | null {
   if (rf?.kind === "diverse") parts.push(`RF diversity, ${rf.channels_mhz?.length ?? 0} ch`);
   const pri = sig.pri;
   if (pri?.kind === "sliding") parts.push("PRI sliding");
-  if (pri?.kind === "wobulated") parts.push("PRI wobulated");
   if (pri?.kind === "dwell_switch") parts.push(`PRI D&S ×${pri.values_us?.length ?? 0}`);
   if (pri?.kind === "random") parts.push("PRI random");
   if (sig.pw && sig.pw.kind !== "fixed") parts.push(`PW ${sig.pw.kind} ×${sig.pw.values_us?.length ?? 0}`);
@@ -267,7 +265,6 @@ export function signalText(sig: ModeSignal | null | undefined): string | null {
   if (rf?.kind === "diverse") parts.push(`RF on ${rf.channels_mhz?.length} channels at once (${listText(rf.channels_mhz, "MHz")})`);
   const pri = sig.pri;
   if (pri?.kind === "sliding") parts.push(`PRI sliding ${pri.shape ?? "up"} over ${n(pri.period_ms ?? 0)} ms`);
-  if (pri?.kind === "wobulated") parts.push(`PRI wobulated over ${n(pri.period_ms ?? 0)} ms`);
   if (pri?.kind === "dwell_switch") parts.push(`PRI dwell & switch ${listText(pri.values_us, "µs")}, ${pri.dwell_pulses} pulses each`);
   if (pri?.kind === "random") parts.push("PRI random in its range");
   if (sig.pw && sig.pw.kind !== "fixed") parts.push(`PW ${sig.pw.kind === "agile" ? "agile" : "in sequence"} ${listText(sig.pw.values_us, "µs")}`);
@@ -342,8 +339,7 @@ export function pulses(sig: ModeSignal | null | undefined, r: Ranges, count = 96
       if (p.kind === "sliding") {
         const f = p.shape === "down" ? 1 - phase : p.shape === "triangle" ? 1 - Math.abs(2 * phase - 1) : phase;
         pri = lo + (hi - lo) * f;
-      } else if (p.kind === "wobulated") pri = (lo + hi) / 2 + ((hi - lo) / 2) * Math.sin(2 * Math.PI * phase);
-      else if (p.kind === "dwell_switch" && p.values_us?.length) pri = p.values_us[Math.floor(i / Math.max(1, p.dwell_pulses ?? 1)) % p.values_us.length];
+      } else if (p.kind === "dwell_switch" && p.values_us?.length) pri = p.values_us[Math.floor(i / Math.max(1, p.dwell_pulses ?? 1)) % p.values_us.length];
       else if (p.kind === "random") pri = lo + (hi - lo) * rand();
     }
     // RF

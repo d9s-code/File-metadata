@@ -15,7 +15,7 @@ const R = W - 8;
 const T = 12;
 const B = H - 26;
 
-const PRI_LABEL = { steady: "steady", sliding: "sliding", wobulated: "wobulated", dwell_switch: "dwell & switch", random: "random" } as const;
+const PRI_LABEL = { steady: "steady", sliding: "sliding", dwell_switch: "dwell & switch", random: "random" } as const;
 
 const fmt = (v: number) => String(Number(v.toFixed(Math.abs(v) >= 100 ? 0 : Math.abs(v) >= 10 ? 1 : 2)));
 

@@ -35,6 +35,7 @@ def test_a_modes_signal_is_checked_and_kept_lean(editor_client):
         {"pw": {"kind": "sequence", "values_us": [1]}},
         {"modulation": {"kind": "phase"}},
         {"polarisation": "sideways"},
+        {"pri": {"kind": "wobulated", "period_ms": 5}},
     ):
         assert editor_client.patch(url, json={"signal": bad}).status_code == 422, bad
     r = editor_client.patch(url, json={"signal": None})
@@ -43,7 +44,7 @@ def test_a_modes_signal_is_checked_and_kept_lean(editor_client):
     stagger_line = {k: v for k, v in m["line"].items() if v is not None and not k.startswith(("pri_", "jitter"))}
     line = {**stagger_line, "pri_range_matching": False, "pri_stagger_values_us": [300, 400], "frame_time_delta_us": 0}
     body = {"source_id": s["id"], "name": "Stag", "pri_type": "stagger", "line": line}
-    r = editor_client.post(f"/ew-groups/{g['id']}/modes", json={**body, "signal": {"pri": {"kind": "wobulated", "period_ms": 5}}})
+    r = editor_client.post(f"/ew-groups/{g['id']}/modes", json={**body, "signal": {"pri": {"kind": "sliding", "period_ms": 5}}})
     assert r.status_code == 422, r.text
 
 

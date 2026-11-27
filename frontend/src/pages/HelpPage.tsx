@@ -751,7 +751,7 @@ export function HelpPage() {
             <p>
               A Mode&apos;s <strong>Signal behaviour</strong> (in its form, under the pulse train) says how it behaves inside
               its ranges: its RF (agile, hopping over channels, swept, several at once), a Fixed PRI&apos;s movement (sliding,
-              wobulated, dwell &amp; switch, random), its PW (agile, a sequence), the modulation inside a pulse (chirps, phase
+              dwell &amp; switch, random), its PW (agile, a sequence), the modulation inside a pulse (chirps, phase
               codes such as Barker or Frank, FSK) and its polarisation — each drawn as you type it. An EW Group can carry its{" "}
               <strong>ERP</strong> (dBm). Both are for analysis only and never exported: the export is exactly what it was. The
               dwell planner takes the RF behaviour — an agile or hopping Mode shows up in every dwell that reaches part of it,
