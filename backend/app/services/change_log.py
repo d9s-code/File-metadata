@@ -208,6 +208,16 @@ def _named(g: dict, mark: str) -> list[str]:
     return [e["name"] for e in g["entries"] if e["mark"] == mark]
 
 
+def _entry_name(g: dict, e: dict) -> str:
+    """An entry under a Platform still there (or the dwell files) says what
+    happened to it in words — "Nav Radar (removed)" — so it reads in the
+    document, where there are no marks; under an added or removed Platform
+    the heading says it, and a move says it in its detail."""
+    if g["mark"] in ("added", "removed") or (e.get("detail") or "").startswith("moved"):
+        return e["name"]
+    return f"{e['name']} ({e['mark']})"
+
+
 def _by_platform(groups: list[dict], detail: str) -> list[dict]:
     if not groups:
         return [_block("empty", "No major changes.")]
@@ -242,10 +252,11 @@ def _by_platform(groups: list[dict], detail: str) -> list[dict]:
         else:
             blocks.append(_block("heading", _platform_title(g)))
             for e in g["entries"]:
+                name = _entry_name(g, e)
                 if detail == "names":
-                    blocks.append(_block("line", e["name"], e["mark"]))
+                    blocks.append(_block("line", name, e["mark"]))
                 else:
-                    text = e["name"] + (f" — {e['detail']}" if e.get("detail") else "")
+                    text = name + (f" — {e['detail']}" if e.get("detail") else "")
                     blocks.append(_block("line", text, e["mark"], e.get("items")))
     return blocks
 

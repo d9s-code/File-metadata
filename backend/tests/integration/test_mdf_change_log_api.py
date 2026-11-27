@@ -65,10 +65,11 @@ def test_grouped_by_platform(editor_client):
     mid = _build(editor_client)
     assert _log(editor_client, mid, "full", "platform") == [
         ("heading", "Platform Alpha Ship", None, []),
-        ("line", "Radar One", "updated", ["1 Mode added: Track"]),
+        ("line", "Radar One (updated)", "updated", ["1 Mode added: Track"]),
         ("heading", "Platform Bravo Ship (added)", None, []),
         ("line", "Radar Two — 1 Mode", "added", []),
     ]
+    assert [t for _, t, _, _ in _log(editor_client, mid, "names", "platform")] == ["Platform Alpha Ship", "Radar One (updated)", "Platform Bravo Ship (added)", "Radar Two"]
     assert [t for _, t, _, _ in _log(editor_client, mid, "counts", "platform")] == ["Alpha Ship: 1 Emitter updated", "Bravo Ship (added): carries 1 Emitter"]
     assert [t for _, t, _, _ in _log(editor_client, mid, "sentences", "platform")] == [
         "On Alpha Ship: 1 Emitter updated (Radar One).",
