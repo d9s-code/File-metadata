@@ -18,9 +18,10 @@ from app.deps import require_emitter_checkout, require_role
 from app.models.emitter import Emitter
 from app.models.mode import Mode
 from app.models.operational_mode import OperationalMode
-from app.schemas.mode import BatchModeFieldEdit, ModeBatchEditResult
+from app.schemas.mode import BatchModeFieldEdit, ModeBatchEditResult, check_scan_box
 from app.schemas.operational_mode import (
     OperationalModeCreate,
+    OperationalModeOrder,
     OperationalModeOut,
     OperationalModeSetValues,
     OperationalModeUpdate,
@@ -30,7 +31,20 @@ from app.services.mode_batch_service import apply_batch_edit, plan_batch_edit
 
 router = APIRouter(prefix="/emitters/{emitter_id}/operational-modes", tags=["operational-modes"])
 
-_FIELDS = ["name", "parent_id", "description", "illumination_time_ms", "sort_order"]
+_FIELDS = ["name", "parent_id", "description", "illumination_time_ms", "scan_min_s", "scan_max_s", "sort_order"]
+
+
+def _next_place(db: Session, emitter_id: UUID, parent_id: UUID | None) -> int:
+    """After its siblings."""
+    top = (
+        db.query(func.max(OperationalMode.sort_order))
+        .filter(
+            OperationalMode.emitter_id == emitter_id,
+            OperationalMode.parent_id.is_(None) if parent_id is None else OperationalMode.parent_id == parent_id,
+        )
+        .scalar()
+    )
+    return 0 if top is None else top + 1
 
 
 def _emitter_or_404(db: Session, emitter_id: UUID) -> Emitter:
@@ -132,6 +146,8 @@ def create_operational_mode(
     data = payload.model_dump()
     _check_parent(db, emitter_id, data["parent_id"])
     data["name"] = _check_name(db, emitter_id, data["name"], data["parent_id"])
+    if data["sort_order"] is None:
+        data["sort_order"] = _next_place(db, emitter_id, data["parent_id"])
     row = OperationalMode(emitter_id=emitter_id, **data)
     db.add(row)
     db.flush()
@@ -169,6 +185,13 @@ def update_operational_mode(
         data["name"] = _check_name(db, emitter_id, data.get("name", row.name), parent_id, own_id=row.id)
     if data.get("sort_order", 0) is None:
         data.pop("sort_order")
+    if "parent_id" in data and data["parent_id"] != row.parent_id and "sort_order" not in data:
+        data["sort_order"] = _next_place(db, emitter_id, data["parent_id"])
+    if "scan_min_s" in data or "scan_max_s" in data:
+        try:
+            check_scan_box(data.get("scan_min_s", row.scan_min_s), data.get("scan_max_s", row.scan_max_s))
+        except ValueError as exc:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc))
     old_name = row.name
     changes = apply_and_diff(row, data)
     record_audit(
@@ -224,6 +247,48 @@ def delete_operational_mode(
     db.flush()
     db.delete(row)
     db.commit()
+
+
+@router.post("/order", response_model=list[OperationalModeOut], dependencies=[Depends(verify_csrf)])
+def order_operational_modes(
+    emitter_id: UUID,
+    payload: OperationalModeOrder,
+    db: Session = Depends(get_db),
+    user=Depends(require_emitter_checkout()),
+) -> list[OperationalMode]:
+    """Puts one parent's operational modes in this order (each of them, once)."""
+    _emitter_or_404(db, emitter_id)
+    siblings = (
+        db.query(OperationalMode)
+        .filter(
+            OperationalMode.emitter_id == emitter_id,
+            OperationalMode.parent_id.is_(None) if payload.parent_id is None else OperationalMode.parent_id == payload.parent_id,
+        )
+        .all()
+    )
+    if sorted(map(str, payload.ids)) != sorted(str(s.id) for s in siblings):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "Give every one of them under that parent, each once — they changed since?"
+        )
+    by_id = {s.id: s for s in siblings}
+    before = [s.name for s in sorted(siblings, key=lambda s: (s.sort_order, s.name))]
+    for place, op_id in enumerate(payload.ids):
+        by_id[op_id].sort_order = place
+    after = [by_id[i].name for i in payload.ids]
+    if before != after:
+        parent = db.get(OperationalMode, payload.parent_id) if payload.parent_id else None
+        record_audit(
+            db,
+            actor_id=user.id,
+            action=AuditAction.update,
+            entity_type=AuditEntityType.operational_mode.value,
+            entity_id=parent.id if parent else None,
+            summary=f"Reordered the operational modes {f'under {parent.name!r}' if parent else 'at the top'}",
+            changes={"order": {"old": ", ".join(before), "new": ", ".join(after)}},
+            emitter_id=emitter_id,
+        )
+    db.commit()
+    return [_with_count(db, by_id[i]) for i in payload.ids]
 
 
 @router.post(

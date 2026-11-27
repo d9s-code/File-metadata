@@ -174,6 +174,9 @@ def plan_batch_edit(
                 fixed_only = [k for k in line_values if k.startswith(("pri_min", "pri_max", "jitter_"))]
                 if fixed_only and mode.pri_type != PriType.fixed:
                     raise ValueError(f"its PRI is {mode.pri_type.value}, so it has no PRI range or jitter to set")
+                stagger_only = [k for k in line_values if k in ("pri_stagger_values_us", "frame_time_delta_us")]
+                if stagger_only and mode.pri_type != PriType.stagger:
+                    raise ValueError(f"its PRI is {mode.pri_type.value}, so it has no stagger steps to set")
                 values.update(line_values)
             for key, value in field_data.items():
                 if key in _LINE_FIELD_KEYS:

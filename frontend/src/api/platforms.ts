@@ -147,7 +147,9 @@ export interface CoverageMode {
     /** Its scan period, s (with the EW Group's delta): the Mode's own box, else its EW Group's; null — not scanning. */
     scan_s: [number, number] | null;
     /** Where scan_s comes from (missing on coverage read before Modes had their own box). */
-    scan_from?: "mode" | "group" | null;
+    scan_from?: "mode" | "operational" | "group" | null;
+    /** When it's an operational mode's: which one it's set on. */
+    scan_from_operational?: string | null;
     /** Its EW Group's overall scan range, s (with the delta). */
     group_scan_s?: [number, number] | null;
     priority: number | null;

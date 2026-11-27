@@ -606,5 +606,22 @@ test("Operational modes as a tree: TRACK holds Track 1 and 2, shows what they sh
   await set.getByRole("button", { name: "Set 1 value" }).click();
   await expect(set).toBeHidden();
   await expect(trackRow).toContainText("9400–9460 MHz");
+
+  // TRACK's scan period: Track 2 takes it.
+  await card.getByRole("button", { name: "Actions for TRACK", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Edit…" }).click();
+  const edit = page.getByRole("dialog");
+  await edit.getByLabel("Min", { exact: true }).fill("1");
+  await edit.getByLabel("Max", { exact: true }).fill("2");
+  await edit.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(edit).toBeHidden();
+  const track2 = card.locator("tr", { has: page.getByText("Track 2", { exact: true }) });
+  await expect(track2).toContainText("scan 1–2 s · from TRACK");
+
+  // Track 2 moved up, above Track 1.
+  await card.getByRole("button", { name: "Actions for Track 2", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Move up" }).click();
+  const names = card.locator("tr.op-node-row strong");
+  await expect(names).toHaveText(["TRACK", "Track 2", "Track 1"]);
   await removeEmitter(page, e.id);
 });

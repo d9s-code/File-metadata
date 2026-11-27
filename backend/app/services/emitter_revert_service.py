@@ -191,6 +191,8 @@ def _reconcile_operational_modes(db: Session, emitter: Emitter, snaps: list[dict
         row.name = o_snap["name"]
         row.description = o_snap.get("description")
         row.illumination_time_ms = _num(o_snap.get("illumination_time_ms"))
+        row.scan_min_s = _num(o_snap.get("scan_min_s"))
+        row.scan_max_s = _num(o_snap.get("scan_max_s"))
         row.sort_order = o_snap.get("sort_order", 0)
     db.flush()
     # Parents once every one of them exists.
@@ -380,6 +382,8 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
             name=o_snap["name"],
             description=o_snap.get("description"),
             illumination_time_ms=_num(o_snap.get("illumination_time_ms")),
+            scan_min_s=_num(o_snap.get("scan_min_s")),
+            scan_max_s=_num(o_snap.get("scan_max_s")),
             sort_order=o_snap.get("sort_order", 0),
         )
         db.add(row)

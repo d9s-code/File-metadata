@@ -65,6 +65,9 @@ export interface TreeNode {
   illuminationMs: number | null;
   /** The operational mode that's from (it, or one above it). */
   illuminationFrom: string | null;
+  /** The scan period its Modes take, s, unless one has its own box: its own, else the nearest above it with one. */
+  scanS: [number, number] | null;
+  scanFrom: string | null;
 }
 
 const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, undefined, { numeric: true });
@@ -109,6 +112,8 @@ export function buildTree(ops: OperationalMode[], modes: Mode[]): { roots: TreeN
       shownHere: {},
       illuminationMs: o.illumination_time_ms ?? parent?.illuminationMs ?? null,
       illuminationFrom: o.illumination_time_ms != null ? o.name : (parent?.illuminationFrom ?? null),
+      scanS: o.scan_min_s != null && o.scan_max_s != null ? [o.scan_min_s, o.scan_max_s] : (parent?.scanS ?? null),
+      scanFrom: o.scan_min_s != null && o.scan_max_s != null ? o.name : (parent?.scanFrom ?? null),
     };
     byId.set(o.id, node);
     const children = [...(kids.get(o.id) ?? [])].filter((c) => !seen.has(c.id));

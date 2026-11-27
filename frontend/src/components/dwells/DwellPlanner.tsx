@@ -54,6 +54,7 @@ function usePlannerModes(platformIds: string[]): PlannerMode[] | undefined {
             frameUs: m.planner?.frame_us ?? null,
             scanS: m.planner?.scan_s ?? null,
             scanFrom: m.planner?.scan_from ?? null,
+            scanFromOperational: m.planner?.scan_from_operational ?? null,
             groupScanS: m.planner?.group_scan_s ?? null,
             illuminationTimeMs: e.illumination_time_ms ?? null,
             operationalMode: m.planner?.operational_mode ?? null,
@@ -75,17 +76,18 @@ const secs = (r: [number, number]) => (r[1] - r[0] < 1e-9 ? `${num(r[0])} s` : `
 function ScanNote({ mode }: { mode: PlannerMode }) {
   if (!mode.scanS) return null;
   const outside =
-    mode.scanFrom === "mode" && mode.groupScanS && (mode.scanS[0] < mode.groupScanS[0] - 1e-9 || mode.scanS[1] > mode.groupScanS[1] + 1e-9);
+    (mode.scanFrom === "mode" || mode.scanFrom === "operational") &&
+    mode.groupScanS && (mode.scanS[0] < mode.groupScanS[0] - 1e-9 || mode.scanS[1] > mode.groupScanS[1] + 1e-9);
   return (
     <span
       className={outside ? "jitter-subline planner-scan-outside" : "jitter-subline"}
       title={
-        mode.scanFrom === "mode"
-          ? `The Mode's own scan period${mode.groupScanS ? `, inside its EW Group's ${secs(mode.groupScanS)}` : ""}${outside ? " — but it reaches outside it" : ""}`
-          : "Its EW Group's scan period — give the Mode its own box under More options to narrow it"
+        mode.scanFrom === "mode" || mode.scanFrom === "operational"
+          ? `${mode.scanFrom === "mode" ? "The Mode's own scan period" : `The scan period of its operational mode ${mode.scanFromOperational}`}${mode.groupScanS ? `, inside its EW Group's ${secs(mode.groupScanS)}` : ""}${outside ? " — but it reaches outside it" : ""}`
+          : "Its EW Group's scan period — give the Mode, or its operational mode, its own box to narrow it"
       }
     >
-      {mode.scanFrom === "mode" ? "Mode's" : "EW Group's"} {secs(mode.scanS)}
+      {mode.scanFrom === "mode" ? "Mode's" : mode.scanFrom === "operational" ? `${mode.scanFromOperational}'s` : "EW Group's"} {secs(mode.scanS)}
       {outside && " ⚠"}
     </span>
   );

@@ -182,3 +182,75 @@ def test_the_tree_is_versioned_reverted_and_duplicated(editor_client):
     copy = editor_client.post(f"/emitters/{e['id']}/duplicate", json={"new_name": "Tree copy"}).json()
     rows = {o["name"]: o for o in editor_client.get(f"/emitters/{copy['id']}/operational-modes").json()}
     assert rows["Track 1"]["parent_id"] == rows["TRACK"]["id"] != track["id"]
+
+
+def test_scan_period_on_an_operational_mode_is_inherited_unless_a_mode_has_its_own(editor_client):
+    e, g, s = _emitter(editor_client)  # its EW Group scans 1–10 s
+    url = f"/emitters/{e['id']}/operational-modes"
+    search = editor_client.post(url, json={"name": "SEARCH", "scan_min_s": 8, "scan_max_s": 10}).json()
+    volume = editor_client.post(url, json={"name": "Volume", "parent_id": search["id"]}).json()
+    horizon = editor_client.post(url, json={"name": "Horizon", "parent_id": search["id"], "scan_min_s": 1, "scan_max_s": 2}).json()
+    # Both, or neither; not upside down.
+    assert editor_client.post(url, json={"name": "Half", "scan_min_s": 3}).status_code == 422
+    assert editor_client.patch(f"{url}/{volume['id']}", json={"scan_min_s": 5, "scan_max_s": 4}).status_code == 422
+    _mode(editor_client, g, s, "V", operational_mode_id=volume["id"])
+    _mode(editor_client, g, s, "H", operational_mode_id=horizon["id"])
+    _mode(editor_client, g, s, "Own", operational_mode_id=volume["id"], scan_min_s=3, scan_max_s=4)
+    v = editor_client.post(f"/emitters/{e['id']}/versions", json={"change_summary": "v1"}).json()
+    p = editor_client.post("/platforms", json={"name": "Scan Platform"}).json()
+    editor_client.post(f"/platforms/{p['id']}/links", json={"emitter_id": e["id"], "emitter_version_id": v["id"]})
+    [cov] = editor_client.get(f"/platforms/{p['id']}/coverage").json()
+    plan = {m["name"]: m["planner"] for m in cov["modes"]}
+    assert (plan["V"]["scan_s"], plan["V"]["scan_from"], plan["V"]["scan_from_operational"]) == ([8, 10], "operational", "SEARCH")
+    assert (plan["H"]["scan_s"], plan["H"]["scan_from_operational"]) == ([1, 2], "Horizon")
+    assert (plan["Own"]["scan_s"], plan["Own"]["scan_from"]) == ([3, 4], "mode")
+    # Compared with the version, and reverted.
+    editor_client.patch(f"{url}/{search['id']}", json={"scan_min_s": None, "scan_max_s": None})
+    v2 = editor_client.post(f"/emitters/{e['id']}/versions", json={"change_summary": "v2"}).json()
+    diff = editor_client.get(f"/emitters/{e['id']}/versions/{v2['version_number']}/diff").json()["entries"]
+    assert any(d["scope"] == "Operational mode 'SEARCH'" and d["label"] == "Scan period min (s)" for d in diff)
+    editor_client.post(f"/emitters/{e['id']}/versions/{v['version_number']}/revert")
+    back = {o["name"]: (o["scan_min_s"], o["scan_max_s"]) for o in editor_client.get(url).json()}
+    assert back["SEARCH"] == (8, 10)
+
+
+def test_stagger_steps_set_on_every_stagger_under_one(editor_client):
+    e, g, s = _emitter(editor_client)
+    url = f"/emitters/{e['id']}/operational-modes"
+    burst = editor_client.post(url, json={"name": "BURST"}).json()
+    stagger = {k: v for k, v in LINE.items() if not k.startswith(("pri_", "jitter_"))} | {
+        "pri_range_matching": False, "pri_stagger_values_us": [300, 400], "frame_time_delta_us": 0}  # fmt: skip
+    for name in ("B1", "B2"):
+        r = editor_client.post(
+            f"/ew-groups/{g['id']}/modes",
+            json={"source_id": s["id"], "name": name, "pri_type": "stagger", "line": stagger, "operational_mode_id": burst["id"]},
+        )
+        assert r.status_code == 201, r.text
+    r = editor_client.post(f"{url}/{burst['id']}/set-values", json={"pri_stagger_values_us": [300, 350, 400], "frame_time_delta_us": 2})
+    assert r.status_code == 200 and r.json()["count"] == 2, r.text
+    lines = [m["line"] for m in editor_client.get(f"/ew-groups/{g['id']}/modes").json()]
+    assert all(line["pri_stagger_values_us"] == [300, 350, 400] and line["frame_time_delta_us"] == 2 for line in lines)
+    # Not on a Fixed one; no step at 0.
+    _mode(editor_client, g, s, "F", operational_mode_id=burst["id"])
+    r = editor_client.post(f"{url}/{burst['id']}/set-values", json={"pri_stagger_values_us": [300, 400]})
+    assert r.status_code == 422 and [x["mode_name"] for x in r.json()["detail"]] == ["F"], r.text
+    assert editor_client.post(f"{url}/{burst['id']}/set-values", json={"pri_stagger_values_us": [0, 400]}).status_code == 422
+
+
+def test_siblings_keep_the_order_they_are_given(editor_client):
+    e, _g, _s = _emitter(editor_client)
+    url = f"/emitters/{e['id']}/operational-modes"
+    track = editor_client.post(url, json={"name": "TRACK"}).json()
+    kids = [editor_client.post(url, json={"name": f"Track {i}", "parent_id": track["id"]}).json() for i in (1, 2, 10)]
+    # New ones go after their siblings.
+    assert [k["sort_order"] for k in kids] == [0, 1, 2]
+    order = [kids[2]["id"], kids[0]["id"], kids[1]["id"]]
+    r = editor_client.post(f"{url}/order", json={"parent_id": track["id"], "ids": order})
+    assert r.status_code == 200, r.text
+    rows = sorted((o for o in editor_client.get(url).json() if o["parent_id"] == track["id"]), key=lambda o: o["sort_order"])
+    assert [o["name"] for o in rows] == ["Track 10", "Track 1", "Track 2"]
+    # Every sibling, each once — not a stale or partial list.
+    assert editor_client.post(f"{url}/order", json={"parent_id": track["id"], "ids": order[:2]}).status_code == 422
+    log = editor_client.get("/audit-log", params={"entity_type": "operational_mode"}).json()
+    entries = log["items"] if isinstance(log, dict) else log
+    assert any(x["summary"] == "Reordered the operational modes under 'TRACK'" for x in entries)

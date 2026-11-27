@@ -30,6 +30,10 @@ class OperationalMode(UUIDPkMixin, TimestampMixin, Base):
     # How long the beam lights up a Platform each scan in this operational
     # mode (ms). Null: its Emitter's illumination time, else the planner's beamwidth.
     illumination_time_ms: Mapped[float | None] = mapped_column(Numeric(12, 4), nullable=True)
+    # The scan period (s) of this operational mode — its Modes' unless a Mode
+    # has its own box; null: the one above it, else the EW Group's range.
+    scan_min_s: Mapped[float | None] = mapped_column(Numeric(12, 4), nullable=True)
+    scan_max_s: Mapped[float | None] = mapped_column(Numeric(12, 4), nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     emitter: Mapped["Emitter"] = relationship(back_populates="operational_modes")  # noqa: F821

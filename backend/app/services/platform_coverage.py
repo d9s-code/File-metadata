@@ -46,9 +46,12 @@ def _planner(mode: dict, line: dict, group: dict | None, operational: dict | Non
     delta = group.get("scan_delta")
     group_scan = _span(*apply_delta(group.get("scan_min"), group.get("scan_max"), delta))
     # The Mode's own scan box (its function's, inside the EW Group's overall
-    # range) when it has one, with the EW Group's delta; else the EW Group's.
+    # range) when it has one; else its operational mode's (or the nearest one
+    # above it with one); else the EW Group's — each with the EW Group's delta.
     mode_scan = _span(*apply_delta(mode.get("scan_min_s"), mode.get("scan_max_s"), delta))
-    scan = mode_scan or group_scan
+    op_box = (operational or {}).get("scan_s")
+    op_scan = _span(*apply_delta(op_box[0], op_box[1], delta)) if op_box else None
+    scan = mode_scan or op_scan or group_scan
 
     def clamp(span):
         return [max(span[0], 0.0), span[1]] if span else None
@@ -58,7 +61,9 @@ def _planner(mode: dict, line: dict, group: dict | None, operational: dict | Non
         "stagger_steps": steps,
         "frame_us": frame,
         "scan_s": clamp(scan),
-        "scan_from": "mode" if mode_scan else ("group" if group_scan else None),
+        "scan_from": "mode" if mode_scan else "operational" if op_scan else ("group" if group_scan else None),
+        # The operational mode that scan period is set on, when it's one's.
+        "scan_from_operational": (operational or {}).get("scan_from") if not mode_scan and op_scan else None,
         "group_scan_s": clamp(group_scan),
         "priority": group.get("threat_priority"),
         "confirmation_quantity": mode.get("confirmation_quantity"),
@@ -117,18 +122,22 @@ def _operational_effective(rows: list[dict]) -> dict[str, dict]:
     by_id = {o["id"]: o for o in rows}
     out = {}
     for op_id in by_id:
-        names, illumination, source, current, seen = [], None, None, op_id, set()
+        names, illumination, source, scan, scan_source, current, seen = [], None, None, None, None, op_id, set()
         while current and current in by_id and current not in seen:
             seen.add(current)
             row = by_id[current]
             names.append(row["name"])
             if illumination is None and row.get("illumination_time_ms") is not None:
                 illumination, source = row["illumination_time_ms"], row["name"]
+            if scan is None and row.get("scan_min_s") is not None and row.get("scan_max_s") is not None:
+                scan, scan_source = [float(row["scan_min_s"]), float(row["scan_max_s"])], row["name"]
             current = row.get("parent_id")
         out[op_id] = {
             "path": " › ".join(reversed(names)),
             "illumination_time_ms": illumination,
             "illumination_from": source,
+            "scan_s": scan,
+            "scan_from": scan_source,
         }
     return out
 

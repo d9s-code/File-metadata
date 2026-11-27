@@ -45,7 +45,9 @@ export interface PlannerMode {
   /** Its scan period, s: its own box, or its EW Group's range (null: not scanning — on the Platform all the time). */
   scanS: [number, number] | null;
   /** Where scanS comes from: the Mode's own box or its EW Group's range. */
-  scanFrom?: "mode" | "group" | null;
+  scanFrom?: "mode" | "operational" | "group" | null;
+  /** When it's an operational mode's scan period: which one it's set on. */
+  scanFromOperational?: string | null;
   /** Its EW Group's overall scan range, s — the box should sit inside it. */
   groupScanS?: [number, number] | null;
   /** Its Emitter's illumination time, ms, where set (else worked out from the beamwidth). */

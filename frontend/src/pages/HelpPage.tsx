@@ -723,10 +723,10 @@ export function HelpPage() {
               1, 2 and 3, <strong>SEARCH</strong> holding volume and horizon search — with each Mode under the one it&apos;s
               transmitted in. A value every Mode below agrees on shows once, on the highest level where they do (the RF
               range Track 1–3 share, on TRACK); what differs shows lower down (the PRI of Track 2 and of Track 3). Each
-              row&apos;s <strong>⋯</strong> adds one under it, edits or deletes it, and <strong>Set on its Modes</strong>{" "}
-              writes RF, PW, PRI or jitter to every Mode under it at once. Tick Modes to <strong>Move</strong> them to another.
-              An operational mode&apos;s <strong>illumination time</strong> goes to its Modes in the dwell planner, and to the
-              ones below it that have none. The Modes stay what&apos;s exported; saved with the Emitter&apos;s versions.
+              row&apos;s <strong>⋯</strong> adds one under it, moves it up or down among its siblings, edits or deletes it, and{" "}
+              <strong>Set on its Modes</strong> writes RF, PW, PRI, jitter or stagger steps to every Mode under it at once. Tick Modes to <strong>Move</strong> them to another.
+              An operational mode&apos;s <strong>illumination time</strong> and <strong>scan period</strong> go to its Modes in
+              the dwell planner, and to the ones below it that have none — a Mode&apos;s own scan box still wins. The Modes stay what&apos;s exported; saved with the Emitter&apos;s versions.
             </p>
             <p>
               A Source&apos;s <strong>Generation log</strong> tab lists every run of <em>Generate Modes</em> on it,

@@ -75,3 +75,14 @@ describe("the radar as a tree", () => {
     expect(modeParams(mode("x", null, 100))).toMatchObject({ pri_type: "Fixed", rf: "9400–9450 MHz", pri: "100 µs", jitter: "—", scan: "—" });
   });
 });
+
+describe("scan period", () => {
+  it("is its own, else the nearest one's above it", () => {
+    const { byId } = buildTree(
+      [{ ...op("s", "SEARCH"), scan_min_s: 8, scan_max_s: 10 }, op("v", "Volume", "s"), { ...op("h", "Horizon", "s"), scan_min_s: 1, scan_max_s: 2 }],
+      [],
+    );
+    expect([byId.get("v")!.scanS, byId.get("v")!.scanFrom]).toEqual([[8, 10], "SEARCH"]);
+    expect([byId.get("h")!.scanS, byId.get("h")!.scanFrom]).toEqual([[1, 2], "Horizon"]);
+  });
+});

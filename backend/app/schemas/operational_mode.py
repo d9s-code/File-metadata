@@ -1,9 +1,11 @@
 from datetime import datetime
+from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.schemas.emitter import IlluminationTimeMs
+from app.schemas.mode import ScanSeconds, check_scan_box
 
 
 class OperationalModeCreate(BaseModel):
@@ -12,7 +14,16 @@ class OperationalModeCreate(BaseModel):
     parent_id: UUID | None = None
     description: str | None = None
     illumination_time_ms: IlluminationTimeMs | None = None
-    sort_order: int = 0
+    # Both, or neither.
+    scan_min_s: ScanSeconds | None = None
+    scan_max_s: ScanSeconds | None = None
+    # Its place among its siblings; None — after them.
+    sort_order: int | None = None
+
+    @model_validator(mode="after")
+    def check_scan(self) -> "OperationalModeCreate":
+        check_scan_box(self.scan_min_s, self.scan_max_s)
+        return self
 
 
 class OperationalModeUpdate(BaseModel):
@@ -22,6 +33,9 @@ class OperationalModeUpdate(BaseModel):
     description: str | None = None
     # Null clears it: its Modes then take the Emitter's.
     illumination_time_ms: IlluminationTimeMs | None = None
+    # Both together, or both null to clear it (checked against each other on save).
+    scan_min_s: ScanSeconds | None = None
+    scan_max_s: ScanSeconds | None = None
     sort_order: int | None = None
 
 
@@ -34,6 +48,8 @@ class OperationalModeOut(BaseModel):
     name: str
     description: str | None = None
     illumination_time_ms: float | None = None
+    scan_min_s: float | None = None
+    scan_max_s: float | None = None
     sort_order: int
     # How many of the Emitter's Modes are linked to it directly.
     modes_count: int = 0
@@ -58,6 +74,16 @@ class OperationalModeSetValues(BaseModel):
     pri_delta: float | None = Field(default=None, ge=0)
     jitter_min_us: float | None = Field(default=None, ge=0)
     jitter_max_us: float | None = Field(default=None, ge=0)
+    # A stagger's steps (µs) and its frame-time delta: every Mode under it must be a stagger for these.
+    pri_stagger_values_us: list[Annotated[float, Field(gt=0)]] | None = Field(default=None, min_length=2, max_length=64)
+    frame_time_delta_us: float | None = Field(default=None, ge=0)
 
     def given(self) -> dict:
         return {k: v for k, v in self.model_dump(exclude_unset=True).items() if v is not None}
+
+
+class OperationalModeOrder(BaseModel):
+    """Siblings in the order given — all of one parent's, each once."""
+
+    parent_id: UUID | None = None
+    ids: list[UUID] = Field(min_length=1)

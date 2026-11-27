@@ -16,12 +16,15 @@ import {
   useCreateOperationalMode,
   useDeleteOperationalMode,
   useOperationalModes,
+  useOrderOperationalModes,
   useSetValuesBelow,
   useUpdateOperationalMode,
 } from "../../state/hooks/useOperationalModes";
 import { PARAMS, PARAM_LABEL, below, buildTree, flatten, ownParams, type ParamKey, type TreeNode } from "./opTree";
+import { scanProblem } from "../modes/ModeMoreOptions";
 
 const ms = (v: number) => `${Number(v.toFixed(3))} ms`;
+const secs = ([a, b]: [number, number]) => `${a === b ? Number(a.toFixed(3)) : `${Number(a.toFixed(3))}–${Number(b.toFixed(3))}`} s`;
 
 /** The illumination time as typed: a number above 0, or empty. */
 export function illuminationProblem(text: string): string | null {
@@ -62,8 +65,11 @@ function OperationalModeDialog({
   const [parent, setParent] = useState(initial?.parent_id ?? parentId ?? "");
   const [illumination, setIllumination] = useState(initial?.illumination_time_ms != null ? String(initial.illumination_time_ms) : "");
   const [description, setDescription] = useState(initial?.description ?? "");
+  const [scanMin, setScanMin] = useState(initial?.scan_min_s != null ? String(initial.scan_min_s) : "");
+  const [scanMax, setScanMax] = useState(initial?.scan_max_s != null ? String(initial.scan_max_s) : "");
   const [error, setError] = useState<string | null>(null);
   const problem = illuminationProblem(illumination);
+  const scanBad = scanProblem(scanMin, scanMax);
   // Not under itself or one of its own.
   const ownBranch = initial ? below(flatten(nodes).find((x) => x.op.id === initial.id)!) : new Set<string>();
   const options = flatten(nodes).filter((x) => !ownBranch.has(x.op.id));
@@ -73,11 +79,14 @@ function OperationalModeDialog({
     e.preventDefault();
     setError(null);
     if (!name.trim()) return setError("Give it a name");
-    if (problem) return;
+    if (problem || scanBad) return;
+    const box = scanMin.trim() && scanMax.trim();
     const input = {
       name: name.trim(),
       parent_id: parent || null,
       illumination_time_ms: illumination.trim() ? Number(illumination) : null,
+      scan_min_s: box ? Number(scanMin) : null,
+      scan_max_s: box ? Number(scanMax) : null,
       description: description.trim() || null,
     };
     try {
@@ -124,6 +133,39 @@ function OperationalModeDialog({
               "How long the beam lights up a Platform each scan in this mode. Its Modes take it in the dwell planner; empty: the one above it, else the Emitter's."}
           </span>
         </label>
+        <fieldset className="mode-scan-box">
+          <legend>Scan period (s)</legend>
+          <div className="mode-form-grid">
+            <label>
+              Min
+              <input
+                type="number"
+                step="any"
+                min="0"
+                value={scanMin}
+                aria-invalid={!!scanBad || undefined}
+                placeholder={parentNode?.scanS ? String(parentNode.scanS[0]) : undefined}
+                onChange={(e) => setScanMin(e.target.value)}
+              />
+            </label>
+            <label>
+              Max
+              <input
+                type="number"
+                step="any"
+                min="0"
+                value={scanMax}
+                aria-invalid={!!scanBad || undefined}
+                placeholder={parentNode?.scanS ? String(parentNode.scanS[1]) : undefined}
+                onChange={(e) => setScanMax(e.target.value)}
+              />
+            </label>
+          </div>
+          <p className={scanBad ? "line-row-problem" : "hint-text"}>
+            {scanBad ??
+              `Its Modes scan in this box unless one has its own. Empty: ${parentNode?.scanS ? `${parentNode.scanFrom}'s ${secs(parentNode.scanS)}` : "the EW Group's range"}.`}
+          </p>
+        </fieldset>
         <label>
           Description
           <textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
@@ -133,7 +175,7 @@ function OperationalModeDialog({
           <button type="button" className="button secondary" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className="button primary" disabled={create.isPending || update.isPending || !!problem}>
+          <button type="submit" className="button primary" disabled={create.isPending || update.isPending || !!problem || !!scanBad}>
             {initial ? "Save" : "Add"}
           </button>
         </div>
@@ -168,8 +210,27 @@ function SetValuesDialog({ emitterId, node, onClose }: { emitterId: string; node
   const [error, setError] = useState<string | null>(null);
   const [errors, setErrors] = useState<ModeBatchEditError[] | null>(null);
   const allFixed = node.allModes.every((m) => m.pri_type === "fixed");
-  const changed = (Object.keys(values) as FieldKey[]).filter((k) => (values[k] ?? "").trim() !== "" && values[k] !== start[k]);
-  const bad = changed.filter((k) => !Number.isFinite(Number(values[k])) || Number(values[k]) < 0);
+  const allStagger = node.allModes.length > 0 && node.allModes.every((m) => m.pri_type === "stagger");
+  const startSteps = useMemo(() => {
+    const all = node.allModes.map((m) => (m.line?.pri_stagger_values_us ?? []).join("/"));
+    return allStagger && all.every((x) => x === all[0]) ? all[0] : "";
+  }, [node, allStagger]);
+  const startFrameDelta = useMemo(() => (allStagger ? agreed(node.allModes, "frame_time_delta_us") : ""), [node, allStagger]);
+  const [steps, setSteps] = useState(startSteps);
+  const [frameDelta, setFrameDelta] = useState(startFrameDelta);
+  const stepValues = steps.split(/[\s,/]+/).filter(Boolean).map(Number);
+  const stepsChanged = allStagger && steps.trim() !== "" && steps.trim() !== startSteps;
+  const stepsBad = stepsChanged && (stepValues.length < 2 || stepValues.some((v) => !(v > 0)));
+  const frameChanged = allStagger && frameDelta.trim() !== "" && frameDelta !== startFrameDelta;
+  const frameBad = frameChanged && !(Number(frameDelta) >= 0);
+  const numberFields = (Object.keys(values) as FieldKey[]).filter((k) => k !== "pri_stagger_values_us" && k !== "frame_time_delta_us");
+  const changedNumbers = numberFields.filter((k) => (values[k] ?? "").trim() !== "" && values[k] !== start[k]);
+  const changed = [...changedNumbers, ...(stepsChanged ? ["pri_stagger_values_us" as FieldKey] : []), ...(frameChanged ? ["frame_time_delta_us" as FieldKey] : [])];
+  const bad = [
+    ...changedNumbers.filter((k) => !Number.isFinite(Number(values[k])) || Number(values[k]) < 0),
+    ...(stepsBad ? ["pri_stagger_values_us" as FieldKey] : []),
+    ...(frameBad ? ["frame_time_delta_us" as FieldKey] : []),
+  ];
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -177,7 +238,10 @@ function SetValuesDialog({ emitterId, node, onClose }: { emitterId: string; node
     setErrors(null);
     if (!changed.length || bad.length) return;
     try {
-      await setValues.mutateAsync({ id: node.op.id, values: Object.fromEntries(changed.map((k) => [k, Number(values[k])])) });
+      const input: SetValuesInput = Object.fromEntries(changedNumbers.map((k) => [k, Number(values[k])]));
+      if (stepsChanged) input.pri_stagger_values_us = stepValues;
+      if (frameChanged) input.frame_time_delta_us = Number(frameDelta);
+      await setValues.mutateAsync({ id: node.op.id, values: input });
       onClose();
     } catch (err) {
       if (err instanceof ApiRequestError && Array.isArray(err.detail)) setErrors(err.detail as ModeBatchEditError[]);
@@ -229,7 +293,38 @@ function SetValuesDialog({ emitterId, node, onClose }: { emitterId: string; node
             ))}
           </tbody>
         </table>
-        {!allFixed && <p className="hint-text">PRI and jitter are set on each Mode: not all of these are Fixed PRI.</p>}
+        {allStagger && (
+          <div className="mode-form-grid op-set-stagger">
+            <label>
+              Stagger steps (µs)
+              <input
+                value={steps}
+                placeholder="Their own, e.g. 300/400/500"
+                aria-invalid={stepsBad || undefined}
+                onChange={(e) => setSteps(e.target.value)}
+              />
+              <span className={stepsBad ? "line-row-problem" : "hint-text"}>
+                {stepsBad ? "Two steps or more, each above 0" : "Separated by / , or spaces. A frame time written in by hand on a Mode stays."}
+              </span>
+            </label>
+            <label>
+              Frame time ± delta (µs)
+              <input
+                type="number"
+                step="any"
+                min="0"
+                value={frameDelta}
+                placeholder="Their own"
+                aria-invalid={frameBad || undefined}
+                onChange={(e) => setFrameDelta(e.target.value)}
+              />
+            </label>
+          </div>
+        )}
+        {!allFixed && !allStagger && (
+          <p className="hint-text">PRI, jitter and stagger steps are set on each Mode: these aren&apos;t all Fixed, nor all stagger.</p>
+        )}
+        {!allFixed && allStagger && <p className="hint-text">They&apos;re all stagger: no PRI range or jitter to set.</p>}
         {error && <p className="error-text">{error}</p>}
         {errors && (
           <div className="error-text" role="alert">
@@ -268,6 +363,7 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
   const editTitle = canEdit ? undefined : "Start editing this Emitter first";
   const del = useDeleteOperationalMode(emitterId);
   const batch = useBatchEditModes(emitterId);
+  const order = useOrderOperationalModes(emitterId);
   const { confirmDelete, dialog } = useConfirmDialog();
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -294,6 +390,21 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
     const where = node.op.parent_id ? byId.get(node.op.parent_id)?.op.name : null;
     const message = `Delete operational mode "${node.op.name}"?${what ? ` Its ${what} move up ${where ? `to ${where}` : "to the top"}.` : ""}`;
     if (await confirmDelete(message)) await del.mutateAsync(node.op.id);
+  }
+
+  /** Its siblings, in the order shown. */
+  const siblingsOf = (node: TreeNode) => {
+    const parent = node.op.parent_id ? byId.get(node.op.parent_id) : null;
+    return parent ? parent.children : roots;
+  };
+
+  async function shift(node: TreeNode, by: -1 | 1) {
+    const ids = siblingsOf(node).map((x) => x.op.id);
+    const i = ids.indexOf(node.op.id);
+    const j = i + by;
+    if (i < 0 || j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    await order.mutateAsync({ parentId: byId.has(node.op.parent_id ?? "") ? node.op.parent_id : null, ids });
   }
 
   async function move() {
@@ -351,7 +462,7 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
           <td>
             <Params values={node.shownHere} empty={node.allModes.length > 1 ? <span className="hint-text">nothing they all share</span> : null} />
           </td>
-          <td className="num">
+          <td className="num op-own">
             {node.illuminationMs != null ? (
               <>
                 {ms(node.illuminationMs)}
@@ -364,6 +475,12 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
             ) : (
               <span className="hint-text">—</span>
             )}
+            {node.scanS && (
+              <span className="jitter-subline" title={node.op.scan_min_s != null ? "Its scan period" : `Its scan period, set on ${node.scanFrom}`}>
+                scan {secs(node.scanS)}
+                {node.op.scan_min_s == null ? ` · from ${node.scanFrom}` : ""}
+              </span>
+            )}
           </td>
           <td className="row-actions">
             <RequireRole minimum="editor">
@@ -373,6 +490,18 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
                 ariaLabel={`Actions for ${node.op.name}`}
                 items={[
                   { label: "Add under it…", disabled: !canEdit, title: editTitle, onSelect: () => setAdding({ parentId: node.op.id }) },
+                  {
+                    label: "Move up",
+                    disabled: !canEdit || siblingsOf(node)[0]?.op.id === node.op.id,
+                    title: editTitle,
+                    onSelect: () => void shift(node, -1),
+                  },
+                  {
+                    label: "Move down",
+                    disabled: !canEdit || siblingsOf(node).at(-1)?.op.id === node.op.id,
+                    title: editTitle,
+                    onSelect: () => void shift(node, 1),
+                  },
                   { label: "Edit…", disabled: !canEdit, title: editTitle, onSelect: () => setEditing(node.op) },
                   {
                     label: `Set on its ${node.allModes.length} Mode${node.allModes.length === 1 ? "" : "s"}…`,
@@ -410,7 +539,8 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
         The radar&apos;s operational modes — TRACK, say, holding Track 1, 2 and 3 — with the Modes transmitted in each. A value every Mode
         below agrees on shows once, on the highest one where they do; what differs shows lower down. <strong>Set on its Modes</strong> writes a
         value to every Mode under one. A Mode&apos;s illumination time is its operational mode&apos;s, else the nearest one above it with
-        one, else the Emitter&apos;s{emitterMs != null ? ` (${ms(emitterMs)})` : ""}. Not exported.
+        one, else the Emitter&apos;s{emitterMs != null ? ` (${ms(emitterMs)})` : ""}; its scan period likewise (unless the Mode has its own
+        box), else its EW Group&apos;s. <strong>Move up / down</strong> orders them. Not exported.
       </p>
       {canEdit && selected.size > 0 && (
         <div className="op-move-bar">
@@ -449,7 +579,7 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
                 <th className="op-select" aria-label="Select" />
                 <th>Operational mode · Mode</th>
                 <th>Parameters</th>
-                <th className="num">Illumination time</th>
+                <th className="num">Illumination · scan</th>
                 <th className="row-actions" aria-label="Actions" />
               </tr>
             </thead>

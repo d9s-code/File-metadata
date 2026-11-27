@@ -41,6 +41,15 @@ export function useUpdateOperationalMode(emitterId: string) {
   });
 }
 
+/** Puts one parent's operational modes in an order. */
+export function useOrderOperationalModes(emitterId: string) {
+  const invalidate = useInvalidate(emitterId);
+  return useMutation({
+    mutationFn: ({ parentId, ids }: { parentId: string | null; ids: string[] }) => operationalModesApi.order(emitterId, parentId, ids),
+    onSuccess: invalidate,
+  });
+}
+
 /** Sets values on every Mode under an operational mode. */
 export function useSetValuesBelow(emitterId: string) {
   const invalidate = useInvalidate(emitterId);

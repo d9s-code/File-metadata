@@ -186,7 +186,7 @@ export function ModeMoreOptions({
                   step="any"
                   min="0"
                   value={values.scanMin ?? ""}
-                  placeholder={groupScan?.min != null ? String(groupScan.min) : undefined}
+                  placeholder={linkedNode?.scanS ? String(linkedNode.scanS[0]) : groupScan?.min != null ? String(groupScan.min) : undefined}
                   aria-invalid={!!scanBad || undefined}
                   onChange={(e) => onChange({ scanMin: e.target.value })}
                 />
@@ -198,7 +198,7 @@ export function ModeMoreOptions({
                   step="any"
                   min="0"
                   value={values.scanMax ?? ""}
-                  placeholder={groupScan?.max != null ? String(groupScan.max) : undefined}
+                  placeholder={linkedNode?.scanS ? String(linkedNode.scanS[1]) : groupScan?.max != null ? String(groupScan.max) : undefined}
                   aria-invalid={!!scanBad || undefined}
                   onChange={(e) => onChange({ scanMax: e.target.value })}
                 />
@@ -212,8 +212,11 @@ export function ModeMoreOptions({
               <p className="mode-form-warning">Reaches outside its EW Group&apos;s scan range ({groupText}).</p>
             ) : (
               <p className="hint-text">
-                Its own box inside the EW Group&apos;s overall scan range{groupText ? ` (${groupText})` : ""}, for the dwell planner. Empty:
-                the EW Group&apos;s range. Not exported.
+                Its own box inside the EW Group&apos;s overall scan range{groupText ? ` (${groupText})` : ""}, for the dwell planner. Empty:{" "}
+                {linkedNode?.scanS
+                  ? `${linkedNode.scanFrom}'s ${linkedNode.scanS[0]}–${linkedNode.scanS[1]} s (its operational mode)`
+                  : "the EW Group's range"}
+                . Not exported.
               </p>
             )}
           </fieldset>

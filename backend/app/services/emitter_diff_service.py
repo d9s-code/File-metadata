@@ -87,7 +87,11 @@ OPERATIONAL_MODE_FIELD_LABELS = {
     "name": "Name",
     "description": "Description",
     "illumination_time_ms": "Illumination time (ms)",
+    "scan_min_s": "Scan period min (s)",
+    "scan_max_s": "Scan period max (s)",
 }
+
+OPERATIONAL_MODE_FIELDS_ADDED_LATER = frozenset({"scan_min_s", "scan_max_s"})
 
 # dsl_text deliberately excluded — it's a rendered cache of these other
 # fields, not independent data; showing it alongside the real field that
@@ -336,7 +340,9 @@ def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict, status_labels: 
             if o_id not in old_operational:
                 entries.append(_entry(scope, "Added", "added", new_value=_operational_summary(o)))
             else:
-                _diff_fields(entries, scope, old_operational[o_id], o, OPERATIONAL_MODE_FIELD_LABELS)
+                _diff_fields(
+                    entries, scope, old_operational[o_id], o, OPERATIONAL_MODE_FIELD_LABELS, OPERATIONAL_MODE_FIELDS_ADDED_LATER
+                )
                 before, after = old_operational[o_id], o
                 if "parent_id" in before and "parent_id" in after and before["parent_id"] != after["parent_id"]:
                     entries.append(
