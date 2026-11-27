@@ -21,7 +21,22 @@ _LINE_FIELDS = (
 _GROUP_FIELDS = ("name", "scan_min", "scan_max", "scan_delta", "threat_priority", "ageout")
 _SOURCE_FIELDS = ("name", "description", "source_date", "source_type", "rf_legacy_term", "pri_legacy_term")
 _TEST_LINE_FIELDS = ("label", "expected_mode_name", "expected_parameters", "created_date")
-_OPERATIONAL_FIELDS = ("name", "description", "illumination_time_ms", "scan_min_s", "scan_max_s")
+_OPERATIONAL_FIELDS = ("name", "description")
+_SCAN_FIELDS = ("name", "pattern", "beam_az_deg", "beam_el_deg", "illumination_ms", "description")
+
+
+def _scan_names(snapshot: dict) -> dict[str, str]:
+    return {x["id"]: x["name"] for x in snapshot.get("scans", [])}
+
+
+def _scans(snapshot: dict) -> dict[str, dict]:
+    """Each scan: its fields and its values, as text."""
+    from app.services.emitter_diff_service import scan_params_text
+
+    return {
+        x["id"]: {**{f: x.get(f) for f in _SCAN_FIELDS}, "values": scan_params_text(x.get("params"))}
+        for x in snapshot.get("scans", [])
+    }
 
 
 def _operational(snapshot: dict) -> dict[str, dict]:
@@ -34,6 +49,7 @@ def _operational(snapshot: dict) -> dict[str, dict]:
         o["id"]: {
             **{f: o.get(f) for f in _OPERATIONAL_FIELDS},
             "under": names.get(o.get("parent_id") or ""),
+            "scan": _scan_names(snapshot).get(o.get("scan_id") or ""),
             "plan": plan_text(o.get("plan")),
         }
         for o in rows
@@ -42,6 +58,7 @@ def _operational(snapshot: dict) -> dict[str, dict]:
 
 def _modes(snapshot: dict) -> dict[str, dict]:
     operational = {o["id"]: o["name"] for o in snapshot.get("operational_modes", [])}
+    scans = _scan_names(snapshot)
     out = {}
     for group in snapshot.get("ew_groups", []):
         for m in group.get("modes", []):
@@ -55,8 +72,7 @@ def _modes(snapshot: dict) -> dict[str, dict]:
                 "confirmation_quality": m.get("confirmation_quality"),
                 "confirmation_quantity": m.get("confirmation_quantity"),
                 "operational_mode": operational.get(m.get("operational_mode_id") or ""),
-                "scan_min_s": m.get("scan_min_s"),
-                "scan_max_s": m.get("scan_max_s"),
+                "scan": scans.get(m.get("scan_id") or ""),
                 **{f: line.get(f) for f in _LINE_FIELDS},
             }
     return out
@@ -116,6 +132,7 @@ def record_reconcile(db: Session, *, actor_id, emitter_id, before: dict, after: 
             if changes:
                 log(AuditAction.update, kind, key, f"Changed {noun} '{new[key][label]}' back", changes)
 
+    items(AuditEntityType.scan, "scan", _scans(before), _scans(after), "name")
     items(AuditEntityType.operational_mode, "operational mode", _operational(before), _operational(after), "name")
     items(AuditEntityType.ew_group, "EW Group", _pick(before.get("ew_groups", []), _GROUP_FIELDS),
           _pick(after.get("ew_groups", []), _GROUP_FIELDS), "name")  # fmt: skip

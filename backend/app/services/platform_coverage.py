@@ -22,62 +22,68 @@ def _span(lo, hi):
     return [min(lo, hi), max(lo, hi)]
 
 
-def _planner(mode: dict, line: dict, group: dict | None, operational: dict | None = None) -> dict:
+def _planner(
+    mode: dict, line: dict, group: dict | None, operational: dict | None = None, scans: dict | None = None
+) -> dict:
     """What the dwell planner needs to know of a Mode: the longest gap
     between its pulses (µs — a Fixed PRI's longest, with its delta and
     jitter; a stagger's longest step), a stagger's steps and longest frame
     time, its EW Group's scan period (s, with its delta), priority, and how
-    many intercepts it takes to confirm."""
+    many intercepts it takes to confirm — and its scan (its own, else its
+    operational mode's or the nearest one above it with one), whose
+    illumination time and revisit the planner works out."""
     pri_type = mode.get("pri_type")
-    longest = frame = None
+    longest = frame = mean = None
     steps = 0
     if pri_type == "fixed":
         hi = apply_delta(line.get("pri_min_us"), line.get("pri_max_us"), line.get("pri_delta"))[1]
         if hi is not None:
             longest = float(hi) + float(line.get("jitter_max_us") or 0) + float(line.get("jitter_delta") or 0)
+        if line.get("pri_min_us") is not None and line.get("pri_max_us") is not None:
+            mean = (float(line["pri_min_us"]) + float(line["pri_max_us"])) / 2
     elif pri_type == "stagger":
         values = [float(v) for v in line.get("pri_stagger_values_us") or []]
         steps = len(values)
         longest = max(values) if values else None
+        mean = sum(values) / len(values) if values else None
         ft = effective_frametime_us(line.get("pri_stagger_values_us"), line.get("explicit_frame_time_us"))
         if ft is not None:
             frame = float(apply_delta(ft, ft, line.get("frame_time_delta_us"))[1])
     group = group or {}
-    delta = group.get("scan_delta")
-    group_scan = _span(*apply_delta(group.get("scan_min"), group.get("scan_max"), delta))
-    # The Mode's own scan box (its function's, inside the EW Group's overall
-    # range) when it has one; else its operational mode's (or the nearest one
-    # above it with one); else the EW Group's — each with the EW Group's delta.
-    mode_scan = _span(*apply_delta(mode.get("scan_min_s"), mode.get("scan_max_s"), delta))
-    op_box = (operational or {}).get("scan_s")
-    op_scan = _span(*apply_delta(op_box[0], op_box[1], delta)) if op_box else None
-    scan = mode_scan or op_scan or group_scan
-
+    group_scan = _span(*apply_delta(group.get("scan_min"), group.get("scan_max"), group.get("scan_delta")))
+    scans = scans or {}
+    operational = operational or {}
+    own = scans.get(mode.get("scan_id") or "")
+    inherited = scans.get(operational.get("scan_id") or "")
+    scan = own or inherited
     def clamp(span):
         return [max(span[0], 0.0), span[1]] if span else None
 
     return {
         "longest_interval_us": longest,
+        # Its average gap between pulses, µs: how long an ESA dwell of N pulses lasts.
+        "mean_interval_us": mean,
         "stagger_steps": steps,
         "frame_us": frame,
-        "scan_s": clamp(scan),
-        "scan_from": "mode" if mode_scan else "operational" if op_scan else ("group" if group_scan else None),
-        # The operational mode that scan period is set on, when it's one's.
-        "scan_from_operational": (operational or {}).get("scan_from") if not mode_scan and op_scan else None,
+        # Its scan, as the Emitter has it (pattern, values, beamwidths), and
+        # where it comes from: the Mode's own or an operational mode's.
+        "scan": scan,
+        "scan_from": "mode" if own else "operational" if inherited else None,
+        "scan_from_operational": operational.get("scan_from") if not own and inherited else None,
+        # Without one: the EW Group's overall range (with its delta), s.
+        "scan_s": clamp(group_scan),
         "group_scan_s": clamp(group_scan),
         "priority": group.get("threat_priority"),
         "confirmation_quantity": mode.get("confirmation_quantity"),
         "group_name": group.get("name"),
-        # The radar's operational mode it's transmitted in ("TRACK › Track 2"), the
-        # illumination time (ms) it takes — its own or the nearest above it with
-        # one — and which one that is.
-        "operational_mode": (operational or {}).get("path"),
-        "illumination_time_ms": (operational or {}).get("illumination_time_ms"),
-        "illumination_from": (operational or {}).get("illumination_from"),
+        # The radar's operational mode it's transmitted in ("TRACK › Track 2").
+        "operational_mode": operational.get("path"),
     }
 
 
-def _mode_ranges(mode: dict, group: dict | None = None, operational: dict | None = None) -> dict | None:
+def _mode_ranges(
+    mode: dict, group: dict | None = None, operational: dict | None = None, scans: dict | None = None
+) -> dict | None:
     line = mode.get("line")
     if not line:
         return None
@@ -95,7 +101,7 @@ def _mode_ranges(mode: dict, group: dict | None = None, operational: dict | None
         "pri": None,
         "pw_raw": None,
         "pw": None,
-        "planner": _planner(mode, line, group, operational),
+        "planner": _planner(mode, line, group, operational, scans),
     }
     if pri_type != "cw":
         pw_raw = _span(line.get("pw_min_us"), line.get("pw_max_us"))
@@ -116,40 +122,33 @@ def _mode_ranges(mode: dict, group: dict | None = None, operational: dict | None
 
 
 def _operational_effective(rows: list[dict]) -> dict[str, dict]:
-    """Each operational mode with its path ("TRACK › Track 2") and the
-    illumination time it gives its Modes: its own, else the nearest one above
-    it with one (and that one's name)."""
+    """Each operational mode with its path ("TRACK › Track 2") and the scan
+    it gives its Modes: its own, else the nearest one above it with one (and
+    that one's name)."""
     by_id = {o["id"]: o for o in rows}
     out = {}
     for op_id in by_id:
-        names, illumination, source, scan, scan_source, current, seen = [], None, None, None, None, op_id, set()
+        names, scan, source, current, seen = [], None, None, op_id, set()
         while current and current in by_id and current not in seen:
             seen.add(current)
             row = by_id[current]
             names.append(row["name"])
-            if illumination is None and row.get("illumination_time_ms") is not None:
-                illumination, source = row["illumination_time_ms"], row["name"]
-            if scan is None and row.get("scan_min_s") is not None and row.get("scan_max_s") is not None:
-                scan, scan_source = [float(row["scan_min_s"]), float(row["scan_max_s"])], row["name"]
+            if scan is None and row.get("scan_id"):
+                scan, source = row["scan_id"], row["name"]
             current = row.get("parent_id")
-        out[op_id] = {
-            "path": " › ".join(reversed(names)),
-            "illumination_time_ms": illumination,
-            "illumination_from": source,
-            "scan_s": scan,
-            "scan_from": scan_source,
-        }
+        out[op_id] = {"path": " › ".join(reversed(names)), "scan_id": scan, "scan_from": source}
     return out
 
 
 def emitter_coverage(snapshot: dict, *, emitter_id, emitter_name: str, designation, version_number: int) -> dict:
     """One Emitter version's coverage from its snapshot."""
     operational = _operational_effective(snapshot.get("operational_modes", []))
+    scans = {x["id"]: x for x in snapshot.get("scans", [])}
     modes = [
         ranges
         for group in snapshot.get("ew_groups", [])
         for mode in group.get("modes", [])
-        if (ranges := _mode_ranges(mode, group, operational.get(mode.get("operational_mode_id") or ""))) is not None
+        if (ranges := _mode_ranges(mode, group, operational.get(mode.get("operational_mode_id") or ""), scans)) is not None
     ]
     return {
         "emitter_id": emitter_id,

@@ -1,7 +1,7 @@
 """A radar's operational modes (volume search, track…), each Emitter's own,
 in a tree: TRACK holds Track 1, 2, 3, and those can hold more. Its Modes are
-linked to the one they're transmitted in and take its illumination time (or
-the nearest one above it that has one) for the dwell planner; values set on
+linked to the one they're transmitted in and take its scan (or the nearest
+one above it that has one) for the dwell planner; values set on
 an operational mode are set on every Mode under it. Edited like EW Groups:
 only by the editor holding the Emitter, saved with its versions."""
 
@@ -18,7 +18,7 @@ from app.deps import require_emitter_checkout, require_role
 from app.models.emitter import Emitter
 from app.models.mode import Mode
 from app.models.operational_mode import OperationalMode
-from app.schemas.mode import BatchModeFieldEdit, ModeBatchEditResult, check_scan_box
+from app.schemas.mode import BatchModeFieldEdit, ModeBatchEditResult
 from app.schemas.operational_mode import (
     GenerateFromPlan,
     OperationalModeCreate,
@@ -29,10 +29,11 @@ from app.schemas.operational_mode import (
 )
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
 from app.services.mode_batch_service import apply_batch_edit, plan_batch_edit
+from app.services.operational_mode_service import check_scan, name_the_change
 
 router = APIRouter(prefix="/emitters/{emitter_id}/operational-modes", tags=["operational-modes"])
 
-_FIELDS = ["name", "parent_id", "description", "illumination_time_ms", "scan_min_s", "scan_max_s", "sort_order", "plan"]
+_FIELDS = ["name", "parent_id", "description", "scan_id", "sort_order", "plan"]
 
 
 def _next_place(db: Session, emitter_id: UUID, parent_id: UUID | None) -> int:
@@ -147,6 +148,7 @@ def create_operational_mode(
     data = payload.model_dump()
     data["plan"] = payload.plan.stored() if payload.plan else None
     _check_parent(db, emitter_id, data["parent_id"])
+    check_scan(db, emitter_id, data["scan_id"])
     data["name"] = _check_name(db, emitter_id, data["name"], data["parent_id"])
     if data["sort_order"] is None:
         data["sort_order"] = _next_place(db, emitter_id, data["parent_id"])
@@ -191,13 +193,10 @@ def update_operational_mode(
         data.pop("sort_order")
     if "parent_id" in data and data["parent_id"] != row.parent_id and "sort_order" not in data:
         data["sort_order"] = _next_place(db, emitter_id, data["parent_id"])
-    if "scan_min_s" in data or "scan_max_s" in data:
-        try:
-            check_scan_box(data.get("scan_min_s", row.scan_min_s), data.get("scan_max_s", row.scan_max_s))
-        except ValueError as exc:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc))
+    if "scan_id" in data:
+        check_scan(db, emitter_id, data["scan_id"])
     old_name = row.name
-    changes = apply_and_diff(row, data)
+    changes = name_the_change(db, apply_and_diff(row, data))
     record_audit(
         db,
         actor_id=user.id,

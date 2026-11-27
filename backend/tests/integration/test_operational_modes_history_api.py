@@ -9,9 +9,11 @@ def _strip(db_session, emitter_id):
     for v in db_session.query(EmitterVersion).filter(EmitterVersion.emitter_id == emitter_id):
         snap = dict(v.snapshot)
         snap.pop("operational_modes", None)
+        snap.pop("scans", None)
         for g in snap.get("ew_groups", []):
             for m in g.get("modes", []):
                 m.pop("operational_mode_id", None)
+                m.pop("scan_id", None)
         v.snapshot = snap
     db_session.commit()
 
@@ -35,7 +37,7 @@ def test_an_operational_mode_added_since_an_older_version_shows_and_is_discarded
 
 
 def test_newer_fields_against_an_older_version_show_and_go_on_discard(editor_client, db_session):
-    """Illumination time, a Mode's scan box and its link set since a version
+    """Illumination time, a scan, a Mode's links to it and to TRACK set since a version
     saved before them: unsaved changes, and the discard's trail says what it undid."""
     e = editor_client.post("/emitters", json={"name": "Older Radar"}).json()
     g = editor_client.post(f"/emitters/{e['id']}/ew-groups", json={"name": "G"}).json()
@@ -50,17 +52,20 @@ def test_newer_fields_against_an_older_version_show_and_go_on_discard(editor_cli
     editor_client.post(f"/emitters/{e['id']}/checkout")
     track = editor_client.post(f"/emitters/{e['id']}/operational-modes", json={"name": "TRACK", "plan": {"rf": [{"min": 9400}]}}).json()
     editor_client.patch(f"/emitters/{e['id']}", json={"illumination_time_ms": 30})
-    editor_client.patch(f"/ew-groups/{g['id']}/modes/{m['id']}", json={"scan_min_s": 1, "scan_max_s": 2, "operational_mode_id": track["id"]})
+    scan = editor_client.post(f"/emitters/{e['id']}/scans", json={"name": "Rotation", "pattern": "circular", "params": {"period_s": 10}}).json()
+    editor_client.patch(f"/ew-groups/{g['id']}/modes/{m['id']}", json={"scan_id": scan["id"], "operational_mode_id": track["id"]})
 
     live = editor_client.get(f"/emitters/{e['id']}/diff/live").json()["entries"]
     labels = {(d["scope"], d["label"]) for d in live}
-    assert {("Emitter", "Illumination time (ms)"), ("Mode 'M'", "Scan period min (s)"), ("Mode 'M'", "Operational mode")} <= labels
-    assert ("Operational mode 'TRACK'", "Added") in labels
+    assert {("Emitter", "Illumination time (ms)"), ("Mode 'M'", "Scan"), ("Mode 'M'", "Operational mode")} <= labels
+    assert {("Operational mode 'TRACK'", "Added"), ("Scan 'Rotation'", "Added")} <= labels
 
     assert editor_client.post(f"/emitters/{e['id']}/discard").status_code == 200
     back = next(x for x in editor_client.get(f"/ew-groups/{g['id']}/modes").json() if x["id"] == m["id"])
-    assert (back["scan_min_s"], back["operational_mode_id"]) == (None, None)
+    assert (back["scan_id"], back["operational_mode_id"]) == (None, None)
+    assert editor_client.get(f"/emitters/{e['id']}/scans").json() == []
     assert editor_client.get(f"/emitters/{e['id']}").json()["illumination_time_ms"] is None
     summaries = [x["summary"] for x in editor_client.get("/audit-log", params={"emitter_id": e["id"], "limit": 100}).json()["items"]]
     assert any(x.startswith("Removed operational mode 'TRACK'") for x in summaries), summaries
+    assert any(x.startswith("Removed scan 'Rotation'") for x in summaries), summaries
     assert any(x.startswith("Changed Mode 'M' back") for x in summaries), summaries

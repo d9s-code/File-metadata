@@ -9,6 +9,8 @@ import type { EwGroup, Source } from "../../types/domain";
 import type { BatchModeFieldEdit, ModeBatchEditError } from "../../api/modes";
 import { useOperationalModes } from "../../state/hooks/useOperationalModes";
 import { buildTree, flatten } from "../operationalModes/opTree";
+import { useScans } from "../../state/hooks/useScans";
+import { patternName } from "../scans/scanPatterns";
 
 type TriState = "" | "true" | "false";
 
@@ -63,7 +65,9 @@ export function BatchEditModal({
   const [ewGroupId, setEwGroupId] = useState("");
   // "" leaves it; "none" unlinks them; else that operational mode's id.
   const [operationalModeId, setOperationalModeId] = useState("");
+  const [scanId, setScanId] = useState("");
   const { data: operationalModes } = useOperationalModes(emitterId);
+  const { data: scans } = useScans(emitterId);
   // "add:<id>" adds that Source to each Mode; "set:<id>" makes it each one's only Source.
   const [sourceChange, setSourceChange] = useState("");
   const [notes, setNotes] = useState("");
@@ -103,6 +107,7 @@ export function BatchEditModal({
     const fields: BatchModeFieldEdit = {};
     if (ewGroupId) fields.ew_group_id = ewGroupId;
     if (operationalModeId) fields.operational_mode_id = operationalModeId === "none" ? null : operationalModeId;
+    if (scanId) fields.scan_id = scanId === "none" ? null : scanId;
     if (sourceChange.startsWith("add:")) fields.add_source_id = sourceChange.slice(4);
     if (sourceChange.startsWith("set:")) fields.source_id = sourceChange.slice(4);
     if (notes.trim() !== "") fields.notes = notes;
@@ -208,7 +213,20 @@ export function BatchEditModal({
                     <option key={x.op.id} value={x.op.id}>
                       {"\u2003".repeat(x.depth)}
                       {x.op.name}
-                      {x.op.illumination_time_ms != null ? ` (${Number(x.op.illumination_time_ms.toFixed(3))} ms)` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {scans && scans.length > 0 && (
+              <label>
+                Scan
+                <select value={scanId} onChange={(e) => setScanId(e.target.value)}>
+                  <option value="">— leave unchanged —</option>
+                  <option value="none">Their operational mode&apos;s (none of their own)</option>
+                  {scans.map((x) => (
+                    <option key={x.id} value={x.id}>
+                      {x.name} ({patternName(x.pattern)})
                     </option>
                   ))}
                 </select>

@@ -10,7 +10,7 @@ const op = (id: string, name: string, parent: string | null, plan: OperationalMo
   parent_id: parent,
   name,
   description: null,
-  illumination_time_ms: null,
+  scan_id: null,
   plan,
   sort_order: 0,
   modes_count: 0,

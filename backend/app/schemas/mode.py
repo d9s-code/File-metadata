@@ -165,17 +165,6 @@ def require_manual_deltas(pri_type: PriType, fields: ModeLineFields) -> None:
         raise ValueError("pri_delta is required for Fixed PRI")
 
 
-# A Mode's own scan period box (s), inside its EW Group's scan range.
-ScanSeconds = Annotated[float, Field(ge=0, le=1_000_000)]
-
-
-def check_scan_box(scan_min_s: float | None, scan_max_s: float | None) -> None:
-    if (scan_min_s is None) != (scan_max_s is None):
-        raise ValueError("A Mode's scan period needs both a min and a max, or neither")
-    if scan_min_s is not None and scan_max_s is not None and scan_min_s > scan_max_s:
-        raise ValueError("A Mode's scan period min can't be above its max")
-
-
 class ModeCreate(BaseModel):
     # Every Source the Mode comes from (one or more), or just source_id for one.
     source_id: UUID | None = None
@@ -186,8 +175,8 @@ class ModeCreate(BaseModel):
     sort_order: int = 0
     confirmation_quality: ConfirmationQuality = DEFAULT_CONFIRMATION_QUALITY
     confirmation_quantity: ConfirmationQuantity = DEFAULT_CONFIRMATION_QUANTITY
-    scan_min_s: ScanSeconds | None = None
-    scan_max_s: ScanSeconds | None = None
+    # One of its Emitter's scans, ahead of its operational mode's.
+    scan_id: UUID | None = None
     # One of its Emitter's operational modes — the one it's transmitted in.
     operational_mode_id: UUID | None = None
     line: ModeLineFields
@@ -202,7 +191,6 @@ class ModeCreate(BaseModel):
     def check_pri_type(self) -> "ModeCreate":
         if not self.all_source_ids():
             raise ValueError("A Mode needs at least one Source")
-        check_scan_box(self.scan_min_s, self.scan_max_s)
         validate_pri_type_fields(self.pri_type, self.line)
         require_manual_deltas(self.pri_type, self.line)
         return self
@@ -306,9 +294,8 @@ class ModeUpdate(BaseModel):
     sort_order: int | None = None
     confirmation_quality: ConfirmationQuality | None = None
     confirmation_quantity: ConfirmationQuantity | None = None
-    # Both together, or both null to clear it (checked against each other on save).
-    scan_min_s: ScanSeconds | None = None
-    scan_max_s: ScanSeconds | None = None
+    # Null: its operational mode's scan.
+    scan_id: UUID | None = None
     # Null unlinks it.
     operational_mode_id: UUID | None = None
     ew_group_id: UUID | None = None
@@ -374,6 +361,8 @@ class BatchModeFieldEdit(BaseModel):
     pri_max_shift: float | None = None
     # Links the selected Modes to one of the Emitter's operational modes (null: to none).
     operational_mode_id: UUID | None = None
+    # Gives the selected Modes one of the Emitter's scans (null: their operational mode's).
+    scan_id: UUID | None = None
 
     _validate_rf_delta = field_validator("rf_delta")(_validate_delta)
     _validate_pw_delta = field_validator("pw_delta")(_validate_delta)
@@ -582,8 +571,7 @@ class ModeOut(BaseModel):
     sort_order: int
     confirmation_quality: int
     confirmation_quantity: int
-    scan_min_s: float | None = None
-    scan_max_s: float | None = None
+    scan_id: UUID | None = None
     operational_mode_id: UUID | None = None
     generation_batch_id: UUID | None = None
     created_at: datetime

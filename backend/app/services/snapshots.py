@@ -50,6 +50,10 @@ def _sequence_dict(sequence: ParameterSequence) -> dict:
     }
 
 
+def _f(value) -> float | None:
+    return float(value) if value is not None else None
+
+
 def _mode_dict(mode: Mode) -> dict:
     line = mode.line
     return {
@@ -60,8 +64,7 @@ def _mode_dict(mode: Mode) -> dict:
         "sort_order": mode.sort_order,
         "confirmation_quality": mode.confirmation_quality,
         "confirmation_quantity": mode.confirmation_quantity,
-        "scan_min_s": float(mode.scan_min_s) if mode.scan_min_s is not None else None,
-        "scan_max_s": float(mode.scan_max_s) if mode.scan_max_s is not None else None,
+        "scan_id": str(mode.scan_id) if mode.scan_id else None,
         "operational_mode_id": str(mode.operational_mode_id) if mode.operational_mode_id else None,
         # The first Source as before; the rest (a Mode can have several) after it.
         "source_id": str(mode.source_id),
@@ -120,6 +123,21 @@ def build_emitter_snapshot(emitter: Emitter) -> dict:
         "illumination_time_ms": float(emitter.illumination_time_ms) if emitter.illumination_time_ms is not None else None,
         "description": emitter.description,
         "status": emitter.status,
+        # The radar's scans; operational modes and Modes name theirs by id.
+        "scans": [
+            {
+                "id": str(x.id),
+                "name": x.name,
+                "pattern": x.pattern,
+                "params": x.params,
+                "beam_az_deg": _f(x.beam_az_deg),
+                "beam_el_deg": _f(x.beam_el_deg),
+                "illumination_ms": _f(x.illumination_ms),
+                "description": x.description,
+                "sort_order": x.sort_order,
+            }
+            for x in sorted(emitter.scans, key=lambda x: (x.sort_order, x.name, str(x.id)))
+        ],
         # The radar's operational modes; each Mode names its own by id.
         "operational_modes": [
             {
@@ -127,9 +145,7 @@ def build_emitter_snapshot(emitter: Emitter) -> dict:
                 "parent_id": str(o.parent_id) if o.parent_id else None,
                 "name": o.name,
                 "description": o.description,
-                "illumination_time_ms": float(o.illumination_time_ms) if o.illumination_time_ms is not None else None,
-                "scan_min_s": float(o.scan_min_s) if o.scan_min_s is not None else None,
-                "scan_max_s": float(o.scan_max_s) if o.scan_max_s is not None else None,
+                "scan_id": str(o.scan_id) if o.scan_id else None,
                 "plan": o.plan,
                 "sort_order": o.sort_order,
             }

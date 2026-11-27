@@ -87,6 +87,12 @@ class Emitter(UUIDPkMixin, TimestampMixin, Base):
         passive_deletes=True,
         order_by="OperationalMode.sort_order",
     )
+    scans: Mapped[list["EmitterScan"]] = relationship(  # noqa: F821
+        back_populates="emitter",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="EmitterScan.sort_order",
+    )
     ew_groups: Mapped[list["EwGroup"]] = relationship(
         back_populates="emitter", cascade="all, delete-orphan", order_by="EwGroup.sort_order"
     )

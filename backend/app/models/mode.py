@@ -34,13 +34,13 @@ class Mode(UUIDPkMixin, TimestampMixin, Base):
     confirmation_quantity: Mapped[int] = mapped_column(
         Integer, nullable=False, default=DEFAULT_CONFIRMATION_QUANTITY, server_default=str(DEFAULT_CONFIRMATION_QUANTITY)
     )
-    # The scan period (s) of this Mode's function, a box inside its EW Group's
-    # overall scan range — for the dwell planner only, not exported. Null: the
-    # EW Group's range applies.
-    scan_min_s: Mapped[float | None] = mapped_column(Numeric(12, 4), nullable=True)
-    scan_max_s: Mapped[float | None] = mapped_column(Numeric(12, 4), nullable=True)
+    # Its own scan (one of its Emitter's), ahead of its operational mode's —
+    # for the dwell planner only, not exported.
+    scan_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("emitter_scans.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     # The radar's operational mode it's transmitted in (one of its Emitter's) —
-    # its illumination time comes from there. Not exported.
+    # its scan comes from there unless it has its own. Not exported.
     operational_mode_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("operational_modes.id", ondelete="SET NULL"), nullable=True, index=True
     )

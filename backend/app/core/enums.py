@@ -143,6 +143,7 @@ class AuditEntityType(str, enum.Enum):
     ew_group = "ew_group"
     operational_mode = "operational_mode"
     operational_mode_comment = "operational_mode_comment"
+    scan = "scan"
     # Function Groups were removed; kept so their older audit entries still read.
     function_group = "function_group"
     ambiguity_finding = "ambiguity_finding"

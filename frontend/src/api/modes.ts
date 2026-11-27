@@ -11,8 +11,8 @@ export interface ModeCreateInput {
   sort_order?: number;
   confirmation_quality?: number;
   confirmation_quantity?: number;
-  scan_min_s?: number | null;
-  scan_max_s?: number | null;
+  /** One of its Emitter's scans, ahead of its operational mode's. */
+  scan_id?: string | null;
   operational_mode_id?: string | null;
   line: ModeLineFields;
   derived_from_test_record_ids?: string[];
@@ -25,9 +25,8 @@ export interface ModeUpdateInput {
   sort_order?: number;
   confirmation_quality?: number;
   confirmation_quantity?: number;
-  /** Both together, or both null to clear it. */
-  scan_min_s?: number | null;
-  scan_max_s?: number | null;
+  /** Null: its operational mode's scan. */
+  scan_id?: string | null;
   /** Null unlinks it. */
   operational_mode_id?: string | null;
   ew_group_id?: string;
@@ -45,6 +44,8 @@ export interface BatchModeFieldEdit {
   ew_group_id?: string;
   /** Links the selected Modes to one of the Emitter's operational modes (null: none). */
   operational_mode_id?: string | null;
+  /** Gives the selected Modes one of the Emitter's scans (null: their operational mode's). */
+  scan_id?: string | null;
   /** Makes this each selected Mode's only Source. */
   source_id?: string;
   /** Adds this Source to each selected Mode's Sources. */

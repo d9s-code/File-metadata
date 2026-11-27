@@ -157,23 +157,23 @@ describe("intercept in time", () => {
     expect(planMode({ ...m, scanS: null, illuminationTimeMs: 60 }, dwells, 10, S).illuminationFrom).toBeNull();
   });
 
-  it("a Mode's own scan box is what it's played at, not its EW Group's whole range", () => {
+  it("a Mode's scan's revisit is what it's played at, not its EW Group's whole range", () => {
     const dwells = [dwell(9400, 100), dwell(3000, 900)];
     // The group scans anywhere from 2 to 10 s; this function only at 2 s — locked out.
     const boxed = mode({ scanS: [2, 2], scanFrom: "mode", groupScanS: [2, 10] });
     expect(planMode(boxed, dwells, 10, S).issue).toBe("synchronism");
   });
 
-  it("its operational mode's illumination time ahead of its Emitter's", () => {
+  it("its scan's illumination time ahead of its Emitter's", () => {
     const dwells = [dwell(9400, 100), dwell(3000, 900)];
     const m = mode({ longestIntervalUs: 5000, scanS: [1, 1], illuminationTimeMs: 20 });
     // The Emitter's 20 ms is too short for 8 × 5 ms…
     expect(planMode(m, dwells, 10, S).issue).toBe("illumination_too_short");
-    // …its operational mode's 60 ms isn't.
-    const p = planMode({ ...m, operationalMode: "Track", operationalIlluminationMs: 60 }, dwells, 10, S);
-    expect([p.illuminationMs, p.illuminationFrom]).toEqual([60, "operational"]);
+    // …its scan's 60 ms isn't.
+    const p = planMode({ ...m, scanName: "Track dwell", scanIlluminationMs: 60 }, dwells, 10, S);
+    expect([p.illuminationMs, p.illuminationFrom]).toEqual([60, "scan"]);
     expect(p.issue).not.toBe("illumination_too_short");
-    // Linked to one with none set: the Emitter's.
-    expect(planMode({ ...m, operationalMode: "Track", operationalIlluminationMs: null }, dwells, 10, S).illuminationFrom).toBe("emitter");
+    // A scan that can't work one out: the Emitter's.
+    expect(planMode({ ...m, scanName: "Track dwell", scanIlluminationMs: null }, dwells, 10, S).illuminationFrom).toBe("emitter");
   });
 });

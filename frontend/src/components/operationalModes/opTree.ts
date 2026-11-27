@@ -26,8 +26,8 @@ const range = (lo: number | null | undefined, hi: number | null | undefined, uni
   return `${a === b ? n(a) : `${n(a)}–${n(b)}`} ${unit}${delta ? ` ±${n(delta)}` : ""}`;
 };
 
-/** A Mode's value for each parameter, as shown ("—": it has none — a CW's PRI, say). */
-export function modeParams(m: Mode): Record<ParamKey, string> {
+/** A Mode's value for each parameter, as shown ("—": it has none — a CW's PRI, say); its scan by name (its own, else its operational mode's). */
+export function modeParams(m: Mode, scanName?: string | null): Record<ParamKey, string> {
   const l = m.line;
   const none = "—";
   const pri =
@@ -43,7 +43,7 @@ export function modeParams(m: Mode): Record<ParamKey, string> {
     pri: pri ?? none,
     jitter: jitter ?? none,
     pw: (l && range(l.pw_min_us, l.pw_max_us, "µs", l.pw_delta)) ?? none,
-    scan: range(m.scan_min_s, m.scan_max_s, "s") ?? none,
+    scan: scanName ?? none,
   };
 }
 
@@ -61,28 +61,29 @@ export interface TreeNode {
   shared: Partial<Record<ParamKey, string>>;
   /** …of those, the ones not already shown on its parent — shown here. */
   shownHere: Partial<Record<ParamKey, string>>;
-  /** The illumination time its Modes take, ms: its own, else the nearest above it with one (null: none in the tree). */
-  illuminationMs: number | null;
-  /** The operational mode that's from (it, or one above it). */
-  illuminationFrom: string | null;
-  /** The scan period its Modes take, s, unless one has its own box: its own, else the nearest above it with one. */
-  scanS: [number, number] | null;
+  /** The scan its Modes take unless one has its own: its own, else the nearest above it with one (null: none). */
+  scanId: string | null;
+  /** The operational mode that's set on (it, or one above it). */
   scanFrom: string | null;
 }
 
 const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, undefined, { numeric: true });
 
-function sharedOf(modes: Mode[]): Partial<Record<ParamKey, string>> {
+function sharedOf(modes: Mode[], scanOf: (m: Mode) => string | null): Partial<Record<ParamKey, string>> {
   if (!modes.length) return {};
-  const all = modes.map(modeParams);
+  const all = modes.map((m) => modeParams(m, scanOf(m)));
   const out: Partial<Record<ParamKey, string>> = {};
   // All "—" (none has one) counts as shared too, so it isn't repeated on each Mode — and isn't shown.
   for (const k of PARAMS) if (all.every((p) => p[k] === all[0][k])) out[k] = all[0][k];
   return out;
 }
 
-/** The tree, sorted (siblings by their order, then by name, numbers as numbers), and the Modes linked to none. */
-export function buildTree(ops: OperationalMode[], modes: Mode[]): { roots: TreeNode[]; unlinked: Mode[]; byId: Map<string, TreeNode> } {
+/** The tree, sorted (siblings by their order, then by name, numbers as numbers), and the Modes linked to none; `scanNames`: the Emitter's scans' names by id. */
+export function buildTree(
+  ops: OperationalMode[],
+  modes: Mode[],
+  scanNames: Map<string, string> = new Map(),
+): { roots: TreeNode[]; unlinked: Mode[]; byId: Map<string, TreeNode>; scanOf: (m: Mode) => string | null } {
   const ids = new Set(ops.map((o) => o.id));
   const kids = new Map<string | null, OperationalMode[]>();
   for (const o of ops) {
@@ -110,10 +111,8 @@ export function buildTree(ops: OperationalMode[], modes: Mode[]): { roots: TreeN
       allModes: [],
       shared: {},
       shownHere: {},
-      illuminationMs: o.illumination_time_ms ?? parent?.illuminationMs ?? null,
-      illuminationFrom: o.illumination_time_ms != null ? o.name : (parent?.illuminationFrom ?? null),
-      scanS: o.scan_min_s != null && o.scan_max_s != null ? [o.scan_min_s, o.scan_max_s] : (parent?.scanS ?? null),
-      scanFrom: o.scan_min_s != null && o.scan_max_s != null ? o.name : (parent?.scanFrom ?? null),
+      scanId: o.scan_id && scanNames.has(o.scan_id) ? o.scan_id : (parent?.scanId ?? null),
+      scanFrom: o.scan_id && scanNames.has(o.scan_id) ? o.name : (parent?.scanFrom ?? null),
     };
     byId.set(o.id, node);
     const children = [...(kids.get(o.id) ?? [])].filter((c) => !seen.has(c.id));
@@ -127,20 +126,25 @@ export function buildTree(ops: OperationalMode[], modes: Mode[]): { roots: TreeN
   // Anything only reachable through a loop: at the top.
   for (const o of ops) if (!seen.has(o.id)) roots.push(build(o, 0, null));
 
+  /** A Mode's scan by name: its own, else its operational mode's (or the nearest above it). */
+  const scanOf = (m: Mode): string | null => {
+    const id = (m.scan_id && scanNames.has(m.scan_id) ? m.scan_id : null) ?? (m.operational_mode_id ? byId.get(m.operational_mode_id)?.scanId : null);
+    return id ? (scanNames.get(id) ?? null) : null;
+  };
   function factor(node: TreeNode, parentShared: Partial<Record<ParamKey, string>>) {
-    node.shared = sharedOf(node.allModes);
+    node.shared = sharedOf(node.allModes, scanOf);
     node.shownHere = Object.fromEntries(
       Object.entries(node.shared).filter(([k, v]) => v !== "—" && parentShared[k as ParamKey] !== v),
     ) as Partial<Record<ParamKey, string>>;
     node.children.forEach((c) => factor(c, node.shared));
   }
   roots.forEach((r) => factor(r, {}));
-  return { roots, unlinked, byId };
+  return { roots, unlinked, byId, scanOf };
 }
 
 /** A Mode's own parameters: those its operational mode's Modes don't all share. */
-export function ownParams(m: Mode, node: TreeNode | null): Partial<Record<ParamKey, string>> {
-  const p = modeParams(m);
+export function ownParams(m: Mode, node: TreeNode | null, scanName?: string | null): Partial<Record<ParamKey, string>> {
+  const p = modeParams(m, scanName);
   // Not in one: what it has (a "—" says nothing there).
   return Object.fromEntries(PARAMS.filter((k) => (node ? node.shared[k] === undefined : p[k] !== "—")).map((k) => [k, p[k]])) as Partial<
     Record<ParamKey, string>

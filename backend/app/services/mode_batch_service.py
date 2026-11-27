@@ -37,6 +37,7 @@ from app.services.audit_service import apply_and_diff, record_audit
 from app.services.mode_sources import add_mode_sources, set_mode_sources, sources_label
 from app.services.operational_mode_service import (
     check_operational_mode,
+    check_scan,
     name_the_change,
 )
 
@@ -71,6 +72,7 @@ _METADATA_FIELD_KEYS = {
     "confirmation_quality",
     "confirmation_quantity",
     "operational_mode_id",
+    "scan_id",
 }
 
 # Each *_shift field is applied to exactly one bound, independently of its
@@ -156,6 +158,8 @@ def plan_batch_edit(
 
     if "operational_mode_id" in field_data:
         check_operational_mode(db, emitter_id, field_data["operational_mode_id"])
+    if "scan_id" in field_data:
+        check_scan(db, emitter_id, field_data["scan_id"])
 
     for key in ("source_id", "add_source_id"):
         if field_data.get(key) is not None:

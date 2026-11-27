@@ -53,8 +53,7 @@ export function ModeEditForm({
     quantity: String(mode.confirmation_quantity),
     notes: mode.notes ?? "",
     derivedFrom: new Set(),
-    scanMin: mode.scan_min_s != null ? String(mode.scan_min_s) : "",
-    scanMax: mode.scan_max_s != null ? String(mode.scan_max_s) : "",
+    scanId: mode.scan_id ?? "",
     operationalModeId: mode.operational_mode_id ?? "",
   });
   const { data: operationalModes } = useOperationalModes(emitterId);

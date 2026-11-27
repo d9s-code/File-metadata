@@ -3,13 +3,13 @@ import { below, buildTree, flatten, modeParams, ownParams } from "./opTree";
 import type { OperationalMode } from "../../api/operationalModes";
 import type { Mode } from "../../types/domain";
 
-const op = (id: string, name: string, parent: string | null = null, ms: number | null = null): OperationalMode => ({
+const op = (id: string, name: string, parent: string | null = null, scan: string | null = null): OperationalMode => ({
   id,
   emitter_id: "e",
   parent_id: parent,
   name,
   description: null,
-  illumination_time_ms: ms,
+  scan_id: scan,
   sort_order: 0,
   modes_count: 0,
   created_at: "",
@@ -21,12 +21,15 @@ const mode = (id: string, opId: string | null, pri: number, rf: [number, number]
     name: id,
     pri_type: "fixed",
     operational_mode_id: opId,
-    scan_min_s: null,
-    scan_max_s: null,
+    scan_id: null,
     line: { rf_min_mhz: rf[0], rf_max_mhz: rf[1], pw_min_us: 1, pw_max_us: 1, pri_min_us: pri, pri_max_us: pri, jitter_min_us: 0, jitter_max_us: 0 },
   }) as unknown as Mode;
 
-const ops = [op("track", "TRACK", null, 30), op("t1", "Track 1", "track"), op("t2", "Track 2", "track"), op("t10", "Track 10", "track", 12)];
+const ops = [op("track", "TRACK", null, "dwell"), op("t1", "Track 1", "track"), op("t2", "Track 2", "track"), op("t10", "Track 10", "track", "fast")];
+const scanNames = new Map([
+  ["dwell", "ESA dwell"],
+  ["fast", "Fast dwell"],
+]);
 const modes = [mode("T1", "t1", 100), mode("T2", "t2", 120), mode("T10", "t10", 150), mode("Lone", null, 1000, [3000, 3100])];
 
 describe("the radar as a tree", () => {
@@ -59,10 +62,17 @@ describe("the radar as a tree", () => {
     expect(ownParams(modes[1], track).jitter).toBeUndefined();
   });
 
-  it("an illumination time is its own, else the nearest one above it", () => {
-    const { byId } = buildTree(ops, modes);
-    expect([byId.get("t2")!.illuminationMs, byId.get("t2")!.illuminationFrom]).toEqual([30, "TRACK"]);
-    expect([byId.get("t10")!.illuminationMs, byId.get("t10")!.illuminationFrom]).toEqual([12, "Track 10"]);
+  it("a scan is its own, else the nearest one's above it — and a Mode's own wins", () => {
+    const { byId, scanOf, roots } = buildTree(ops, modes, scanNames);
+    expect([byId.get("t2")!.scanId, byId.get("t2")!.scanFrom]).toEqual(["dwell", "TRACK"]);
+    expect([byId.get("t10")!.scanId, byId.get("t10")!.scanFrom]).toEqual(["fast", "Track 10"]);
+    expect([scanOf(modes[1]), scanOf(modes[2]), scanOf(modes[3])]).toEqual(["ESA dwell", "Fast dwell", null]);
+    expect(scanOf({ ...modes[1], scan_id: "fast" } as Mode)).toBe("Fast dwell");
+    // Track 1 and 2 share TRACK's; Track 10 differs, so TRACK shows none.
+    expect(roots[0].shownHere.scan).toBeUndefined();
+    expect(byId.get("t1")!.shownHere.scan).toBe("ESA dwell");
+    // One not on the Emitter's list counts as none.
+    expect(buildTree([op("x", "X", null, "gone")], []).byId.get("x")!.scanId).toBeNull();
   });
 
   it("a loop or a missing parent can't hide one", () => {
@@ -73,16 +83,5 @@ describe("the radar as a tree", () => {
 
   it("a Mode's values, as shown", () => {
     expect(modeParams(mode("x", null, 100))).toMatchObject({ pri_type: "Fixed", rf: "9400–9450 MHz", pri: "100 µs", jitter: "—", scan: "—" });
-  });
-});
-
-describe("scan period", () => {
-  it("is its own, else the nearest one's above it", () => {
-    const { byId } = buildTree(
-      [{ ...op("s", "SEARCH"), scan_min_s: 8, scan_max_s: 10 }, op("v", "Volume", "s"), { ...op("h", "Horizon", "s"), scan_min_s: 1, scan_max_s: 2 }],
-      [],
-    );
-    expect([byId.get("v")!.scanS, byId.get("v")!.scanFrom]).toEqual([[8, 10], "SEARCH"]);
-    expect([byId.get("h")!.scanS, byId.get("h")!.scanFrom]).toEqual([[1, 2], "Horizon"]);
   });
 });

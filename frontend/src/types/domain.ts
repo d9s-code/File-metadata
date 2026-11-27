@@ -371,10 +371,8 @@ export interface Mode {
   confirmation_quality: number;
   /** 1 or more, default 2 — written to the PRS export's ConfirmationQuantity. */
   confirmation_quantity: number;
-  /** The scan period (s) of this Mode's function, a box inside its EW
-   * Group's range — for the dwell planner only. Null: the EW Group's applies. */
-  scan_min_s?: number | null;
-  scan_max_s?: number | null;
+  /** Its own scan (one of its Emitter's), ahead of its operational mode's — for the dwell planner only. */
+  scan_id?: string | null;
   /** The radar's operational mode it's transmitted in (one of its Emitter's). */
   operational_mode_id?: string | null;
   generation_batch_id: string | null;

@@ -3,6 +3,7 @@ import { useQueries } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { platformCoverageApi } from "../../api/platforms";
 import { num } from "./DwellChart";
+import { patternName, scanTiming } from "../scans/scanPatterns";
 import {
   DEFAULT_SETTINGS,
   addForUncovered,
@@ -43,6 +44,9 @@ function usePlannerModes(platformIds: string[]): PlannerMode[] | undefined {
         for (const m of e.modes) {
           const key = `${e.emitter_id}:${m.id ?? m.name}`;
           if (seen.has(key) || !m.rf) continue;
+          const scan = m.planner?.scan ?? null;
+          const timing = scan ? scanTiming(scan, m.planner?.mean_interval_us) : null;
+          const rev = timing?.revisitS;
           seen.set(key, {
             key,
             emitterId: e.emitter_id,
@@ -52,14 +56,16 @@ function usePlannerModes(platformIds: string[]): PlannerMode[] | undefined {
             rf: m.rf,
             longestIntervalUs: m.planner?.longest_interval_us ?? null,
             frameUs: m.planner?.frame_us ?? null,
-            scanS: m.planner?.scan_s ?? null,
-            scanFrom: m.planner?.scan_from ?? null,
+            // Its scan's revisit; a tracking scan is on it all the time; without either, the EW Group's range.
+            scanS: timing?.continuous ? null : rev ? [rev.lo, rev.hi] : (m.planner?.scan_s ?? null),
+            scanFrom: timing && (timing.continuous || rev) ? (m.planner?.scan_from ?? null) : m.planner?.scan_s ? "group" : null,
             scanFromOperational: m.planner?.scan_from_operational ?? null,
+            scanName: scan?.name ?? null,
+            scanPattern: scan?.pattern ?? null,
             groupScanS: m.planner?.group_scan_s ?? null,
             illuminationTimeMs: e.illumination_time_ms ?? null,
             operationalMode: m.planner?.operational_mode ?? null,
-            operationalIlluminationMs: m.planner?.illumination_time_ms ?? null,
-            operationalIlluminationFrom: m.planner?.illumination_from ?? null,
+            scanIlluminationMs: timing?.illuminationMs?.nom ?? null,
             priority: m.planner?.priority ?? null,
             confirmationQuantity: m.planner?.confirmation_quantity ?? null,
           });
@@ -72,22 +78,23 @@ function usePlannerModes(platformIds: string[]): PlannerMode[] | undefined {
 
 const secs = (r: [number, number]) => (r[1] - r[0] < 1e-9 ? `${num(r[0])} s` : `${num(r[0])}–${num(r[1])} s`);
 
-/** Which scan period it was played at: the Mode's own box, or its EW Group's range. */
+/** Which scan period it was played at: its scan's revisit, or its EW Group's range. */
 function ScanNote({ mode }: { mode: PlannerMode }) {
   if (!mode.scanS) return null;
+  const fromScan = mode.scanFrom === "mode" || mode.scanFrom === "operational";
   const outside =
-    (mode.scanFrom === "mode" || mode.scanFrom === "operational") &&
-    mode.groupScanS && (mode.scanS[0] < mode.groupScanS[0] - 1e-9 || mode.scanS[1] > mode.groupScanS[1] + 1e-9);
+    fromScan && mode.groupScanS && (mode.scanS[0] < mode.groupScanS[0] - 1e-9 || mode.scanS[1] > mode.groupScanS[1] + 1e-9);
+  const whose = mode.scanFrom === "operational" ? ` (its operational mode ${mode.scanFromOperational}'s)` : "";
   return (
     <span
       className={outside ? "jitter-subline planner-scan-outside" : "jitter-subline"}
       title={
-        mode.scanFrom === "mode" || mode.scanFrom === "operational"
-          ? `${mode.scanFrom === "mode" ? "The Mode's own scan period" : `The scan period of its operational mode ${mode.scanFromOperational}`}${mode.groupScanS ? `, inside its EW Group's ${secs(mode.groupScanS)}` : ""}${outside ? " — but it reaches outside it" : ""}`
-          : "Its EW Group's scan period — give the Mode, or its operational mode, its own box to narrow it"
+        fromScan
+          ? `The revisit of its scan ${mode.scanName}${whose}${mode.groupScanS ? `, inside its EW Group's ${secs(mode.groupScanS)}` : ""}${outside ? " — but it reaches outside it" : ""}`
+          : "Its EW Group's scan period — give the Mode, or its operational mode, a scan to narrow it"
       }
     >
-      {mode.scanFrom === "mode" ? "Mode's" : mode.scanFrom === "operational" ? `${mode.scanFromOperational}'s` : "EW Group's"} {secs(mode.scanS)}
+      {fromScan ? mode.scanName : "EW Group's"} {secs(mode.scanS)}
       {outside && " ⚠"}
     </span>
   );
@@ -358,21 +365,29 @@ export function DwellPlanner({
                         <span
                           className="jitter-subline"
                           title={
-                            p.illuminationFrom === "operational"
-                              ? `Its operational mode is ${p.mode.operationalMode}; the illumination time is set on ${p.mode.operationalIlluminationFrom ?? p.mode.operationalMode}`
+                            p.illuminationFrom === "scan"
+                              ? `Worked out from its scan ${p.mode.scanName} (${patternName(p.mode.scanPattern ?? "")})${p.mode.scanFrom === "operational" ? `, its operational mode ${p.mode.scanFromOperational}'s` : ""}`
                               : p.illuminationFrom === "emitter"
-                                ? `Its Emitter's illumination time${p.mode.operationalMode ? ` (its operational mode, ${p.mode.operationalMode}, has none)` : ""}`
+                                ? `Its Emitter's illumination time${p.mode.scanName ? ` (its scan, ${p.mode.scanName}, can't work one out)` : " (it has no scan)"}`
                                 : `Scan period × ${num(settings.beamwidthDeg)}° ÷ 360°`
                           }
                         >
-                          {p.illuminationFrom === "operational"
-                            ? (p.mode.operationalIlluminationFrom ?? p.mode.operationalMode)
+                          {p.illuminationFrom === "scan"
+                            ? p.mode.scanName
                             : p.illuminationFrom === "emitter"
                               ? "Emitter's"
                               : `${num(settings.beamwidthDeg)}° beam`}
                         </span>
                       )}
-                      {p.mode.scanS && <ScanNote mode={p.mode} />}
+                      {p.mode.scanS ? (
+                        <ScanNote mode={p.mode} />
+                      ) : (
+                        p.mode.scanName && (
+                          <span className="jitter-subline" title={`Its scan ${p.mode.scanName} (${patternName(p.mode.scanPattern ?? "")}) stays on the target`}>
+                            {p.mode.scanName}: all the time
+                          </span>
+                        )
+                      )}
                     </td>
                     <td className="num">
                       <span className={`planner-p ${p.pWithin >= 0.9 ? "good" : p.pWithin >= 0.5 ? "warn" : "bad"}`}>{pct(p.pWithin)}</span>

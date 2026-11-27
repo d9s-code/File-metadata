@@ -11,6 +11,7 @@ import { useEwGroups } from "../state/hooks/useEwGroups";
 import { useSources } from "../state/hooks/useSources";
 import { useCreateEmitterNote, useDeleteEmitterNote, useEmitterNotes } from "../state/hooks/useEmitterNotes";
 import { OperationalModesTree } from "../components/operationalModes/OperationalModesTree";
+import { ScansCard } from "../components/scans/ScansCard";
 import { EwGroupsTable } from "../components/ewGroups/EwGroupsTable";
 import { ElementOverview } from "../components/sources/ElementOverview";
 import { ElementCoverage } from "../components/sources/ElementCoverage";
@@ -382,6 +383,7 @@ export function EmitterEditorPage() {
 
       <Activity mode={tab === "operational" ? "visible" : "hidden"}>
       <div>
+        <ScansCard emitterId={emitter.id} />
         <OperationalModesTree emitterId={emitter.id} />
       </div>
       </Activity>

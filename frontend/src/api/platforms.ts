@@ -1,3 +1,4 @@
+import type { EmitterScan } from "./scans";
 import { api } from "./client";
 /** As the PRS XML writes them. */
 export type Hostility = "UNKNOWN" | "FRIEND" | "HOSTILE" | "NEUTRAL";
@@ -144,22 +145,22 @@ export interface CoverageMode {
     stagger_steps: number;
     /** A stagger's longest frame time, µs. */
     frame_us: number | null;
-    /** Its scan period, s (with the EW Group's delta): the Mode's own box, else its EW Group's; null — not scanning. */
-    scan_s: [number, number] | null;
-    /** Where scan_s comes from (missing on coverage read before Modes had their own box). */
-    scan_from?: "mode" | "operational" | "group" | null;
+    /** Its average gap between pulses, µs (an ESA dwell of N pulses lasts N × this). */
+    mean_interval_us?: number | null;
+    /** Its scan (pattern, values, beamwidths): its own, else its operational mode's (or the nearest above it); null: none. */
+    scan?: Pick<EmitterScan, "id" | "name" | "pattern" | "params" | "beam_az_deg" | "beam_el_deg" | "illumination_ms"> | null;
+    /** Where that scan comes from: the Mode's own, or an operational mode's. */
+    scan_from?: "mode" | "operational" | null;
     /** When it's an operational mode's: which one it's set on. */
     scan_from_operational?: string | null;
-    /** Its EW Group's overall scan range, s (with the delta). */
+    /** Its EW Group's overall scan range, s (with the delta) — what's used without a scan. */
+    scan_s: [number, number] | null;
     group_scan_s?: [number, number] | null;
     priority: number | null;
     confirmation_quantity: number | null;
     group_name: string | null;
-    /** The radar's operational mode it's transmitted in, and that mode's illumination time (ms), if set. */
+    /** The radar's operational mode it's transmitted in ("TRACK › Track 2"). */
     operational_mode?: string | null;
-    illumination_time_ms?: number | null;
-    /** The operational mode that illumination time is set on (it, or one above it). */
-    illumination_from?: string | null;
   };
 }
 

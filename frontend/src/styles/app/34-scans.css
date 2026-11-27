@@ -1,0 +1,126 @@
+/* An Emitter's scans (Operational modes tab): the list, the form with its
+   working, and the two pictures — the pattern and the beam on the target. */
+.scans-card .scans-table td.scans-values {
+  max-width: 22rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.scan-group-check {
+  margin: 0.25rem 0 0.75rem;
+}
+.scan-group-check p {
+  margin: 0.25rem 0;
+}
+
+.modal-dialog.scan-form-modal {
+  width: min(60rem, 96vw);
+}
+.scan-form-fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: contents;
+}
+.scan-form-top {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+.scan-form-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 17rem;
+  gap: 1.25rem;
+  align-items: start;
+}
+.scan-form-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.scan-values {
+  border-collapse: collapse;
+  width: 100%;
+}
+.scan-values th,
+.scan-values td {
+  padding: 0.2rem 0.35rem 0.2rem 0;
+  text-align: left;
+  font-weight: normal;
+  vertical-align: middle;
+}
+.scan-values thead th {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.scan-values tbody th {
+  font-size: 0.88rem;
+  width: 45%;
+}
+.scan-values td:last-child {
+  width: 6.5rem;
+}
+.scan-values input {
+  width: 100%;
+}
+.scan-values .unit {
+  color: var(--muted);
+}
+.scan-form-result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.scan-readout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+  margin: 0;
+}
+.scan-readout div {
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 0.35rem 0.5rem;
+}
+.scan-readout dt {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+.scan-readout dd {
+  margin: 0.1rem 0 0;
+  font-family: var(--mono, inherit);
+  font-variant-numeric: tabular-nums;
+}
+.scan-working {
+  margin: 0;
+  font-family: var(--mono, inherit);
+  font-size: 0.82rem;
+}
+.scan-formula {
+  margin: 0;
+  font-size: 0.78rem;
+}
+.scan-figure {
+  margin: 0;
+}
+.scan-figure svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--card-bg);
+}
+.scan-figure figcaption {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 0.25rem;
+  min-height: 1.2em;
+}
+.scan-timeline {
+  margin-top: 0.75rem;
+}

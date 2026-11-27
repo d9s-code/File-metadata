@@ -463,12 +463,18 @@ test("Dwell planner: finds the cycle in step with a scan, one click breaks it; d
   await removeEmitter(page, e.id);
 });
 
-test("MDF test with a Dwell Strategy: logged with it, listed on the Strategy; the planner plays a Mode at its own scan box", async ({ page }) => {
+test("MDF test with a Dwell Strategy: logged with it, listed on the Strategy; the planner plays a Mode at its own scan", async ({ page }) => {
   const n = Date.now();
   const e = await api<{ id: string }>(page, "POST", "/emitters", { name: `E2E MFR ${n}`, illumination_time_ms: 30 });
   const g = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/ew-groups`, { name: "MFR", scan_min: 1, scan_max: 10 });
   const s = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/sources`, { name: "S", source_date: "2026-01-01" });
-  await api(page, "POST", `/ew-groups/${g.id}/modes`, { source_id: s.id, name: "Horizon", pri_type: "fixed", line: FIXED_LINE, scan_min_s: 1, scan_max_s: 2 });
+  // Its own scan: back every 1–2 s; no illumination time it can work out, so the Emitter's.
+  const scan = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/scans`, {
+    name: "Horizon box",
+    pattern: "other",
+    params: { revisit_s: 1.5, revisit_s_delta: 0.5 },
+  });
+  await api(page, "POST", `/ew-groups/${g.id}/modes`, { source_id: s.id, name: "Horizon", pri_type: "fixed", line: FIXED_LINE, scan_id: scan.id });
   const v = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/versions`, { change_summary: "v1" });
   const p = await api<{ id: string }>(page, "POST", "/platforms", { name: `E2E MFR Platform ${n}` });
   await api(page, "POST", `/platforms/${p.id}/links`, { emitter_id: e.id, emitter_version_id: v.id });
@@ -484,10 +490,10 @@ test("MDF test with a Dwell Strategy: logged with it, listed on the Strategy; th
   await api(page, "POST", `/mdfs/${mdf.id}/links`, { platform_id: p.id, platform_version_id: pv.id });
   await api(page, "POST", `/mdfs/${mdf.id}/versions`, { change_summary: "v1" });
 
-  // The planner: the Mode's own 1–2 s box, and the Emitter's illumination time.
+  // The planner: its scan's 1–2 s, and the Emitter's illumination time.
   await page.goto(`/dwells/strategies/${st.id}`);
   const row = page.getByRole("region", { name: "Planner" }).locator("tr", { hasText: `E2E MFR ${n}` });
-  await expect(row).toContainText("Mode's 1–2 s");
+  await expect(row).toContainText("Horizon box 1–2 s");
   await expect(row).toContainText("Emitter's");
 
   // The MDF test, logged with the Strategy.
@@ -514,7 +520,7 @@ test("MDF test with a Dwell Strategy: logged with it, listed on the Strategy; th
   await removeEmitter(page, e.id);
 });
 
-test("Operational modes: add one, link a Mode to it, and the planner takes its illumination time", async ({ page }) => {
+test("Scans: one added with its pattern, worked out and drawn; an operational mode uses it, its Mode takes it, the planner too", async ({ page }) => {
   const n = Date.now();
   const name = `E2E Radar ${n}`;
   const e = await api<{ id: string }>(page, "POST", "/emitters", { name, illumination_time_ms: 20 });
@@ -525,13 +531,27 @@ test("Operational modes: add one, link a Mode to it, and the planner takes its i
   await page.goto(`/emitters/${e.id}?tab=operational`);
   const start = page.getByRole("button", { name: /Start editing/ });
   if (await start.isVisible()) await start.click();
+  // A circular scan: 1.8° of a 10 s turn is 50 ms, worked out as it's typed, with its pictures.
+  await page.getByRole("button", { name: "+ Add scan" }).click();
+  const form = page.getByRole("dialog");
+  await form.getByLabel("Name").fill("Surveillance");
+  await form.getByLabel("Scan pattern").selectOption("circular");
+  await form.getByLabel("Rotation period", { exact: true }).fill("10");
+  await form.getByLabel("Beamwidth, azimuth (°)").fill("1.8");
+  await expect(form).toContainText("1.8° ÷ 360° × 10 s = 50 ms");
+  await expect(form.getByRole("img", { name: "Circular pattern" })).toBeVisible();
+  await expect(form.getByRole("img", { name: /over three revisits/ })).toBeVisible();
+  await form.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(form).toBeHidden();
+  await expect(page.locator(".scans-table tr", { hasText: "Surveillance" })).toContainText("50 ms");
+
   const card = page.getByRole("region", { name: "Operational modes" });
   await card.getByRole("button", { name: "+ Add operational mode" }).click();
   const add = page.getByRole("dialog");
   await add.getByLabel("Name").fill("Volume search");
-  await add.getByLabel("Illumination time (ms)").fill("45");
+  await add.getByLabel("Scan").selectOption({ label: "Surveillance (Circular)" });
   await add.getByRole("button", { name: "Add", exact: true }).click();
-  await expect(card.locator("tr", { hasText: "Volume search" })).toContainText("45 ms");
+  await expect(card.locator("tr", { hasText: "Volume search" })).toContainText("Surveillance · 50 ms, every 10 s");
 
   // Linked from the Mode's More options.
   await page.goto(`/emitters/${e.id}?tab=modes`);
@@ -539,12 +559,12 @@ test("Operational modes: add one, link a Mode to it, and the planner takes its i
   await page.getByRole("menuitem", { name: "Edit" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("button", { name: /More options/ }).click();
-  await dialog.getByLabel("Operational mode").selectOption({ label: "Volume search (45 ms)" });
-  await expect(dialog).toContainText("Illumination time: 45 ms, from Volume search");
+  await dialog.getByLabel("Operational mode").selectOption({ label: "Volume search (Surveillance)" });
+  await expect(dialog).toContainText("Illumination time: 50 ms, from Surveillance");
   await dialog.getByRole("button", { name: "Save", exact: true }).click();
   await expect(dialog).toBeHidden();
 
-  // Saved and pinned, the planner gives the Mode its operational mode's 45 ms.
+  // Saved and pinned, the planner gives the Mode its scan's 50 ms.
   const v = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/versions`, { change_summary: "v1" });
   const p = await api<{ id: string }>(page, "POST", "/platforms", { name: `E2E Radar Platform ${n}` });
   await api(page, "POST", `/platforms/${p.id}/links`, { emitter_id: e.id, emitter_version_id: v.id });
@@ -556,8 +576,8 @@ test("Operational modes: add one, link a Mode to it, and the planner takes its i
   });
   await page.goto(`/dwells/strategies/${st.id}`);
   const row = page.getByRole("region", { name: "Planner" }).locator("tr", { hasText: name });
-  await expect(row).toContainText("45 ms");
-  await expect(row).toContainText("Volume search");
+  await expect(row).toContainText("50 ms");
+  await expect(row).toContainText("Surveillance");
   await removeEmitter(page, e.id);
 });
 
@@ -567,7 +587,11 @@ test("Operational modes as a tree: TRACK holds Track 1 and 2, shows what they sh
   const g = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/ew-groups`, { name: "All" });
   const s = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/sources`, { name: "S", source_date: "2026-01-01" });
   const url = `/emitters/${e.id}/operational-modes`;
-  const track = await api<{ id: string }>(page, "POST", url, { name: "TRACK", illumination_time_ms: 30 });
+  const scan = (name: string, params: Record<string, number>) =>
+    api<{ id: string }>(page, "POST", `/emitters/${e.id}/scans`, { name, pattern: "esa", params });
+  const dwell = await scan("Track dwell", { pulses: 16, revisit_s: 0.5 });
+  await scan("Fast dwell", { dwell_ms: 2, revisit_s: 0.1 });
+  const track = await api<{ id: string }>(page, "POST", url, { name: "TRACK", scan_id: dwell.id });
   const t1 = await api<{ id: string }>(page, "POST", url, { name: "Track 1", parent_id: track.id });
   const line = (pri: number) => ({ ...FIXED_LINE, rf_min_mhz: 9400, rf_max_mhz: 9450, pri_min_us: pri, pri_max_us: pri });
   await api(page, "POST", `/ew-groups/${g.id}/modes`, { source_id: s.id, name: "T1", pri_type: "fixed", line: line(100), operational_mode_id: t1.id });
@@ -607,16 +631,16 @@ test("Operational modes as a tree: TRACK holds Track 1 and 2, shows what they sh
   await expect(set).toBeHidden();
   await expect(trackRow).toContainText("9400–9460 MHz");
 
-  // TRACK's scan period: Track 2 takes it.
+  // TRACK's scan changed: Track 2 takes the new one.
   await card.getByRole("button", { name: "Actions for TRACK", exact: true }).click();
   await page.getByRole("menuitem", { name: "Edit…" }).click();
   const edit = page.getByRole("dialog");
-  await edit.getByLabel("Min", { exact: true }).fill("1");
-  await edit.getByLabel("Max", { exact: true }).fill("2");
+  await edit.getByLabel("Scan").selectOption({ label: "Fast dwell (Electronic (ESA) dwell)" });
   await edit.getByRole("button", { name: "Save", exact: true }).click();
   await expect(edit).toBeHidden();
   const track2 = card.locator("tr", { has: page.getByText("Track 2", { exact: true }) });
-  await expect(track2).toContainText("scan 1–2 s · from TRACK");
+  await expect(track2).toContainText("Fast dwell · 2 ms, every 0.1 s");
+  await expect(track2).toContainText("from TRACK");
 
   // Track 2 moved up, above Track 1.
   await card.getByRole("button", { name: "Actions for Track 2", exact: true }).click();

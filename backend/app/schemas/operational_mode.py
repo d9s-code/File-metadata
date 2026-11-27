@@ -4,9 +4,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.schemas.emitter import IlluminationTimeMs
-from app.schemas.mode import ScanSeconds, check_scan_box
-
 MAX_PLANNED_VALUES = 64
 
 
@@ -105,18 +102,11 @@ class OperationalModeCreate(BaseModel):
     # The one it sits under (one of the same Emitter's); None — at the top.
     parent_id: UUID | None = None
     description: str | None = None
-    illumination_time_ms: IlluminationTimeMs | None = None
-    # Both, or neither.
-    scan_min_s: ScanSeconds | None = None
-    scan_max_s: ScanSeconds | None = None
+    # One of its Emitter's scans; None — the one above it's.
+    scan_id: UUID | None = None
     # Its place among its siblings; None — after them.
     sort_order: int | None = None
     plan: OperationalModePlan | None = None
-
-    @model_validator(mode="after")
-    def check_scan(self) -> "OperationalModeCreate":
-        check_scan_box(self.scan_min_s, self.scan_max_s)
-        return self
 
 
 class OperationalModeUpdate(BaseModel):
@@ -124,11 +114,8 @@ class OperationalModeUpdate(BaseModel):
     # Moves it (with everything under it); null — to the top.
     parent_id: UUID | None = None
     description: str | None = None
-    # Null clears it: its Modes then take the Emitter's.
-    illumination_time_ms: IlluminationTimeMs | None = None
-    # Both together, or both null to clear it (checked against each other on save).
-    scan_min_s: ScanSeconds | None = None
-    scan_max_s: ScanSeconds | None = None
+    # Null: the one above it's.
+    scan_id: UUID | None = None
     sort_order: int | None = None
     # Replaces its plan (null or empty: nothing planned here).
     plan: OperationalModePlan | None = None
@@ -142,9 +129,7 @@ class OperationalModeOut(BaseModel):
     parent_id: UUID | None = None
     name: str
     description: str | None = None
-    illumination_time_ms: float | None = None
-    scan_min_s: float | None = None
-    scan_max_s: float | None = None
+    scan_id: UUID | None = None
     plan: dict | None = None
     sort_order: int
     # How many of the Emitter's Modes are linked to it directly.

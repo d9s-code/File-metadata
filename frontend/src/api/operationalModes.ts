@@ -1,8 +1,8 @@
 import { api } from "./client";
 
 /** One of a radar's operational modes (volume search, track…), in a tree:
- * TRACK holds Track 1, 2, 3… Its Modes are linked to it and take its
- * illumination time (or the nearest one's above it) in the dwell planner. */
+ * TRACK holds Track 1, 2, 3… Its Modes are linked to it and take its scan
+ * (or the nearest one's above it) in the dwell planner. */
 export interface OperationalMode {
   id: string;
   emitter_id: string;
@@ -10,11 +10,8 @@ export interface OperationalMode {
   parent_id: string | null;
   name: string;
   description: string | null;
-  /** How long the beam lights up a Platform each scan in this mode, ms. Null: its Emitter's. */
-  illumination_time_ms: number | null;
-  /** Its scan period (s) — its Modes' unless a Mode has its own box. Null: the one above it, else the EW Group's. */
-  scan_min_s?: number | null;
-  scan_max_s?: number | null;
+  /** The scan it uses (one of the Emitter's); null: the one above it's. */
+  scan_id: string | null;
   /** Its plan, for analysis: the values planned for it (null: none here). */
   plan?: OperationalModePlan | null;
   sort_order: number;
@@ -28,9 +25,7 @@ export interface OperationalModeInput {
   name: string;
   parent_id?: string | null;
   description?: string | null;
-  illumination_time_ms?: number | null;
-  scan_min_s?: number | null;
-  scan_max_s?: number | null;
+  scan_id?: string | null;
   sort_order?: number;
   plan?: OperationalModePlan | null;
 }

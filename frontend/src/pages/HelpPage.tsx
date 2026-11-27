@@ -725,8 +725,19 @@ export function HelpPage() {
               range Track 1–3 share, on TRACK); what differs shows lower down (the PRI of Track 2 and of Track 3). Each
               row&apos;s <strong>⋯</strong> adds one under it, moves it up or down among its siblings, edits or deletes it, and{" "}
               <strong>Set on its Modes</strong> writes RF, PW, PRI, jitter or stagger steps to every Mode under it at once. Tick Modes to <strong>Move</strong> them to another.
-              An operational mode&apos;s <strong>illumination time</strong> and <strong>scan period</strong> go to its Modes in
-              the dwell planner, and to the ones below it that have none — a Mode&apos;s own scan box still wins. The Modes stay what&apos;s exported; saved with the Emitter&apos;s versions.
+              An operational mode&apos;s <strong>scan</strong> goes to its Modes in the dwell planner, and to the ones below
+              it that have none — a Mode&apos;s own scan (More options) still wins. The Modes stay what&apos;s exported; saved
+              with the Emitter&apos;s versions.
+            </p>
+            <p>
+              <strong>Scans</strong>, in the card above the tree, are how the antenna moves — as many as the radar has. Pick a
+              pattern (circular, sector, raster, helical, spiral, Palmer, an ESA&apos;s dwells, conical and other tracking,
+              or other) and the form asks for what that pattern needs, each value with a ±, and the beamwidth. It works out
+              the <strong>illumination time</strong> (how long the beam is on a target each look) and the{" "}
+              <strong>revisit</strong> as you type, shows the working, draws how the beam moves and when it&apos;s on the
+              target over three revisits. An ESA dwell in pulses takes each Mode&apos;s own PRI. A typed-in illumination time
+              wins. If an EW Group&apos;s scan range (what the XML exports) doesn&apos;t hold its Modes&apos; scans, the card
+              says so, with <strong>Widen it</strong>.
             </p>
             <p>
               Each operational mode can carry a <strong>plan</strong> (under Edit…): several RF, PRI and PW values with
@@ -1363,10 +1374,9 @@ export function HelpPage() {
             how likely each of the Platforms&apos; Modes is to be intercepted: how much of its RF the dwells reach, the
             time it needs on frequency to see the <strong>pulses to detect</strong> (its longest PRI with jitter, or a
             stagger&apos;s longest step and two frames), how often a long-enough look comes round, a scanning
-            radar&apos;s <strong>illumination time</strong> — how long its main beam is on the Platform each scan (its
-            operational mode&apos;s, else its Emitter&apos;s own set under Edit details, or else from the{" "}
-            <strong>beamwidth</strong> you give) at its scan
-            period (the Mode&apos;s own box under More options, or else its EW Group&apos;s range), and the share
+            radar&apos;s <strong>illumination time</strong> — how long its main beam is on the Platform each scan (worked
+            out from its scan, else its Emitter&apos;s own set under Edit details, or else from the{" "}
+            <strong>beamwidth</strong> you give) at its scan&apos;s revisit (or else its EW Group&apos;s range), and the share
             of starting moments it&apos;s caught <strong>within</strong> the time you give, with the median time. Modes
             with problems come first: <strong>Not reached</strong>, <strong>Dwell too short</strong>,{" "}
             <strong>Illumination too short</strong> (no dwell can fix it), <strong>Synchronism</strong> (the cycle keeps missing

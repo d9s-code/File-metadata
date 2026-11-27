@@ -32,6 +32,7 @@ from sqlalchemy.orm import Session
 
 from app.core.enums import ElementType, ElementVariant, EmitterStatus, PriType
 from app.models.emitter import Emitter
+from app.models.emitter_scan import EmitterScan
 from app.models.ew_group import EwGroup
 from app.models.mode import (
     ModeExtraSource,
@@ -107,7 +108,8 @@ def reconcile_emitter_to_snapshot(db: Session, emitter: Emitter, snapshot: dict)
 
     # Operational modes before the Modes that name them. A snapshot saved
     # before they existed has none to say, and leaves them as they are.
-    # A snapshot from before them had none: so none, after.
+    # A snapshot from before them had none: so none, after. Scans first: both name them.
+    _reconcile_scans(db, emitter, snapshot.get("scans", []))
     _reconcile_operational_modes(db, emitter, snapshot.get("operational_modes", []))
 
     live_ew_groups = {str(g.id): g for g in emitter.ew_groups}
@@ -166,6 +168,43 @@ def reconcile_emitter_to_snapshot(db: Session, emitter: Emitter, snapshot: dict)
     db.flush()
 
 
+def _reconcile_scans(db: Session, emitter: Emitter, snaps: list[dict]) -> None:
+    live = {str(x.id): x for x in emitter.scans}
+    target_ids = {x["id"] for x in snaps}
+    # Names are unique per Emitter: the ones going away first (what used them
+    # cleared), then the rest out of the way, then each as the snapshot has it.
+    for row_id, row in live.items():
+        if row_id not in target_ids:
+            db.query(OperationalMode).filter(OperationalMode.scan_id == row.id).update(
+                {OperationalMode.scan_id: None}, synchronize_session=False
+            )
+            db.query(Mode).filter(Mode.scan_id == row.id).update({Mode.scan_id: None}, synchronize_session=False)
+            db.delete(row)
+    db.flush()
+    for row_id, row in live.items():
+        if row_id in target_ids:
+            row.name = f"~{row_id}"
+    db.flush()
+    for x_snap in snaps:
+        row = live.get(x_snap["id"])
+        if row is None:
+            row = EmitterScan(id=uuid.UUID(x_snap["id"]), emitter_id=emitter.id, name=x_snap["name"], pattern=x_snap["pattern"])
+            db.add(row)
+        _set_scan(row, x_snap)
+    db.flush()
+
+
+def _set_scan(row: EmitterScan, x_snap: dict) -> None:
+    row.name = x_snap["name"]
+    row.pattern = x_snap["pattern"]
+    row.params = x_snap.get("params")
+    row.beam_az_deg = _num(x_snap.get("beam_az_deg"))
+    row.beam_el_deg = _num(x_snap.get("beam_el_deg"))
+    row.illumination_ms = _num(x_snap.get("illumination_ms"))
+    row.description = x_snap.get("description")
+    row.sort_order = x_snap.get("sort_order", 0)
+
+
 def _reconcile_operational_modes(db: Session, emitter: Emitter, snaps: list[dict]) -> None:
     live = {str(o.id): o for o in emitter.operational_modes}
     target_ids = {o["id"] for o in snaps}
@@ -190,9 +229,7 @@ def _reconcile_operational_modes(db: Session, emitter: Emitter, snaps: list[dict
             db.add(row)
         row.name = o_snap["name"]
         row.description = o_snap.get("description")
-        row.illumination_time_ms = _num(o_snap.get("illumination_time_ms"))
-        row.scan_min_s = _num(o_snap.get("scan_min_s"))
-        row.scan_max_s = _num(o_snap.get("scan_max_s"))
+        row.scan_id = _existing(db, EmitterScan, o_snap.get("scan_id"))
         row.plan = o_snap.get("plan")
         row.sort_order = o_snap.get("sort_order", 0)
     db.flush()
@@ -283,8 +320,7 @@ def _reconcile_modes(db: Session, group: EwGroup, *, mode_snaps: list[dict]) -> 
         if "confirmation_quality" in m_snap:
             mode.confirmation_quality = m_snap["confirmation_quality"]
             mode.confirmation_quantity = m_snap["confirmation_quantity"]
-        mode.scan_min_s = _num(m_snap.get("scan_min_s"))
-        mode.scan_max_s = _num(m_snap.get("scan_max_s"))
+        mode.scan_id = _existing(db, EmitterScan, m_snap.get("scan_id"))
         mode.operational_mode_id = _existing(db, OperationalMode, m_snap.get("operational_mode_id"))
         mode.extra_source_links = _extra_source_links(m_snap.get("extra_source_ids", []))
         if "generation_batch_id" in m_snap:
@@ -375,15 +411,21 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
     db.add(new_emitter)
     db.flush()
 
+    scan_id_map: dict[str, uuid.UUID] = {}
+    for x_snap in source_snapshot.get("scans", []):
+        scan = EmitterScan(emitter_id=new_emitter.id)
+        _set_scan(scan, x_snap)
+        db.add(scan)
+        db.flush()
+        scan_id_map[x_snap["id"]] = scan.id
+
     operational_id_map: dict[str, uuid.UUID] = {}
     for o_snap in source_snapshot.get("operational_modes", []):
         row = OperationalMode(
             emitter_id=new_emitter.id,
             name=o_snap["name"],
             description=o_snap.get("description"),
-            illumination_time_ms=_num(o_snap.get("illumination_time_ms")),
-            scan_min_s=_num(o_snap.get("scan_min_s")),
-            scan_max_s=_num(o_snap.get("scan_max_s")),
+            scan_id=scan_id_map.get(o_snap.get("scan_id") or ""),
             plan=o_snap.get("plan"),
             sort_order=o_snap.get("sort_order", 0),
         )
@@ -467,8 +509,7 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
                 sort_order=m_snap.get("sort_order", 0),
                 confirmation_quality=m_snap.get("confirmation_quality", DEFAULT_CONFIRMATION_QUALITY),
                 confirmation_quantity=m_snap.get("confirmation_quantity", DEFAULT_CONFIRMATION_QUANTITY),
-                scan_min_s=_num(m_snap.get("scan_min_s")),
-                scan_max_s=_num(m_snap.get("scan_max_s")),
+                scan_id=scan_id_map.get(m_snap.get("scan_id") or ""),
                 operational_mode_id=operational_id_map.get(m_snap.get("operational_mode_id") or ""),
             )
             new_mode.extra_source_links = [

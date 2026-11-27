@@ -22,7 +22,7 @@ EMITTER_FIELD_LABELS = {
 
 # Fields that didn't exist before need no entry here: a snapshot saved
 # before them had none, so their absence reads as empty (illumination time,
-# a Mode's scan box, operational modes and their link, plan and scan).
+# operational modes and their link, plan, scans and the links to them).
 EMITTER_FIELDS_ADDED_LATER: frozenset[str] = frozenset()
 
 EW_GROUP_FIELD_LABELS = {
@@ -62,8 +62,6 @@ MODE_FIELD_LABELS = {
     "notes": "Notes",
     "confirmation_quality": "Confirmation Quality (%)",
     "confirmation_quantity": "Confirmation Quantity",
-    "scan_min_s": "Scan period min (s)",
-    "scan_max_s": "Scan period max (s)",
 }
 
 MODE_FIELDS_ADDED_LATER = frozenset({"confirmation_quality", "confirmation_quantity"})
@@ -81,19 +79,84 @@ MODE_FIELDS_NOT_COMPARED = frozenset(
         "source_name",
         "extra_source_ids",
         "source_names",
-        # Compared by the operational mode's name instead (see _diff_mode).
+        # Compared by the operational mode's and scan's names instead (see _diff_mode).
         "operational_mode_id",
+        "scan_id",
     }
 )
 
 OPERATIONAL_MODE_FIELD_LABELS = {
     "name": "Name",
     "description": "Description",
-    "illumination_time_ms": "Illumination time (ms)",
-    "scan_min_s": "Scan period min (s)",
-    "scan_max_s": "Scan period max (s)",
     "plan": "Plan",
 }
+
+SCAN_FIELD_LABELS = {
+    "name": "Name",
+    "pattern": "Pattern",
+    "params": "Values",
+    "beam_az_deg": "Beamwidth azimuth (°)",
+    "beam_el_deg": "Beamwidth elevation (°)",
+    "illumination_ms": "Illumination time typed in (ms)",
+    "description": "Description",
+}
+
+SCAN_PATTERN_NAMES = {
+    "circular": "Circular",
+    "sector_uni": "Sector, one way",
+    "sector_bi": "Sector, both ways",
+    "raster": "Raster",
+    "helical": "Helical",
+    "spiral": "Spiral",
+    "palmer": "Palmer",
+    "palmer_raster": "Palmer-raster",
+    "conical": "Conical",
+    "lobe_switching": "Lobe switching",
+    "steady": "Steady (no scan)",
+    "esa": "Electronic (ESA) dwell",
+    "other": "Other",
+}
+
+# A scan's values by name, with their units.
+SCAN_PARAM_LABELS = {
+    "period_s": ("period", "s"),
+    "sector_deg": ("sector", "°"),
+    "sweep_s": ("sweep", "s"),
+    "flyback_s": ("flyback", "s"),
+    "bars": ("bars", ""),
+    "bar_spacing_deg": ("bar spacing", "°"),
+    "frame_s": ("frame", "s"),
+    "levels": ("levels", ""),
+    "cone_deg": ("cone", "°"),
+    "turns": ("turns", ""),
+    "nutation_deg": ("nutation", "°"),
+    "nutation_hz": ("nutation", "Hz"),
+    "rate_hz": ("rate", "Hz"),
+    "pulses": ("pulses", ""),
+    "dwell_ms": ("dwell", "ms"),
+    "revisit_s": ("revisit", "s"),
+}
+
+
+def scan_params_text(params: dict | None) -> str | None:
+    """"period 10 s ± 0.2, sector 90°": a scan's values, as read."""
+    if not params:
+        return None
+    parts = []
+    for key, (label, unit) in SCAN_PARAM_LABELS.items():
+        if params.get(key) is None:
+            continue
+        sep = "" if unit in ("°", "") else " "
+        text = f"{label} {_num(params[key])}{sep}{unit}"
+        if params.get(f"{key}_delta"):
+            text += f" ± {_num(params[key + '_delta'])}"
+        parts.append(text)
+    return ", ".join(parts) or None
+
+
+def _scan_summary(x: dict) -> str:
+    values = scan_params_text(x.get("params"))
+    return f"{x['name']} ({SCAN_PATTERN_NAMES.get(x['pattern'], x['pattern'])}" + (f": {values})" if values else ")")
 
 OPERATIONAL_MODE_FIELDS_ADDED_LATER: frozenset[str] = frozenset()
 
@@ -294,22 +357,15 @@ def _diff_mode(
     old_group: dict,
     new_group: dict,
     operational_names: tuple[dict, dict] = ({}, {}),
+    scan_names: tuple[dict, dict] = ({}, {}),
 ) -> None:
     """One Mode in both versions: the EW Group it moved to, if it did, the
-    operational mode it's linked to, then every one of its fields."""
+    operational mode and scan it's linked to, then every one of its fields."""
     if old_group["id"] != new_group["id"]:
         entries.append(_entry(scope, "EW Group", "changed", old_value=old_group["name"], new_value=new_group["name"]))
-    # A snapshot from before operational modes had none: no link.
-    if old.get("operational_mode_id") != new.get("operational_mode_id"):
-        old_names, new_names = operational_names
-        old_id, new_id = old.get("operational_mode_id"), new.get("operational_mode_id")
-        old_label = old_names.get(old_id) if old_id else None
-        # The one it left, renamed since: said, so "A → A" never reads as no change.
-        if old_label and old_id in new_names and new_names[old_id] != old_label:
-            old_label = f"{old_label} (now '{new_names[old_id]}')"
-        entries.append(
-            _entry(scope, "Operational mode", "changed", old_value=old_label, new_value=new_names.get(new_id) if new_id else None)
-        )
+    # A snapshot from before operational modes (or scans) had none: no link.
+    _link_entry(entries, scope, "Operational mode", old.get("operational_mode_id"), new.get("operational_mode_id"), operational_names)
+    _link_entry(entries, scope, "Scan", old.get("scan_id"), new.get("scan_id"), scan_names)
     labels, later = _every_field(MODE_FIELD_LABELS, MODE_FIELDS_NOT_COMPARED, old, new)
     _diff_fields(entries, scope, old, new, labels, MODE_FIELDS_ADDED_LATER | later, {"pri_type": PRI_TYPE_NAMES})
     old_ids, new_ids = _source_ids(old), _source_ids(new)
@@ -335,8 +391,19 @@ def _path(operational: dict[str, dict], op_id: str | None) -> str | None:
 
 
 def _operational_summary(o: dict) -> str:
-    ms = o.get("illumination_time_ms")
-    return o["name"] + (f" (illumination {ms:g} ms)" if ms is not None else "")
+    return o["name"]
+
+
+def _link_entry(entries: list[dict], scope: str, label: str, old_id, new_id, names: tuple[dict, dict]) -> None:
+    """A link (to an operational mode or a scan) by name; one renamed since says so."""
+    if old_id == new_id:
+        return
+    old_names, new_names = names
+    old_label = old_names.get(old_id) if old_id else None
+    # The one it left, renamed since: said, so "A → A" never reads as no change.
+    if old_label and old_id in new_names and new_names[old_id] != old_label:
+        old_label = f"{old_label} (now '{new_names[old_id]}')"
+    entries.append(_entry(scope, label, "changed", old_value=old_label, new_value=new_names.get(new_id) if new_id else None))
 
 
 def _diff_items(entries: list[dict], scope: str, label: str, old: list[dict] | None, new: list[dict] | None) -> None:
@@ -372,6 +439,24 @@ def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict, status_labels: 
         value_labels={"status": status_labels or {}},
     )
 
+    # Scans — a snapshot from before them had none: what's there now was added.
+    old_scans = {x["id"]: x for x in old_snapshot.get("scans", [])}
+    new_scans = {x["id"]: x for x in new_snapshot.get("scans", [])}
+    for x_id, x in new_scans.items():
+        scope = f"Scan '{x['name']}'"
+        if x_id not in old_scans:
+            entries.append(_entry(scope, "Added", "added", new_value=_scan_summary(x)))
+        else:
+            as_text = [
+                {**y, "params": scan_params_text(y.get("params")), "pattern": SCAN_PATTERN_NAMES.get(y["pattern"], y["pattern"])}
+                for y in (old_scans[x_id], x)
+            ]
+            _diff_fields(entries, scope, *as_text, SCAN_FIELD_LABELS)
+    for x_id, x in old_scans.items():
+        if x_id not in new_scans:
+            entries.append(_entry(f"Scan '{x['name']}'", "Removed", "removed", old_value=_scan_summary(x)))
+    scan_names = ({k: v["name"] for k, v in old_scans.items()}, {k: v["name"] for k, v in new_scans.items()})
+
     # Operational modes — only when both snapshots have them (older ones don't).
     old_operational = {o["id"]: o for o in old_snapshot.get("operational_modes", [])}
     new_operational = {o["id"]: o for o in new_snapshot.get("operational_modes", [])}
@@ -386,6 +471,7 @@ def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict, status_labels: 
                 entries, scope, *with_plan_text, OPERATIONAL_MODE_FIELD_LABELS, OPERATIONAL_MODE_FIELDS_ADDED_LATER
             )
             before, after = old_operational[o_id], o
+            _link_entry(entries, scope, "Scan", before.get("scan_id"), after.get("scan_id"), scan_names)
             if before.get("parent_id") != after.get("parent_id"):
                 entries.append(
                     _entry(
@@ -439,7 +525,7 @@ def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict, status_labels: 
         for m in g.get("modes", []):
             if m["id"] in old_modes:
                 old_mode, old_group = old_modes[m["id"]]
-                _diff_mode(entries, mode_scope(m, g), old_mode, m, old_group, g, operational_names)
+                _diff_mode(entries, mode_scope(m, g), old_mode, m, old_group, g, operational_names, scan_names)
             else:
                 entries.append(_entry(mode_scope(m, g), "Added", "added", new_value=_mode_summary(m)))
     for group_id, g in old_groups.items():

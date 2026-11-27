@@ -20,6 +20,7 @@ from app.routers import (
     dsl,
     dwells,
     emitter_checkpoints,
+    emitter_scans,
     emitters,
     function_codes,
     ew_groups,
@@ -97,6 +98,7 @@ app.include_router(platforms.router)
 app.include_router(emitters.router)
 app.include_router(emitter_checkpoints.router)
 app.include_router(ew_groups.router)
+app.include_router(emitter_scans.router)
 app.include_router(operational_modes.router)
 app.include_router(operational_mode_comments.router)
 app.include_router(sources.router)

@@ -25,17 +25,23 @@ import { SetOnModesDialog } from "./SetOnModesDialog";
 import { PLAN_LABEL, PLAN_PARAMS, effectivePlan, planCoverage, comboText, type PlanCoverage } from "./planCoverage";
 import { useModeDefaults } from "../../state/hooks/useDwells";
 import { PARAMS, PARAM_LABEL, below, buildTree, flatten, ownParams, type ParamKey, type TreeNode } from "./opTree";
-import { scanProblem } from "../modes/ModeMoreOptions";
+import type { EmitterScan } from "../../api/scans";
+import { useScans } from "../../state/hooks/useScans";
+import { patternName, scanTiming, spreadText } from "../scans/scanPatterns";
 
-const ms = (v: number) => `${Number(v.toFixed(3))} ms`;
 const VIEW_KEY = "operational-modes-view";
 /** What a dragged Mode carries. */
 const MODE_DRAG = "application/x-mode-id";
-const secs = ([a, b]: [number, number]) => `${a === b ? Number(a.toFixed(3)) : `${Number(a.toFixed(3))}–${Number(b.toFixed(3))}`} s`;
 
-/** The illumination time as typed: a number above 0, or empty. */
-export function illuminationProblem(text: string): string | null {
-  return text.trim() && !(Number(text) > 0) ? "A number of milliseconds above 0, or leave it empty" : null;
+/** A scan in a line: "Rotate · 55.6 ms each 10 s" (or all the time). */
+function scanLine(scan: EmitterScan): string {
+  const t = scanTiming(scan);
+  if (t.continuous) return `${scan.name} · all the time`;
+  const ill = t.illuminationMs ? spreadText(t.illuminationMs, "ms") : null;
+  const rev = t.revisitS ? spreadText(t.revisitS, "s") : null;
+  // An ESA dwell in pulses: its illumination is each Mode's PRI × the pulses.
+  const what = ill ?? (t.working.length ? t.working[0] : null);
+  return [scan.name, what && rev ? `${what}, every ${rev}` : (what ?? (rev && `every ${rev}`))].filter(Boolean).join(" · ");
 }
 
 function Params({ values, empty }: { values: Partial<Record<ParamKey, string>>; empty?: ReactNode }) {
@@ -52,31 +58,29 @@ function Params({ values, empty }: { values: Partial<Record<ParamKey, string>>; 
   );
 }
 
-/** Adding or editing one: its name, what it sits under, its illumination time and description. */
+/** Adding or editing one: its name, what it sits under, its scan and description. */
 function OperationalModeDialog({
   emitterId,
   initial,
   parentId,
   nodes,
+  scans,
   onClose,
 }: {
   emitterId: string;
   initial?: OperationalMode;
   parentId?: string | null;
   nodes: TreeNode[];
+  scans: EmitterScan[];
   onClose: () => void;
 }) {
   const create = useCreateOperationalMode(emitterId);
   const update = useUpdateOperationalMode(emitterId);
   const [name, setName] = useState(initial?.name ?? "");
   const [parent, setParent] = useState(initial?.parent_id ?? parentId ?? "");
-  const [illumination, setIllumination] = useState(initial?.illumination_time_ms != null ? String(initial.illumination_time_ms) : "");
+  const [scanId, setScanId] = useState(initial?.scan_id ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
-  const [scanMin, setScanMin] = useState(initial?.scan_min_s != null ? String(initial.scan_min_s) : "");
-  const [scanMax, setScanMax] = useState(initial?.scan_max_s != null ? String(initial.scan_max_s) : "");
   const [error, setError] = useState<string | null>(null);
-  const problem = illuminationProblem(illumination);
-  const scanBad = scanProblem(scanMin, scanMax);
   // Not under itself or one of its own.
   const ownBranch = initial ? below(flatten(nodes).find((x) => x.op.id === initial.id)!) : new Set<string>();
   const options = flatten(nodes).filter((x) => !ownBranch.has(x.op.id));
@@ -89,14 +93,11 @@ function OperationalModeDialog({
     e.preventDefault();
     setError(null);
     if (!name.trim()) return setError("Give it a name");
-    if (problem || scanBad || planBad) return;
-    const box = scanMin.trim() && scanMax.trim();
+    if (planBad) return;
     const input = {
       name: name.trim(),
       parent_id: parent || null,
-      illumination_time_ms: illumination.trim() ? Number(illumination) : null,
-      scan_min_s: box ? Number(scanMin) : null,
-      scan_max_s: box ? Number(scanMax) : null,
+      scan_id: scanId || null,
       description: description.trim() || null,
       plan: draftPlan(plan),
     };
@@ -129,54 +130,24 @@ function OperationalModeDialog({
           </select>
         </label>
         <label>
-          Illumination time (ms)
-          <input
-            type="number"
-            step="any"
-            min="0"
-            value={illumination}
-            aria-invalid={!!problem || undefined}
-            placeholder={parentNode?.illuminationMs != null ? `${parentNode.illuminationMs} — from ${parentNode.illuminationFrom}` : "Emitter's"}
-            onChange={(e) => setIllumination(e.target.value)}
-          />
-          <span className={problem ? "line-row-problem" : "hint-text"}>
-            {problem ??
-              "How long the beam lights up a Platform each scan in this mode. Its Modes take it in the dwell planner; empty: the one above it, else the Emitter's."}
+          Scan
+          <select value={scanId} onChange={(e) => setScanId(e.target.value)}>
+            <option value="">
+              {parentNode?.scanId ? `— From ${parentNode.scanFrom}: ${scans.find((x) => x.id === parentNode.scanId)?.name} —` : "— None —"}
+            </option>
+            {scans.map((x) => (
+              <option key={x.id} value={x.id}>
+                {x.name} ({patternName(x.pattern)})
+              </option>
+            ))}
+          </select>
+          <span className="hint-text">
+            {scans.length
+              ? "How the antenna moves in this mode — the ones under it and its Modes take it (a Mode can have its own). Its illumination time and revisit go to the dwell planner."
+              : "Add the radar's scans in the Scans card above first."}
+            {scanId && scans.find((x) => x.id === scanId) ? ` ${scanLine(scans.find((x) => x.id === scanId)!)}.` : ""}
           </span>
         </label>
-        <fieldset className="mode-scan-box">
-          <legend>Scan period (s)</legend>
-          <div className="mode-form-grid">
-            <label>
-              Min
-              <input
-                type="number"
-                step="any"
-                min="0"
-                value={scanMin}
-                aria-invalid={!!scanBad || undefined}
-                placeholder={parentNode?.scanS ? String(parentNode.scanS[0]) : undefined}
-                onChange={(e) => setScanMin(e.target.value)}
-              />
-            </label>
-            <label>
-              Max
-              <input
-                type="number"
-                step="any"
-                min="0"
-                value={scanMax}
-                aria-invalid={!!scanBad || undefined}
-                placeholder={parentNode?.scanS ? String(parentNode.scanS[1]) : undefined}
-                onChange={(e) => setScanMax(e.target.value)}
-              />
-            </label>
-          </div>
-          <p className={scanBad ? "line-row-problem" : "hint-text"}>
-            {scanBad ??
-              `Its Modes scan in this box unless one has its own. Empty: ${parentNode?.scanS ? `${parentNode.scanFrom}'s ${secs(parentNode.scanS)}` : "the EW Group's range"}.`}
-          </p>
-        </fieldset>
         <label>
           Description
           <textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
@@ -188,7 +159,7 @@ function OperationalModeDialog({
           <button type="button" className="button secondary" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className="button primary" disabled={create.isPending || update.isPending || !!problem || !!scanBad || !!planBad}>
+          <button type="submit" className="button primary" disabled={create.isPending || update.isPending || !!planBad}>
             {initial ? "Save" : "Add"}
           </button>
         </div>
@@ -241,7 +212,12 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
   const { data: comments } = usePlanComments(emitterId);
   // How far a stagger's step may be off and still match (the admin's Mode default).
   const stepTol = useModeDefaults().defaults.stagger_step_delta_us;
-  const { roots, unlinked, byId } = useMemo(() => buildTree(ops ?? [], modes ?? []), [ops, modes]);
+  const { data: scans } = useScans(emitterId);
+  const scanById = useMemo(() => new Map((scans ?? []).map((x) => [x.id, x])), [scans]);
+  const { roots, unlinked, byId, scanOf } = useMemo(
+    () => buildTree(ops ?? [], modes ?? [], new Map((scans ?? []).map((x) => [x.id, x.name]))),
+    [ops, modes, scans],
+  );
   const all = flatten(roots);
   // Each operational mode that plans something itself, against the Modes under it.
   const coverage = useMemo(() => {
@@ -257,7 +233,6 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
   const totalCombos = planned.reduce((n, c) => n + c.combos.length, 0);
   const totalGaps = planned.reduce((n, c) => n + c.uncovered, 0);
   const planNotes = commentCounts(comments ?? [], null);
-  const emitterMs = emitter?.illumination_time_ms ?? null;
 
   const toggle = (set: Set<string>, id: string) => {
     const next = new Set(set);
@@ -327,7 +302,7 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
       : {};
 
   const modeChip = (m: Mode, node: TreeNode | null) => {
-    const own = ownParams(m, node);
+    const own = ownParams(m, node, scanOf(m));
     const text = PARAMS.filter((k) => own[k] !== undefined)
       .map((k) => `${PARAM_LABEL[k]} ${own[k]}`)
       .join(" · ");
@@ -354,7 +329,8 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
   const container = (node: TreeNode): ReactNode => {
     if (onlyGaps && !gaps(node)) return null;
     const open = !collapsed.has(node.op.id);
-    const own = node.op.illumination_time_ms != null;
+    const scan = node.scanId ? scanById.get(node.scanId) : undefined;
+    const own = node.op.scan_id === node.scanId;
     return (
       <div
         key={node.op.id}
@@ -378,16 +354,10 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
             {node.allModes.length} Mode{node.allModes.length === 1 ? "" : "s"}
           </span>
           <span className="op-box-tools">
-            {node.illuminationMs != null && (
-              <span className="op-box-meta" title={own ? "Its illumination time" : `Illumination time from ${node.illuminationFrom}`}>
-                ☀ {ms(node.illuminationMs)}
-                {!own ? ` · ${node.illuminationFrom}` : ""}
-              </span>
-            )}
-            {node.scanS && (
-              <span className="op-box-meta" title={node.op.scan_min_s != null ? "Its scan period" : `Scan period from ${node.scanFrom}`}>
-                ⟳ {secs(node.scanS)}
-                {node.op.scan_min_s == null ? ` · ${node.scanFrom}` : ""}
+            {scan && (
+              <span className="op-box-meta" title={`${patternName(scan.pattern)}${own ? "" : ` — from ${node.scanFrom}`}`}>
+                ⟳ {scanLine(scan)}
+                {!own ? ` · ${node.scanFrom}` : ""}
               </span>
             )}
             {commentButton(node.op.id, node.path)}
@@ -444,7 +414,7 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
         <Link to={`/emitters/${emitterId}?tab=modes&mode=${encodeURIComponent(m.name)}`}>{m.name}</Link>
       </td>
       <td>
-        <Params values={ownParams(m, node)} empty={<span className="hint-text">as above</span>} />
+        <Params values={ownParams(m, node, scanOf(m))} empty={<span className="hint-text">as above</span>} />
       </td>
       <td />
       <td />
@@ -557,7 +527,8 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
   const nodeRows = (node: TreeNode): ReactNode => {
     if (onlyGaps && !gaps(node)) return null;
     const open = !collapsed.has(node.op.id);
-    const own = node.op.illumination_time_ms != null;
+    const scan = node.scanId ? scanById.get(node.scanId) : undefined;
+    const own = node.op.scan_id === node.scanId;
     return (
       <Fragment key={node.op.id}>
         <tr className={`op-node-row depth-${Math.min(node.depth, 3)}`}>
@@ -583,23 +554,13 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
           </td>
           <td>{planCell(node)}</td>
           <td className="num op-own">
-            {node.illuminationMs != null ? (
-              <>
-                {ms(node.illuminationMs)}
-                {!own && <span className="jitter-subline">from {node.illuminationFrom}</span>}
-              </>
-            ) : emitterMs != null ? (
-              <span className="hint-text" title="None set here or above it: the Emitter's">
-                {ms(emitterMs)} · Emitter&apos;s
+            {scan ? (
+              <span title={patternName(scan.pattern)}>
+                {scanLine(scan)}
+                {!own && <span className="jitter-subline">from {node.scanFrom}</span>}
               </span>
             ) : (
               <span className="hint-text">—</span>
-            )}
-            {node.scanS && (
-              <span className="jitter-subline" title={node.op.scan_min_s != null ? "Its scan period" : `Its scan period, set on ${node.scanFrom}`}>
-                scan {secs(node.scanS)}
-                {node.op.scan_min_s == null ? ` · from ${node.scanFrom}` : ""}
-              </span>
             )}
           </td>
           <td className="row-actions op-actions">
@@ -637,9 +598,8 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
       <p className="hint-text op-intro">
         The radar&apos;s operational modes — TRACK, say, holding Track 1, 2 and 3 — with the Modes transmitted in each. A value every Mode
         below agrees on shows once, on the highest one where they do; what differs shows lower down. <strong>Set on its Modes</strong> writes a
-        value to every Mode under one. A Mode&apos;s illumination time is its operational mode&apos;s, else the nearest one above it with
-        one, else the Emitter&apos;s{emitterMs != null ? ` (${ms(emitterMs)})` : ""}; its scan period likewise (unless the Mode has its own
-        box), else its EW Group&apos;s. <strong>Move up / down</strong> orders them. Not exported.
+        value to every Mode under one. Each takes a <strong>scan</strong> (from the Scans card): its Modes and the ones under it
+        take it unless they have their own — the dwell planner works out their illumination time and revisit from it. <strong>Move up / down</strong> orders them. Not exported.
       </p>
       <div className="op-plan-bar">
         {totalCombos > 0 ? (
@@ -734,7 +694,7 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
                 <th>Operational mode · Mode</th>
                 <th>Parameters (its Modes)</th>
                 <th>Plan</th>
-                <th className="num">Illumination · scan</th>
+                <th>Scan · illumination, revisit</th>
                 <th className="row-actions" aria-label="Actions" />
               </tr>
             </thead>
@@ -765,6 +725,7 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
           initial={editing ?? undefined}
           parentId={adding?.parentId}
           nodes={roots}
+          scans={scans ?? []}
           onClose={() => {
             setAdding(null);
             setEditing(null);

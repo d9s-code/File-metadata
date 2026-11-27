@@ -1,5 +1,7 @@
 import { useOperationalModes } from "../../state/hooks/useOperationalModes";
 import { buildTree } from "../operationalModes/opTree";
+import { useScans } from "../../state/hooks/useScans";
+import { patternName, scanTiming, spreadText } from "../scans/scanPatterns";
 import { Fragment, useMemo, useRef, useState, type ReactNode } from "react";
 import type { EwGroup, Mode, ModeGenerationBatch, Source } from "../../types/domain";
 import { useEmitter } from "../../state/hooks/useEmitters";
@@ -56,6 +58,7 @@ type ModeColumnId =
   | "confirmation_quantity"
   | "ew_group"
   | "operational_mode"
+  | "scan"
   | "source"
   | "last_tested";
 
@@ -80,6 +83,7 @@ const MODE_COLUMNS: (ToggleableColumn<ModeColumnId> & { sortKey?: ModeSortKey; t
   { id: "confirmation_quantity", label: "Confirmation quantity", sortKey: "confirmation_quantity", type: "number" },
   { id: "ew_group", label: "EW Group", sortKey: "ew_group" },
   { id: "operational_mode", label: "Operational mode" },
+  { id: "scan", label: "Scan", defaultHidden: true },
   { id: "source", label: "Sources", sortKey: "source" },
   { id: "last_tested", label: "Last seen", sortKey: "last_tested", type: "date" },
 ];
@@ -141,10 +145,12 @@ export function ModesTable({
   const [expandedBatchIds, setExpandedBatchIds] = useState<Set<string>>(new Set());
   const { data: emitter } = useEmitter(emitterId);
   const { data: operationalModes } = useOperationalModes(emitterId);
+  const { data: scans } = useScans(emitterId);
   const operationalById = useMemo(() => {
-    const { byId } = buildTree(operationalModes ?? [], []);
-    return new Map([...byId].map(([id, n]) => [id, { name: n.path, illumination_time_ms: n.illuminationMs }]));
-  }, [operationalModes]);
+    const { byId } = buildTree(operationalModes ?? [], [], new Map((scans ?? []).map((x) => [x.id, x.name])));
+    return new Map([...byId].map(([id, n]) => [id, { name: n.path, scanId: n.scanId }]));
+  }, [operationalModes, scans]);
+  const scanById = useMemo(() => new Map((scans ?? []).map((x) => [x.id, x])), [scans]);
   const { canEdit } = useEmitterCheckoutState(emitter);
   const editTitle = canEdit ? undefined : "Start editing this Emitter first";
   // A value being changed in its cell (double-click to start).
@@ -290,8 +296,27 @@ export function ModesTable({
         return (
           <td key="operational_mode">
             {o ? (
-              <span title={o.illumination_time_ms != null ? `Illumination time ${Number(o.illumination_time_ms.toFixed(3))} ms` : undefined}>
-                {o.name}
+              <span title={o.scanId && scanById.get(o.scanId) ? `Its scan: ${scanById.get(o.scanId)!.name}` : undefined}>{o.name}</span>
+            ) : (
+              <span className="hint-text">—</span>
+            )}
+          </td>
+        );
+      },
+      scan: () => {
+        // Its own scan, else its operational mode's (or the nearest above it).
+        const own = m.scan_id ? scanById.get(m.scan_id) : undefined;
+        const opScan = m.operational_mode_id ? operationalById.get(m.operational_mode_id)?.scanId : null;
+        const x = own ?? (opScan ? scanById.get(opScan) : undefined);
+        const t = x ? scanTiming(x, m.pri_type === "fixed" && m.line?.pri_min_us != null && m.line.pri_max_us != null ? (m.line.pri_min_us + m.line.pri_max_us) / 2 : null) : null;
+        return (
+          <td key="scan">
+            {x ? (
+              <span
+                title={`${patternName(x.pattern)}${own ? "" : ", its operational mode's"} — illumination ${t?.continuous ? "all the time" : spreadText(t?.illuminationMs ?? null, "ms")}, revisit ${spreadText(t?.revisitS ?? null, "s")}`}
+              >
+                {x.name}
+                {!own && <span className="jitter-subline">from its operational mode</span>}
               </span>
             ) : (
               <span className="hint-text">—</span>
@@ -425,6 +450,7 @@ export function ModesTable({
       ew_group: () =>
         value("ew_group", groupNames.length === 1 ? groupNames[0]! : `${s.ewGroupIds.length} EW Groups`, "EW Group"),
       operational_mode: () => <td key="operational_mode" className="batch-span" />,
+      scan: () => <td key="scan" className="batch-span" />,
       source: () => <td key="source" className="batch-span" />,
       last_tested: () => <td key="last_tested" className="batch-span" />,
     };

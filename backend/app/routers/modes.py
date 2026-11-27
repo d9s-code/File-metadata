@@ -26,7 +26,6 @@ from app.schemas.mode import (
     ModeOut,
     ModeUpdate,
     NON_DSL_LINE_FIELDS,
-    check_scan_box,
     require_manual_deltas,
     validate_pri_type_fields,
 )
@@ -36,7 +35,7 @@ from app.services.dsl_mode_service import create_mode_from_dsl
 from app.services.frametime_service import FRAME_TIME_DECIMALS, compute_frametime_us
 from app.services.mode_sources import resolve_sources, set_mode_sources, sources_label
 from app.services.mode_test_status_service import attach_mode_extras
-from app.services.operational_mode_service import check_operational_mode, name_the_change
+from app.services.operational_mode_service import check_operational_mode, check_scan, name_the_change
 
 router = APIRouter(prefix="/ew-groups/{ew_group_id}/modes", tags=["modes"])
 
@@ -124,6 +123,7 @@ def create_mode_record(
     its Audit Log entry. The caller commits."""
     sources = resolve_sources(db, emitter_id=ew_group.emitter_id, source_ids=payload.all_source_ids())
     check_operational_mode(db, ew_group.emitter_id, payload.operational_mode_id)
+    check_scan(db, ew_group.emitter_id, payload.scan_id)
     app_settings.fill_confirmation(db, payload)
 
     mode = Mode(
@@ -134,8 +134,7 @@ def create_mode_record(
         sort_order=payload.sort_order,
         confirmation_quality=payload.confirmation_quality,
         confirmation_quantity=payload.confirmation_quantity,
-        scan_min_s=payload.scan_min_s,
-        scan_max_s=payload.scan_max_s,
+        scan_id=payload.scan_id,
         operational_mode_id=payload.operational_mode_id,
         generation_batch_id=generation_batch_id,
     )
@@ -290,11 +289,8 @@ def update_mode_record(db: Session, mode: Mode, payload: ModeUpdate, actor_id: U
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT, "Changing pri_type requires a new line in the same request"
         )
-    if "scan_min_s" in data or "scan_max_s" in data:
-        try:
-            check_scan_box(data.get("scan_min_s", mode.scan_min_s), data.get("scan_max_s", mode.scan_max_s))
-        except ValueError as exc:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc))
+    if "scan_id" in data:
+        check_scan(db, mode.source.emitter_id, data["scan_id"])
     if "operational_mode_id" in data:
         check_operational_mode(db, mode.source.emitter_id, data["operational_mode_id"])
     changes = name_the_change(db, apply_and_diff(mode, data))

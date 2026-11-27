@@ -2,6 +2,8 @@ import { useState, type ReactNode } from "react";
 import { DerivedFromPicker } from "./DerivedFromPicker";
 import type { OperationalMode } from "../../api/operationalModes";
 import { buildTree, flatten } from "../operationalModes/opTree";
+import { useScans } from "../../state/hooks/useScans";
+import { patternName, scanTiming, spreadText } from "../scans/scanPatterns";
 
 /** Written to the PRS export — 100 % and 2 unless a Mode says otherwise. */
 export const DEFAULT_CONFIRMATION_QUALITY = 100;
@@ -12,46 +14,29 @@ export interface MoreOptionsValues {
   quantity: string;
   notes: string;
   derivedFrom: Set<string>;
-  /** The function's own scan period box (s), inside the EW Group's range — both or neither. */
-  scanMin?: string;
-  scanMax?: string;
+  /** Its own scan ("" — its operational mode's). */
+  scanId?: string;
   /** The radar's operational mode it's transmitted in ("" — none). */
   operationalModeId?: string;
 }
 
-/** The EW Group's scan range, as a box inside it is checked against. */
+/** The EW Group's scan range, as a scan's revisit is checked against. */
 export type GroupScan = { min: number | null; max: number | null } | null | undefined;
 
-/** What's wrong with the scan period box, if anything. Outside the EW
- * Group's range is a warning, not a problem: see scanOutsideGroup. */
-export function scanProblem(min = "", max = ""): string | null {
-  const a = min.trim();
-  const b = max.trim();
-  if (!a && !b) return null;
-  if (!a || !b) return "Give the scan period both a min and a max, or leave both empty";
-  const lo = Number(a);
-  const hi = Number(b);
-  if (!Number.isFinite(lo) || !Number.isFinite(hi) || lo < 0 || hi < 0) return "The scan period is a number of seconds, 0 or more";
-  if (lo > hi) return "The scan period's min can't be above its max";
-  return null;
+/** A revisit (s, lowest–highest) reaching outside its EW Group's range. */
+export function scanOutsideGroup(revisit: [number, number] | null | undefined, group: GroupScan): boolean {
+  if (!revisit || !group) return false;
+  return (group.min != null && revisit[0] < group.min - 1e-9) || (group.max != null && revisit[1] > group.max + 1e-9);
 }
 
-/** The box reaches outside its EW Group's range. */
-export function scanOutsideGroup(min = "", max = "", group: GroupScan): boolean {
-  if (scanProblem(min, max) || !min.trim() || !group) return false;
-  return (group.min != null && Number(min) < group.min) || (group.max != null && Number(max) > group.max);
-}
-
-/** The box as the API takes it: both numbers, or both null. */
-export function scanPayload(values: MoreOptionsValues): { scan_min_s: number | null; scan_max_s: number | null } {
-  const a = (values.scanMin ?? "").trim();
-  const b = (values.scanMax ?? "").trim();
-  return a && b ? { scan_min_s: Number(a), scan_max_s: Number(b) } : { scan_min_s: null, scan_max_s: null };
+/** Its scan as the API takes it: one of the Emitter's, or null (its operational mode's). */
+export function scanPayload(values: MoreOptionsValues): { scan_id: string | null } {
+  return { scan_id: values.scanId || null };
 }
 
 /** What's wrong in the options, if anything. */
 export function optionsProblem(values: MoreOptionsValues): string | null {
-  return confirmationProblem(values.quality, values.quantity) ?? scanProblem(values.scanMin, values.scanMax);
+  return confirmationProblem(values.quality, values.quantity);
 }
 
 const secondsText = (v: number) => `${Number(v.toFixed(3))} s`;
@@ -86,36 +71,43 @@ export function ModeMoreOptions({
   /** Open regardless, e.g. when something in here needs fixing. */
   forceOpen?: boolean;
   extra?: ReactNode;
-  /** The EW Group's scan range, shown by the Mode's own box. */
+  /** The EW Group's scan range, its scan's revisit is checked against. */
   groupScan?: GroupScan;
   /** The Emitter's operational modes, to link the Mode to one. */
   operationalModes?: OperationalMode[];
-  /** The Emitter's own illumination time, ms — what a Mode takes without an operational mode's. */
+  /** The Emitter's own illumination time, ms — what a Mode takes without a scan that works one out. */
   emitterIlluminationMs?: number | null;
 }) {
   const [open, setOpen] = useState(false);
   const [showPicker, setShowPicker] = useState(values.derivedFrom.size > 0);
   const problem = confirmationProblem(values.quality, values.quantity);
-  const scanBad = scanProblem(values.scanMin, values.scanMax);
-  const outside = scanOutsideGroup(values.scanMin, values.scanMax, groupScan);
-  const isOpen = open || !!forceOpen || !!problem || !!scanBad;
-  const hasBox = !!(values.scanMin ?? "").trim() && !!(values.scanMax ?? "").trim();
+  const isOpen = open || !!forceOpen || !!problem;
   const groupText =
     groupScan && (groupScan.min != null || groupScan.max != null)
       ? `${groupScan.min != null ? secondsText(groupScan.min) : "?"} – ${groupScan.max != null ? secondsText(groupScan.max) : "?"}`
       : null;
-  const tree = flatten(buildTree(operationalModes ?? [], []).roots);
+  const { data: scans } = useScans(emitterId);
+  const scanById = new Map((scans ?? []).map((x) => [x.id, x]));
+  const tree = flatten(buildTree(operationalModes ?? [], [], new Map((scans ?? []).map((x) => [x.id, x.name]))).roots);
   const linkedNode = tree.find((x) => x.op.id === values.operationalModeId);
-  const illumination =
-    linkedNode?.illuminationMs != null
-      ? `${Number(linkedNode.illuminationMs.toFixed(3))} ms, from ${linkedNode.illuminationFrom}`
-      : emitterIlluminationMs != null
-        ? `${Number(emitterIlluminationMs.toFixed(3))} ms, the Emitter's`
-        : "worked out from the planner's beamwidth";
+  const inherited = linkedNode?.scanId ? scanById.get(linkedNode.scanId) : undefined;
+  const scan = (values.scanId ? scanById.get(values.scanId) : undefined) ?? inherited;
+  const timing = scan ? scanTiming(scan) : null;
+  const rev = timing?.revisitS;
+  const outside = scanOutsideGroup(rev ? [rev.lo, rev.hi] : null, groupScan);
+  const illumination = timing?.continuous
+    ? "all the time"
+    : timing?.illuminationMs
+      ? `${spreadText(timing.illuminationMs, "ms")}, from ${scan!.name}`
+      : timing?.working.length
+        ? `${timing.working[0]}, from ${scan!.name}`
+        : emitterIlluminationMs != null
+          ? `${Number(emitterIlluminationMs.toFixed(3))} ms, the Emitter's`
+          : "worked out from the planner's beamwidth";
   const summary = [
     linkedNode && linkedNode.path,
     `Confirmation ${values.quality || "?"} % × ${values.quantity || "?"}`,
-    hasBox && `scan ${values.scanMin}–${values.scanMax} s`,
+    scan && `scan ${scan.name}`,
     values.notes.trim() ? "has notes" : "no notes",
     values.derivedFrom.size > 0 && `test-derived (${values.derivedFrom.size})`,
   ]
@@ -169,57 +161,36 @@ export function ModeMoreOptions({
                   <option key={x.op.id} value={x.op.id}>
                     {"\u2003".repeat(x.depth)}
                     {x.op.name}
-                    {x.op.illumination_time_ms != null ? ` (${Number(x.op.illumination_time_ms.toFixed(3))} ms)` : ""}
+                    {x.scanFrom === x.op.name && x.scanId ? ` (${scanById.get(x.scanId)?.name})` : ""}
                   </option>
                 ))}
               </select>
-              <span className="hint-text">The radar&apos;s mode it&apos;s transmitted in. Illumination time: {illumination}.</span>
+              <span className="hint-text">The radar&apos;s mode it&apos;s transmitted in{inherited ? `; its scan is ${inherited.name}` : ""}.</span>
             </label>
           )}
-          <fieldset className="mode-scan-box">
-            <legend>Scan period of this Mode&apos;s function (s)</legend>
-            <div className="mode-form-grid">
-              <label>
-                Min
-                <input
-                  type="number"
-                  step="any"
-                  min="0"
-                  value={values.scanMin ?? ""}
-                  placeholder={linkedNode?.scanS ? String(linkedNode.scanS[0]) : groupScan?.min != null ? String(groupScan.min) : undefined}
-                  aria-invalid={!!scanBad || undefined}
-                  onChange={(e) => onChange({ scanMin: e.target.value })}
-                />
-              </label>
-              <label>
-                Max
-                <input
-                  type="number"
-                  step="any"
-                  min="0"
-                  value={values.scanMax ?? ""}
-                  placeholder={linkedNode?.scanS ? String(linkedNode.scanS[1]) : groupScan?.max != null ? String(groupScan.max) : undefined}
-                  aria-invalid={!!scanBad || undefined}
-                  onChange={(e) => onChange({ scanMax: e.target.value })}
-                />
-              </label>
-            </div>
-            {scanBad ? (
-              <p className="line-row-problem" role="alert">
-                {scanBad}
-              </p>
-            ) : outside ? (
-              <p className="mode-form-warning">Reaches outside its EW Group&apos;s scan range ({groupText}).</p>
-            ) : (
-              <p className="hint-text">
-                Its own box inside the EW Group&apos;s overall scan range{groupText ? ` (${groupText})` : ""}, for the dwell planner. Empty:{" "}
-                {linkedNode?.scanS
-                  ? `${linkedNode.scanFrom}'s ${linkedNode.scanS[0]}–${linkedNode.scanS[1]} s (its operational mode)`
-                  : "the EW Group's range"}
-                . Not exported.
-              </p>
-            )}
-          </fieldset>
+          {scans && scans.length > 0 && (
+            <label>
+              Scan
+              <select value={values.scanId ?? ""} onChange={(e) => onChange({ scanId: e.target.value })}>
+                <option value="">{inherited ? `— Its operational mode's: ${inherited.name} —` : "— None of its own —"}</option>
+                {scans.map((x) => (
+                  <option key={x.id} value={x.id}>
+                    {x.name} ({patternName(x.pattern)})
+                  </option>
+                ))}
+              </select>
+              <span className="hint-text">
+                For the dwell planner. Illumination time: {illumination}
+                {rev ? `; revisit ${spreadText(rev, "s")}` : ""}. Not exported: the XML keeps the EW Group&apos;s range
+                {groupText ? ` (${groupText})` : ""}.
+              </span>
+              {outside && (
+                <span className="mode-form-warning">
+                  {scan!.name}&apos;s revisit ({spreadText(rev!, "s")}) reaches outside its EW Group&apos;s scan range ({groupText}).
+                </span>
+              )}
+            </label>
+          )}
           <label>
             Notes
             <textarea
