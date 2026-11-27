@@ -956,15 +956,22 @@ test("MDF summary: the change log in counts, sentences and by Platform, parts le
   await page.getByRole("button", { name: /Summarize/ }).click();
   const panel = page.locator("section.mdf-summary");
   await panel.getByLabel("From").selectOption("1");
-  await expect(panel.getByText(`Emitter E2E Log B ${n}`)).toBeVisible();
+  // A table, each row's change a coloured badge.
+  const added = panel.locator(".change-notes tr.change-row.added");
+  await expect(added).toContainText(`E2E Log B ${n}`);
+  await expect(added.locator(".change-badge.added")).toHaveText(/Added/);
 
   await panel.getByLabel("Change notes detail").selectOption("counts");
-  await expect(panel.getByText("Added: 1 Emitter")).toBeVisible();
+  await expect(panel.locator(".change-notes thead")).toContainText("Emitters");
+  await expect(added).toContainText("1");
   await panel.getByLabel("Change notes detail").selectOption("sentences");
   await expect(panel.getByText(`This release adds the Emitter E2E Log B ${n}.`)).toBeVisible();
   await panel.getByLabel("Change notes grouping").selectOption("platform");
   await expect(panel.getByText(`On E2E Log Ship ${n}: 1 Emitter added (E2E Log B ${n}).`)).toBeVisible();
 
+  // The contents: Emitter versions only in full detail.
+  await expect(panel.getByText(/Contents of v2/)).toBeVisible();
+  await expect(panel.locator(".mdf-summary-contents")).not.toContainText("Emitter version");
   await panel.getByLabel("Contents table").uncheck();
   await expect(panel.getByText(/Contents of v2/)).toBeHidden();
   await expect(panel.getByRole("heading", { name: "Release notes" })).toBeVisible();

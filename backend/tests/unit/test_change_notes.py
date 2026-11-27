@@ -114,8 +114,8 @@ def test_an_emitter_moving_between_platforms_that_stay():
     notes = change_notes(old, new)
     assert notes["added"] == [] and notes["removed"] == []
     assert [(u["name"], u["items"]) for u in notes["updated"]] == [
-        ("Frigate", ["No longer carries Sea Search"]),
-        ("Tug", ["Now carries Sea Search"]),
+        ("Frigate", ["No longer carries SS-1 — Sea Search"]),
+        ("Tug", ["Now carries SS-1 — Sea Search"]),
     ]
 
 

@@ -1282,7 +1282,9 @@ export function HelpPage() {
             change notes in <strong>Full detail</strong>, <strong>Names only</strong>, <strong>Counts only</strong> or
             <strong> Plain sentences</strong>, grouped <strong>By change</strong> or <strong>By Platform</strong>, and
             which parts go in (versions &amp; details, release notes, contents table) — remembered in this browser, and
-            the page shows what the document will hold. With the AI on, <strong>Plain-language draft (AI)</strong>
+            the page shows what the document will hold. Except plain sentences, the change notes are tables, added
+            first, then updated, then removed — green, amber and red. Emitters are named with their designation; their
+            versions show in the contents only in full detail. With the AI on, <strong>Plain-language draft (AI)</strong>
             rewrites the release notes and change notes in plain words as a draft you edit; ticked, it&apos;s used in
             place of the release notes written. Goals, status moves and the log
             stay on the Plan and Audit tabs. Everything that happened to the MDF is on its{" "}

@@ -27,7 +27,7 @@ def _build(client):
     ev2 = _save(client, "emitters", one[0]["id"])
     client.post(f"/platforms/{alpha['id']}/links", json={"emitter_id": one[0]["id"], "emitter_version_id": ev2["id"]})
     pa2 = _save(client, "platforms", alpha["id"])
-    two = _emitter(client, "Radar Two", None, [("Nav", "fixed", FIXED)])
+    two = _emitter(client, "Radar Two", "RT-2", [("Nav", "fixed", FIXED)])
     bravo = _platform(client, "Bravo Ship", two)
     pb = _save(client, "platforms", bravo["id"])
     client.post(f"/mdfs/{mdf['id']}/links", json={"platform_id": alpha["id"], "platform_version_id": pa2["id"]})
@@ -40,40 +40,97 @@ def _build(client):
 def _log(client, mdf_id, detail, group="change"):
     r = client.get(f"/mdfs/{mdf_id}/summary", params={"from_version": 1, "detail": detail, "group": group})
     assert r.status_code == 200, r.text
-    return [(b["type"], b["text"], b["mark"], b["items"]) for b in r.json()["change_log"]["blocks"]]
+    return r.json()["change_log"]["blocks"]
+
+
+def _table(blocks):
+    """The one table: its columns, then (mark, cells) per row."""
+    assert [b["type"] for b in blocks] == ["table"], blocks
+    return blocks[0]["columns"], [(r["mark"], r["cells"]) for r in blocks[0]["rows"]]
+
+
+def _text(blocks):
+    return [b["text"] for b in blocks]
 
 
 def test_each_level_of_detail_grouped_by_change(editor_client):
     mid = _build(editor_client)
-    assert _log(editor_client, mid, "full") == [
-        ("heading", "Added", None, []),
-        ("line", "Platform Bravo Ship — 1 Emitter", "added", []),
-        ("line", "Emitter Radar Two — on Bravo Ship · 1 Mode", "added", []),
-        ("heading", "Updated", None, []),
-        ("line", "Emitter Radar One", "updated", ["1 Mode added: Track"]),
+    assert _table(_log(editor_client, mid, "full")) == (
+        ["Change", "Type", "Name", "Details"],
+        [
+            ("added", ["Added", "Platform", "Bravo Ship", ["1 Emitter"]]),
+            ("added", ["Added", "Emitter", "RT-2 — Radar Two", ["on Bravo Ship · 1 Mode"]]),
+            ("updated", ["Updated", "Emitter", "Radar One", ["1 Mode added: Track"]]),
+        ],
+    )
+    assert _log(editor_client, mid, "full")[0]["mark_column"] == 0
+    assert _table(_log(editor_client, mid, "names")) == (
+        ["Change", "Type", "Name"],
+        [
+            ("added", ["Added", "Platform", "Bravo Ship"]),
+            ("added", ["Added", "Emitter", "RT-2 — Radar Two"]),
+            ("updated", ["Updated", "Emitter", "Radar One"]),
+        ],
+    )
+    assert _table(_log(editor_client, mid, "counts")) == (
+        ["Change", "Platforms", "Emitters"],
+        [("added", ["Added", "1", "1"]), ("updated", ["Updated", "—", "1"])],
+    )
+    assert _text(_log(editor_client, mid, "sentences")) == [
+        "This release adds the Platform Bravo Ship and the Emitter RT-2 — Radar Two and updates the Emitter Radar One."
     ]
-    assert [t for _, t, _, _ in _log(editor_client, mid, "names")] == ["Added", "Platform Bravo Ship", "Emitter Radar Two", "Updated", "Emitter Radar One"]
-    assert _log(editor_client, mid, "counts") == [("line", "Added: 1 Platform, 1 Emitter", "added", []), ("line", "Updated: 1 Emitter", "updated", [])]
-    assert _log(editor_client, mid, "sentences") == [
-        ("paragraph", "This release adds the Platform Bravo Ship and the Emitter Radar Two and updates the Emitter Radar One.", None, [])
-    ]
+    contents = editor_client.get(f"/mdfs/{mid}/summary", params={"from_version": 1}).json()["contents"]
+    assert [(e["designation"], e["name"]) for p in contents for e in p["emitters"]] == [(None, "Radar One"), ("RT-2", "Radar Two")]
     assert editor_client.get(f"/mdfs/{mid}/summary", params={"detail": "chatty"}).status_code == 422
     assert editor_client.get(f"/mdfs/{mid}/summary", params={"group": "colour"}).status_code == 422
 
 
 def test_grouped_by_platform(editor_client):
     mid = _build(editor_client)
-    assert _log(editor_client, mid, "full", "platform") == [
-        ("heading", "Platform Alpha Ship", None, []),
-        ("line", "Radar One (updated)", "updated", ["1 Mode added: Track"]),
-        ("heading", "Platform Bravo Ship (added)", None, []),
-        ("line", "Radar Two — 1 Mode", "added", []),
+    # Added first, then updated, then removed.
+    assert _table(_log(editor_client, mid, "full", "platform")) == (
+        ["Platform", "Change", "Emitter", "Details"],
+        [
+            ("added", ["Bravo Ship (added)", "Added", "RT-2 — Radar Two", ["1 Mode"]]),
+            ("updated", ["Alpha Ship", "Updated", "Radar One", ["1 Mode added: Track"]]),
+        ],
+    )
+    assert _table(_log(editor_client, mid, "names", "platform"))[1] == [
+        ("added", ["Bravo Ship (added)", "Added", "RT-2 — Radar Two"]),
+        ("updated", ["Alpha Ship", "Updated", "Radar One"]),
     ]
-    assert [t for _, t, _, _ in _log(editor_client, mid, "names", "platform")] == ["Platform Alpha Ship", "Radar One (updated)", "Platform Bravo Ship (added)", "Radar Two"]
-    assert [t for _, t, _, _ in _log(editor_client, mid, "counts", "platform")] == ["Alpha Ship: 1 Emitter updated", "Bravo Ship (added): carries 1 Emitter"]
-    assert [t for _, t, _, _ in _log(editor_client, mid, "sentences", "platform")] == [
+    assert _table(_log(editor_client, mid, "counts", "platform")) == (
+        ["Platform", "Change", "Emitters added", "Updated", "Removed"],
+        [("added", ["Bravo Ship", "Added", "1", "—", "—"]), ("updated", ["Alpha Ship", "Updated", "—", "1", "—"])],
+    )
+    assert _text(_log(editor_client, mid, "sentences", "platform")) == [
+        "Bravo Ship is new, carrying 1 Emitter (RT-2 — Radar Two).",
         "On Alpha Ship: 1 Emitter updated (Radar One).",
-        "Bravo Ship is new, carrying 1 Emitter (Radar Two).",
+    ]
+
+
+def test_added_then_updated_then_removed():
+    from app.services.change_log import _by_change, _by_platform
+
+    notes = {
+        "added": [{"kind": "Emitter", "name": "New", "detail": None}],
+        "removed": [{"kind": "Emitter", "name": "Gone", "detail": None}],
+        "updated": [{"kind": "Emitter", "name": "Changed", "items": ["x"]}],
+    }
+    assert [r["cells"][0] for r in _by_change(notes, "names")[0]["rows"]] == ["Added", "Updated", "Removed"]
+    assert _by_change(notes, "sentences")[0]["text"] == "This release adds the Emitter New, updates the Emitter Changed and removes the Emitter Gone."
+    groups = [
+        {"name": "Old ship", "mark": "removed", "entries": [{"mark": "removed", "name": "A", "detail": None, "items": []}]},
+        {"name": "Same ship", "mark": "updated", "entries": [
+            {"mark": "removed", "name": "B", "detail": None, "items": []},
+            {"mark": "updated", "name": "C", "detail": None, "items": []},
+            {"mark": "added", "name": "D", "detail": None, "items": []},
+        ]},
+        {"name": "New ship", "mark": "added", "entries": [{"mark": "added", "name": "E", "detail": None, "items": []}]},
+    ]
+    rows = _by_platform(groups, "names")[0]["rows"]
+    assert [(r["cells"][0], r["cells"][2]) for r in rows] == [
+        ("New ship (added)", "E"), ("Same ship", "D"), ("", "C"), ("", "B"), ("Old ship (removed)", "A")
     ]
 
 
@@ -85,11 +142,17 @@ def test_the_document_as_asked(editor_client):
     mid = _build(editor_client)
     # As before, by default: everything, in full.
     full = _doc(editor_client.get(f"/mdfs/{mid}/summary.docx", params={"from_version": 1}).content)
-    for expected in ("Release notes", "Adds Bravo Ship and the Track mode.", "Emitter Radar One: 1 Mode added: Track", "Contents of v2", "Changes from v1"):
+    for expected in ("Release notes", "Adds Bravo Ship and the Track mode.", "1 Mode added: Track", "Contents of v2", "Changes from v1"):
         assert expected in full, expected
+    # The contents name each Emitter with its designation; its version only in full detail.
+    assert "RT-2 — Radar Two" in full and "Emitter version" in full
+    names = _doc(editor_client.get(f"/mdfs/{mid}/summary.docx", params={"from_version": 1, "detail": "names"}).content)
+    assert "RT-2 — Radar Two" in names and "Contents of v2" in names and "Emitter version" not in names
     # Counts only, no contents table, no span or details.
     lean = _doc(editor_client.get(f"/mdfs/{mid}/summary.docx", params={"from_version": 1, "detail": "counts", "parts": "release_notes"}).content)
-    assert "Added: 1 Platform, 1 Emitter" in lean and "Contents of v2" not in lean and "Changes from v1" not in lean
+    assert "Platforms" in lean and "Contents of v2" not in lean and "Changes from v1" not in lean
+    # Each change coloured: its cell filled and its word in colour (green added, amber updated).
+    assert 'w:fill="DDF2E3"' in lean and 'w:val="1E7B34"' in lean and 'w:fill="FCEFC7"' in lean
     assert "Radar One" not in lean
     # The release notes swapped for a plain-language text (edited), in paragraphs.
     r = editor_client.post(

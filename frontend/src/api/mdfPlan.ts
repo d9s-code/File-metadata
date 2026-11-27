@@ -62,7 +62,7 @@ export interface MdfSummary {
   change_notes: ChangeNotes;
   /** The same, as it reads at the detail and grouping asked for — what the document writes. */
   change_log?: ChangeLog;
-  contents: { platform: string; platform_version: number; emitters: { name: string; version: number }[] }[];
+  contents: { platform: string; platform_version: number; emitters: { name: string; designation?: string | null; version: number }[] }[];
   last_release_version: number | null;
   /** Set when the changes count from the MDF this one follows. */
   from_mdf?: { id: string; name: string; version: number; at: string } | null;
@@ -77,11 +77,18 @@ export type ChangeLogGroup = "change" | "platform";
 /** The parts of the release-notes document that can be left out. */
 export type SummaryPart = "meta" | "release_notes" | "contents";
 
+export type ChangeMark = "added" | "removed" | "updated";
+
 export interface ChangeLogBlock {
-  type: "heading" | "line" | "paragraph" | "empty";
+  type: "heading" | "line" | "paragraph" | "empty" | "table";
   text: string;
-  mark: "added" | "removed" | "updated" | null;
+  mark: ChangeMark | null;
   items: string[];
+  /** A table: its columns, its rows (a cell is text or lines), and the
+   * column holding the change, coloured by the row's mark. */
+  columns?: string[];
+  rows?: { mark: ChangeMark | null; cells: (string | string[])[] }[];
+  mark_column?: number;
 }
 
 export interface ChangeLog {

@@ -16,7 +16,8 @@ release: its name, the versions it spans, the release notes the team wrote, and 
 
 Write the release notes again in plain words:
 - Use only what you are given. Never add changes, reasons, benefits, dates or numbers that aren't there.
-- Keep every name exactly as written (Platforms, Emitters, dwell files). Don't explain what they are.
+- Keep every name exactly as written (Platforms, Emitters, dwell files), and an Emitter's designation with its name \
+(written "designation — name"). Don't explain what they are.
 - Say what changed, not how: leave out Mode names, parameter names (RF, PRI, PW, jitter, stagger) and values \
 unless the release notes the team wrote say they matter.
 - Group it: what's new, what's no longer included, what was updated. Leave out a group with nothing in it.
@@ -46,6 +47,11 @@ def context_of(s: dict) -> str:
             lines.append(f"{b['text']}:")
         elif b["type"] in ("line", "paragraph", "empty"):
             lines.append(f"- {b['text']}" + (f": {'; '.join(b['items'])}" if b.get("items") else ""))
+        elif b["type"] == "table":
+            # A row each: its cells after their columns ("Change: Added · Type: Emitter · Name: …").
+            for r in b["rows"]:
+                cells = ["; ".join(c) if isinstance(c, list) else c for c in r["cells"]]
+                lines.append("- " + " · ".join(f"{col}: {c}" for col, c in zip(b["columns"], cells, strict=False) if c))
     return "\n".join(lines)
 
 

@@ -99,6 +99,8 @@ export function ChangeLogView({ log }: { log: ChangeLog }) {
               </li>
             ))}
           </ul>
+        ) : r.type === "table" ? (
+          <ChangeTable key={i} block={r} />
         ) : r.type === "heading" ? (
           <h4 key={i} className="change-notes-heading">
             {r.text}
@@ -109,6 +111,55 @@ export function ChangeLogView({ log }: { log: ChangeLog }) {
           </p>
         ),
       )}
+    </div>
+  );
+}
+
+function ChangeTable({ block }: { block: ChangeLogBlock }) {
+  return (
+    <div className="table-scroll">
+      <table className="change-log-table">
+        <thead>
+          <tr>
+            {block.columns?.map((c, i) => (
+              <th key={i} scope="col">
+                {c}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {block.rows?.map((row, r) => (
+            <tr key={r} className={row.mark ? `change-row ${MARK_CLASS[row.mark]}` : undefined}>
+              {row.cells.map((cell, c) =>
+                c === block.mark_column && row.mark ? (
+                  <td key={c}>
+                    <span className={`change-badge ${MARK_CLASS[row.mark]}`}>
+                      <span aria-hidden>{MARKS[row.mark]}</span> {cell}
+                    </span>
+                  </td>
+                ) : (
+                  <td key={c}>
+                    {Array.isArray(cell) ? (
+                      cell.length > 1 ? (
+                        <ul className="change-log-cell-lines">
+                          {cell.map((line) => (
+                            <li key={line}>{line}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        (cell[0] ?? "")
+                      )
+                    ) : (
+                      cell
+                    )}
+                  </td>
+                ),
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -411,17 +462,30 @@ export function SummaryPanel({ mdfId, versions, onClose }: { mdfId: string; vers
           {has("contents") &&
             section(
               `Contents of v${s.to_version}`,
-              <ul className="mdf-summary-contents">
-                {s.contents.map((p) => (
-                  <li key={p.platform}>
-                    <strong>{p.platform}</strong> v{p.platform_version}
-                    <span className="hint-text">
-                      {" "}
-                      — {p.emitters.length ? p.emitters.map((e) => `${e.name} v${e.version}`).join(", ") : "no Emitters"}
-                    </span>
-                  </li>
-                ))}
-              </ul>,
+              <div className="table-scroll">
+                <table className="change-log-table mdf-summary-contents">
+                  <thead>
+                    <tr>
+                      <th scope="col">Platform</th>
+                      <th scope="col">Version</th>
+                      <th scope="col">Emitter</th>
+                      {layout.detail === "full" && <th scope="col">Emitter version</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {s.contents.flatMap((p) =>
+                      (p.emitters.length ? p.emitters : [null]).map((e, k) => (
+                        <tr key={`${p.platform}-${k}`} className={k === 0 ? "first-of-platform" : undefined}>
+                          <td>{k === 0 ? <strong>{p.platform}</strong> : ""}</td>
+                          <td>{k === 0 ? `v${p.platform_version}` : ""}</td>
+                          <td>{e ? (e.designation ? `${e.designation} — ${e.name}` : e.name) : <span className="hint-text">No Emitters</span>}</td>
+                          {layout.detail === "full" && <td>{e ? `v${e.version}` : ""}</td>}
+                        </tr>
+                      )),
+                    )}
+                  </tbody>
+                </table>
+              </div>,
             )}
         </div>
       )}

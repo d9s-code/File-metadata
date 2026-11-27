@@ -383,7 +383,11 @@ def build_summary(
             "platform": link["platform_name"],
             "platform_version": link.get("platform_version_label") or link.get("platform_version_number"),
             "emitters": [
-                {"name": el["emitter_name"], "version": el.get("emitter_version_number")}
+                {
+                    "name": el["emitter_name"],
+                    "designation": (el.get("emitter_snapshot") or {}).get("designation"),
+                    "version": el.get("emitter_version_number"),
+                }
                 for el in sorted((link.get("platform_snapshot") or {}).get("links", []), key=lambda el: el["emitter_name"].lower())
             ],
         }
@@ -535,17 +539,26 @@ def summary_document(s: dict, parts: tuple[str, ...] = PARTS, release_notes_text
             blocks.append(Block("h2", b["text"]))
         elif b["type"] == "paragraph":
             blocks.append(Block("p", b["text"]))
+        elif b["type"] == "table":
+            rows = [b["columns"], *[r["cells"] for r in b["rows"]]]
+            blocks.append(Block("table", rows=rows, marks=[r["mark"] for r in b["rows"]], mark_column=b["mark_column"]))
         else:
             blocks.append(Block("bullet", b["text"] + (": " + "; ".join(b["items"]) if b["items"] else "")))
 
     if "contents" in parts:
         blocks.append(Block("h1", f"Contents of v{s['to_version']}"))
-        rows = [["Platform", "Platform version", "Emitter", "Emitter version"]]
+        # Emitter versions only in full detail.
+        versions = s.get("change_log", {}).get("detail", "full") == "full"
+        rows = [["Platform", "Platform version", "Emitter"] + (["Emitter version"] if versions else [])]
         for p in s["contents"]:
             if not p["emitters"]:
-                rows.append([p["platform"], f"v{p['platform_version']}", "—", ""])
+                rows.append([p["platform"], f"v{p['platform_version']}", "—"] + ([""] if versions else []))
             for i, e in enumerate(p["emitters"]):
-                rows.append([p["platform"] if i == 0 else "", f"v{p['platform_version']}" if i == 0 else "", e["name"], f"v{e['version']}"])
+                name = f"{e['designation']} — {e['name']}" if e.get("designation") else e["name"]
+                rows.append(
+                    [p["platform"] if i == 0 else "", f"v{p['platform_version']}" if i == 0 else "", name]
+                    + ([f"v{e['version']}"] if versions else [])
+                )
         blocks.append(Block("table", rows=rows) if len(rows) > 1 else Block("meta", "Nothing pinned."))
     return write_docx(blocks)
 

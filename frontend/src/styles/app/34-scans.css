@@ -307,3 +307,45 @@
 .change-log-paragraph {
   margin: 0 0 0.5rem;
 }
+
+/* The change log and contents as tables: each row tinted by its change, the
+   change itself a badge (green added, red removed, amber updated). */
+.change-log-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  margin-bottom: 0.75rem;
+}
+.change-log-table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 0.35rem 0.6rem;
+}
+.change-log-table td {
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: top;
+}
+.change-log-table tr.change-row.added td { background: color-mix(in srgb, var(--badge-green-bg) 35%, transparent); }
+.change-log-table tr.change-row.removed td { background: color-mix(in srgb, var(--badge-red-bg) 35%, transparent); }
+.change-log-table tr.change-row.changed td { background: color-mix(in srgb, var(--badge-amber-bg) 35%, transparent); }
+.change-badge {
+  display: inline-flex;
+  gap: 0.3rem;
+  align-items: center;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+.change-badge.added { background: var(--badge-green-bg); color: var(--badge-green-fg); }
+.change-badge.removed { background: var(--badge-red-bg); color: var(--badge-red-fg); }
+.change-badge.changed { background: var(--badge-amber-bg); color: var(--badge-amber-fg); }
+.change-log-cell-lines {
+  margin: 0;
+  padding-left: 1rem;
+}
+.mdf-summary-contents tr.first-of-platform td { border-top: 1px solid var(--border-subtle); }

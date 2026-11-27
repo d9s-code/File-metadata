@@ -223,8 +223,16 @@ def change_notes(old: dict, new: dict, counts: dict[str, bool] | None = None) ->
     # Emitter itself stays in the MDF — otherwise it's listed as added/removed).
     for pid in (old_platforms.keys() & new_platforms.keys()) if counts["platform_moves"] else ():
         before, after = old_platforms[pid]["emitters"], new_platforms[pid]["emitters"]
-        items = [f"Now carries {after[e]}" for e in sorted(after.keys() - before.keys(), key=lambda e: after[e].lower()) if e in old_emitters]
-        items += [f"No longer carries {before[e]}" for e in sorted(before.keys() - after.keys(), key=lambda e: before[e].lower()) if e in new_emitters]
+        items = [
+            f"Now carries {_emitter_label(new_emitters[e])}"
+            for e in sorted(after.keys() - before.keys(), key=lambda e: after[e].lower())
+            if e in old_emitters
+        ]
+        items += [
+            f"No longer carries {_emitter_label(new_emitters[e])}"
+            for e in sorted(before.keys() - after.keys(), key=lambda e: before[e].lower())
+            if e in new_emitters
+        ]
         if items:
             updated.append({"kind": "Platform", "name": new_platforms[pid]["name"], "items": items})
 

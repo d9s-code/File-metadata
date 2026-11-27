@@ -1,5 +1,5 @@
 """The MDF change log as it's read: the change notes (change_notes) at a
-level of detail, grouped by change or by Platform — as blocks the Summary
+level of detail, grouped by change or by Platform, added first, then updated, then removed — as blocks the Summary
 panel shows and the release-notes document writes, so the two always match.
 
 Detail:
@@ -10,9 +10,13 @@ Detail:
   * "sentences": a short paragraph in plain words.
 
 Grouping:
-  * "change": Added / Removed / Updated.
+  * "change": Added / Updated / Removed.
   * "platform": each Platform with what changed on it (an Emitter updated
     shows under each Platform carrying it), then the dwell files.
+
+Full detail, names and counts are tables, each row marked added, removed or
+updated (coloured on the page and in the document); plain sentences are
+paragraphs.
 
 What counts is the change notes' (the admin's setting, or a preview's)."""
 
@@ -44,6 +48,20 @@ def _block(type_: str, text: str, mark: Mark = None, items: list[str] | None = N
     return {"type": type_, "text": text, "mark": mark, "items": items or []}
 
 
+CHANGE = {"added": "Added", "removed": "Removed", "updated": "Updated"}
+
+
+def _table(columns: list[str], rows: list[dict], mark_column: int) -> dict:
+    """A table: `rows` each {"mark", "cells"} — a cell is text, or a list of
+    lines; `mark_column` holds the change (Added, Removed, Updated), coloured
+    by the row's mark on the page and in the document."""
+    return {"type": "table", "text": "", "mark": None, "items": [], "columns": columns, "rows": rows, "mark_column": mark_column}
+
+
+def _row(mark: str | None, *cells) -> dict:
+    return {"mark": mark, "cells": list(cells)}
+
+
 def _plural(n: int, word: str) -> str:
     if n == 1:
         return f"1 {word}"
@@ -73,11 +91,6 @@ def _kind_word(kind: str) -> str:
     return {"Platform": "Platform", "Emitter": "Emitter", "Dwell file": "dwell file"}[kind]
 
 
-def _counted(entries: list[dict]) -> str:
-    """"2 Platforms, 3 Emitters"."""
-    return ", ".join(_plural(len(names), _kind_word(kind)) for kind, names in _by_kind(entries).items())
-
-
 def _counted_with_names(entries: list[dict]) -> str:
     """"the Platform Frigate 2118 and 3 Emitters (A, B and C)"."""
     parts = []
@@ -93,7 +106,7 @@ def _counted_with_names(entries: list[dict]) -> str:
 
 
 def _by_change(notes: dict, detail: str) -> list[dict]:
-    sections = (("Added", "added", notes["added"]), ("Removed", "removed", notes["removed"]), ("Updated", "updated", notes["updated"]))
+    sections = (("Added", "added", notes["added"]), ("Updated", "updated", notes["updated"]), ("Removed", "removed", notes["removed"]))
     if not any(entries for _, _, entries in sections):
         return [_block("empty", "No major changes.")]
     if detail == "sentences":
@@ -102,20 +115,23 @@ def _by_change(notes: dict, detail: str) -> list[dict]:
         text = "This release " + (said[0] if len(said) == 1 else f"{', '.join(said[:-1])} and {said[-1]}") + "."
         return [_block("paragraph", text)]
     if detail == "counts":
-        return [_block("line", f"{title}: {_counted(entries)}", mark) for title, mark, entries in sections if entries]
-    blocks = []
+        kinds = [k for k in _KINDS if any(e["kind"] == k for _, _, entries in sections for e in entries)]
+        rows = [
+            _row(mark, title, *[str(sum(1 for e in entries if e["kind"] == k)) if any(e["kind"] == k for e in entries) else "—" for k in kinds])
+            for title, mark, entries in sections
+            if entries
+        ]
+        return [_table(["Change", *[_plural(2, _kind_word(k)).split(" ", 1)[1].capitalize() for k in kinds]], rows, 0)]
+    rows = []
     for title, mark, entries in sections:
-        if not entries:
-            continue
-        blocks.append(_block("heading", title))
         for e in entries:
             if detail == "names":
-                blocks.append(_block("line", f"{e['kind']} {e['name']}", mark))
-            elif mark == "updated":
-                blocks.append(_block("line", f"{e['kind']} {e['name']}", mark, e.get("items")))
+                rows.append(_row(mark, title, e["kind"], e["name"]))
             else:
-                blocks.append(_block("line", f"{e['kind']} {e['name']}" + (f" — {e['detail']}" if e.get("detail") else ""), mark))
-    return blocks
+                details = e.get("items") or ([e["detail"]] if e.get("detail") else [])
+                rows.append(_row(mark, title, e["kind"], e["name"], details))
+    columns = ["Change", "Type", "Name"] + ([] if detail == "names" else ["Details"])
+    return [_table(columns, rows, 0)]
 
 
 # --- Grouped by Platform -------------------------------------------------------------
@@ -188,43 +204,28 @@ def platform_changes(old: dict, new: dict, counts: dict[str, bool] | None = None
     return out
 
 
-def _platform_title(g: dict) -> str:
-    if g["mark"] == "dwell_files":
-        return "Dwell files"
-    return f"Platform {g['name']}" + {"added": " (added)", "removed": " (removed)", "updated": ""}[g["mark"]]
-
-
-def _tally(entries: list[dict], word: str) -> str:
-    """"2 Emitters added, 1 removed, 3 updated"."""
-    parts = []
-    for mark in ("added", "removed", "updated"):
-        n = sum(1 for e in entries if e["mark"] == mark)
-        if n:
-            parts.append(f"{_plural(n, word)} {mark}" if not parts else f"{n} {mark}")
-    return ", ".join(parts)
-
-
 def _named(g: dict, mark: str) -> list[str]:
     return [e["name"] for e in g["entries"] if e["mark"] == mark]
 
 
-def _entry_name(g: dict, e: dict) -> str:
-    """An entry under a Platform still there (or the dwell files) says what
-    happened to it in words — "Nav Radar (removed)" — so it reads in the
-    document, where there are no marks; under an added or removed Platform
-    the heading says it, and a move says it in its detail."""
-    if g["mark"] in ("added", "removed") or (e.get("detail") or "").startswith("moved"):
-        return e["name"]
-    return f"{e['name']} ({e['mark']})"
+# Added first, then updated, then removed — the Platforms, and what's under each.
+ORDER = {"added": 0, "updated": 1, "removed": 2, "dwell_files": 3}
+
+
+def _in_order(groups: list[dict]) -> list[dict]:
+    return [
+        {**g, "entries": sorted(g["entries"], key=lambda e: ORDER[e["mark"]])}
+        for g in sorted(groups, key=lambda g: ORDER[g["mark"]])
+    ]
 
 
 def _by_platform(groups: list[dict], detail: str) -> list[dict]:
     if not groups:
         return [_block("empty", "No major changes.")]
+    groups = _in_order(groups)
     blocks = []
     for g in groups:
         word = "dwell file" if g["mark"] == "dwell_files" else "Emitter"
-        mark = None if g["mark"] == "dwell_files" else g["mark"]
         if detail == "sentences":
             if g["mark"] == "added":
                 carried = _named(g, "added")
@@ -233,7 +234,7 @@ def _by_platform(groups: list[dict], detail: str) -> list[dict]:
                 text = f"{g['name']} is no longer included."
             else:
                 said = []
-                for m in ("added", "removed", "updated"):
+                for m in ("added", "updated", "removed"):
                     n = _named(g, m)
                     if n:
                         count = _plural(len(n), word) if not said else str(len(n))
@@ -241,24 +242,31 @@ def _by_platform(groups: list[dict], detail: str) -> list[dict]:
                 where = "Dwell files" if g["mark"] == "dwell_files" else f"On {g['name']}"
                 text = f"{where}: " + (said[0] if len(said) == 1 else f"{', '.join(said[:-1])} and {said[-1]}") + "."
             blocks.append(_block("paragraph", text))
-        elif detail == "counts":
-            if g["mark"] == "added":
-                text = f"{g['name']} (added): carries {_plural(len(g['entries']), 'Emitter')}"
-            elif g["mark"] == "removed":
-                text = f"{g['name']} (removed)"
+    if blocks:
+        return blocks
+    dwell = any(g["mark"] == "dwell_files" for g in groups)
+    if detail == "counts":
+        rows = []
+        for g in groups:
+            n = {m: str(len(_named(g, m)) or "—") for m in ("added", "updated", "removed")}
+            title = "Dwell files" if g["mark"] == "dwell_files" else g["name"]
+            change = "—" if g["mark"] == "dwell_files" else CHANGE[g["mark"]]
+            rows.append(_row(None if g["mark"] == "dwell_files" else g["mark"], title, change, n["added"], n["updated"], n["removed"]))
+        what = "Emitters / dwell files" if dwell else "Emitters"
+        return [_table(["Platform", "Change", f"{what} added", "Updated", "Removed"], rows, 1)]
+    rows = []
+    for g in groups:
+        title = "Dwell files" if g["mark"] == "dwell_files" else g["name"] + {"added": " (added)", "removed": " (removed)", "updated": ""}[g["mark"]]
+        entries = g["entries"] or [{"mark": g["mark"], "name": "—", "detail": None, "items": []}]
+        for i, e in enumerate(entries):
+            first = title if i == 0 else ""
+            if detail == "names":
+                rows.append(_row(e["mark"], first, CHANGE[e["mark"]], e["name"]))
             else:
-                text = f"{'Dwell files' if g['mark'] == 'dwell_files' else g['name']}: {_tally(g['entries'], word)}"
-            blocks.append(_block("line", text, mark or "updated"))
-        else:
-            blocks.append(_block("heading", _platform_title(g)))
-            for e in g["entries"]:
-                name = _entry_name(g, e)
-                if detail == "names":
-                    blocks.append(_block("line", name, e["mark"]))
-                else:
-                    text = name + (f" — {e['detail']}" if e.get("detail") else "")
-                    blocks.append(_block("line", text, e["mark"], e.get("items")))
-    return blocks
+                details = e.get("items") or ([e["detail"]] if e.get("detail") else [])
+                rows.append(_row(e["mark"], first, CHANGE[e["mark"]], e["name"], details))
+    columns = ["Platform", "Change", "Emitter or dwell file" if dwell else "Emitter"] + ([] if detail == "names" else ["Details"])
+    return [_table(columns, rows, 1)]
 
 
 def change_log(old: dict, new: dict, counts: dict[str, bool] | None, detail: str = "full", group: str = "change") -> dict:
