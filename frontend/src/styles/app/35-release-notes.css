@@ -1,0 +1,121 @@
+/* The release-notes preview page: the options down the side, and the
+   document drawn as a white page in the Word file's fonts, sizes and
+   colours — white in dark mode too, as it will print. */
+.release-notes-layout {
+  display: grid;
+  grid-template-columns: minmax(16rem, 20rem) 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+.release-notes-options {
+  position: sticky;
+  top: 0.75rem;
+  max-height: calc(100vh - 1.5rem);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+.release-notes-options section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.release-notes-options section > label:not(.inline-check) {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.85rem;
+}
+.release-notes-options h2 {
+  margin: 0;
+}
+.release-columns {
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem 0.5rem;
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.15rem 0.6rem;
+  font-size: 0.85rem;
+}
+.release-columns.one-column {
+  grid-template-columns: 1fr;
+}
+.release-columns legend {
+  font-weight: 600;
+  padding: 0 0.25rem;
+}
+.release-notes-paper {
+  overflow-x: auto;
+  padding: 0.5rem 0 2rem;
+}
+.release-notes-paper[aria-busy="true"] .doc-page {
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+/* A4 at screen size: 21 cm wide, 2 cm margins — as the Word file is set up. */
+.doc-page {
+  box-sizing: border-box;
+  width: 794px;
+  min-height: 1123px;
+  margin: 0 auto;
+  padding: 76px;
+  background: #fff;
+  color: #000;
+  box-shadow: 0 2px 12px rgb(0 0 0 / 35%);
+  font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.32;
+}
+.doc-page .doc-title {
+  font-size: 20pt;
+  font-weight: 700;
+  margin: 0 0 3pt;
+  color: #000;
+}
+.doc-page .doc-h1 {
+  font-size: 14pt;
+  font-weight: 700;
+  margin: 14pt 0 5pt;
+  color: #000;
+}
+.doc-page .doc-h2 {
+  font-size: 11.5pt;
+  font-weight: 700;
+  margin: 10pt 0 3pt;
+  color: #000;
+}
+.doc-page .doc-p,
+.doc-page .doc-bullet {
+  margin: 0 0 5pt;
+  white-space: pre-wrap;
+}
+.doc-page .doc-bullet {
+  padding-left: 12pt;
+  text-indent: -12pt;
+}
+.doc-page .doc-meta {
+  margin: 0 0 5pt;
+  font-size: 9pt;
+  color: #595959;
+}
+.doc-page .doc-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  margin: 0 0 12pt;
+}
+.doc-page .doc-table th,
+.doc-page .doc-table td {
+  border: 0.5pt solid #bfbfbf;
+  padding: 2pt 5pt;
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: break-word;
+}
+.doc-page .doc-table th {
+  background: #edeff2;
+  font-weight: 700;
+}

@@ -11,6 +11,7 @@ import { DateInput } from "../common/DateInput";
 import { LoadingState } from "../common/LoadingState";
 import { MenuButton } from "../common/MenuButton";
 import { useConfirmDialog } from "../common/ConfirmDialog";
+import { Link } from "react-router-dom";
 import { SummaryPanel } from "./MdfSummary";
 
 /** "in 12 days", "today", "3 days overdue" — from today to a YYYY-MM-DD date. */
@@ -392,6 +393,11 @@ export function MdfPlanPanel({
             >
               Summarize…
             </button>
+            {versions.length > 0 && (
+              <Link className="button secondary small" to={`/mdfs/${mdf.id}/release-notes`} title="The release notes as the Word file will read — with Platforms and Emitters tables">
+                Preview release notes
+              </Link>
+            )}
           </span>
         </div>
         {versions.length === 0 ? (

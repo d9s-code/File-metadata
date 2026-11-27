@@ -75,7 +75,60 @@ export type ChangeLogDetail = "full" | "names" | "counts" | "sentences";
 /** Grouped by change (added / removed / updated) or by Platform. */
 export type ChangeLogGroup = "change" | "platform";
 /** The parts of the release-notes document that can be left out. */
-export type SummaryPart = "meta" | "release_notes" | "contents";
+export type SummaryPart = "meta" | "release_notes" | "platforms" | "emitters" | "contents";
+
+/** The Platforms and Emitters tables: which columns, and every row or only those added or updated. */
+export interface SummaryTables {
+  platform_columns: string[];
+  emitter_columns: string[];
+  rows: "all" | "changed";
+}
+
+/** What each table can show (key: heading), and what it shows to start. */
+export interface SummaryColumns {
+  platforms: { columns: Record<string, string>; default: string[] };
+  emitters: { columns: Record<string, string>; default: string[] };
+}
+
+/** One block of the release-notes document, as the Word file writes it. */
+export interface DocBlock {
+  kind: "title" | "h1" | "h2" | "p" | "meta" | "bullet" | "table";
+  text: string;
+  rows: (string | string[])[][];
+  marks: (ChangeMark | null)[];
+  mark_column: number | null;
+  widths: number[];
+  /** A table's text size in points, if not the body's. */
+  font_pt: number | null;
+}
+
+export interface SummaryPreview {
+  file_name: string;
+  blocks: DocBlock[];
+}
+
+/** A release-notes document, laid out as asked. */
+export interface SummaryLayoutInput {
+  from: SummaryFrom;
+  to: number | null;
+  detail: ChangeLogDetail;
+  group: ChangeLogGroup;
+  parts: SummaryPart[];
+  releaseNotesText?: string | null;
+  tables?: SummaryTables;
+}
+
+function documentBody(input: SummaryLayoutInput) {
+  return {
+    ...(input.from === "start" || input.from === "previous" ? { base: input.from } : input.from ? { from_version: input.from } : {}),
+    ...(input.to ? { to_version: input.to } : {}),
+    detail: input.detail,
+    group: input.group,
+    parts: input.parts,
+    release_notes_text: input.releaseNotesText ?? null,
+    ...(input.tables ? { tables: input.tables } : {}),
+  };
+}
 
 export type ChangeMark = "added" | "removed" | "updated";
 
@@ -140,29 +193,11 @@ export const mdfPlanApi = {
   summary: (mdfId: string, from?: SummaryFrom, to?: number | null, counts?: string[], layout?: { detail: ChangeLogDetail; group: ChangeLogGroup }) =>
     api.get<MdfSummary>(`/mdfs/${mdfId}/summary${range(from, to, counts, layout)}`),
   /** The release notes as a Word document, laid out as asked (and with a plain-language text in place of the notes written). */
-  summaryDocx: (
-    mdfId: string,
-    input: {
-      from: SummaryFrom;
-      to: number | null;
-      detail: ChangeLogDetail;
-      group: ChangeLogGroup;
-      parts: SummaryPart[];
-      releaseNotesText?: string | null;
-    },
-  ) =>
-    api.post<Blob>(
-      `/mdfs/${mdfId}/summary.docx`,
-      {
-        ...(input.from === "start" || input.from === "previous" ? { base: input.from } : input.from ? { from_version: input.from } : {}),
-        ...(input.to ? { to_version: input.to } : {}),
-        detail: input.detail,
-        group: input.group,
-        parts: input.parts,
-        release_notes_text: input.releaseNotesText ?? null,
-      },
-      { responseType: "blob" },
-    ),
+  summaryDocx: (mdfId: string, input: SummaryLayoutInput) =>
+    api.post<Blob>(`/mdfs/${mdfId}/summary.docx`, documentBody(input), { responseType: "blob" }),
+  /** The release notes laid out as asked, as the document's blocks — for the preview page. */
+  summaryPreview: (mdfId: string, input: SummaryLayoutInput) => api.post<SummaryPreview>(`/mdfs/${mdfId}/summary/preview`, documentBody(input)),
+  summaryColumns: (mdfId: string) => api.get<SummaryColumns>(`/mdfs/${mdfId}/summary/columns`),
   /** A plain-language draft of the release notes and change notes, by the AI. */
   plainDraft: (mdfId: string, from: SummaryFrom, to: number | null) =>
     api.post<PlainDraft>(`/mdfs/${mdfId}/summary/plain-draft`, {

@@ -1286,7 +1286,11 @@ export function HelpPage() {
             change notes in <strong>Full detail</strong>, <strong>Names only</strong>, <strong>Counts only</strong> or
             <strong> Plain sentences</strong>, grouped <strong>By change</strong> or <strong>By Platform</strong>, and
             which parts go in (versions &amp; details, release notes, contents table) — remembered in this browser, and
-            the page shows what the document will hold. Except plain sentences, the change notes are tables, added
+            the page shows what the document will hold. <strong>Preview release notes</strong> opens the document as a
+            page, exactly as the Word file will read, with tables of the <strong>Platforms</strong> and{" "}
+            <strong>Emitters</strong> to add — all of them or only those added or updated, and the columns you pick:
+            status, version, designation, Platforms, Modes, RF, PRI and PW (lowest to highest, as exported) and more.
+            Except plain sentences, the change notes are tables, added
             first, then updated, then removed — green, amber and red. Emitters are named with their designation; their
             versions show in the contents only in full detail. With the AI on, <strong>Plain-language draft (AI)</strong>
             rewrites the release notes and change notes in plain words as a draft you edit; ticked, it&apos;s used in

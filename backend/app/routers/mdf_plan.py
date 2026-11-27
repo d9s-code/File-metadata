@@ -27,6 +27,15 @@ from app.services.audit_service import record_audit
 from app.services.change_log import DETAILS, GROUPS, change_log
 from app.services.change_notes import COUNTS_DEFAULT, change_notes
 from app.services.docx_writer import Block, write_docx
+from app.services.release_tables import (
+    EMITTER_COLUMNS,
+    EMITTER_DEFAULT,
+    PLATFORM_COLUMNS,
+    PLATFORM_DEFAULT,
+    ROWS,
+    release_tables,
+    table_block,
+)
 
 router = APIRouter(prefix="/mdfs", tags=["mdf-plan"])
 
@@ -431,6 +440,14 @@ def build_summary(
         # The same, as it reads at the detail and grouping asked for — what the document writes.
         "change_log": change_log(base_snapshot, to.snapshot, counts or app_settings.change_notes_counts(db), detail, group),
         "contents": contents,
+        # Every Platform and Emitter in the later version, for the tables the document can have.
+        "tables": release_tables(
+            base_snapshot,
+            to.snapshot,
+            counts or app_settings.change_notes_counts(db),
+            statuses.labels(db, "platform"),
+            statuses.labels(db, "emitter"),
+        ),
         "last_release_version": last_release_version(db, mdf.id),
     }
 
@@ -488,17 +505,37 @@ def _day(value) -> str:
     return str(value)
 
 
-# The parts of the release-notes document that can be left out.
-PARTS = ("meta", "release_notes", "contents")
+# The parts of the release-notes document that can go in or be left out
+# (the change log always does); DEFAULT_PARTS go in unless asked otherwise.
+PARTS = ("meta", "release_notes", "platforms", "emitters", "contents")
+DEFAULT_PARTS = ("meta", "release_notes", "contents")
 # The change log's columns in the document, by their first word: what changed, widest.
 _COLUMN_WIDTHS = {"Change": 1.1, "Type": 1.0, "Name": 2.2, "Platform": 1.8, "Emitter": 2.2, "Details": 4.2}
 
 
-def summary_document(s: dict, parts: tuple[str, ...] = PARTS, release_notes_text: str | None = None) -> bytes:
-    """The release notes as a Word document. `parts`: which of the version
-    span and details ("meta"), the release notes and the contents table go
-    in (the change log always does). `release_notes_text`: in place of the
-    release notes written for the versions — a plain-language draft, edited."""
+class Tables(BaseModel):
+    """The Platforms and Emitters tables: their columns (keys of
+    PLATFORM_COLUMNS and EMITTER_COLUMNS), and every row or only those
+    added or updated."""
+
+    platform_columns: list[str] = Field(default_factory=lambda: list(PLATFORM_DEFAULT))
+    emitter_columns: list[str] = Field(default_factory=lambda: list(EMITTER_DEFAULT))
+    rows: str = "all"
+
+
+def summary_document(s: dict, parts: tuple[str, ...] = DEFAULT_PARTS, release_notes_text: str | None = None, tables: Tables | None = None) -> bytes:
+    """The release notes as a Word document — see document_blocks."""
+    return write_docx(document_blocks(s, parts, release_notes_text, tables))
+
+
+def document_blocks(s: dict, parts: tuple[str, ...] = DEFAULT_PARTS, release_notes_text: str | None = None, tables: Tables | None = None) -> list[Block]:
+    """The release notes, as the document's blocks — what the Word file
+    writes and the preview page draws. `parts`: which of the version span
+    and details ("meta"), the release notes, the Platforms and Emitters
+    tables and the contents table go in (the change log always does).
+    `release_notes_text`: in place of the release notes written for the
+    versions — a plain-language draft, edited. `tables`: their columns and rows."""
+    tables = tables or Tables()
     m = s["mdf"]
     if s.get("from_mdf"):
         prev = s["from_mdf"]
@@ -548,6 +585,19 @@ def summary_document(s: dict, parts: tuple[str, ...] = PARTS, release_notes_text
         else:
             blocks.append(Block("bullet", b["text"] + (": " + "; ".join(b["items"]) if b["items"] else "")))
 
+    for part, title, columns in (("platforms", "Platforms", PLATFORM_COLUMNS), ("emitters", "Emitters", EMITTER_COLUMNS)):
+        if part not in parts:
+            continue
+        shown = tables.platform_columns if part == "platforms" else tables.emitter_columns
+        t = table_block(s["tables"][part], columns, shown, tables.rows)
+        blocks.append(Block("h1", f"{title}{' added or updated' if tables.rows == 'changed' else ''} in v{s['to_version']}"))
+        if t is None:
+            blocks.append(Block("meta", f"No {title} added or updated." if tables.rows == "changed" else f"No {title}."))
+        else:
+            blocks.append(
+                Block("table", rows=[t["columns"], *t["rows"]], marks=t["marks"], mark_column=t["mark_column"], widths=t["widths"], font_pt=t["font_pt"])
+            )
+
     if "contents" in parts:
         blocks.append(Block("h1", f"Contents of v{s['to_version']}"))
         # Emitter versions only in full detail.
@@ -563,12 +613,12 @@ def summary_document(s: dict, parts: tuple[str, ...] = PARTS, release_notes_text
                     + ([f"v{e['version']}"] if versions else [])
                 )
         blocks.append(Block("table", rows=rows) if len(rows) > 1 else Block("meta", "Nothing pinned."))
-    return write_docx(blocks)
+    return blocks
 
 
 def _parts(parts: str | None) -> tuple[str, ...]:
     if parts is None:
-        return PARTS
+        return DEFAULT_PARTS
     on = tuple(p.strip() for p in parts.split(",") if p.strip())
     unknown = sorted(set(on) - set(PARTS))
     if unknown:
@@ -606,8 +656,26 @@ class SummaryDocument(BaseModel):
     base: SummaryBase | None = None
     detail: str = "full"
     group: str = "change"
-    parts: list[str] = Field(default_factory=lambda: list(PARTS))
+    parts: list[str] = Field(default_factory=lambda: list(DEFAULT_PARTS))
     release_notes_text: str | None = Field(default=None, max_length=20000)
+    tables: Tables = Field(default_factory=Tables)
+
+
+def _check_tables(t: Tables) -> None:
+    for asked, columns, what in ((t.platform_columns, PLATFORM_COLUMNS, "Platform"), (t.emitter_columns, EMITTER_COLUMNS, "Emitter")):
+        unknown = sorted(set(asked) - columns.keys())
+        if unknown:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Unknown {what} column(s): {', '.join(unknown)}")
+    if t.rows not in ROWS:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"rows: one of {', '.join(ROWS)}")
+
+
+def _laid_out(db: Session, mdf_id: uuid.UUID, payload: SummaryDocument) -> tuple[Mdf, dict, tuple[str, ...]]:
+    _check_layout(payload.detail, payload.group)
+    _check_tables(payload.tables)
+    parts = _parts(",".join(payload.parts))
+    mdf = _mdf(db, mdf_id)
+    return mdf, build_summary(db, mdf, payload.from_version, payload.to_version, payload.base, None, payload.detail, payload.group), parts
 
 
 @router.post("/{mdf_id}/summary.docx", dependencies=[Depends(verify_csrf)])
@@ -615,10 +683,42 @@ def summary_docx_with(
     mdf_id: uuid.UUID, payload: SummaryDocument, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
 ) -> Response:
     """The release notes as a Word document, laid out as asked."""
-    _check_layout(payload.detail, payload.group)
-    mdf = _mdf(db, mdf_id)
-    s = build_summary(db, mdf, payload.from_version, payload.to_version, payload.base, None, payload.detail, payload.group)
-    return _docx_response(mdf, s, _parts(",".join(payload.parts)), payload.release_notes_text)
+    mdf, s, parts = _laid_out(db, mdf_id, payload)
+    return _docx_response(mdf, s, parts, payload.release_notes_text, payload.tables)
+
+
+@router.post("/{mdf_id}/summary/preview", dependencies=[Depends(verify_csrf)])
+def summary_preview(
+    mdf_id: uuid.UUID, payload: SummaryDocument, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
+) -> dict:
+    """The release notes laid out as asked, as the document's blocks — the
+    preview page draws exactly what the Word file will hold."""
+    mdf, s, parts = _laid_out(db, mdf_id, payload)
+    blocks = document_blocks(s, parts, payload.release_notes_text, payload.tables)
+    return {
+        "file_name": f"{mdf.name} release notes v{s['to_version']}.docx",
+        "blocks": [
+            {
+                "kind": b.kind,
+                "text": b.text,
+                "rows": b.rows,
+                "marks": b.marks,
+                "mark_column": b.mark_column,
+                "widths": b.widths,
+                "font_pt": b.font_pt,
+            }
+            for b in blocks
+        ],
+    }
+
+
+@router.get("/{mdf_id}/summary/columns")
+def summary_columns(mdf_id: uuid.UUID, _=Depends(require_role(Role.viewer))) -> dict:
+    """What the Platforms and Emitters tables can show, and what they show to start."""
+    return {
+        "platforms": {"columns": PLATFORM_COLUMNS, "default": list(PLATFORM_DEFAULT)},
+        "emitters": {"columns": EMITTER_COLUMNS, "default": list(EMITTER_DEFAULT)},
+    }
 
 
 class PlainDraftAsk(BaseModel):
@@ -644,6 +744,8 @@ def summary_plain_draft(
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(err)) from err
 
 
-def _docx_response(mdf: Mdf, s: dict, parts: tuple[str, ...], text: str | None) -> Response:
+def _docx_response(mdf: Mdf, s: dict, parts: tuple[str, ...], text: str | None, tables: Tables | None = None) -> Response:
     name = f"{mdf.name} release notes v{s['to_version']}.docx"
-    return Response(content=summary_document(s, parts, text), media_type=DOCX, headers={"Content-Disposition": attachment_disposition(name)})
+    return Response(
+        content=summary_document(s, parts, text, tables), media_type=DOCX, headers={"Content-Disposition": attachment_disposition(name)}
+    )

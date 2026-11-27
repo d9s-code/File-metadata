@@ -990,3 +990,51 @@ test("MDF summary: the change log in counts, sentences and by Platform, parts le
   await removeEmitter(page, one.e.id);
   await removeEmitter(page, two.e.id);
 });
+
+test("Release notes preview: the document as a page, Platforms and Emitters tables with the columns picked, downloaded as shown", async ({ page }) => {
+  const n = Date.now();
+  const e = await api<{ id: string }>(page, "POST", "/emitters", { name: `E2E Preview Radar ${n}`, designation: `PV-${n % 1000}` });
+  const g = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/ew-groups`, { name: "G" });
+  const s = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/sources`, { name: "S", source_date: "2026-01-01" });
+  await api(page, "POST", `/ew-groups/${g.id}/modes`, { source_id: s.id, name: "Search", pri_type: "fixed", line: FIXED_LINE });
+  const v = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/versions`, { change_summary: "v1" });
+  const p = await api<{ id: string }>(page, "POST", "/platforms", { name: `E2E Preview Ship ${n}` });
+  await api(page, "POST", `/platforms/${p.id}/links`, { emitter_id: e.id, emitter_version_id: v.id });
+  const pv = await api<{ id: string }>(page, "POST", `/platforms/${p.id}/versions`, { change_summary: "v1" });
+  const mdf = await api<{ id: string }>(page, "POST", "/mdfs", { name: `E2E Preview MDF ${n}` });
+  await api(page, "POST", `/mdfs/${mdf.id}/links`, { platform_id: p.id, platform_version_id: pv.id });
+  await api(page, "POST", `/mdfs/${mdf.id}/versions`, { change_summary: "v1" });
+
+  await page.evaluate(() => localStorage.removeItem("mdf-summary-layout"));
+  // From the Plan tab.
+  await page.goto(`/mdfs/${mdf.id}?tab=plan`);
+  await page.getByRole("link", { name: "Preview release notes" }).click();
+  await expect(page).toHaveURL(new RegExp(`/mdfs/${mdf.id}/release-notes`));
+  const doc = page.getByRole("article", { name: "Release notes preview" });
+  await expect(doc).toContainText(`E2E Preview MDF ${n} — release notes v1`);
+
+  const options = page.getByRole("complementary", { name: "How the release notes read" });
+  await options.getByLabel("Emitters table").check();
+  await expect(doc.getByRole("heading", { name: "Emitters in v1" })).toBeVisible();
+  const table = doc.locator("table").filter({ hasText: "Designation" });
+  await expect(table).toContainText(`PV-${n % 1000}`);
+  // A column added and one taken away.
+  const columns = options.locator("fieldset", { hasText: "Emitters columns" });
+  await columns.getByLabel("Platforms").check();
+  await columns.getByLabel("Version").uncheck();
+  await expect(table.locator("thead")).toContainText("Platforms");
+  await expect(table.locator("thead")).not.toContainText("Version");
+  await expect(table).toContainText(`E2E Preview Ship ${n}`);
+  // Only what changed: from the start, everything is added.
+  await options.getByLabel("From").selectOption("start");
+  await options.getByLabel("Only those added or updated").check();
+  await expect(doc.getByRole("heading", { name: "Emitters added or updated in v1" })).toBeVisible();
+  await expect(table.locator("tbody tr").first()).toHaveAttribute("data-mark", "added");
+
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download (.docx)" }).click();
+  expect((await download).suggestedFilename()).toBe(`E2E Preview MDF ${n} release notes v1.docx`);
+
+  await page.evaluate(() => localStorage.removeItem("mdf-summary-layout"));
+  await removeEmitter(page, e.id);
+});

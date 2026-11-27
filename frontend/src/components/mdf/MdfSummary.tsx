@@ -17,6 +17,7 @@ import type { MdfVersionSummary } from "../../api/mdfVersions";
 import { useAuth } from "../../auth/AuthContext";
 import { useAiStatus } from "../../state/hooks/useAmbiguity";
 import { useMdfSummary } from "../../state/hooks/useMdfPlan";
+import { ALL_PARTS, DETAILS, PART_LABELS, readLayout, saveFile, saveLayout, type Layout } from "./summaryLayout";
 import { formatDate, formatDateTime } from "../common/dates";
 
 /** The change notes: what was added, removed and updated in what's
@@ -164,60 +165,6 @@ function ChangeTable({ block }: { block: ChangeLogBlock }) {
   );
 }
 
-interface Layout {
-  detail: ChangeLogDetail;
-  group: ChangeLogGroup;
-  parts: SummaryPart[];
-}
-
-const LAYOUT_KEY = "mdf-summary-layout";
-const ALL_PARTS: SummaryPart[] = ["meta", "release_notes", "contents"];
-const DEFAULT_LAYOUT: Layout = { detail: "full", group: "change", parts: ALL_PARTS };
-
-/** How the summary was last laid out, in this browser. */
-function readLayout(): Layout {
-  try {
-    const v = JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? "null") as Partial<Layout> | null;
-    if (!v) return DEFAULT_LAYOUT;
-    return {
-      detail: (["full", "names", "counts", "sentences"] as const).includes(v.detail as ChangeLogDetail) ? (v.detail as ChangeLogDetail) : "full",
-      group: v.group === "platform" ? "platform" : "change",
-      parts: Array.isArray(v.parts) ? ALL_PARTS.filter((p) => v.parts!.includes(p)) : ALL_PARTS,
-    };
-  } catch {
-    return DEFAULT_LAYOUT;
-  }
-}
-
-function saveLayout(l: Layout) {
-  try {
-    localStorage.setItem(LAYOUT_KEY, JSON.stringify(l));
-  } catch {
-    // Not kept; fine.
-  }
-}
-
-const DETAILS: [ChangeLogDetail, string][] = [
-  ["full", "Full detail"],
-  ["names", "Names only"],
-  ["counts", "Counts only"],
-  ["sentences", "Plain sentences"],
-];
-const PART_LABELS: [SummaryPart, string][] = [
-  ["meta", "Versions & details"],
-  ["release_notes", "Release notes"],
-  ["contents", "Contents table"],
-];
-
-function save(blob: Blob, name: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
 /** "Summarize…": the change notes between two saved versions (by default
  * since the last release — or, before this MDF has one, since the MDF it
  * follows), with the release notes written for them and the contents of the
@@ -281,9 +228,10 @@ export function SummaryPanel({ mdfId, versions, onClose }: { mdfId: string; vers
         detail: layout.detail,
         group: layout.group,
         parts: layout.parts,
+        tables: layout.tables,
         releaseNotesText: usingDraft ? draftNow!.edited : null,
       });
-      save(blob, `${s.mdf.name} release notes v${s.to_version}.docx`);
+      saveFile(blob, `${s.mdf.name} release notes v${s.to_version}.docx`);
     } catch (err) {
       setActionError(err instanceof ApiRequestError ? err.message : "Couldn't make the document");
     } finally {
@@ -355,6 +303,9 @@ export function SummaryPanel({ mdfId, versions, onClose }: { mdfId: string; vers
             {downloading ? "Making it…" : "Download release notes (.docx)"}
           </button>
         )}
+        <Link className="link-as-button" to={`/mdfs/${mdfId}/release-notes`}>
+          Preview page…
+        </Link>
         {isFetching && <span className="hint-text">Working…</span>}
       </div>
       <div className="mdf-summary-layout" role="group" aria-label="How it reads">
@@ -371,12 +322,12 @@ export function SummaryPanel({ mdfId, versions, onClose }: { mdfId: string; vers
         <label>
           Grouped
           <select value={layout.group} aria-label="Change notes grouping" onChange={(e) => setLayout({ group: e.target.value as ChangeLogGroup })}>
-            <option value="change">By change (added, removed, updated)</option>
+            <option value="change">By change (added, updated, removed)</option>
             <option value="platform">By Platform</option>
           </select>
         </label>
         <span className="mdf-summary-parts">
-          {PART_LABELS.map(([p, label]) => (
+          {PART_LABELS.filter(([p]) => p !== "platforms" && p !== "emitters").map(([p, label]) => (
             <label key={p} className="inline-check">
               <input
                 type="checkbox"
@@ -386,6 +337,12 @@ export function SummaryPanel({ mdfId, versions, onClose }: { mdfId: string; vers
               {label}
             </label>
           ))}
+          {(has("platforms") || has("emitters")) && (
+            <span className="hint-text">
+              + {[has("platforms") && "Platforms", has("emitters") && "Emitters"].filter(Boolean).join(" and ")} table — set on the{" "}
+              <Link to={`/mdfs/${mdfId}/release-notes`}>preview page</Link>
+            </span>
+          )}
         </span>
         {aiOn && s && (
           <button type="button" className="button secondary small" disabled={drafting} onClick={() => void makeDraft()} title="The AI rewrites the release notes and change notes in plain words — a draft for you to edit">

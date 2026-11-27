@@ -191,3 +191,70 @@ def test_a_plain_language_draft(editor_client, monkeypatch):
 
     monkeypatch.setattr(llm_client, "chat_json", down)
     assert editor_client.post(f"/mdfs/{mid}/summary/plain-draft", json={"from_version": 1}).status_code == 503
+
+
+def _preview(client, mdf_id, **layout):
+    r = client.post(f"/mdfs/{mdf_id}/summary/preview", json={"from_version": 1, **layout})
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def _tables(preview):
+    """The preview's tables after each heading: {heading: (rows, marks, mark_column)}."""
+    out, heading = {}, None
+    for b in preview["blocks"]:
+        if b["kind"] == "h1":
+            heading = b["text"]
+        elif b["kind"] == "table":
+            out[heading] = (b["rows"], b["marks"], b["mark_column"])
+    return out
+
+
+def test_platforms_and_emitters_tables(editor_client):
+    mid = _build(editor_client)
+    tables = editor_client.get(f"/mdfs/{mid}/summary", params={"from_version": 1}).json()["tables"]
+    # Added first, then updated; values as exported (deltas applied).
+    assert [(r["mark"], r["values"]["emitter"]) for r in tables["emitters"]] == [("added", "Radar Two"), ("updated", "Radar One")]
+    one = tables["emitters"][1]["values"]
+    assert (one["rf"], one["pw"], one["pri"], one["modes"], one["platforms"]) == ("8,995–9,105", "0.4–1.6", "993–1,007", "2", "Alpha Ship")
+    assert tables["emitters"][0]["values"]["designation"] == "RT-2"
+    assert [(r["mark"], r["values"]["platform"]) for r in tables["platforms"]] == [("added", "Bravo Ship"), ("updated", "Alpha Ship")]
+    assert tables["platforms"][0]["values"]["emitters"] == "RT-2 — Radar Two"
+
+    # In the document: the columns asked for, in their own order; a Change column coloured.
+    preview = _preview(
+        editor_client,
+        mid,
+        parts=["platforms", "emitters"],
+        tables={"platform_columns": ["status", "platform"], "emitter_columns": ["emitter", "rf", "change"], "rows": "all"},
+    )
+    t = _tables(preview)
+    rows, marks, mark_column = t["Emitters in v2"]
+    assert rows == [["Emitter", "RF (MHz)", "Change"], ["Radar Two", "8,995–9,105", "Added"], ["Radar One", "8,995–9,105", "Updated"]]
+    assert marks == ["added", "updated"] and mark_column == 2
+    rows, _, mark_column = t["Platforms in v2"]
+    assert rows[0] == ["Platform", "Status"] and mark_column is None
+    assert "Contents of v2" not in t and preview["file_name"] == "Log MDF release notes v2.docx"
+
+
+def test_only_what_changed_and_the_word_file_matches(editor_client):
+    mid = _build(editor_client)
+    # Unchanged rows are left out with "changed"; the Word file holds the same.
+    client = editor_client
+    one = client.get(f"/mdfs/{mid}/summary", params={"from_version": 1}).json()
+    assert {r["mark"] for r in one["tables"]["emitters"]} == {"added", "updated"}
+    layout = {"parts": ["emitters"], "tables": {"emitter_columns": ["designation", "emitter", "status"], "rows": "changed"}}
+    t = _tables(_preview(client, mid, **layout))
+    rows, _, _ = t["Emitters added or updated in v2"]
+    assert [r[1] for r in rows[1:]] == ["Radar Two", "Radar One"]
+    doc = _doc(client.post(f"/mdfs/{mid}/summary.docx", json={"from_version": 1, **layout}).content)
+    assert "Emitters added or updated in v2" in doc and "RT-2" in doc and "In progress" in doc
+    # From the start every row is added.
+    t = _tables(_preview(client, mid, base="start", parts=["platforms"], tables={"rows": "changed"}))
+    assert [r[0] for r in t["Platforms added or updated in v2"][0][1:]] == ["Alpha Ship", "Bravo Ship"]
+    # Unknown columns or rows are refused.
+    bad = client.post(f"/mdfs/{mid}/summary/preview", json={"tables": {"emitter_columns": ["colour"]}})
+    assert bad.status_code == 422
+    assert client.post(f"/mdfs/{mid}/summary/preview", json={"tables": {"rows": "some"}}).status_code == 422
+    cols = client.get(f"/mdfs/{mid}/summary/columns").json()
+    assert cols["emitters"]["columns"]["rf"] == "RF (MHz)" and "status" in cols["platforms"]["default"]

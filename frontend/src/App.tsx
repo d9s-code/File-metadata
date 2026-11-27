@@ -36,6 +36,7 @@ const MdfsListPage = lazyPage(() => import("./pages/MdfsListPage"), "MdfsListPag
 const MdfBuilderPage = lazyPage(() => import("./pages/MdfBuilderPage"), "MdfBuilderPage");
 const MdfVersionHistoryPage = lazyPage(() => import("./pages/MdfVersionHistoryPage"), "MdfVersionHistoryPage");
 const MdfComparePage = lazyPage(() => import("./pages/MdfComparePage"), "MdfComparePage");
+const ReleaseNotesPage = lazyPage(() => import("./pages/ReleaseNotesPage"), "ReleaseNotesPage");
 const PlatformConfidencePage = lazyPage(() => import("./pages/PlatformConfidencePage"), "PlatformConfidencePage");
 const DashboardPage = lazyPage(() => import("./pages/DashboardPage"), "DashboardPage");
 const SourceGroupsPage = lazyPage(() => import("./pages/SourceGroupsPage"), "SourceGroupsPage");
@@ -223,6 +224,14 @@ export default function App() {
                 element={
                   <RequireAuth>
                     <MdfBuilderPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/mdfs/:mdfId/release-notes"
+                element={
+                  <RequireAuth>
+                    <ReleaseNotesPage />
                   </RequireAuth>
                 }
               />

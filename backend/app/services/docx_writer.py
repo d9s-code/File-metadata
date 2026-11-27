@@ -23,6 +23,8 @@ class Block:
     mark_column: int | None = None
     # Each column's share of the width (any numbers; they're scaled), or none: equal.
     widths: list[float] = field(default_factory=list)
+    # A table's text size in points, if not the body's.
+    font_pt: float | None = None
 
 
 # The page's width between its margins, in twentieths of a point.
@@ -61,11 +63,17 @@ def _cell(text: str, fill: str | None = None, width: int | None = None, **run) -
     return f"<w:tc>{f'<w:tcPr>{props}</w:tcPr>' if props else ''}<w:p>{_runs(text, **run)}</w:p></w:tc>"
 
 
-def _table(rows: list[list[str]], marks: list[str | None] | None = None, mark_column: int | None = None, widths: list[float] | None = None) -> str:
+def _table(
+    rows: list[list[str]],
+    marks: list[str | None] | None = None,
+    mark_column: int | None = None,
+    widths: list[float] | None = None,
+    font_pt: float | None = None,
+) -> str:
     if not rows:
         return ""
     if marks:
-        return _marked_table(rows, marks, mark_column, widths)
+        return _marked_table(rows, marks, mark_column, widths, font_pt)
     border = '<w:{0} w:val="single" w:sz="4" w:space="0" w:color="BFBFBF"/>'
     borders = "".join(border.format(side) for side in ("top", "left", "bottom", "right", "insideH", "insideV"))
     out = [f'<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/><w:tblBorders>{borders}</w:tblBorders></w:tblPr>']
@@ -80,7 +88,10 @@ def _table(rows: list[list[str]], marks: list[str | None] | None = None, mark_co
     return "".join(out) + "<w:p/>"
 
 
-def _marked_table(rows: list[list[str]], marks: list[str | None], mark_column: int | None, widths: list[float] | None = None) -> str:
+def _marked_table(
+    rows: list[list[str]], marks: list[str | None], mark_column: int | None, widths: list[float] | None = None, font_pt: float | None = None
+) -> str:
+    size = round(font_pt * 2) if font_pt else None
     border = '<w:{0} w:val="single" w:sz="4" w:space="0" w:color="BFBFBF"/>'
     borders = "".join(border.format(side) for side in ("top", "left", "bottom", "right", "insideH", "insideV"))
     shares = widths if widths and len(widths) == len(rows[0]) else [1.0] * len(rows[0])
@@ -89,7 +100,7 @@ def _marked_table(rows: list[list[str]], marks: list[str | None], mark_column: i
         f'<w:tbl><w:tblPr><w:tblW w:w="{sum(cols)}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders>{borders}</w:tblBorders></w:tblPr>',
         "<w:tblGrid>" + "".join(f'<w:gridCol w:w="{w}"/>' for w in cols) + "</w:tblGrid>",
     ]
-    out.append("<w:tr><w:trPr><w:tblHeader/></w:trPr>" + "".join(_cell(str(c), "EDEFF2", cols[i], bold=True) for i, c in enumerate(rows[0])) + "</w:tr>")
+    out.append("<w:tr><w:trPr><w:tblHeader/></w:trPr>" + "".join(_cell(str(c), "EDEFF2", cols[i], bold=True, size=size) for i, c in enumerate(rows[0])) + "</w:tr>")
     for row, mark in zip(rows[1:], marks, strict=False):
         tint, fill, ink = MARK_COLOURS.get(mark or "", (None, None, None))
         cells = []
@@ -97,9 +108,9 @@ def _marked_table(rows: list[list[str]], marks: list[str | None], mark_column: i
             # Several lines in a cell: each its own bullet.
             text = ("\n".join(f"• {x}" for x in c) if len(c) > 1 else "".join(c)) if isinstance(c, list) else str(c if c is not None else "")
             if i == mark_column and mark:
-                cells.append(_cell(text, fill, cols[i], bold=True, color=ink))
+                cells.append(_cell(text, fill, cols[i], bold=True, color=ink, size=size))
             else:
-                cells.append(_cell(text, tint, cols[i]))
+                cells.append(_cell(text, tint, cols[i], size=size))
         out.append("<w:tr><w:trPr><w:cantSplit/></w:trPr>" + "".join(cells) + "</w:tr>")
     out.append("</w:tbl>")
     return "".join(out) + "<w:p/>"
@@ -117,7 +128,7 @@ def _block(b: Block) -> str:
     if b.kind == "bullet":
         return f'<w:p><w:pPr><w:ind w:left="360" w:hanging="240"/></w:pPr>{_runs("• " + b.text)}</w:p>'
     if b.kind == "table":
-        return _table(b.rows, b.marks, b.mark_column, b.widths)
+        return _table(b.rows, b.marks, b.mark_column, b.widths, b.font_pt)
     return _para(b.text)
 
 
