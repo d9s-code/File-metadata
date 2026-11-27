@@ -62,14 +62,16 @@ def test_mode_values_that_count():
     [emitter] = notes["updated"]
     assert emitter["name"] == "SS-1 — Sea Search"
     assert emitter["modes_added"] == ["Acquire"] and emitter["modes_removed"] == []
+    # The priority is the EW Group's: said once, for the group, not on each Mode.
     assert emitter["modes_changed"] == [
-        {"mode": "Search", "fields": ["RF", "Priority"]},
-        {"mode": "Track → Track Fine", "fields": ["Name", "Priority"]},
+        {"mode": "Search", "fields": ["RF"]},
+        {"mode": "Track → Track Fine", "fields": ["Name"]},
     ]
     assert emitter["items"] == [
+        "EW Group G: priority 5 → 9",
         "1 Mode added: Acquire",
-        "Search: RF, Priority changed",
-        "Track → Track Fine: Name, Priority changed",
+        "Search: RF changed",
+        "Track → Track Fine: Name changed",
     ]
 
 
@@ -162,3 +164,50 @@ def test_what_counts_can_be_switched():
     assert notes == {"added": [], "removed": [], "updated": []}
     # Unknown rules are ignored.
     assert change_notes(old, new, {"nonsense": True}) == change_notes(old, new)
+
+
+def test_only_what_the_export_writes():
+    """Changes the PRS export doesn't carry never show; ones it does always can."""
+    radar = copy.deepcopy(RADAR)
+    radar["ew_groups"][0]["id"] = "g1"
+    old = _mdf([("p1", "Frigate", 1, [("e1", 1, radar)])])
+    later = copy.deepcopy(radar)
+    mode = later["ew_groups"][0]["modes"][0]
+    # Not exported: signal behaviour, ERP, scans, operational modes, Sources, a delta that
+    # moves nothing (0 → 0), a name that exports the same ("Search" stays "Search").
+    mode["signal"] = {"rf": {"kind": "agile"}}
+    mode["scan_id"] = "s1"
+    later["ew_groups"][0]["erp_min_dbm"] = 70
+    later["scans"] = [{"id": "s1", "name": "Circular"}]
+    later["operational_modes"] = [{"id": "o1", "name": "Surveillance"}]
+    later["sources"] = [{"id": "src", "name": "Report"}]
+    assert change_notes(old, _mdf([("p1", "Frigate", 2, [("e1", 2, later)])]))["updated"] == []
+    # Exported: the Emitter's name and designation, an EW Group's name, a Mode moving group.
+    later["name"] = "Sea Search Mk2"
+    later["designation"] = "SS-2"
+    later["ew_groups"][0]["name"] = "Surface"
+    later["ew_groups"].append({"id": "g2", "name": "Air", "threat_priority": 5, "ageout": 10, "scan_min": 0, "scan_max": 1,
+                               "modes": [later["ew_groups"][0]["modes"].pop()]})
+    [emitter] = change_notes(old, _mdf([("p1", "Frigate", 2, [("e1", 2, later)])]))["updated"]
+    assert emitter["items"] == [
+        "Renamed Sea Search → Sea Search Mk2",
+        "Designation SS-1 → SS-2",
+        "EW Group Air added",
+        "EW Group Surface: renamed from G",
+        "Track: moved from EW Group G to Air",
+    ]
+
+
+def test_a_hundred_modes_read_compactly():
+    from app.services.change_notes import compact_names
+
+    old = _mdf([("p1", "Frigate", 1, [("e1", 1, RADAR)])])
+    later = copy.deepcopy(RADAR)
+    later["ew_groups"][0]["modes"] += [_mode(f"t{i}", f"Track {i}", rf_min_mhz=4000 + i) for i in range(1, 101)]
+    for m in later["ew_groups"][0]["modes"][:2]:
+        m["line"]["rf_delta"] = 5
+    [emitter] = change_notes(old, _mdf([("p1", "Frigate", 2, [("e1", 2, later)])]))["updated"]
+    assert emitter["items"] == ["100 Modes added: Track 1–100", "RF changed on 2 Modes: Search, Track"]
+    assert compact_names(["Track 2", "Track 10", "Track 1", "Track 3", "Search 7", "Search 8"]) == "Search 7, Search 8, Track 1–3, Track 10"
+    many = [f"Mode {c}" for c in "ABCDEFGHIJKLMNOPQRST"]
+    assert compact_names(many) == "Mode A, Mode B, Mode C, Mode D, Mode E, Mode F, Mode G, Mode H, Mode I, Mode J, Mode K, Mode L and 8 more"

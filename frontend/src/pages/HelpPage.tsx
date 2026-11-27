@@ -1272,8 +1272,12 @@ export function HelpPage() {
           <p>
             <strong>Summarize…</strong> (in the Release notes card) gives the <strong>change notes</strong> between two
             saved versions, by default since the last release. They list only major changes: Platforms, Emitters and
-            dwell files added or removed. They also list Emitters updated: Modes added or removed, and Modes whose
-            exported name, PRI type, RF, PW, PRI, jitter, stagger, priority or ageout changed (deltas included).
+            dwell files added or removed. They also list Emitters updated — only when what the XML export writes for
+            them changed, so notes, Sources, scans, signal behaviour and the like never show: a new exported name or
+            designation, EW Groups added, removed or renamed (and their priority or ageout, said once per group), Modes
+            added or removed, and Modes whose exported name, PRI type, RF, PW, PRI, jitter or stagger changed (deltas
+            included) or that moved group. Many Modes read compactly: &quot;100 Modes added: Track 1–100&quot;, &quot;RF
+            changed on 45 Modes: … and 33 more&quot;.
             The release notes you wrote for those versions are shown with them. Version bumps with nothing exported
             changed, notes, confirmation, scan period and range matching don&apos;t appear, unless an Admin changes
             what counts on <strong>Admin › Defaults</strong>, where a preview shows how an MDF&apos;s change notes would

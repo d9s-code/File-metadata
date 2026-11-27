@@ -21,7 +21,12 @@ class Block:
     # None: the row tinted, and its cell in `mark_column` coloured and bold.
     marks: list[str | None] = field(default_factory=list)
     mark_column: int | None = None
+    # Each column's share of the width (any numbers; they're scaled), or none: equal.
+    widths: list[float] = field(default_factory=list)
 
+
+# The page's width between its margins, in twentieths of a point.
+TEXT_WIDTH = 11906 - 2 * 1134
 
 # (the row's tint, the change cell's fill, its text) — green, red, amber.
 MARK_COLOURS = {
@@ -49,16 +54,18 @@ def _para(text: str, style: str | None = None, **run) -> str:
     return f"<w:p>{ppr}{_runs(text, **run)}</w:p>"
 
 
-def _cell(text: str, fill: str | None = None, **run) -> str:
-    shade = f'<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="{fill}"/></w:tcPr>' if fill else ""
-    return f"<w:tc>{shade}<w:p>{_runs(text, **run)}</w:p></w:tc>"
+def _cell(text: str, fill: str | None = None, width: int | None = None, **run) -> str:
+    props = (f'<w:tcW w:w="{width}" w:type="dxa"/>' if width else "") + (
+        f'<w:shd w:val="clear" w:color="auto" w:fill="{fill}"/>' if fill else ""
+    )
+    return f"<w:tc>{f'<w:tcPr>{props}</w:tcPr>' if props else ''}<w:p>{_runs(text, **run)}</w:p></w:tc>"
 
 
-def _table(rows: list[list[str]], marks: list[str | None] | None = None, mark_column: int | None = None) -> str:
+def _table(rows: list[list[str]], marks: list[str | None] | None = None, mark_column: int | None = None, widths: list[float] | None = None) -> str:
     if not rows:
         return ""
     if marks:
-        return _marked_table(rows, marks, mark_column)
+        return _marked_table(rows, marks, mark_column, widths)
     border = '<w:{0} w:val="single" w:sz="4" w:space="0" w:color="BFBFBF"/>'
     borders = "".join(border.format(side) for side in ("top", "left", "bottom", "right", "insideH", "insideV"))
     out = [f'<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/><w:tblBorders>{borders}</w:tblBorders></w:tblPr>']
@@ -73,20 +80,26 @@ def _table(rows: list[list[str]], marks: list[str | None] | None = None, mark_co
     return "".join(out) + "<w:p/>"
 
 
-def _marked_table(rows: list[list[str]], marks: list[str | None], mark_column: int | None) -> str:
+def _marked_table(rows: list[list[str]], marks: list[str | None], mark_column: int | None, widths: list[float] | None = None) -> str:
     border = '<w:{0} w:val="single" w:sz="4" w:space="0" w:color="BFBFBF"/>'
     borders = "".join(border.format(side) for side in ("top", "left", "bottom", "right", "insideH", "insideV"))
-    out = [f'<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/><w:tblBorders>{borders}</w:tblBorders></w:tblPr>']
-    out.append("<w:tr><w:trPr><w:tblHeader/></w:trPr>" + "".join(_cell(str(c), "EDEFF2", bold=True) for c in rows[0]) + "</w:tr>")
+    shares = widths if widths and len(widths) == len(rows[0]) else [1.0] * len(rows[0])
+    cols = [int(TEXT_WIDTH * w / sum(shares)) for w in shares]
+    out = [
+        f'<w:tbl><w:tblPr><w:tblW w:w="{sum(cols)}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders>{borders}</w:tblBorders></w:tblPr>',
+        "<w:tblGrid>" + "".join(f'<w:gridCol w:w="{w}"/>' for w in cols) + "</w:tblGrid>",
+    ]
+    out.append("<w:tr><w:trPr><w:tblHeader/></w:trPr>" + "".join(_cell(str(c), "EDEFF2", cols[i], bold=True) for i, c in enumerate(rows[0])) + "</w:tr>")
     for row, mark in zip(rows[1:], marks, strict=False):
         tint, fill, ink = MARK_COLOURS.get(mark or "", (None, None, None))
         cells = []
         for i, c in enumerate(row):
-            text = "\n".join(c) if isinstance(c, list) else str(c if c is not None else "")
+            # Several lines in a cell: each its own bullet.
+            text = ("\n".join(f"• {x}" for x in c) if len(c) > 1 else "".join(c)) if isinstance(c, list) else str(c if c is not None else "")
             if i == mark_column and mark:
-                cells.append(_cell(text, fill, bold=True, color=ink))
+                cells.append(_cell(text, fill, cols[i], bold=True, color=ink))
             else:
-                cells.append(_cell(text, tint))
+                cells.append(_cell(text, tint, cols[i]))
         out.append("<w:tr><w:trPr><w:cantSplit/></w:trPr>" + "".join(cells) + "</w:tr>")
     out.append("</w:tbl>")
     return "".join(out) + "<w:p/>"
@@ -104,7 +117,7 @@ def _block(b: Block) -> str:
     if b.kind == "bullet":
         return f'<w:p><w:pPr><w:ind w:left="360" w:hanging="240"/></w:pPr>{_runs("• " + b.text)}</w:p>'
     if b.kind == "table":
-        return _table(b.rows, b.marks, b.mark_column)
+        return _table(b.rows, b.marks, b.mark_column, b.widths)
     return _para(b.text)
 
 

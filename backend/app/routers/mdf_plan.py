@@ -490,6 +490,8 @@ def _day(value) -> str:
 
 # The parts of the release-notes document that can be left out.
 PARTS = ("meta", "release_notes", "contents")
+# The change log's columns in the document, by their first word: what changed, widest.
+_COLUMN_WIDTHS = {"Change": 1.1, "Type": 1.0, "Name": 2.2, "Platform": 1.8, "Emitter": 2.2, "Details": 4.2}
 
 
 def summary_document(s: dict, parts: tuple[str, ...] = PARTS, release_notes_text: str | None = None) -> bytes:
@@ -541,7 +543,8 @@ def summary_document(s: dict, parts: tuple[str, ...] = PARTS, release_notes_text
             blocks.append(Block("p", b["text"]))
         elif b["type"] == "table":
             rows = [b["columns"], *[r["cells"] for r in b["rows"]]]
-            blocks.append(Block("table", rows=rows, marks=[r["mark"] for r in b["rows"]], mark_column=b["mark_column"]))
+            widths = [_COLUMN_WIDTHS.get(c.split(" ")[0], 1.0) for c in b["columns"]]
+            blocks.append(Block("table", rows=rows, marks=[r["mark"] for r in b["rows"]], mark_column=b["mark_column"], widths=widths))
         else:
             blocks.append(Block("bullet", b["text"] + (": " + "; ".join(b["items"]) if b["items"] else "")))
 
