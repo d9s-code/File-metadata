@@ -8,6 +8,9 @@ export interface EwGroupInput {
   scan_delta?: number | null;
   threat_priority?: number | null;
   ageout?: number | null;
+  /** Effective radiated power, dBm — analysis only, never exported. */
+  erp_min_dbm?: number | null;
+  erp_max_dbm?: number | null;
   sort_order?: number;
 }
 

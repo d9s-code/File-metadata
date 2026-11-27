@@ -27,6 +27,7 @@ from app.schemas.mode import (
     ModeUpdate,
     NON_DSL_LINE_FIELDS,
     check_groups,
+    check_signal_for,
     require_manual_deltas,
     validate_pri_type_fields,
 )
@@ -138,6 +139,7 @@ def create_mode_record(
         scan_id=payload.scan_id,
         group_pulses=payload.group_pulses,
         group_off_ms=payload.group_off_ms,
+        signal=payload.signal.stored() if payload.signal else None,
         operational_mode_id=payload.operational_mode_id,
         generation_batch_id=generation_batch_id,
     )
@@ -294,6 +296,14 @@ def update_mode_record(db: Session, mode: Mode, payload: ModeUpdate, actor_id: U
         )
     if "scan_id" in data:
         check_scan(db, mode.source.emitter_id, data["scan_id"])
+    if "signal" in data:
+        data["signal"] = payload.signal.stored() if payload.signal else None
+    if "signal" in data or "pri_type" in data:
+        try:
+            pri_type = data.get("pri_type") or mode.pri_type
+            check_signal_for(getattr(pri_type, "value", str(pri_type)), data.get("signal", mode.signal))
+        except ValueError as exc:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc))
     if "group_pulses" in data or "group_off_ms" in data:
         try:
             check_groups(data.get("group_pulses", mode.group_pulses), data.get("group_off_ms", mode.group_off_ms))

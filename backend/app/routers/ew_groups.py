@@ -10,7 +10,7 @@ from app.database import get_db
 from app.deps import require_emitter_checkout, require_role
 from app.models.emitter import Emitter
 from app.models.ew_group import EwGroup
-from app.schemas.ew_group import EwGroupCreate, EwGroupOut, EwGroupSuggestion, EwGroupUpdate
+from app.schemas.ew_group import EwGroupCreate, EwGroupOut, EwGroupSuggestion, EwGroupUpdate, check_erp
 from app.services.audit_service import apply_and_diff, record_audit, snapshot
 
 router = APIRouter(prefix="/emitters/{emitter_id}/ew-groups", tags=["ew-groups"])
@@ -146,6 +146,11 @@ def update_ew_group(
         ):
             raise HTTPException(status.HTTP_409_CONFLICT, f"This Emitter already has an EW Group called '{new_name}'")
         data["name"] = new_name
+    if "erp_min_dbm" in data or "erp_max_dbm" in data:
+        try:
+            check_erp(data.get("erp_min_dbm", ew_group.erp_min_dbm), data.get("erp_max_dbm", ew_group.erp_max_dbm))
+        except ValueError as exc:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc))
     changes = apply_and_diff(ew_group, data)
     record_audit(
         db,
@@ -188,7 +193,7 @@ def delete_ew_group(
         entity_id=ew_group.id,
         summary=f"Deleted EW Group '{ew_group.name}'",
         changes=snapshot(
-            ew_group, ["name", "scan_min", "scan_max", "scan_delta", "threat_priority", "ageout", "sort_order"]
+            ew_group, ["name", "scan_min", "scan_max", "scan_delta", "threat_priority", "ageout", "erp_min_dbm", "erp_max_dbm", "sort_order"]
         ),
         emitter_id=emitter_id,
     )

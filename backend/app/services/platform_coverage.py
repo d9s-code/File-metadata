@@ -83,6 +83,8 @@ def _planner(
         "group_name": group.get("name"),
         # The radar's operational mode it's transmitted in ("TRACK › Track 2").
         "operational_mode": operational.get("path"),
+        # How its RF behaves (agile, hopping over channels, swept, several at once); None: fixed.
+        "rf_behaviour": (mode.get("signal") or {}).get("rf"),
         # Its gaps between pulses, µs, as the planner counts them (a Fixed PRI's longest; a stagger's steps).
         "steps_us": _pulses(mode)["steps_us"],
         # Sent in pulse groups: this many pulses, then off this long (ms).

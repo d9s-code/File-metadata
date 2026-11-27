@@ -137,6 +137,7 @@ export function EwGroupsTable({ emitterId, ewGroups }: { emitterId: string; ewGr
                 onSort={onSort}
                 onClear={onClear}
               />
+              <th title="Effective radiated power — for analysis only, never exported">ERP (dBm)</th>
               <th className="row-actions" aria-label="Actions"></th>
             </tr>
           </thead>
@@ -155,6 +156,13 @@ export function EwGroupsTable({ emitterId, ewGroups }: { emitterId: string; ewGr
                 </td>
                 <td>{g.threat_priority ?? "—"}</td>
                 <td>{g.ageout ?? "—"}</td>
+                <td>
+                  {g.erp_min_dbm == null && g.erp_max_dbm == null
+                    ? "—"
+                    : g.erp_min_dbm === g.erp_max_dbm || g.erp_max_dbm == null
+                      ? String(g.erp_min_dbm)
+                      : `${g.erp_min_dbm ?? "?"}–${g.erp_max_dbm}`}
+                </td>
                 <td className="row-actions">
                   <RequireRole minimum="editor">
                     <MenuButton

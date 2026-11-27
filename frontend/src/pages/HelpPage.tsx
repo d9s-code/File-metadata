@@ -749,6 +749,15 @@ export function HelpPage() {
               planner uses all of these.
             </p>
             <p>
+              A Mode&apos;s <strong>Signal behaviour</strong> (in its form, under the pulse train) says how it behaves inside
+              its ranges: its RF (agile, hopping over channels, swept, several at once), a Fixed PRI&apos;s movement (sliding,
+              wobulated, dwell &amp; switch, random), its PW (agile, a sequence), the modulation inside a pulse (chirps, phase
+              codes such as Barker or Frank, FSK) and its polarisation — each drawn as you type it. An EW Group can carry its{" "}
+              <strong>ERP</strong> (dBm). Both are for analysis only and never exported: the export is exactly what it was. The
+              dwell planner takes the RF behaviour — an agile or hopping Mode shows up in every dwell that reaches part of it,
+              with only its share of the pulses.
+            </p>
+            <p>
               Each operational mode can carry a <strong>plan</strong> (under Edit…): several RF, PRI and PW values with
               notes — a PRI can be a <strong>dwell &amp; switch</strong> (each PRI with its dwell in pulses or ms) or{" "}
               <strong>staggers</strong> (steps in order), and <strong>PW goes with each PRI</strong> pairs a PW with each PRI

@@ -39,6 +39,10 @@ class Mode(UUIDPkMixin, TimestampMixin, Base):
     scan_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("emitter_scans.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    # How its signal behaves beyond its ranges — RF, PRI and PW behaviour, the
+    # modulation inside a pulse, polarisation (schemas.mode_signal.ModeSignal).
+    # For analysis and the dwell planner only: never exported.
+    signal: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     # Sent in pulse groups: this many pulses, then off for group_off_ms, again
     # and again (both or neither) — for the dwell planner only, not exported.
     group_pulses: Mapped[int | None] = mapped_column(Integer, nullable=True)

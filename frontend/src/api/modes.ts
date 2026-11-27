@@ -1,3 +1,4 @@
+import type { ModeSignal } from "../components/signal/signal";
 import { api } from "./client";
 import type { Mode, ModeLineFields, PriType } from "../types/domain";
 
@@ -16,6 +17,8 @@ export interface ModeCreateInput {
   /** Pulse groups: this many pulses, then off (ms) — both, or both null. */
   group_pulses?: number | null;
   group_off_ms?: number | null;
+  /** How its signal behaves (null: plain) — analysis only, never exported. */
+  signal?: ModeSignal | null;
   operational_mode_id?: string | null;
   line: ModeLineFields;
   derived_from_test_record_ids?: string[];
@@ -33,6 +36,8 @@ export interface ModeUpdateInput {
   /** Pulse groups: this many pulses, then off (ms) — both, or both null. */
   group_pulses?: number | null;
   group_off_ms?: number | null;
+  /** How its signal behaves (null: plain) — analysis only, never exported. */
+  signal?: ModeSignal | null;
   /** Null unlinks it. */
   operational_mode_id?: string | null;
   ew_group_id?: string;

@@ -126,6 +126,8 @@ def reconcile_emitter_to_snapshot(db: Session, emitter: Emitter, snapshot: dict)
             group.scan_delta = _num(g_snap["scan_delta"])
         group.threat_priority = g_snap.get("threat_priority")
         group.ageout = _num(g_snap.get("ageout"))
+        group.erp_min_dbm = _num(g_snap.get("erp_min_dbm"))
+        group.erp_max_dbm = _num(g_snap.get("erp_max_dbm"))
         group.sort_order = g_snap.get("sort_order", 0)
         db.flush()
         _reconcile_modes(db, group, mode_snaps=g_snap.get("modes", []))
@@ -325,6 +327,7 @@ def _reconcile_modes(db: Session, group: EwGroup, *, mode_snaps: list[dict]) -> 
         mode.scan_id = _existing(db, EmitterScan, m_snap.get("scan_id"))
         mode.group_pulses = m_snap.get("group_pulses")
         mode.group_off_ms = _num(m_snap.get("group_off_ms"))
+        mode.signal = m_snap.get("signal")
         mode.operational_mode_id = _existing(db, OperationalMode, m_snap.get("operational_mode_id"))
         mode.extra_source_links = _extra_source_links(m_snap.get("extra_source_ids", []))
         if "generation_batch_id" in m_snap:
@@ -500,6 +503,8 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
             scan_delta=_num(g_snap.get("scan_delta")),
             threat_priority=g_snap.get("threat_priority"),
             ageout=_num(g_snap.get("ageout")),
+            erp_min_dbm=_num(g_snap.get("erp_min_dbm")),
+            erp_max_dbm=_num(g_snap.get("erp_max_dbm")),
             sort_order=g_snap.get("sort_order", 0),
         )
         db.add(new_group)
@@ -517,6 +522,7 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
                 scan_id=scan_id_map.get(m_snap.get("scan_id") or ""),
                 group_pulses=m_snap.get("group_pulses"),
                 group_off_ms=_num(m_snap.get("group_off_ms")),
+                signal=m_snap.get("signal"),
                 operational_mode_id=operational_id_map.get(m_snap.get("operational_mode_id") or ""),
             )
             new_mode.extra_source_links = [

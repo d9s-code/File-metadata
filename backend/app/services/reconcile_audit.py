@@ -18,7 +18,7 @@ _LINE_FIELDS = (
     "pri_stagger_values_us", "frame_time_delta_us", "explicit_frame_time_us", "pri_range_matching",
     "pw_min_us", "pw_max_us", "pw_delta", "pw_range_matching", "type_data",
 )  # fmt: skip
-_GROUP_FIELDS = ("name", "scan_min", "scan_max", "scan_delta", "threat_priority", "ageout")
+_GROUP_FIELDS = ("name", "scan_min", "scan_max", "scan_delta", "threat_priority", "ageout", "erp_min_dbm", "erp_max_dbm")
 _SOURCE_FIELDS = ("name", "description", "source_date", "source_type", "rf_legacy_term", "pri_legacy_term")
 _TEST_LINE_FIELDS = ("label", "expected_mode_name", "expected_parameters", "created_date")
 _OPERATIONAL_FIELDS = ("name", "description")
@@ -66,6 +66,8 @@ def _operational(snapshot: dict) -> dict[str, dict]:
 
 
 def _modes(snapshot: dict) -> dict[str, dict]:
+    from app.services.emitter_diff_service import signal_text
+
     operational = {o["id"]: o["name"] for o in snapshot.get("operational_modes", [])}
     scans = _scan_names(snapshot)
     out = {}
@@ -84,6 +86,7 @@ def _modes(snapshot: dict) -> dict[str, dict]:
                 "scan": scans.get(m.get("scan_id") or ""),
                 "group_pulses": m.get("group_pulses"),
                 "group_off_ms": m.get("group_off_ms"),
+                "signal": signal_text(m.get("signal")),
                 **{f: line.get(f) for f in _LINE_FIELDS},
             }
     return out

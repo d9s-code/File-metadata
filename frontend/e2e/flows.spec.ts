@@ -1,5 +1,33 @@
 import { expect, test } from "@playwright/test";
-import { FIXED_LINE, api, makeEmitter, removeEmitter, signIn } from "./helpers";
+import type { Page } from "@playwright/test";
+import { API_URL, FIXED_LINE, api, makeEmitter, removeEmitter, signIn } from "./helpers";
+
+/** An Emitter's XML export, as base64 (to compare byte for byte, the zip's timestamps aside). */
+async function exportXml(page: Page, emitterId: string): Promise<string> {
+  return page.evaluate(
+    async ([url, id]) => {
+      const csrf = document.cookie.split("; ").find((c) => c.startsWith("csrf_token="))?.split("=")[1];
+      const r = await fetch(url, {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json", "x-csrf-token": decodeURIComponent(csrf ?? "") },
+        body: JSON.stringify({ emitter_ids: [id] }),
+      });
+      if (!r.ok) throw new Error(`export ${r.status}`);
+      const bytes = new Uint8Array(await r.arrayBuffer());
+      // The zip's own timestamps (when it was made) blanked: only what's in it is compared.
+      for (let i = 0; i + 4 <= bytes.length; i++) {
+        if (bytes[i] !== 0x50 || bytes[i + 1] !== 0x4b) continue;
+        const at = bytes[i + 2] === 3 && bytes[i + 3] === 4 ? 10 : bytes[i + 2] === 1 && bytes[i + 3] === 2 ? 12 : -1;
+        if (at > 0) bytes.fill(0, i + at, i + at + 4);
+      }
+      let bin = "";
+      for (const b of bytes) bin += String.fromCharCode(b);
+      return btoa(bin);
+    },
+    [`${API_URL}/emitters/export/xml`, emitterId] as const,
+  );
+}
 
 test.beforeEach(async ({ page }) => {
   await signIn(page);
@@ -858,5 +886,44 @@ test("Pulse groups and timelines: a Mode in groups drawn, an operational mode's 
   await row.getByRole("button", { name: "Show PRF A's timeline" }).click();
   await expect(page.getByRole("img", { name: "PRF A against the dwell cycle over time" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Planner" }).locator("tr", { hasText: "PRF B" })).toContainText("in pulse groups");
+  await removeEmitter(page, e.id);
+});
+
+test("Signal behaviour: a hopping, sliding, chirped Mode drawn and saved; an EW Group's ERP — none of it exported", async ({ page }) => {
+  const n = Date.now();
+  const e = await api<{ id: string }>(page, "POST", "/emitters", { name: `E2E Agile ${n}` });
+  const g = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/ew-groups`, { name: "Track", scan_min: 1, scan_max: 2 });
+  const s = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/sources`, { name: "S", source_date: "2026-01-01" });
+  await api(page, "POST", `/ew-groups/${g.id}/modes`, { source_id: s.id, name: "Track hop", pri_type: "fixed", line: FIXED_LINE });
+  const before = await exportXml(page, e.id);
+
+  await page.goto(`/emitters/${e.id}?tab=modes`);
+  const start = page.getByRole("button", { name: /Start editing/ });
+  if (await start.isVisible()) await start.click();
+  await page.getByRole("button", { name: "Actions for Track hop" }).click();
+  await page.getByRole("menuitem", { name: "Edit" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: /Signal behaviour/ }).click();
+  await dialog.getByLabel("RF behaviour").selectOption("hopping");
+  await dialog.getByLabel("Channels (MHz)").fill("2950, 3000, 3050");
+  await dialog.getByLabel("Hop length").fill("8");
+  await dialog.getByLabel("PRI behaviour").selectOption("sliding");
+  await dialog.getByLabel("PRI period (ms)").fill("10");
+  await dialog.getByLabel("Intra-pulse modulation").selectOption("lfm");
+  await dialog.getByLabel("Chirp bandwidth (MHz)").fill("5");
+  await expect(dialog.getByRole("img", { name: /RF over time — hopping/ })).toBeVisible();
+  await expect(dialog.getByRole("img", { name: /linear chirp over 5 MHz/ })).toBeVisible();
+  await dialog.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(dialog).toBeHidden();
+  const [mode] = await api<{ signal: { rf: { kind: string }; modulation: { bandwidth_mhz: number } } }[]>(page, "GET", `/ew-groups/${g.id}/modes`);
+  expect([mode.signal.rf.kind, mode.signal.modulation.bandwidth_mhz]).toEqual(["hopping", 5]);
+
+  // ERP on the EW Group.
+  await api(page, "PATCH", `/emitters/${e.id}/ew-groups/${g.id}`, { erp_min_dbm: 70, erp_max_dbm: 85 });
+  await page.goto(`/emitters/${e.id}?tab=setup`);
+  await expect(page.locator("tr", { hasText: "Track" }).first()).toContainText("70–85");
+
+  // The export is byte for byte what it was.
+  expect(await exportXml(page, e.id)).toBe(before);
   await removeEmitter(page, e.id);
 });

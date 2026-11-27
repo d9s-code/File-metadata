@@ -1,3 +1,4 @@
+import type { RfBehaviour } from "../components/signal/signal";
 import type { TimelineStep } from "../components/pulses/pulseTrain";
 import type { EmitterScan } from "./scans";
 import { api } from "./client";
@@ -162,6 +163,8 @@ export interface CoverageMode {
     group_name: string | null;
     /** The radar's operational mode it's transmitted in ("TRACK › Track 2"). */
     operational_mode?: string | null;
+    /** How its RF behaves (agile, hopping, swept, several at once); null: fixed. */
+    rf_behaviour?: RfBehaviour | null;
     /** Its gaps between pulses, µs, as the planner counts them (a Fixed PRI's longest; a stagger's steps). */
     steps_us?: number[];
     /** Sent in pulse groups: this many pulses, then off this long (ms). */

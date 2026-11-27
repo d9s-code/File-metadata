@@ -32,6 +32,8 @@ EW_GROUP_FIELD_LABELS = {
     "scan_delta": "Scan Delta",
     "threat_priority": "Priority",
     "ageout": "Ageout (s)",
+    "erp_min_dbm": "ERP min (dBm)",
+    "erp_max_dbm": "ERP max (dBm)",
 }
 
 EW_GROUP_FIELDS_ADDED_LATER = frozenset({"scan_delta"})
@@ -84,6 +86,8 @@ MODE_FIELDS_NOT_COMPARED = frozenset(
         # Compared by the operational mode's and scan's names instead (see _diff_mode).
         "operational_mode_id",
         "scan_id",
+        # Compared as text (see _diff_mode).
+        "signal",
     }
 )
 
@@ -156,6 +160,83 @@ def scan_params_text(params: dict | None) -> str | None:
             text += f" ± {_num(params[key + '_delta'])}"
         parts.append(text)
     return ", ".join(parts) or None
+
+
+_CODES = {
+    "barker": "Barker",
+    "frank": "Frank",
+    "p1": "P1",
+    "p2": "P2",
+    "p3": "P3",
+    "p4": "P4",
+    "polyphase": "Polyphase",
+    "binary": "Binary",
+    "other": "Phase",
+}
+
+_POLARISATION = {
+    "horizontal": "horizontal",
+    "vertical": "vertical",
+    "circular_left": "circular (left)",
+    "circular_right": "circular (right)",
+    "slant": "slant",
+    "agile": "agile",
+}
+
+
+def _list(values: list, unit: str) -> str:
+    shown = "/".join(_num(v) for v in values[:8]) + ("…" if len(values) > 8 else "")
+    return f"{shown} {unit}"
+
+
+def signal_text(signal: dict | None) -> str | None:
+    """"RF hopping over 4 channels (9400/…), a hop every 8 pulses · PRI sliding up over 20 ms · LFM 5 MHz up · horizontal"."""
+    if not signal:
+        return None
+    parts = []
+    rf = signal.get("rf")
+    if rf:
+        k = rf["kind"]
+        if k == "agile":
+            parts.append("RF agile, pulse to pulse")
+        elif k == "hopping":
+            hop = f"every {rf['hop_pulses']} pulses" if rf.get("hop_pulses") else f"every {_num(rf['hop_ms'])} ms"
+            order = " at random" if rf.get("order") == "random" else ""
+            parts.append(f"RF hopping over {len(rf['channels_mhz'])} channels ({_list(rf['channels_mhz'], 'MHz')}), a hop {hop}{order}")
+        elif k == "swept":
+            parts.append(f"RF swept in {_num(rf['sweep_ms'])} ms{' (triangle)' if rf.get('shape') == 'triangle' else ''}")
+        elif k == "diverse":
+            parts.append(f"RF on {len(rf['channels_mhz'])} channels at once ({_list(rf['channels_mhz'], 'MHz')})")
+    pri = signal.get("pri")
+    if pri:
+        k = pri["kind"]
+        if k == "sliding":
+            parts.append(f"PRI sliding {pri.get('shape') or 'up'} over {_num(pri['period_ms'])} ms")
+        elif k == "wobulated":
+            parts.append(f"PRI wobulated over {_num(pri['period_ms'])} ms")
+        elif k == "dwell_switch":
+            parts.append(f"PRI dwell & switch {_list(pri['values_us'], 'µs')}, {pri['dwell_pulses']} pulses each")
+        elif k == "random":
+            parts.append("PRI random in its range")
+    pw = signal.get("pw")
+    if pw:
+        parts.append(f"PW {'agile' if pw['kind'] == 'agile' else 'in sequence'} {_list(pw['values_us'], 'µs')}")
+    mod = signal.get("modulation")
+    if mod:
+        k = mod["kind"]
+        if k in ("lfm", "nlfm"):
+            parts.append(f"{k.upper()} {_num(mod['bandwidth_mhz'])} MHz{' ' + mod['direction'] if mod.get('direction') else ''}")
+        elif k == "phase":
+            code = _CODES.get(mod.get("code") or "other", "Phase")
+            chips = f", {_num(mod['chip_us'])} µs chips" if mod.get("chip_us") else ""
+            parts.append(f"{code} code of {mod['code_length']}{chips}")
+        elif k == "fsk":
+            parts.append(f"FSK, {mod['frequencies']} frequencies")
+        elif k == "unknown":
+            parts.append("modulated (unknown)")
+    if signal.get("polarisation"):
+        parts.append(_POLARISATION.get(signal["polarisation"], signal["polarisation"]))
+    return " · ".join(parts) or None
 
 
 def blanked_text(sectors: list | None) -> str | None:
@@ -394,6 +475,9 @@ def _diff_mode(
     # A snapshot from before operational modes (or scans) had none: no link.
     _link_entry(entries, scope, "Operational mode", old.get("operational_mode_id"), new.get("operational_mode_id"), operational_names)
     _link_entry(entries, scope, "Scan", old.get("scan_id"), new.get("scan_id"), scan_names)
+    old_signal, new_signal = signal_text(old.get("signal")), signal_text(new.get("signal"))
+    if old_signal != new_signal:
+        entries.append(_entry(scope, "Signal", "changed", old_value=old_signal, new_value=new_signal))
     labels, later = _every_field(MODE_FIELD_LABELS, MODE_FIELDS_NOT_COMPARED, old, new)
     _diff_fields(entries, scope, old, new, labels, MODE_FIELDS_ADDED_LATER | later, {"pri_type": PRI_TYPE_NAMES})
     old_ids, new_ids = _source_ids(old), _source_ids(new)

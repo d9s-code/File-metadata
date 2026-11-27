@@ -23,6 +23,10 @@ class EwGroup(UUIDPkMixin, TimestampMixin, Base):
     threat_priority: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Seconds — descriptive/reference value only, no automated expiry behavior.
     ageout: Mapped[float | None] = mapped_column(Numeric(12, 4), nullable=True)
+    # Its effective radiated power, dBm (min–max) — for analysis only: never
+    # exported (the export writes its own fixed MinERP/MaxERP, as before).
+    erp_min_dbm: Mapped[float | None] = mapped_column(Numeric(8, 2), nullable=True)
+    erp_max_dbm: Mapped[float | None] = mapped_column(Numeric(8, 2), nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     emitter: Mapped["Emitter"] = relationship(back_populates="ew_groups")  # noqa: F821

@@ -67,6 +67,7 @@ def _mode_dict(mode: Mode) -> dict:
         "scan_id": str(mode.scan_id) if mode.scan_id else None,
         "group_pulses": mode.group_pulses,
         "group_off_ms": _f(mode.group_off_ms),
+        "signal": mode.signal,
         "operational_mode_id": str(mode.operational_mode_id) if mode.operational_mode_id else None,
         # The first Source as before; the rest (a Mode can have several) after it.
         "source_id": str(mode.source_id),
@@ -164,6 +165,8 @@ def build_emitter_snapshot(emitter: Emitter) -> dict:
                 "scan_delta": _num(g.scan_delta),
                 "threat_priority": g.threat_priority,
                 "ageout": _num(g.ageout),
+                "erp_min_dbm": _f(g.erp_min_dbm),
+                "erp_max_dbm": _f(g.erp_max_dbm),
                 "sort_order": g.sort_order,
                 "modes": [_mode_dict(m) for m in sorted(g.modes, key=lambda m: (m.sort_order, m.name, str(m.id)))],
             }

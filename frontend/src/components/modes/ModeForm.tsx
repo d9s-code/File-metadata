@@ -14,6 +14,9 @@ import { useOperationalModes } from "../../state/hooks/useOperationalModes";
 import { useEmitter } from "../../state/hooks/useEmitters";
 import { ModeMoreOptions, groupsPayload, optionsProblem as findOptionsProblem, scanPayload, type MoreOptionsValues } from "./ModeMoreOptions";
 import { ModePulseTrain } from "../pulses/ModePulseTrain";
+import { SignalEditor } from "../signal/SignalEditor";
+import { signalDraftFrom, signalPayload, signalProblem, rangesOf } from "../signal/signal";
+
 
 /** A new Mode's options: the admin's default confirmation. */
 const defaultOptions = (defaults: ModeDefaults): MoreOptionsValues => ({
@@ -94,6 +97,7 @@ export function ModeForm({
   const [error, setError] = useState<string | null>(null);
   const [problems, setProblems] = useState<{ name?: string; ewGroup?: string; source?: string }>({});
   const [optionsForced, setOptionsForced] = useState(false);
+  const [signal, setSignal] = useState(() => signalDraftFrom(null));
   const [added, setAdded] = useState<string | null>(null);
   const line = useModeLine(blankLine(defaults));
   const { load: loadLine, setMany: setLine, loadFrameTime } = line;
@@ -146,6 +150,7 @@ export function ModeForm({
       groupOffMs: mode.group_off_ms != null ? String(mode.group_off_ms) : "",
       operationalModeId: mode.operational_mode_id ?? "",
     });
+    setSignal(signalDraftFrom(mode.signal));
   }
 
   useEffect(() => {
@@ -213,7 +218,7 @@ export function ModeForm({
       source: sourceIds.length ? undefined : "Pick a Source — add one under Groups & Sources first",
     };
     setProblems(found);
-    const optionsProblem = findOptionsProblem(options);
+    const optionsProblem = findOptionsProblem(options) ?? signalProblem(signal, line.values.priType === "fixed");
     setOptionsForced(!!optionsProblem);
     if (found.name || found.ewGroup || found.source || !line.valid || optionsProblem) {
       focusFirstProblem();
@@ -229,6 +234,7 @@ export function ModeForm({
       confirmation_quantity: Number(options.quantity),
       ...scanPayload(options),
       ...groupsPayload(options),
+      signal: signalPayload(signal, line.values.priType === "fixed"),
       operational_mode_id: options.operationalModeId || null,
       line: line.payload(),
     };
@@ -378,6 +384,13 @@ export function ModeForm({
         line={line.valid ? line.payload() : null}
         groupPulses={groupsPayload(options).group_pulses}
         groupOffMs={groupsPayload(options).group_off_ms}
+      />
+      <SignalEditor
+        draft={signal}
+        onChange={setSignal}
+        priType={line.values.priType}
+        ranges={line.valid ? rangesOf(line.values.priType, line.payload()) : null}
+        forceOpen={optionsForced && !!signalProblem(signal, line.values.priType === "fixed")}
       />
 
       <ModeMoreOptions

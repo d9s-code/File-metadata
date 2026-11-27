@@ -26,6 +26,7 @@
  *   is synchronism. */
 
 import { timeForPulses, type PulseTrain } from "../pulses/pulseTrain";
+import { shareInBand, type RfBehaviour } from "../signal/signal";
 
 export interface PlannerDwell {
   freq_mhz: number;
@@ -73,6 +74,8 @@ export interface PlannerMode {
   onOffFrom?: string | null;
   /** The share of bearings its scan doesn't transmit in (0–1): never caught there. */
   blankedShare?: number;
+  /** How its RF behaves: agile, hopping, swept or several at once spread its pulses over its range (or channels). */
+  rfBehaviour?: RfBehaviour | null;
   priority: number | null;
   confirmationQuantity: number | null;
 }
@@ -179,15 +182,24 @@ function segments(rf: [number, number], dwells: PlannerDwell[], bw: number): { c
   return out;
 }
 
-/** The looks at a Mode in one cycle long enough to see it. */
-function windows(dwells: PlannerDwell[], starts: number[], covering: number[], need: number, within: PlannerSettings["within"]): Window[] {
+/** The looks at a Mode in one cycle long enough to see it; `share`: the part of each dwell's time its pulses are in that dwell's band (spread RF). */
+function windows(
+  dwells: PlannerDwell[],
+  starts: number[],
+  covering: number[],
+  need: number,
+  within: PlannerSettings["within"],
+  share?: Map<number, number>,
+): Window[] {
   const out: Window[] = [];
   for (const i of covering) {
-    const d = dwells[i];
+    const f = share?.get(i) ?? 1;
+    // Seeing only a share of its pulses, a look counts for that share of its time.
+    const d = f < 1 ? { ...dwells[i], dwell_time_ms: dwells[i].dwell_time_ms * f, collect_time_ms: dwells[i].collect_time_ms * f } : dwells[i];
     if (within === "collect" && d.collect_time_ms > 0) {
       const n = Math.floor(d.dwell_time_ms / d.collect_time_ms + 1e-9);
       if (d.collect_time_ms + EPS < need) continue;
-      for (let k = 0; k < n; k++) out.push({ start: starts[i] + k * d.collect_time_ms, length: d.collect_time_ms });
+      for (let k = 0; k < n; k++) out.push({ start: starts[i] + k * dwells[i].collect_time_ms, length: d.collect_time_ms });
     } else if (d.dwell_time_ms + EPS >= need) out.push({ start: starts[i], length: d.dwell_time_ms });
   }
   return out.sort((a, b) => a.start - b.start);
@@ -351,6 +363,35 @@ function periods(scanS: [number, number] | null): number[] | null {
   return b - a < EPS ? [b] : [Math.max(a, EPS), (a + b) / 2, b];
 }
 
+/** Where the dwells reach a Mode: its RF in parts (each with the dwells
+ * reaching it, by width) — or, its RF spread (agile, hopping, swept, several
+ * at once), one part every dwell reaching some of it sees a share of its
+ * pulses in; and the share of its RF (or channels) reached. */
+function reach(m: PlannerMode, dwells: PlannerDwell[], bw: number) {
+  const rfb = m.rfBehaviour;
+  if (!rfb || rfb.kind === "fixed") {
+    const segs = segments(m.rf, dwells, bw);
+    return { segs, share: undefined as Map<number, number> | undefined, coverage: null as number | null, spread: false };
+  }
+  const share = new Map<number, number>();
+  dwells.forEach((d, i) => {
+    const [lo, hi] = band(d, bw);
+    const f = shareInBand({ rf: rfb }, m.rf, lo, hi) ?? 0;
+    if (f > EPS) share.set(i, Math.min(1, f));
+  });
+  let coverage: number;
+  if (rfb.kind === "hopping" || rfb.kind === "diverse") {
+    const ch = rfb.channels_mhz ?? [];
+    const reached = ch.filter((c) => dwells.some((d) => band(d, bw)[0] <= c + EPS && c <= band(d, bw)[1] + EPS)).length;
+    coverage = ch.length ? reached / ch.length : 0;
+  } else {
+    const width = m.rf[1] - m.rf[0];
+    const gaps = uncoveredParts(m.rf, dwells, bw).reduce((n, g) => n + (g.hi - g.lo), 0);
+    coverage = width > 0 ? 1 - gaps / width : share.size ? 1 : 0;
+  }
+  return { segs: [{ covering: [...share.keys()], width: 1 }], share, coverage, spread: true };
+}
+
 /** One Mode against the dwells. */
 export function planMode(m: PlannerMode, dwells: PlannerDwell[], bw: number, s: PlannerSettings): ModePlan {
   const starts: number[] = [];
@@ -361,10 +402,12 @@ export function planMode(m: PlannerMode, dwells: PlannerDwell[], bw: number, s: 
   }
   const collect = commonCollect(dwells);
   const need = needMs(m, s, collect);
-  const segs = segments(m.rf, dwells, bw);
+  const reached = reach(m, dwells, bw);
+  const segs = reached.segs;
   const total = segs.reduce((n, g) => n + g.width, 0) || 1;
   const covered = segs.filter((g) => g.covering.length).reduce((n, g) => n + g.width, 0);
-  const coverage = covered / total;
+  // Spread RF: the share of its range (or channels) the dwells reach; its pulses come to them whichever it is.
+  const coverage = reached.coverage ?? covered / total;
   const covering = [...new Set(segs.flatMap((g) => g.covering))].sort((a, b) => a - b);
   const q = Math.max(1, m.confirmationQuantity ?? 1);
   const horizon = s.horizonS * 1000;
@@ -391,7 +434,7 @@ export function planMode(m: PlannerMode, dwells: PlannerDwell[], bw: number, s: 
     let revisit: number | null = null;
     for (const g of segs) {
       const w = g.width / total;
-      const ws = cycle > 0 ? windows(dwells, starts, g.covering, need, s.within) : [];
+      const ws = cycle > 0 ? windows(dwells, starts, g.covering, need, s.within, reached.share) : [];
       const gap = longestGap(ws, cycle);
       if (gap != null) revisit = revisit == null ? gap : Math.max(revisit, gap);
       if (!ws.length || (illumination != null && illumination + EPS < need)) {
@@ -431,14 +474,15 @@ export function planMode(m: PlannerMode, dwells: PlannerDwell[], bw: number, s: 
 
   const anyUsable = covering.some((i) => {
     const d = dwells[i];
-    return (s.within === "collect" && d.collect_time_ms > 0 ? d.collect_time_ms : d.dwell_time_ms) + EPS >= need;
+    const f = reached.share?.get(i) ?? 1;
+    return f * (s.within === "collect" && d.collect_time_ms > 0 ? d.collect_time_ms : d.dwell_time_ms) + EPS >= need;
   });
   let issue: Issue = "ok";
   if (coverage === 0) issue = "not_covered";
   else if (!anyUsable) issue = "too_short";
   else if (w.illumination != null && w.illumination + EPS < need) issue = "illumination_too_short";
   else if (w.lockedOut > 0.02) issue = "synchronism";
-  else if (coverage < 1 - EPS) issue = "partly_covered";
+  else if (coverage < 1 - EPS && !reached.spread) issue = "partly_covered";
   else if (w.pWithin < 0.9) issue = "slow";
 
   return {
@@ -491,8 +535,9 @@ export function modeTimeline(m: PlannerMode, dwells: PlannerDwell[], bw: number,
   if (!(cycle > 0)) return null;
   const collect = commonCollect(usable);
   const need = needMs(m, s, collect);
-  const covering = [...new Set(segments(m.rf, usable, bw).flatMap((g) => g.covering))];
-  const ws = windows(usable, starts, covering, need, s.within);
+  const reached = reach(m, usable, bw);
+  const covering = [...new Set(reached.segs.flatMap((g) => g.covering))];
+  const ws = windows(usable, starts, covering, need, s.within, reached.share);
   const all = covering.map((i) => ({ start: starts[i], length: usable[i].dwell_time_ms, enough: ws.some((w) => w.start >= starts[i] - EPS && w.start < starts[i] + usable[i].dwell_time_ms) }));
   const ps = periods(m.scanS);
   const T = ps ? ps[Math.floor(ps.length / 2)] : null;

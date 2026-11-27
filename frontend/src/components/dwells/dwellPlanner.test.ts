@@ -233,3 +233,45 @@ describe("pulse groups, on/off, blanking, looks, scan-on-scan", () => {
     expect(p.slideMs).toBe(0);
   });
 });
+
+describe("spread RF: agile, hopping, several at once", () => {
+  const S3 = { pulses: 8, within: "dwell" as const, beamwidthDeg: 3, horizonS: 10 };
+  const m = {
+    key: "k",
+    emitterId: "e",
+    emitterName: "E",
+    modeName: "M",
+    priType: "fixed",
+    rf: [9300, 9500] as [number, number],
+    longestIntervalUs: 1000,
+    frameUs: null,
+    scanS: null,
+    priority: null,
+    confirmationQuantity: 1,
+  };
+  // One 100 ms dwell reaching 9350–9450: half of the range.
+  const dwells = [{ freq_mhz: 9400, dwell_time_ms: 100, collect_time_ms: 50 }];
+
+  it("fixed somewhere in its range: half the time it's where the dwell is", () => {
+    const p = planMode(m, dwells, 100, S3);
+    expect(p.coverage).toBeCloseTo(0.5, 6);
+    expect(p.issue).toBe("partly_covered");
+  });
+
+  it("agile: always comes to the dwell, but only half its pulses are in it", () => {
+    const p = planMode({ ...m, rfBehaviour: { kind: "agile" } }, dwells, 100, S3);
+    expect(p.coverage).toBeCloseTo(0.5, 6);
+    expect(p.issue).not.toBe("partly_covered");
+    expect(p.pWithin).toBeCloseTo(1, 6);
+    // A dwell of 12 ms sees 6 ms of its pulses — not 8 ms' worth.
+    const short = planMode({ ...m, rfBehaviour: { kind: "agile" } }, [{ freq_mhz: 9400, dwell_time_ms: 12, collect_time_ms: 0 }], 100, S3);
+    expect(short.issue).toBe("too_short");
+  });
+
+  it("hopping: the share of its channels in the band; diversity: one channel is enough", () => {
+    const hop = planMode({ ...m, rfBehaviour: { kind: "hopping", channels_mhz: [9310, 9400, 9420, 9490], hop_pulses: 1 } }, dwells, 100, S3);
+    expect(hop.coverage).toBeCloseTo(0.5, 6);
+    const div = planMode({ ...m, rfBehaviour: { kind: "diverse", channels_mhz: [9310, 9400] } }, [{ freq_mhz: 9400, dwell_time_ms: 9, collect_time_ms: 0 }], 100, S3);
+    expect(div.issue).not.toBe("too_short");
+  });
+});

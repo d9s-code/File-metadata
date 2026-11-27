@@ -2,6 +2,7 @@ import { useOperationalModes } from "../../state/hooks/useOperationalModes";
 import { buildTree } from "../operationalModes/opTree";
 import { useScans } from "../../state/hooks/useScans";
 import { patternName, scanTiming, spreadText } from "../scans/scanPatterns";
+import { signalShort, signalText } from "../signal/signal";
 import { Fragment, useMemo, useRef, useState, type ReactNode } from "react";
 import type { EwGroup, Mode, ModeGenerationBatch, Source } from "../../types/domain";
 import { useEmitter } from "../../state/hooks/useEmitters";
@@ -59,6 +60,7 @@ type ModeColumnId =
   | "ew_group"
   | "operational_mode"
   | "scan"
+  | "signal"
   | "source"
   | "last_tested";
 
@@ -84,6 +86,7 @@ const MODE_COLUMNS: (ToggleableColumn<ModeColumnId> & { sortKey?: ModeSortKey; t
   { id: "ew_group", label: "EW Group", sortKey: "ew_group" },
   { id: "operational_mode", label: "Operational mode" },
   { id: "scan", label: "Scan", defaultHidden: true },
+  { id: "signal", label: "Signal", defaultHidden: true },
   { id: "source", label: "Sources", sortKey: "source" },
   { id: "last_tested", label: "Last seen", sortKey: "last_tested", type: "date" },
 ];
@@ -303,6 +306,11 @@ export function ModesTable({
           </td>
         );
       },
+      signal: () => (
+        <td key="signal">
+          {signalShort(m.signal) ? <span title={signalText(m.signal) ?? undefined}>{signalShort(m.signal)}</span> : <span className="hint-text">plain</span>}
+        </td>
+      ),
       scan: () => {
         // Its own scan, else its operational mode's (or the nearest above it).
         const own = m.scan_id ? scanById.get(m.scan_id) : undefined;
@@ -451,6 +459,7 @@ export function ModesTable({
         value("ew_group", groupNames.length === 1 ? groupNames[0]! : `${s.ewGroupIds.length} EW Groups`, "EW Group"),
       operational_mode: () => <td key="operational_mode" className="batch-span" />,
       scan: () => <td key="scan" className="batch-span" />,
+      signal: () => <td key="signal" className="batch-span" />,
       source: () => <td key="source" className="batch-span" />,
       last_tested: () => <td key="last_tested" className="batch-span" />,
     };

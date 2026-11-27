@@ -1,7 +1,14 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, computed_field, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    computed_field,
+    field_validator,
+    model_validator,
+)
 
 from app.services.delta import apply_delta
 
@@ -25,10 +32,23 @@ class EwGroupCreate(BaseModel):
     scan_delta: float | None = None
     threat_priority: int | None = None
     ageout: float | None = None
+    # Effective radiated power, dBm — analysis only, never exported.
+    erp_min_dbm: float | None = Field(default=None, ge=-100, le=200)
+    erp_max_dbm: float | None = Field(default=None, ge=-100, le=200)
     sort_order: int = 0
 
     _validate_scan_delta = field_validator("scan_delta")(_validate_scan_delta)
     _validate_ageout = field_validator("ageout")(_validate_ageout)
+
+    @model_validator(mode="after")
+    def check_erp(self) -> "EwGroupCreate":
+        check_erp(self.erp_min_dbm, self.erp_max_dbm)
+        return self
+
+
+def check_erp(lo: float | None, hi: float | None) -> None:
+    if lo is not None and hi is not None and lo > hi:
+        raise ValueError("The ERP's min can't be above its max")
 
 
 class EwGroupUpdate(BaseModel):
@@ -38,6 +58,8 @@ class EwGroupUpdate(BaseModel):
     scan_delta: float | None = None
     threat_priority: int | None = None
     ageout: float | None = None
+    erp_min_dbm: float | None = Field(default=None, ge=-100, le=200)
+    erp_max_dbm: float | None = Field(default=None, ge=-100, le=200)
     sort_order: int | None = None
 
     _validate_scan_delta = field_validator("scan_delta")(_validate_scan_delta)
@@ -55,6 +77,8 @@ class EwGroupOut(BaseModel):
     scan_delta: float | None = None
     threat_priority: int | None = None
     ageout: float | None = None
+    erp_min_dbm: float | None = None
+    erp_max_dbm: float | None = None
     sort_order: int
     modes_count: int = 0
     created_at: datetime

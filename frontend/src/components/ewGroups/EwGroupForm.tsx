@@ -21,6 +21,8 @@ export function EwGroupForm({ emitterId, initialData, prefill, onClose }: EwGrou
   const [scanDelta, setScanDelta] = useState("");
   const [threatPriority, setThreatPriority] = useState("");
   const [ageout, setAgeout] = useState("");
+  const [erpMin, setErpMin] = useState("");
+  const [erpMax, setErpMax] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -31,6 +33,8 @@ export function EwGroupForm({ emitterId, initialData, prefill, onClose }: EwGrou
       setScanDelta(initialData.scan_delta?.toString() ?? "");
       setThreatPriority(initialData.threat_priority?.toString() ?? "");
       setAgeout(initialData.ageout?.toString() ?? "");
+      setErpMin(initialData.erp_min_dbm?.toString() ?? "");
+      setErpMax(initialData.erp_max_dbm?.toString() ?? "");
     } else {
       setName("");
       setScanMin(prefill ? String(prefill.scan_min) : "");
@@ -38,6 +42,8 @@ export function EwGroupForm({ emitterId, initialData, prefill, onClose }: EwGrou
       setScanDelta("");
       setThreatPriority("");
       setAgeout("");
+      setErpMin("");
+      setErpMax("");
     }
   }, [initialData, prefill]);
 
@@ -51,6 +57,8 @@ export function EwGroupForm({ emitterId, initialData, prefill, onClose }: EwGrou
       scan_delta: scanDelta ? Number(scanDelta) : null,
       threat_priority: threatPriority ? Number(threatPriority) : null,
       ageout: ageout ? Number(ageout) : null,
+      erp_min_dbm: erpMin.trim() ? Number(erpMin) : null,
+      erp_max_dbm: erpMax.trim() ? Number(erpMax) : null,
     };
 
     try {
@@ -69,6 +77,8 @@ export function EwGroupForm({ emitterId, initialData, prefill, onClose }: EwGrou
         setScanDelta("");
         setThreatPriority("");
         setAgeout("");
+        setErpMin("");
+        setErpMax("");
       }
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : "Operation failed");
@@ -123,6 +133,28 @@ export function EwGroupForm({ emitterId, initialData, prefill, onClose }: EwGrou
           value={ageout}
           onChange={(e) => setAgeout(e.target.value)}
           title="Descriptive reference value in seconds — no automated behavior tied to it"
+        />
+      </label>
+      <label className="inline-field">
+        ERP min (dBm)
+        <input
+          placeholder="ERP min"
+          type="number"
+          step="any"
+          value={erpMin}
+          onChange={(e) => setErpMin(e.target.value)}
+          title="Effective radiated power — for analysis only, never exported (the export writes its own fixed value)"
+        />
+      </label>
+      <label className="inline-field">
+        ERP max (dBm)
+        <input
+          placeholder="ERP max"
+          type="number"
+          step="any"
+          value={erpMax}
+          onChange={(e) => setErpMax(e.target.value)}
+          title="Effective radiated power — for analysis only, never exported (the export writes its own fixed value)"
         />
       </label>
       <button type="submit" disabled={isPending}>

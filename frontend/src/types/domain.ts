@@ -1,3 +1,4 @@
+import type { ModeSignal } from "../components/signal/signal";
 export type Role = "admin" | "editor" | "viewer";
 
 /** A status key — Admins set up the statuses (names, colours, moves); see api/statuses. */
@@ -147,6 +148,9 @@ export interface EwGroup {
   threat_priority: number | null;
   /** Seconds — descriptive/reference value only, no automated behavior. */
   ageout: number | null;
+  /** Effective radiated power, dBm (min–max) — analysis only, never exported. */
+  erp_min_dbm?: number | null;
+  erp_max_dbm?: number | null;
   sort_order: number;
   modes_count: number;
   created_at: string;
@@ -376,6 +380,8 @@ export interface Mode {
   /** Sent in pulse groups: this many pulses, then off this long (ms) — for the dwell planner only. */
   group_pulses?: number | null;
   group_off_ms?: number | null;
+  /** How its signal behaves beyond its ranges (RF, PRI, PW, inside a pulse, polarisation) — analysis only, never exported. */
+  signal?: ModeSignal | null;
   /** The radar's operational mode it's transmitted in (one of its Emitter's). */
   operational_mode_id?: string | null;
   generation_batch_id: string | null;

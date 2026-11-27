@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validat
 from app.core.enums import PriType, TestResult, TestType
 from app.models.mode import DEFAULT_CONFIRMATION_QUALITY, DEFAULT_CONFIRMATION_QUANTITY
 from app.schemas.intercept import InterceptEntryBrief
+from app.schemas.mode_signal import ModeSignal, check_signal_for
 from app.services.delta import apply_delta, apply_jitter_delta
 from app.services.frametime_service import FRAME_TIME_DECIMALS, effective_frametime_us
 
@@ -165,6 +166,7 @@ def require_manual_deltas(pri_type: PriType, fields: ModeLineFields) -> None:
         raise ValueError("pri_delta is required for Fixed PRI")
 
 
+
 # Pulse groups: this many pulses, then off for this long (ms) — both or neither.
 GroupPulses = Annotated[int, Field(ge=1, le=1_000_000)]
 GroupOffMs = Annotated[float, Field(ge=0, le=3_600_000)]
@@ -191,6 +193,8 @@ class ModeCreate(BaseModel):
     operational_mode_id: UUID | None = None
     group_pulses: GroupPulses | None = None
     group_off_ms: GroupOffMs | None = None
+    # How its signal behaves beyond its ranges — analysis only, never exported.
+    signal: ModeSignal | None = None
     line: ModeLineFields
     # Test Record(s) whose findings explain this Mode's values, for a Mode
     # that didn't come from the Source's data (see TestRecordModeLinkType).
@@ -204,6 +208,7 @@ class ModeCreate(BaseModel):
         if not self.all_source_ids():
             raise ValueError("A Mode needs at least one Source")
         check_groups(self.group_pulses, self.group_off_ms)
+        check_signal_for(self.pri_type.value, self.signal.stored() if self.signal else None)
         validate_pri_type_fields(self.pri_type, self.line)
         require_manual_deltas(self.pri_type, self.line)
         return self
@@ -314,6 +319,8 @@ class ModeUpdate(BaseModel):
     # Both together, or both null: sent continuously (checked against each other on save).
     group_pulses: GroupPulses | None = None
     group_off_ms: GroupOffMs | None = None
+    # Replaces it (null: plain).
+    signal: ModeSignal | None = None
     ew_group_id: UUID | None = None
     # Replaces the Mode's Sources: all of them (one or more), or source_id for just one.
     source_id: UUID | None = None
@@ -591,6 +598,7 @@ class ModeOut(BaseModel):
     operational_mode_id: UUID | None = None
     group_pulses: int | None = None
     group_off_ms: float | None = None
+    signal: dict | None = None
     generation_batch_id: UUID | None = None
     created_at: datetime
     updated_at: datetime

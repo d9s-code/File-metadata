@@ -85,6 +85,7 @@ function usePlannerModes(platformIds: string[]): PlannerMode[] | undefined {
             onOffS: pl?.on_off_s ?? null,
             onOffFrom: pl?.on_off_from ?? null,
             blankedShare: scan ? blankedShare(scan) : 0,
+            rfBehaviour: pl?.rf_behaviour ?? null,
             priority: m.planner?.priority ?? null,
             confirmationQuantity: m.planner?.confirmation_quantity ?? null,
           });

@@ -11,6 +11,9 @@ import { useOperationalModes } from "../../state/hooks/useOperationalModes";
 import { useEmitter } from "../../state/hooks/useEmitters";
 import { ModeMoreOptions, groupsPayload, optionsProblem as findOptionsProblem, scanPayload, type MoreOptionsValues } from "./ModeMoreOptions";
 import { ModePulseTrain } from "../pulses/ModePulseTrain";
+import { SignalEditor } from "../signal/SignalEditor";
+import { signalDraftFrom, signalPayload, signalProblem, rangesOf } from "../signal/signal";
+
 import { useEwGroups } from "../../state/hooks/useEwGroups";
 
 /** Edits an existing Mode's line in place, including its PRI type — changing
@@ -64,6 +67,7 @@ export function ModeEditForm({
   const { data: ewGroups } = useEwGroups(emitterId);
   const group = ewGroups?.find((g) => g.id === mode.ew_group_id);
   const [optionsForced, setOptionsForced] = useState(false);
+  const [signal, setSignal] = useState(() => signalDraftFrom(mode.signal));
   const [error, setError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
@@ -77,7 +81,7 @@ export function ModeEditForm({
     e.preventDefault();
     setError(null);
     line.reveal();
-    const optionsProblem = findOptionsProblem(options);
+    const optionsProblem = findOptionsProblem(options) ?? signalProblem(signal, line.values.priType === "fixed");
     setOptionsForced(!!optionsProblem);
     const badName = !name.trim() ? "Give the Mode a name" : clash ? "Another Mode in this EW Group already has this name" : null;
     setNameProblem(badName);
@@ -99,6 +103,7 @@ export function ModeEditForm({
           confirmation_quantity: Number(options.quantity),
           ...scanPayload(options),
       ...groupsPayload(options),
+      signal: signalPayload(signal, line.values.priType === "fixed"),
           operational_mode_id: options.operationalModeId || null,
           line: line.payload(),
           derived_from_test_record_ids: [
@@ -160,6 +165,13 @@ export function ModeEditForm({
         line={line.valid ? line.payload() : null}
         groupPulses={groupsPayload(options).group_pulses}
         groupOffMs={groupsPayload(options).group_off_ms}
+      />
+      <SignalEditor
+        draft={signal}
+        onChange={setSignal}
+        priType={line.values.priType}
+        ranges={line.valid ? rangesOf(line.values.priType, line.payload()) : null}
+        forceOpen={optionsForced && !!signalProblem(signal, line.values.priType === "fixed")}
       />
 
       <ModeMoreOptions
