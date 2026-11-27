@@ -927,3 +927,59 @@ test("Signal behaviour: a hopping, sliding, chirped Mode drawn and saved; an EW 
   expect(await exportXml(page, e.id)).toBe(before);
   await removeEmitter(page, e.id);
 });
+
+test("MDF summary: the change log in counts, sentences and by Platform, parts left out, the release notes downloaded as laid out", async ({ page }) => {
+  const n = Date.now();
+  const mk = async (name: string) => {
+    const e = await api<{ id: string }>(page, "POST", "/emitters", { name });
+    const g = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/ew-groups`, { name: "G" });
+    const s = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/sources`, { name: "S", source_date: "2026-01-01" });
+    await api(page, "POST", `/ew-groups/${g.id}/modes`, { source_id: s.id, name: "Search", pri_type: "fixed", line: FIXED_LINE });
+    const v = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/versions`, { change_summary: "v1" });
+    return { e, v };
+  };
+  const one = await mk(`E2E Log A ${n}`);
+  const two = await mk(`E2E Log B ${n}`);
+  const p = await api<{ id: string }>(page, "POST", "/platforms", { name: `E2E Log Ship ${n}` });
+  await api(page, "POST", `/platforms/${p.id}/links`, { emitter_id: one.e.id, emitter_version_id: one.v.id });
+  const pv1 = await api<{ id: string }>(page, "POST", `/platforms/${p.id}/versions`, { change_summary: "v1" });
+  const mdf = await api<{ id: string }>(page, "POST", "/mdfs", { name: `E2E Log MDF ${n}` });
+  await api(page, "POST", `/mdfs/${mdf.id}/links`, { platform_id: p.id, platform_version_id: pv1.id });
+  await api(page, "POST", `/mdfs/${mdf.id}/versions`, { change_summary: "v1" });
+  await api(page, "POST", `/platforms/${p.id}/links`, { emitter_id: two.e.id, emitter_version_id: two.v.id });
+  await api(page, "POST", `/platforms/${p.id}/versions`, { change_summary: "v2" });
+  await api(page, "POST", `/mdfs/${mdf.id}/links/repin-latest`);
+  await api(page, "POST", `/mdfs/${mdf.id}/versions`, { change_summary: "v2" });
+
+  await page.evaluate(() => localStorage.removeItem("mdf-summary-layout"));
+  await page.goto(`/mdfs/${mdf.id}?tab=plan`);
+  await page.getByRole("button", { name: /Summarize/ }).click();
+  const panel = page.locator("section.mdf-summary");
+  await panel.getByLabel("From").selectOption("1");
+  await expect(panel.getByText(`Emitter E2E Log B ${n}`)).toBeVisible();
+
+  await panel.getByLabel("Change notes detail").selectOption("counts");
+  await expect(panel.getByText("Added: 1 Emitter")).toBeVisible();
+  await panel.getByLabel("Change notes detail").selectOption("sentences");
+  await expect(panel.getByText(`This release adds the Emitter E2E Log B ${n}.`)).toBeVisible();
+  await panel.getByLabel("Change notes grouping").selectOption("platform");
+  await expect(panel.getByText(`On E2E Log Ship ${n}: 1 Emitter added (E2E Log B ${n}).`)).toBeVisible();
+
+  await panel.getByLabel("Contents table").uncheck();
+  await expect(panel.getByText(/Contents of v2/)).toBeHidden();
+  await expect(panel.getByRole("heading", { name: "Release notes" })).toBeVisible();
+
+  // Remembered in this browser.
+  await page.reload();
+  await page.getByRole("button", { name: /Summarize/ }).click();
+  await expect(panel.getByLabel("Change notes detail")).toHaveValue("sentences");
+  await expect(panel.getByLabel("Contents table")).not.toBeChecked();
+
+  const download = page.waitForEvent("download");
+  await panel.getByRole("button", { name: "Download release notes (.docx)" }).click();
+  expect((await download).suggestedFilename()).toMatch(/release notes v2\.docx$/);
+
+  await page.evaluate(() => localStorage.removeItem("mdf-summary-layout"));
+  await removeEmitter(page, one.e.id);
+  await removeEmitter(page, two.e.id);
+});

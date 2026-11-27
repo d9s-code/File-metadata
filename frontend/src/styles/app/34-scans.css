@@ -258,3 +258,52 @@
   color: var(--muted);
   margin-top: 0.2rem;
 }
+
+/* The MDF summary: how the change log reads, and the plain-language draft. */
+.mdf-summary-layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: flex-end;
+  margin: 0.25rem 0 0.75rem;
+}
+.mdf-summary-layout label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.85rem;
+}
+.mdf-summary-layout .inline-check {
+  flex-direction: row;
+  align-items: center;
+}
+.mdf-summary-parts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.9rem;
+  padding-bottom: 0.4rem;
+}
+.mdf-summary-draft {
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.mdf-summary-draft-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  align-items: baseline;
+}
+.mdf-summary-draft textarea {
+  width: 100%;
+}
+.mdf-summary-notes.plain p {
+  margin: 0 0 0.5rem;
+}
+.change-log-paragraph {
+  margin: 0 0 0.5rem;
+}

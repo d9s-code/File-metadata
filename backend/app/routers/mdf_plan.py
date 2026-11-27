@@ -22,10 +22,11 @@ from app.models.audit_log import AuditLog
 from app.models.customer import Customer
 from app.models.mdf import Mdf, MdfVersion
 from app.models.mdf_plan import MdfGoal, MdfLogEntry
-from app.services import app_settings, statuses
+from app.services import app_settings, llm_client, statuses
 from app.services.audit_service import record_audit
-from app.services.docx_writer import Block, write_docx
+from app.services.change_log import DETAILS, GROUPS, change_log
 from app.services.change_notes import COUNTS_DEFAULT, change_notes
+from app.services.docx_writer import Block, write_docx
 
 router = APIRouter(prefix="/mdfs", tags=["mdf-plan"])
 
@@ -336,12 +337,15 @@ def build_summary(
     to_version: int | None,
     base: SummaryBase | None = None,
     counts: dict[str, bool] | None = None,
+    detail: str = "full",
+    group: str = "change",
 ) -> dict:
     """`base` "start": everything up to `to_version`; "previous": the changes
     since the MDF this one follows. Otherwise from `from_version`, or by
     default since this MDF's last release — or, before it has one, since the
     MDF it follows. `counts`: what counts in the change notes, else the
-    admin's setting."""
+    admin's setting. `detail` and `group`: how the change log reads (see
+    change_log)."""
     versions = _versions(db, mdf.id)
     if not versions:
         raise HTTPException(status.HTTP_409_CONFLICT, "Nothing to summarize — the MDF has no saved version yet")
@@ -420,6 +424,8 @@ def build_summary(
         ],
         # Major changes only — see change_notes.
         "change_notes": change_notes(base_snapshot, to.snapshot, counts or app_settings.change_notes_counts(db)),
+        # The same, as it reads at the detail and grouping asked for — what the document writes.
+        "change_log": change_log(base_snapshot, to.snapshot, counts or app_settings.change_notes_counts(db), detail, group),
         "contents": contents,
         "last_release_version": last_release_version(db, mdf.id),
     }
@@ -432,6 +438,8 @@ def summary(
     to_version: int | None = None,
     base: SummaryBase | None = None,
     counts: str | None = None,
+    detail: str = "full",
+    group: str = "change",
     db: Session = Depends(get_db),
     _=Depends(require_role(Role.viewer)),
 ) -> dict:
@@ -442,8 +450,18 @@ def summary(
     and the progress log stay on the Plan and Audit tabs.
 
     `counts` previews other rules for what counts: the rules that are on,
-    comma-separated (blank: none), in place of the admin's setting."""
-    return build_summary(db, _mdf(db, mdf_id), from_version, to_version, base, _preview_counts(counts))
+    comma-separated (blank: none), in place of the admin's setting.
+    `detail` (full, names, counts, sentences) and `group` (change,
+    platform): how `change_log` reads."""
+    _check_layout(detail, group)
+    return build_summary(db, _mdf(db, mdf_id), from_version, to_version, base, _preview_counts(counts), detail, group)
+
+
+def _check_layout(detail: str, group: str) -> None:
+    if detail not in DETAILS:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"detail: one of {', '.join(DETAILS)}")
+    if group not in GROUPS:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"group: one of {', '.join(GROUPS)}")
 
 
 def _preview_counts(counts: str | None) -> dict[str, bool] | None:
@@ -466,7 +484,15 @@ def _day(value) -> str:
     return str(value)
 
 
-def summary_document(s: dict) -> bytes:
+# The parts of the release-notes document that can be left out.
+PARTS = ("meta", "release_notes", "contents")
+
+
+def summary_document(s: dict, parts: tuple[str, ...] = PARTS, release_notes_text: str | None = None) -> bytes:
+    """The release notes as a Word document. `parts`: which of the version
+    span and details ("meta"), the release notes and the contents table go
+    in (the change log always does). `release_notes_text`: in place of the
+    release notes written for the versions — a plain-language draft, edited."""
     m = s["mdf"]
     if s.get("from_mdf"):
         prev = s["from_mdf"]
@@ -475,50 +501,63 @@ def summary_document(s: dict) -> bytes:
         span = f"Changes from v{s['from_version']} ({_day(s['from_at'])}) to v{s['to_version']} ({_day(s['to_at'])})"
     else:
         span = f"Everything up to v{s['to_version']} ({_day(s['to_at'])})"
-    blocks = [
-        Block("title", f"{m['name']} — release notes v{s['to_version']}"),
-        Block("meta", " · ".join(x for x in [
-            f"Status: {m['status']}",
-            f"Customer: {m['customer']}" if m["customer"] else None,
-            f"Due {_day(m['due_date'])}" if m["due_date"] else None,
-            f"Release date {_day(m['release_date'])}" if m["release_date"] else None,
-            f"Written {datetime.now(timezone.utc).strftime('%d.%m.%Y')}",
-        ] if x)),
-        Block("meta", span),
-    ]
-    notes = [v for v in s["versions"] if v["release_notes"]]
-    blocks.append(Block("h1", "Release notes"))
-    if notes:
-        for v in reversed(notes):
-            if len(notes) > 1:
-                blocks.append(Block("h2", f"v{v['version_number']} — {_day(v['at'])}"))
-            blocks.append(Block("p", v["release_notes"]))
-    else:
-        blocks.append(Block("meta", "No release notes written for these versions."))
+    blocks = [Block("title", f"{m['name']} — release notes v{s['to_version']}")]
+    if "meta" in parts:
+        blocks += [
+            Block("meta", " · ".join(x for x in [
+                f"Status: {m['status']}",
+                f"Customer: {m['customer']}" if m["customer"] else None,
+                f"Due {_day(m['due_date'])}" if m["due_date"] else None,
+                f"Release date {_day(m['release_date'])}" if m["release_date"] else None,
+                f"Written {datetime.now(timezone.utc).strftime('%d.%m.%Y')}",
+            ] if x)),
+            Block("meta", span),
+        ]  # fmt: skip
+    if "release_notes" in parts:
+        blocks.append(Block("h1", "Release notes"))
+        if release_notes_text is not None and release_notes_text.strip():
+            blocks += [Block("p", para.strip()) for para in release_notes_text.strip().split("\n\n") if para.strip()]
+        else:
+            notes = [v for v in s["versions"] if v["release_notes"]]
+            if notes:
+                for v in reversed(notes):
+                    if len(notes) > 1:
+                        blocks.append(Block("h2", f"v{v['version_number']} — {_day(v['at'])}"))
+                    blocks.append(Block("p", v["release_notes"]))
+            else:
+                blocks.append(Block("meta", "No release notes written for these versions."))
 
     blocks.append(Block("h1", "Change notes"))
-    notes_ = s["change_notes"]
-    if not (notes_["added"] or notes_["removed"] or notes_["updated"]):
-        blocks.append(Block("meta", "No major changes."))
-    for title, entries in (("Added", notes_["added"]), ("Removed", notes_["removed"])):
-        if entries:
-            blocks.append(Block("h2", title))
-            for e in entries:
-                blocks.append(Block("bullet", f"{e['kind']} {e['name']}" + (f" — {e['detail']}" if e.get("detail") else "")))
-    if notes_["updated"]:
-        blocks.append(Block("h2", "Updated"))
-        for e in notes_["updated"]:
-            blocks.append(Block("bullet", f"{e['kind']} {e['name']}: " + "; ".join(e["items"])))
+    for b in s["change_log"]["blocks"]:
+        if b["type"] == "empty":
+            blocks.append(Block("meta", b["text"]))
+        elif b["type"] == "heading":
+            blocks.append(Block("h2", b["text"]))
+        elif b["type"] == "paragraph":
+            blocks.append(Block("p", b["text"]))
+        else:
+            blocks.append(Block("bullet", b["text"] + (": " + "; ".join(b["items"]) if b["items"] else "")))
 
-    blocks.append(Block("h1", f"Contents of v{s['to_version']}"))
-    rows = [["Platform", "Platform version", "Emitter", "Emitter version"]]
-    for p in s["contents"]:
-        if not p["emitters"]:
-            rows.append([p["platform"], f"v{p['platform_version']}", "—", ""])
-        for i, e in enumerate(p["emitters"]):
-            rows.append([p["platform"] if i == 0 else "", f"v{p['platform_version']}" if i == 0 else "", e["name"], f"v{e['version']}"])
-    blocks.append(Block("table", rows=rows) if len(rows) > 1 else Block("meta", "Nothing pinned."))
+    if "contents" in parts:
+        blocks.append(Block("h1", f"Contents of v{s['to_version']}"))
+        rows = [["Platform", "Platform version", "Emitter", "Emitter version"]]
+        for p in s["contents"]:
+            if not p["emitters"]:
+                rows.append([p["platform"], f"v{p['platform_version']}", "—", ""])
+            for i, e in enumerate(p["emitters"]):
+                rows.append([p["platform"] if i == 0 else "", f"v{p['platform_version']}" if i == 0 else "", e["name"], f"v{e['version']}"])
+        blocks.append(Block("table", rows=rows) if len(rows) > 1 else Block("meta", "Nothing pinned."))
     return write_docx(blocks)
+
+
+def _parts(parts: str | None) -> tuple[str, ...]:
+    if parts is None:
+        return PARTS
+    on = tuple(p.strip() for p in parts.split(",") if p.strip())
+    unknown = sorted(set(on) - set(PARTS))
+    if unknown:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Unknown part(s): {', '.join(unknown)}")
+    return on
 
 
 @router.get("/{mdf_id}/summary.docx")
@@ -527,11 +566,68 @@ def summary_docx(
     from_version: int | None = None,
     to_version: int | None = None,
     base: SummaryBase | None = None,
+    detail: str = "full",
+    group: str = "change",
+    parts: str | None = None,
     db: Session = Depends(get_db),
     _=Depends(require_role(Role.viewer)),
 ) -> Response:
-    """The same summary as a Word document: the release notes."""
+    """The same summary as a Word document: the release notes. `detail`,
+    `group`: how the change log reads; `parts`: which of meta,
+    release_notes and contents go in (comma-separated; all by default)."""
+    _check_layout(detail, group)
     mdf = _mdf(db, mdf_id)
-    s = build_summary(db, mdf, from_version, to_version, base)
+    s = build_summary(db, mdf, from_version, to_version, base, None, detail, group)
+    return _docx_response(mdf, s, _parts(parts), None)
+
+
+class SummaryDocument(BaseModel):
+    """A release-notes document, laid out as asked — with, optionally, the
+    release notes in plain words (an edited draft) in place of those written."""
+
+    from_version: int | None = None
+    to_version: int | None = None
+    base: SummaryBase | None = None
+    detail: str = "full"
+    group: str = "change"
+    parts: list[str] = Field(default_factory=lambda: list(PARTS))
+    release_notes_text: str | None = Field(default=None, max_length=20000)
+
+
+@router.post("/{mdf_id}/summary.docx", dependencies=[Depends(verify_csrf)])
+def summary_docx_with(
+    mdf_id: uuid.UUID, payload: SummaryDocument, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
+) -> Response:
+    """The release notes as a Word document, laid out as asked."""
+    _check_layout(payload.detail, payload.group)
+    mdf = _mdf(db, mdf_id)
+    s = build_summary(db, mdf, payload.from_version, payload.to_version, payload.base, None, payload.detail, payload.group)
+    return _docx_response(mdf, s, _parts(",".join(payload.parts)), payload.release_notes_text)
+
+
+class PlainDraftAsk(BaseModel):
+    from_version: int | None = None
+    to_version: int | None = None
+    base: SummaryBase | None = None
+
+
+@router.post("/{mdf_id}/summary/plain-draft", dependencies=[Depends(verify_csrf)])
+def summary_plain_draft(
+    mdf_id: uuid.UUID, payload: PlainDraftAsk, db: Session = Depends(get_db), user=Depends(require_role(Role.viewer))
+) -> dict:
+    """The summary's release notes and change notes rewritten in plain words
+    by the language model — a draft to edit, kept nowhere."""
+    from app.services.release_notes_ai import plain_draft
+
+    s = build_summary(db, _mdf(db, mdf_id), payload.from_version, payload.to_version, payload.base)
+    try:
+        return plain_draft(s, user)
+    except llm_client.LlmNotConfigured as err:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(err)) from err
+    except llm_client.LlmError as err:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(err)) from err
+
+
+def _docx_response(mdf: Mdf, s: dict, parts: tuple[str, ...], text: str | None) -> Response:
     name = f"{mdf.name} release notes v{s['to_version']}.docx"
-    return Response(content=summary_document(s), media_type=DOCX, headers={"Content-Disposition": attachment_disposition(name)})
+    return Response(content=summary_document(s, parts, text), media_type=DOCX, headers={"Content-Disposition": attachment_disposition(name)})

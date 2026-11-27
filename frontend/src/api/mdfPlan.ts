@@ -60,6 +60,8 @@ export interface MdfSummary {
   versions: { version_number: number; at: string; by: string | null; change_summary: string | null; release_notes: string | null }[];
   /** Major changes only: what was added, removed and updated in what's delivered. */
   change_notes: ChangeNotes;
+  /** The same, as it reads at the detail and grouping asked for — what the document writes. */
+  change_log?: ChangeLog;
   contents: { platform: string; platform_version: number; emitters: { name: string; version: number }[] }[];
   last_release_version: number | null;
   /** Set when the changes count from the MDF this one follows. */
@@ -68,15 +70,47 @@ export interface MdfSummary {
   previous_mdf?: { id: string; name: string; version: number } | null;
 }
 
+/** How the change log reads: full, names only, counts only, or plain sentences. */
+export type ChangeLogDetail = "full" | "names" | "counts" | "sentences";
+/** Grouped by change (added / removed / updated) or by Platform. */
+export type ChangeLogGroup = "change" | "platform";
+/** The parts of the release-notes document that can be left out. */
+export type SummaryPart = "meta" | "release_notes" | "contents";
+
+export interface ChangeLogBlock {
+  type: "heading" | "line" | "paragraph" | "empty";
+  text: string;
+  mark: "added" | "removed" | "updated" | null;
+  items: string[];
+}
+
+export interface ChangeLog {
+  detail: ChangeLogDetail;
+  group: ChangeLogGroup;
+  blocks: ChangeLogBlock[];
+}
+
+/** A plain-language draft of the release notes (AI) — to be edited before use. */
+export interface PlainDraft {
+  text: string;
+  unverified_numbers: string[];
+  model: string;
+  generated_at: string;
+}
+
 /** Where a summary counts from: a version of this MDF, its very start, or
  * the MDF it follows. */
 export type SummaryFrom = number | "start" | "previous" | null;
 
 /** `counts`: preview these rules for what counts (the ones that are on) in
  * place of the admin's setting. */
-function range(from?: SummaryFrom, to?: number | null, counts?: string[]) {
+function range(from?: SummaryFrom, to?: number | null, counts?: string[], layout?: { detail: ChangeLogDetail; group: ChangeLogGroup }) {
   const q = new URLSearchParams();
   if (counts) q.set("counts", counts.join(","));
+  if (layout) {
+    q.set("detail", layout.detail);
+    q.set("group", layout.group);
+  }
   if (from === "start" || from === "previous") q.set("base", from);
   else if (from) q.set("from_version", String(from));
   if (to) q.set("to_version", String(to));
@@ -96,8 +130,38 @@ export const mdfPlanApi = {
   deleteLog: (mdfId: string, entryId: string) => api.delete<void>(`/mdfs/${mdfId}/log/${entryId}`),
   setReleaseNotes: (mdfId: string, versionNumber: number, text: string | null) =>
     api.put<{ release_notes: string | null }>(`/mdfs/${mdfId}/versions/${versionNumber}/release-notes`, { text }),
-  summary: (mdfId: string, from?: SummaryFrom, to?: number | null, counts?: string[]) =>
-    api.get<MdfSummary>(`/mdfs/${mdfId}/summary${range(from, to, counts)}`),
+  summary: (mdfId: string, from?: SummaryFrom, to?: number | null, counts?: string[], layout?: { detail: ChangeLogDetail; group: ChangeLogGroup }) =>
+    api.get<MdfSummary>(`/mdfs/${mdfId}/summary${range(from, to, counts, layout)}`),
+  /** The release notes as a Word document, laid out as asked (and with a plain-language text in place of the notes written). */
+  summaryDocx: (
+    mdfId: string,
+    input: {
+      from: SummaryFrom;
+      to: number | null;
+      detail: ChangeLogDetail;
+      group: ChangeLogGroup;
+      parts: SummaryPart[];
+      releaseNotesText?: string | null;
+    },
+  ) =>
+    api.post<Blob>(
+      `/mdfs/${mdfId}/summary.docx`,
+      {
+        ...(input.from === "start" || input.from === "previous" ? { base: input.from } : input.from ? { from_version: input.from } : {}),
+        ...(input.to ? { to_version: input.to } : {}),
+        detail: input.detail,
+        group: input.group,
+        parts: input.parts,
+        release_notes_text: input.releaseNotesText ?? null,
+      },
+      { responseType: "blob" },
+    ),
+  /** A plain-language draft of the release notes and change notes, by the AI. */
+  plainDraft: (mdfId: string, from: SummaryFrom, to: number | null) =>
+    api.post<PlainDraft>(`/mdfs/${mdfId}/summary/plain-draft`, {
+      ...(from === "start" || from === "previous" ? { base: from } : from ? { from_version: from } : {}),
+      ...(to ? { to_version: to } : {}),
+    }),
   summaryDocxUrl: (mdfId: string, from?: SummaryFrom, to?: number | null) =>
     `${API_BASE_URL}/mdfs/${mdfId}/summary.docx${range(from, to)}`,
   unsaved: (kind: "platform" | "mdf", id: string) =>

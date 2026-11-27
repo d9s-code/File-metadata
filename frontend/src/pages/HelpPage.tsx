@@ -1278,7 +1278,13 @@ export function HelpPage() {
             changed, notes, confirmation, scan period and range matching don&apos;t appear, unless an Admin changes
             what counts on <strong>Admin › Defaults</strong>, where a preview shows how an MDF&apos;s change notes would
             read before saving. <strong>Download release
-            notes (.docx)</strong> turns it into a Word document for the customer. Goals, status moves and the log
+            notes (.docx)</strong> turns it into a Word document for the customer. Above it, pick how it reads: the
+            change notes in <strong>Full detail</strong>, <strong>Names only</strong>, <strong>Counts only</strong> or
+            <strong> Plain sentences</strong>, grouped <strong>By change</strong> or <strong>By Platform</strong>, and
+            which parts go in (versions &amp; details, release notes, contents table) — remembered in this browser, and
+            the page shows what the document will hold. With the AI on, <strong>Plain-language draft (AI)</strong>
+            rewrites the release notes and change notes in plain words as a draft you edit; ticked, it&apos;s used in
+            place of the release notes written. Goals, status moves and the log
             stay on the Plan and Audit tabs. Everything that happened to the MDF is on its{" "}
             <strong>Audit</strong> tab.
           </p>

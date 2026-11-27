@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { mdfPlanApi, type LogKind, type SummaryFrom } from "../../api/mdfPlan";
+import { mdfPlanApi, type LogKind, type SummaryFrom, type ChangeLogDetail, type ChangeLogGroup } from "../../api/mdfPlan";
 
 const goalsKey = (mdfId: string) => ["mdf-goals", mdfId] as const;
 const logKey = (mdfId: string) => ["mdf-log", mdfId] as const;
@@ -25,10 +25,16 @@ export function useMdfLog(mdfId: string) {
   return useQuery({ queryKey: logKey(mdfId), queryFn: () => mdfPlanApi.log(mdfId), enabled: !!mdfId });
 }
 
-export function useMdfSummary(mdfId: string, from: SummaryFrom, to: number | null, enabled: boolean) {
+export function useMdfSummary(
+  mdfId: string,
+  from: SummaryFrom,
+  to: number | null,
+  enabled: boolean,
+  layout?: { detail: ChangeLogDetail; group: ChangeLogGroup },
+) {
   return useQuery({
-    queryKey: ["mdf-summary", mdfId, from, to],
-    queryFn: () => mdfPlanApi.summary(mdfId, from, to),
+    queryKey: ["mdf-summary", mdfId, from, to, layout?.detail ?? null, layout?.group ?? null],
+    queryFn: () => mdfPlanApi.summary(mdfId, from, to, undefined, layout),
     enabled: !!mdfId && enabled,
   });
 }
