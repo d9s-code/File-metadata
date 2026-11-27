@@ -1,8 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { authApi } from "../api/auth";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiRequestError, SESSION_EXPIRED_EVENT } from "../api/client";
 import type { User, UserPreferences } from "../types/domain";
+import { clearCacheCopies, keepCacheCopy, restoreCacheCopy } from "../state/persistCache";
 
 interface AuthContextValue {
   user: User | null;
@@ -33,10 +34,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleExpired);
   }, [queryClient]);
 
+  // Signed in: the data last seen here, at once (then refreshed), and kept as it changes.
+  const userId = user?.id;
+  const stopKeeping = useRef<() => void>(() => undefined);
+  useEffect(() => {
+    if (userId === undefined) return;
+    const stop = keepCacheCopy(queryClient, userId);
+    stopKeeping.current = stop;
+    return stop;
+  }, [queryClient, userId]);
+
   useEffect(() => {
     authApi
       .me()
-      .then(setUser)
+      .then(async (me) => {
+        await restoreCacheCopy(queryClient, me.id);
+        setUser(me);
+      })
       .catch((err) => {
         if (!(err instanceof ApiRequestError && err.status === 401)) {
           console.error("Failed to load current user", err);
@@ -47,14 +61,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (username: string, password: string) => {
     const loggedInUser = await authApi.login(username, password);
+    // Someone else's data is never shown: whatever was in memory goes first.
+    queryClient.clear();
+    await restoreCacheCopy(queryClient, loggedInUser.id);
     setSessionExpired(false);
     setUser(loggedInUser);
-  }, []);
+  }, [queryClient]);
 
   const logout = useCallback(async () => {
+    const id = user?.id;
     await authApi.logout();
+    // Signed out: nothing of theirs stays — in memory or in this browser.
+    stopKeeping.current();
+    queryClient.clear();
+    if (id) await clearCacheCopies(id);
     setUser(null);
-  }, []);
+  }, [queryClient, user]);
 
   const updatePreferences = useCallback(async (changes: Partial<UserPreferences>) => {
     setUser(await authApi.updatePreferences(changes));

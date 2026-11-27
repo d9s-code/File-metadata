@@ -10,15 +10,16 @@ const SHOWN = 4;
 
 function readCollapsed(): boolean {
   try {
-    return localStorage.getItem(COLLAPSED_KEY) === "true";
+    // Folded unless opened: open, it covers the corner of every page.
+    return localStorage.getItem(COLLAPSED_KEY) !== "false";
   } catch {
-    return false;
+    return true;
   }
 }
 
 /** A small panel in the bottom-left corner, on every page, listing the
  * Emitters you're holding for editing — nobody else can edit them until you
- * save a version or discard. Folds down to a tab; the choice is remembered. */
+ * save a version or discard. Starts as a tab, opens on a click; the choice is remembered. */
 export function CheckoutReminder() {
   const { user } = useAuth();
   const { pathname } = useLocation();

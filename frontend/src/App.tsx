@@ -4,61 +4,70 @@ import { MutationCache, QueryClient, QueryClientProvider } from "@tanstack/react
 import { AuthProvider } from "./auth/AuthContext";
 import { RequireAuth, RequireAdmin } from "./auth/RequireAuth";
 import { STANDALONE } from "./api/offline";
-import { OfflineSyncPage } from "./pages/OfflineSyncPage";
 import { ThemeProvider } from "./theme/ThemeContext";
 import { AutoRefresh } from "./state/AutoRefresh";
 import { NavBar } from "./components/common/NavBar";
 import { ChatWidget } from "./components/ai/ChatWidget";
 import { BackupWarning } from "./components/common/BackupWarning";
 import { LoginPage } from "./pages/LoginPage";
-import { EmittersListPage } from "./pages/EmittersListPage";
-import { EmitterEditorPage } from "./pages/EmitterEditorPage";
-import { EmitterVersionHistoryPage } from "./pages/EmitterVersionHistoryPage";
-import { TestRunNewPage } from "./pages/TestRunNewPage";
-import { EmitterComparePage } from "./pages/EmitterComparePage";
-import { PlatformTestRunPage } from "./pages/PlatformTestRunPage";
-import { PlatformTestDetailPage } from "./pages/PlatformTestDetailPage";
-import { TestRunDetailPage } from "./pages/TestRunDetailPage";
-import { InterceptImportPage } from "./pages/InterceptImportPage";
-import { AdminCheckoutsPage } from "./pages/AdminCheckoutsPage";
-import { AdminBackupsPage } from "./pages/AdminBackupsPage";
 import { CheckoutReminder } from "./components/common/CheckoutReminder";
-import { PlatformsListPage } from "./pages/PlatformsListPage";
-import { PlatformBuilderPage } from "./pages/PlatformBuilderPage";
-import { PlatformVersionHistoryPage } from "./pages/PlatformVersionHistoryPage";
-import { MdfsListPage } from "./pages/MdfsListPage";
-import { MdfBuilderPage } from "./pages/MdfBuilderPage";
-import { MdfVersionHistoryPage } from "./pages/MdfVersionHistoryPage";
-import { MdfComparePage } from "./pages/MdfComparePage";
-import { PlatformConfidencePage } from "./pages/PlatformConfidencePage";
-import { DashboardPage } from "./pages/DashboardPage";
-import { SourceGroupsPage } from "./pages/SourceGroupsPage";
-import { CustomersPage } from "./pages/CustomersPage";
-import { DwellsListPage } from "./pages/DwellsListPage";
-import { DwellFilePage } from "./pages/DwellFilePage";
-import { DwellStrategyPage } from "./pages/DwellStrategyPage";
-import { DwellVersionHistoryPage } from "./pages/DwellVersionHistoryPage";
-import { AdminSettingsPage } from "./pages/AdminSettingsPage";
-import { AdminDefaultsPage } from "./pages/AdminDefaultsPage";
-import { AdminFunctionCodesPage } from "./pages/AdminFunctionCodesPage";
-import { AdminStatusesPage } from "./pages/AdminStatusesPage";
-import { InterceptsPage } from "./pages/InterceptsPage";
-import { RecordingPage } from "./pages/RecordingPage";
-import { ReportsPage } from "./pages/ReportsPage";
-import { InterceptDetailPage } from "./pages/InterceptDetailPage";
-import { InterceptModePlanPage } from "./pages/InterceptModePlanPage";
-import { InterceptRegroupPage } from "./pages/InterceptRegroupPage";
-import { AmbiguityDashboardPage } from "./pages/AmbiguityDashboardPage";
-import { ThreatPrioritiesPage } from "./pages/ThreatPrioritiesPage";
-import { AuditLogPage } from "./pages/AuditLogPage";
-import { HelpPage } from "./pages/HelpPage";
-import { TasksPage } from "./pages/TasksPage";
-import { AdminUsersPage } from "./pages/AdminUsersPage";
-import { AdminTrashPage } from "./pages/AdminTrashPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
+import { lazyPage, preloadPages } from "./lazyPage";
+import { LoadingState } from "./components/common/LoadingState";
+import { Suspense, useEffect } from "react";
+
+// Each page's code is fetched when it's first opened (then the rest in the background).
+const OfflineSyncPage = lazyPage(() => import("./pages/OfflineSyncPage"), "OfflineSyncPage");
+const EmittersListPage = lazyPage(() => import("./pages/EmittersListPage"), "EmittersListPage");
+const EmitterEditorPage = lazyPage(() => import("./pages/EmitterEditorPage"), "EmitterEditorPage");
+const EmitterVersionHistoryPage = lazyPage(() => import("./pages/EmitterVersionHistoryPage"), "EmitterVersionHistoryPage");
+const TestRunNewPage = lazyPage(() => import("./pages/TestRunNewPage"), "TestRunNewPage");
+const EmitterComparePage = lazyPage(() => import("./pages/EmitterComparePage"), "EmitterComparePage");
+const PlatformTestRunPage = lazyPage(() => import("./pages/PlatformTestRunPage"), "PlatformTestRunPage");
+const PlatformTestDetailPage = lazyPage(() => import("./pages/PlatformTestDetailPage"), "PlatformTestDetailPage");
+const TestRunDetailPage = lazyPage(() => import("./pages/TestRunDetailPage"), "TestRunDetailPage");
+const InterceptImportPage = lazyPage(() => import("./pages/InterceptImportPage"), "InterceptImportPage");
+const AdminCheckoutsPage = lazyPage(() => import("./pages/AdminCheckoutsPage"), "AdminCheckoutsPage");
+const AdminBackupsPage = lazyPage(() => import("./pages/AdminBackupsPage"), "AdminBackupsPage");
+const PlatformsListPage = lazyPage(() => import("./pages/PlatformsListPage"), "PlatformsListPage");
+const PlatformBuilderPage = lazyPage(() => import("./pages/PlatformBuilderPage"), "PlatformBuilderPage");
+const PlatformVersionHistoryPage = lazyPage(() => import("./pages/PlatformVersionHistoryPage"), "PlatformVersionHistoryPage");
+const MdfsListPage = lazyPage(() => import("./pages/MdfsListPage"), "MdfsListPage");
+const MdfBuilderPage = lazyPage(() => import("./pages/MdfBuilderPage"), "MdfBuilderPage");
+const MdfVersionHistoryPage = lazyPage(() => import("./pages/MdfVersionHistoryPage"), "MdfVersionHistoryPage");
+const MdfComparePage = lazyPage(() => import("./pages/MdfComparePage"), "MdfComparePage");
+const PlatformConfidencePage = lazyPage(() => import("./pages/PlatformConfidencePage"), "PlatformConfidencePage");
+const DashboardPage = lazyPage(() => import("./pages/DashboardPage"), "DashboardPage");
+const SourceGroupsPage = lazyPage(() => import("./pages/SourceGroupsPage"), "SourceGroupsPage");
+const CustomersPage = lazyPage(() => import("./pages/CustomersPage"), "CustomersPage");
+const DwellsListPage = lazyPage(() => import("./pages/DwellsListPage"), "DwellsListPage");
+const DwellFilePage = lazyPage(() => import("./pages/DwellFilePage"), "DwellFilePage");
+const DwellStrategyPage = lazyPage(() => import("./pages/DwellStrategyPage"), "DwellStrategyPage");
+const DwellVersionHistoryPage = lazyPage(() => import("./pages/DwellVersionHistoryPage"), "DwellVersionHistoryPage");
+const AdminSettingsPage = lazyPage(() => import("./pages/AdminSettingsPage"), "AdminSettingsPage");
+const AdminDefaultsPage = lazyPage(() => import("./pages/AdminDefaultsPage"), "AdminDefaultsPage");
+const AdminFunctionCodesPage = lazyPage(() => import("./pages/AdminFunctionCodesPage"), "AdminFunctionCodesPage");
+const AdminStatusesPage = lazyPage(() => import("./pages/AdminStatusesPage"), "AdminStatusesPage");
+const InterceptsPage = lazyPage(() => import("./pages/InterceptsPage"), "InterceptsPage");
+const RecordingPage = lazyPage(() => import("./pages/RecordingPage"), "RecordingPage");
+const ReportsPage = lazyPage(() => import("./pages/ReportsPage"), "ReportsPage");
+const InterceptDetailPage = lazyPage(() => import("./pages/InterceptDetailPage"), "InterceptDetailPage");
+const InterceptModePlanPage = lazyPage(() => import("./pages/InterceptModePlanPage"), "InterceptModePlanPage");
+const InterceptRegroupPage = lazyPage(() => import("./pages/InterceptRegroupPage"), "InterceptRegroupPage");
+const AmbiguityDashboardPage = lazyPage(() => import("./pages/AmbiguityDashboardPage"), "AmbiguityDashboardPage");
+const ThreatPrioritiesPage = lazyPage(() => import("./pages/ThreatPrioritiesPage"), "ThreatPrioritiesPage");
+const AuditLogPage = lazyPage(() => import("./pages/AuditLogPage"), "AuditLogPage");
+const HelpPage = lazyPage(() => import("./pages/HelpPage"), "HelpPage");
+const TasksPage = lazyPage(() => import("./pages/TasksPage"), "TasksPage");
+const AdminUsersPage = lazyPage(() => import("./pages/AdminUsersPage"), "AdminUsersPage");
+const AdminTrashPage = lazyPage(() => import("./pages/AdminTrashPage"), "AdminTrashPage");
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
+  // Fetched data counts as fresh for half a minute, and is kept for half an
+  // hour after its page is left: going back to a page shows it at once, with
+  // no request. Any change made here refreshes what it touches at once
+  // (AutoRefresh), so this only delays what others change, by up to 30 s.
+  defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false, staleTime: 30_000, gcTime: 30 * 60_000 } },
   // Every mutation in the app is a candidate for a new audit-log entry. A
   // single global hook here marks the audit log stale after any mutation —
   // refetched at once where it's on screen, and when shown again where it's
@@ -72,6 +81,8 @@ const queryClient = new QueryClient({
 });
 
 export default function App() {
+  // Once the first page is up: the other pages' code, in the background.
+  useEffect(() => preloadPages(), []);
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
@@ -82,6 +93,7 @@ export default function App() {
             <BackupWarning />
             <CheckoutReminder />
             <NearMissLimitSync />
+            <Suspense fallback={<LoadingState />}>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               {STANDALONE && (
@@ -474,6 +486,7 @@ export default function App() {
                 }
               />
             </Routes>
+            </Suspense>
             <ChatWidget />
           </AuthProvider>
         </BrowserRouter>

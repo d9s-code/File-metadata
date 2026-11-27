@@ -885,9 +885,9 @@ export function HelpPage() {
             <strong>checkout</strong> first — press <strong>Start editing</strong> in the Emitter's header.
             Until then every editing control is faded out. This stops two people from editing the same
             Emitter at once; the header shows who holds it, and an Admin can force-release a stale lock. A
-            brand-new Emitter is auto-checked-out to whoever created it. While you hold any, a panel in the
-            bottom-left corner of every page lists them and how long you&apos;ve held each (marked after 8 hours);
-            fold it to a small tab if it&apos;s in the way. Admins see every hold under{" "}
+            brand-new Emitter is auto-checked-out to whoever created it. While you hold any, a small tab in the
+            bottom-left corner of every page (&ldquo;Editing 3 Emitters&rdquo;) opens a list of them and how long
+            you&apos;ve held each (marked after 8 hours); it stays open or folded as you left it. Admins see every hold under{" "}
             <strong>Admin → Edit locks</strong>, with <strong>Force release</strong> for one that&apos;s blocking
             others, or several at once (<strong>Select the untouched ones</strong>, <strong>Release selected</strong>). A
             lock whose holder hasn&apos;t changed anything for 3 days is marked <strong>untouched</strong>, and after 14
@@ -1056,7 +1056,10 @@ export function HelpPage() {
             dense, like a console) or <strong>Classic</strong> (the original look). Each has a light and a dark version,
             and the choice is kept in this browser, like light and dark. <strong>Size</strong> (80% to 125%) draws
             everything smaller or larger — text, spacing and controls together — for more or less on screen, also kept
-            in this browser.
+            in this browser. <strong>Keep a copy of the data in this browser</strong> (on unless switched off) opens
+            the app and each page at once with what you last saw, then brings it up to date in the background; the
+            copy is removed when you sign out, and a new version of the app starts afresh. Switch it off on a shared
+            computer.
           </p>
         </div>
       </div>

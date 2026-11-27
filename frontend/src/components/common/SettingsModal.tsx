@@ -5,6 +5,7 @@ import { useAiStatus } from "../../state/hooks/useAmbiguity";
 import { UI_SCALES, useUiScale } from "../../theme/uiScale";
 import { UI_STYLES, useUiStyle } from "../../theme/uiStyle";
 import type { UserPreferences } from "../../types/domain";
+import { cacheCopyEnabled, setCacheCopyEnabled } from "../../state/persistCache";
 import { Modal } from "./Modal";
 
 const AI_SETTINGS: { key: keyof UserPreferences; label: string; hint: string; needs?: keyof UserPreferences }[] = [
@@ -29,6 +30,7 @@ const AI_SETTINGS: { key: keyof UserPreferences; label: string; hint: string; ne
 /** Your own settings — which optional features you see. Saved with your
  * account, so they apply in any browser you sign in from. */
 export function SettingsModal({ onClose }: { onClose: () => void }) {
+  const [keepCopy, setKeepCopy] = useState(cacheCopyEnabled);
   const { user, updatePreferences } = useAuth();
   const aiAvailable = useAiStatus().data?.enabled ?? false;
   const [saving, setSaving] = useState<keyof UserPreferences | null>(null);
@@ -80,6 +82,27 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             </label>
           ))}
         </div>
+      </fieldset>
+      <fieldset className="settings-group">
+        <legend>Speed</legend>
+        <label className="settings-row">
+          <input
+            type="checkbox"
+            role="switch"
+            checked={keepCopy}
+            onChange={(e) => {
+              setCacheCopyEnabled(e.target.checked);
+              setKeepCopy(e.target.checked);
+            }}
+          />
+          <span>
+            <strong>Keep a copy of the data in this browser</strong>
+            <span className="hint-text">
+              The app opens with what you saw last, at once, while it refreshes. Removed when you sign out. Turn it off on a
+              shared computer.
+            </span>
+          </span>
+        </label>
       </fieldset>
       <p className="hint-text">The rest are saved with your account — they apply wherever you sign in.</p>
       <fieldset className="settings-group">

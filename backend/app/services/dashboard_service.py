@@ -122,16 +122,6 @@ def _mdf_readiness(db: Session) -> list[dict]:
 def _uncovered_intercepts(db: Session) -> list[dict]:
     """Intercepts with entries that no Mode of their Emitter covers (not even
     nearly) — candidates for new Modes, via the Plan Modes page."""
-    modes_by_emitter: dict = {}
-    for mode, emitter_id in (
-        db.query(Mode, EwGroup.emitter_id)
-        .join(EwGroup, Mode.ew_group_id == EwGroup.id)
-        .join(Emitter, Emitter.id == EwGroup.emitter_id)
-        .filter(Emitter.is_deleted.is_(False))
-        .all()
-    ):
-        modes_by_emitter.setdefault(emitter_id, []).append(mode)
-    ranges = {emitter_id: mode_ranges(modes) for emitter_id, modes in modes_by_emitter.items()}
     rows = (
         db.query(InterceptEntry, Intercept.id, Intercept.name, Intercept.emitter_id, Emitter.name)
         .join(Intercept, Intercept.id == InterceptEntry.intercept_id)
@@ -139,6 +129,20 @@ def _uncovered_intercepts(db: Session) -> list[dict]:
         .filter(Emitter.is_deleted.is_(False), InterceptEntry.left_out.is_(False))
         .all()
     )
+    if not rows:
+        return []
+    # Only the Emitters with intercepts, their lines loaded together (not one query a Mode).
+    emitter_ids = {emitter_id for _e, _i, _n, emitter_id, _en in rows}
+    modes_by_emitter: dict = {}
+    for mode, emitter_id in (
+        db.query(Mode, EwGroup.emitter_id)
+        .join(EwGroup, Mode.ew_group_id == EwGroup.id)
+        .filter(EwGroup.emitter_id.in_(emitter_ids))
+        .options(selectinload(Mode.line))
+        .all()
+    ):
+        modes_by_emitter.setdefault(emitter_id, []).append(mode)
+    ranges = {emitter_id: mode_ranges(modes) for emitter_id, modes in modes_by_emitter.items()}
     uncovered: dict = {}
     near_pct = float(mode_defaults(db)["near_miss_pct"])
     for entry, intercept_id, intercept_name, emitter_id, emitter_name in rows:
@@ -235,11 +239,21 @@ def _dwell_testing(db: Session) -> list[dict]:
     from app.models.dwell import DwellStrategy
     from app.services import dwell_testing_service as dts
 
+    from sqlalchemy.orm import selectinload
+
+    from app.models.dwell import DwellStrategyPlatform
+
     items = []
-    for strategy in db.query(DwellStrategy).order_by(DwellStrategy.name).all():
-        if strategy.is_default:
-            continue
-        n = dts.counts(dts.strategy_testing(db, strategy))
+    strategies = [
+        s
+        for s in db.query(DwellStrategy)
+        .options(selectinload(DwellStrategy.platform_links).joinedload(DwellStrategyPlatform.platform))
+        .order_by(DwellStrategy.name)
+        if not s.is_default
+    ]
+    ctx = dts.testing_context(db, strategies)
+    for strategy in strategies:
+        n = dts.counts(dts.strategy_testing(db, strategy, ctx))
         parts = [f"{n[k]} {label}" for k, label in (("untested", "untested"), ("stale", "stale"), ("not_covered", "not covered")) if n[k]]
         if parts:
             items.append(

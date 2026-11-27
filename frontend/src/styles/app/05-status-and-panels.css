@@ -429,6 +429,30 @@
      pops out below a row near the container's auto-fit height. */
   overflow-y: hidden;
 }
+/* A table wider than its box fades out at the edge that has more to scroll
+   to, so cut-off columns don't look like the end of the table. Not where a
+   column is pinned to the right edge (it would fade that column). */
+@property --scroll-cue-start { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@property --scroll-cue-end { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@keyframes matrix-scroll-cue {
+  from { --scroll-cue-start: 0px; --scroll-cue-end: 28px; }
+  4% { --scroll-cue-start: 28px; }
+  96% { --scroll-cue-end: 28px; }
+  to { --scroll-cue-start: 28px; --scroll-cue-end: 0px; }
+}
+@supports (animation-timeline: scroll()) {
+  .matrix-scroll:not(:has(.sticky-end)) {
+    animation: matrix-scroll-cue linear both;
+    animation-timeline: scroll(self inline);
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 var(--scroll-cue-start),
+      #000 calc(100% - var(--scroll-cue-end)),
+      transparent 100%
+    );
+  }
+}
 .ambiguity-matrix {
   border-collapse: collapse;
   font-size: 0.75rem;

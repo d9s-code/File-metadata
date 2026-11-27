@@ -153,6 +153,7 @@ function StrategyList({ onNew }: { onNew: () => void }) {
       <FilterBar active={!!filter} onReset={() => setFilter("")} count={shownCount(shown.length, strategies.length, "Strategy", "Strategies")}>
         <input
           type="search"
+          className="filter-search-wide"
           placeholder="Strategy, Platform or description…"
           aria-label="Filter by Strategy, Platform or description"
           value={filter}

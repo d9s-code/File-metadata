@@ -107,6 +107,8 @@
   /* Panels with monospace title bars. */
   & .card:not(.login-card) { background: var(--card-bg); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 0 0 2px; margin-bottom: 12px; overflow: hidden; }
   & .card:not(.login-card) > * { margin-left: 14px; margin-right: 14px; }
+  /* A card that is itself a table's scroller (the Emitters list) still scrolls: hidden, its last columns were out of reach. */
+  & .card.matrix-scroll { overflow-x: auto; overflow-y: hidden; }
   & .card:not(.login-card) > :is(.card-header, .card-header-row, .modes-section-header, .dashboard-card-header) { margin: 0 0 10px; padding: 7px 14px; background: var(--panel-head); border-bottom: 1px solid var(--border-subtle); min-height: 38px; }
   & .card:not(.login-card) > h2.as-h4:first-child { margin: 0 0 10px; padding: 10px 14px; background: var(--panel-head); border-bottom: 1px solid var(--border-subtle); }
   & .card :is(h2, h3, .as-h4):not(.as-h5) { font-family: var(--mono); font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; color: var(--muted); }

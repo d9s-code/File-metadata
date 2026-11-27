@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import DEFAULT_EXCLUDED_CONTENT_TYPES, GZipMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -59,6 +60,21 @@ app = FastAPI(
     docs_url="/docs" if settings.is_dev else None,
     redoc_url="/redoc" if settings.is_dev else None,
     openapi_url="/openapi.json" if settings.is_dev else None,
+)
+
+# JSON and text compressed (a list of Emitters or an audit page is a tenth
+# of its size); files that are compressed already, or binary, go as they are.
+app.add_middleware(
+    GZipMiddleware,
+    minimum_size=1024,
+    exclude_content_types=(
+        *DEFAULT_EXCLUDED_CONTENT_TYPES,
+        "application/octet-stream",
+        "application/pdf",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ),
 )
 
 app.add_middleware(

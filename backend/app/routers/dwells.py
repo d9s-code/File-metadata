@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.config import settings as app_config
 from app.core.csrf import verify_csrf
@@ -246,7 +246,8 @@ def list_strategies(
     if platform_id is not None:
         covers = DwellStrategy.platform_links.any(DwellStrategyPlatform.platform_id == platform_id)
         query = query.filter(covers | ~DwellStrategy.platform_links.any()) if include_default else query.filter(covers)
-    strategies = query.all()
+    strategies = query.options(selectinload(DwellStrategy.platform_links).joinedload(DwellStrategyPlatform.platform)).all()
+    testing_ctx = dwell_testing_service.testing_context(db, [s for s in strategies if not s.is_default])
     latest = {
         sid: (n, snap, vid)
         for sid, n, snap, vid in db.query(
@@ -285,7 +286,7 @@ def list_strategies(
                 updated_at=s.updated_at,
                 testing=None
                 if s.is_default or version is None
-                else dwell_testing_service.counts(dwell_testing_service.strategy_testing(db, s)),
+                else dwell_testing_service.counts(dwell_testing_service.strategy_testing(db, s, testing_ctx)),
             )
         )
     # Default dwells first, then by Platform.

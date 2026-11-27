@@ -31,7 +31,6 @@ from app.models.emitter_version import EmitterVersion
 from app.models.platform import Platform, PlatformEmitterLink
 from app.models.test_record import TestRecord
 from app.services import app_settings
-from app.services.dwell_service import latest_strategy_version
 from app.services.platform_coverage import _mode_ranges
 
 EPS = 1e-6
@@ -102,29 +101,71 @@ def why_stale(
     return None
 
 
-def _runs(db: Session, strategy_id: UUID, emitter_ids: list[UUID]) -> dict[UUID, list[TestRecord]]:
-    """Simulation runs of these Emitters that recorded this Strategy, newest first."""
-    rows = (
-        db.query(TestRecord)
-        .join(DwellStrategyVersion, TestRecord.dwell_strategy_version_id == DwellStrategyVersion.id)
-        .options(
-            joinedload(TestRecord.dwell_strategy_version),
-            joinedload(TestRecord.emitter_version),
-            joinedload(TestRecord.platform_test),
-        )
-        .filter(
-            DwellStrategyVersion.strategy_id == strategy_id,
-            TestRecord.scope_type == TestScopeType.emitter,
-            TestRecord.scope_id.in_(emitter_ids),
-            TestRecord.test_type == TestType.simulation,
-        )
-        .order_by(TestRecord.test_date.desc(), TestRecord.created_at.desc())
-        .all()
-    )
-    out: dict[UUID, list[TestRecord]] = {}
-    for r in rows:
-        out.setdefault(r.scope_id, []).append(r)
-    return out
+@dataclass
+class TestingContext:
+    """What judging Strategies needs, loaded once for all of them: each one's
+    latest saved version, the Platforms and their pinned Emitters, the runs
+    that recorded each Strategy, and — worked out once per Emitter version —
+    each snapshot's profile. Judging 50 Strategies one by one otherwise ran
+    the same queries, and parsed the same snapshots, 50 times."""
+
+    default_bandwidth: float
+    latest: dict[UUID, DwellStrategyVersion]
+    platforms: dict[UUID, Platform]
+    pins: dict[UUID, list[tuple[PlatformEmitterLink, EmitterVersion, Emitter]]]
+    runs: dict[tuple[UUID, UUID], list[TestRecord]]
+    profiles: dict[UUID, Profile] = field(default_factory=dict)
+
+    def profile_of(self, version: EmitterVersion) -> Profile:
+        if version.id not in self.profiles:
+            self.profiles[version.id] = profile(version.snapshot)
+        return self.profiles[version.id]
+
+
+def testing_context(db: Session, strategies: list[DwellStrategy]) -> TestingContext:
+    ids = [s.id for s in strategies]
+    latest = {
+        v.strategy_id: v
+        for v in db.query(DwellStrategyVersion)
+        .filter(DwellStrategyVersion.strategy_id.in_(ids))
+        .distinct(DwellStrategyVersion.strategy_id)
+        .order_by(DwellStrategyVersion.strategy_id, DwellStrategyVersion.version_number.desc())
+    }
+    platform_ids = {pid for s in strategies for pid in s.platform_ids}
+    platforms = {
+        p.id: p
+        for p in db.query(Platform).filter(Platform.id.in_(platform_ids), Platform.is_deleted.is_(False))
+    }
+    pins: dict[UUID, list] = {}
+    for link, version, emitter in (
+        db.query(PlatformEmitterLink, EmitterVersion, Emitter)
+        .join(EmitterVersion, PlatformEmitterLink.emitter_version_id == EmitterVersion.id)
+        .join(Emitter, PlatformEmitterLink.emitter_id == Emitter.id)
+        .filter(PlatformEmitterLink.platform_id.in_(list(platforms)), Emitter.is_deleted.is_(False))
+    ):
+        pins.setdefault(link.platform_id, []).append((link, version, emitter))
+    emitter_ids = list({e.id for rows in pins.values() for _l, _v, e in rows})
+    runs: dict[tuple[UUID, UUID], list[TestRecord]] = {}
+    if emitter_ids and ids:
+        for r in (
+            db.query(TestRecord)
+            .join(DwellStrategyVersion, TestRecord.dwell_strategy_version_id == DwellStrategyVersion.id)
+            .options(
+                joinedload(TestRecord.dwell_strategy_version),
+                joinedload(TestRecord.emitter_version),
+                joinedload(TestRecord.platform_test),
+            )
+            .filter(
+                DwellStrategyVersion.strategy_id.in_(ids),
+                TestRecord.scope_type == TestScopeType.emitter,
+                TestRecord.scope_id.in_(emitter_ids),
+                TestRecord.test_type == TestType.simulation,
+            )
+            .order_by(TestRecord.test_date.desc(), TestRecord.created_at.desc())
+        ):
+            runs.setdefault((r.dwell_strategy_version.strategy_id, r.scope_id), []).append(r)
+    default_bandwidth = float(app_settings.get_setting(db, app_settings.DWELL_BANDWIDTH_MHZ))
+    return TestingContext(default_bandwidth, latest, platforms, pins, runs)
 
 
 def _run_out(r: TestRecord) -> dict:
@@ -139,33 +180,21 @@ def _run_out(r: TestRecord) -> dict:
     }
 
 
-def strategy_testing(db: Session, strategy: DwellStrategy) -> dict:
-    latest = latest_strategy_version(db, strategy.id)
+def strategy_testing(db: Session, strategy: DwellStrategy, ctx: TestingContext | None = None) -> dict:
+    """Pass `ctx` (testing_context of all of them) when judging many Strategies."""
+    if ctx is None:
+        ctx = testing_context(db, [strategy])
+    latest = ctx.latest.get(strategy.id)
     out = {"strategy_id": strategy.id, "version_number": latest.version_number if latest else None, "platforms": []}
     if latest is None or strategy.is_default:
         return out
-    bandwidth = _bandwidth(strategy, db)
+    bandwidth = float(strategy.bandwidth_mhz or ctx.default_bandwidth)
     dwells_now = latest.snapshot.get("dwells") or []
-    platforms = (
-        db.query(Platform)
-        .filter(Platform.id.in_(strategy.platform_ids), Platform.is_deleted.is_(False))
-        .order_by(Platform.name)
-        .all()
-    )
-    pins = (
-        db.query(PlatformEmitterLink, EmitterVersion, Emitter)
-        .join(EmitterVersion, PlatformEmitterLink.emitter_version_id == EmitterVersion.id)
-        .join(Emitter, PlatformEmitterLink.emitter_id == Emitter.id)
-        .filter(PlatformEmitterLink.platform_id.in_([p.id for p in platforms]), Emitter.is_deleted.is_(False))
-        .all()
-    )
-    runs = _runs(db, strategy.id, list({e.id for _l, _v, e in pins}))
+    platforms = sorted((ctx.platforms[pid] for pid in strategy.platform_ids if pid in ctx.platforms), key=lambda p: p.name)
     for platform in platforms:
         rows = []
-        for link, version, emitter in pins:
-            if link.platform_id != platform.id:
-                continue
-            pinned = profile(version.snapshot)
+        for link, version, emitter in ctx.pins.get(platform.id, []):
+            pinned = ctx.profile_of(version)
             now_covering = covering(dwells_now, pinned.spans, bandwidth)
             row = {
                 "emitter_id": emitter.id,
@@ -179,11 +208,13 @@ def strategy_testing(db: Session, strategy: DwellStrategy) -> dict:
             }
             # A Platform test counts only for its own Platform.
             candidates = [
-                r for r in runs.get(emitter.id, []) if r.platform_test is None or r.platform_test.platform_id == platform.id
+                r
+                for r in ctx.runs.get((strategy.id, emitter.id), [])
+                if r.platform_test is None or r.platform_test.platform_id == platform.id
             ]
             first_reason = None
             for r in candidates:
-                tested = profile(r.emitter_version.snapshot) if r.emitter_version else None
+                tested = ctx.profile_of(r.emitter_version) if r.emitter_version else None
                 reason = why_stale(now_covering, pinned, r.dwell_strategy_version.snapshot.get("dwells") or [], tested, bandwidth)
                 if reason is None:
                     row.update(state="tested", run=_run_out(r))
@@ -194,7 +225,7 @@ def strategy_testing(db: Session, strategy: DwellStrategy) -> dict:
             if not now_covering:
                 row.update(state="not_covered", reason="no dwell reaches its RF")
             rows.append(row)
-        rows.sort(key=lambda x: ((x["designation"] or "￿").lower(), x["emitter_name"].lower()))
+        rows.sort(key=lambda x: ((x["designation"] or "\uffff").lower(), x["emitter_name"].lower()))
         out["platforms"].append({"platform_id": platform.id, "platform_name": platform.name, "emitters": rows})
     return out
 
