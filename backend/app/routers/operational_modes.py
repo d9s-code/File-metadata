@@ -12,7 +12,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.csrf import verify_csrf
-from app.core.enums import AuditAction, AuditEntityType, Role
+from app.core.enums import AuditAction, AuditEntityType, PriType, Role
 from app.database import get_db
 from app.deps import require_emitter_checkout, require_role
 from app.models.emitter import Emitter
@@ -20,6 +20,7 @@ from app.models.mode import Mode
 from app.models.operational_mode import OperationalMode
 from app.schemas.mode import BatchModeFieldEdit, ModeBatchEditResult, check_scan_box
 from app.schemas.operational_mode import (
+    GenerateFromPlan,
     OperationalModeCreate,
     OperationalModeOrder,
     OperationalModeOut,
@@ -31,7 +32,7 @@ from app.services.mode_batch_service import apply_batch_edit, plan_batch_edit
 
 router = APIRouter(prefix="/emitters/{emitter_id}/operational-modes", tags=["operational-modes"])
 
-_FIELDS = ["name", "parent_id", "description", "illumination_time_ms", "scan_min_s", "scan_max_s", "sort_order"]
+_FIELDS = ["name", "parent_id", "description", "illumination_time_ms", "scan_min_s", "scan_max_s", "sort_order", "plan"]
 
 
 def _next_place(db: Session, emitter_id: UUID, parent_id: UUID | None) -> int:
@@ -144,6 +145,7 @@ def create_operational_mode(
 ) -> OperationalMode:
     _emitter_or_404(db, emitter_id)
     data = payload.model_dump()
+    data["plan"] = payload.plan.stored() if payload.plan else None
     _check_parent(db, emitter_id, data["parent_id"])
     data["name"] = _check_name(db, emitter_id, data["name"], data["parent_id"])
     if data["sort_order"] is None:
@@ -176,6 +178,8 @@ def update_operational_mode(
 ) -> OperationalMode:
     row = _get_or_404(db, emitter_id, operational_mode_id)
     data = payload.model_dump(exclude_unset=True)
+    if "plan" in data:
+        data["plan"] = payload.plan.stored() if payload.plan else None
     parent_id = data.get("parent_id", row.parent_id)
     if "parent_id" in data:
         _check_parent(db, emitter_id, parent_id, own_id=row.id)
@@ -328,3 +332,89 @@ def set_values_below(
     )
     db.commit()
     return ModeBatchEditResult(updated_mode_ids=updated, count=len(updated))
+
+
+@router.post(
+    "/{operational_mode_id}/generate",
+    response_model=ModeBatchEditResult,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(verify_csrf)],
+)
+def generate_from_plan(
+    emitter_id: UUID,
+    operational_mode_id: UUID,
+    payload: GenerateFromPlan,
+    db: Session = Depends(get_db),
+    user=Depends(require_emitter_checkout()),
+) -> ModeBatchEditResult:
+    """A Fixed Mode for each combination given — the cartesian product of the
+    values set on an operational mode — linked to it, named "<prefix> n"
+    (skipping names its EW Group has), all or nothing, in one generation batch
+    deletable together. The admin's Mode defaults give the deltas and
+    confirmation."""
+    from app.models.ew_group import EwGroup
+    from app.models.mode import ModeGenerationBatch
+    from app.models.source import Source
+    from app.routers.modes import create_mode_record
+    from app.schemas.mode import ModeCreate, ModeLineFields, validate_pri_type_fields
+    from app.services import app_settings
+
+    row = _get_or_404(db, emitter_id, operational_mode_id)
+    group = db.get(EwGroup, payload.ew_group_id)
+    source = db.get(Source, payload.source_id)
+    if group is None or group.emitter_id != emitter_id or source is None or source.emitter_id != emitter_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Pick an EW Group and a Source of this Emitter")
+    if payload.jitter_max_us < payload.jitter_min_us:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "The jitter max is below its min")
+    defaults = app_settings.mode_defaults(db)
+    lines = []
+    for i, c in enumerate(payload.combinations, start=1):
+        try:
+            if c.rf_max_mhz < c.rf_min_mhz or c.pri_max_us < c.pri_min_us or c.pw_max_us < c.pw_min_us:
+                raise ValueError("a max is below its min")
+            fields = ModeLineFields(
+                rf_min_mhz=c.rf_min_mhz,
+                rf_max_mhz=c.rf_max_mhz,
+                pw_min_us=c.pw_min_us,
+                pw_max_us=c.pw_max_us,
+                pri_min_us=c.pri_min_us,
+                pri_max_us=c.pri_max_us,
+                jitter_min_us=payload.jitter_min_us,
+                jitter_max_us=payload.jitter_max_us,
+                rf_delta=float(defaults["rf_delta"]),
+                pw_delta=float(defaults["pw_delta"]),
+                pri_delta=float(defaults["pri_delta"]),
+                jitter_delta=float(defaults["jitter_delta"]) or None,
+                rf_range_matching=False,
+                pw_range_matching=False,
+                pri_range_matching=False,
+            )
+            validate_pri_type_fields(PriType.fixed, fields)
+        except ValueError as exc:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Combination {i} can't be a Mode: {exc}")
+        lines.append(fields)
+    batch = ModeGenerationBatch(
+        ew_group_id=group.id, source_id=source.id, name_prefix=payload.name_prefix.strip(), created_by=user.id
+    )
+    db.add(batch)
+    db.flush()
+    used = {name for (name,) in db.query(Mode.name).filter(Mode.ew_group_id == group.id)}
+    counter = 1
+    created = []
+    for fields in lines:
+        while f"{batch.name_prefix} {counter}" in used:
+            counter += 1
+        name = f"{batch.name_prefix} {counter}"
+        used.add(name)
+        counter += 1
+        mode = create_mode_record(
+            db,
+            group,
+            ModeCreate(source_id=source.id, name=name, pri_type=PriType.fixed, line=fields, operational_mode_id=row.id),
+            user.id,
+            generation_batch_id=batch.id,
+            note=f"from the plan of operational mode '{row.name}'",
+        )
+        created.append(mode.id)
+    db.commit()
+    return ModeBatchEditResult(updated_mode_ids=created, count=len(created))

@@ -6,8 +6,7 @@ import { EmptyState } from "../common/EmptyState";
 import { RequireRole } from "../../auth/RequireAuth";
 import { useConfirmDialog } from "../common/ConfirmDialog";
 import { ApiRequestError } from "../../api/client";
-import type { OperationalMode, SetValuesInput } from "../../api/operationalModes";
-import type { ModeBatchEditError } from "../../api/modes";
+import type { OperationalMode } from "../../api/operationalModes";
 import type { Mode } from "../../types/domain";
 import { useEmitter } from "../../state/hooks/useEmitters";
 import { useEmitterCheckoutState } from "../../state/hooks/useEmitterCheckout";
@@ -17,9 +16,13 @@ import {
   useDeleteOperationalMode,
   useOperationalModes,
   useOrderOperationalModes,
-  useSetValuesBelow,
+  usePlanComments,
   useUpdateOperationalMode,
 } from "../../state/hooks/useOperationalModes";
+import { PlanEditor, draftFrom, draftPlan, draftProblem } from "./PlanEditor";
+import { PlanComments, commentCounts } from "./PlanComments";
+import { SetOnModesDialog } from "./SetOnModesDialog";
+import { PLAN_LABEL, PLAN_PARAMS, effectivePlan, planCoverage, valueText, comboText, type PlanCoverage } from "./planCoverage";
 import { PARAMS, PARAM_LABEL, below, buildTree, flatten, ownParams, type ParamKey, type TreeNode } from "./opTree";
 import { scanProblem } from "../modes/ModeMoreOptions";
 
@@ -74,12 +77,15 @@ function OperationalModeDialog({
   const ownBranch = initial ? below(flatten(nodes).find((x) => x.op.id === initial.id)!) : new Set<string>();
   const options = flatten(nodes).filter((x) => !ownBranch.has(x.op.id));
   const parentNode = flatten(nodes).find((x) => x.op.id === parent);
+  const [plan, setPlan] = useState(() => draftFrom(initial?.plan));
+  const planBad = draftProblem(plan);
+  const byIdAll = new Map(flatten(nodes).map((x) => [x.op.id, x]));
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     if (!name.trim()) return setError("Give it a name");
-    if (problem || scanBad) return;
+    if (problem || scanBad || planBad) return;
     const box = scanMin.trim() && scanMax.trim();
     const input = {
       name: name.trim(),
@@ -88,6 +94,7 @@ function OperationalModeDialog({
       scan_min_s: box ? Number(scanMin) : null,
       scan_max_s: box ? Number(scanMax) : null,
       description: description.trim() || null,
+      plan: draftPlan(plan),
     };
     try {
       if (initial) await update.mutateAsync({ id: initial.id, input });
@@ -99,7 +106,7 @@ function OperationalModeDialog({
   }
 
   return (
-    <Modal title={initial ? `Edit ${initial.name}` : "Add operational mode"} onClose={onClose}>
+    <Modal title={initial ? `Edit ${initial.name}` : "Add operational mode"} onClose={onClose} wide>
       <form className="edit-fields" onSubmit={submit}>
         <label>
           Name
@@ -170,180 +177,15 @@ function OperationalModeDialog({
           Description
           <textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
         </label>
+        <PlanEditor draft={plan} onChange={setPlan} inherited={parentNode ? effectivePlan(parentNode, byIdAll) : null} />
+        {planBad && <p className="line-row-problem">{planBad}</p>}
         {error && <p className="error-text">{error}</p>}
         <div className="modal-actions">
           <button type="button" className="button secondary" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className="button primary" disabled={create.isPending || update.isPending || !!problem || !!scanBad}>
+          <button type="submit" className="button primary" disabled={create.isPending || update.isPending || !!problem || !!scanBad || !!planBad}>
             {initial ? "Save" : "Add"}
-          </button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
-type FieldKey = keyof SetValuesInput;
-const VALUE_ROWS: { label: string; unit: string; fields: [FieldKey, FieldKey, FieldKey | null]; fixedOnly?: boolean }[] = [
-  { label: "RF", unit: "MHz", fields: ["rf_min_mhz", "rf_max_mhz", "rf_delta"] },
-  { label: "PRI", unit: "µs", fields: ["pri_min_us", "pri_max_us", "pri_delta"], fixedOnly: true },
-  { label: "Jitter", unit: "µs", fields: ["jitter_min_us", "jitter_max_us", null], fixedOnly: true },
-  { label: "PW", unit: "µs", fields: ["pw_min_us", "pw_max_us", "pw_delta"] },
-];
-
-/** The value every Mode under it has for this field, if they agree. */
-function agreed(modes: Mode[], field: FieldKey): string {
-  const vals = modes.map((m) => (m.line as unknown as Record<string, number | null | undefined> | null)?.[field] ?? null);
-  return vals.length && vals.every((v) => v === vals[0]) && vals[0] != null ? String(vals[0]) : "";
-}
-
-/** Set values on every Mode under an operational mode — the RF range Track 1–3 share, say. */
-function SetValuesDialog({ emitterId, node, onClose }: { emitterId: string; node: TreeNode; onClose: () => void }) {
-  const setValues = useSetValuesBelow(emitterId);
-  const start = useMemo(() => {
-    const out: Partial<Record<FieldKey, string>> = {};
-    for (const r of VALUE_ROWS) for (const f of r.fields) if (f) out[f] = agreed(node.allModes, f);
-    return out;
-  }, [node]);
-  const [values, setFieldValues] = useState(start);
-  const [error, setError] = useState<string | null>(null);
-  const [errors, setErrors] = useState<ModeBatchEditError[] | null>(null);
-  const allFixed = node.allModes.every((m) => m.pri_type === "fixed");
-  const allStagger = node.allModes.length > 0 && node.allModes.every((m) => m.pri_type === "stagger");
-  const startSteps = useMemo(() => {
-    const all = node.allModes.map((m) => (m.line?.pri_stagger_values_us ?? []).join("/"));
-    return allStagger && all.every((x) => x === all[0]) ? all[0] : "";
-  }, [node, allStagger]);
-  const startFrameDelta = useMemo(() => (allStagger ? agreed(node.allModes, "frame_time_delta_us") : ""), [node, allStagger]);
-  const [steps, setSteps] = useState(startSteps);
-  const [frameDelta, setFrameDelta] = useState(startFrameDelta);
-  const stepValues = steps.split(/[\s,/]+/).filter(Boolean).map(Number);
-  const stepsChanged = allStagger && steps.trim() !== "" && steps.trim() !== startSteps;
-  const stepsBad = stepsChanged && (stepValues.length < 2 || stepValues.some((v) => !(v > 0)));
-  const frameChanged = allStagger && frameDelta.trim() !== "" && frameDelta !== startFrameDelta;
-  const frameBad = frameChanged && !(Number(frameDelta) >= 0);
-  const numberFields = (Object.keys(values) as FieldKey[]).filter((k) => k !== "pri_stagger_values_us" && k !== "frame_time_delta_us");
-  const changedNumbers = numberFields.filter((k) => (values[k] ?? "").trim() !== "" && values[k] !== start[k]);
-  const changed = [...changedNumbers, ...(stepsChanged ? ["pri_stagger_values_us" as FieldKey] : []), ...(frameChanged ? ["frame_time_delta_us" as FieldKey] : [])];
-  const bad = [
-    ...changedNumbers.filter((k) => !Number.isFinite(Number(values[k])) || Number(values[k]) < 0),
-    ...(stepsBad ? ["pri_stagger_values_us" as FieldKey] : []),
-    ...(frameBad ? ["frame_time_delta_us" as FieldKey] : []),
-  ];
-
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setErrors(null);
-    if (!changed.length || bad.length) return;
-    try {
-      const input: SetValuesInput = Object.fromEntries(changedNumbers.map((k) => [k, Number(values[k])]));
-      if (stepsChanged) input.pri_stagger_values_us = stepValues;
-      if (frameChanged) input.frame_time_delta_us = Number(frameDelta);
-      await setValues.mutateAsync({ id: node.op.id, values: input });
-      onClose();
-    } catch (err) {
-      if (err instanceof ApiRequestError && Array.isArray(err.detail)) setErrors(err.detail as ModeBatchEditError[]);
-      else setError(err instanceof ApiRequestError ? err.message : "Couldn't set them");
-    }
-  }
-
-  return (
-    <Modal title={`Set on every Mode under ${node.op.name}`} onClose={onClose} wide>
-      <form onSubmit={submit} className="op-set-values">
-        <p className="hint-text">
-          On all {node.allModes.length} Mode{node.allModes.length === 1 ? "" : "s"} under {node.path}. A field already filled in is what
-          they all have now; one left empty, they keep their own. Only what you change is set.
-        </p>
-        <table className="data-table op-set-table">
-          <thead>
-            <tr>
-              <th />
-              <th>Min</th>
-              <th>Max</th>
-              <th>± delta</th>
-            </tr>
-          </thead>
-          <tbody>
-            {VALUE_ROWS.filter((r) => !r.fixedOnly || allFixed).map((r) => (
-              <tr key={r.label}>
-                <th scope="row">
-                  {r.label} ({r.unit})
-                </th>
-                {r.fields.map((f, i) =>
-                  f ? (
-                    <td key={f}>
-                      <input
-                        type="number"
-                        step="any"
-                        min="0"
-                        aria-label={`${r.label} ${["min", "max", "delta"][i]}`}
-                        value={values[f] ?? ""}
-                        placeholder="Their own"
-                        aria-invalid={bad.includes(f) || undefined}
-                        onChange={(e) => setFieldValues((v) => ({ ...v, [f]: e.target.value }))}
-                      />
-                    </td>
-                  ) : (
-                    <td key={i} />
-                  ),
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {allStagger && (
-          <div className="mode-form-grid op-set-stagger">
-            <label>
-              Stagger steps (µs)
-              <input
-                value={steps}
-                placeholder="Their own, e.g. 300/400/500"
-                aria-invalid={stepsBad || undefined}
-                onChange={(e) => setSteps(e.target.value)}
-              />
-              <span className={stepsBad ? "line-row-problem" : "hint-text"}>
-                {stepsBad ? "Two steps or more, each above 0" : "Separated by / , or spaces. A frame time written in by hand on a Mode stays."}
-              </span>
-            </label>
-            <label>
-              Frame time ± delta (µs)
-              <input
-                type="number"
-                step="any"
-                min="0"
-                value={frameDelta}
-                placeholder="Their own"
-                aria-invalid={frameBad || undefined}
-                onChange={(e) => setFrameDelta(e.target.value)}
-              />
-            </label>
-          </div>
-        )}
-        {!allFixed && !allStagger && (
-          <p className="hint-text">PRI, jitter and stagger steps are set on each Mode: these aren&apos;t all Fixed, nor all stagger.</p>
-        )}
-        {!allFixed && allStagger && <p className="hint-text">They&apos;re all stagger: no PRI range or jitter to set.</p>}
-        {error && <p className="error-text">{error}</p>}
-        {errors && (
-          <div className="error-text" role="alert">
-            Nothing was set — it doesn&apos;t suit {errors.length} of them:
-            <ul>
-              {errors.map((x) => (
-                <li key={x.mode_id}>
-                  {x.mode_name}: {x.error}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-        <div className="modal-actions">
-          <button type="button" className="button secondary" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="submit" className="button primary" disabled={!changed.length || !!bad.length || setValues.isPending}>
-            {changed.length ? `Set ${changed.length} value${changed.length === 1 ? "" : "s"}` : "Nothing changed"}
           </button>
         </div>
       </form>
@@ -372,8 +214,26 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
   const [adding, setAdding] = useState<{ parentId: string | null } | null>(null);
   const [editing, setEditing] = useState<OperationalMode | null>(null);
   const [setting, setSetting] = useState<TreeNode | null>(null);
+  const [commentsOn, setCommentsOn] = useState<{ opId: string | null; title: string } | null>(null);
+  const [onlyGaps, setOnlyGaps] = useState(false);
+  const [openGaps, setOpenGaps] = useState<Set<string>>(new Set());
+  const { data: comments } = usePlanComments(emitterId);
   const { roots, unlinked, byId } = useMemo(() => buildTree(ops ?? [], modes ?? []), [ops, modes]);
   const all = flatten(roots);
+  // Each operational mode that plans something itself, against the Modes under it.
+  const coverage = useMemo(() => {
+    const out = new Map<string, PlanCoverage>();
+    for (const x of flatten(roots)) {
+      const c = planCoverage(x, byId);
+      if (c) out.set(x.op.id, c);
+    }
+    return out;
+  }, [roots, byId]);
+  const gaps = (node: TreeNode): boolean => (coverage.get(node.op.id)?.uncovered ?? 0) > 0 || node.children.some(gaps);
+  const planned = [...coverage.values()];
+  const totalCombos = planned.reduce((n, c) => n + c.combos.length, 0);
+  const totalGaps = planned.reduce((n, c) => n + c.uncovered, 0);
+  const planNotes = commentCounts(comments ?? [], null);
   const emitterMs = emitter?.illumination_time_ms ?? null;
 
   const toggle = (set: Set<string>, id: string) => {
@@ -433,10 +293,92 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
       </td>
       <td />
       <td />
+      <td />
     </tr>
   );
 
+  const commentButton = (opId: string | null, title: string) => {
+    const { total, open } = commentCounts(comments ?? [], opId);
+    return (
+      <button
+        type="button"
+        className={open ? "op-comments has-open" : "op-comments"}
+        aria-label={`Comments on ${title}${total ? `: ${total}, ${open} open` : ""}`}
+        title={total ? `${total} comment${total === 1 ? "" : "s"}, ${open} open` : "Comment"}
+        onClick={() => setCommentsOn({ opId, title: `Comments — ${title}` })}
+      >
+        💬{total ? ` ${total}` : ""}
+        {open > 0 && <span className="op-open-badge">{open} open</span>}
+      </button>
+    );
+  };
+
+  /** Its own plan, each value flagged covered or not, what it takes from above, and its combinations. */
+  const planCell = (node: TreeNode) => {
+    const own = node.op.plan;
+    const cov = coverage.get(node.op.id);
+    const inherited = PLAN_PARAMS.filter((k) => !own?.[k]?.length && cov?.plan.from[k]);
+    if (!cov) {
+      const eff = effectivePlan(node, byId);
+      const from = [...new Set(Object.values(eff.from))];
+      return from.length ? <span className="hint-text">plan from {from.join(", ")}</span> : null;
+    }
+    const open = openGaps.has(node.op.id);
+    return (
+      <div className="op-plan">
+        <span className="op-params">
+          {PLAN_PARAMS.filter((k) => own?.[k]?.length).flatMap((k) =>
+            own![k]!.map((v, i) => {
+              const ok = cov.valueCovered[k]?.[i];
+              return (
+                <span
+                  key={`${k}${i}`}
+                  className={ok ? "op-param op-planned covered" : "op-param op-planned uncovered"}
+                  title={`${ok ? "A Mode under it covers it" : "No Mode under it covers it"}${v.note ? ` — ${v.note}` : ""}`}
+                >
+                  <span className="op-param-label">
+                    {PLAN_LABEL[k]}
+                    {k === "pri" && own!.pri_dwell_switch ? " D&S" : ""}
+                  </span>{" "}
+                  {valueText(v, k)} {ok ? "✓" : "⚠"}
+                  {v.note ? " ✎" : ""}
+                </span>
+              );
+            }),
+          )}
+        </span>
+        {inherited.length > 0 && (
+          <span className="jitter-subline">
+            {inherited.map((k) => `${PLAN_LABEL[k]} from ${cov.plan.from[k]}`).join(" · ")}
+          </span>
+        )}
+        {cov.combos.length > 1 || cov.uncovered ? (
+          <button
+            type="button"
+            className={cov.uncovered ? "link-button op-gaps bad" : "link-button op-gaps"}
+            aria-expanded={open}
+            onClick={() => setOpenGaps((s) => toggle(s, node.op.id))}
+          >
+            {cov.combos.length} combination{cov.combos.length === 1 ? "" : "s"}
+            {cov.uncovered ? ` · ${cov.uncovered} not covered` : " · all covered"} {open ? "▾" : "▸"}
+          </button>
+        ) : null}
+        {open && (
+          <ul className="op-combos">
+            {cov.combos.map(({ combo, mode }, i) => (
+              <li key={i} className={mode ? "covered" : "uncovered"}>
+                {mode ? "✓" : "⚠"} {comboText(combo)}
+                {mode ? <span className="hint-text"> — {mode.name}</span> : <span className="hint-text"> — no Mode under it</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
+  };
+
   const nodeRows = (node: TreeNode): ReactNode => {
+    if (onlyGaps && !gaps(node)) return null;
     const open = !collapsed.has(node.op.id);
     const own = node.op.illumination_time_ms != null;
     return (
@@ -462,6 +404,7 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
           <td>
             <Params values={node.shownHere} empty={node.allModes.length > 1 ? <span className="hint-text">nothing they all share</span> : null} />
           </td>
+          <td>{planCell(node)}</td>
           <td className="num op-own">
             {node.illuminationMs != null ? (
               <>
@@ -482,7 +425,8 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
               </span>
             )}
           </td>
-          <td className="row-actions">
+          <td className="row-actions op-actions">
+            {commentButton(node.op.id, node.path)}
             <RequireRole minimum="editor">
               <MenuButton
                 label="⋯"
@@ -502,7 +446,7 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
                     title: editTitle,
                     onSelect: () => void shift(node, 1),
                   },
-                  { label: "Edit…", disabled: !canEdit, title: editTitle, onSelect: () => setEditing(node.op) },
+                  { label: "Edit… (plan, details)", disabled: !canEdit, title: editTitle, onSelect: () => setEditing(node.op) },
                   {
                     label: `Set on its ${node.allModes.length} Mode${node.allModes.length === 1 ? "" : "s"}…`,
                     disabled: !canEdit || !node.allModes.length,
@@ -518,7 +462,7 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
         {open && (
           <>
             {node.children.map(nodeRows)}
-            {node.modes.map((m) => modeRow(m, node, node.depth + 1))}
+            {!onlyGaps && node.modes.map((m) => modeRow(m, node, node.depth + 1))}
           </>
         )}
       </Fragment>
@@ -542,6 +486,23 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
         one, else the Emitter&apos;s{emitterMs != null ? ` (${ms(emitterMs)})` : ""}; its scan period likewise (unless the Mode has its own
         box), else its EW Group&apos;s. <strong>Move up / down</strong> orders them. Not exported.
       </p>
+      <div className="op-plan-bar">
+        {totalCombos > 0 ? (
+          <span className={totalGaps ? "op-plan-summary bad" : "op-plan-summary"}>
+            Plan: {totalCombos} combination{totalCombos === 1 ? "" : "s"} across {planned.length} operational mode
+            {planned.length === 1 ? "" : "s"} — {totalGaps ? `${totalGaps} not covered by a Mode` : "all covered"}
+          </span>
+        ) : (
+          <span className="hint-text">No plan yet — plan an operational mode&apos;s RF, PRI and PW under Edit…, to see what its Modes cover.</span>
+        )}
+        <label className="inline-check">
+          <input type="checkbox" checked={onlyGaps} onChange={(e) => setOnlyGaps(e.target.checked)} disabled={!totalGaps && !onlyGaps} />
+          Only what isn&apos;t covered
+        </label>
+        <button type="button" className="button secondary small" onClick={() => setCommentsOn({ opId: null, title: "Notes on the whole plan" })}>
+          Plan notes{planNotes.total ? ` (${planNotes.total}${planNotes.open ? `, ${planNotes.open} open` : ""})` : ""}
+        </button>
+      </div>
       {canEdit && selected.size > 0 && (
         <div className="op-move-bar">
           <span>
@@ -578,18 +539,19 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
               <tr>
                 <th className="op-select" aria-label="Select" />
                 <th>Operational mode · Mode</th>
-                <th>Parameters</th>
+                <th>Parameters (its Modes)</th>
+                <th>Plan</th>
                 <th className="num">Illumination · scan</th>
                 <th className="row-actions" aria-label="Actions" />
               </tr>
             </thead>
             <tbody>
               {roots.map(nodeRows)}
-              {unlinked.length > 0 && (
+              {unlinked.length > 0 && !onlyGaps && (
                 <>
                   <tr className="op-node-row op-unlinked">
                     <td className="op-select" />
-                    <td colSpan={4}>
+                    <td colSpan={5}>
                       <strong>Not in an operational mode</strong>
                       <span className="jitter-subline">
                         {unlinked.length} Mode{unlinked.length === 1 ? "" : "s"} — select them to move them under one
@@ -616,7 +578,16 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
           }}
         />
       )}
-      {setting && <SetValuesDialog emitterId={emitterId} node={setting} onClose={() => setSetting(null)} />}
+      {setting && <SetOnModesDialog emitterId={emitterId} node={setting} byId={byId} onClose={() => setSetting(null)} />}
+      {commentsOn && (
+        <PlanComments
+          emitterId={emitterId}
+          opId={commentsOn.opId}
+          title={commentsOn.title}
+          comments={comments ?? []}
+          onClose={() => setCommentsOn(null)}
+        />
+      )}
       {dialog}
     </section>
   );

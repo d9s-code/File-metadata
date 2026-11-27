@@ -729,6 +729,16 @@ export function HelpPage() {
               the dwell planner, and to the ones below it that have none — a Mode&apos;s own scan box still wins. The Modes stay what&apos;s exported; saved with the Emitter&apos;s versions.
             </p>
             <p>
+              Each operational mode can carry a <strong>plan</strong> (under Edit…): several RF, PRI and PW values with
+              notes — a PRI can be a <strong>dwell &amp; switch</strong>, each PRI with its dwell in pulses or ms. The plan
+              doesn&apos;t change the Modes; it&apos;s checked against them: each planned value is ✓ when a Mode under it
+              covers it and ⚠ when none does, and every combination of values is listed with the Mode that covers it.{" "}
+              <strong>Only what isn&apos;t covered</strong> shows just the gaps. With several values for a parameter,{" "}
+              <strong>Set on its Modes</strong> makes the cartesian product of them as new Modes — leaving out what&apos;s
+              covered already. 💬 on each operational mode, and <strong>Plan notes</strong>, hold comment threads you can
+              reply to and resolve.
+            </p>
+            <p>
               A Source&apos;s <strong>Generation log</strong> tab lists every run of <em>Generate Modes</em> on it,
               newest first: when and by whom, into which EW Group and with which name prefix and note, the Elements or
               Sequence steps combined (values, variant, the delta used — &ldquo;this run&rdquo; when it was changed

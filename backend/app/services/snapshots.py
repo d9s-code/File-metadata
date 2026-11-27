@@ -130,6 +130,7 @@ def build_emitter_snapshot(emitter: Emitter) -> dict:
                 "illumination_time_ms": float(o.illumination_time_ms) if o.illumination_time_ms is not None else None,
                 "scan_min_s": float(o.scan_min_s) if o.scan_min_s is not None else None,
                 "scan_max_s": float(o.scan_max_s) if o.scan_max_s is not None else None,
+                "plan": o.plan,
                 "sort_order": o.sort_order,
             }
             for o in sorted(emitter.operational_modes, key=lambda o: (o.sort_order, o.name, str(o.id)))

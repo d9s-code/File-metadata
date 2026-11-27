@@ -42,3 +42,68 @@
 .op-set-table input { width: 8rem; }
 .op-set-table th[scope="row"] { white-space: nowrap; }
 .op-set-values ul { margin: 0.25rem 0 0; }
+
+/* The plan: planned values, flagged covered or not by the Modes under it. */
+.op-plan { display: flex; flex-direction: column; gap: 0.25rem; }
+.op-planned.covered { border-color: var(--badge-green-fg); }
+.op-planned.uncovered { border-color: var(--badge-amber-fg); color: var(--badge-amber-fg); }
+.op-gaps { align-self: flex-start; font-size: 0.85rem; }
+.op-gaps.bad { color: var(--badge-amber-fg); }
+.op-combos { margin: 0.1rem 0 0; padding-left: 1rem; font-size: 0.85rem; }
+.op-combos li.uncovered { color: var(--badge-amber-fg); }
+.op-plan-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.75rem;
+}
+.op-plan-summary.bad { color: var(--badge-amber-fg); font-weight: 600; }
+.op-plan-bar .inline-check { flex-direction: row; display: flex; align-items: center; gap: 0.35rem; }
+.op-actions { white-space: nowrap; }
+.op-comments {
+  background: none;
+  border: 1px solid transparent;
+  box-shadow: none;
+  color: inherit;
+  padding: 0.1rem 0.35rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.op-comments:hover { border-color: var(--border); }
+.op-open-badge {
+  margin-left: 0.3rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--badge-amber-bg, transparent);
+  color: var(--badge-amber-fg);
+  font-size: 0.75rem;
+}
+
+/* The plan editor in an operational mode's dialog. */
+.plan-editor { border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.75rem; display: flex; flex-direction: column; gap: 0.6rem; }
+.plan-editor legend { padding: 0 0.25rem; font-weight: 600; font-size: 0.9rem; }
+.plan-param-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; }
+.plan-param-head .inline-check { flex-direction: row; display: flex; align-items: center; gap: 0.3rem; }
+.plan-row { display: grid; grid-template-columns: 7rem 8.5rem minmax(8rem, 1fr) auto; gap: 0.4rem; margin-top: 0.3rem; align-items: center; }
+.plan-row.dwell { grid-template-columns: 7rem 8.5rem 10rem minmax(8rem, 1fr) auto; }
+.plan-dwell { display: flex; gap: 0.25rem; }
+.plan-dwell input { width: 5rem; }
+
+/* Set on its Modes: several values per parameter, the cartesian product. */
+.op-set-entry { display: flex; gap: 0.35rem; align-items: center; margin-bottom: 0.25rem; }
+.op-product { border-top: 1px solid var(--border); margin-top: 0.75rem; padding-top: 0.5rem; }
+.op-product .op-combos { list-style: none; padding-left: 0; max-height: 14rem; overflow: auto; }
+.op-product .inline-check { flex-direction: row; display: flex; align-items: center; gap: 0.35rem; }
+
+/* Comments on the plan. */
+.plan-comments { display: flex; flex-direction: column; gap: 0.75rem; }
+.plan-thread { border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.75rem; }
+.plan-thread.resolved { opacity: 0.75; }
+.plan-reply { margin-left: 1.25rem; padding-left: 0.75rem; border-left: 2px solid var(--border); margin-top: 0.5rem; }
+.plan-comment-head { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: baseline; }
+.plan-comment-text { margin: 0.25rem 0; white-space: pre-wrap; }
+.plan-comment-actions { display: flex; gap: 0.75rem; font-size: 0.85rem; }
+.plan-comment-new, .plan-comment-edit { display: flex; flex-direction: column; gap: 0.35rem; align-items: flex-start; }
+.plan-comment-new textarea, .plan-comment-edit textarea { width: 100%; }
+.plan-resolved { font-size: 0.75rem; }

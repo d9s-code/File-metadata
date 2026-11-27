@@ -26,6 +26,7 @@ from app.routers import (
     intercepts,
     mdfs,
     modes,
+    operational_mode_comments,
     operational_modes,
     platform_tests,
     platforms,
@@ -81,6 +82,7 @@ app.include_router(emitters.router)
 app.include_router(emitter_checkpoints.router)
 app.include_router(ew_groups.router)
 app.include_router(operational_modes.router)
+app.include_router(operational_mode_comments.router)
 app.include_router(sources.router)
 app.include_router(source_groups.router)
 app.include_router(customers.router)

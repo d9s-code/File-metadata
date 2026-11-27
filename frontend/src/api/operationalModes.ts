@@ -15,6 +15,8 @@ export interface OperationalMode {
   /** Its scan period (s) — its Modes' unless a Mode has its own box. Null: the one above it, else the EW Group's. */
   scan_min_s?: number | null;
   scan_max_s?: number | null;
+  /** Its plan, for analysis: the values planned for it (null: none here). */
+  plan?: OperationalModePlan | null;
   sort_order: number;
   /** How many of the Emitter's Modes are linked to it directly. */
   modes_count: number;
@@ -30,6 +32,62 @@ export interface OperationalModeInput {
   scan_min_s?: number | null;
   scan_max_s?: number | null;
   sort_order?: number;
+  plan?: OperationalModePlan | null;
+}
+
+/** One planned value: a single value (max empty) or a min–max, with a note;
+ * a dwell & switch PRI's also how long it dwells there (pulses or ms). */
+export interface PlannedValue {
+  min: number;
+  max?: number | null;
+  note?: string | null;
+  dwell_pulses?: number | null;
+  dwell_ms?: number | null;
+}
+
+/** The values planned for an operational mode — several RF, PRI and PW each.
+ * One it plans none of comes from the one above it. */
+export interface OperationalModePlan {
+  rf?: PlannedValue[];
+  pri?: PlannedValue[];
+  pri_dwell_switch?: boolean;
+  pw?: PlannedValue[];
+}
+
+/** A comment on an Emitter's plan: on one operational mode, or (none) on the whole. */
+export interface PlanComment {
+  id: string;
+  emitter_id: string;
+  operational_mode_id: string | null;
+  operational_mode_name: string | null;
+  parent_id: string | null;
+  author_id: string | null;
+  author_username: string | null;
+  body: string;
+  resolved: boolean;
+  resolved_by_username: string | null;
+  resolved_at: string | null;
+  edited_at: string | null;
+  created_at: string;
+}
+
+/** One Mode to make from a plan: RF (MHz), PRI and PW (µs) ranges. */
+export interface PlannedCombination {
+  rf_min_mhz: number;
+  rf_max_mhz: number;
+  pri_min_us: number;
+  pri_max_us: number;
+  pw_min_us: number;
+  pw_max_us: number;
+}
+
+export interface GenerateFromPlanInput {
+  ew_group_id: string;
+  source_id: string;
+  name_prefix: string;
+  combinations: PlannedCombination[];
+  jitter_min_us?: number;
+  jitter_max_us?: number;
 }
 
 /** Values set on every Mode under an operational mode. */
@@ -61,6 +119,15 @@ export const operationalModesApi = {
   /** One parent's operational modes, in this order. */
   order: (emitterId: string, parentId: string | null, ids: string[]) =>
     api.post<OperationalMode[]>(`${base(emitterId)}/order`, { parent_id: parentId, ids }),
+  /** A Fixed Mode for each combination, linked to it, in one generation batch. */
+  generate: (emitterId: string, id: string, input: GenerateFromPlanInput) =>
+    api.post<{ updated_mode_ids: string[]; count: number }>(`${base(emitterId)}/${id}/generate`, input),
+  comments: (emitterId: string) => api.get<PlanComment[]>(`/emitters/${emitterId}/plan-comments`),
+  addComment: (emitterId: string, input: { body: string; operational_mode_id?: string | null; parent_id?: string | null }) =>
+    api.post<PlanComment>(`/emitters/${emitterId}/plan-comments`, input),
+  updateComment: (emitterId: string, id: string, input: { body?: string; resolved?: boolean }) =>
+    api.patch<PlanComment>(`/emitters/${emitterId}/plan-comments/${id}`, input),
+  deleteComment: (emitterId: string, id: string) => api.delete<void>(`/emitters/${emitterId}/plan-comments/${id}`),
   /** Sets these values on every Mode under it (it and all below), all or nothing. */
   setValues: (emitterId: string, id: string, values: SetValuesInput) =>
     api.post<{ updated_mode_ids: string[]; count: number }>(`${base(emitterId)}/${id}/set-values`, values),

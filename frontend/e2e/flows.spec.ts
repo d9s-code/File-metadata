@@ -625,3 +625,63 @@ test("Operational modes as a tree: TRACK holds Track 1 and 2, shows what they sh
   await expect(names).toHaveText(["TRACK", "Track 2", "Track 1"]);
   await removeEmitter(page, e.id);
 });
+
+test("Plan: an operational mode's planned values, what its Modes don't cover, the missing ones made, a comment", async ({ page }) => {
+  const n = Date.now();
+  const e = await api<{ id: string }>(page, "POST", "/emitters", { name: `E2E Plan ${n}` });
+  const g = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/ew-groups`, { name: "All" });
+  const s = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/sources`, { name: "S", source_date: "2026-01-01" });
+  const track = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/operational-modes`, { name: "TRACK" });
+  const line = { ...FIXED_LINE, rf_min_mhz: 9400, rf_max_mhz: 9450, pri_min_us: 100, pri_max_us: 100, pw_min_us: 1, pw_max_us: 1 };
+  await api(page, "POST", `/ew-groups/${g.id}/modes`, { source_id: s.id, name: "T1", pri_type: "fixed", line, operational_mode_id: track.id });
+
+  await page.goto(`/emitters/${e.id}?tab=operational`);
+  const start = page.getByRole("button", { name: /Start editing/ });
+  if (await start.isVisible()) await start.click();
+  const card = page.getByRole("region", { name: "Operational modes" });
+
+  // Plan it: RF 9400–9450, a dwell & switch of 100 and 120 µs, PW 1 µs.
+  await card.getByRole("button", { name: "Actions for TRACK", exact: true }).click();
+  await page.getByRole("menuitem", { name: /^Edit/ }).click();
+  const edit = page.getByRole("dialog");
+  await edit.getByRole("button", { name: "+ RF value" }).click();
+  await edit.getByLabel("RF 1 min").fill("9400");
+  await edit.getByLabel("RF 1 max").fill("9450");
+  await edit.getByLabel("Dwell & switch").check();
+  for (const [i, pri] of [[1, "100"], [2, "120"]] as const) {
+    await edit.getByRole("button", { name: "+ PRI value" }).click();
+    await edit.getByLabel(`PRI ${i} min`).fill(pri);
+  }
+  await edit.getByLabel("PRI 1 dwell", { exact: true }).fill("64");
+  await edit.getByLabel("PRI 2 note").fill("Seen once — confirm");
+  await edit.getByRole("button", { name: "+ PW value" }).click();
+  await edit.getByLabel("PW 1 min").fill("1");
+  await edit.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(edit).toBeHidden();
+
+  // 120 µs isn't covered by a Mode: flagged.
+  await expect(card).toContainText("Plan: 2 combinations across 1 operational mode — 1 not covered by a Mode");
+  const trackRow = card.locator("tr", { has: page.getByText("TRACK", { exact: true }) });
+  await expect(trackRow.locator(".op-planned.uncovered")).toContainText("120 µs");
+
+  // Set on its Modes: from the plan, the one missing is made.
+  await card.getByRole("button", { name: "Actions for TRACK", exact: true }).click();
+  await page.getByRole("menuitem", { name: /Set on its/ }).click();
+  const set = page.getByRole("dialog");
+  await set.getByRole("button", { name: "Fill in from its plan" }).click();
+  await set.getByLabel("EW Group").selectOption({ label: "All" });
+  await set.getByLabel("Source").selectOption({ label: "S" });
+  await set.getByRole("button", { name: "Create 1 Mode" }).click();
+  await expect(set).toBeHidden();
+  await expect(card).toContainText("all covered");
+
+  // A question on TRACK, resolved.
+  await card.getByRole("button", { name: /^Comments on TRACK/ }).click();
+  const thread = page.getByRole("dialog");
+  await thread.getByLabel("New comment").fill("Is 120 µs real?");
+  await thread.getByRole("button", { name: "Comment", exact: true }).click();
+  await expect(thread).toContainText("Is 120 µs real?");
+  await thread.getByRole("button", { name: "Resolve" }).click();
+  await expect(thread).toContainText("Resolved");
+  await removeEmitter(page, e.id);
+});

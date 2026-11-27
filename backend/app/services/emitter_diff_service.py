@@ -89,9 +89,32 @@ OPERATIONAL_MODE_FIELD_LABELS = {
     "illumination_time_ms": "Illumination time (ms)",
     "scan_min_s": "Scan period min (s)",
     "scan_max_s": "Scan period max (s)",
+    "plan": "Plan",
 }
 
-OPERATIONAL_MODE_FIELDS_ADDED_LATER = frozenset({"scan_min_s", "scan_max_s"})
+OPERATIONAL_MODE_FIELDS_ADDED_LATER = frozenset({"scan_min_s", "scan_max_s", "plan"})
+
+
+def plan_text(plan: dict | None) -> str | None:
+    """"RF 9400–9450 MHz; PRI (dwell & switch) 100 µs × 64 pulses / 120 µs; PW 1 µs"."""
+    if not plan:
+        return None
+
+    def value(v: dict, unit: str) -> str:
+        lo, hi = v.get("min"), v.get("max")
+        text = _num(lo) if hi is None or hi == lo else f"{_num(lo)}–{_num(hi)}"
+        dwell = (
+            f" × {v['dwell_pulses']} pulses" if v.get("dwell_pulses") else f" × {_num(v['dwell_ms'])} ms" if v.get("dwell_ms") else ""
+        )
+        return f"{text} {unit}{dwell}"
+
+    parts = []
+    for key, label, unit in (("rf", "RF", "MHz"), ("pri", "PRI", "µs"), ("pw", "PW", "µs")):
+        values = plan.get(key) or []
+        if values:
+            name = f"{label} (dwell & switch)" if key == "pri" and plan.get("pri_dwell_switch") else label
+            parts.append(f"{name} " + " / ".join(value(v, unit) for v in values))
+    return "; ".join(parts) or None
 
 # dsl_text deliberately excluded — it's a rendered cache of these other
 # fields, not independent data; showing it alongside the real field that
@@ -340,8 +363,11 @@ def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict, status_labels: 
             if o_id not in old_operational:
                 entries.append(_entry(scope, "Added", "added", new_value=_operational_summary(o)))
             else:
+                with_plan_text = [
+                    {**x, "plan": plan_text(x["plan"])} if "plan" in x else x for x in (old_operational[o_id], o)
+                ]
                 _diff_fields(
-                    entries, scope, old_operational[o_id], o, OPERATIONAL_MODE_FIELD_LABELS, OPERATIONAL_MODE_FIELDS_ADDED_LATER
+                    entries, scope, *with_plan_text, OPERATIONAL_MODE_FIELD_LABELS, OPERATIONAL_MODE_FIELDS_ADDED_LATER
                 )
                 before, after = old_operational[o_id], o
                 if "parent_id" in before and "parent_id" in after and before["parent_id"] != after["parent_id"]:
