@@ -160,3 +160,9 @@
 .op-chip[draggable="true"] { cursor: grab; }
 .op-chip[draggable="true"]:active { cursor: grabbing; }
 .op-chip-params { font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.plan-kind { display: flex; flex-direction: row; align-items: center; gap: 0.3rem; }
+.plan-row.paired { grid-template-columns: 7rem 8.5rem 11rem minmax(8rem, 1fr) auto; }
+.plan-row.dwell.paired { grid-template-columns: 7rem 8.5rem 10rem 11rem minmax(8rem, 1fr) auto; }
+.plan-row.stagger { grid-template-columns: minmax(10rem, 1.2fr) 6rem minmax(8rem, 1fr) auto; }
+.plan-row.stagger.paired { grid-template-columns: minmax(10rem, 1.2fr) 6rem minmax(9rem, 1fr) minmax(8rem, 1fr) auto; }
+.plan-dwell input { width: 5rem; }

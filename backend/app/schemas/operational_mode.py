@@ -20,6 +20,9 @@ class PlannedValue(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
     dwell_pulses: int | None = Field(default=None, ge=1)
     dwell_ms: float | None = Field(default=None, gt=0)
+    # A PRI's own PW (µs), when the plan pairs them pulse to pulse.
+    pw_min: float | None = Field(default=None, gt=0)
+    pw_max: float | None = Field(default=None, gt=0)
 
     @model_validator(mode="after")
     def check(self) -> "PlannedValue":
@@ -27,6 +30,27 @@ class PlannedValue(BaseModel):
             raise ValueError(f"A planned value's max ({self.max:g}) is below its min ({self.min:g})")
         if self.dwell_pulses is not None and self.dwell_ms is not None:
             raise ValueError("A dwell is in pulses or in ms, not both")
+        if self.pw_max is not None and (self.pw_min is None or self.pw_max < self.pw_min):
+            raise ValueError("A PRI's PW max needs its PW min, and can't be below it")
+        return self
+
+
+Step = Annotated[float, Field(gt=0)]
+
+
+class PlannedStagger(BaseModel):
+    """A planned stagger: its PRI steps in order (µs), the frame-time ± delta,
+    a note — and, paired pulse to pulse, each step's PW."""
+
+    steps: list[Step] = Field(min_length=2, max_length=MAX_PLANNED_VALUES)
+    frame_time_delta_us: float | None = Field(default=None, ge=0)
+    note: str | None = Field(default=None, max_length=2000)
+    pw_steps: list[Step] | None = None
+
+    @model_validator(mode="after")
+    def check(self) -> "PlannedStagger":
+        if self.pw_steps is not None and len(self.pw_steps) != len(self.steps):
+            raise ValueError(f"A stagger of {len(self.steps)} steps needs {len(self.steps)} PWs, one a step")
         return self
 
 
@@ -38,10 +62,30 @@ class OperationalModePlan(BaseModel):
     rf: list[PlannedValue] = Field(default_factory=list, max_length=MAX_PLANNED_VALUES)
     pri: list[PlannedValue] = Field(default_factory=list, max_length=MAX_PLANNED_VALUES)
     pri_dwell_switch: bool = False
+    # PRI as staggers instead of values: each its steps in order.
+    pri_stagger: list[PlannedStagger] = Field(default_factory=list, max_length=MAX_PLANNED_VALUES)
+    # PW goes with PRI, pulse to pulse: each PRI value carries its PW, each
+    # stagger a PW per step — and no PW is planned on its own.
+    pri_pw_paired: bool = False
     pw: list[PlannedValue] = Field(default_factory=list, max_length=MAX_PLANNED_VALUES)
 
     @model_validator(mode="after")
     def check(self) -> "OperationalModePlan":
+        if self.pri and self.pri_stagger:
+            raise ValueError("A PRI is planned as values or as staggers, not both")
+        if self.pri_stagger and self.pri_dwell_switch:
+            raise ValueError("A stagger isn't a dwell & switch")
+        if self.pri_pw_paired:
+            if not (self.pri or self.pri_stagger):
+                raise ValueError("Pairing PW with PRI needs a PRI planned")
+            if self.pw:
+                raise ValueError("Paired with PRI, PW is given with each PRI — not on its own")
+            if any(v.pw_min is None for v in self.pri):
+                raise ValueError("Paired with PRI, every PRI needs its PW")
+            if any(s.pw_steps is None for s in self.pri_stagger):
+                raise ValueError("Paired with PRI, every stagger needs a PW for each step")
+        elif any(v.pw_min is not None for v in self.pri) or any(s.pw_steps for s in self.pri_stagger):
+            raise ValueError("A PRI's own PW is for PW paired with PRI — mark it as such")
         if self.pri_dwell_switch and len(self.pri) < 2:
             raise ValueError("A dwell & switch PRI needs 2 PRIs or more")
         if not self.pri_dwell_switch and any(v.dwell_pulses or v.dwell_ms for v in self.pri):
@@ -53,7 +97,7 @@ class OperationalModePlan(BaseModel):
     def stored(self) -> dict | None:
         """As kept: None when nothing is planned."""
         data = self.model_dump(exclude_none=True)
-        return data if (self.rf or self.pri or self.pw) else None
+        return data if (self.rf or self.pri or self.pri_stagger or self.pw) else None
 
 
 class OperationalModeCreate(BaseModel):
@@ -175,14 +219,24 @@ class OperationalModeCommentOut(BaseModel):
 
 
 class PlannedCombination(BaseModel):
-    """One Mode to create: an RF, PRI and PW range (MHz, µs)."""
+    """One Mode to create: an RF and PW range (MHz, µs) and a PRI — a range
+    (a Fixed Mode) or a stagger's steps (a Stagger Mode)."""
 
     rf_min_mhz: float = Field(gt=0)
     rf_max_mhz: float = Field(gt=0)
-    pri_min_us: float = Field(gt=0)
-    pri_max_us: float = Field(gt=0)
+    pri_min_us: float | None = Field(default=None, gt=0)
+    pri_max_us: float | None = Field(default=None, gt=0)
+    pri_stagger_values_us: list[Step] | None = Field(default=None, min_length=2, max_length=MAX_PLANNED_VALUES)
+    frame_time_delta_us: float | None = Field(default=None, ge=0)
     pw_min_us: float = Field(gt=0)
     pw_max_us: float = Field(gt=0)
+
+    @model_validator(mode="after")
+    def check(self) -> "PlannedCombination":
+        fixed = self.pri_min_us is not None and self.pri_max_us is not None
+        if fixed == bool(self.pri_stagger_values_us):
+            raise ValueError("A combination's PRI is a range or a stagger's steps — one of them")
+        return self
 
 
 class GenerateFromPlan(BaseModel):

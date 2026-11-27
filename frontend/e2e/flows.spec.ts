@@ -647,7 +647,7 @@ test("Plan: an operational mode's planned values, what its Modes don't cover, th
   await edit.getByRole("button", { name: "+ RF value" }).click();
   await edit.getByLabel("RF 1 min").fill("9400");
   await edit.getByLabel("RF 1 max").fill("9450");
-  await edit.getByLabel("Dwell & switch").check();
+  await edit.getByLabel("PRI as").selectOption("dwell");
   for (const [i, pri] of [[1, "100"], [2, "120"]] as const) {
     await edit.getByRole("button", { name: "+ PRI value" }).click();
     await edit.getByLabel(`PRI ${i} min`).fill(pri);
@@ -712,5 +712,69 @@ test("Operational modes as containers: boxes in boxes, a Mode dragged into anoth
   // The choice is remembered.
   await page.reload();
   await expect(page.getByRole("region", { name: "Operational modes" }).locator(".op-boxes")).toBeVisible();
+  await removeEmitter(page, e.id);
+});
+
+test("Plan staggers and PW paired with PRI: a stagger from another step covers only with range matching; a Stagger Mode made", async ({ page }) => {
+  const n = Date.now();
+  const e = await api<{ id: string }>(page, "POST", "/emitters", { name: `E2E Stagger ${n}` });
+  const g = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/ew-groups`, { name: "All" });
+  const s = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/sources`, { name: "S", source_date: "2026-01-01" });
+  const burst = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/operational-modes`, { name: "BURST" });
+  const line = { ...FIXED_LINE, rf_min_mhz: 9600, rf_max_mhz: 9650, pw_min_us: 1, pw_max_us: 2 };
+  const stagger = Object.fromEntries(Object.entries(line).filter(([k]) => !k.startsWith("pri_") && !k.startsWith("jitter_")));
+  const b1 = await api<{ id: string }>(page, "POST", `/ew-groups/${g.id}/modes`, {
+    source_id: s.id, name: "B1", pri_type: "stagger", operational_mode_id: burst.id,
+    line: { ...stagger, pri_range_matching: false, pri_stagger_values_us: [400, 500, 300], frame_time_delta_us: 2 },
+  });  // prettier-ignore
+
+  await page.goto(`/emitters/${e.id}?tab=operational`);
+  const start = page.getByRole("button", { name: /Start editing/ });
+  if (await start.isVisible()) await start.click();
+  const card = page.getByRole("region", { name: "Operational modes" });
+  if (await card.getByRole("button", { name: "Table" }).isVisible()) await card.getByRole("button", { name: "Table" }).click();
+
+  // Plan a stagger with a PW per step, in the editor.
+  await card.getByRole("button", { name: "Actions for BURST", exact: true }).click();
+  await page.getByRole("menuitem", { name: /^Edit/ }).click();
+  const edit = page.getByRole("dialog");
+  await edit.getByRole("button", { name: "+ RF value" }).click();
+  await edit.getByLabel("RF 1 min").fill("9600");
+  await edit.getByLabel("RF 1 max").fill("9650");
+  await edit.getByLabel("PRI as").selectOption("stagger");
+  await edit.getByLabel("PW goes with each PRI (pulse to pulse)").check();
+  for (const [i, steps, pws] of [[1, "300/400/500", "1/2/1"], [2, "250/350", "1/1"]] as const) {
+    await edit.getByRole("button", { name: "+ stagger" }).click();
+    await edit.getByLabel(`Stagger ${i} steps`).fill(steps);
+    await edit.getByLabel(`Stagger ${i} PW per step`).fill(pws);
+  }
+  await edit.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(edit).toBeHidden();
+
+  // B1 starts from another step, without range matching: not covering it.
+  const row = card.locator("tr", { has: page.getByText("BURST", { exact: true }) });
+  await expect(row.locator(".op-planned.uncovered")).toHaveCount(2);
+  // With range matching on, it does.
+  await api(page, "PATCH", `/ew-groups/${g.id}/modes/${b1.id}`, {
+    pri_type: "stagger",
+    line: { ...stagger, pri_range_matching: true, pri_stagger_values_us: [400, 500, 300], frame_time_delta_us: 2 },
+  });
+  await page.reload();
+  const row2 = page.getByRole("region", { name: "Operational modes" }).locator("tr", { has: page.getByText("BURST", { exact: true }) });
+  await expect(row2.locator(".op-planned.covered", { hasText: "300/400/500" })).toBeVisible();
+
+  // The other stagger, made as a Stagger Mode from the plan.
+  const card2 = page.getByRole("region", { name: "Operational modes" });
+  await card2.getByRole("button", { name: "Actions for BURST", exact: true }).click();
+  await page.getByRole("menuitem", { name: /Set on its/ }).click();
+  const set = page.getByRole("dialog");
+  await set.getByRole("button", { name: "Fill in from its plan" }).click();
+  await set.getByLabel("EW Group").selectOption({ label: "All" });
+  await set.getByLabel("Source").selectOption({ label: "S" });
+  await set.getByRole("button", { name: "Create 1 Mode" }).click();
+  await expect(set).toBeHidden();
+  const modes = await api<{ name: string; pri_type: string; line: { pri_stagger_values_us: number[] } }[]>(page, "GET", `/ew-groups/${g.id}/modes`);
+  const made = modes.find((m) => m.name === "BURST 1")!;
+  expect([made.pri_type, made.line.pri_stagger_values_us]).toEqual(["stagger", [250, 350]]);
   await removeEmitter(page, e.id);
 });

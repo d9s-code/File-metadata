@@ -43,6 +43,18 @@ export interface PlannedValue {
   note?: string | null;
   dwell_pulses?: number | null;
   dwell_ms?: number | null;
+  /** A PRI's own PW (µs), when the plan pairs PW with PRI pulse to pulse. */
+  pw_min?: number | null;
+  pw_max?: number | null;
+}
+
+/** A planned stagger: its PRI steps in order (µs), the frame-time ± delta, a
+ * note — and, paired pulse to pulse, each step's PW. */
+export interface PlannedStagger {
+  steps: number[];
+  frame_time_delta_us?: number | null;
+  note?: string | null;
+  pw_steps?: number[] | null;
 }
 
 /** The values planned for an operational mode — several RF, PRI and PW each.
@@ -51,6 +63,10 @@ export interface OperationalModePlan {
   rf?: PlannedValue[];
   pri?: PlannedValue[];
   pri_dwell_switch?: boolean;
+  /** PRI as staggers instead of values. */
+  pri_stagger?: PlannedStagger[];
+  /** PW goes with PRI, pulse to pulse: each PRI (or stagger step) carries its PW. */
+  pri_pw_paired?: boolean;
   pw?: PlannedValue[];
 }
 
@@ -75,8 +91,12 @@ export interface PlanComment {
 export interface PlannedCombination {
   rf_min_mhz: number;
   rf_max_mhz: number;
-  pri_min_us: number;
-  pri_max_us: number;
+  /** A PRI range (a Fixed Mode), or… */
+  pri_min_us?: number;
+  pri_max_us?: number;
+  /** …a stagger's steps (a Stagger Mode). */
+  pri_stagger_values_us?: number[];
+  frame_time_delta_us?: number | null;
   pw_min_us: number;
   pw_max_us: number;
 }

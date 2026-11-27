@@ -8,7 +8,8 @@ import { useEwGroups } from "../../state/hooks/useEwGroups";
 import { useSources } from "../../state/hooks/useSources";
 import { useGenerateFromPlan, useSetValuesBelow } from "../../state/hooks/useOperationalModes";
 import type { TreeNode } from "./opTree";
-import { asModeCombination, coveredBy, comboText, effectivePlan, type Combination, type PlanParam } from "./planCoverage";
+import { useModeDefaults } from "../../state/hooks/useDwells";
+import { asModeCombination, combinations, coveredBy, comboText, effectivePlan, type Combination, type PlanParam } from "./planCoverage";
 
 type Row = "rf" | "pri" | "jitter" | "pw";
 type Entry = { min: string; max: string };
@@ -39,6 +40,7 @@ export function SetOnModesDialog({ emitterId, node, byId, onClose }: { emitterId
   const allFixed = modes.length > 0 && modes.every((m) => m.pri_type === "fixed");
   const allStagger = modes.length > 0 && modes.every((m) => m.pri_type === "stagger");
   const plan = useMemo(() => effectivePlan(node, byId), [node, byId]);
+  const stepTol = useModeDefaults().defaults.stagger_step_delta_us;
   const hasPlan = Object.keys(plan.values).length > 0;
 
   const start = useMemo(() => {
@@ -59,16 +61,19 @@ export function SetOnModesDialog({ emitterId, node, byId, onClose }: { emitterId
   const [source, setSource] = useState("");
   const [prefix, setPrefix] = useState(node.op.name);
   const [skip, setSkip] = useState<Set<number>>(new Set());
+  // A plan with staggers or PW paired with PRI is taken as its combinations, as they are.
+  const [planCombos, setPlanCombos] = useState<Combination[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [errors, setErrors] = useState<ModeBatchEditError[] | null>(null);
 
   const used = (k: Row) => entries[k].filter(filled);
   // Several values for a parameter, or no Modes to set them on: make Modes.
-  const product = (["rf", "pri", "pw"] as Row[]).some((k) => used(k).length > 1) || modes.length === 0;
+  const product = !!planCombos || (["rf", "pri", "pw"] as Row[]).some((k) => used(k).length > 1) || modes.length === 0;
   // Making Modes: every row (they're Fixed). Setting: PRI and jitter only on Fixed ones.
   const shownRows = product ? ROWS : ROWS.filter((r) => (r.key !== "pri" && r.key !== "jitter") || allFixed);
 
   const combos = useMemo<Combination[]>(() => {
+    if (planCombos) return planCombos;
     if (!product) return [];
     let out: Combination[] = [{}];
     for (const k of ["rf", "pri", "pw"] as PlanParam[]) {
@@ -76,9 +81,15 @@ export function SetOnModesDialog({ emitterId, node, byId, onClose }: { emitterId
       out = out.flatMap((c) => values.map((v) => ({ ...c, [k]: v })));
     }
     return out;
-  }, [entries, product]);
-  const missing = product ? (["rf", "pri", "pw"] as Row[]).filter((k) => !used(k).length) : [];
-  const covered = combos.map((c) => coveredBy(modes, c));
+  }, [entries, product, planCombos]);
+  const missing = planCombos
+    ? planCombos.some((c) => !asModeCombination(c))
+      ? (["rf", "pri", "pw"] as Row[]).filter((k) => planCombos.some((c) => (k === "pri" ? !c.pri && !c.stagger : !c[k as PlanParam])))
+      : []
+    : product
+      ? (["rf", "pri", "pw"] as Row[]).filter((k) => !used(k).length)
+      : [];
+  const covered = combos.map((c) => coveredBy(modes, c, stepTol));
   const chosen = combos.filter((_, i) => !covered[i] && !skip.has(i));
 
   // A value above 0 (a jitter may be 0), its max not below its min.
@@ -88,7 +99,7 @@ export function SetOnModesDialog({ emitterId, node, byId, onClose }: { emitterId
     const ok = row === "jitter" ? lo >= 0 : lo > 0;
     return !ok || !Number.isFinite(lo) || (e.min.trim() !== "" && e.max.trim() !== "" && Number(e.max) < Number(e.min));
   };
-  const anyBad = ROWS.some((r) => entries[r.key].some((e) => badEntry(e, r.key)));
+  const anyBad = !planCombos && ROWS.some((r) => entries[r.key].some((e) => badEntry(e, r.key)));
 
   // Set: what's changed from what they all have now.
   const changed: SetValuesInput = {};
@@ -107,6 +118,11 @@ export function SetOnModesDialog({ emitterId, node, byId, onClose }: { emitterId
   const stepsBad = !!changed.pri_stagger_values_us && (changed.pri_stagger_values_us.length < 2 || changed.pri_stagger_values_us.some((v) => !(v > 0)));
 
   function fillFromPlan() {
+    setSkip(new Set());
+    if (plan.staggers.length || plan.paired) {
+      setPlanCombos(combinations(plan));
+      return;
+    }
     const next = { ...entries };
     for (const k of ["rf", "pri", "pw"] as PlanParam[]) {
       const vs = plan.values[k];
@@ -156,14 +172,24 @@ export function SetOnModesDialog({ emitterId, node, byId, onClose }: { emitterId
           {modes.length
             ? `${modes.length} Mode${modes.length === 1 ? "" : "s"} under it. One value each: it's set on all of them (only what you change). `
             : "No Modes under it yet. "}
-          Several values for RF, PRI or PW: their cartesian product is made as new Fixed Modes under it — the ones a Mode under it covers
-          already are left out.
+          Several values for RF, PRI or PW: their cartesian product is made as new Modes under it — Fixed, or Stagger for a planned
+          stagger (its PW the lowest to highest of its steps&apos; PWs) — the ones a Mode under it covers already left out.
         </p>
         {hasPlan && (
           <button type="button" className="button secondary small" onClick={fillFromPlan}>
             Fill in from its plan
           </button>
         )}
+        {planCombos && (
+          <p className="hint-text">
+            From its plan{plan.staggers.length ? " — staggers" : ""}
+            {plan.paired ? " — PW paired with each PRI" : ""}: its combinations, as planned.{" "}
+            <button type="button" className="link-button" onClick={() => setPlanCombos(null)}>
+              Type values instead
+            </button>
+          </p>
+        )}
+        {!planCombos && (
         <table className="data-table op-set-table">
           <thead>
             <tr>
@@ -240,6 +266,7 @@ export function SetOnModesDialog({ emitterId, node, byId, onClose }: { emitterId
             ))}
           </tbody>
         </table>
+        )}
 
         {!product && allStagger && (
           <div className="mode-form-grid op-set-stagger">
@@ -264,7 +291,9 @@ export function SetOnModesDialog({ emitterId, node, byId, onClose }: { emitterId
               {covered.some(Boolean) ? ` — ${covered.filter(Boolean).length} covered already` : ""}
             </h3>
             {missing.length > 0 ? (
-              <p className="line-row-problem">Give at least one {missing.map((k) => ROWS.find((r) => r.key === k)!.label).join(" and ")} to make Modes.</p>
+              <p className="line-row-problem">
+                {planCombos ? "Its plan needs" : "Give at least one"} {missing.map((k) => ROWS.find((r) => r.key === k)!.label).join(" and ")} to make Modes.
+              </p>
             ) : (
               <ul className="op-combos">
                 {combos.map((c, i) => (
@@ -316,7 +345,7 @@ export function SetOnModesDialog({ emitterId, node, byId, onClose }: { emitterId
               <label>
                 Named
                 <input value={prefix} onChange={(e) => setPrefix(e.target.value)} aria-label="Name prefix" />
-                <span className="hint-text">&ldquo;{prefix.trim() || "…"} 1&rdquo;, &ldquo;{prefix.trim() || "…"} 2&rdquo;… — Fixed PRI, the admin&apos;s default deltas, one batch (deletable together).</span>
+                <span className="hint-text">&ldquo;{prefix.trim() || "…"} 1&rdquo;, &ldquo;{prefix.trim() || "…"} 2&rdquo;… — Fixed PRI (Stagger for a stagger), the admin&apos;s default deltas, one batch (deletable together).</span>
               </label>
             </div>
           </div>

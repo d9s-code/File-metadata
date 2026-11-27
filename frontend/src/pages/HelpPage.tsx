@@ -730,7 +730,10 @@ export function HelpPage() {
             </p>
             <p>
               Each operational mode can carry a <strong>plan</strong> (under Edit…): several RF, PRI and PW values with
-              notes — a PRI can be a <strong>dwell &amp; switch</strong>, each PRI with its dwell in pulses or ms. The plan
+              notes — a PRI can be a <strong>dwell &amp; switch</strong> (each PRI with its dwell in pulses or ms) or{" "}
+              <strong>staggers</strong> (steps in order), and <strong>PW goes with each PRI</strong> pairs a PW with each PRI
+              or stagger step when they change pulse to pulse. A stagger Mode starting from another step covers a planned
+              stagger only with its PRI range matching on. The plan
               doesn&apos;t change the Modes; it&apos;s checked against them: each planned value is ✓ when a Mode under it
               covers it and ⚠ when none does, and every combination of values is listed with the Mode that covers it.{" "}
               <strong>Only what isn&apos;t covered</strong> shows just the gaps. With several values for a parameter,{" "}

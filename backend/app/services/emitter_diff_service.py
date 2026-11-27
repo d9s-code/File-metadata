@@ -109,7 +109,19 @@ def plan_text(plan: dict | None) -> str | None:
         dwell = (
             f" × {v['dwell_pulses']} pulses" if v.get("dwell_pulses") else f" × {_num(v['dwell_ms'])} ms" if v.get("dwell_ms") else ""
         )
-        return f"{text} {unit}{dwell}"
+        pw = ""
+        if v.get("pw_min") is not None:
+            lo_pw, hi_pw = v["pw_min"], v.get("pw_max")
+            pw = f" ↔ PW {_num(lo_pw) if hi_pw is None or hi_pw == lo_pw else f'{_num(lo_pw)}–{_num(hi_pw)}'} µs"
+        return f"{text} {unit}{dwell}{pw}"
+
+    def stagger(st: dict) -> str:
+        text = "/".join(_num(x) for x in st.get("steps", [])) + " µs"
+        if st.get("pw_steps"):
+            text += " ↔ PW " + "/".join(_num(x) for x in st["pw_steps"]) + " µs"
+        if st.get("frame_time_delta_us") is not None:
+            text += f" (frame ±{_num(st['frame_time_delta_us'])})"
+        return text
 
     parts = []
     for key, label, unit in (("rf", "RF", "MHz"), ("pri", "PRI", "µs"), ("pw", "PW", "µs")):
@@ -117,6 +129,8 @@ def plan_text(plan: dict | None) -> str | None:
         if values:
             name = f"{label} (dwell & switch)" if key == "pri" and plan.get("pri_dwell_switch") else label
             parts.append(f"{name} " + " / ".join(value(v, unit) for v in values))
+        if key == "pri" and plan.get("pri_stagger"):
+            parts.append("PRI (stagger) " + " | ".join(stagger(st) for st in plan["pri_stagger"]))
     return "; ".join(parts) or None
 
 # dsl_text deliberately excluded — it's a rendered cache of these other

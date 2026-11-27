@@ -91,3 +91,50 @@ def test_comments_threads_replies_resolved(editor_client, admin_client):
     assert editor_client.delete(f"{url}/{track['id']}").status_code == 204
     rows = editor_client.get(c).json()
     assert [(x["operational_mode_id"], x["operational_mode_name"]) for x in rows] == [(None, "TRACK"), (None, "TRACK")]
+
+
+def test_a_stagger_plan_and_pw_paired_with_pri(editor_client):
+    e, g, s = _emitter(editor_client)
+    url = f"/emitters/{e['id']}/operational-modes"
+    plan = {
+        "rf": [{"min": 9400, "max": 9450}],
+        "pri_stagger": [{"steps": [300, 400, 500], "frame_time_delta_us": 2, "pw_steps": [1, 2, 1]}],
+        "pri_pw_paired": True,
+    }
+    burst = editor_client.post(url, json={"name": "BURST", "plan": plan})
+    assert burst.status_code == 201, burst.text
+    assert burst.json()["plan"]["pri_stagger"][0]["pw_steps"] == [1, 2, 1]
+    bad = [
+        {**plan, "pri": [{"min": 100}]},  # values and staggers both
+        {**plan, "pri_stagger": [{"steps": [300, 400], "pw_steps": [1]}]},  # a PW short
+        {**plan, "pw": [{"min": 1}]},  # paired, yet a PW of its own
+        {"pri": [{"min": 100, "pw_min": 1}]},  # a PRI's PW, not paired
+        {"pri": [{"min": 100}, {"min": 120, "pw_min": 2}], "pri_pw_paired": True},  # one PRI without its PW
+        {"pri_stagger": [{"steps": [300]}]},  # one step isn't a stagger
+    ]
+    for p in bad:
+        assert editor_client.patch(f"{url}/{burst.json()['id']}", json={"plan": p}).status_code == 422, p
+    paired = {"pri": [{"min": 100, "pw_min": 1}, {"min": 120, "pw_min": 2, "pw_max": 3}], "pri_pw_paired": True}
+    assert editor_client.patch(f"{url}/{burst.json()['id']}", json={"plan": paired}).status_code == 200
+
+    # A Stagger Mode made from a planned stagger; a Fixed one beside it.
+    combos = [
+        {"rf_min_mhz": 9400, "rf_max_mhz": 9450, "pri_stagger_values_us": [300, 400, 500], "frame_time_delta_us": 2, "pw_min_us": 1, "pw_max_us": 2},
+        {"rf_min_mhz": 9400, "rf_max_mhz": 9450, "pri_min_us": 100, "pri_max_us": 100, "pw_min_us": 1, "pw_max_us": 1},
+    ]
+    r = editor_client.post(
+        f"{url}/{burst.json()['id']}/generate",
+        json={"ew_group_id": g["id"], "source_id": s["id"], "name_prefix": "Burst", "combinations": combos},
+    )
+    assert r.status_code == 201, r.text
+    made = {m["name"]: m for m in editor_client.get(f"/ew-groups/{g['id']}/modes").json()}
+    assert made["Burst 1"]["pri_type"] == "stagger" and made["Burst 1"]["line"]["pri_stagger_values_us"] == [300, 400, 500]
+    assert made["Burst 1"]["line"]["frame_time_delta_us"] == 2
+    assert made["Burst 2"]["pri_type"] == "fixed"
+    # A combination is a PRI range or a stagger — not both, not neither.
+    both = {**combos[1], "pri_stagger_values_us": [300, 400]}
+    r = editor_client.post(
+        f"{url}/{burst.json()['id']}/generate",
+        json={"ew_group_id": g["id"], "source_id": s["id"], "name_prefix": "X", "combinations": [both]},
+    )
+    assert r.status_code == 422

@@ -347,7 +347,7 @@ def generate_from_plan(
     db: Session = Depends(get_db),
     user=Depends(require_emitter_checkout()),
 ) -> ModeBatchEditResult:
-    """A Fixed Mode for each combination given — the cartesian product of the
+    """A Mode for each combination given (Fixed, or Stagger for a stagger's steps) — the cartesian product of the
     values set on an operational mode — linked to it, named "<prefix> n"
     (skipping names its EW Group has), all or nothing, in one generation batch
     deletable together. The admin's Mode defaults give the deltas and
@@ -369,30 +369,43 @@ def generate_from_plan(
     defaults = app_settings.mode_defaults(db)
     lines = []
     for i, c in enumerate(payload.combinations, start=1):
+        stagger = bool(c.pri_stagger_values_us)
         try:
-            if c.rf_max_mhz < c.rf_min_mhz or c.pri_max_us < c.pri_min_us or c.pw_max_us < c.pw_min_us:
+            if c.rf_max_mhz < c.rf_min_mhz or c.pw_max_us < c.pw_min_us or (not stagger and c.pri_max_us < c.pri_min_us):
                 raise ValueError("a max is below its min")
-            fields = ModeLineFields(
-                rf_min_mhz=c.rf_min_mhz,
-                rf_max_mhz=c.rf_max_mhz,
-                pw_min_us=c.pw_min_us,
-                pw_max_us=c.pw_max_us,
-                pri_min_us=c.pri_min_us,
-                pri_max_us=c.pri_max_us,
-                jitter_min_us=payload.jitter_min_us,
-                jitter_max_us=payload.jitter_max_us,
-                rf_delta=float(defaults["rf_delta"]),
-                pw_delta=float(defaults["pw_delta"]),
-                pri_delta=float(defaults["pri_delta"]),
-                jitter_delta=float(defaults["jitter_delta"]) or None,
-                rf_range_matching=False,
-                pw_range_matching=False,
-                pri_range_matching=False,
-            )
-            validate_pri_type_fields(PriType.fixed, fields)
+            common = {
+                "rf_min_mhz": c.rf_min_mhz,
+                "rf_max_mhz": c.rf_max_mhz,
+                "pw_min_us": c.pw_min_us,
+                "pw_max_us": c.pw_max_us,
+                "rf_delta": float(defaults["rf_delta"]),
+                "pw_delta": float(defaults["pw_delta"]),
+                "rf_range_matching": False,
+                "pw_range_matching": False,
+                "pri_range_matching": False,
+            }
+            if stagger:
+                fields = ModeLineFields(
+                    **common,
+                    pri_stagger_values_us=c.pri_stagger_values_us,
+                    frame_time_delta_us=(
+                        c.frame_time_delta_us if c.frame_time_delta_us is not None else float(defaults["frame_time_delta_us"])
+                    ),
+                )
+            else:
+                fields = ModeLineFields(
+                    **common,
+                    pri_min_us=c.pri_min_us,
+                    pri_max_us=c.pri_max_us,
+                    jitter_min_us=payload.jitter_min_us,
+                    jitter_max_us=payload.jitter_max_us,
+                    pri_delta=float(defaults["pri_delta"]),
+                    jitter_delta=float(defaults["jitter_delta"]) or None,
+                )
+            validate_pri_type_fields(PriType.stagger if stagger else PriType.fixed, fields)
         except ValueError as exc:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Combination {i} can't be a Mode: {exc}")
-        lines.append(fields)
+        lines.append((PriType.stagger if stagger else PriType.fixed, fields))
     batch = ModeGenerationBatch(
         ew_group_id=group.id, source_id=source.id, name_prefix=payload.name_prefix.strip(), created_by=user.id
     )
@@ -401,7 +414,7 @@ def generate_from_plan(
     used = {name for (name,) in db.query(Mode.name).filter(Mode.ew_group_id == group.id)}
     counter = 1
     created = []
-    for fields in lines:
+    for pri_type, fields in lines:
         while f"{batch.name_prefix} {counter}" in used:
             counter += 1
         name = f"{batch.name_prefix} {counter}"
@@ -410,7 +423,7 @@ def generate_from_plan(
         mode = create_mode_record(
             db,
             group,
-            ModeCreate(source_id=source.id, name=name, pri_type=PriType.fixed, line=fields, operational_mode_id=row.id),
+            ModeCreate(source_id=source.id, name=name, pri_type=pri_type, line=fields, operational_mode_id=row.id),
             user.id,
             generation_batch_id=batch.id,
             note=f"from the plan of operational mode '{row.name}'",

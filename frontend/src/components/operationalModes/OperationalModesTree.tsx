@@ -22,7 +22,8 @@ import {
 import { PlanEditor, draftFrom, draftPlan, draftProblem } from "./PlanEditor";
 import { PlanComments, commentCounts } from "./PlanComments";
 import { SetOnModesDialog } from "./SetOnModesDialog";
-import { PLAN_LABEL, PLAN_PARAMS, effectivePlan, planCoverage, valueText, comboText, type PlanCoverage } from "./planCoverage";
+import { PLAN_LABEL, PLAN_PARAMS, effectivePlan, planCoverage, comboText, type PlanCoverage } from "./planCoverage";
+import { useModeDefaults } from "../../state/hooks/useDwells";
 import { PARAMS, PARAM_LABEL, below, buildTree, flatten, ownParams, type ParamKey, type TreeNode } from "./opTree";
 import { scanProblem } from "../modes/ModeMoreOptions";
 
@@ -238,17 +239,19 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
   const [dropOn, setDropOn] = useState<string | null>(null);
   const [openGaps, setOpenGaps] = useState<Set<string>>(new Set());
   const { data: comments } = usePlanComments(emitterId);
+  // How far a stagger's step may be off and still match (the admin's Mode default).
+  const stepTol = useModeDefaults().defaults.stagger_step_delta_us;
   const { roots, unlinked, byId } = useMemo(() => buildTree(ops ?? [], modes ?? []), [ops, modes]);
   const all = flatten(roots);
   // Each operational mode that plans something itself, against the Modes under it.
   const coverage = useMemo(() => {
     const out = new Map<string, PlanCoverage>();
     for (const x of flatten(roots)) {
-      const c = planCoverage(x, byId);
+      const c = planCoverage(x, byId, stepTol);
       if (c) out.set(x.op.id, c);
     }
     return out;
-  }, [roots, byId]);
+  }, [roots, byId, stepTol]);
   const gaps = (node: TreeNode): boolean => (coverage.get(node.op.id)?.uncovered ?? 0) > 0 || node.children.some(gaps);
   const planned = [...coverage.values()];
   const totalCombos = planned.reduce((n, c) => n + c.combos.length, 0);
@@ -469,7 +472,10 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
   const planCell = (node: TreeNode) => {
     const own = node.op.plan;
     const cov = coverage.get(node.op.id);
-    const inherited = PLAN_PARAMS.filter((k) => !own?.[k]?.length && cov?.plan.from[k]);
+    // What it takes from above: a parameter it plans none of (PW paired with PRI comes with the PRI).
+    const plansOwn = (k: (typeof PLAN_PARAMS)[number]) =>
+      k === "pri" ? !!(own?.pri?.length || own?.pri_stagger?.length) : k === "pw" ? !!(own?.pw?.length || own?.pri_pw_paired) : !!own?.[k]?.length;
+    const inherited = PLAN_PARAMS.filter((k) => !plansOwn(k) && cov?.plan.from[k]);
     if (!cov) {
       const eff = effectivePlan(node, byId);
       const from = [...new Set(Object.values(eff.from))];
@@ -479,25 +485,16 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
     return (
       <div className="op-plan">
         <span className="op-params">
-          {PLAN_PARAMS.filter((k) => own?.[k]?.length).flatMap((k) =>
-            own![k]!.map((v, i) => {
-              const ok = cov.valueCovered[k]?.[i];
-              return (
-                <span
-                  key={`${k}${i}`}
-                  className={ok ? "op-param op-planned covered" : "op-param op-planned uncovered"}
-                  title={`${ok ? "A Mode under it covers it" : "No Mode under it covers it"}${v.note ? ` — ${v.note}` : ""}`}
-                >
-                  <span className="op-param-label">
-                    {PLAN_LABEL[k]}
-                    {k === "pri" && own!.pri_dwell_switch ? " D&S" : ""}
-                  </span>{" "}
-                  {valueText(v, k)} {ok ? "✓" : "⚠"}
-                  {v.note ? " ✎" : ""}
-                </span>
-              );
-            }),
-          )}
+          {cov.chips.map((c) => (
+            <span
+              key={c.key}
+              className={c.covered ? "op-param op-planned covered" : "op-param op-planned uncovered"}
+              title={`${c.covered ? "A Mode under it covers it" : "No Mode under it covers it"}${c.note ? ` — ${c.note}` : ""}`}
+            >
+              <span className="op-param-label">{c.label}</span> {c.text} {c.covered ? "✓" : "⚠"}
+              {c.note ? " ✎" : ""}
+            </span>
+          ))}
         </span>
         {inherited.length > 0 && (
           <span className="jitter-subline">
