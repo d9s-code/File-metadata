@@ -27,6 +27,9 @@ import { PARAMS, PARAM_LABEL, below, buildTree, flatten, ownParams, type ParamKe
 import { scanProblem } from "../modes/ModeMoreOptions";
 
 const ms = (v: number) => `${Number(v.toFixed(3))} ms`;
+const VIEW_KEY = "operational-modes-view";
+/** What a dragged Mode carries. */
+const MODE_DRAG = "application/x-mode-id";
 const secs = ([a, b]: [number, number]) => `${a === b ? Number(a.toFixed(3)) : `${Number(a.toFixed(3))}–${Number(b.toFixed(3))}`} s`;
 
 /** The illumination time as typed: a number above 0, or empty. */
@@ -216,6 +219,23 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
   const [setting, setSetting] = useState<TreeNode | null>(null);
   const [commentsOn, setCommentsOn] = useState<{ opId: string | null; title: string } | null>(null);
   const [onlyGaps, setOnlyGaps] = useState(false);
+  // Table or containers — remembered in this browser.
+  const [view, setView] = useState<"table" | "containers">(() => {
+    try {
+      return localStorage.getItem(VIEW_KEY) === "containers" ? "containers" : "table";
+    } catch {
+      return "table";
+    }
+  });
+  const chooseView = (v: "table" | "containers") => {
+    setView(v);
+    try {
+      localStorage.setItem(VIEW_KEY, v);
+    } catch {
+      // Not kept; fine.
+    }
+  };
+  const [dropOn, setDropOn] = useState<string | null>(null);
   const [openGaps, setOpenGaps] = useState<Set<string>>(new Set());
   const { data: comments } = usePlanComments(emitterId);
   const { roots, unlinked, byId } = useMemo(() => buildTree(ops ?? [], modes ?? []), [ops, modes]);
@@ -266,6 +286,138 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
     [ids[i], ids[j]] = [ids[j], ids[i]];
     await order.mutateAsync({ parentId: byId.has(node.op.parent_id ?? "") ? node.op.parent_id : null, ids });
   }
+
+  /** A Mode dragged into a container (or out of all of them: "none"). */
+  async function dropMode(modeId: string, target: string) {
+    setDropOn(null);
+    setMoveError(null);
+    const m = (modes ?? []).find((x) => x.id === modeId);
+    if (!m || (m.operational_mode_id ?? "none") === target) return;
+    try {
+      await batch.mutateAsync({ mode_ids: [modeId], fields: { operational_mode_id: target === "none" ? null : target } });
+    } catch (err) {
+      setMoveError(err instanceof ApiRequestError ? err.message : "Couldn't move it");
+    }
+  }
+
+  /** Where a dragged Mode can be dropped: it, while editing. */
+  const dropProps = (target: string) =>
+    canEdit
+      ? {
+          onDragOver: (e: React.DragEvent) => {
+            if (!e.dataTransfer.types.includes(MODE_DRAG)) return;
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = "move";
+            if (dropOn !== target) setDropOn(target);
+          },
+          onDragLeave: (e: React.DragEvent) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropOn((d) => (d === target ? null : d));
+          },
+          onDrop: (e: React.DragEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const id = e.dataTransfer.getData(MODE_DRAG);
+            if (id) void dropMode(id, target);
+          },
+        }
+      : {};
+
+  const modeChip = (m: Mode, node: TreeNode | null) => {
+    const own = ownParams(m, node);
+    const text = PARAMS.filter((k) => own[k] !== undefined)
+      .map((k) => `${PARAM_LABEL[k]} ${own[k]}`)
+      .join(" · ");
+    return (
+      <div
+        key={m.id}
+        className="op-chip"
+        draggable={canEdit}
+        title={canEdit ? `${text || "as above"} — drag it into another operational mode` : text || "as above"}
+        onDragStart={(e) => {
+          e.dataTransfer.setData(MODE_DRAG, m.id);
+          e.dataTransfer.effectAllowed = "move";
+        }}
+        onDragEnd={() => setDropOn(null)}
+      >
+        <Link to={`/emitters/${emitterId}?tab=modes&mode=${encodeURIComponent(m.name)}`} draggable={false}>
+          {m.name}
+        </Link>
+        {text && <span className="op-chip-params">{text}</span>}
+      </div>
+    );
+  };
+
+  const container = (node: TreeNode): ReactNode => {
+    if (onlyGaps && !gaps(node)) return null;
+    const open = !collapsed.has(node.op.id);
+    const own = node.op.illumination_time_ms != null;
+    return (
+      <div
+        key={node.op.id}
+        className={`op-box depth-${Math.min(node.depth, 3)}${dropOn === node.op.id ? " drop" : ""}`}
+        aria-label={`Operational mode ${node.path}`}
+        role="group"
+        {...dropProps(node.op.id)}
+      >
+        <div className="op-box-head">
+          <button
+            type="button"
+            className="op-toggle"
+            aria-expanded={open}
+            aria-label={`${open ? "Fold" : "Open"} ${node.op.name}`}
+            onClick={() => setCollapsed((s) => toggle(s, node.op.id))}
+          >
+            {open ? "▾" : "▸"}
+          </button>
+          <strong className="op-box-name">{node.op.name}</strong>
+          <span className="hint-text">
+            {node.allModes.length} Mode{node.allModes.length === 1 ? "" : "s"}
+          </span>
+          <span className="op-box-tools">
+            {node.illuminationMs != null && (
+              <span className="op-box-meta" title={own ? "Its illumination time" : `Illumination time from ${node.illuminationFrom}`}>
+                ☀ {ms(node.illuminationMs)}
+                {!own ? ` · ${node.illuminationFrom}` : ""}
+              </span>
+            )}
+            {node.scanS && (
+              <span className="op-box-meta" title={node.op.scan_min_s != null ? "Its scan period" : `Scan period from ${node.scanFrom}`}>
+                ⟳ {secs(node.scanS)}
+                {node.op.scan_min_s == null ? ` · ${node.scanFrom}` : ""}
+              </span>
+            )}
+            {commentButton(node.op.id, node.path)}
+            <RequireRole minimum="editor">
+              <MenuButton label="⋯" className="row-menu-button" ariaLabel={`Actions for ${node.op.name}`} items={nodeMenuItems(node)} />
+            </RequireRole>
+          </span>
+        </div>
+        {node.op.description && <p className="op-box-description">{node.op.description}</p>}
+        {Object.keys(node.shownHere).length > 0 && (
+          <div className="op-box-section">
+            <span className="op-box-label">Its Modes share</span>
+            <Params values={node.shownHere} />
+          </div>
+        )}
+        {coverage.has(node.op.id) || Object.keys(effectivePlan(node, byId).from).length ? (
+          <div className="op-box-section">
+            <span className="op-box-label">Plan</span>
+            {planCell(node)}
+          </div>
+        ) : null}
+        {open && (node.children.length > 0 || node.modes.length > 0) && (
+          <>
+            {node.children.length > 0 && <div className="op-box-children">{node.children.map(container)}</div>}
+            {node.modes.length > 0 && !onlyGaps && <div className="op-box-modes">{node.modes.map((m) => modeChip(m, node))}</div>}
+          </>
+        )}
+        {open && !node.children.length && !node.modes.length && (
+          <p className="hint-text op-box-empty">{canEdit ? "Drag Modes in here, or add one under it." : "No Modes yet."}</p>
+        )}
+      </div>
+    );
+  };
 
   async function move() {
     setMoveError(null);
@@ -377,6 +529,34 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
     );
   };
 
+  /** Each operational mode's ⋯ menu — the same in the table and the containers. */
+  const nodeMenuItems = (node: TreeNode) => [
+                  { label: "Add under it…", disabled: !canEdit, title: editTitle, onSelect: () => setAdding({ parentId: node.op.id }) },
+                  {
+                    label: "Move up",
+                    disabled: !canEdit || siblingsOf(node)[0]?.op.id === node.op.id,
+                    title: editTitle,
+                    onSelect: () => void shift(node, -1),
+                  },
+                  {
+                    label: "Move down",
+                    disabled: !canEdit || siblingsOf(node).at(-1)?.op.id === node.op.id,
+                    title: editTitle,
+                    onSelect: () => void shift(node, 1),
+                  },
+                  { label: "Edit… (plan, details)", disabled: !canEdit, title: editTitle, onSelect: () => setEditing(node.op) },
+                  {
+                    // With no Modes under it yet, it makes them from values given (or its plan).
+                    label: node.allModes.length
+                      ? `Set on its ${node.allModes.length} Mode${node.allModes.length === 1 ? "" : "s"}…`
+                      : "Make Modes from values…",
+                    disabled: !canEdit,
+                    title: editTitle,
+                    onSelect: () => setSetting(node),
+                  },
+                  { label: "Delete…", danger: true, disabled: !canEdit, title: editTitle, onSelect: () => void remove(node) },
+                ];
+
   const nodeRows = (node: TreeNode): ReactNode => {
     if (onlyGaps && !gaps(node)) return null;
     const open = !collapsed.has(node.op.id);
@@ -432,29 +612,7 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
                 label="⋯"
                 className="row-menu-button"
                 ariaLabel={`Actions for ${node.op.name}`}
-                items={[
-                  { label: "Add under it…", disabled: !canEdit, title: editTitle, onSelect: () => setAdding({ parentId: node.op.id }) },
-                  {
-                    label: "Move up",
-                    disabled: !canEdit || siblingsOf(node)[0]?.op.id === node.op.id,
-                    title: editTitle,
-                    onSelect: () => void shift(node, -1),
-                  },
-                  {
-                    label: "Move down",
-                    disabled: !canEdit || siblingsOf(node).at(-1)?.op.id === node.op.id,
-                    title: editTitle,
-                    onSelect: () => void shift(node, 1),
-                  },
-                  { label: "Edit… (plan, details)", disabled: !canEdit, title: editTitle, onSelect: () => setEditing(node.op) },
-                  {
-                    label: `Set on its ${node.allModes.length} Mode${node.allModes.length === 1 ? "" : "s"}…`,
-                    disabled: !canEdit || !node.allModes.length,
-                    title: !node.allModes.length ? "No Modes under it yet" : editTitle,
-                    onSelect: () => setSetting(node),
-                  },
-                  { label: "Delete…", danger: true, disabled: !canEdit, title: editTitle, onSelect: () => void remove(node) },
-                ]}
+                items={nodeMenuItems(node)}
               />
             </RequireRole>
           </td>
@@ -499,11 +657,25 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
           <input type="checkbox" checked={onlyGaps} onChange={(e) => setOnlyGaps(e.target.checked)} disabled={!totalGaps && !onlyGaps} />
           Only what isn&apos;t covered
         </label>
+        <span className="op-view-switch" role="group" aria-label="View">
+          {(["table", "containers"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              className={view === v ? "button primary small" : "button secondary small"}
+              aria-pressed={view === v}
+              onClick={() => chooseView(v)}
+            >
+              {v === "table" ? "Table" : "Containers"}
+            </button>
+          ))}
+        </span>
         <button type="button" className="button secondary small" onClick={() => setCommentsOn({ opId: null, title: "Notes on the whole plan" })}>
           Plan notes{planNotes.total ? ` (${planNotes.total}${planNotes.open ? `, ${planNotes.open} open` : ""})` : ""}
         </button>
       </div>
-      {canEdit && selected.size > 0 && (
+      {view === "containers" && moveError && <p className="error-text">{moveError}</p>}
+      {view === "table" && canEdit && selected.size > 0 && (
         <div className="op-move-bar">
           <span>
             {selected.size} Mode{selected.size === 1 ? "" : "s"} selected
@@ -530,7 +702,31 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
           {moveError && <span className="error-text">{moveError}</span>}
         </div>
       )}
-      {!roots.length && !unlinked.length ? (
+      {view === "containers" && (roots.length > 0 || unlinked.length > 0) ? (
+        <div className="op-boxes">
+          {roots.map(container)}
+          {(unlinked.length > 0 || canEdit) && !onlyGaps && (
+            <div
+              className={`op-box op-box-unlinked${dropOn === "none" ? " drop" : ""}`}
+              role="group"
+              aria-label="Not in an operational mode"
+              {...dropProps("none")}
+            >
+              <div className="op-box-head">
+                <strong className="op-box-name">Not in an operational mode</strong>
+                <span className="hint-text">
+                  {unlinked.length} Mode{unlinked.length === 1 ? "" : "s"}
+                </span>
+              </div>
+              {unlinked.length ? (
+                <div className="op-box-modes">{unlinked.map((m) => modeChip(m, null))}</div>
+              ) : (
+                <p className="hint-text op-box-empty">Drag a Mode here to take it out of its operational mode.</p>
+              )}
+            </div>
+          )}
+        </div>
+      ) : !roots.length && !unlinked.length ? (
         <EmptyState compact icon="◎" title="No operational modes yet" message="Add the radar's operational modes, then put its Modes under them." />
       ) : (
         <div className="table-scroll">

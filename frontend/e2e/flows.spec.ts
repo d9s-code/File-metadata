@@ -685,3 +685,32 @@ test("Plan: an operational mode's planned values, what its Modes don't cover, th
   await expect(thread).toContainText("Resolved");
   await removeEmitter(page, e.id);
 });
+
+test("Operational modes as containers: boxes in boxes, a Mode dragged into another", async ({ page }) => {
+  const n = Date.now();
+  const e = await api<{ id: string }>(page, "POST", "/emitters", { name: `E2E Boxes ${n}` });
+  const g = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/ew-groups`, { name: "All" });
+  const s = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/sources`, { name: "S", source_date: "2026-01-01" });
+  const url = `/emitters/${e.id}/operational-modes`;
+  const track = await api<{ id: string }>(page, "POST", url, { name: "TRACK" });
+  await api(page, "POST", url, { name: "Track 1", parent_id: track.id });
+  await api(page, "POST", `/ew-groups/${g.id}/modes`, { source_id: s.id, name: "Loose", pri_type: "fixed", line: FIXED_LINE });
+
+  await page.goto(`/emitters/${e.id}?tab=operational`);
+  const start = page.getByRole("button", { name: /Start editing/ });
+  if (await start.isVisible()) await start.click();
+  const card = page.getByRole("region", { name: "Operational modes" });
+  await card.getByRole("button", { name: "Containers" }).click();
+  const outer = card.getByRole("group", { name: "Operational mode TRACK", exact: true });
+  const inner = outer.getByRole("group", { name: "Operational mode TRACK › Track 1" });
+  await expect(inner).toBeVisible();
+  await expect(card.getByRole("group", { name: "Not in an operational mode" })).toContainText("Loose");
+
+  await card.locator(".op-chip", { hasText: "Loose" }).dragTo(inner);
+  await expect(inner.locator(".op-chip", { hasText: "Loose" })).toBeVisible();
+  await expect(outer).toContainText("1 Mode");
+  // The choice is remembered.
+  await page.reload();
+  await expect(page.getByRole("region", { name: "Operational modes" }).locator(".op-boxes")).toBeVisible();
+  await removeEmitter(page, e.id);
+});

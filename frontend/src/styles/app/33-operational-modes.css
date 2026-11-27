@@ -107,3 +107,56 @@
 .plan-comment-new, .plan-comment-edit { display: flex; flex-direction: column; gap: 0.35rem; align-items: flex-start; }
 .plan-comment-new textarea, .plan-comment-edit textarea { width: 100%; }
 .plan-resolved { font-size: 0.75rem; }
+
+/* The container view: each operational mode a box, its sub-modes boxes in
+   it, its Modes as chips — drag a chip into another box to move it. */
+.op-view-switch { display: inline-flex; gap: 0.25rem; }
+.op-boxes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(26rem, 1fr));
+  gap: 0.75rem;
+  align-items: start;
+}
+.op-box {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem 0.6rem;
+  background: var(--hover-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+  transition: border-color 0.1s, box-shadow 0.1s;
+}
+.op-box .op-box { background: transparent; }
+.op-box.depth-1 { border-style: solid; }
+.op-box.depth-2, .op-box.depth-3 { border-style: dashed; }
+.op-box.drop { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
+.op-box-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; }
+.op-box-name { font-size: 0.95rem; }
+.op-box-tools { margin-left: auto; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; }
+.op-box-meta { font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.op-box-description { margin: 0; font-size: 0.85rem; color: var(--muted); }
+.op-box-section { display: flex; flex-direction: column; gap: 0.2rem; }
+.op-box-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.op-box-children {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: 0.5rem;
+  align-items: start;
+}
+.op-box-modes { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.op-box-empty { margin: 0; font-size: 0.8rem; }
+.op-box-unlinked { border-style: dashed; background: transparent; }
+.op-chip {
+  display: inline-flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.15rem 0.45rem;
+  background: var(--card-bg);
+  max-width: 100%;
+}
+.op-chip[draggable="true"] { cursor: grab; }
+.op-chip[draggable="true"]:active { cursor: grabbing; }
+.op-chip-params { font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }

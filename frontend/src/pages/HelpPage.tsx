@@ -736,7 +736,8 @@ export function HelpPage() {
               <strong>Only what isn&apos;t covered</strong> shows just the gaps. With several values for a parameter,{" "}
               <strong>Set on its Modes</strong> makes the cartesian product of them as new Modes — leaving out what&apos;s
               covered already. 💬 on each operational mode, and <strong>Plan notes</strong>, hold comment threads you can
-              reply to and resolve.
+              reply to and resolve. <strong>Containers</strong> shows it all as boxes in boxes instead of the table — drag a Mode
+              into another box to move it.
             </p>
             <p>
               A Source&apos;s <strong>Generation log</strong> tab lists every run of <em>Generate Modes</em> on it,
