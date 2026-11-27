@@ -20,7 +20,10 @@ EMITTER_FIELD_LABELS = {
     "status": "Status",
 }
 
-EMITTER_FIELDS_ADDED_LATER = frozenset({"illumination_time_ms"})
+# Fields that didn't exist before need no entry here: a snapshot saved
+# before them had none, so their absence reads as empty (illumination time,
+# a Mode's scan box, operational modes and their link, plan and scan).
+EMITTER_FIELDS_ADDED_LATER: frozenset[str] = frozenset()
 
 EW_GROUP_FIELD_LABELS = {
     "name": "Name",
@@ -63,7 +66,7 @@ MODE_FIELD_LABELS = {
     "scan_max_s": "Scan period max (s)",
 }
 
-MODE_FIELDS_ADDED_LATER = frozenset({"confirmation_quality", "confirmation_quantity", "scan_min_s", "scan_max_s"})
+MODE_FIELDS_ADDED_LATER = frozenset({"confirmation_quality", "confirmation_quantity"})
 
 # Kept in a Mode's snapshot but not one of its parameters: its id, its place
 # in the list, the generation batch it came from, and its Sources (compared
@@ -92,7 +95,7 @@ OPERATIONAL_MODE_FIELD_LABELS = {
     "plan": "Plan",
 }
 
-OPERATIONAL_MODE_FIELDS_ADDED_LATER = frozenset({"scan_min_s", "scan_max_s", "plan"})
+OPERATIONAL_MODE_FIELDS_ADDED_LATER: frozenset[str] = frozenset()
 
 
 def plan_text(plan: dict | None) -> str | None:
@@ -282,9 +285,10 @@ def _diff_mode(
     operational mode it's linked to, then every one of its fields."""
     if old_group["id"] != new_group["id"]:
         entries.append(_entry(scope, "EW Group", "changed", old_value=old_group["name"], new_value=new_group["name"]))
-    if "operational_mode_id" in old and "operational_mode_id" in new and old["operational_mode_id"] != new["operational_mode_id"]:
+    # A snapshot from before operational modes had none: no link.
+    if old.get("operational_mode_id") != new.get("operational_mode_id"):
         old_names, new_names = operational_names
-        old_id, new_id = old["operational_mode_id"], new["operational_mode_id"]
+        old_id, new_id = old.get("operational_mode_id"), new.get("operational_mode_id")
         old_label = old_names.get(old_id) if old_id else None
         # The one it left, renamed since: said, so "A → A" never reads as no change.
         if old_label and old_id in new_names and new_names[old_id] != old_label:
@@ -357,34 +361,32 @@ def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict, status_labels: 
     # Operational modes — only when both snapshots have them (older ones don't).
     old_operational = {o["id"]: o for o in old_snapshot.get("operational_modes", [])}
     new_operational = {o["id"]: o for o in new_snapshot.get("operational_modes", [])}
-    if "operational_modes" in old_snapshot and "operational_modes" in new_snapshot:
-        for o_id, o in new_operational.items():
-            scope = f"Operational mode '{o['name']}'"
-            if o_id not in old_operational:
-                entries.append(_entry(scope, "Added", "added", new_value=_operational_summary(o)))
-            else:
-                with_plan_text = [
-                    {**x, "plan": plan_text(x["plan"])} if "plan" in x else x for x in (old_operational[o_id], o)
-                ]
-                _diff_fields(
-                    entries, scope, *with_plan_text, OPERATIONAL_MODE_FIELD_LABELS, OPERATIONAL_MODE_FIELDS_ADDED_LATER
-                )
-                before, after = old_operational[o_id], o
-                if "parent_id" in before and "parent_id" in after and before["parent_id"] != after["parent_id"]:
-                    entries.append(
-                        _entry(
-                            scope,
-                            "Under",
-                            "changed",
-                            old_value=_path(old_operational, before["parent_id"]),
-                            new_value=_path(new_operational, after["parent_id"]),
-                        )
-                    )
-        for o_id, o in old_operational.items():
-            if o_id not in new_operational:
+    # A snapshot from before them had none: what's there now was added.
+    for o_id, o in new_operational.items():
+        scope = f"Operational mode '{o['name']}'"
+        if o_id not in old_operational:
+            entries.append(_entry(scope, "Added", "added", new_value=_operational_summary(o)))
+        else:
+            with_plan_text = [{**x, "plan": plan_text(x.get("plan"))} for x in (old_operational[o_id], o)]
+            _diff_fields(
+                entries, scope, *with_plan_text, OPERATIONAL_MODE_FIELD_LABELS, OPERATIONAL_MODE_FIELDS_ADDED_LATER
+            )
+            before, after = old_operational[o_id], o
+            if before.get("parent_id") != after.get("parent_id"):
                 entries.append(
-                    _entry(f"Operational mode '{o['name']}'", "Removed", "removed", old_value=_operational_summary(o))
+                    _entry(
+                        scope,
+                        "Under",
+                        "changed",
+                        old_value=_path(old_operational, before.get("parent_id")),
+                        new_value=_path(new_operational, after.get("parent_id")),
+                    )
                 )
+    for o_id, o in old_operational.items():
+        if o_id not in new_operational:
+            entries.append(
+                _entry(f"Operational mode '{o['name']}'", "Removed", "removed", old_value=_operational_summary(o))
+            )
     operational_names = (
         {k: _path(old_operational, k) for k in old_operational},
         {k: _path(new_operational, k) for k in new_operational},

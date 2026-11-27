@@ -6,6 +6,8 @@ import { ApiRequestError } from "../../api/client";
 function invalidateEmitter(qc: ReturnType<typeof useQueryClient>, emitterId: string) {
   qc.invalidateQueries({ queryKey: emitterVersionsKey(emitterId) });
   qc.invalidateQueries({ queryKey: [...emittersKey, emitterId] });
+  // A revert brings back (or takes away) its operational modes too.
+  qc.invalidateQueries({ queryKey: ["operationalModes", emitterId] });
   qc.invalidateQueries({ queryKey: emittersKey });
 }
 

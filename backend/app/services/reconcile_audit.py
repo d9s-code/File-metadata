@@ -21,9 +21,27 @@ _LINE_FIELDS = (
 _GROUP_FIELDS = ("name", "scan_min", "scan_max", "scan_delta", "threat_priority", "ageout")
 _SOURCE_FIELDS = ("name", "description", "source_date", "source_type", "rf_legacy_term", "pri_legacy_term")
 _TEST_LINE_FIELDS = ("label", "expected_mode_name", "expected_parameters", "created_date")
+_OPERATIONAL_FIELDS = ("name", "description", "illumination_time_ms", "scan_min_s", "scan_max_s")
+
+
+def _operational(snapshot: dict) -> dict[str, dict]:
+    """Each operational mode: its fields, what it's under (by name) and its plan, as text."""
+    from app.services.emitter_diff_service import plan_text
+
+    rows = snapshot.get("operational_modes", [])
+    names = {o["id"]: o["name"] for o in rows}
+    return {
+        o["id"]: {
+            **{f: o.get(f) for f in _OPERATIONAL_FIELDS},
+            "under": names.get(o.get("parent_id") or ""),
+            "plan": plan_text(o.get("plan")),
+        }
+        for o in rows
+    }
 
 
 def _modes(snapshot: dict) -> dict[str, dict]:
+    operational = {o["id"]: o["name"] for o in snapshot.get("operational_modes", [])}
     out = {}
     for group in snapshot.get("ew_groups", []):
         for m in group.get("modes", []):
@@ -36,6 +54,9 @@ def _modes(snapshot: dict) -> dict[str, dict]:
                 "notes": m.get("notes"),
                 "confirmation_quality": m.get("confirmation_quality"),
                 "confirmation_quantity": m.get("confirmation_quantity"),
+                "operational_mode": operational.get(m.get("operational_mode_id") or ""),
+                "scan_min_s": m.get("scan_min_s"),
+                "scan_max_s": m.get("scan_max_s"),
                 **{f: line.get(f) for f in _LINE_FIELDS},
             }
     return out
@@ -95,6 +116,7 @@ def record_reconcile(db: Session, *, actor_id, emitter_id, before: dict, after: 
             if changes:
                 log(AuditAction.update, kind, key, f"Changed {noun} '{new[key][label]}' back", changes)
 
+    items(AuditEntityType.operational_mode, "operational mode", _operational(before), _operational(after), "name")
     items(AuditEntityType.ew_group, "EW Group", _pick(before.get("ew_groups", []), _GROUP_FIELDS),
           _pick(after.get("ew_groups", []), _GROUP_FIELDS), "name")  # fmt: skip
     items(AuditEntityType.source, "Source", _pick(before.get("sources", []), _SOURCE_FIELDS),

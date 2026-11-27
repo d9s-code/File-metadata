@@ -8,6 +8,7 @@ const ENTITY_TYPES: Record<string, [plural: string, singular: string]> = {
   emitter: ["Emitters", "Emitter"],
   ew_group: ["EW Groups", "EW Group"],
   operational_mode: ["Operational modes", "Operational mode"],
+  operational_mode_comment: ["Plan comments", "Plan comment"],
   source: ["Sources", "Source"],
   mode_element: ["Elements", "Element"],
   mode: ["Modes", "Mode"],

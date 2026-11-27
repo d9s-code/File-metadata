@@ -107,8 +107,8 @@ def reconcile_emitter_to_snapshot(db: Session, emitter: Emitter, snapshot: dict)
 
     # Operational modes before the Modes that name them. A snapshot saved
     # before they existed has none to say, and leaves them as they are.
-    if "operational_modes" in snapshot:
-        _reconcile_operational_modes(db, emitter, snapshot["operational_modes"])
+    # A snapshot from before them had none: so none, after.
+    _reconcile_operational_modes(db, emitter, snapshot.get("operational_modes", []))
 
     live_ew_groups = {str(g.id): g for g in emitter.ew_groups}
     target_ew_groups = snapshot.get("ew_groups", [])
@@ -193,8 +193,7 @@ def _reconcile_operational_modes(db: Session, emitter: Emitter, snaps: list[dict
         row.illumination_time_ms = _num(o_snap.get("illumination_time_ms"))
         row.scan_min_s = _num(o_snap.get("scan_min_s"))
         row.scan_max_s = _num(o_snap.get("scan_max_s"))
-        if "plan" in o_snap:
-            row.plan = o_snap["plan"]
+        row.plan = o_snap.get("plan")
         row.sort_order = o_snap.get("sort_order", 0)
     db.flush()
     # Parents once every one of them exists.
@@ -286,8 +285,7 @@ def _reconcile_modes(db: Session, group: EwGroup, *, mode_snaps: list[dict]) -> 
             mode.confirmation_quantity = m_snap["confirmation_quantity"]
         mode.scan_min_s = _num(m_snap.get("scan_min_s"))
         mode.scan_max_s = _num(m_snap.get("scan_max_s"))
-        if "operational_mode_id" in m_snap:
-            mode.operational_mode_id = _existing(db, OperationalMode, m_snap["operational_mode_id"])
+        mode.operational_mode_id = _existing(db, OperationalMode, m_snap.get("operational_mode_id"))
         mode.extra_source_links = _extra_source_links(m_snap.get("extra_source_ids", []))
         if "generation_batch_id" in m_snap:
             mode.generation_batch_id = _existing(db, ModeGenerationBatch, m_snap["generation_batch_id"])
