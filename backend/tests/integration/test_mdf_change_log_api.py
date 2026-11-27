@@ -258,3 +258,56 @@ def test_only_what_changed_and_the_word_file_matches(editor_client):
     assert client.post(f"/mdfs/{mid}/summary/preview", json={"tables": {"rows": "some"}}).status_code == 422
     cols = client.get(f"/mdfs/{mid}/summary/columns").json()
     assert cols["emitters"]["columns"]["rf"] == "RF (MHz)" and "status" in cols["platforms"]["default"]
+
+
+def test_a_progress_note(editor_client):
+    from tests.integration.test_mdf_plan_api import _move
+
+    client = editor_client
+    mid = _build(client)
+    g1 = client.post(f"/mdfs/{mid}/goals", json={"text": "Track modes in"}).json()
+    client.post(f"/mdfs/{mid}/goals", json={"text": "SIM tests passed"})
+    client.patch(f"/mdfs/{mid}/goals/{g1['id']}", json={"done": True, "note": "All four"})
+    client.post(f"/mdfs/{mid}/log", json={"kind": "progress", "body": "Before the release"})
+    _move(client, mid, "pending_review", "approved", "released")
+    client.post(f"/mdfs/{mid}/log", json={"kind": "progress", "body": "Bravo Ship pinned"})
+    client.post(f"/mdfs/{mid}/log", json={"kind": "release", "body": "Not a progress entry"})
+
+    preview = _preview(client, mid, kind="progress")
+    blocks = preview["blocks"]
+    texts = [b["text"] for b in blocks]
+    assert texts[0] == "Log MDF — progress note" and preview["file_name"] == "Log MDF progress note v2.docx"
+    assert "Goals" in texts and "1 of 2 done" in texts and "Emitter progress" in texts and "Changes so far" in texts
+    t = _tables(preview)
+    rows, marks, mark_column = t["Goals"]
+    assert rows[1][0] == "Track modes in" and rows[1][1].startswith("Done ") and rows[1][2] == "All four"
+    assert rows[2][1] == "Open" and marks == ["added", None] and mark_column == 1
+    # The log since the last release: Progress entries only, newest first.
+    [log_heading] = [x for x in texts if x.startswith("Progress since the last release")]
+    log, _, _ = t[log_heading]
+    assert [r[2] for r in log[1:]] == ["Bravo Ship pinned"]
+    # Emitter progress: two Platforms, both "In progress" (0%).
+    progress, _, _ = t["Emitter progress"]
+    assert [r[:3] for r in progress[1:]] == [["Alpha Ship", "1", "0%"], ["Bravo Ship", "1", "0%"]]
+    assert progress[1][3] == "1 In progress"
+    # The release notes' own parts aren't a progress note's.
+    assert client.post(f"/mdfs/{mid}/summary/preview", json={"kind": "progress", "parts": ["release_notes"]}).status_code == 422
+    # Parts picked: just the goals.
+    only = _preview(client, mid, kind="progress", parts=["goals"])
+    assert [b["kind"] for b in only["blocks"]] == ["title", "h1", "meta", "table"]
+    doc = _doc(client.post(f"/mdfs/{mid}/summary.docx", json={"kind": "progress"}).content)
+    assert "progress note" in doc and "Track modes in" in doc
+
+
+def test_without_the_mdf_version(editor_client):
+    mid = _build(editor_client)
+    preview = _preview(editor_client, mid, show_version=False, parts=["meta", "release_notes", "emitters", "contents"])
+    texts = [b["text"] for b in preview["blocks"]]
+    assert texts[0] == "Log MDF — release notes"
+    assert "Emitters" in texts and "Contents" in texts
+    span = next(t for t in texts if t.startswith("Changes from"))
+    assert " v1" not in span and " v2" not in span
+    assert not any(" v2" in t for t in texts if t)
+    assert preview["file_name"].startswith("Log MDF release notes ") and "v2" not in preview["file_name"]
+    with_version = [b["text"] for b in _preview(editor_client, mid, parts=["emitters"])["blocks"]]
+    assert "Emitters in v2" in with_version and with_version[0] == "Log MDF — release notes v2"

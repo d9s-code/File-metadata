@@ -509,6 +509,10 @@ def _day(value) -> str:
 # (the change log always does); DEFAULT_PARTS go in unless asked otherwise.
 PARTS = ("meta", "release_notes", "platforms", "emitters", "contents")
 DEFAULT_PARTS = ("meta", "release_notes", "contents")
+# A progress note's.
+PROGRESS_PARTS = ("meta", "goals", "progress_log", "emitter_progress", "changes", "platforms", "emitters")
+PROGRESS_DEFAULT = ("meta", "goals", "progress_log", "emitter_progress", "changes")
+KINDS = ("release", "progress")
 # The change log's columns in the document, by their first word: what changed, widest.
 _COLUMN_WIDTHS = {"Change": 1.1, "Type": 1.0, "Name": 2.2, "Platform": 1.8, "Emitter": 2.2, "Details": 4.2}
 
@@ -528,49 +532,35 @@ def summary_document(s: dict, parts: tuple[str, ...] = DEFAULT_PARTS, release_no
     return write_docx(document_blocks(s, parts, release_notes_text, tables))
 
 
-def document_blocks(s: dict, parts: tuple[str, ...] = DEFAULT_PARTS, release_notes_text: str | None = None, tables: Tables | None = None) -> list[Block]:
-    """The release notes, as the document's blocks — what the Word file
-    writes and the preview page draws. `parts`: which of the version span
-    and details ("meta"), the release notes, the Platforms and Emitters
-    tables and the contents table go in (the change log always does).
-    `release_notes_text`: in place of the release notes written for the
-    versions — a plain-language draft, edited. `tables`: their columns and rows."""
-    tables = tables or Tables()
-    m = s["mdf"]
+def _span(s: dict, show_version: bool) -> str:
+    """The versions the document covers — without the MDF's version numbers, by date only."""
+
+    def v(n) -> str:
+        return f"v{n} " if show_version else ""
+
+    to = f"{v(s['to_version'])}({_day(s['to_at'])})" if show_version else _day(s["to_at"])
     if s.get("from_mdf"):
         prev = s["from_mdf"]
-        span = f"Changes from {prev['name']} v{prev['version']} ({_day(prev['at'])}) to v{s['to_version']} ({_day(s['to_at'])})"
-    elif s["from_version"]:
-        span = f"Changes from v{s['from_version']} ({_day(s['from_at'])}) to v{s['to_version']} ({_day(s['to_at'])})"
-    else:
-        span = f"Everything up to v{s['to_version']} ({_day(s['to_at'])})"
-    blocks = [Block("title", f"{m['name']} — release notes v{s['to_version']}")]
-    if "meta" in parts:
-        blocks += [
-            Block("meta", " · ".join(x for x in [
-                f"Status: {m['status']}",
-                f"Customer: {m['customer']}" if m["customer"] else None,
-                f"Due {_day(m['due_date'])}" if m["due_date"] else None,
-                f"Release date {_day(m['release_date'])}" if m["release_date"] else None,
-                f"Written {datetime.now(timezone.utc).strftime('%d.%m.%Y')}",
-            ] if x)),
-            Block("meta", span),
-        ]  # fmt: skip
-    if "release_notes" in parts:
-        blocks.append(Block("h1", "Release notes"))
-        if release_notes_text is not None and release_notes_text.strip():
-            blocks += [Block("p", para.strip()) for para in release_notes_text.strip().split("\n\n") if para.strip()]
-        else:
-            notes = [v for v in s["versions"] if v["release_notes"]]
-            if notes:
-                for v in reversed(notes):
-                    if len(notes) > 1:
-                        blocks.append(Block("h2", f"v{v['version_number']} — {_day(v['at'])}"))
-                    blocks.append(Block("p", v["release_notes"]))
-            else:
-                blocks.append(Block("meta", "No release notes written for these versions."))
+        start = f"{prev['name']} {v(prev['version'])}({_day(prev['at'])})" if show_version else f"{prev['name']} ({_day(prev['at'])})"
+        return f"Changes from {start} to {to}"
+    if s["from_version"]:
+        start = f"{v(s['from_version'])}({_day(s['from_at'])})" if show_version else _day(s["from_at"])
+        return f"Changes from {start} to {to}"
+    return f"Everything up to {to}"
 
-    blocks.append(Block("h1", "Change notes"))
+
+def _due(m: dict) -> str | None:
+    """"Due 31.12.2026 (in 34 days)" / "(3 days overdue)"."""
+    due = m.get("due_date")
+    if not due:
+        return None
+    days = (due - datetime.now(timezone.utc).date()).days
+    when = "today" if days == 0 else f"in {days} day{'' if days == 1 else 's'}" if days > 0 else f"{-days} day{'' if days == -1 else 's'} overdue"
+    return f"Due {_day(due)} ({when})"
+
+
+def _change_log_blocks(s: dict) -> list[Block]:
+    blocks = []
     for b in s["change_log"]["blocks"]:
         if b["type"] == "empty":
             blocks.append(Block("meta", b["text"]))
@@ -584,22 +574,140 @@ def document_blocks(s: dict, parts: tuple[str, ...] = DEFAULT_PARTS, release_not
             blocks.append(Block("table", rows=rows, marks=[r["mark"] for r in b["rows"]], mark_column=b["mark_column"], widths=widths))
         else:
             blocks.append(Block("bullet", b["text"] + (": " + "; ".join(b["items"]) if b["items"] else "")))
+    return blocks
 
+
+def _table_blocks(s: dict, parts: tuple[str, ...], tables: Tables, where: str) -> list[Block]:
+    blocks = []
     for part, title, columns in (("platforms", "Platforms", PLATFORM_COLUMNS), ("emitters", "Emitters", EMITTER_COLUMNS)):
         if part not in parts:
             continue
         shown = tables.platform_columns if part == "platforms" else tables.emitter_columns
         t = table_block(s["tables"][part], columns, shown, tables.rows)
-        blocks.append(Block("h1", f"{title}{' added or updated' if tables.rows == 'changed' else ''} in v{s['to_version']}"))
+        blocks.append(Block("h1", f"{title}{' added or updated' if tables.rows == 'changed' else ''}{where}"))
         if t is None:
             blocks.append(Block("meta", f"No {title} added or updated." if tables.rows == "changed" else f"No {title}."))
         else:
             blocks.append(
                 Block("table", rows=[t["columns"], *t["rows"]], marks=t["marks"], mark_column=t["mark_column"], widths=t["widths"], font_pt=t["font_pt"])
             )
+    return blocks
+
+
+def _progress_blocks(s: dict, parts: tuple[str, ...], progress: dict) -> list[Block]:
+    """A progress note's own parts: goals, the progress log, Emitter progress per Platform."""
+    blocks = []
+    if "goals" in parts:
+        blocks.append(Block("h1", "Goals"))
+        goals = progress["goals"]
+        if not goals:
+            blocks.append(Block("meta", "No goals set."))
+        else:
+            done = sum(1 for g in goals if g["done"])
+            blocks.append(Block("meta", f"{done} of {len(goals)} done"))
+            rows = [["Goal", "Done", "Note"]] + [
+                [g["text"], f"Done {_day(g['done_at'].date())}" if g["done"] else "Open", g["note"] or ""] for g in goals
+            ]
+            blocks.append(Block("table", rows=rows, marks=["added" if g["done"] else None for g in goals], mark_column=1, widths=[5, 2.4, 4]))
+    if "progress_log" in parts:
+        since = progress["since"]
+        blocks.append(Block("h1", f"Progress since the last release ({_day(since.date())})" if since else "Progress"))
+        log = progress["log"]
+        if not log:
+            blocks.append(Block("meta", "Nothing logged since." if since else "Nothing logged yet."))
+        else:
+            rows = [["Date", "By", "Progress"]] + [[_day(e["at"].date()), e["by"] or "—", e["text"]] for e in log]
+            blocks.append(Block("table", rows=rows, marks=[None] * len(log), widths=[1.4, 1.4, 7]))
+    if "emitter_progress" in parts:
+        ep = progress["emitter_progress"]
+        blocks.append(Block("h1", "Emitter progress"))
+        overall = ep["overall"]
+        if overall["percent"] is None:
+            blocks.append(Block("meta", "No Emitters pinned."))
+        else:
+            blocks.append(
+                Block("meta", f"Overall {overall['percent']}% of the way to Operational — {overall['emitters']} Emitters: {overall['by_status']}")
+            )
+            rows = [["Platform", "Emitters", "Progress", "Status"]] + [
+                [p["platform"], str(p["emitters"]), "—" if p["percent"] is None else f"{p['percent']}%", p["by_status"]] for p in ep["platforms"]
+            ]
+            marks = ["added" if p["percent"] == 100 else None for p in ep["platforms"]]
+            blocks.append(Block("table", rows=rows, marks=marks, mark_column=2, widths=[3, 1.3, 1.5, 5]))
+    return blocks
+
+
+def document_blocks(
+    s: dict,
+    parts: tuple[str, ...] = DEFAULT_PARTS,
+    release_notes_text: str | None = None,
+    tables: Tables | None = None,
+    kind: str = "release",
+    show_version: bool = True,
+    progress: dict | None = None,
+) -> list[Block]:
+    """The document's blocks — what the Word file writes and the preview
+    page draws. `kind` "release": the release notes; "progress": a progress
+    note (with `progress`, see progress_note). `parts`: what goes in (see
+    RELEASE_PARTS and PROGRESS_PARTS; a release's change log always does).
+    `release_notes_text`: in place of the release notes written for the
+    versions — a plain-language draft, edited. `tables`: their columns and
+    rows. `show_version`: the MDF's version numbers, or dates only."""
+    tables = tables or Tables()
+    m = s["mdf"]
+    version = f" v{s['to_version']}" if show_version else ""
+    written = f"Written {datetime.now(timezone.utc).strftime('%d.%m.%Y')}"
+    if kind == "progress":
+        blocks = [Block("title", f"{m['name']} — progress note")]
+        if "meta" in parts:
+            blocks += [
+                Block("meta", " · ".join(x for x in [
+                    f"Status: {m['status']}",
+                    f"Customer: {m['customer']}" if m["customer"] else None,
+                    _due(m),
+                    written,
+                ] if x)),
+                Block("meta", f"Of v{s['to_version']}, saved {_day(s['to_at'])}" if show_version else f"As saved {_day(s['to_at'])}"),
+            ]  # fmt: skip
+        blocks += _progress_blocks(s, parts, progress or {"goals": [], "log": [], "since": None, "emitter_progress": {"platforms": [], "overall": {"percent": None}}})
+        if "changes" in parts:
+            blocks.append(Block("h1", "Changes so far"))
+            blocks.append(Block("meta", _span(s, show_version)))
+            blocks += _change_log_blocks(s)
+        blocks += _table_blocks(s, parts, tables, version and f" in{version}")
+        return blocks
+
+    blocks = [Block("title", f"{m['name']} — release notes{version}")]
+    if "meta" in parts:
+        blocks += [
+            Block("meta", " · ".join(x for x in [
+                f"Status: {m['status']}",
+                f"Customer: {m['customer']}" if m["customer"] else None,
+                f"Due {_day(m['due_date'])}" if m["due_date"] else None,
+                f"Release date {_day(m['release_date'])}" if m["release_date"] else None,
+                written,
+            ] if x)),
+            Block("meta", _span(s, show_version)),
+        ]  # fmt: skip
+    if "release_notes" in parts:
+        blocks.append(Block("h1", "Release notes"))
+        if release_notes_text is not None and release_notes_text.strip():
+            blocks += [Block("p", para.strip()) for para in release_notes_text.strip().split("\n\n") if para.strip()]
+        else:
+            notes = [v for v in s["versions"] if v["release_notes"]]
+            if notes:
+                for v in reversed(notes):
+                    if len(notes) > 1:
+                        blocks.append(Block("h2", f"v{v['version_number']} — {_day(v['at'])}" if show_version else _day(v["at"])))
+                    blocks.append(Block("p", v["release_notes"]))
+            else:
+                blocks.append(Block("meta", "No release notes written for these versions."))
+
+    blocks.append(Block("h1", "Change notes"))
+    blocks += _change_log_blocks(s)
+    blocks += _table_blocks(s, parts, tables, version and f" in{version}")
 
     if "contents" in parts:
-        blocks.append(Block("h1", f"Contents of v{s['to_version']}"))
+        blocks.append(Block("h1", f"Contents of{version}" if show_version else "Contents"))
         # Emitter versions only in full detail.
         versions = s.get("change_log", {}).get("detail", "full") == "full"
         rows = [["Platform", "Platform version", "Emitter"] + (["Emitter version"] if versions else [])]
@@ -616,11 +724,11 @@ def document_blocks(s: dict, parts: tuple[str, ...] = DEFAULT_PARTS, release_not
     return blocks
 
 
-def _parts(parts: str | None) -> tuple[str, ...]:
+def _parts(parts: str | None, kind: str = "release") -> tuple[str, ...]:
     if parts is None:
-        return DEFAULT_PARTS
+        return PROGRESS_DEFAULT if kind == "progress" else DEFAULT_PARTS
     on = tuple(p.strip() for p in parts.split(",") if p.strip())
-    unknown = sorted(set(on) - set(PARTS))
+    unknown = sorted(set(on) - set(PROGRESS_PARTS if kind == "progress" else PARTS))
     if unknown:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Unknown part(s): {', '.join(unknown)}")
     return on
@@ -648,15 +756,19 @@ def summary_docx(
 
 
 class SummaryDocument(BaseModel):
-    """A release-notes document, laid out as asked — with, optionally, the
-    release notes in plain words (an edited draft) in place of those written."""
+    """A release-notes document (or a progress note: `kind`), laid out as
+    asked — with, optionally, the release notes in plain words (an edited
+    draft) in place of those written, and the MDF's version numbers or not."""
 
+    kind: Literal["release", "progress"] = "release"
+    show_version: bool = True
     from_version: int | None = None
     to_version: int | None = None
     base: SummaryBase | None = None
     detail: str = "full"
     group: str = "change"
-    parts: list[str] = Field(default_factory=lambda: list(DEFAULT_PARTS))
+    # None: the kind's own default parts.
+    parts: list[str] | None = None
     release_notes_text: str | None = Field(default=None, max_length=20000)
     tables: Tables = Field(default_factory=Tables)
 
@@ -670,33 +782,43 @@ def _check_tables(t: Tables) -> None:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"rows: one of {', '.join(ROWS)}")
 
 
-def _laid_out(db: Session, mdf_id: uuid.UUID, payload: SummaryDocument) -> tuple[Mdf, dict, tuple[str, ...]]:
+def _laid_out(db: Session, mdf_id: uuid.UUID, payload: SummaryDocument) -> tuple[list[Block], str]:
+    """The document asked for: its blocks and its file name."""
     _check_layout(payload.detail, payload.group)
     _check_tables(payload.tables)
-    parts = _parts(",".join(payload.parts))
+    parts = _parts(None if payload.parts is None else ",".join(payload.parts), payload.kind)
     mdf = _mdf(db, mdf_id)
-    return mdf, build_summary(db, mdf, payload.from_version, payload.to_version, payload.base, None, payload.detail, payload.group), parts
+    s = build_summary(db, mdf, payload.from_version, payload.to_version, payload.base, None, payload.detail, payload.group)
+    progress = None
+    if payload.kind == "progress":
+        from app.services.progress_note import progress_data
+
+        progress = progress_data(db, mdf.id, _version(db, mdf.id, s["to_version"]).snapshot)
+    blocks = document_blocks(s, parts, payload.release_notes_text, payload.tables, payload.kind, payload.show_version, progress)
+    what = "progress note" if payload.kind == "progress" else "release notes"
+    stamp = f"v{s['to_version']}" if payload.show_version else datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return blocks, f"{mdf.name} {what} {stamp}.docx"
 
 
 @router.post("/{mdf_id}/summary.docx", dependencies=[Depends(verify_csrf)])
 def summary_docx_with(
     mdf_id: uuid.UUID, payload: SummaryDocument, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
 ) -> Response:
-    """The release notes as a Word document, laid out as asked."""
-    mdf, s, parts = _laid_out(db, mdf_id, payload)
-    return _docx_response(mdf, s, parts, payload.release_notes_text, payload.tables)
+    """The release notes (or a progress note) as a Word document, laid out as asked."""
+    blocks, name = _laid_out(db, mdf_id, payload)
+    return Response(content=write_docx(blocks), media_type=DOCX, headers={"Content-Disposition": attachment_disposition(name)})
 
 
 @router.post("/{mdf_id}/summary/preview", dependencies=[Depends(verify_csrf)])
 def summary_preview(
     mdf_id: uuid.UUID, payload: SummaryDocument, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
 ) -> dict:
-    """The release notes laid out as asked, as the document's blocks — the
-    preview page draws exactly what the Word file will hold."""
-    mdf, s, parts = _laid_out(db, mdf_id, payload)
-    blocks = document_blocks(s, parts, payload.release_notes_text, payload.tables)
+    """The release notes (or a progress note) laid out as asked, as the
+    document's blocks — the preview page draws exactly what the Word file
+    will hold."""
+    blocks, name = _laid_out(db, mdf_id, payload)
     return {
-        "file_name": f"{mdf.name} release notes v{s['to_version']}.docx",
+        "file_name": name,
         "blocks": [
             {
                 "kind": b.kind,

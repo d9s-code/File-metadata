@@ -1038,3 +1038,60 @@ test("Release notes preview: the document as a page, Platforms and Emitters tabl
   await page.evaluate(() => localStorage.removeItem("mdf-summary-layout"));
   await removeEmitter(page, e.id);
 });
+
+test("Progress note: goals, the log and Emitter progress; as slides saved as PNG; without the MDF version; an unsaved pin flagged like an Emitter's edits", async ({ page }) => {
+  const n = Date.now();
+  const e = await api<{ id: string }>(page, "POST", "/emitters", { name: `E2E Progress Radar ${n}` });
+  const g = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/ew-groups`, { name: "G" });
+  const s = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/sources`, { name: "S", source_date: "2026-01-01" });
+  await api(page, "POST", `/ew-groups/${g.id}/modes`, { source_id: s.id, name: "Search", pri_type: "fixed", line: FIXED_LINE });
+  const v = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/versions`, { change_summary: "v1" });
+  const p = await api<{ id: string }>(page, "POST", "/platforms", { name: `E2E Progress Ship ${n}` });
+  await api(page, "POST", `/platforms/${p.id}/links`, { emitter_id: e.id, emitter_version_id: v.id });
+  const pv = await api<{ id: string }>(page, "POST", `/platforms/${p.id}/versions`, { change_summary: "v1" });
+  const mdf = await api<{ id: string }>(page, "POST", "/mdfs", { name: `E2E Progress MDF ${n}` });
+  await api(page, "POST", `/mdfs/${mdf.id}/links`, { platform_id: p.id, platform_version_id: pv.id });
+  await api(page, "POST", `/mdfs/${mdf.id}/versions`, { change_summary: "v1" });
+  const goal = await api<{ id: string }>(page, "POST", `/mdfs/${mdf.id}/goals`, { text: "Radar characterised" });
+  await api(page, "POST", `/mdfs/${mdf.id}/goals`, { text: "SIM tests passed" });
+  await api(page, "PATCH", `/mdfs/${mdf.id}/goals/${goal.id}`, { done: true });
+  await api(page, "POST", `/mdfs/${mdf.id}/log`, { kind: "progress", body: "Ship pinned" });
+
+  await page.evaluate(() => localStorage.removeItem("mdf-summary-layout"));
+  await page.goto(`/mdfs/${mdf.id}?tab=plan`);
+  await page.getByRole("link", { name: "Progress note" }).click();
+  await expect(page.getByRole("heading", { name: "Progress note — preview" })).toBeVisible();
+  const doc = page.getByRole("article", { name: "Release notes preview" });
+  await expect(doc).toContainText(`E2E Progress MDF ${n} — progress note`);
+  await expect(doc).toContainText("1 of 2 done");
+  await expect(doc.locator("table").filter({ hasText: "Goal" })).toContainText("Radar characterised");
+  await expect(doc).toContainText("Ship pinned");
+  await expect(doc.locator("table").filter({ hasText: "Progress" }).last()).toContainText(`E2E Progress Ship ${n}`);
+  await expect(doc).toContainText("Of v1");
+  // Without the MDF's version numbers.
+  await page.getByRole("complementary", { name: "How the release notes read" }).getByLabel("MDF version numbers").uncheck();
+  await expect(doc).not.toContainText("Of v1");
+  await expect(doc).toContainText("As saved");
+
+  // As slides: the first is the title; each saves as a PNG.
+  await page.getByRole("button", { name: "Slides", exact: true }).click();
+  const first = page.getByRole("figure", { name: "Slide 1" });
+  await expect(first).toContainText(`E2E Progress MDF ${n} — progress note`);
+  await expect(page.getByRole("figure", { name: "Slide 2" })).toContainText("Goals");
+  const download = page.waitForEvent("download");
+  await first.getByRole("button", { name: "Save PNG" }).click();
+  expect((await download).suggestedFilename()).toMatch(/progress note .* slide 1\.png$/);
+
+  // Back on the MDF: a pin not in a saved version is flagged beside Save version, and listed.
+  const p2 = await api<{ id: string }>(page, "POST", "/platforms", { name: `E2E Progress Boat ${n}` });
+  const p2v = await api<{ id: string }>(page, "POST", `/platforms/${p2.id}/versions`, { change_summary: "v1" });
+  await api(page, "POST", `/mdfs/${mdf.id}/links`, { platform_id: p2.id, platform_version_id: p2v.id });
+  await page.goto(`/mdfs/${mdf.id}`);
+  const chip = page.getByRole("button", { name: /Not saved · 1 change since v1/ });
+  await expect(chip).toBeVisible();
+  await chip.click();
+  await expect(page.getByRole("region", { name: "Changes not saved" })).toContainText(`E2E Progress Boat ${n}`);
+
+  await page.evaluate(() => localStorage.removeItem("mdf-summary-layout"));
+  await removeEmitter(page, e.id);
+});

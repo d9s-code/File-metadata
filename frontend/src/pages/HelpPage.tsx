@@ -1248,8 +1248,9 @@ export function HelpPage() {
           <p>
             <strong>Pins not saved.</strong> Pinning or repinning on an MDF or a Platform is kept straight away,
             but only <strong>Save version</strong> puts it in a version, which is what gets exported and what an
-            MDF pins. Until you save, the header says <strong>● Pins not saved</strong>. Click it to see what
-            changed. From <strong>Released</strong> onwards, an MDF&apos;s pins aren&apos;t flagged as outdated
+            MDF pins. Until you save, a Platform&apos;s header says <strong>● Pins not saved</strong>, and an
+            MDF&apos;s shows an amber <strong>● Not saved · Changes ▾</strong> beside Save version, as an Emitter
+            shows its edits. Click it to see what changed. From <strong>Released</strong> onwards, an MDF&apos;s pins aren&apos;t flagged as outdated
             any more, since they stay as they went out.
           </p>
           <p>
@@ -1290,6 +1291,10 @@ export function HelpPage() {
             page, exactly as the Word file will read, with tables of the <strong>Platforms</strong> and{" "}
             <strong>Emitters</strong> to add — all of them or only those added or updated, and the columns you pick:
             status, version, designation, Platforms, Modes, RF, PRI and PW (lowest to highest, as exported) and more.
+            The same page makes a <strong>progress note</strong> for an MDF still being worked on — goals, the
+            progress log since the last release, Emitter progress per Platform and the changes so far — and shows
+            either as <strong>Slides</strong>, each with <strong>Copy image</strong> to paste into PowerPoint or{" "}
+            <strong>Save PNG</strong>. <strong>MDF version numbers</strong> can be left out (dates only).
             Except plain sentences, the change notes are tables, added
             first, then updated, then removed — green, amber and red. Emitters are named with their designation; their
             versions show in the contents only in full detail. With the AI on, <strong>Plain-language draft (AI)</strong>

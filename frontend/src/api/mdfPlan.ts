@@ -76,6 +76,10 @@ export type ChangeLogDetail = "full" | "names" | "counts" | "sentences";
 export type ChangeLogGroup = "change" | "platform";
 /** The parts of the release-notes document that can be left out. */
 export type SummaryPart = "meta" | "release_notes" | "platforms" | "emitters" | "contents";
+/** A progress note's parts. */
+export type ProgressPart = "meta" | "goals" | "progress_log" | "emitter_progress" | "changes" | "platforms" | "emitters";
+/** The release notes, or a progress note for an MDF still being worked on. */
+export type DocKind = "release" | "progress";
 
 /** The Platforms and Emitters tables: which columns, and every row or only those added or updated. */
 export interface SummaryTables {
@@ -109,11 +113,14 @@ export interface SummaryPreview {
 
 /** A release-notes document, laid out as asked. */
 export interface SummaryLayoutInput {
+  kind?: DocKind;
+  /** The MDF's version numbers in it, or dates only. */
+  showVersion?: boolean;
   from: SummaryFrom;
   to: number | null;
   detail: ChangeLogDetail;
   group: ChangeLogGroup;
-  parts: SummaryPart[];
+  parts: (SummaryPart | ProgressPart)[];
   releaseNotesText?: string | null;
   tables?: SummaryTables;
 }
@@ -122,6 +129,8 @@ function documentBody(input: SummaryLayoutInput) {
   return {
     ...(input.from === "start" || input.from === "previous" ? { base: input.from } : input.from ? { from_version: input.from } : {}),
     ...(input.to ? { to_version: input.to } : {}),
+    kind: input.kind ?? "release",
+    show_version: input.showVersion ?? true,
     detail: input.detail,
     group: input.group,
     parts: input.parts,

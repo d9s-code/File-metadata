@@ -229,6 +229,7 @@ export function SummaryPanel({ mdfId, versions, onClose }: { mdfId: string; vers
         group: layout.group,
         parts: layout.parts,
         tables: layout.tables,
+        showVersion: layout.showVersion,
         releaseNotesText: usingDraft ? draftNow!.edited : null,
       });
       saveFile(blob, `${s.mdf.name} release notes v${s.to_version}.docx`);

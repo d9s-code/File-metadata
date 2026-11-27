@@ -119,3 +119,178 @@
   background: #edeff2;
   font-weight: 700;
 }
+
+/* Slides: 16:9, white, drawn at 1280 × 720 and scaled to fit — copied or
+   saved at that size, twice over. */
+.slide-deck {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 1280px;
+}
+.slide-frame {
+  margin: 0;
+}
+.slide-scaler {
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgb(0 0 0 / 35%);
+}
+.slide-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 0.4rem;
+}
+.slide-actions .hint-text {
+  margin-right: auto;
+}
+.slide {
+  position: relative;
+  box-sizing: border-box;
+  background: #fff;
+  color: #1a1a1a;
+  font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif;
+  padding: 56px 64px 52px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.slide .slide-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  height: 10px;
+  background: #1f4e79;
+}
+.slide .slide-title {
+  font-size: 38px;
+  font-weight: 700;
+  color: #1f4e79;
+  margin-bottom: 22px;
+  line-height: 1.15;
+}
+.slide .slide-body {
+  flex: 1;
+  font-size: 22px;
+  line-height: 1.35;
+  overflow: hidden;
+}
+.slide .slide-p {
+  margin: 0 0 12px;
+  white-space: pre-wrap;
+}
+.slide .slide-p.bullet {
+  padding-left: 22px;
+  text-indent: -22px;
+}
+.slide .slide-h2 {
+  font-size: 26px;
+  font-weight: 700;
+  margin: 10px 0 6px;
+}
+.slide .slide-meta {
+  font-size: 19px;
+  color: #595959;
+  margin-bottom: 10px;
+}
+.slide .slide-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  margin-bottom: 12px;
+  line-height: 1.25;
+}
+.slide .slide-table th,
+.slide .slide-table td {
+  border: 1px solid #bfbfbf;
+  padding: 5px 9px;
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: break-word;
+}
+.slide .slide-table th {
+  background: #edeff2;
+  font-weight: 700;
+}
+.slide.cover .slide-cover-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+}
+.slide.cover .slide-cover-title {
+  font-size: 56px;
+  font-weight: 700;
+  color: #1f4e79;
+  line-height: 1.1;
+  margin-bottom: 12px;
+}
+.slide.cover .slide-cover-meta {
+  font-size: 24px;
+  color: #444;
+}
+.slide .slide-footer {
+  position: absolute;
+  left: 64px;
+  right: 64px;
+  bottom: 18px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  color: #808080;
+}
+.release-kind {
+  display: inline-flex;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.release-kind button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0.35rem 0.8rem;
+  cursor: pointer;
+  font: inherit;
+}
+.release-kind button[aria-pressed="true"] {
+  background: var(--badge-blue-bg);
+  color: var(--badge-blue-fg);
+  font-weight: 600;
+}
+.release-notes-switches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+/* An MDF's changes not in a saved version: amber, as unsaved edits are. */
+.editing-chip.unsaved-chip {
+  border-color: color-mix(in srgb, var(--badge-amber-fg) 45%, transparent);
+  background: var(--badge-amber-bg);
+  color: var(--badge-amber-fg);
+}
+button.editing-chip.unsaved-chip:hover {
+  background: color-mix(in srgb, var(--badge-amber-fg) 18%, var(--badge-amber-bg));
+}
+.editing-chip.unsaved-chip .editing-chip-part {
+  border-left-color: color-mix(in srgb, var(--badge-amber-fg) 45%, transparent);
+}
+.unsaved-panel {
+  border-left: 3px solid var(--badge-amber-fg);
+}
+.unsaved-panel ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+.unsaved-panel li {
+  display: flex;
+  gap: 0.4rem;
+}

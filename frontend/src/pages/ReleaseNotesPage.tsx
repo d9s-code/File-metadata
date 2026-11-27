@@ -1,10 +1,13 @@
-/** The release notes, previewed as the Word file will read: the options
- * down the side — the versions, how the change notes read, the parts that go
- * in, the Platforms and Emitters tables (their columns, every row or only
- * those added or updated) and a plain-language draft by the AI — and the
- * document drawn as a page, from the very blocks the Word file writes. */
+/** The release notes — or a progress note, for an MDF still being worked
+ * on — previewed as the Word file will read, or as slides to copy into a
+ * presentation: the options down the side — the versions, how the change
+ * notes read, the parts that go in (a progress note's goals, progress log
+ * and Emitter progress), the Platforms and Emitters tables (their columns,
+ * every row or only those added or updated), the MDF's version numbers or
+ * not, and a plain-language draft by the AI — and the document drawn from
+ * the very blocks the Word file writes. */
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ApiRequestError } from "../api/client";
 import {
@@ -12,7 +15,9 @@ import {
   type ChangeLogDetail,
   type ChangeLogGroup,
   type DocBlock,
+  type DocKind,
   type PlainDraft,
+  type ProgressPart,
   type SummaryFrom,
   type SummaryPart,
   type SummaryTables,
@@ -21,7 +26,19 @@ import { useAuth } from "../auth/AuthContext";
 import { BackLink } from "../components/common/BackLink";
 import { formatDate } from "../components/common/dates";
 import { LoadingState } from "../components/common/LoadingState";
-import { ALL_PARTS, DETAILS, PART_LABELS, readLayout, saveFile, saveLayout, type Layout } from "../components/mdf/summaryLayout";
+import {
+  ALL_PARTS,
+  ALL_PROGRESS_PARTS,
+  DETAILS,
+  PART_LABELS,
+  PROGRESS_PART_LABELS,
+  readLayout,
+  saveFile,
+  saveLayout,
+  type DocFormat,
+  type Layout,
+} from "../components/mdf/summaryLayout";
+import { SlideDeck } from "../components/mdf/slides";
 import { useAiStatus } from "../state/hooks/useAmbiguity";
 import { useMdfSummary } from "../state/hooks/useMdfPlan";
 import { useMdf } from "../state/hooks/useMdfs";
@@ -175,7 +192,12 @@ export function ReleaseNotesPage() {
   const { data: versions } = useMdfVersions(mdfId);
   const [from, setFrom] = useState<SummaryFrom>(null);
   const [to, setTo] = useState<number | null>(null);
-  const [layout, setLayoutState] = useState<Layout>(readLayout);
+  const [search, setSearch] = useSearchParams();
+  const [layout, setLayoutState] = useState<Layout>(() => {
+    const l = readLayout();
+    const asked = search.get("kind");
+    return asked === "progress" || asked === "release" ? { ...l, kind: asked } : l;
+  });
   const setLayout = (part: Partial<Layout>) =>
     setLayoutState((l) => {
       const next = { ...l, ...part };
@@ -183,7 +205,17 @@ export function ReleaseNotesPage() {
       return next;
     });
   const setTables = (part: Partial<SummaryTables>) => setLayout({ tables: { ...layout.tables, ...part } });
+  const progressNote = layout.kind === "progress";
   const has = (p: SummaryPart) => layout.parts.includes(p);
+  const hasP = (p: ProgressPart) => layout.progressParts.includes(p);
+  const tablesOn = progressNote ? hasP("platforms") || hasP("emitters") : has("platforms") || has("emitters");
+  const platformsOn = progressNote ? hasP("platforms") : has("platforms");
+  const emittersOn = progressNote ? hasP("emitters") : has("emitters");
+  const changesOn = !progressNote || hasP("changes");
+  const setKind = (kind: DocKind) => {
+    setLayout({ kind });
+    setSearch(kind === "progress" ? { kind } : {}, { replace: true });
+  };
 
   // The summary: the versions it spans as the server took them (its defaults for an end not picked).
   const { data: s } = useMdfSummary(mdfId, from, to, !!versions?.length, { detail: layout.detail, group: layout.group });
@@ -199,10 +231,20 @@ export function ReleaseNotesPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const span = `${fromShown}-${toShown}`;
   const draftNow = draft && draft.span === span ? draft : null;
-  const draftText = useSettled(useDraft && draftNow?.edited.trim() ? draftNow.edited : null);
+  const draftText = useSettled(!progressNote && useDraft && draftNow?.edited.trim() ? draftNow.edited : null);
 
   const input = useMemo(
-    () => ({ from, to, detail: layout.detail, group: layout.group, parts: layout.parts, tables: layout.tables, releaseNotesText: draftText }),
+    () => ({
+      kind: layout.kind,
+      showVersion: layout.showVersion,
+      from,
+      to,
+      detail: layout.detail,
+      group: layout.group,
+      parts: layout.kind === "progress" ? layout.progressParts : layout.parts,
+      tables: layout.tables,
+      releaseNotesText: draftText,
+    }),
     [from, to, layout, draftText],
   );
   const preview = useQuery({
@@ -232,7 +274,7 @@ export function ReleaseNotesPage() {
     try {
       const blob = await mdfPlanApi.summaryDocx(mdfId, {
         ...input,
-        releaseNotesText: useDraft && draftNow?.edited.trim() ? draftNow.edited : null,
+        releaseNotesText: !progressNote && useDraft && draftNow?.edited.trim() ? draftNow.edited : null,
       });
       saveFile(blob, preview.data?.file_name ?? "release notes.docx");
     } catch (err) {
@@ -248,8 +290,32 @@ export function ReleaseNotesPage() {
     <div className="page release-notes-page">
       <BackLink to={`/mdfs/${mdf.id}?tab=plan`}>{mdf.name}</BackLink>
       <div className="emitter-title-row">
-        <h1>Release notes — preview</h1>
-        <div className="emitter-actions">
+        <h1>{progressNote ? "Progress note" : "Release notes"} — preview</h1>
+        <div className="emitter-actions release-notes-switches">
+          <span className="release-kind" role="group" aria-label="Which document">
+            {(
+              [
+                ["release", "Release notes"],
+                ["progress", "Progress note"],
+              ] as [DocKind, string][]
+            ).map(([k, label]) => (
+              <button key={k} type="button" aria-pressed={layout.kind === k} onClick={() => setKind(k)}>
+                {label}
+              </button>
+            ))}
+          </span>
+          <span className="release-kind" role="group" aria-label="Format">
+            {(
+              [
+                ["document", "Document"],
+                ["slides", "Slides"],
+              ] as [DocFormat, string][]
+            ).map(([k, label]) => (
+              <button key={k} type="button" aria-pressed={layout.format === k} onClick={() => setLayout({ format: k })}>
+                {label}
+              </button>
+            ))}
+          </span>
           <button type="button" className="button primary" disabled={!preview.data || busy === "download"} onClick={() => void download()}>
             {busy === "download" ? "Making it…" : "Download (.docx)"}
           </button>
@@ -263,7 +329,7 @@ export function ReleaseNotesPage() {
             <section>
               <h2 className="as-h5">Versions</h2>
               <label>
-                From
+                {progressNote ? "Changes since" : "From"}
                 <select
                   value={fromShown ?? "start"}
                   onChange={(e) => {
@@ -287,7 +353,7 @@ export function ReleaseNotesPage() {
                 </select>
               </label>
               <label>
-                To
+                {progressNote ? "Of the saved version" : "To"}
                 <select
                   value={toShown ?? ""}
                   onChange={(e) => {
@@ -303,8 +369,9 @@ export function ReleaseNotesPage() {
                 </select>
               </label>
             </section>
+            {changesOn && (
             <section>
-              <h2 className="as-h5">Change notes</h2>
+              <h2 className="as-h5">{progressNote ? "Changes so far" : "Change notes"}</h2>
               <label>
                 Detail
                 <select value={layout.detail} aria-label="Change notes detail" onChange={(e) => setLayout({ detail: e.target.value as ChangeLogDetail })}>
@@ -323,21 +390,47 @@ export function ReleaseNotesPage() {
                 </select>
               </label>
             </section>
+            )}
             <section>
               <h2 className="as-h5">In the document</h2>
-              {PART_LABELS.map(([p, label]) => (
-                <label key={p} className="inline-check">
-                  <input
-                    type="checkbox"
-                    checked={has(p)}
-                    onChange={(e) => setLayout({ parts: e.target.checked ? ALL_PARTS.filter((x) => x === p || layout.parts.includes(x)) : layout.parts.filter((x) => x !== p) })}
-                  />
-                  {label}
-                </label>
-              ))}
-              <p className="hint-text">The change notes are always in.</p>
+              {progressNote
+                ? PROGRESS_PART_LABELS.map(([p, label]) => (
+                    <label key={p} className="inline-check">
+                      <input
+                        type="checkbox"
+                        checked={hasP(p)}
+                        onChange={(e) =>
+                          setLayout({
+                            progressParts: e.target.checked
+                              ? ALL_PROGRESS_PARTS.filter((x) => x === p || layout.progressParts.includes(x))
+                              : layout.progressParts.filter((x) => x !== p),
+                          })
+                        }
+                      />
+                      {label}
+                    </label>
+                  ))
+                : PART_LABELS.map(([p, label]) => (
+                    <label key={p} className="inline-check">
+                      <input
+                        type="checkbox"
+                        checked={has(p)}
+                        onChange={(e) => setLayout({ parts: e.target.checked ? ALL_PARTS.filter((x) => x === p || layout.parts.includes(x)) : layout.parts.filter((x) => x !== p) })}
+                      />
+                      {label}
+                    </label>
+                  ))}
+              <label className="inline-check">
+                <input type="checkbox" checked={layout.showVersion} onChange={(e) => setLayout({ showVersion: e.target.checked })} />
+                MDF version numbers
+              </label>
+              <p className="hint-text">
+                {progressNote
+                  ? "Goals and the log are as they are now; the rest is of the saved version picked."
+                  : "The change notes are always in."}
+              </p>
             </section>
-            {(has("platforms") || has("emitters")) && (
+            {tablesOn && (
               <section>
                 <h2 className="as-h5">Tables</h2>
                 <fieldset className="release-columns one-column">
@@ -351,16 +444,16 @@ export function ReleaseNotesPage() {
                     Only those added or updated
                   </label>
                 </fieldset>
-                {columns && has("platforms") && (
+                {columns && platformsOn && (
                   <Columns title="Platforms" columns={columns.platforms.columns} shown={layout.tables.platform_columns} onChange={(c) => setTables({ platform_columns: c })} />
                 )}
-                {columns && has("emitters") && (
+                {columns && emittersOn && (
                   <Columns title="Emitters" columns={columns.emitters.columns} shown={layout.tables.emitter_columns} onChange={(c) => setTables({ emitter_columns: c })} />
                 )}
                 <p className="hint-text">RF, PRI and PW as exported (deltas applied): the lowest and highest across an Emitter&apos;s Modes.</p>
               </section>
             )}
-            {aiOn && (
+            {aiOn && !progressNote && (
               <section>
                 <h2 className="as-h5">Plain language (AI)</h2>
                 <button type="button" className="button secondary small" disabled={busy === "draft" || !s} onClick={() => void makeDraft()}>
@@ -390,7 +483,15 @@ export function ReleaseNotesPage() {
             {preview.error ? (
               <div className="error-text">{preview.error instanceof ApiRequestError ? preview.error.message : "Couldn't make the preview"}</div>
             ) : preview.data ? (
-              <DocPage blocks={preview.data.blocks} />
+              layout.format === "slides" ? (
+                <SlideDeck
+                  blocks={preview.data.blocks}
+                  footer={`${mdf.name} · ${progressNote ? "Progress note" : "Release notes"}`}
+                  fileStem={preview.data.file_name.replace(/\.docx$/, "")}
+                />
+              ) : (
+                <DocPage blocks={preview.data.blocks} />
+              )
             ) : (
               <LoadingState label="Laying it out…" />
             )}

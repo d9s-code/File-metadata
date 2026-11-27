@@ -323,6 +323,17 @@ export function MdfPlanPanel({
           <h2 className="as-h4">
             Goals <span className="hint-text">{list.length ? `${doneCount} of ${list.length} reached` : ""}</span>
           </h2>
+          {versions.length > 0 && (
+            <span className="section-actions">
+              <Link
+                className="button secondary small"
+                to={`/mdfs/${mdf.id}/release-notes?kind=progress`}
+                title="A progress note — goals, the progress log and Emitter progress — as a document or slides"
+              >
+                Progress note
+              </Link>
+            </span>
+          )}
         </div>
         {list.length > 0 && (
           <div className="mdf-goals-progress" aria-hidden>

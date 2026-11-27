@@ -26,7 +26,7 @@ import { useAttachments } from "../state/hooks/useAttachments";
 import { FilesPanel } from "../components/files/FilesPanel";
 import { MdfEmittersTable, useMdfCoverage } from "../components/mdf/MdfEmittersTable";
 import { downloadMdfReport } from "../components/mdf/mdfReport";
-import { UnsavedPinsFlag } from "../components/versioning/UnsavedPinsFlag";
+import { UnsavedChangesChip, UnsavedChangesPanel } from "../components/versioning/UnsavedPinsFlag";
 import { MdfPlanChips, MdfPlanPanel } from "../components/mdf/MdfPlanPanel";
 import { MdfDwellsPanel } from "../components/mdf/MdfDwellsPanel";
 import { MdfImportCheckPanel } from "../components/mdf/MdfImportCheckPanel";
@@ -92,6 +92,9 @@ export function MdfBuilderPage() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [makingNew, setMakingNew] = useState(false);
+  // Changes not in a saved version: checked again whenever the pins or versions change.
+  const [showUnsaved, setShowUnsaved] = useState(false);
+  const unsavedSignature = `${(links ?? []).map((l) => `${l.platform_id}:${l.platform_version_id}`).sort().join(",")}|${(dwellPins ?? []).map((d) => `${d.dwell_file_id}:${d.pinned_version_id}`).sort().join(",")}|${versions?.length ?? 0}`;
   const { data: allMdfs } = useMdfs();
   const [editPreviousId, setEditPreviousId] = useState("");
   const [editPreviousVersion, setEditPreviousVersion] = useState("");
@@ -183,6 +186,7 @@ export function MdfBuilderPage() {
                 New MDF from this one…
               </button>
             )}
+            <UnsavedChangesChip kind="mdf" id={mdf.id} signature={unsavedSignature} showing={showUnsaved} onToggle={() => setShowUnsaved((v) => !v)} />
             <SaveVersionButton
               noun="MDF"
               save={(summary) => commitVersion.mutateAsync(summary)}
@@ -236,11 +240,6 @@ export function MdfBuilderPage() {
                 </Link>
               </span>
             )}
-            <UnsavedPinsFlag
-              kind="mdf"
-              id={mdf.id}
-              signature={`${(links ?? []).map((l) => `${l.platform_id}:${l.platform_version_id}`).sort().join(",")}|${(dwellPins ?? []).map((d) => `${d.dwell_file_id}:${d.pinned_version_id}`).sort().join(",")}|${versions?.length ?? 0}`}
-            />
             <TasksButton type="mdf" id={mdf.id} name={mdf.name} />
             <MilestonesButton type="mdf" id={mdf.id} status={mdf.status} />
             {outdatedPins > 0 && (
@@ -259,6 +258,7 @@ export function MdfBuilderPage() {
         {mdf.description && <p className="muted emitter-description">{mdf.description}</p>}
         {mdf.notes && <p className="muted emitter-description">{mdf.notes}</p>}
       </EntityHeader>
+      {showUnsaved && <UnsavedChangesPanel kind="mdf" id={mdf.id} signature={unsavedSignature} />}
 
       <NotesDrawer count={mdfNotes?.length ?? 0} subject={mdf.name} draftKey={`notes-draft:mdf:${mdf.id}`}>
         <NotesFeed
