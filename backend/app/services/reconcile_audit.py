@@ -25,23 +25,31 @@ _OPERATIONAL_FIELDS = ("name", "description")
 _SCAN_FIELDS = ("name", "pattern", "beam_az_deg", "beam_el_deg", "illumination_ms", "description")
 
 
+def _mode_names(snapshot: dict) -> dict[str, str]:
+    return {m["id"]: m["name"] for g in snapshot.get("ew_groups", []) for m in g.get("modes", [])}
+
+
 def _scan_names(snapshot: dict) -> dict[str, str]:
     return {x["id"]: x["name"] for x in snapshot.get("scans", [])}
 
 
 def _scans(snapshot: dict) -> dict[str, dict]:
     """Each scan: its fields and its values, as text."""
-    from app.services.emitter_diff_service import scan_params_text
+    from app.services.emitter_diff_service import blanked_text, scan_params_text
 
     return {
-        x["id"]: {**{f: x.get(f) for f in _SCAN_FIELDS}, "values": scan_params_text(x.get("params"))}
+        x["id"]: {
+            **{f: x.get(f) for f in _SCAN_FIELDS},
+            "values": scan_params_text(x.get("params")),
+            "blanked": blanked_text(x.get("blanked_sectors")),
+        }
         for x in snapshot.get("scans", [])
     }
 
 
 def _operational(snapshot: dict) -> dict[str, dict]:
     """Each operational mode: its fields, what it's under (by name) and its plan, as text."""
-    from app.services.emitter_diff_service import plan_text
+    from app.services.emitter_diff_service import emission_text, plan_text
 
     rows = snapshot.get("operational_modes", [])
     names = {o["id"]: o["name"] for o in rows}
@@ -50,6 +58,7 @@ def _operational(snapshot: dict) -> dict[str, dict]:
             **{f: o.get(f) for f in _OPERATIONAL_FIELDS},
             "under": names.get(o.get("parent_id") or ""),
             "scan": _scan_names(snapshot).get(o.get("scan_id") or ""),
+            "emission": emission_text(o.get("emission"), _mode_names(snapshot)),
             "plan": plan_text(o.get("plan")),
         }
         for o in rows
@@ -73,6 +82,8 @@ def _modes(snapshot: dict) -> dict[str, dict]:
                 "confirmation_quantity": m.get("confirmation_quantity"),
                 "operational_mode": operational.get(m.get("operational_mode_id") or ""),
                 "scan": scans.get(m.get("scan_id") or ""),
+                "group_pulses": m.get("group_pulses"),
+                "group_off_ms": m.get("group_off_ms"),
                 **{f: line.get(f) for f in _LINE_FIELDS},
             }
     return out

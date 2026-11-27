@@ -40,6 +40,12 @@ class OperationalMode(UUIDPkMixin, TimestampMixin, Base):
     scan_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("emitter_scans.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    # What it transmits, over time (see schemas.operational_mode.Emission): a
+    # repeating timeline of pulse groups (one of the Emitter's Modes for N
+    # pulses or a time) and off times, and on/off periods (transmits on_s,
+    # silent off_s — the ones under it take those unless they have their own).
+    # For the dwell planner; not exported.
+    emission: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     # Its plan, for analysis: the RF, PRI and PW values planned for it, several
     # each (see schemas.operational_mode.OperationalModePlan). A parameter it

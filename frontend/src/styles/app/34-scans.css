@@ -124,3 +124,93 @@
 .scan-timeline {
   margin-top: 0.75rem;
 }
+
+/* Pulse trains (a Mode's, an operational mode's timeline). */
+.pulse-figure {
+  margin: 0;
+}
+.pulse-figure svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--card-bg);
+}
+.pulse-figure figcaption {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 0.25rem;
+  min-height: 1.2em;
+}
+.pulse-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.9rem;
+  font-size: 0.8rem;
+  margin-top: 0.3rem;
+}
+.pulse-legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  vertical-align: -1px;
+}
+.mode-pulse-train {
+  margin: 0.5rem 0 0.25rem;
+}
+.emission-steps {
+  border-collapse: collapse;
+  width: 100%;
+}
+.emission-steps td {
+  padding: 0.2rem 0.35rem 0.2rem 0;
+  vertical-align: middle;
+}
+.emission-steps input,
+.emission-steps select {
+  width: 100%;
+}
+
+/* The planner: one Mode's timeline against the dwell cycle. */
+.planner-timeline-row > td {
+  background: var(--card-bg);
+}
+.planner-timeline svg {
+  display: block;
+  width: 100%;
+  max-width: 1200px;
+  height: auto;
+}
+.planner-timeline-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-top: 0.25rem;
+}
+.planner-phase {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+.planner-phase input[type="range"] {
+  width: 12rem;
+}
+.planner-timeline-caption {
+  margin: 0.25rem 0 0;
+}
+
+.scan-blank-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 0.5rem;
+  align-items: end;
+  margin-bottom: 0.4rem;
+}
+.scan-blank-row .link-button {
+  padding-bottom: 0.5rem;
+}

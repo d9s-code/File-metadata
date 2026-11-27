@@ -12,7 +12,8 @@ import { SourcesPicker } from "./SourcesPicker";
 import { ModeLineFields, friendlyServerError, useModeLine } from "./ModeLineFields";
 import { useOperationalModes } from "../../state/hooks/useOperationalModes";
 import { useEmitter } from "../../state/hooks/useEmitters";
-import { ModeMoreOptions, optionsProblem as findOptionsProblem, scanPayload, type MoreOptionsValues } from "./ModeMoreOptions";
+import { ModeMoreOptions, groupsPayload, optionsProblem as findOptionsProblem, scanPayload, type MoreOptionsValues } from "./ModeMoreOptions";
+import { ModePulseTrain } from "../pulses/ModePulseTrain";
 
 /** A new Mode's options: the admin's default confirmation. */
 const defaultOptions = (defaults: ModeDefaults): MoreOptionsValues => ({
@@ -141,6 +142,8 @@ export function ModeForm({
       notes: mode.notes ?? "",
       derivedFrom: new Set(),
       scanId: mode.scan_id ?? "",
+      groupPulses: mode.group_pulses != null ? String(mode.group_pulses) : "",
+      groupOffMs: mode.group_off_ms != null ? String(mode.group_off_ms) : "",
       operationalModeId: mode.operational_mode_id ?? "",
     });
   }
@@ -225,6 +228,7 @@ export function ModeForm({
       confirmation_quality: Number(options.quality),
       confirmation_quantity: Number(options.quantity),
       ...scanPayload(options),
+      ...groupsPayload(options),
       operational_mode_id: options.operationalModeId || null,
       line: line.payload(),
     };
@@ -369,6 +373,12 @@ export function ModeForm({
       )}
 
       <ModeLineFields line={line} />
+      <ModePulseTrain
+        priType={line.values.priType}
+        line={line.valid ? line.payload() : null}
+        groupPulses={groupsPayload(options).group_pulses}
+        groupOffMs={groupsPayload(options).group_off_ms}
+      />
 
       <ModeMoreOptions
         values={options}

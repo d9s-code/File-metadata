@@ -65,6 +65,8 @@ def _mode_dict(mode: Mode) -> dict:
         "confirmation_quality": mode.confirmation_quality,
         "confirmation_quantity": mode.confirmation_quantity,
         "scan_id": str(mode.scan_id) if mode.scan_id else None,
+        "group_pulses": mode.group_pulses,
+        "group_off_ms": _f(mode.group_off_ms),
         "operational_mode_id": str(mode.operational_mode_id) if mode.operational_mode_id else None,
         # The first Source as before; the rest (a Mode can have several) after it.
         "source_id": str(mode.source_id),
@@ -133,6 +135,7 @@ def build_emitter_snapshot(emitter: Emitter) -> dict:
                 "beam_az_deg": _f(x.beam_az_deg),
                 "beam_el_deg": _f(x.beam_el_deg),
                 "illumination_ms": _f(x.illumination_ms),
+                "blanked_sectors": x.blanked_sectors,
                 "description": x.description,
                 "sort_order": x.sort_order,
             }
@@ -146,6 +149,7 @@ def build_emitter_snapshot(emitter: Emitter) -> dict:
                 "name": o.name,
                 "description": o.description,
                 "scan_id": str(o.scan_id) if o.scan_id else None,
+                "emission": o.emission,
                 "plan": o.plan,
                 "sort_order": o.sort_order,
             }

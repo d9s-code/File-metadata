@@ -16,6 +16,9 @@ export interface MoreOptionsValues {
   derivedFrom: Set<string>;
   /** Its own scan ("" — its operational mode's). */
   scanId?: string;
+  /** Sent in pulse groups: pulses in a group, then off (ms) — both or neither. */
+  groupPulses?: string;
+  groupOffMs?: string;
   /** The radar's operational mode it's transmitted in ("" — none). */
   operationalModeId?: string;
 }
@@ -34,9 +37,27 @@ export function scanPayload(values: MoreOptionsValues): { scan_id: string | null
   return { scan_id: values.scanId || null };
 }
 
+/** What's wrong with the pulse groups, if anything. */
+export function groupsProblem(pulses = "", offMs = ""): string | null {
+  const a = pulses.trim();
+  const b = offMs.trim();
+  if (!a && !b) return null;
+  if (!a || !b) return "Give the pulse groups both the pulses in a group and the off time after it, or leave both empty";
+  if (!Number.isInteger(Number(a)) || Number(a) < 1) return "The pulses in a group are a whole number, 1 or more";
+  if (!Number.isFinite(Number(b)) || Number(b) < 0) return "The off time is a number of milliseconds, 0 or more";
+  return null;
+}
+
+/** The pulse groups as the API takes them: both numbers, or both null. */
+export function groupsPayload(values: MoreOptionsValues): { group_pulses: number | null; group_off_ms: number | null } {
+  const a = (values.groupPulses ?? "").trim();
+  const b = (values.groupOffMs ?? "").trim();
+  return a && b ? { group_pulses: Number(a), group_off_ms: Number(b) } : { group_pulses: null, group_off_ms: null };
+}
+
 /** What's wrong in the options, if anything. */
 export function optionsProblem(values: MoreOptionsValues): string | null {
-  return confirmationProblem(values.quality, values.quantity);
+  return confirmationProblem(values.quality, values.quantity) ?? groupsProblem(values.groupPulses, values.groupOffMs);
 }
 
 const secondsText = (v: number) => `${Number(v.toFixed(3))} s`;
@@ -81,7 +102,9 @@ export function ModeMoreOptions({
   const [open, setOpen] = useState(false);
   const [showPicker, setShowPicker] = useState(values.derivedFrom.size > 0);
   const problem = confirmationProblem(values.quality, values.quantity);
-  const isOpen = open || !!forceOpen || !!problem;
+  const groupsBad = groupsProblem(values.groupPulses, values.groupOffMs);
+  const isOpen = open || !!forceOpen || !!problem || !!groupsBad;
+  const grouped = !!(values.groupPulses ?? "").trim() && !!(values.groupOffMs ?? "").trim();
   const groupText =
     groupScan && (groupScan.min != null || groupScan.max != null)
       ? `${groupScan.min != null ? secondsText(groupScan.min) : "?"} – ${groupScan.max != null ? secondsText(groupScan.max) : "?"}`
@@ -108,6 +131,7 @@ export function ModeMoreOptions({
     linkedNode && linkedNode.path,
     `Confirmation ${values.quality || "?"} % × ${values.quantity || "?"}`,
     scan && `scan ${scan.name}`,
+    grouped && `groups of ${values.groupPulses}, off ${values.groupOffMs} ms`,
     values.notes.trim() ? "has notes" : "no notes",
     values.derivedFrom.size > 0 && `test-derived (${values.derivedFrom.size})`,
   ]
@@ -191,6 +215,44 @@ export function ModeMoreOptions({
               )}
             </label>
           )}
+          <fieldset className="mode-scan-box">
+            <legend>Pulse groups</legend>
+            <div className="mode-form-grid">
+              <label>
+                Pulses in a group
+                <input
+                  type="number"
+                  step="1"
+                  min="1"
+                  value={values.groupPulses ?? ""}
+                  aria-invalid={!!groupsBad || undefined}
+                  placeholder="Empty: sent continuously"
+                  onChange={(e) => onChange({ groupPulses: e.target.value })}
+                />
+              </label>
+              <label>
+                Then off (ms)
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  value={values.groupOffMs ?? ""}
+                  aria-invalid={!!groupsBad || undefined}
+                  onChange={(e) => onChange({ groupOffMs: e.target.value })}
+                />
+              </label>
+            </div>
+            {groupsBad ? (
+              <p className="line-row-problem" role="alert">
+                {groupsBad}
+              </p>
+            ) : (
+              <p className="hint-text">
+                Bursts: this many pulses at its PRI, then nothing for this long, again and again — drawn above. For the dwell planner
+                (a look must catch enough of a group); not exported. An operational mode&apos;s timeline, where it names this Mode, comes first.
+              </p>
+            )}
+          </fieldset>
           <label>
             Notes
             <textarea

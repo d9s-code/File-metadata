@@ -1,3 +1,4 @@
+import type { TimelineStep } from "../components/pulses/pulseTrain";
 import type { EmitterScan } from "./scans";
 import { api } from "./client";
 /** As the PRS XML writes them. */
@@ -148,7 +149,7 @@ export interface CoverageMode {
     /** Its average gap between pulses, µs (an ESA dwell of N pulses lasts N × this). */
     mean_interval_us?: number | null;
     /** Its scan (pattern, values, beamwidths): its own, else its operational mode's (or the nearest above it); null: none. */
-    scan?: Pick<EmitterScan, "id" | "name" | "pattern" | "params" | "beam_az_deg" | "beam_el_deg" | "illumination_ms"> | null;
+    scan?: Pick<EmitterScan, "id" | "name" | "pattern" | "params" | "beam_az_deg" | "beam_el_deg" | "illumination_ms" | "blanked_sectors"> | null;
     /** Where that scan comes from: the Mode's own, or an operational mode's. */
     scan_from?: "mode" | "operational" | null;
     /** When it's an operational mode's: which one it's set on. */
@@ -161,6 +162,16 @@ export interface CoverageMode {
     group_name: string | null;
     /** The radar's operational mode it's transmitted in ("TRACK › Track 2"). */
     operational_mode?: string | null;
+    /** Its gaps between pulses, µs, as the planner counts them (a Fixed PRI's longest; a stagger's steps). */
+    steps_us?: number[];
+    /** Sent in pulse groups: this many pulses, then off this long (ms). */
+    group_pulses?: number | null;
+    group_off_ms?: number | null;
+    /** Its operational mode's on/off periods, s [on, off], and which one they're set on. */
+    on_off_s?: [number, number] | null;
+    on_off_from?: string | null;
+    /** The timeline it's sent in, when an operational mode sequences it. */
+    timeline?: { operational_mode: string; steps: TimelineStep[] } | null;
   };
 }
 

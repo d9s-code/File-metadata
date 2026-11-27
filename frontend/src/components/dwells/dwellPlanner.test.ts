@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  scanOnScan,
   DEFAULT_SETTINGS,
   addForUncovered,
   breakSynchronism,
@@ -175,5 +176,60 @@ describe("intercept in time", () => {
     expect(p.issue).not.toBe("illumination_too_short");
     // A scan that can't work one out: the Emitter's.
     expect(planMode({ ...m, scanName: "Track dwell", scanIlluminationMs: null }, dwells, 10, S).illuminationFrom).toBe("emitter");
+  });
+});
+
+describe("pulse groups, on/off, blanking, looks, scan-on-scan", () => {
+  const S2 = { pulses: 8, within: "dwell" as const, beamwidthDeg: 3, horizonS: 10 };
+  const one = [{ freq_mhz: 9400, dwell_time_ms: 100, collect_time_ms: 50 }];
+  const base = {
+    key: "k",
+    emitterId: "e",
+    emitterName: "E",
+    modeName: "M",
+    priType: "fixed",
+    rf: [9400, 9400] as [number, number],
+    longestIntervalUs: 1000,
+    frameUs: null,
+    scanS: null,
+    priority: null,
+    confirmationQuantity: 1,
+  };
+
+  it("a Mode in short pulse groups needs a look long enough to wait out the gap", async () => {
+    const { modeTrain } = await import("../pulses/pulseTrain");
+    const grouped = { ...base, train: modeTrain([1000], 4, 50) };
+    // 4 pulses 1 ms apart then off 50 ms (a 54 ms period): from just after a group's first pulse, the 8th next is two periods on.
+    expect(needMs(grouped, S2, 50)).toBe(108);
+    expect(needMs(base, S2, 50)).toBe(8);
+  });
+
+  it("on/off periods: only time it transmits counts", () => {
+    const always = planMode(base, one, 10, S2);
+    const gated = planMode({ ...base, onOffS: [1, 9] }, one, 10, S2);
+    expect(always.pWithin).toBeCloseTo(1, 9);
+    expect(gated.medianMs).toBeGreaterThan(always.medianMs);
+  });
+
+  it("a blanked share of bearings is never caught", () => {
+    const p = planMode({ ...base, blankedShare: 0.25 }, one, 10, S2);
+    expect(p.pWithin).toBeCloseTo(0.75, 6);
+  });
+
+  it("a raster's several looks a frame catch it sooner", () => {
+    const m = { ...base, longestIntervalUs: 100, scanS: [2, 2] as [number, number], scanIlluminationMs: 20 };
+    const single = planMode(m, [...one, { freq_mhz: 3000, dwell_time_ms: 300, collect_time_ms: 50 }], 10, S2);
+    const multi = planMode({ ...m, looks: { count: 3, spacingMs: 500 } }, [...one, { freq_mhz: 3000, dwell_time_ms: 300, collect_time_ms: 50 }], 10, S2);
+    expect(multi.medianMs).toBeLessThanOrEqual(single.medianMs);
+    expect(multi.pWithin).toBeGreaterThanOrEqual(single.pWithin);
+  });
+
+  it("scan-on-scan: how far the looks slide each scan, and in step", () => {
+    expect(scanOnScan(400, 2000, 50)).toEqual({ slideMs: 0, sweepMs: Infinity });
+    const s = scanOnScan(400, 2010, 50);
+    expect(s.slideMs).toBeCloseTo(10, 6);
+    expect(s.sweepMs).toBe(Math.ceil(400 / 50) * 2010);
+    const p = planMode({ ...base, scanS: [2, 2], scanIlluminationMs: 50 }, [{ freq_mhz: 9400, dwell_time_ms: 100, collect_time_ms: 50 }, { freq_mhz: 3000, dwell_time_ms: 300, collect_time_ms: 50 }], 10, S2);
+    expect(p.slideMs).toBe(0);
   });
 });

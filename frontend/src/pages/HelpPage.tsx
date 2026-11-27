@@ -736,8 +736,17 @@ export function HelpPage() {
               the <strong>illumination time</strong> (how long the beam is on a target each look) and the{" "}
               <strong>revisit</strong> as you type, shows the working, draws how the beam moves and when it&apos;s on the
               target over three revisits. An ESA dwell in pulses takes each Mode&apos;s own PRI. A typed-in illumination time
-              wins. If an EW Group&apos;s scan range (what the XML exports) doesn&apos;t hold its Modes&apos; scans, the card
+              wins. A sweeping scan can have <strong>blanked sectors</strong> where it doesn&apos;t transmit — the planner counts
+              that share of bearings as never caught. If an EW Group&apos;s scan range (what the XML exports) doesn&apos;t hold its Modes&apos; scans, the card
               says so, with <strong>Widen it</strong>.
+            </p>
+            <p>
+              An operational mode&apos;s <strong>Emission</strong> (under Edit…) is what it transmits over time: a{" "}
+              <strong>timeline</strong> of pulse groups (one of the Modes for a number of pulses or a time) and off times,
+              repeated — bursts, a set of PRFs in turn, dwell &amp; switch — drawn as you type it; and{" "}
+              <strong>on/off periods</strong>, which the ones under it take too. A single Mode sent in bursts has its own{" "}
+              <strong>pulse groups</strong> under its More options, and its pulse train drawn in the Mode form. The dwell
+              planner uses all of these.
             </p>
             <p>
               Each operational mode can carry a <strong>plan</strong> (under Edit…): several RF, PRI and PW values with
@@ -1376,14 +1385,20 @@ export function HelpPage() {
             stagger&apos;s longest step and two frames), how often a long-enough look comes round, a scanning
             radar&apos;s <strong>illumination time</strong> — how long its main beam is on the Platform each scan (worked
             out from its scan, else its Emitter&apos;s own set under Edit details, or else from the{" "}
-            <strong>beamwidth</strong> you give) at its scan&apos;s revisit (or else its EW Group&apos;s range), and the share
+            <strong>beamwidth</strong> you give) at its scan&apos;s revisit (or else its EW Group&apos;s range) — with its pulse groups or timeline, its on/off
+            periods and its scan&apos;s blanked sectors taken in — and the share
             of starting moments it&apos;s caught <strong>within</strong> the time you give, with the median time. Modes
             with problems come first: <strong>Not reached</strong>, <strong>Dwell too short</strong>,{" "}
             <strong>Illumination too short</strong> (no dwell can fix it), <strong>Synchronism</strong> (the cycle keeps missing
             its scan — some starting moments are never caught), <strong>Partly reached</strong>, <strong>Slow</strong>.
             Its buttons change the unsaved dwells for you to check and save: round dwell times up to whole collects,
             lengthen short dwells, add dwells for RF nothing reaches, and <strong>Break the synchronism</strong> (tries
-            one collect more on each dwell and keeps the one that helps most).
+            one to three collects more on each dwell and keeps the one that helps most). Under each Mode&apos;s median,{" "}
+            <strong>scan-on-scan</strong>: how far the receiver&apos;s looks slide along its scan each time round
+            (&ldquo;slides 100 ms/scan&rdquo;) — ⚠ when that&apos;s too little to try every part of the scan in time, or
+            nothing (&ldquo;in step&rdquo;). <strong>▸</strong> beside a Mode draws its <strong>timeline</strong> against the
+            cycle: the receiver on its RF, the beam on the Platform, when it transmits, and each intercept — from the worst
+            starting moment, or any one on the slider.
           </p>
           <p>
             The <strong>Cycle</strong> badge at the top of the chart says how long one pass through all the dwells

@@ -165,6 +165,16 @@ def require_manual_deltas(pri_type: PriType, fields: ModeLineFields) -> None:
         raise ValueError("pri_delta is required for Fixed PRI")
 
 
+# Pulse groups: this many pulses, then off for this long (ms) — both or neither.
+GroupPulses = Annotated[int, Field(ge=1, le=1_000_000)]
+GroupOffMs = Annotated[float, Field(ge=0, le=3_600_000)]
+
+
+def check_groups(pulses: int | None, off_ms: float | None) -> None:
+    if (pulses is None) != (off_ms is None):
+        raise ValueError("Pulse groups need both the pulses in a group and the off time after it, or neither")
+
+
 class ModeCreate(BaseModel):
     # Every Source the Mode comes from (one or more), or just source_id for one.
     source_id: UUID | None = None
@@ -179,6 +189,8 @@ class ModeCreate(BaseModel):
     scan_id: UUID | None = None
     # One of its Emitter's operational modes — the one it's transmitted in.
     operational_mode_id: UUID | None = None
+    group_pulses: GroupPulses | None = None
+    group_off_ms: GroupOffMs | None = None
     line: ModeLineFields
     # Test Record(s) whose findings explain this Mode's values, for a Mode
     # that didn't come from the Source's data (see TestRecordModeLinkType).
@@ -191,6 +203,7 @@ class ModeCreate(BaseModel):
     def check_pri_type(self) -> "ModeCreate":
         if not self.all_source_ids():
             raise ValueError("A Mode needs at least one Source")
+        check_groups(self.group_pulses, self.group_off_ms)
         validate_pri_type_fields(self.pri_type, self.line)
         require_manual_deltas(self.pri_type, self.line)
         return self
@@ -298,6 +311,9 @@ class ModeUpdate(BaseModel):
     scan_id: UUID | None = None
     # Null unlinks it.
     operational_mode_id: UUID | None = None
+    # Both together, or both null: sent continuously (checked against each other on save).
+    group_pulses: GroupPulses | None = None
+    group_off_ms: GroupOffMs | None = None
     ew_group_id: UUID | None = None
     # Replaces the Mode's Sources: all of them (one or more), or source_id for just one.
     source_id: UUID | None = None
@@ -573,6 +589,8 @@ class ModeOut(BaseModel):
     confirmation_quantity: int
     scan_id: UUID | None = None
     operational_mode_id: UUID | None = None
+    group_pulses: int | None = None
+    group_off_ms: float | None = None
     generation_batch_id: UUID | None = None
     created_at: datetime
     updated_at: datetime

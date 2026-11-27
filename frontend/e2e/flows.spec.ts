@@ -448,9 +448,10 @@ test("Dwell planner: finds the cycle in step with a scan, one click breaks it; d
   await planner.getByRole("button", { name: "Break the synchronism" }).click();
   await expect(planner.locator(".planner-message")).toContainText("check the dwells above, then save");
   await expect(row).not.toContainText("Synchronism");
-  // The change is a whole collect more on one dwell — unsaved, in the table.
+  // The change is one to three whole collects more on one dwell (whichever slides best against the scan) — unsaved, in the table.
   const times = [await page.getByLabel("Dwell 1 dwell time (ms)").inputValue(), await page.getByLabel("Dwell 2 dwell time (ms)").inputValue()];
-  expect(times.map(Number).reduce((a, b) => a + b)).toBe(1050);
+  const total = times.map(Number).reduce((a, b) => a + b);
+  expect([1050, 1100, 1150]).toContain(total);
 
   // A dwell time that isn't whole collects can't be saved until it's rounded.
   await page.getByLabel("Dwell 1 dwell time (ms)").fill("120");
@@ -800,5 +801,62 @@ test("Plan staggers and PW paired with PRI: a stagger from another step covers o
   const modes = await api<{ name: string; pri_type: string; line: { pri_stagger_values_us: number[] } }[]>(page, "GET", `/ew-groups/${g.id}/modes`);
   const made = modes.find((m) => m.name === "BURST 1")!;
   expect([made.pri_type, made.line.pri_stagger_values_us]).toEqual(["stagger", [250, 350]]);
+  await removeEmitter(page, e.id);
+});
+
+test("Pulse groups and timelines: a Mode in groups drawn, an operational mode's timeline drawn, the planner's timeline per Mode", async ({ page }) => {
+  const n = Date.now();
+  const name = `E2E Burst ${n}`;
+  const e = await api<{ id: string }>(page, "POST", "/emitters", { name });
+  const g = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/ew-groups`, { name: "All", scan_min: 1, scan_max: 1 });
+  const s = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/sources`, { name: "S", source_date: "2026-01-01" });
+  const a = await api<{ id: string }>(page, "POST", `/ew-groups/${g.id}/modes`, { source_id: s.id, name: "PRF A", pri_type: "fixed", line: FIXED_LINE });
+  await api(page, "POST", `/ew-groups/${g.id}/modes`, { source_id: s.id, name: "PRF B", pri_type: "fixed", line: FIXED_LINE });
+
+  // A Mode's pulse groups, from More options: drawn under its line.
+  await page.goto(`/emitters/${e.id}?tab=modes`);
+  const start = page.getByRole("button", { name: /Start editing/ });
+  if (await start.isVisible()) await start.click();
+  await page.getByRole("button", { name: "Actions for PRF B" }).click();
+  await page.getByRole("menuitem", { name: "Edit" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("img", { name: "The Mode's pulse train" })).toBeVisible();
+  await dialog.getByRole("button", { name: /More options/ }).click();
+  await dialog.getByLabel("Pulses in a group").fill("8");
+  await dialog.getByLabel("Then off (ms)").fill("5");
+  await expect(dialog).toContainText("groups of 8, off 5 ms");
+  await dialog.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(dialog).toBeHidden();
+
+  // An operational mode's timeline: PRF A for 8 pulses, then off 2 ms.
+  await page.goto(`/emitters/${e.id}?tab=operational`);
+  const card = page.getByRole("region", { name: "Operational modes" });
+  await card.getByRole("button", { name: "+ Add operational mode" }).click();
+  const add = page.getByRole("dialog");
+  await add.getByLabel("Name").fill("TRACK");
+  await add.getByRole("button", { name: "+ Pulse group" }).click();
+  await add.getByLabel("Step 1 Mode").selectOption({ label: "PRF A" });
+  await add.getByLabel("Step 1 pulses").fill("8");
+  await add.getByRole("button", { name: "+ Off time" }).click();
+  await add.getByLabel("Step 2 ms").fill("2");
+  await expect(add.getByRole("img", { name: "The operational mode's timeline" })).toBeVisible();
+  await add.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(add).toBeHidden();
+  await expect(card.locator("tr", { hasText: "TRACK" })).toContainText("timeline of 2 steps");
+  const op = (await api<{ id: string; name: string }[]>(page, "GET", `/emitters/${e.id}/operational-modes`))[0];
+  await api(page, "PATCH", `/ew-groups/${g.id}/modes/${a.id}`, { operational_mode_id: op.id });
+
+  // The planner: PRF A in TRACK's timeline; its timeline against the cycle opens under it.
+  const v = await api<{ id: string }>(page, "POST", `/emitters/${e.id}/versions`, { change_summary: "v1" });
+  const p = await api<{ id: string }>(page, "POST", "/platforms", { name: `E2E Burst Platform ${n}` });
+  await api(page, "POST", `/platforms/${p.id}/links`, { emitter_id: e.id, emitter_version_id: v.id });
+  const st = await api<{ id: string }>(page, "POST", "/dwell-strategies", { name: `E2E Burst ${n}`, platform_ids: [p.id] });
+  await api(page, "PATCH", `/dwell-strategies/${st.id}`, { bandwidth_mhz: 200, dwells: [{ freq_mhz: 3000, dwell_time_ms: 100, collect_time_ms: 50 }], save_version: true });
+  await page.goto(`/dwells/strategies/${st.id}`);
+  const row = page.getByRole("region", { name: "Planner" }).locator("tr", { hasText: "PRF A" });
+  await expect(row).toContainText("in TRACK's timeline");
+  await row.getByRole("button", { name: "Show PRF A's timeline" }).click();
+  await expect(page.getByRole("img", { name: "PRF A against the dwell cycle over time" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Planner" }).locator("tr", { hasText: "PRF B" })).toContainText("in pulse groups");
   await removeEmitter(page, e.id);
 });

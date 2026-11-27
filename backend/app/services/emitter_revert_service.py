@@ -201,6 +201,7 @@ def _set_scan(row: EmitterScan, x_snap: dict) -> None:
     row.beam_az_deg = _num(x_snap.get("beam_az_deg"))
     row.beam_el_deg = _num(x_snap.get("beam_el_deg"))
     row.illumination_ms = _num(x_snap.get("illumination_ms"))
+    row.blanked_sectors = x_snap.get("blanked_sectors")
     row.description = x_snap.get("description")
     row.sort_order = x_snap.get("sort_order", 0)
 
@@ -230,6 +231,7 @@ def _reconcile_operational_modes(db: Session, emitter: Emitter, snaps: list[dict
         row.name = o_snap["name"]
         row.description = o_snap.get("description")
         row.scan_id = _existing(db, EmitterScan, o_snap.get("scan_id"))
+        row.emission = o_snap.get("emission")
         row.plan = o_snap.get("plan")
         row.sort_order = o_snap.get("sort_order", 0)
     db.flush()
@@ -321,6 +323,8 @@ def _reconcile_modes(db: Session, group: EwGroup, *, mode_snaps: list[dict]) -> 
             mode.confirmation_quality = m_snap["confirmation_quality"]
             mode.confirmation_quantity = m_snap["confirmation_quantity"]
         mode.scan_id = _existing(db, EmitterScan, m_snap.get("scan_id"))
+        mode.group_pulses = m_snap.get("group_pulses")
+        mode.group_off_ms = _num(m_snap.get("group_off_ms"))
         mode.operational_mode_id = _existing(db, OperationalMode, m_snap.get("operational_mode_id"))
         mode.extra_source_links = _extra_source_links(m_snap.get("extra_source_ids", []))
         if "generation_batch_id" in m_snap:
@@ -426,6 +430,7 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
             name=o_snap["name"],
             description=o_snap.get("description"),
             scan_id=scan_id_map.get(o_snap.get("scan_id") or ""),
+            emission=o_snap.get("emission"),
             plan=o_snap.get("plan"),
             sort_order=o_snap.get("sort_order", 0),
         )
@@ -510,6 +515,8 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
                 confirmation_quality=m_snap.get("confirmation_quality", DEFAULT_CONFIRMATION_QUALITY),
                 confirmation_quantity=m_snap.get("confirmation_quantity", DEFAULT_CONFIRMATION_QUANTITY),
                 scan_id=scan_id_map.get(m_snap.get("scan_id") or ""),
+                group_pulses=m_snap.get("group_pulses"),
+                group_off_ms=_num(m_snap.get("group_off_ms")),
                 operational_mode_id=operational_id_map.get(m_snap.get("operational_mode_id") or ""),
             )
             new_mode.extra_source_links = [
@@ -546,6 +553,17 @@ def build_forked_emitter(db: Session, *, source_snapshot: dict, new_name: str, c
                         dsl_text=line_snap.get("dsl_text"),
                     )
                 )
+
+    # Operational modes' timelines name the copy's Modes (a Mode not copied leaves its step out).
+    for o_snap in source_snapshot.get("operational_modes", []):
+        emission = o_snap.get("emission")
+        if emission and emission.get("timeline"):
+            timeline = [
+                {**item, "mode_id": str(mode_id_map[item["mode_id"]])} if item.get("mode_id") else item
+                for item in emission["timeline"]
+                if not item.get("mode_id") or item["mode_id"] in mode_id_map
+            ]
+            db.get(OperationalMode, operational_id_map[o_snap["id"]]).emission = {**emission, "timeline": timeline}
 
     for tl_snap in source_snapshot.get("test_lines", []):
         raw_mode_id = tl_snap.get("expected_mode_id")

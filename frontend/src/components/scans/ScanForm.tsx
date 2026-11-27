@@ -8,7 +8,17 @@ import type { EmitterScan } from "../../api/scans";
 import { useCreateScan, useUpdateScan } from "../../state/hooks/useScans";
 import { Modal } from "../common/Modal";
 import { IlluminationTimeline, ScanPatternDrawing } from "./ScanGraphs";
-import { PATTERN_BY_ID, PATTERN_GROUPS, SCAN_PATTERNS, scanTiming, spreadText, type ScanPatternId } from "./scanPatterns";
+import {
+  PATTERN_BY_ID,
+  PATTERN_GROUPS,
+  SCAN_PATTERNS,
+  blankedShare,
+  blankingCoverage,
+  num,
+  scanTiming,
+  spreadText,
+  type ScanPatternId,
+} from "./scanPatterns";
 
 const str = (v: number | null | undefined) => (v == null ? "" : String(v));
 const parsed = (s: string) => (s.trim() === "" ? null : Number(s));
@@ -40,6 +50,9 @@ export function ScanForm({
   const [az, setAz] = useState(str(initial?.beam_az_deg));
   const [el, setEl] = useState(str(initial?.beam_el_deg));
   const [typed, setTyped] = useState(str(initial?.illumination_ms));
+  const [blanked, setBlanked] = useState<{ from: string; to: string }[]>(() =>
+    (initial?.blanked_sectors ?? []).map((b) => ({ from: String(b.from_deg), to: String(b.to_deg) })),
+  );
   const [description, setDescription] = useState(initial?.description ?? "");
   const [error, setError] = useState<string | null>(null);
   const def = PATTERN_BY_ID.get(pattern)!;
@@ -60,8 +73,13 @@ export function ScanForm({
     beam_az_deg: def.beam.az || pattern === "spiral" ? parsed(az) : null,
     beam_el_deg: def.beam.el ? parsed(el) : null,
     illumination_ms: parsed(typed),
+    blanked_sectors: blanked
+      .filter((b) => b.from.trim() && b.to.trim())
+      .map((b) => ({ from_deg: Number(b.from), to_deg: Number(b.to) })),
   };
   const timing = scanTiming(scan);
+  const coverage = blankingCoverage(scan);
+  const blankShare = blankedShare(scan);
   const problems = [
     ...def.fields.flatMap((f) => [
       bad(values[f.key] ?? "", f.integer) ? `${f.label}: a number ≥ 0${f.integer ? ", whole" : ""}` : null,
@@ -70,6 +88,14 @@ export function ScanForm({
     bad(az) || (az.trim() && Number(az) === 0) ? "Azimuth beamwidth: above 0" : null,
     bad(el) || (el.trim() && Number(el) === 0) ? "Elevation beamwidth: above 0" : null,
     bad(typed) || (typed.trim() && Number(typed) === 0) ? "Illumination time: above 0" : null,
+    ...blanked.map((b, i) => {
+      const a = Number(b.from);
+      const z = Number(b.to);
+      if (!b.from.trim() || !b.to.trim()) return `Blanked sector ${i + 1}: both ends`;
+      if (!(a >= 0 && a <= 360 && z >= 0 && z <= 360)) return `Blanked sector ${i + 1}: 0–360°`;
+      if (a === z) return `Blanked sector ${i + 1}: needs a width`;
+      return null;
+    }),
   ].filter((x): x is string => !!x);
 
   async function submit(e: FormEvent) {
@@ -84,6 +110,7 @@ export function ScanForm({
       beam_az_deg: scan.beam_az_deg,
       beam_el_deg: scan.beam_el_deg,
       illumination_ms: scan.illumination_ms,
+      blanked_sectors: coverage && scan.blanked_sectors.length ? scan.blanked_sectors : null,
       description: description.trim() || null,
     };
     try {
@@ -187,6 +214,33 @@ export function ScanForm({
                 )}
               </div>
             )}
+            {coverage != null && (
+              <fieldset className="mode-scan-box">
+                <legend>Blanked sectors</legend>
+                {blanked.map((b, i) => (
+                  <div key={i} className="scan-blank-row">
+                    <label>
+                      From (°)
+                      <input type="number" step="any" min="0" max="360" value={b.from} onChange={(e) => setBlanked((x) => x.map((y, j) => (j === i ? { ...y, from: e.target.value } : y)))} />
+                    </label>
+                    <label>
+                      To (°)
+                      <input type="number" step="any" min="0" max="360" value={b.to} onChange={(e) => setBlanked((x) => x.map((y, j) => (j === i ? { ...y, to: e.target.value } : y)))} />
+                    </label>
+                    <button type="button" className="link-button" aria-label={`Remove blanked sector ${i + 1}`} onClick={() => setBlanked((x) => x.filter((_, j) => j !== i))}>
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                <button type="button" className="link-button" onClick={() => setBlanked((x) => [...x, { from: "", to: "" }])}>
+                  + Blanked sector
+                </button>
+                <p className="hint-text">
+                  Where it doesn&apos;t transmit — {coverage === 360 ? "bearing 0–360°, wrapping past 360 (350 → 10)" : `across the ${num(coverage)}° sector, from its start`}.
+                  A target there is never lit: the planner counts {blankShare > 0 ? `${Math.round(blankShare * 100)}%` : "that share"} of bearings as never caught.
+                </p>
+              </fieldset>
+            )}
             {!timing.continuous && (
               <label>
                 Illumination time typed in (ms){pattern === "other" ? "" : " — optional"}
@@ -222,6 +276,12 @@ export function ScanForm({
                 <dt>Revisit</dt>
                 <dd>{timing.continuous ? "—" : spreadText(timing.revisitS, "s")}</dd>
               </div>
+              {blankShare > 0 && (
+                <div>
+                  <dt>Blanked</dt>
+                  <dd>{Math.round(blankShare * 100)}% of the scan</dd>
+                </div>
+              )}
             </dl>
             {timing.working.map((w) => (
               <p key={w} className="scan-working">

@@ -16,10 +16,12 @@ from app.core.enums import AuditAction, AuditEntityType, PriType, Role
 from app.database import get_db
 from app.deps import require_emitter_checkout, require_role
 from app.models.emitter import Emitter
+from app.models.ew_group import EwGroup
 from app.models.mode import Mode
 from app.models.operational_mode import OperationalMode
 from app.schemas.mode import BatchModeFieldEdit, ModeBatchEditResult
 from app.schemas.operational_mode import (
+    Emission,
     GenerateFromPlan,
     OperationalModeCreate,
     OperationalModeOrder,
@@ -33,7 +35,7 @@ from app.services.operational_mode_service import check_scan, name_the_change
 
 router = APIRouter(prefix="/emitters/{emitter_id}/operational-modes", tags=["operational-modes"])
 
-_FIELDS = ["name", "parent_id", "description", "scan_id", "sort_order", "plan"]
+_FIELDS = ["name", "parent_id", "description", "scan_id", "emission", "sort_order", "plan"]
 
 
 def _next_place(db: Session, emitter_id: UUID, parent_id: UUID | None) -> int:
@@ -112,6 +114,23 @@ def _check_parent(db: Session, emitter_id: UUID, parent_id: UUID | None, own_id:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "It can't go under itself or one of its own")
 
 
+def _emission(db: Session, emitter_id: UUID, emission: Emission | None) -> dict | None:
+    """As kept, once every Mode in its timeline is one of this Emitter's."""
+    if emission is None:
+        return None
+    ids = set(emission.mode_ids())
+    if ids:
+        found = {
+            m_id
+            for (m_id,) in db.query(Mode.id).join(EwGroup, Mode.ew_group_id == EwGroup.id).filter(
+                Mode.id.in_(ids), EwGroup.emitter_id == emitter_id
+            )
+        }
+        if ids - found:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "A pulse group's Mode isn't one of this Emitter's")
+    return emission.stored()
+
+
 @router.get("", response_model=list[OperationalModeOut])
 def list_operational_modes(
     emitter_id: UUID, db: Session = Depends(get_db), _=Depends(require_role(Role.viewer))
@@ -147,6 +166,7 @@ def create_operational_mode(
     _emitter_or_404(db, emitter_id)
     data = payload.model_dump()
     data["plan"] = payload.plan.stored() if payload.plan else None
+    data["emission"] = _emission(db, emitter_id, payload.emission)
     _check_parent(db, emitter_id, data["parent_id"])
     check_scan(db, emitter_id, data["scan_id"])
     data["name"] = _check_name(db, emitter_id, data["name"], data["parent_id"])
@@ -182,6 +202,8 @@ def update_operational_mode(
     data = payload.model_dump(exclude_unset=True)
     if "plan" in data:
         data["plan"] = payload.plan.stored() if payload.plan else None
+    if "emission" in data:
+        data["emission"] = _emission(db, emitter_id, payload.emission)
     parent_id = data.get("parent_id", row.parent_id)
     if "parent_id" in data:
         _check_parent(db, emitter_id, parent_id, own_id=row.id)
@@ -351,7 +373,6 @@ def generate_from_plan(
     (skipping names its EW Group has), all or nothing, in one generation batch
     deletable together. The admin's Mode defaults give the deltas and
     confirmation."""
-    from app.models.ew_group import EwGroup
     from app.models.mode import ModeGenerationBatch
     from app.models.source import Source
     from app.routers.modes import create_mode_record

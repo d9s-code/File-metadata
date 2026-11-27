@@ -12,6 +12,8 @@ export interface OperationalMode {
   description: string | null;
   /** The scan it uses (one of the Emitter's); null: the one above it's. */
   scan_id: string | null;
+  /** What it transmits over time: a timeline and on/off periods (null: its Modes as they are, always on). */
+  emission?: Emission | null;
   /** Its plan, for analysis: the values planned for it (null: none here). */
   plan?: OperationalModePlan | null;
   sort_order: number;
@@ -26,8 +28,26 @@ export interface OperationalModeInput {
   parent_id?: string | null;
   description?: string | null;
   scan_id?: string | null;
+  emission?: Emission | null;
   sort_order?: number;
   plan?: OperationalModePlan | null;
+}
+
+/** One step of an operational mode's timeline: one of the Emitter's Modes for
+ * a number of pulses or a time (ms), or off for a time. */
+export interface EmissionItem {
+  kind: "group" | "off";
+  mode_id?: string | null;
+  pulses?: number | null;
+  ms?: number | null;
+}
+
+/** An operational mode's timeline (repeated), and on/off periods: on for
+ * on_s, silent for off_s (the ones under it take these unless they have their own). */
+export interface Emission {
+  timeline?: EmissionItem[];
+  on_s?: number | null;
+  off_s?: number | null;
 }
 
 /** One planned value: a single value (max empty) or a min–max, with a note;

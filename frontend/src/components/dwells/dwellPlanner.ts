@@ -25,6 +25,8 @@
  *   at all while others are — the cycle and the scan keep missing each other —
  *   is synchronism. */
 
+import { timeForPulses, type PulseTrain } from "../pulses/pulseTrain";
+
 export interface PlannerDwell {
   freq_mhz: number;
   dwell_time_ms: number;
@@ -60,6 +62,17 @@ export interface PlannerMode {
   operationalMode?: string | null;
   /** Its scan's illumination time, ms (ahead of the Emitter's). */
   scanIlluminationMs?: number | null;
+  /** Looks each revisit (a raster's bars over the target), this far apart, ms. */
+  looks?: { count: number; spacingMs: number } | null;
+  /** Its own pulses over time — in pulse groups, or in an operational mode's timeline — when not continuous. */
+  train?: PulseTrain | null;
+  /** The operational mode whose timeline it's sent in, if one is. */
+  timelineOf?: string | null;
+  /** On/off periods it's switched with, s [on, off], and where they're set. */
+  onOffS?: [number, number] | null;
+  onOffFrom?: string | null;
+  /** The share of bearings its scan doesn't transmit in (0–1): never caught there. */
+  blankedShare?: number;
   priority: number | null;
   confirmationQuantity: number | null;
 }
@@ -95,6 +108,10 @@ export interface ModePlan {
   illuminationMs: number | null;
   /** Where that comes from: its scan, its Emitter's, or worked out from the beamwidth. */
   illuminationFrom: "scan" | "emitter" | "beamwidth" | null;
+  /** Scan-on-scan: how far the receiver's looks slide against its scan each revisit, ms (null: not scanning). */
+  slideMs: number | null;
+  /** …so how long until every part of the scan has been looked at, ms (Infinity: never — in step). */
+  sweepMs: number | null;
   /** Share of starting phases (weighted by RF) caught within the time allowed. */
   pWithin: number;
   /** …and confirmed (its confirmation quantity of intercepts) within it. */
@@ -126,8 +143,9 @@ export function isWholeCollects(d: PlannerDwell): boolean {
 
 /** Time a Mode needs on frequency to be seen, ms. */
 export function needMs(m: PlannerMode, s: PlannerSettings, collectMs: number): number {
-  if (m.priType === "cw" || m.longestIntervalUs == null) return collectMs > 0 ? collectMs : 1;
-  let us = s.pulses * m.longestIntervalUs;
+  if (m.priType === "cw" || (m.longestIntervalUs == null && !m.train)) return collectMs > 0 ? collectMs : 1;
+  // In groups or a timeline: long enough to hold that many of its pulses wherever it starts.
+  let us = m.train ? timeForPulses(m.train, s.pulses) : s.pulses * m.longestIntervalUs!;
   if (m.priType === "stagger" && m.frameUs != null) us = Math.max(us, 2 * m.frameUs);
   return us / 1000;
 }
@@ -208,42 +226,109 @@ function firstHit(a: number, b: number, ws: Window[], cycle: number, need: numbe
 
 const PHASES = 72;
 
-/** From each starting phase: when the first and the q-th intercept come
- * (Infinity if not within `limit`). */
-function play(ws: Window[], cycle: number, need: number, illumination: number | null, periodMs: number | null, q: number, limit: number) {
-  const first: number[] = [];
-  const confirm: number[] = [];
-  if (illumination == null || periodMs == null) {
-    // On the Platform all the time: the phase is where in the cycle we start.
-    for (let j = 0; j < PHASES; j++) {
-      const t0 = ((j + 0.5) / PHASES) * cycle;
-      const hits: number[] = [];
-      let from = t0;
-      while (hits.length < q && from - t0 < limit) {
-        const hit = firstHit(from, from + cycle * 2, ws, cycle, need);
-        if (hit == null) break;
-        hits.push(hit.t - t0);
-        from = hit.end; // one intercept a look: the next comes from the next look
-      }
-      first.push(hits[0] ?? Infinity);
-      confirm.push(hits.length >= q ? hits[q - 1] : Infinity);
-    }
-    return { first, confirm };
+/** On/off periods: on for `on` ms, then off for `off`, from `phase`. */
+export interface Gate {
+  on: number;
+  off: number;
+  phase: number;
+}
+
+/** The parts of [a, b] the gate is on in (all of it, without one). */
+function onParts(a: number, b: number, gate: Gate | null): [number, number][] {
+  if (!gate || gate.off <= 0) return [[a, b]];
+  const period = gate.on + gate.off;
+  const out: [number, number][] = [];
+  let k = Math.floor((a - gate.phase) / period);
+  for (; gate.phase + k * period < b && out.length < 10000; k++) {
+    const s = Math.max(a, gate.phase + k * period);
+    const e = Math.min(b, gate.phase + k * period + gate.on);
+    if (e > s) out.push([s, e]);
   }
-  for (let j = 0; j < PHASES; j++) {
-    const phase = ((j + 0.5) / PHASES) * periodMs;
-    const hits: number[] = [];
-    for (let a = phase - periodMs; a < limit && hits.length < q; a += periodMs) {
-      const s = Math.max(a, 0);
-      const e = a + illumination;
+  return out;
+}
+
+/** The first look long enough inside [a, b] while the gate is on. */
+function firstGatedHit(a: number, b: number, ws: Window[], cycle: number, need: number, gate: Gate | null) {
+  for (const [s, e] of onParts(a, b, gate)) {
+    if (e - s + EPS < need) continue;
+    const hit = firstHit(s, e, ws, cycle, need);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+/** How a Mode is lit: each revisit `periodMs`, `looks.count` looks of `illumination` ms, `looks.spacingMs` apart (null: all the time). */
+interface Lighting {
+  illumination: number | null;
+  periodMs: number | null;
+  looks: { count: number; spacingMs: number };
+}
+
+const GOLDEN = 0.6180339887498949;
+
+/** The gate for starting phase j: the on/off periods start somewhere else for each (spread evenly). */
+function gateFor(onOffMs: [number, number] | null, j: number): Gate | null {
+  if (!onOffMs) return null;
+  const period = onOffMs[0] + onOffMs[1];
+  return { on: onOffMs[0], off: onOffMs[1], phase: ((j * GOLDEN) % 1) * period };
+}
+
+/** From starting phase j: the times of the first q intercepts (ms from the start), within `limit`. */
+function phaseHits(j: number, ws: Window[], cycle: number, need: number, light: Lighting, onOffMs: [number, number] | null, q: number, limit: number): number[] {
+  const gate = gateFor(onOffMs, j);
+  const hits: number[] = [];
+  if (light.illumination == null || light.periodMs == null) {
+    // On the Platform all the time: the phase is where in the cycle we start.
+    const t0 = ((j + 0.5) / PHASES) * cycle;
+    let from = t0;
+    while (hits.length < q && from - t0 < limit) {
+      const hit = firstGatedHit(from, from + cycle * 2, ws, cycle, need, gate);
+      if (hit == null) {
+        if (!gate) break; // never, without on/off periods to wait out
+        from += cycle * 2;
+        continue;
+      }
+      hits.push(hit.t - t0);
+      from = hit.end; // one intercept a look: the next comes from the next look
+    }
+    return hits;
+  }
+  const { illumination, periodMs, looks } = light;
+  const phase = ((j + 0.5) / PHASES) * periodMs;
+  for (let a = phase - periodMs; a < limit && hits.length < q; a += periodMs) {
+    for (let k = 0; k < looks.count && hits.length < q; k++) {
+      const start = a + k * looks.spacingMs;
+      const s = Math.max(start, 0);
+      const e = start + illumination;
       if (e - s + EPS < need) continue;
-      const hit = firstHit(s, e, ws, cycle, need);
+      const hit = firstGatedHit(s, e, ws, cycle, need, gate);
       if (hit != null) hits.push(hit.t);
     }
+  }
+  return hits;
+}
+
+/** From each starting phase: when the first and the q-th intercept come (Infinity if not within `limit`). */
+function play(ws: Window[], cycle: number, need: number, light: Lighting, onOffMs: [number, number] | null, q: number, limit: number) {
+  const first: number[] = [];
+  const confirm: number[] = [];
+  for (let j = 0; j < PHASES; j++) {
+    const hits = phaseHits(j, ws, cycle, need, light, onOffMs, q, limit);
     first.push(hits[0] ?? Infinity);
     confirm.push(hits.length >= q ? hits[q - 1] : Infinity);
   }
   return { first, confirm };
+}
+
+/** Scan-on-scan: how far the receiver's cycle slides against a scan of `periodMs` each revisit, and how long until it has tried every part. */
+export function scanOnScan(cycle: number, periodMs: number, window: number): { slideMs: number; sweepMs: number } {
+  const d = ((periodMs % cycle) + cycle) % cycle;
+  const slide = Math.min(d, cycle - d);
+  // In step: it comes back to the same place every time.
+  if (slide < 1e-6 * Math.max(1, cycle)) return { slideMs: 0, sweepMs: Infinity };
+  // Each revisit tries a new part `slide` along; a window that wide or more needs no more than cycle ÷ it.
+  const steps = Math.ceil(cycle / Math.max(slide, Math.min(window, cycle)));
+  return { slideMs: slide, sweepMs: steps * periodMs };
 }
 
 function weightedMedian(samples: { t: number; w: number }[]): number {
@@ -285,6 +370,9 @@ export function planMode(m: PlannerMode, dwells: PlannerDwell[], bw: number, s: 
   const horizon = s.horizonS * 1000;
   const ps = periods(m.scanS);
   const set = (v: number | null | undefined) => (v != null && v > 0 ? v : null);
+  const onOffMs: [number, number] | null = m.onOffS && m.onOffS[0] > 0 && m.onOffS[1] > 0 ? [m.onOffS[0] * 1000, m.onOffS[1] * 1000] : null;
+  const looks = m.looks && m.looks.count > 1 ? m.looks : { count: 1, spacingMs: 0 };
+  const blanked = Math.min(1, Math.max(0, m.blankedShare ?? 0));
   const fromScan = set(m.scanIlluminationMs);
   const own = fromScan ?? set(m.illuminationTimeMs);
   // Never longer than the scan itself.
@@ -310,7 +398,7 @@ export function planMode(m: PlannerMode, dwells: PlannerDwell[], bw: number, s: 
         samples.push({ t: Infinity, w });
         continue;
       }
-      const { first, confirm } = play(ws, cycle, need, illumination, T, q, longLimit);
+      const { first, confirm } = play(ws, cycle, need, { illumination, periodMs: T, looks }, onOffMs, q, longLimit);
       const share = w / first.length;
       const caughtAtAll = first.some((t) => Number.isFinite(t));
       for (let k = 0; k < first.length; k++) {
@@ -320,11 +408,26 @@ export function planMode(m: PlannerMode, dwells: PlannerDwell[], bw: number, s: 
         if (!Number.isFinite(first[k]) && caughtAtAll) lockedOut += share;
       }
     }
+    // A blanked share of bearings: never lit there, so never caught.
+    if (blanked > 0) {
+      for (const x of samples) x.w *= 1 - blanked;
+      samples.push({ t: Infinity, w: blanked });
+      pWithin *= 1 - blanked;
+      pConfirm *= 1 - blanked;
+    }
     const median = weightedMedian(samples);
     const r = { pWithin, pConfirm, median, lockedOut, revisit, illumination };
     if (!worst || r.pWithin < worst.pWithin - EPS) worst = r;
   }
   const w = worst!;
+
+  // Scan-on-scan, at the middle of its scan period: how far the looks slide against the scan each time round.
+  let sos: { slideMs: number; sweepMs: number } | null = null;
+  if (ps && cycle > 0 && covering.length) {
+    const T = ps[Math.floor(ps.length / 2)];
+    const longest = Math.max(...covering.map((i) => dwells[i].dwell_time_ms));
+    sos = scanOnScan(cycle, T, Math.max(longest + illuminationOf(T) - need, 0));
+  }
 
   const anyUsable = covering.some((i) => {
     const d = dwells[i];
@@ -347,12 +450,94 @@ export function planMode(m: PlannerMode, dwells: PlannerDwell[], bw: number, s: 
     revisitMs: w.revisit,
     illuminationMs: w.illumination,
     illuminationFrom: w.illumination == null ? null : fromScan != null ? "scan" : own != null ? "emitter" : "beamwidth",
+    slideMs: sos?.slideMs ?? null,
+    sweepMs: sos?.sweepMs ?? null,
     pWithin: w.pWithin,
     pConfirm: w.pConfirm,
     medianMs: w.median,
     lockedOut: w.lockedOut,
     issue,
   };
+}
+
+/** One Mode's timeline from one starting phase, for drawing: the receiver's
+ * looks at its RF (long enough or not), the beam on the Platform, the on
+ * periods, and the intercepts — from the worst phase unless one is given. */
+export interface ModeTimeline {
+  spanMs: number;
+  cycleMs: number;
+  needMs: number;
+  /** The receiver on its RF: each look, and whether it's long enough. */
+  receiver: { start: number; length: number; enough: boolean }[];
+  /** The beam on the Platform (null: all the time). */
+  beams: [number, number][] | null;
+  /** When it transmits (null: all the time). */
+  on: [number, number][] | null;
+  /** When it's intercepted. */
+  hits: number[];
+  phase: number;
+  /** The scan period it's drawn at, ms (null: not scanning). */
+  periodMs: number | null;
+}
+
+export function modeTimeline(m: PlannerMode, dwells: PlannerDwell[], bw: number, s: PlannerSettings, phase?: number): ModeTimeline | null {
+  const usable = dwells.filter((d) => d.freq_mhz > 0 && d.dwell_time_ms > 0);
+  const starts: number[] = [];
+  let cycle = 0;
+  for (const d of usable) {
+    starts.push(cycle);
+    cycle += d.dwell_time_ms;
+  }
+  if (!(cycle > 0)) return null;
+  const collect = commonCollect(usable);
+  const need = needMs(m, s, collect);
+  const covering = [...new Set(segments(m.rf, usable, bw).flatMap((g) => g.covering))];
+  const ws = windows(usable, starts, covering, need, s.within);
+  const all = covering.map((i) => ({ start: starts[i], length: usable[i].dwell_time_ms, enough: ws.some((w) => w.start >= starts[i] - EPS && w.start < starts[i] + usable[i].dwell_time_ms) }));
+  const ps = periods(m.scanS);
+  const T = ps ? ps[Math.floor(ps.length / 2)] : null;
+  const set = (v: number | null | undefined) => (v != null && v > 0 ? v : null);
+  const own = set(m.scanIlluminationMs) ?? set(m.illuminationTimeMs);
+  const illumination = T == null ? null : Math.min(T, own ?? (T * s.beamwidthDeg) / 360);
+  const looks = m.looks && m.looks.count > 1 ? m.looks : { count: 1, spacingMs: 0 };
+  const onOffMs: [number, number] | null = m.onOffS && m.onOffS[0] > 0 && m.onOffS[1] > 0 ? [m.onOffS[0] * 1000, m.onOffS[1] * 1000] : null;
+  const light: Lighting = { illumination, periodMs: T, looks };
+  const horizon = s.horizonS * 1000;
+  const longLimit = Math.min(600_000, Math.max(horizon, 40 * Math.max(T ?? 0, cycle)));
+  let j = phase;
+  if (j == null) {
+    // The worst starting phase: caught last, or never.
+    let latest = -1;
+    for (let k = 0; k < PHASES; k++) {
+      const t = phaseHits(k, ws, cycle, need, light, onOffMs, 1, longLimit)[0] ?? Infinity;
+      if (t > latest) [latest, j] = [t, k];
+      if (!Number.isFinite(t)) break;
+    }
+  }
+  j = j ?? 0;
+  const first = phaseHits(j, ws, cycle, need, light, onOffMs, 1, longLimit)[0];
+  const span = Math.min(Math.max(first != null ? first * 1.25 : horizon, 3 * (T ?? 0), 3 * cycle), Math.max(horizon, (first ?? 0) * 1.25, 1));
+  const hits = phaseHits(j, ws, cycle, need, light, onOffMs, 50, span).filter((t) => t <= span);
+  // On the Platform all the time, the phase is where in the cycle the receiver starts: drawn from there.
+  const shift = illumination == null || T == null ? ((j + 0.5) / PHASES) * cycle : 0;
+  const receiver: ModeTimeline["receiver"] = [];
+  for (let n = 0; n * cycle - shift < span && receiver.length < 3000; n++)
+    for (const w of all) {
+      const start = w.start + n * cycle - shift;
+      if (start + w.length > 0 && start < span) receiver.push({ ...w, start });
+    }
+  let beams: [number, number][] | null = null;
+  if (illumination != null && T != null) {
+    beams = [];
+    const ph = ((j + 0.5) / PHASES) * T;
+    for (let a = ph - T; a < span && beams.length < 3000; a += T)
+      for (let k = 0; k < looks.count; k++) {
+        const b0 = a + k * looks.spacingMs;
+        if (b0 + illumination > 0 && b0 < span) beams.push([Math.max(0, b0), Math.min(span, b0 + illumination)]);
+      }
+  }
+  const on = onOffMs ? onParts(shift, shift + span, gateFor(onOffMs, j)).map(([a, b]) => [a - shift, b - shift] as [number, number]) : null;
+  return { spanMs: span, cycleMs: cycle, needMs: need, receiver, beams, on, hits, phase: j, periodMs: T };
 }
 
 const ISSUE_ORDER: Issue[] = ["not_covered", "too_short", "illumination_too_short", "synchronism", "partly_covered", "slow", "ok"];
@@ -457,8 +642,8 @@ export function score(plans: ModePlan[]): number {
   return plans.reduce((n, p) => n + p.pWithin, 0);
 }
 
-/** Tries one collect more on each dwell, keeps the one that helps most —
- * what breaks a cycle out of step with a scan. Null when none helps. */
+/** Tries one to three collects more on each dwell, keeps the one that helps
+ * most — what breaks a cycle out of step with the scans (scan-on-scan). Null when none helps. */
 export function breakSynchronism(
   modes: PlannerMode[],
   dwells: PlannerDwell[],
@@ -468,10 +653,14 @@ export function breakSynchronism(
   const base = score(plan(modes, dwells, bw, s));
   let best: { dwells: PlannerDwell[]; changed: number; gain: number } | null = null;
   dwells.forEach((d, i) => {
+    // One to three collects more (10 ms steps without collects): whichever slides the cycle best against every scan.
     const step = d.collect_time_ms > 0 ? d.collect_time_ms : 10;
-    const next = dwells.map((x, j) => (j === i ? { ...x, dwell_time_ms: x.dwell_time_ms + step } : x));
-    const gain = score(plan(modes, next, bw, s)) - base;
-    if (gain > 0.01 && (!best || gain > best.gain)) best = { dwells: next, changed: i, gain };
+    for (const k of [1, 2, 3]) {
+      const next = dwells.map((x, j) => (j === i ? { ...x, dwell_time_ms: x.dwell_time_ms + k * step } : x));
+      const gain = score(plan(modes, next, bw, s)) - base;
+      // A bigger change only for a clearly bigger gain.
+      if (gain > 0.01 * k && (!best || gain > best.gain + 0.005)) best = { dwells: next, changed: i, gain };
+    }
   });
   return best;
 }

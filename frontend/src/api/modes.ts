@@ -13,6 +13,9 @@ export interface ModeCreateInput {
   confirmation_quantity?: number;
   /** One of its Emitter's scans, ahead of its operational mode's. */
   scan_id?: string | null;
+  /** Pulse groups: this many pulses, then off (ms) — both, or both null. */
+  group_pulses?: number | null;
+  group_off_ms?: number | null;
   operational_mode_id?: string | null;
   line: ModeLineFields;
   derived_from_test_record_ids?: string[];
@@ -27,6 +30,9 @@ export interface ModeUpdateInput {
   confirmation_quantity?: number;
   /** Null: its operational mode's scan. */
   scan_id?: string | null;
+  /** Pulse groups: this many pulses, then off (ms) — both, or both null. */
+  group_pulses?: number | null;
+  group_off_ms?: number | null;
   /** Null unlinks it. */
   operational_mode_id?: string | null;
   ew_group_id?: string;

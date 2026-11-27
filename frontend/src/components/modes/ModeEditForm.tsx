@@ -9,7 +9,8 @@ import { SourcesPicker } from "./SourcesPicker";
 import { ModeLineFields, friendlyServerError, useModeLine } from "./ModeLineFields";
 import { useOperationalModes } from "../../state/hooks/useOperationalModes";
 import { useEmitter } from "../../state/hooks/useEmitters";
-import { ModeMoreOptions, optionsProblem as findOptionsProblem, scanPayload, type MoreOptionsValues } from "./ModeMoreOptions";
+import { ModeMoreOptions, groupsPayload, optionsProblem as findOptionsProblem, scanPayload, type MoreOptionsValues } from "./ModeMoreOptions";
+import { ModePulseTrain } from "../pulses/ModePulseTrain";
 import { useEwGroups } from "../../state/hooks/useEwGroups";
 
 /** Edits an existing Mode's line in place, including its PRI type — changing
@@ -54,6 +55,8 @@ export function ModeEditForm({
     notes: mode.notes ?? "",
     derivedFrom: new Set(),
     scanId: mode.scan_id ?? "",
+    groupPulses: mode.group_pulses != null ? String(mode.group_pulses) : "",
+    groupOffMs: mode.group_off_ms != null ? String(mode.group_off_ms) : "",
     operationalModeId: mode.operational_mode_id ?? "",
   });
   const { data: operationalModes } = useOperationalModes(emitterId);
@@ -95,6 +98,7 @@ export function ModeEditForm({
           confirmation_quality: Number(options.quality),
           confirmation_quantity: Number(options.quantity),
           ...scanPayload(options),
+      ...groupsPayload(options),
           operational_mode_id: options.operationalModeId || null,
           line: line.payload(),
           derived_from_test_record_ids: [
@@ -151,6 +155,12 @@ export function ModeEditForm({
       </div>
 
       <ModeLineFields line={line} />
+      <ModePulseTrain
+        priType={line.values.priType}
+        line={line.valid ? line.payload() : null}
+        groupPulses={groupsPayload(options).group_pulses}
+        groupOffMs={groupsPayload(options).group_off_ms}
+      />
 
       <ModeMoreOptions
         values={options}

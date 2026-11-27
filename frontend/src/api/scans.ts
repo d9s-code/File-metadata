@@ -15,12 +15,19 @@ export interface EmitterScan {
   beam_el_deg: number | null;
   /** Typed in: wins over the worked-out illumination time. */
   illumination_ms: number | null;
+  /** Sectors it doesn't transmit in, as the scan measures azimuth (a circular scan's bearing, wrapping past 360; a sector scan's from its start). */
+  blanked_sectors?: BlankedSector[] | null;
   description: string | null;
   sort_order: number;
   operational_modes_count: number;
   modes_count: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface BlankedSector {
+  from_deg: number;
+  to_deg: number;
 }
 
 export interface EmitterScanInput {
@@ -30,6 +37,7 @@ export interface EmitterScanInput {
   beam_az_deg?: number | null;
   beam_el_deg?: number | null;
   illumination_ms?: number | null;
+  blanked_sectors?: BlankedSector[] | null;
   description?: string | null;
   sort_order?: number;
 }

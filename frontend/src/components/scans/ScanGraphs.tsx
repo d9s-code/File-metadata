@@ -6,7 +6,8 @@ import { useState } from "react";
 import type { EmitterScan } from "../../api/scans";
 import { num, PATTERN_BY_ID, type ScanPatternId, type ScanTiming } from "./scanPatterns";
 
-type Scan = Pick<EmitterScan, "pattern" | "params" | "beam_az_deg" | "beam_el_deg">;
+type Scan = Pick<EmitterScan, "pattern" | "params" | "beam_az_deg" | "beam_el_deg" | "blanked_sectors">;
+const BLANK = "var(--viz-out)";
 
 const W = 240;
 const H = 170;
@@ -53,7 +54,19 @@ function Label({ x, y, children, anchor = "middle" }: { x: number; y: number; ch
 }
 
 /** Az–el box with bars swept alternately, the beam's footprint on the first. */
-function Raster({ v, az, el, nutation }: { v: Record<string, number>; az: number | null; el: number | null; nutation?: number }) {
+function Raster({
+  v,
+  az,
+  el,
+  nutation,
+  blanked,
+}: {
+  v: Record<string, number>;
+  az: number | null;
+  el: number | null;
+  nutation?: number;
+  blanked?: { from_deg: number; to_deg: number }[] | null;
+}) {
   const bars = Math.min(12, Math.max(1, Math.round(v.bars || 4)));
   const x0 = 24;
   const x1 = W - 16;
@@ -73,6 +86,12 @@ function Raster({ v, az, el, nutation }: { v: Record<string, number>; az: number
     <>
       <Arrow id="scan-arrow" />
       <rect x={x0} y={y0 - 8} width={x1 - x0} height={y1 - y0 + 16} fill="none" stroke={GRID} />
+      {(blanked ?? []).map((b, i) => {
+        const to = b.to_deg > b.from_deg ? b.to_deg : sector;
+        const bx = x0 + (Math.min(b.from_deg, sector) / sector) * (x1 - x0);
+        const ex = x0 + (Math.min(to, sector) / sector) * (x1 - x0);
+        return <rect key={`b${i}`} x={bx} y={y0 - 8} width={Math.max(0, ex - bx)} height={y1 - y0 + 16} fill={BLANK} fillOpacity="0.18" stroke={BLANK} strokeDasharray="3 2" />;
+      })}
       {lines}
       {Array.from({ length: bars - 1 }, (_, i) => {
         const y = y0 + i * step;
@@ -111,6 +130,10 @@ function Drawing({ scan }: { scan: Scan }) {
         <>
           <Arrow id="scan-arrow" />
           <circle cx={cx} cy={cy} r={r} fill="none" stroke={GRID} />
+          {(scan.blanked_sectors ?? []).map((x, i) => {
+            const to = x.to_deg > x.from_deg ? x.to_deg : x.to_deg + 360;
+            return <path key={`b${i}`} d={wedge(cx, cy, r, x.from_deg, to)} fill={BLANK} fillOpacity="0.18" stroke={BLANK} strokeDasharray="3 2" />;
+          })}
           <path d={wedge(cx, cy, r, 20 - b / 2, 20 + b / 2)} fill={BEAM} fillOpacity="0.25" stroke={BEAM} />
           <path d={arc(cx, cy, r + 8, 40, 140)} stroke={PATH} strokeWidth="1.5" fill="none" markerEnd="url(#scan-arrow)" />
           {scan.pattern === "palmer" &&
@@ -139,6 +162,16 @@ function Drawing({ scan }: { scan: Scan }) {
         <>
           <Arrow id="scan-arrow" />
           <path d={wedge(cx, cy + 30, r + 10, -s / 2, s / 2)} fill="none" stroke={GRID} />
+          {(scan.blanked_sectors ?? []).map((x, i) => (
+            <path
+              key={`b${i}`}
+              d={wedge(cx, cy + 30, r + 10, -s / 2 + Math.min(x.from_deg, s), -s / 2 + Math.min(x.to_deg > x.from_deg ? x.to_deg : s, s))}
+              fill={BLANK}
+              fillOpacity="0.18"
+              stroke={BLANK}
+              strokeDasharray="3 2"
+            />
+          ))}
           <path d={wedge(cx, cy + 30, r + 10, -s / 2, -s / 2 + b)} fill={BEAM} fillOpacity="0.25" stroke={BEAM} />
           <path
             d={arc(cx, cy + 30, r + 18, -s / 2, s / 2)}
@@ -160,9 +193,9 @@ function Drawing({ scan }: { scan: Scan }) {
       );
     }
     case "raster":
-      return <Raster v={v} az={az} el={scan.beam_el_deg} />;
+      return <Raster v={v} az={az} el={scan.beam_el_deg} blanked={scan.blanked_sectors} />;
     case "palmer_raster":
-      return <Raster v={v} az={az} el={scan.beam_el_deg} nutation={v.nutation_deg || 2} />;
+      return <Raster v={v} az={az} el={scan.beam_el_deg} nutation={v.nutation_deg || 2} blanked={scan.blanked_sectors} />;
     case "spiral": {
       const turns = Math.min(10, Math.max(1, Math.round(v.turns || 4)));
       const pts: string[] = [];

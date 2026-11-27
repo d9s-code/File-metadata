@@ -381,3 +381,33 @@ export function paramsText(scan: Pick<EmitterScan, "pattern" | "params">): strin
 export function needsPri(scan: Pick<EmitterScan, "pattern" | "params"> | null | undefined): boolean {
   return scan?.pattern === "esa" && ((scan.params as Values | null)?.pulses ?? 0) > 0;
 }
+
+/** Patterns that sweep in azimuth, and what a blanked sector is measured against (°). */
+export function blankingCoverage(scan: Pick<EmitterScan, "pattern" | "params">): number | null {
+  const v = (scan.params ?? {}) as Values;
+  switch (scan.pattern) {
+    case "circular":
+    case "helical":
+    case "palmer":
+      return 360;
+    case "sector_uni":
+    case "sector_bi":
+    case "raster":
+    case "palmer_raster":
+      return v.sector_deg > 0 ? v.sector_deg : null;
+    default:
+      return null;
+  }
+}
+
+/** A blanked sector's width (°), wrapping past 360 when it runs backwards (350 → 10 is 20°). */
+export function sectorWidth(s: { from_deg: number; to_deg: number }): number {
+  return s.to_deg > s.from_deg ? s.to_deg - s.from_deg : 360 - s.from_deg + s.to_deg;
+}
+
+/** The share of the scan it doesn't transmit in (0–1): a target there is never lit. */
+export function blankedShare(scan: Pick<EmitterScan, "pattern" | "params" | "blanked_sectors">): number {
+  const cover = blankingCoverage(scan);
+  if (!cover || !scan.blanked_sectors?.length) return 0;
+  return Math.min(1, scan.blanked_sectors.reduce((n, s) => n + sectorWidth(s), 0) / cover);
+}

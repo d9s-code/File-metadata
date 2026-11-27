@@ -32,6 +32,10 @@ class EmitterScan(UUIDPkMixin, TimestampMixin, Base):
     beam_el_deg: Mapped[float | None] = mapped_column(Numeric(10, 4), nullable=True)
     # Typed in: wins over the worked-out illumination time (ms).
     illumination_ms: Mapped[float | None] = mapped_column(Numeric(12, 4), nullable=True)
+    # Sectors it doesn't transmit in: [{"from_deg", "to_deg"}], as the scan
+    # measures azimuth (a circular scan's bearing 0–360, wrapping past 360; a
+    # sector scan's from its start).
+    blanked_sectors: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 

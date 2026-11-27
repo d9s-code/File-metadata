@@ -28,10 +28,29 @@ import { PARAMS, PARAM_LABEL, below, buildTree, flatten, ownParams, type ParamKe
 import type { EmitterScan } from "../../api/scans";
 import { useScans } from "../../state/hooks/useScans";
 import { patternName, scanTiming, spreadText } from "../scans/scanPatterns";
+import { EmissionEditor, emissionDraftFrom, emissionPayload, emissionProblem } from "../pulses/EmissionEditor";
+import type { Emission } from "../../api/operationalModes";
 
 const VIEW_KEY = "operational-modes-view";
 /** What a dragged Mode carries. */
 const MODE_DRAG = "application/x-mode-id";
+
+/** The on/off periods one takes from above it: the nearest with some. */
+function inheritedOnOff(node: TreeNode | undefined, byId: Map<string, TreeNode>): { onS: number; offS: number; from: string } | null {
+  for (let n = node; n; n = n.op.parent_id ? byId.get(n.op.parent_id) : undefined) {
+    const e = n.op.emission;
+    if (e?.on_s != null && e.off_s != null) return { onS: e.on_s, offS: e.off_s, from: n.op.name };
+  }
+  return null;
+}
+
+/** "3 steps · on 2 s, off 8 s": an operational mode's emission, short. */
+function emissionSummary(e: Emission | null | undefined): string | null {
+  if (!e) return null;
+  const n = e.timeline?.length ?? 0;
+  const parts = [n ? `timeline of ${n} step${n === 1 ? "" : "s"}` : null, e.on_s != null ? `on ${e.on_s} s, off ${e.off_s} s` : null];
+  return parts.filter(Boolean).join(" · ") || null;
+}
 
 /** A scan in a line: "Rotate · 55.6 ms each 10 s" (or all the time). */
 function scanLine(scan: EmitterScan): string {
@@ -65,6 +84,7 @@ function OperationalModeDialog({
   parentId,
   nodes,
   scans,
+  modes,
   onClose,
 }: {
   emitterId: string;
@@ -72,6 +92,7 @@ function OperationalModeDialog({
   parentId?: string | null;
   nodes: TreeNode[];
   scans: EmitterScan[];
+  modes: Mode[];
   onClose: () => void;
 }) {
   const create = useCreateOperationalMode(emitterId);
@@ -79,6 +100,8 @@ function OperationalModeDialog({
   const [name, setName] = useState(initial?.name ?? "");
   const [parent, setParent] = useState(initial?.parent_id ?? parentId ?? "");
   const [scanId, setScanId] = useState(initial?.scan_id ?? "");
+  const [emission, setEmission] = useState(() => emissionDraftFrom(initial?.emission));
+  const emissionBad = emissionProblem(emission);
   const [description, setDescription] = useState(initial?.description ?? "");
   const [error, setError] = useState<string | null>(null);
   // Not under itself or one of its own.
@@ -93,11 +116,12 @@ function OperationalModeDialog({
     e.preventDefault();
     setError(null);
     if (!name.trim()) return setError("Give it a name");
-    if (planBad) return;
+    if (planBad || emissionBad) return;
     const input = {
       name: name.trim(),
       parent_id: parent || null,
       scan_id: scanId || null,
+      emission: emissionPayload(emission),
       description: description.trim() || null,
       plan: draftPlan(plan),
     };
@@ -148,6 +172,14 @@ function OperationalModeDialog({
             {scanId && scans.find((x) => x.id === scanId) ? ` ${scanLine(scans.find((x) => x.id === scanId)!)}.` : ""}
           </span>
         </label>
+        <EmissionEditor
+          draft={emission}
+          onChange={setEmission}
+          modes={modes}
+          preferred={new Set(initial ? (flatten(nodes).find((x) => x.op.id === initial.id)?.allModes ?? []).map((m) => m.id) : [])}
+          inheritedOnOff={inheritedOnOff(parentNode, byIdAll)}
+        />
+        {emissionBad && <p className="line-row-problem">{emissionBad}</p>}
         <label>
           Description
           <textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
@@ -159,7 +191,7 @@ function OperationalModeDialog({
           <button type="button" className="button secondary" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className="button primary" disabled={create.isPending || update.isPending || !!planBad}>
+          <button type="submit" className="button primary" disabled={create.isPending || update.isPending || !!planBad || !!emissionBad}>
             {initial ? "Save" : "Add"}
           </button>
         </div>
@@ -360,6 +392,7 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
                 {!own ? ` · ${node.scanFrom}` : ""}
               </span>
             )}
+            {emissionSummary(node.op.emission) && <span className="op-box-meta">⏱ {emissionSummary(node.op.emission)}</span>}
             {commentButton(node.op.id, node.path)}
             <RequireRole minimum="editor">
               <MenuButton label="⋯" className="row-menu-button" ariaLabel={`Actions for ${node.op.name}`} items={nodeMenuItems(node)} />
@@ -562,6 +595,7 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
             ) : (
               <span className="hint-text">—</span>
             )}
+            {emissionSummary(node.op.emission) && <span className="jitter-subline">⏱ {emissionSummary(node.op.emission)}</span>}
           </td>
           <td className="row-actions op-actions">
             {commentButton(node.op.id, node.path)}
@@ -726,6 +760,7 @@ export function OperationalModesTree({ emitterId }: { emitterId: string }) {
           parentId={adding?.parentId}
           nodes={roots}
           scans={scans ?? []}
+          modes={modes ?? []}
           onClose={() => {
             setAdding(null);
             setEditing(null);

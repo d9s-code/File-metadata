@@ -28,7 +28,7 @@ from app.services.audit_service import apply_and_diff, record_audit, snapshot
 
 router = APIRouter(prefix="/emitters/{emitter_id}/scans", tags=["scans"])
 
-_FIELDS = ["name", "pattern", "params", "beam_az_deg", "beam_el_deg", "illumination_ms", "description", "sort_order"]
+_FIELDS = ["name", "pattern", "params", "beam_az_deg", "beam_el_deg", "illumination_ms", "blanked_sectors", "description", "sort_order"]
 
 
 def _emitter_or_404(db: Session, emitter_id: UUID) -> Emitter:
@@ -95,6 +95,7 @@ def create_scan(
 ) -> EmitterScan:
     _emitter_or_404(db, emitter_id)
     data = payload.model_dump()
+    data["blanked_sectors"] = data["blanked_sectors"] or None
     data["name"] = _check_name(db, emitter_id, data["name"])
     if data["sort_order"] is None:
         top = db.query(func.max(EmitterScan.sort_order)).filter(EmitterScan.emitter_id == emitter_id).scalar()
@@ -132,6 +133,8 @@ def update_scan(
             data.pop(key)
     if "name" in data:
         data["name"] = _check_name(db, emitter_id, data["name"], own_id=row.id)
+    if "blanked_sectors" in data:
+        data["blanked_sectors"] = data["blanked_sectors"] or None
     if "pattern" in data or "params" in data:
         pattern = data.get("pattern", row.pattern)
         params = data.get("params", row.params)

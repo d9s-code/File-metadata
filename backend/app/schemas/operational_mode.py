@@ -1,8 +1,10 @@
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+MAX_TIMELINE_ITEMS = 64
 
 MAX_PLANNED_VALUES = 64
 
@@ -97,6 +99,57 @@ class OperationalModePlan(BaseModel):
         return data if (self.rf or self.pri or self.pri_stagger or self.pw) else None
 
 
+class EmissionItem(BaseModel):
+    """One step of an operational mode's timeline: a pulse group — one of the
+    Emitter's Modes for this many pulses, or for this long (ms) — or off for a time."""
+
+    kind: Literal["group", "off"]
+    mode_id: UUID | None = None
+    pulses: int | None = Field(default=None, ge=1, le=1_000_000)
+    ms: float | None = Field(default=None, gt=0, le=3_600_000)
+
+    @model_validator(mode="after")
+    def check(self) -> "EmissionItem":
+        if self.kind == "group":
+            if self.mode_id is None:
+                raise ValueError("A pulse group needs its Mode")
+            if (self.pulses is None) == (self.ms is None):
+                raise ValueError("A pulse group is a number of pulses or a time (ms), one of the two")
+        else:
+            if self.ms is None or self.mode_id is not None or self.pulses is not None:
+                raise ValueError("An off time is a time (ms), nothing else")
+        return self
+
+
+class Emission(BaseModel):
+    """What an operational mode transmits over time: its timeline, repeated
+    (empty: its Modes as they are), and on/off periods — on for on_s, silent
+    for off_s, again and again (both or neither; the ones under it take them
+    unless they have their own)."""
+
+    timeline: list[EmissionItem] = Field(default_factory=list, max_length=MAX_TIMELINE_ITEMS)
+    on_s: float | None = Field(default=None, gt=0, le=1_000_000)
+    off_s: float | None = Field(default=None, ge=0, le=1_000_000)
+
+    @model_validator(mode="after")
+    def check(self) -> "Emission":
+        if (self.on_s is None) != (self.off_s is None):
+            raise ValueError("On/off periods need both the time on and the time off, or neither")
+        if self.timeline and not any(i.kind == "group" for i in self.timeline):
+            raise ValueError("A timeline needs at least one pulse group")
+        return self
+
+    def stored(self) -> dict | None:
+        """As kept: None when it says nothing."""
+        data = self.model_dump(mode="json", exclude_none=True)
+        if not data.get("timeline"):
+            data.pop("timeline", None)
+        return data or None
+
+    def mode_ids(self) -> list[UUID]:
+        return [i.mode_id for i in self.timeline if i.mode_id is not None]
+
+
 class OperationalModeCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     # The one it sits under (one of the same Emitter's); None — at the top.
@@ -104,6 +157,7 @@ class OperationalModeCreate(BaseModel):
     description: str | None = None
     # One of its Emitter's scans; None — the one above it's.
     scan_id: UUID | None = None
+    emission: Emission | None = None
     # Its place among its siblings; None — after them.
     sort_order: int | None = None
     plan: OperationalModePlan | None = None
@@ -116,6 +170,8 @@ class OperationalModeUpdate(BaseModel):
     description: str | None = None
     # Null: the one above it's.
     scan_id: UUID | None = None
+    # Replaces it (null or empty: its Modes as they are, always on).
+    emission: Emission | None = None
     sort_order: int | None = None
     # Replaces its plan (null or empty: nothing planned here).
     plan: OperationalModePlan | None = None
@@ -130,6 +186,7 @@ class OperationalModeOut(BaseModel):
     name: str
     description: str | None = None
     scan_id: UUID | None = None
+    emission: dict | None = None
     plan: dict | None = None
     sort_order: int
     # How many of the Emitter's Modes are linked to it directly.

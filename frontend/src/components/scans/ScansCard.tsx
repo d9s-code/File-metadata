@@ -16,7 +16,7 @@ import { buildTree } from "../operationalModes/opTree";
 import { useConfirmDialog } from "../common/ConfirmDialog";
 import { MenuButton } from "../common/MenuButton";
 import { ScanForm } from "./ScanForm";
-import { needsPri, num, paramsText, patternName, scanTiming, spreadText } from "./scanPatterns";
+import { blankedShare, needsPri, num, paramsText, patternName, scanTiming, spreadText } from "./scanPatterns";
 
 export function ScansCard({ emitterId, children }: { emitterId: string; children?: ReactNode }) {
   const { data: scans } = useScans(emitterId);
@@ -81,7 +81,10 @@ export function ScansCard({ emitterId, children }: { emitterId: string; children
                       </button>
                     </td>
                     <td>{patternName(s.pattern)}</td>
-                    <td className="scans-values">{paramsText(s) || "—"}</td>
+                    <td className="scans-values">
+                      {paramsText(s) || "—"}
+                      {blankedShare(s) > 0 && ` · blanked ${Math.round(blankedShare(s) * 100)}%`}
+                    </td>
                     <td className="num">{beam[0] || beam[1] ? `${beam[0] ?? "—"}${beam[1] ? ` × ${beam[1]}` : ""}` : "—"}</td>
                     <td className="num">
                       {t.continuous

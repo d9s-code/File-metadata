@@ -1,9 +1,11 @@
-import { useDeferredValue, useMemo, useState } from "react";
+import { Fragment, useDeferredValue, useMemo, useState } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { platformCoverageApi } from "../../api/platforms";
 import { num } from "./DwellChart";
-import { patternName, scanTiming } from "../scans/scanPatterns";
+import { blankedShare, patternName, scanTiming } from "../scans/scanPatterns";
+import { modeTrain, timelineTrain } from "../pulses/pulseTrain";
+import { PlannerTimeline } from "./PlannerTimeline";
 import {
   DEFAULT_SETTINGS,
   addForUncovered,
@@ -47,6 +49,14 @@ function usePlannerModes(platformIds: string[]): PlannerMode[] | undefined {
           const scan = m.planner?.scan ?? null;
           const timing = scan ? scanTiming(scan, m.planner?.mean_interval_us) : null;
           const rev = timing?.revisitS;
+          const pl = m.planner;
+          // Its pulses when not continuous: an operational mode's timeline, else its own pulse groups.
+          const train = pl?.timeline?.steps.length
+            ? timelineTrain(pl.timeline.steps)
+            : pl?.group_pulses && pl.group_off_ms != null
+              ? modeTrain(pl.steps_us ?? [], pl.group_pulses, pl.group_off_ms)
+              : null;
+          const params = (scan?.params ?? {}) as Record<string, number>;
           seen.set(key, {
             key,
             emitterId: e.emitter_id,
@@ -66,6 +76,15 @@ function usePlannerModes(platformIds: string[]): PlannerMode[] | undefined {
             illuminationTimeMs: e.illumination_time_ms ?? null,
             operationalMode: m.planner?.operational_mode ?? null,
             scanIlluminationMs: timing?.illuminationMs?.nom ?? null,
+            looks:
+              timing && timing.looks > 1 && params.frame_s > 0 && params.bars > 0
+                ? { count: timing.looks, spacingMs: (params.frame_s / Math.round(params.bars)) * 1000 }
+                : null,
+            train,
+            timelineOf: pl?.timeline?.operational_mode ?? null,
+            onOffS: pl?.on_off_s ?? null,
+            onOffFrom: pl?.on_off_from ?? null,
+            blankedShare: scan ? blankedShare(scan) : 0,
             priority: m.planner?.priority ?? null,
             confirmationQuantity: m.planner?.confirmation_quantity ?? null,
           });
@@ -98,6 +117,17 @@ function ScanNote({ mode }: { mode: PlannerMode }) {
       {outside && " ⚠"}
     </span>
   );
+}
+
+/** What it transmits, when not continuously: "8-pulse groups", "in TRACK's timeline", "on 2 s / off 8 s", "blanked 20%". */
+function emissionNote(m: PlannerMode): string | null {
+  const parts = [
+    m.timelineOf ? `in ${m.timelineOf}'s timeline` : m.train ? "in pulse groups" : null,
+    m.onOffS ? `on ${num(m.onOffS[0])} s / off ${num(m.onOffS[1])} s` : null,
+    m.blankedShare ? `blanked ${Math.round(m.blankedShare * 100)}%` : null,
+    m.looks ? `${m.looks.count} looks a frame` : null,
+  ].filter(Boolean);
+  return parts.length ? parts.join(" · ") : null;
 }
 
 /** "16.7 ms", "1.05 s", "11.2 s", "42 s". */
@@ -166,6 +196,8 @@ export function DwellPlanner({
   const modes = usePlannerModes(platformIds);
   const [settings, setSettingsState] = useState(readSettings);
   const [message, setMessage] = useState<string | null>(null);
+  // The Modes whose timeline against the cycle is open.
+  const [open, setOpen] = useState<Set<string>>(new Set());
   const [trying, setTrying] = useState(false);
   const [onlyProblems, setOnlyProblems] = useState(false);
   const deferredDwells = useDeferredValue(dwells);
@@ -297,7 +329,7 @@ export function DwellPlanner({
                   Add {toAdd} dwell{toAdd === 1 ? "" : "s"} for RF nothing reaches
                 </button>
               )}
-              {!!counts.get("synchronism") && (
+              {(!!counts.get("synchronism") || shown.some((p) => p.slideMs === 0 || (p.sweepMs ?? 0) > settings.horizonS * 1000)) && (
                 <button type="button" className="button secondary small" disabled={trying} onClick={tryBreak}>
                   {trying ? "Trying…" : "Break the synchronism"}
                 </button>
@@ -345,12 +377,31 @@ export function DwellPlanner({
               </thead>
               <tbody>
                 {shown.map((p) => (
-                  <tr key={p.mode.key} className={`planner-row ${ISSUE[p.issue].tone}`}>
+                  <Fragment key={p.mode.key}>
+                  <tr className={`planner-row ${ISSUE[p.issue].tone}`}>
                     <td>
+                      <button
+                        type="button"
+                        className="op-toggle"
+                        aria-expanded={open.has(p.mode.key)}
+                        aria-label={`${open.has(p.mode.key) ? "Hide" : "Show"} ${p.mode.modeName}'s timeline`}
+                        title="Its timeline against the dwell cycle"
+                        onClick={() =>
+                          setOpen((o) => {
+                            const n = new Set(o);
+                            if (n.has(p.mode.key)) n.delete(p.mode.key);
+                            else n.add(p.mode.key);
+                            return n;
+                          })
+                        }
+                      >
+                        {open.has(p.mode.key) ? "▾" : "▸"}
+                      </button>
                       <Link to={`/emitters/${p.mode.emitterId}`}>{p.mode.emitterName}</Link>
                       <span className="jitter-subline">
                         {p.mode.modeName} · {mhz(p.mode.rf)}
                       </span>
+                      {emissionNote(p.mode) && <span className="jitter-subline">{emissionNote(p.mode)}</span>}
                     </td>
                     <td className="num">{p.mode.priority ?? "—"}</td>
                     <td className="num">{pct(p.coverage)}</td>
@@ -397,12 +448,34 @@ export function DwellPlanner({
                         </span>
                       )}
                     </td>
-                    <td className="num">{ms(p.medianMs)}</td>
+                    <td className="num">
+                      {ms(p.medianMs)}
+                      {p.slideMs != null && (
+                        <span
+                          className={p.sweepMs == null || p.sweepMs > settings.horizonS * 1000 ? "jitter-subline planner-scan-outside" : "jitter-subline"}
+                          title={
+                            p.slideMs === 0
+                              ? "Scan-on-scan: the cycle is in step with its scan — its looks come back to the same place every scan"
+                              : `Scan-on-scan: each scan, the receiver's looks land ${ms(p.slideMs)} further along it; every part of it has been looked at after ${ms(p.sweepMs)}`
+                          }
+                        >
+                          {p.slideMs === 0 ? "in step ⚠" : `slides ${ms(p.slideMs)}/scan`}
+                        </span>
+                      )}
+                    </td>
                     <td>
                       <span className={`planner-issue ${ISSUE[p.issue].tone}`}>{ISSUE[p.issue].label}</span>
                       <span className="planner-advice">{advice(p, usable, settings, cycle, bandwidth)}</span>
                     </td>
                   </tr>
+                  {open.has(p.mode.key) && (
+                    <tr className="planner-timeline-row">
+                      <td colSpan={10}>
+                        <PlannerTimeline mode={p.mode} dwells={usable} bw={bandwidth} settings={settings} />
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
@@ -413,20 +486,31 @@ export function DwellPlanner({
               <li>
                 A Mode is seen when the receiver sits on its frequency long enough for {settings.pulses} pulses in one {settings.within}: pulses
                 × its longest gap between pulses (a Fixed PRI&apos;s longest with its jitter; a stagger&apos;s longest step, and two whole frames
-                at least). A CW Mode needs one collect.
+                at least). Sent in <strong>pulse groups</strong> or in an operational mode&apos;s <strong>timeline</strong>, it&apos;s the longest
+                any look must be to hold that many of its pulses wherever it starts — waiting out the gaps when a group is shorter. A CW Mode needs
+                one collect.
               </li>
               <li>A dwell reaches the frequencies in its band (its frequency ± half the bandwidth); a Mode&apos;s RF counts with its delta, each part by its width.</li>
               <li>
-                A Mode&apos;s scan period is its own box — its function&apos;s, set under the Mode&apos;s More options — where it has one, else its
-                EW Group&apos;s overall range. Scanning, it illuminates the Platform once each scan for its illumination time: its operational
-                mode&apos;s (Groups &amp; Sources on the Emitter) where that&apos;s set, else its Emitter&apos;s own (Edit details), else{" "}
-                {num(settings.beamwidthDeg)}° ÷ 360° of the scan. One without a scan
-                period is illuminating the Platform all the time. Scan periods given as a range are tried at both ends and the middle; the
-                worst counts.
+                A Mode&apos;s scan is its own, else its operational mode&apos;s: scanning, it illuminates the Platform once each revisit (a
+                raster several times a frame, a bar apart) for the illumination time worked out from the scan, else its Emitter&apos;s own (Edit
+                details), else {num(settings.beamwidthDeg)}° ÷ 360° of the scan period — its EW Group&apos;s range without a scan. A tracking scan,
+                or none, illuminates it all the time. A range is tried at both ends and the middle; the worst counts. A scan&apos;s{" "}
+                <strong>blanked sectors</strong> count as never caught, by their share of the bearings.
+              </li>
+              <li>
+                An operational mode&apos;s <strong>on/off periods</strong> switch its Modes off for a while, again and again; only time it&apos;s
+                transmitting counts, from a different starting moment for each.
               </li>
               <li>
                 The cycle repeats; the scan may start at any moment. Each Mode is played from {72} starting moments: the share intercepted within{" "}
                 {num(settings.horizonS)} s, the median time, and — when some moments are never caught while others are — synchronism.
+              </li>
+              <li>
+                <strong>Scan-on-scan</strong>: each scan, the receiver&apos;s looks land a little further along it — by the scan period&apos;s remainder
+                after whole cycles. &ldquo;slides 12 ms/scan&rdquo; under the median says how far; flagged when that&apos;s so little that trying every
+                part of the scan takes longer than {num(settings.horizonS)} s, or when it&apos;s nothing (in step). <strong>Break the synchronism</strong>{" "}
+                tries one to three collects more on each dwell and keeps the best. ▸ on a Mode draws its timeline against the cycle.
               </li>
               <li>Confirmation is taken as its confirmation quantity of intercepts, one per look. Changes keep dwell times whole numbers of their collects.</li>
             </ul>

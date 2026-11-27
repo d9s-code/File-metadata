@@ -62,6 +62,8 @@ MODE_FIELD_LABELS = {
     "notes": "Notes",
     "confirmation_quality": "Confirmation Quality (%)",
     "confirmation_quantity": "Confirmation Quantity",
+    "group_pulses": "Pulses per group",
+    "group_off_ms": "Off between groups (ms)",
 }
 
 MODE_FIELDS_ADDED_LATER = frozenset({"confirmation_quality", "confirmation_quantity"})
@@ -88,6 +90,7 @@ MODE_FIELDS_NOT_COMPARED = frozenset(
 OPERATIONAL_MODE_FIELD_LABELS = {
     "name": "Name",
     "description": "Description",
+    "emission": "Emission",
     "plan": "Plan",
 }
 
@@ -98,6 +101,7 @@ SCAN_FIELD_LABELS = {
     "beam_az_deg": "Beamwidth azimuth (°)",
     "beam_el_deg": "Beamwidth elevation (°)",
     "illumination_ms": "Illumination time typed in (ms)",
+    "blanked_sectors": "Blanked sectors",
     "description": "Description",
 }
 
@@ -152,6 +156,30 @@ def scan_params_text(params: dict | None) -> str | None:
             text += f" ± {_num(params[key + '_delta'])}"
         parts.append(text)
     return ", ".join(parts) or None
+
+
+def blanked_text(sectors: list | None) -> str | None:
+    """"350–10°, 90–120°"."""
+    if not sectors:
+        return None
+    return ", ".join(f"{_num(s['from_deg'])}–{_num(s['to_deg'])}°" for s in sectors)
+
+
+def emission_text(emission: dict | None, mode_names: dict[str, str]) -> str | None:
+    """"Track 1 × 8 pulses, off 2 ms, Track 2 for 5 ms · on 2 s, off 8 s": an operational mode's emission, as read."""
+    if not emission:
+        return None
+    steps = []
+    for item in emission.get("timeline") or []:
+        if item.get("kind") == "off":
+            steps.append(f"off {_num(item['ms'])} ms")
+        else:
+            name = mode_names.get(item.get("mode_id") or "", "a deleted Mode")
+            steps.append(f"{name} × {item['pulses']} pulses" if item.get("pulses") else f"{name} for {_num(item['ms'])} ms")
+    parts = [", ".join(steps)] if steps else []
+    if emission.get("on_s") is not None:
+        parts.append(f"on {_num(emission['on_s'])} s, off {_num(emission['off_s'])} s")
+    return " · ".join(parts) or None
 
 
 def _scan_summary(x: dict) -> str:
@@ -448,7 +476,12 @@ def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict, status_labels: 
             entries.append(_entry(scope, "Added", "added", new_value=_scan_summary(x)))
         else:
             as_text = [
-                {**y, "params": scan_params_text(y.get("params")), "pattern": SCAN_PATTERN_NAMES.get(y["pattern"], y["pattern"])}
+                {
+                    **y,
+                    "params": scan_params_text(y.get("params")),
+                    "pattern": SCAN_PATTERN_NAMES.get(y["pattern"], y["pattern"]),
+                    "blanked_sectors": blanked_text(y.get("blanked_sectors")),
+                }
                 for y in (old_scans[x_id], x)
             ]
             _diff_fields(entries, scope, *as_text, SCAN_FIELD_LABELS)
@@ -456,6 +489,10 @@ def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict, status_labels: 
         if x_id not in new_scans:
             entries.append(_entry(f"Scan '{x['name']}'", "Removed", "removed", old_value=_scan_summary(x)))
     scan_names = ({k: v["name"] for k, v in old_scans.items()}, {k: v["name"] for k, v in new_scans.items()})
+
+    # Mode names by id, for an operational mode's emission timeline.
+    old_mode_names = {m["id"]: m["name"] for g in old_snapshot.get("ew_groups", []) for m in g.get("modes", [])}
+    new_mode_names = {m["id"]: m["name"] for g in new_snapshot.get("ew_groups", []) for m in g.get("modes", [])}
 
     # Operational modes — only when both snapshots have them (older ones don't).
     old_operational = {o["id"]: o for o in old_snapshot.get("operational_modes", [])}
@@ -466,7 +503,10 @@ def compute_emitter_diff(old_snapshot: dict, new_snapshot: dict, status_labels: 
         if o_id not in old_operational:
             entries.append(_entry(scope, "Added", "added", new_value=_operational_summary(o)))
         else:
-            with_plan_text = [{**x, "plan": plan_text(x.get("plan"))} for x in (old_operational[o_id], o)]
+            with_plan_text = [
+                {**x, "plan": plan_text(x.get("plan")), "emission": emission_text(x.get("emission"), names)}
+                for x, names in ((old_operational[o_id], old_mode_names), (o, new_mode_names))
+            ]
             _diff_fields(
                 entries, scope, *with_plan_text, OPERATIONAL_MODE_FIELD_LABELS, OPERATIONAL_MODE_FIELDS_ADDED_LATER
             )

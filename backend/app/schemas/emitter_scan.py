@@ -27,6 +27,21 @@ SCAN_PATTERNS: dict[str, tuple[str, ...]] = {
     "other": ("revisit_s",),
 }
 MAX_VALUE = 1_000_000_000
+MAX_BLANKED = 16
+
+
+class BlankedSector(BaseModel):
+    """A sector the scan doesn't transmit in, as the scan measures azimuth:
+    from_deg to to_deg (on a circular scan it can wrap past 360, 350 → 10)."""
+
+    from_deg: float = Field(ge=0, le=360)
+    to_deg: float = Field(ge=0, le=360)
+
+    @model_validator(mode="after")
+    def check(self) -> "BlankedSector":
+        if self.from_deg == self.to_deg:
+            raise ValueError("A blanked sector needs a width")
+        return self
 
 
 def check_params(pattern: str, params: dict[str, float] | None) -> dict[str, float] | None:
@@ -58,6 +73,7 @@ class EmitterScanCreate(BaseModel):
     beam_az_deg: float | None = Field(default=None, gt=0, le=360)
     beam_el_deg: float | None = Field(default=None, gt=0, le=180)
     illumination_ms: float | None = Field(default=None, gt=0, le=3_600_000)
+    blanked_sectors: list[BlankedSector] | None = Field(default=None, max_length=MAX_BLANKED)
     description: str | None = None
     # Its place in the list; None — last.
     sort_order: int | None = None
@@ -77,6 +93,8 @@ class EmitterScanUpdate(BaseModel):
     beam_el_deg: float | None = Field(default=None, gt=0, le=180)
     # Null clears it: the worked-out one applies.
     illumination_ms: float | None = Field(default=None, gt=0, le=3_600_000)
+    # Replaces them (null or empty: none).
+    blanked_sectors: list[BlankedSector] | None = Field(default=None, max_length=MAX_BLANKED)
     description: str | None = None
     sort_order: int | None = None
 
@@ -99,6 +117,7 @@ class EmitterScanOut(BaseModel):
     beam_az_deg: float | None = None
     beam_el_deg: float | None = None
     illumination_ms: float | None = None
+    blanked_sectors: list | None = None
     description: str | None = None
     sort_order: int
     # What uses it directly: operational modes and Modes.

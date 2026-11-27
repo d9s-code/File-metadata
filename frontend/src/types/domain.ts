@@ -373,6 +373,9 @@ export interface Mode {
   confirmation_quantity: number;
   /** Its own scan (one of its Emitter's), ahead of its operational mode's — for the dwell planner only. */
   scan_id?: string | null;
+  /** Sent in pulse groups: this many pulses, then off this long (ms) — for the dwell planner only. */
+  group_pulses?: number | null;
+  group_off_ms?: number | null;
   /** The radar's operational mode it's transmitted in (one of its Emitter's). */
   operational_mode_id?: string | null;
   generation_batch_id: string | null;
